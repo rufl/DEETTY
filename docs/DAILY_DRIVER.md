@@ -50,8 +50,9 @@ defects:
   hide or destruction; the hot-session Wayland/X11 gate treats GLib/GDK
   warnings as fatal (`popup_teardown=true`).
 - the active tab exposes the focused pane's short cwd and foreground process,
-  with full pane/PID/path detail on hover; it reuses root maintenance and
-  suppresses unchanged GTK updates instead of adding one timer per pane.
+  plus NOCTTY-wide and selected-terminal-tree CPU/RSS; hover adds full pane/PID/
+  path/process-count detail. It reuses root maintenance and suppresses unchanged
+  GTK updates instead of adding one timer per pane.
 - the launch-profile flow adds one GUI-owned active profile plus up to eight
   bounded names for shell, command, SSH, Persistent tmux, Persistent Zellij,
   cwd, environment, target, and per-profile history. Rendered save/select/delete launches

@@ -1,4 +1,4 @@
 status=passed
-command=./scripts/install_dogfood.sh ~/.local && installed dogfood check && zig build check -j1 --summary all && ./scripts/check_no_surprise_network.sh && ./scripts/check_docs_truth.sh
-reason=two unstripped Debug binaries installed with debug_info; logging wrappers, absolute desktop entries, per-app local logs, exit receipts, GTK/GLib debug, and core-dump enablement verified; build/check passed with 17/17 steps and 320/320 tests; no-surprise network and docs truth passed on 2026-07-19
+command=zig build check -j1 --summary all && clean source-copy zig build check -j1 --summary all && ./scripts/native_grid_compact_ux_smoke.sh && ./scripts/check_no_surprise_network.sh && ./scripts/check_docs_truth.sh && ./scripts/install_dogfood.sh ~/.local
+reason=active-pane App and Pane process-tree CPU/RSS added; 200 five-process sampler calls averaged host-local 39.8 us; working and clean source-copy gates passed with 17/17 steps and 322/322 tests; compact UI resource label/tooltip/dedupe smoke passed; no-surprise network and docs truth passed; unstripped dogfood binary installed atomically while prior NOCTTY remained running; restart required to load new inode
 source=local maintainer run

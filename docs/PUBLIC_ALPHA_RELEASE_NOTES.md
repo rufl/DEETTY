@@ -35,7 +35,7 @@ Current result:
 
 ```text
 17/17 steps succeeded
-320/320 tests passed
+322/322 tests passed
 ```
 
 Clean source-copy check: the same fast gate passed after copying the source tree

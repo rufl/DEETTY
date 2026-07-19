@@ -237,6 +237,113 @@ int noctty_pty_process_info(int fd, int child_pid, char *cwd,
     return (*cwd_length > 0 ? 1 : 0) | (*name_length > 0 ? 2 : 0);
 }
 
+static int noctty_process_stat(pid_t pid, unsigned long long *ticks,
+                               unsigned long long *rss_kib) {
+    char stat[4096];
+    ssize_t stat_length = noctty_pty_read_proc_file(
+        pid, "stat", stat, sizeof(stat) - 1);
+    if (stat_length <= 0) return 0;
+    stat[stat_length] = '\0';
+    char *fields = strrchr(stat, ')');
+    if (fields == NULL || fields[1] != ' ') return 0;
+    fields += 2;
+    char *save = NULL;
+    char *field = strtok_r(fields, " ", &save);
+    unsigned int number = 3;
+    unsigned long long user_ticks = 0;
+    unsigned long long system_ticks = 0;
+    while (field != NULL && number <= 15) {
+        if (number == 14) user_ticks = strtoull(field, NULL, 10);
+        if (number == 15) system_ticks = strtoull(field, NULL, 10);
+        field = strtok_r(NULL, " ", &save);
+        number++;
+    }
+
+    char statm[256];
+    ssize_t statm_length = noctty_pty_read_proc_file(
+        pid, "statm", statm, sizeof(statm) - 1);
+    if (statm_length <= 0) return 0;
+    statm[statm_length] = '\0';
+    unsigned long long ignored_pages = 0;
+    unsigned long long resident_pages = 0;
+    if (sscanf(statm, "%llu %llu", &ignored_pages, &resident_pages) != 2)
+        return 0;
+    long page_size = sysconf(_SC_PAGESIZE);
+    if (page_size <= 0) return 0;
+    *ticks = user_ticks + system_ticks;
+    *rss_kib = resident_pages * (unsigned long long)page_size / 1024ULL;
+    return 1;
+}
+
+int noctty_process_resource_sample(
+    int root_pid, unsigned long long *ticks, unsigned long long *rss_kib,
+    unsigned int *processes, unsigned long long *machine_ticks,
+    unsigned int *cpu_count) {
+    if (ticks == NULL || rss_kib == NULL || processes == NULL ||
+        machine_ticks == NULL || cpu_count == NULL)
+        return 0;
+    pid_t root = root_pid > 0 ? (pid_t)root_pid : getpid();
+    pid_t queue[4096]; /* ponytail: bounded /proc walk; raise if 4096 descendants becomes real. */
+    size_t head = 0;
+    size_t tail = 1;
+    queue[0] = root;
+    *ticks = 0;
+    *rss_kib = 0;
+    *processes = 0;
+
+    while (head < tail) {
+        pid_t pid = queue[head++];
+        unsigned long long process_ticks = 0;
+        unsigned long long process_rss_kib = 0;
+        if (!noctty_process_stat(pid, &process_ticks, &process_rss_kib))
+            continue;
+        *ticks += process_ticks;
+        *rss_kib += process_rss_kib;
+        (*processes)++;
+
+        char children[8192];
+        char path[96];
+        int path_length = snprintf(path, sizeof(path),
+            "/proc/%ld/task/%ld/children", (long)pid, (long)pid);
+        if (path_length <= 0 || (size_t)path_length >= sizeof(path)) continue;
+        int fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) continue;
+        ssize_t length = read(fd, children, sizeof(children) - 1);
+        close(fd);
+        if (length <= 0) continue;
+        children[length] = '\0';
+        char *cursor = children;
+        while (*cursor != '\0' && tail < sizeof(queue) / sizeof(queue[0])) {
+            while (*cursor == ' ' || *cursor == '\n') cursor++;
+            if (*cursor == '\0') break;
+            char *end = NULL;
+            long child = strtol(cursor, &end, 10);
+            if (end == cursor) break;
+            if (child > 0) queue[tail++] = (pid_t)child;
+            cursor = end;
+        }
+    }
+
+    char machine[4096];
+    int machine_fd = open("/proc/stat", O_RDONLY | O_CLOEXEC);
+    if (machine_fd < 0) return 0;
+    ssize_t machine_length = read(machine_fd, machine, sizeof(machine) - 1);
+    close(machine_fd);
+    if (machine_length <= 0) return 0;
+    machine[machine_length] = '\0';
+    unsigned long long values[10] = {0};
+    int parsed = sscanf(machine,
+        "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+        &values[0], &values[1], &values[2], &values[3], &values[4],
+        &values[5], &values[6], &values[7], &values[8], &values[9]);
+    if (parsed < 4) return 0;
+    *machine_ticks = 0;
+    for (int index = 0; index < parsed; index++) *machine_ticks += values[index];
+    long online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    *cpu_count = online_cpus > 0 ? (unsigned int)online_cpus : 1U;
+    return *processes > 0;
+}
+
 void noctty_pty_close(int fd, int child_pid) {
     pid_t foreground = fd >= 0 ? tcgetpgrp(fd) : -1;
     pid_t own_group = getpgrp();

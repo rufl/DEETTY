@@ -58,6 +58,7 @@ NOCTTY provides:
 - dropdown, windowed, and zen/fullscreen terminal modes
 - native terminal tabs and recursive splits
 - compact tab chrome inspired by Yakuake/Konsole workflows
+- active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
 - scrollback, search, copy/paste, mouse, resize, and Unicode/ANSI handling
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
 - hot-session workspace recovery with fresh shell restart semantics
@@ -192,7 +193,7 @@ zig build check
 ```
 
 A clean source-copy run of `zig build check -j1 --summary all` currently passes
-with `17/17` steps and `320/320` tests.
+with `17/17` steps and `322/322` tests.
 
 Bounded public-source-alpha gate:
 

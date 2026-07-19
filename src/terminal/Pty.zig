@@ -13,6 +13,7 @@ extern fn noctty_pty_resize(fd: c_int, rows: c_ushort, columns: c_ushort, width_
 extern fn noctty_pty_poll_exit(child_pid: c_int, exit_code: *c_int) c_int;
 extern fn noctty_pty_has_foreground_process(fd: c_int, child_pid: c_int) c_int;
 extern fn noctty_pty_process_info(fd: c_int, child_pid: c_int, cwd: [*]u8, cwd_capacity: usize, cwd_length: *usize, name: [*]u8, name_capacity: usize, name_length: *usize, process_pid: *c_int) c_int;
+extern fn noctty_process_resource_sample(root_pid: c_int, ticks: *u64, rss_kib: *u64, processes: *c_uint, machine_ticks: *u64, cpu_count: *c_uint) c_int;
 extern fn noctty_pty_close(fd: c_int, child_pid: c_int) void;
 extern fn noctty_pty_sleep_ms(milliseconds: c_uint) void;
 
@@ -27,6 +28,27 @@ pub const ProcessInfo = struct {
     cwd: []u8,
     name: []u8,
 };
+
+pub const ResourceSample = struct {
+    ticks: u64 = 0,
+    rss_kib: u64 = 0,
+    processes: u32 = 0,
+    machine_ticks: u64 = 0,
+    cpu_count: u32 = 1,
+};
+
+pub fn resourceSample(root_pid: i32) ?ResourceSample {
+    var sample = ResourceSample{};
+    if (noctty_process_resource_sample(
+        root_pid,
+        &sample.ticks,
+        &sample.rss_kib,
+        &sample.processes,
+        &sample.machine_ticks,
+        &sample.cpu_count,
+    ) == 0) return null;
+    return sample;
+}
 
 pub const SpawnOptions = struct {
     cwd: [:0]const u8,
@@ -284,4 +306,12 @@ test "zig-owned pty exposes bounded foreground process metadata" {
         noctty_pty_sleep_ms(1);
     }
     try std.testing.expect(saw_sleep);
+}
+
+test "process resource sample reads the local Linux process tree" {
+    const sample = resourceSample(0) orelse return error.ResourceSampleUnavailable;
+    try std.testing.expect(sample.processes >= 1);
+    try std.testing.expect(sample.rss_kib > 0);
+    try std.testing.expect(sample.machine_ticks > 0);
+    try std.testing.expect(sample.cpu_count >= 1);
 }

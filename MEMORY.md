@@ -47,6 +47,7 @@ proof-bounded claims.
 - `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
 - `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
 - `./scripts/install_dogfood.sh` installs unstripped Debug binaries behind bounded local logging launchers; logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
+- The active-pane bar now shows cached one-second CPU/RSS for the full NOCTTY process tree and selected terminal tree; this is local `/proc` observation, not telemetry.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
 
@@ -88,7 +89,7 @@ NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 Recent public-readiness pass note: `zig build check -j1 --summary all` passes
-with 320/320 tests both in the working tree and in a clean source copy. A 2026-07-19 single-job full-verification retry:
+with 322/322 tests in both the working tree and a clean source copy after the pane resource slice. A 2026-07-19 single-job full-verification retry:
 
 ```sh
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh

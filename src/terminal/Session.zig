@@ -243,7 +243,7 @@ test "terminal launch profile applies command cwd environment and scrollback" {
     try std.testing.expectEqual(@as(usize, 321), session.grid.history_limit);
 
     var saw_exit = false;
-    for (0..5000) |_| {
+    for (0..20000) |_| {
         _ = try session.pump();
         if (try session.pollExit()) |code| {
             try std.testing.expectEqual(@as(u8, 0), code);

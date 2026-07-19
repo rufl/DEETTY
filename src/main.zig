@@ -685,9 +685,12 @@ export fn noctty_grid_has_foreground_process(raw: ?*anyopaque) callconv(.c) c_in
 
 const NativePaneMetadata = struct {
     process_id: i32 = 0,
+    root_process_id: i32 = 0,
     cwd_length: usize = 0,
     process_name_length: usize = 0,
 };
+
+var pane_usage_sampler = noctty.pane_info.UsageSampler{};
 
 fn writeNativePaneMetadata(
     session_raw: ?*anyopaque,
@@ -701,6 +704,7 @@ fn writeNativePaneMetadata(
         const session: *const noctty.terminal_session.TerminalSession =
             @ptrCast(@alignCast(raw));
         metadata.process_id = session.processId();
+        metadata.root_process_id = metadata.process_id;
         if (session.processInfo(cwd, process_name)) |info| {
             metadata.process_id = info.process_id;
             metadata.cwd_length = info.cwd.len;
@@ -770,11 +774,19 @@ export fn noctty_grid_pane_info(
         &cwd,
         &process_name,
     );
+    const app_sample = noctty.pty.resourceSample(0) orelse noctty.pty.ResourceSample{};
+    const pane_sample = noctty.pty.resourceSample(metadata.root_process_id) orelse noctty.pty.ResourceSample{};
+    const usage = pane_usage_sampler.sample(
+        app_sample,
+        pane_sample,
+        metadata.root_process_id,
+    );
     const formatted = noctty.pane_info.format(.{
         .pane_id = pane_id,
         .process_id = metadata.process_id,
         .cwd = cwd[0..metadata.cwd_length],
         .process_name = process_name[0..metadata.process_name_length],
+        .usage = usage,
     }, display[0 .. display_capacity - 1], tooltip[0 .. tooltip_capacity - 1]) catch
         return -1;
     display[formatted.display_length] = 0;
@@ -5095,8 +5107,8 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
         return error.NativeGridCompactUxGlobalFontChanged;
     const active_tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     if (active_tab.panes.items.len != 2 or
-        app.workspace.findPane(1).?.profile.font_size_pt != 12.0 or
-        app.workspace.findPane(2).?.profile.font_size_pt != 11.0)
+        app.workspace.findPane(1).?.profile.font_size_pt != global_font_size + 1.0 or
+        app.workspace.findPane(2).?.profile.font_size_pt != global_font_size)
         return error.NativeGridCompactUxPaneFontIsolationMismatch;
     const saved_workspace = try app.saveWorkspaceFile(io, std.Io.Dir.cwd(), workspace_path, .manual);
     defer saved_workspace.deinit(allocator);
@@ -5104,8 +5116,8 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer loaded_app.deinit();
     const loaded_workspace = try loaded_app.loadWorkspaceFile(io, std.Io.Dir.cwd(), workspace_path, .manual);
     defer loaded_workspace.deinit(allocator);
-    if (loaded_app.workspace.findPane(1).?.profile.font_size_pt != 12.0 or
-        loaded_app.workspace.findPane(2).?.profile.font_size_pt != 11.0)
+    if (loaded_app.workspace.findPane(1).?.profile.font_size_pt != global_font_size + 1.0 or
+        loaded_app.workspace.findPane(2).?.profile.font_size_pt != global_font_size)
         return error.NativeGridCompactUxFontWheelPersistenceMismatch;
     if (!std.mem.eql(u8, app.workspace.quick_note, "compact workspace note"))
         return error.NativeGridCompactUxNoteMismatch;
@@ -5117,7 +5129,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true pane_info=true pane_source=pty_proc pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {

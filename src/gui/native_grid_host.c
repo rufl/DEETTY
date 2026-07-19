@@ -9832,7 +9832,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *spacing = gtk_spin_button_new_with_range(0, 64, 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(spacing), 2);
     GtkWidget *pane_info = gtk_check_button_new_with_label(
-        "Show active pane information");
+        "Show pane and resource information");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pane_info),
                                  context->show_pane_info);
     GtkWidget *theme = gtk_combo_box_text_new();
@@ -11880,9 +11880,13 @@ static gboolean inspect_compact_pane_info_smoke(gpointer user_data) {
     root->compact_pane_info_source = active != NULL &&
         active->pane_id == 2 && text != NULL && tooltip != NULL &&
         strstr(text, " : sleep") != NULL &&
+        strstr(text, "| App ") != NULL &&
+        strstr(text, "| Pane ") != NULL &&
         strstr(tooltip, pane_marker) != NULL &&
         strstr(tooltip, "Process: sleep (PID ") != NULL &&
-        strstr(tooltip, "Directory: /") != NULL;
+        strstr(tooltip, "Directory: /") != NULL &&
+        strstr(tooltip, "NOCTTY tree:") != NULL &&
+        strstr(tooltip, "Selected terminal tree:") != NULL;
 
     guint revision = noctty_pane_info_strip_revision(strip);
     refresh_active_pane_info(root);
@@ -15363,6 +15367,24 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.settings_parent_layer_lowered_seen,
                    context.settings_parent_layer_restored,
                    context.settings_stacking_ready);
+    }
+    if (!host_ok && workspace_smoke == 15) {
+        g_printerr("native_grid_compact_ux_flags palette=%d find=%d note=%d zoom=%d direction=%d scrollback=%d attention=%d im=%d grip=%d font_up=%d font_down=%d font_isolated=%d plain_scroll=%d tab_hidden=%d tab_restored=%d pane_rendered=%d pane_positioned=%d pane_source=%d pane_dedup=%d\n",
+                   context.compact_palette_shown, context.compact_find_shown,
+                   context.compact_note_shown, context.compact_zoom_toggled,
+                   context.compact_directional_focus,
+                   context.compact_scrollback_saved,
+                   context.compact_attention_seen, context.im_context != NULL,
+                   context.resize_grip != NULL, context.compact_font_scroll_up,
+                   context.compact_font_scroll_down,
+                   context.compact_font_scroll_isolated,
+                   context.compact_plain_scroll_preserved,
+                   context.compact_zoom_hid_tab_bar,
+                   context.compact_zoom_restored_tab_bar,
+                   context.compact_pane_info_rendered,
+                   context.compact_pane_info_positioned,
+                   context.compact_pane_info_source,
+                   context.compact_pane_info_dedup);
     }
     if (!host_ok && workspace_smoke == 29) {
         g_printerr("native_grid_note_overlay_flags alt_pressed=%d alt_released=%d content=%d panes=%d drawn=%d hidden=%d\n",

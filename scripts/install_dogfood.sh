@@ -9,8 +9,10 @@ zig build -Doptimize=Debug --prefix "$stage"
 
 mkdir -p "$prefix/bin" "$prefix/libexec/noctty-dogfood"
 cp -a "$stage/share" "$prefix/"
-cp "$stage/bin/noctty" "$prefix/libexec/noctty-dogfood/noctty-bin"
-cp "$stage/bin/nocted" "$prefix/libexec/noctty-dogfood/nocted-bin"
+install -m 0755 "$stage/bin/noctty" "$prefix/libexec/noctty-dogfood/noctty-bin.new"
+install -m 0755 "$stage/bin/nocted" "$prefix/libexec/noctty-dogfood/nocted-bin.new"
+mv -f "$prefix/libexec/noctty-dogfood/noctty-bin.new" "$prefix/libexec/noctty-dogfood/noctty-bin"
+mv -f "$prefix/libexec/noctty-dogfood/nocted-bin.new" "$prefix/libexec/noctty-dogfood/nocted-bin"
 rm -f "$prefix/libexec/noctty-dogfood/noctty" "$prefix/libexec/noctty-dogfood/nocted"
 
 cat >"$prefix/libexec/noctty-dogfood/launch" <<'EOF'
