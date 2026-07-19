@@ -3,6 +3,12 @@
 Use this for counted public-alpha dogfood sessions. Do not count smoke tests,
 screenshot sessions, or short launch checks.
 
+Quick status:
+
+```sh
+./scripts/dogfood_status.sh
+```
+
 ## Counted session minimum
 
 A counted session must be real work, not a test script:

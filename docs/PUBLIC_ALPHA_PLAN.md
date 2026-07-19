@@ -78,7 +78,7 @@ limit.
 
 Goal: use NOCTTY/NoctEd for real Lichforge work before public alpha.
 
-Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`.
+Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`. Current dogfood status command: `./scripts/dogfood_status.sh`.
 
 Suggested dogfood protocol:
 

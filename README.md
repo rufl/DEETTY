@@ -233,7 +233,8 @@ Before publishing as a Lichforge public alpha, the project should have:
 
 See [Public alpha plan](docs/PUBLIC_ALPHA_PLAN.md), [draft alpha release notes](docs/PUBLIC_ALPHA_RELEASE_NOTES.md), [Roadmap](ROADMAP.md),
 [project memory](MEMORY.md), the [dogfood runbook](docs/DOGFOOD_RUNBOOK.md), the [dogfood log](docs/DOGFOOD_LOG.md), and the
-historical [pitch audit](docs/PITCH_AUDIT.md).
+historical [pitch audit](docs/PITCH_AUDIT.md). Dogfood progress can be checked with
+`./scripts/dogfood_status.sh`.
 
 ## Philosophy
 

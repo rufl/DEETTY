@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added `./scripts/dogfood_status.sh`, a small read-only dogfood progress summary that counts only `docs/DOGFOOD_LOG.md` entries not marked "not counted" and reports the remaining alpha coverage flags.
 - Added `docs/DOGFOOD_RUNBOOK.md`, a short counted-session protocol for the remaining public-alpha dogfood work. It defines what counts, the first-session target, four-pane target, foreground-job close-confirmation target, NoctEd edit/search/save coverage, and what not to count.
 - Added `./scripts/public_alpha_verify.sh`, a bounded source-alpha gate that runs the fast build/check, no-surprise network guard, docs truth guard, native-grid X11/Wayland smoke, and NoctEd native smoke. It reports `full_verify=false` so it cannot be mistaken for the full maintainer `./scripts/verify.sh` matrix.
 - Hardened the native-grid smoke synchronized-output fixture for dogfood preflight. The smoke now leaves the first DECSET 2026 synchronized-output window long enough for mapped X11/Wayland hosts to observe a normal release, and leaves the second window long enough to deterministically exercise the deadman release path under current compositor timing. `./scripts/native_grid_smoke.sh` now passes again on both backends.

@@ -5,7 +5,7 @@ for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHA
   docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md \
   docs/COMPACT_UX.md docs/NOCTED.md docs/NOCTALIA.md docs/INSTALL.md docs/RELEASE_CHECKLIST.md \
   docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
-  scripts/public_alpha_verify.sh \
+  scripts/public_alpha_verify.sh scripts/dogfood_status.sh \
   docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md docs/DOGFOOD_RUNBOOK.md \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
   .github/ISSUE_TEMPLATE/config.yml .github/pull_request_template.md \
@@ -121,6 +121,9 @@ grep -F -- '- [x] Dogfood runbook' ROADMAP.md >/dev/null
 grep -F 'Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`.' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F '[`DOGFOOD_RUNBOOK.md`](DOGFOOD_RUNBOOK.md)' docs/DOGFOOD_LOG.md >/dev/null
 grep -F 'Do not count:' docs/DOGFOOD_RUNBOOK.md >/dev/null
+grep -F './scripts/dogfood_status.sh' README.md docs/DOGFOOD_RUNBOOK.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+dogfood_status_output=$(./scripts/dogfood_status.sh)
+printf '%s\n' "$dogfood_status_output" | grep -F 'counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' >/dev/null
 grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null
