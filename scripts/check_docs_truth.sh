@@ -7,7 +7,8 @@ for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHA
   docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
   docs/PUBLIC_ALPHA_GO_NO_GO.md \
   scripts/public_alpha_verify.sh scripts/dogfood_status.sh \
-  docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md docs/DOGFOOD_RUNBOOK.md \
+  docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md docs/DOGFOOD_RUNBOOK.md docs/DOGFOOD_LOGGING.md \
+  scripts/install_dogfood.sh \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
   .github/ISSUE_TEMPLATE/config.yml .github/pull_request_template.md \
   docs/LAUNCH_PROFILES.md docs/WORKSPACE_ACTIVATION.md \
@@ -71,6 +72,7 @@ awk '
 
 grep -F 'docs/KNOWN_LIMITATIONS.md' README.md >/dev/null
 grep -F 'docs/NO_SURPRISE_NETWORK.md' README.md >/dev/null
+grep -F 'docs/DOGFOOD_LOGGING.md' README.md >/dev/null
 grep -F 'docs/CODE_MAP.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_PLAN.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_GO_NO_GO.md' README.md >/dev/null
@@ -125,6 +127,10 @@ grep -F -- '- [x] Dogfood runbook' ROADMAP.md >/dev/null
 grep -F 'Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`.' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F '[`DOGFOOD_RUNBOOK.md`](DOGFOOD_RUNBOOK.md)' docs/DOGFOOD_LOG.md >/dev/null
 grep -F 'Do not count:' docs/DOGFOOD_RUNBOOK.md >/dev/null
+grep -F './scripts/install_dogfood.sh' README.md docs/INSTALL.md docs/DOGFOOD_RUNBOOK.md >/dev/null
+grep -F '~/.local/state/noctty/logs/' docs/INSTALL.md docs/DOGFOOD_LOGGING.md >/dev/null
+grep -F -- '- [x] Installed Debug dogfood binaries with bounded local logging' ROADMAP.md >/dev/null
+grep -F 'optimize=Debug retained_logs_per_app=20' scripts/install_dogfood.sh >/dev/null
 grep -F './scripts/dogfood_status.sh' README.md docs/DOGFOOD_RUNBOOK.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 dogfood_status_output=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status_output" | grep -F 'counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' >/dev/null

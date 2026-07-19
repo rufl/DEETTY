@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added and exercised `./scripts/install_dogfood.sh`. It installs unstripped Debug `noctty`/`nocted` binaries under `~/.local/libexec/noctty-dogfood`, logging launchers under `~/.local/bin`, and absolute installed desktop-entry commands. Each invocation retains local arguments, session/backend, stdout/stderr, GTK/GLib debug output, exit status, and best-effort core dumps in the newest 20 logs per app; no logs are uploaded. **Open NoctEd Here** resolves the sibling logging launcher, so child editor runs receive a separate log.
 - Refreshed `docs/PUBLIC_ALPHA_CODE_REVIEW.md` to match the current public-alpha state: screenshots, code map, clean source-copy fast gate, bounded source-alpha gate, issue templates, release notes, and local Git baseline are now closed; counted dogfood remains the honest blocker.
 - Added `docs/PUBLIC_ALPHA_GO_NO_GO.md`, a final decision sheet that keeps the project no-go for public alpha announcement while counted dogfood remains zero, while documenting the narrower acceptable source-alpha path once dogfood starts.
 - Refreshed the bounded source-alpha proof: `./scripts/public_alpha_verify.sh` passes with build/check, no-surprise network, docs truth, native-grid X11/Wayland smoke, and NoctEd native smoke true; `./scripts/dogfood_status.sh` still reports zero counted sessions, so dogfood remains the honest blocker.

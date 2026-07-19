@@ -39,6 +39,7 @@ Required:
 - [x] Security policy
 - [x] Dogfood log template
 - [x] Dogfood runbook
+- [x] Installed Debug dogfood binaries with bounded local logging
 - [x] Screenshots referenced from README
 
 ## Phase 1 — Dogfood NOCTTY as daily terminal

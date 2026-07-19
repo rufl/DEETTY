@@ -46,6 +46,7 @@ proof-bounded claims.
 - `docs/PUBLIC_ALPHA_CODE_REVIEW.md` and `docs/PUBLIC_ALPHA_GO_NO_GO.md` agree on the current state: source-alpha prep is ready except counted dogfood, and public announcement remains no-go while counted dogfood is zero.
 - `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
 - `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
+- `./scripts/install_dogfood.sh` installs unstripped Debug binaries behind bounded local logging launchers; logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
 

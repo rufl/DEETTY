@@ -3,11 +3,14 @@
 Use this for counted public-alpha dogfood sessions. Do not count smoke tests,
 screenshot sessions, or short launch checks.
 
-Quick status:
+Install the logging-enabled Debug builds, then check status:
 
 ```sh
+./scripts/install_dogfood.sh
 ./scripts/dogfood_status.sh
 ```
+
+Logs are documented in `docs/DOGFOOD_LOGGING.md`.
 
 ## Counted session minimum
 

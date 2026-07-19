@@ -200,6 +200,14 @@ Bounded public-source-alpha gate:
 ./scripts/public_alpha_verify.sh
 ```
 
+Dogfood Debug install with local crash/debug logs:
+
+```sh
+./scripts/install_dogfood.sh
+```
+
+See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
+
 Main maintainer gate:
 
 ```sh
