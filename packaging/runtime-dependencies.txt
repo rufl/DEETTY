@@ -1,0 +1,12 @@
+# Runtime dependency contract for x86_64 and aarch64 Linux packages.
+# Names are mapped by the package-manager manifests in this directory.
+glibc
+gtk3
+gtk-layer-shell
+gtksourceview4
+glib2
+cairo
+pango
+gdk-pixbuf2
+dbus
+zlib

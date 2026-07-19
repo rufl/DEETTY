@@ -1,0 +1,53 @@
+name: Alpha dogfood report
+description: Record a real NOCTTY/NoctEd dogfood session
+title: "dogfood: "
+labels: [dogfood]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for real sessions, not synthetic smoke tests. Keep claims small.
+  - type: input
+    id: duration
+    attributes:
+      label: Session duration
+      placeholder: e.g. 2h 15m
+    validations:
+      required: true
+  - type: dropdown
+    id: apps
+    attributes:
+      label: Apps used
+      multiple: true
+      options:
+        - NOCTTY
+        - NoctEd
+        - Pi/coding agent inside NOCTTY
+        - other terminal TUI
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Real workflow covered
+      description: What real work did you do?
+    validations:
+      required: true
+  - type: checkboxes
+    id: coverage
+    attributes:
+      label: Coverage
+      options:
+        - label: four or more panes/tabs
+        - label: hide/show or restore
+        - label: foreground-job close confirmation
+        - label: copy/paste/search/scrollback
+        - label: NoctEd open/edit/save
+        - label: NoctEd find in file/project or quick open
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers or rough edges
+      description: Note P0/P1 issues first. Say "none" if none observed.
+    validations:
+      required: true

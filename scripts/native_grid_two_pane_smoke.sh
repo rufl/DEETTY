@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+
+output=$(zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-two-pane-smoke)
+printf '%s\n' "$output"
+printf '%s\n' "$output" | grep -q '^native_grid_two_pane_smoke panes=2 dynamic_split=true primary_pty=true secondary_pty=true pty_event_source=true primary_grid=true secondary_grid=true secondary_lifecycle=true exited=true$'

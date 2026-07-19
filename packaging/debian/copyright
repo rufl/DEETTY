@@ -1,0 +1,6 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: NOCTTY
+Source: https://github.com/lichforge/noctty
+Files: *
+Copyright: 2026 LichForge
+License: MIT
