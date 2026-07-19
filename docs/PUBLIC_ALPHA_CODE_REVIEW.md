@@ -14,9 +14,7 @@ main public-alpha risk is not missing features; it is complexity and
 maintainability. Several production and smoke paths are large enough that a new
 contributor will need a simpler map before they can help confidently.
 
-The project is close to a publishable source alpha if the public promise stays
-small: Linux-native terminal workspace plus companion editor, not a mature IDE
-or universal terminal replacement.
+The project is now source-alpha ready except for the deliberately unfilled dogfood evidence. The public promise must stay small: Linux-native terminal workspace plus companion editor, not a mature IDE or universal terminal replacement.
 
 ## What looks strong
 
@@ -70,13 +68,11 @@ Recommended alpha action:
 ### 3. Verification is strong but currently heavy/fragile for contributors
 
 The full `./scripts/verify.sh` is authoritative but long and environment-heavy.
-During this pass, one normal run hit a Zig compile `SEGV`; a single-job retry
-progressed further but exceeded a 180s harness timeout.
+During this pass, one normal run hit a Zig compile `SEGV`; later single-job retries progressed through long qualification matrices but exceeded the agent timeout. A bounded source-alpha gate now exists as `./scripts/public_alpha_verify.sh` and passes with `full_verify=false`.
 
 Recommended alpha action:
 
-- Add a documented lightweight contributor gate, e.g. `zig build check` or a
-  new `./scripts/quick_check.sh`, if one already exists or can be added cheaply.
+- Use the documented lightweight contributor gate, `zig build check`, and the bounded source-alpha gate, `./scripts/public_alpha_verify.sh`.
 - Keep `./scripts/verify.sh` as the maintainer gate.
 - Document that display-backed and long qualification lanes are maintainer/host
   specific.
@@ -115,13 +111,11 @@ Recommended alpha action:
 
 ### Must do before source-public alpha
 
-1. Add screenshots or GIFs to the README.
-2. Add `docs/CODE_MAP.md` for human code navigation.
-3. Add first entries to `docs/DOGFOOD_LOG.md` from real sessions.
-4. Record current verify status honestly: pass, timeout, or toolchain failure.
-5. Confirm clean source checkout build instructions on the target machine.
-6. Decide repository name and GitHub org paths under Lichforge.
-7. Keep package/signing language clearly incomplete.
+1. Add first counted entries to `docs/DOGFOOD_LOG.md` from real sessions.
+2. Keep package/signing language clearly incomplete.
+3. Keep full `./scripts/verify.sh` status honest: the bounded source-alpha gate is green, the full maintainer matrix is not claimed green in this agent harness.
+
+Already closed for source-alpha prep: screenshots, `docs/CODE_MAP.md`, clean source-copy fast build/check, public alpha release notes, no-surprise network guard, GitHub issue/PR templates, local Git baseline, and the bounded `./scripts/public_alpha_verify.sh` gate.
 
 ### Should do before announcing broadly
 
@@ -145,15 +139,12 @@ Recommended alpha action:
 
 ## Suggested immediate code/doc next steps
 
-1. Create `docs/CODE_MAP.md`.
-2. Add screenshots/GIF placeholders to README if assets are not ready.
-3. Add `scripts/quick_check.sh` only if it can wrap existing cheap checks.
-4. Start dogfood session 1 and log bugs instead of adding features.
+1. Start dogfood session 1 and log bugs instead of adding features.
+2. Fix only P0/P1 dogfood blockers.
+3. Re-run `./scripts/public_alpha_verify.sh` before publishing or tagging.
 
 ## Alpha grade
 
-Current grade: **yellow / promising alpha candidate**.
+Current grade: **yellow / source-alpha ready except dogfood**.
 
-Reason: core docs and proof discipline are strong, but public alpha still needs
-screenshots, dogfood evidence, contributor code map, and a clean/current gate
-story.
+Reason: docs, screenshots, code map, local Git baseline, bounded gates, release wording, and no-surprise network checks are in place. The remaining honest blocker is counted dogfood evidence; do not mark public announcement green while `./scripts/dogfood_status.sh` reports `counted_sessions=0`.

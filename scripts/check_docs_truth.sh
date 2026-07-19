@@ -105,6 +105,8 @@ grep -F 'docs/TERMINAL_PIPELINE_QUALIFICATION.md' docs/TECHNICAL_STATUS.md >/dev
 grep -F 'docs/DAILY_DRIVER.md' docs/TECHNICAL_STATUS.md >/dev/null
 grep -F 'docs/LAUNCH_PROFILES.md' docs/TECHNICAL_STATUS.md >/dev/null
 grep -F 'docs/PERFORMANCE_ALGORITHM_RESEARCH.md' docs/TECHNICAL_STATUS.md >/dev/null
+grep -F 'Current grade: **yellow / source-alpha ready except dogfood**.' docs/PUBLIC_ALPHA_CODE_REVIEW.md >/dev/null
+grep -F 'counted_sessions=0' docs/PUBLIC_ALPHA_CODE_REVIEW.md docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
 grep -F 'export XDG_CACHE_HOME="$verify_root/xdg-cache"' scripts/verify.sh >/dev/null
 grep -F 'verify_parent="${NOCTTY_VERIFY_PARENT:-.}"' scripts/verify.sh >/dev/null
 grep -F 'NOCTTY_ZIG_SINGLE_JOB' scripts/verify.sh >/dev/null
