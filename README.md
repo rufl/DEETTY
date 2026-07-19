@@ -194,6 +194,12 @@ zig build check
 A clean source-copy run of `zig build check -j1 --summary all` currently passes
 with `17/17` steps and `320/320` tests.
 
+Bounded public-source-alpha gate:
+
+```sh
+./scripts/public_alpha_verify.sh
+```
+
 Main maintainer gate:
 
 ```sh

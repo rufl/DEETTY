@@ -136,6 +136,7 @@ Before public alpha tag:
 - [x] public bug/dogfood issue templates and PR template present
 - [x] local Git boundary and first public source baseline commit
 - [x] draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`
+- [x] bounded public-source-alpha gate: `./scripts/public_alpha_verify.sh`
 
 ## Suggested first public alpha promise
 

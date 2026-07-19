@@ -5,6 +5,7 @@ for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHA
   docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md \
   docs/COMPACT_UX.md docs/NOCTED.md docs/NOCTALIA.md docs/INSTALL.md docs/RELEASE_CHECKLIST.md \
   docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
+  scripts/public_alpha_verify.sh \
   docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
   .github/ISSUE_TEMPLATE/config.yml .github/pull_request_template.md \
@@ -104,6 +105,8 @@ grep -F 'docs/PERFORMANCE_ALGORITHM_RESEARCH.md' docs/TECHNICAL_STATUS.md >/dev/
 grep -F 'export XDG_CACHE_HOME="$verify_root/xdg-cache"' scripts/verify.sh >/dev/null
 grep -F 'verify_parent="${NOCTTY_VERIFY_PARENT:-.}"' scripts/verify.sh >/dev/null
 grep -F 'NOCTTY_ZIG_SINGLE_JOB' scripts/verify.sh >/dev/null
+grep -F 'public_alpha_verify passed=true build_check=true no_surprise_network=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false' scripts/public_alpha_verify.sh docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
+grep -F './scripts/public_alpha_verify.sh' README.md ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F 'no_surprise_network_check telemetry=false update_pings=false crash_uploaders=false remote_flags=false hidden_network_api=false proof_boundary=static_source_scan' scripts/check_no_surprise_network.sh docs/NO_SURPRISE_NETWORK.md docs/KNOWN_LIMITATIONS.md >/dev/null
 grep -F -- '- [x] limitations current' ROADMAP.md >/dev/null
 grep -F -- '- [x] changelog has alpha note' ROADMAP.md >/dev/null
@@ -112,6 +115,7 @@ grep -F -- '- [x] contributing/security docs present' ROADMAP.md >/dev/null
 grep -F -- '- [x] public bug/dogfood issue templates and PR template present' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F -- '- [x] local Git boundary and first public source baseline commit' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F -- '- [x] draft public source-alpha release notes' ROADMAP.md >/dev/null
+grep -F -- '- [x] bounded public-source-alpha gate: `./scripts/public_alpha_verify.sh`' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null

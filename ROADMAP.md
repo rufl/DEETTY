@@ -98,6 +98,7 @@ Required before tagging alpha:
 - [x] no telemetry/network surprise check
 - [x] local Git boundary and first public source baseline commit
 - [x] draft public source-alpha release notes
+- [x] bounded public-source-alpha gate: `./scripts/public_alpha_verify.sh`
 
 ## Phase 4 — Packaging and broader proof
 

@@ -41,7 +41,19 @@ Current result:
 Clean source-copy check: the same fast gate passed after copying the source tree
 without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.
 
-Additional public-alpha guards currently pass:
+Bounded public-source-alpha gate:
+
+```sh
+./scripts/public_alpha_verify.sh
+```
+
+Current result:
+
+```text
+public_alpha_verify passed=true build_check=true no_surprise_network=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
+```
+
+Additional public-alpha guards currently pass individually:
 
 ```sh
 ./scripts/check_no_surprise_network.sh
