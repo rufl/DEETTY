@@ -1,7 +1,8 @@
 # NOCTTY Dogfood Log
 
 Use this file to record real daily-driver sessions before public alpha. Keep it
-honest: failures and annoyances are useful.
+honest: failures and annoyances are useful. Session rules live in
+[`DOGFOOD_RUNBOOK.md`](DOGFOOD_RUNBOOK.md).
 
 ## Session template
 

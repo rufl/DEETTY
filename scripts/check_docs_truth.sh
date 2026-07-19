@@ -6,7 +6,7 @@ for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHA
   docs/COMPACT_UX.md docs/NOCTED.md docs/NOCTALIA.md docs/INSTALL.md docs/RELEASE_CHECKLIST.md \
   docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
   scripts/public_alpha_verify.sh \
-  docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md \
+  docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md docs/DOGFOOD_RUNBOOK.md \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
   .github/ISSUE_TEMPLATE/config.yml .github/pull_request_template.md \
   docs/LAUNCH_PROFILES.md docs/WORKSPACE_ACTIVATION.md \
@@ -73,6 +73,7 @@ grep -F 'docs/NO_SURPRISE_NETWORK.md' README.md >/dev/null
 grep -F 'docs/CODE_MAP.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_PLAN.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_RELEASE_NOTES.md' README.md >/dev/null
+grep -F 'docs/DOGFOOD_RUNBOOK.md' README.md >/dev/null
 grep -F 'docs/DOGFOOD_LOG.md' README.md >/dev/null
 grep -F 'docs/TECHNICAL_STATUS.md' README.md >/dev/null
 grep -F 'docs/assets/noctty-alpha.png' README.md >/dev/null
@@ -116,6 +117,10 @@ grep -F -- '- [x] public bug/dogfood issue templates and PR template present' RO
 grep -F -- '- [x] local Git boundary and first public source baseline commit' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F -- '- [x] draft public source-alpha release notes' ROADMAP.md >/dev/null
 grep -F -- '- [x] bounded public-source-alpha gate: `./scripts/public_alpha_verify.sh`' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F -- '- [x] Dogfood runbook' ROADMAP.md >/dev/null
+grep -F 'Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`.' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F '[`DOGFOOD_RUNBOOK.md`](DOGFOOD_RUNBOOK.md)' docs/DOGFOOD_LOG.md >/dev/null
+grep -F 'Do not count:' docs/DOGFOOD_RUNBOOK.md >/dev/null
 grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null

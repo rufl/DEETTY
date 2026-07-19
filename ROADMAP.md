@@ -38,6 +38,7 @@ Required:
 - [x] Contributing guide
 - [x] Security policy
 - [x] Dogfood log template
+- [x] Dogfood runbook
 - [x] Screenshots referenced from README
 
 ## Phase 1 — Dogfood NOCTTY as daily terminal

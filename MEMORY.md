@@ -43,6 +43,7 @@ proof-bounded claims.
 - `docs/PUBLIC_ALPHA_RELEASE_NOTES.md` is the current bounded draft for first public source-alpha wording.
 - Dogfood preflight found and fixed a flaky native-grid synchronized-output smoke window; X11 and Wayland native-grid smoke pass again.
 - `./scripts/public_alpha_verify.sh` is the bounded public-source-alpha gate; it intentionally does not replace the full maintainer `./scripts/verify.sh` matrix.
+- `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
 

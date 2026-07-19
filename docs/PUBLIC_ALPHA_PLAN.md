@@ -78,6 +78,8 @@ limit.
 
 Goal: use NOCTTY/NoctEd for real Lichforge work before public alpha.
 
+Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`.
+
 Suggested dogfood protocol:
 
 - 5 separate sessions
