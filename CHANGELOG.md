@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added bounded draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`, including what is claimed, what is not claimed, retained fast-gate proof, and the explicit full-verify timeout boundary.
 - Created the first local public source baseline commit after replacing the broken empty Git marker with a real Git boundary. Vendored Tree-sitter sources are embedded as ordinary files rather than unusable nested Git links.
 - Added public-alpha GitHub hygiene templates: reproducible bug report form, real dogfood-session form, issue routing config, and a small PR template that asks for tested commands and non-claims.
 - Verified the fast build/check path from a clean source copy: `zig build check -j1 --summary all` passed with `17/17` steps and `320/320` tests after copying the tree without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.

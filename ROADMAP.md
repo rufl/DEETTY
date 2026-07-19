@@ -97,6 +97,7 @@ Required before tagging alpha:
 - [x] package/signing status is clearly marked incomplete if not done
 - [x] no telemetry/network surprise check
 - [x] local Git boundary and first public source baseline commit
+- [x] draft public source-alpha release notes
 
 ## Phase 4 — Packaging and broader proof
 

@@ -1,0 +1,75 @@
+# NOCTTY 0.1 Public Source Alpha Draft Notes
+
+NOCTTY 0.1 alpha is a source-first Linux preview for people who want to try a
+native terminal workspace with a compact companion editor, NoctEd.
+
+## What this alpha is
+
+- native Zig/GTK/Cairo terminal workspace for Linux
+- focused on KDE Plasma, Wayland, and X11
+- dropdown, windowed, and fullscreen/zen terminal modes
+- tabs, recursive splits, native settings, themes, profiles, hot-session restore
+- standalone NoctEd for quick project edits, search, Save As, quick open, folding,
+  minimap, recent projects, and bounded filesystem workers
+- no Electron, browser UI runtime, telemetry, update pings, crash uploaders, or
+  remote feature flags
+
+## What this alpha is not
+
+- not a mature IDE
+- not a VS Code/Zed/Sublime replacement
+- not universal terminal compatibility
+- not a signed binary release
+- not a claim of multi-day production stability
+- not a completed package/signing/redistribution release
+
+## Current retained local proof
+
+Fast source gate:
+
+```sh
+zig build check -j1 --summary all
+```
+
+Current result:
+
+```text
+17/17 steps succeeded
+320/320 tests passed
+```
+
+Clean source-copy check: the same fast gate passed after copying the source tree
+without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.
+
+Additional public-alpha guards currently pass:
+
+```sh
+./scripts/check_no_surprise_network.sh
+./scripts/check_docs_truth.sh
+```
+
+The full maintainer gate remains:
+
+```sh
+./scripts/verify.sh
+```
+
+A single-job retry ran to the 20-minute agent limit with green output through
+terminal compatibility, terminal session, launch continuity, ncurses/system TUI,
+production-Cairo renderer, and real PTY/VT-to-Cairo pipeline matrices. The full
+gate is not claimed green until it completes outside the short agent timeout.
+
+## Known open alpha items
+
+- counted real dogfood sessions are still needed
+- full maintainer `./scripts/verify.sh` receipt still needs a long local run
+- signing/publication/artifact signatures are not complete
+- longer native GUI soaks and authenticated agent workflows remain future proof
+
+## Suggested tag wording
+
+```text
+NOCTTY 0.1 public source alpha: native Linux terminal workspace + compact NoctEd
+editor. Source builds locally, fast gate is green, limitations are explicit, and
+release/signing/daily-driver proof remains alpha work.
+```

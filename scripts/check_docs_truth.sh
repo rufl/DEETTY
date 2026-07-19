@@ -4,7 +4,8 @@ set -eu
 for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHANGELOG.md \
   docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md \
   docs/COMPACT_UX.md docs/NOCTED.md docs/NOCTALIA.md docs/INSTALL.md docs/RELEASE_CHECKLIST.md \
-  docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md \
+  docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
+  docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
   .github/ISSUE_TEMPLATE/config.yml .github/pull_request_template.md \
   docs/LAUNCH_PROFILES.md docs/WORKSPACE_ACTIVATION.md \
@@ -70,6 +71,7 @@ grep -F 'docs/KNOWN_LIMITATIONS.md' README.md >/dev/null
 grep -F 'docs/NO_SURPRISE_NETWORK.md' README.md >/dev/null
 grep -F 'docs/CODE_MAP.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_PLAN.md' README.md >/dev/null
+grep -F 'docs/PUBLIC_ALPHA_RELEASE_NOTES.md' README.md >/dev/null
 grep -F 'docs/DOGFOOD_LOG.md' README.md >/dev/null
 grep -F 'docs/TECHNICAL_STATUS.md' README.md >/dev/null
 grep -F 'docs/assets/noctty-alpha.png' README.md >/dev/null
@@ -109,6 +111,9 @@ grep -F -- '- [x] license present' ROADMAP.md >/dev/null
 grep -F -- '- [x] contributing/security docs present' ROADMAP.md >/dev/null
 grep -F -- '- [x] public bug/dogfood issue templates and PR template present' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F -- '- [x] local Git boundary and first public source baseline commit' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F -- '- [x] draft public source-alpha release notes' ROADMAP.md >/dev/null
+grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null
 grep -F 'GitHub issue templates are provided for ordinary bugs and alpha dogfood reports.' CONTRIBUTING.md >/dev/null
 grep -F 'Do not file public issues for vulnerabilities' .github/ISSUE_TEMPLATE/config.yml >/dev/null
