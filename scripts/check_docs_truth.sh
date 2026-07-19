@@ -1148,6 +1148,8 @@ for path in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/COMPAC
   done
 done
 grep -F 'pane_resources=true' src/main.zig scripts/native_grid_compact_ux_smoke.sh docs/COMPACT_UX.md >/dev/null
+grep -F 'gtk_box_pack_end(GTK_BOX(page), strip, FALSE, FALSE, 0);' src/gui/native_grid_host.c >/dev/null
+grep -F 'final page child below the terminal layout' docs/COMPACT_UX.md >/dev/null
 grep -F 'Selected terminal tree:' src/terminal/PaneInfo.zig src/gui/native_grid_host.c >/dev/null
 grep -F 'NOCTTY process tree and selected terminal shell tree' docs/NATIVE_HOST.md >/dev/null
 grep -F 'Active-pane session identity' docs/PITCH_AUDIT.md >/dev/null

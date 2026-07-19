@@ -6842,7 +6842,7 @@ static GtkWidget *create_grid_page(NocttyGridContext *context) {
     GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     GtkWidget *strip = noctty_pane_info_strip_new(root->show_pane_info);
     g_object_set_data(G_OBJECT(page), "noctty-pane-info-strip", strip);
-    gtk_box_pack_start(GTK_BOX(page), strip, FALSE, FALSE, 0);
+    gtk_box_pack_end(GTK_BOX(page), strip, FALSE, FALSE, 0);
     return page;
 }
 
@@ -9832,7 +9832,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *spacing = gtk_spin_button_new_with_range(0, 64, 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(spacing), 2);
     GtkWidget *pane_info = gtk_check_button_new_with_label(
-        "Show pane and resource information");
+        "Show bottom pane and resource bar");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pane_info),
                                  context->show_pane_info);
     GtkWidget *theme = gtk_combo_box_text_new();
@@ -11867,8 +11867,7 @@ static gboolean inspect_compact_pane_info_smoke(gpointer user_data) {
 
     GList *children = gtk_container_get_children(GTK_CONTAINER(page));
     root->compact_pane_info_positioned =
-        children != NULL && GTK_WIDGET(children->data) == strip &&
-        gtk_notebook_get_tab_pos(GTK_NOTEBOOK(root->notebook)) == GTK_POS_TOP;
+        children != NULL && GTK_WIDGET(g_list_last(children)->data) == strip;
     g_list_free(children);
     root->compact_pane_info_rendered = strip != NULL &&
         gtk_widget_get_visible(strip) && gtk_widget_get_mapped(strip) &&

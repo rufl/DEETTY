@@ -58,7 +58,7 @@ NOCTTY provides:
 - dropdown, windowed, and zen/fullscreen terminal modes
 - native terminal tabs and recursive splits
 - compact tab chrome inspired by Yakuake/Konsole workflows
-- active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
+- bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
 - scrollback, search, copy/paste, mouse, resize, and Unicode/ANSI handling
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
 - hot-session workspace recovery with fresh shell restart semantics
