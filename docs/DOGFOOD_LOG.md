@@ -78,4 +78,32 @@ honest: failures and annoyances are useful.
 - Run a real NOCTTY session and a real NoctEd edit/search/save session, then add the first counted dogfood entry below this one.
 - Continue with a real counted NOCTTY + NoctEd dogfood session; the relative-path CLI assertion is fixed.
 
+## 2026-07-19 — dogfood preflight smoke hardening (not counted toward dogfood quota)
+
+- Duration: focused preflight slice
+- Desktop/session: managed X11 and Wayland smoke backends
+- NOCTTY command: `./scripts/native_grid_smoke.sh`
+- Work performed: pre-dogfood native-grid smoke rerun before starting counted sessions
+- Panes/tabs used: smoke fixture only
+- Agent/TUI apps used: Pi coding-agent harness
+- NoctEd used: smoke fixture only; `./scripts/nocted_native_smoke.sh` passed
+
+### What worked
+
+- NoctEd native smoke passed with project tree, search/load, quick open, Save As, session restore, recent project, and worker/lifecycle receipts.
+- After fixture timing hardening, native-grid smoke passed on both X11 and Wayland with synchronized-output normal release and deadman release evidence.
+
+### Problems
+
+- [x] P1: `./scripts/native_grid_smoke.sh` initially failed because the synchronized-output smoke command's timing could miss either the normal DECSET 2026 release or the deadman release under current backend scheduling. Fixed by lengthening only the smoke fixture's synchronized-output windows; production behavior unchanged.
+
+### Resource notes
+
+- CPU/memory observation if measured: not measured beyond smoke receipts.
+- Any visible jank/hangs: none observed by the smoke after the timing fix.
+
+### Follow-up
+
+- Start the first counted two-hour NOCTTY/NoctEd dogfood session.
+
 _Add new counted entries here._

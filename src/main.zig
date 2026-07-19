@@ -4824,7 +4824,7 @@ export fn noctty_grid_focus(raw: ?*anyopaque, focused: c_int) callconv(.c) c_int
 fn nativeGridSmoke(out: anytype, mode: c_int) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
-    try session.write("sleep 0.5; printf '\\033[?2026h\\033[2;1H\\033[1;3;4;9;38;2;96;180;255mNOCTTY_NATIVE_GRID_OK A\\314\\201 \\360\\237\\221\\251\\342\\200\\215\\360\\237\\232\\200'; sleep 0.05; printf '\\033[0m\\033[?2026l\\033]2;native-grid\\007'; sleep 0.1; printf '\\033[?2026hDEADMAN'; sleep 0.3; printf '\\033[?2026l'; sleep 0.2; exit 0\n");
+    try session.write("sleep 0.5; printf '\\033[?2026h\\033[2;1H\\033[1;3;4;9;38;2;96;180;255mNOCTTY_NATIVE_GRID_OK A\\314\\201 \\360\\237\\221\\251\\342\\200\\215\\360\\237\\232\\200'; sleep 0.12; printf '\\033[0m\\033[?2026l\\033]2;native-grid\\007'; sleep 0.1; printf '\\033[?2026hDEADMAN'; sleep 0.5; printf '\\033[?2026l'; sleep 0.2; exit 0\n");
     const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, mode, 0, 0, 0, null, 0, 0, 0, null, null);
     if (status != 0) return error.NativeGridHostFailed;
     try out.print("native_grid_smoke gtk=true drawing_surface=true keyboard_abi=true pty=true vt=true exited=true\n", .{});

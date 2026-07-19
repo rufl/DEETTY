@@ -41,6 +41,7 @@ proof-bounded claims.
 - `.github/ISSUE_TEMPLATE/` and `.github/pull_request_template.md` now provide public-alpha bug, dogfood, and review prompts.
 - The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.
 - `docs/PUBLIC_ALPHA_RELEASE_NOTES.md` is the current bounded draft for first public source-alpha wording.
+- Dogfood preflight found and fixed a flaky native-grid synchronized-output smoke window; X11 and Wayland native-grid smoke pass again.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
 

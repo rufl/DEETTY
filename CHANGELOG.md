@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Hardened the native-grid smoke synchronized-output fixture for dogfood preflight. The smoke now leaves the first DECSET 2026 synchronized-output window long enough for mapped X11/Wayland hosts to observe a normal release, and leaves the second window long enough to deterministically exercise the deadman release path under current compositor timing. `./scripts/native_grid_smoke.sh` now passes again on both backends.
 - Added bounded draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`, including what is claimed, what is not claimed, retained fast-gate proof, and the explicit full-verify timeout boundary.
 - Created the first local public source baseline commit after replacing the broken empty Git marker with a real Git boundary. Vendored Tree-sitter sources are embedded as ordinary files rather than unusable nested Git links.
 - Added public-alpha GitHub hygiene templates: reproducible bug report form, real dogfood-session form, issue routing config, and a small PR template that asks for tested commands and non-claims.
