@@ -108,8 +108,8 @@ grep -F -- '- [x] changelog has alpha note' ROADMAP.md >/dev/null
 grep -F -- '- [x] license present' ROADMAP.md >/dev/null
 grep -F -- '- [x] contributing/security docs present' ROADMAP.md >/dev/null
 grep -F -- '- [x] public bug/dogfood issue templates and PR template present' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
-grep -F -- '- [x] local Git boundary ready for first public baseline' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
-grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary' MEMORY.md >/dev/null
+grep -F -- '- [x] local Git boundary and first public source baseline commit' ROADMAP.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null
 grep -F 'GitHub issue templates are provided for ordinary bugs and alpha dogfood reports.' CONTRIBUTING.md >/dev/null
 grep -F 'Do not file public issues for vulnerabilities' .github/ISSUE_TEMPLATE/config.yml >/dev/null
 grep -F -- '- [x] package/signing status is clearly marked incomplete if not done' ROADMAP.md >/dev/null

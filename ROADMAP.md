@@ -96,7 +96,7 @@ Required before tagging alpha:
 - [x] public bug/dogfood issue templates and PR template present
 - [x] package/signing status is clearly marked incomplete if not done
 - [x] no telemetry/network surprise check
-- [x] local Git boundary ready for first public baseline
+- [x] local Git boundary and first public source baseline commit
 
 ## Phase 4 — Packaging and broader proof
 

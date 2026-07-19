@@ -39,7 +39,7 @@ proof-bounded claims.
 - `docs/PUBLIC_ALPHA_PLAN.md` records the small path to alpha.
 - `docs/NO_SURPRISE_NETWORK.md` records the retained static source scan for no telemetry/update/crash-upload/remote-flag surprises.
 - `.github/ISSUE_TEMPLATE/` and `.github/pull_request_template.md` now provide public-alpha bug, dogfood, and review prompts.
-- The formerly empty `.git` marker has been replaced with a real local Git boundary for the first public source baseline.
+- The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
 

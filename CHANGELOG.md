@@ -4,7 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
-- Prepared the repository for a first public source baseline by replacing the broken empty Git marker with a real local Git boundary and recording the public-alpha Git-boundary state in project docs.
+- Created the first local public source baseline commit after replacing the broken empty Git marker with a real Git boundary. Vendored Tree-sitter sources are embedded as ordinary files rather than unusable nested Git links.
 - Added public-alpha GitHub hygiene templates: reproducible bug report form, real dogfood-session form, issue routing config, and a small PR template that asks for tested commands and non-claims.
 - Verified the fast build/check path from a clean source copy: `zig build check -j1 --summary all` passed with `17/17` steps and `320/320` tests after copying the tree without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.
 - Retried the full maintainer gate with `NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh`. The run reached the 20-minute agent limit after green terminal compatibility, terminal session, launch continuity, ncurses/system TUI, production-Cairo renderer, and real PTY/VT-to-Cairo pipeline matrices; no assertion failure was observed before timeout, but the full gate is still not claimed green.

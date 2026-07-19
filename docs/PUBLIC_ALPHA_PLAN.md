@@ -134,7 +134,7 @@ Before public alpha tag:
 - [x] screenshots current
 - [x] contribution and security notes present
 - [x] public bug/dogfood issue templates and PR template present
-- [x] local Git boundary ready for first public baseline
+- [x] local Git boundary and first public source baseline commit
 
 ## Suggested first public alpha promise
 
