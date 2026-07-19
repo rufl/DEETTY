@@ -74,6 +74,7 @@ Works today in the intended scope:
 - find in project
 - quick open
 - folding
+- direct vendored Tree-sitter highlighting for Zig, JSON, C, shell, and Markdown, with GtkSourceView fallback
 - minimap
 - recent projects
 - dirty close protection during graceful GUI close
@@ -85,6 +86,8 @@ Not claimed yet:
 - plugin ecosystem
 - LSP/DAP parity
 - every-language syntax correctness
+- Tree-sitter-driven folding, structural selection, or symbol navigation
+- incremental/background parsing; the current alpha debounce performs a bounded full parse on GTK's main thread
 - long-duration GUI editor stability across many projects
 - forced SIGKILL/session-logout unsaved-file protection
 

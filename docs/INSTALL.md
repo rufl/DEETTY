@@ -14,7 +14,7 @@ Building requires:
 - GtkSourceView 4 development files;
 - `gtk-layer-shell` at runtime for Wayland drop-down placement.
 
-VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. The production `noctty` and `nocted` build does not link VTE or Tree-sitter, and the distribution runtime manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
+VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. Production `noctty` links neither VTE nor Tree-sitter. Production `nocted` statically includes its vendored Tree-sitter parsers and adds no Tree-sitter runtime package; distribution manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
 
 ## Run from the Checkout
 
@@ -109,7 +109,7 @@ sha256sum -c /tmp/noctty-linux-bundle.tar.gz.sha256
 The bundle:
 
 - builds `ReleaseSafe` for the current architecture;
-- includes the production binaries without VTE, Tree-sitter, smoke commands, or the legacy embedded-editor command surface;
+- includes production `noctty` without VTE, Tree-sitter, smoke commands, or the legacy embedded-editor command surface, plus `nocted` with statically vendored Tree-sitter parsing;
 - moves both real binaries under `libexec/noctty` and copies their combined linked runtime libraries into `libexec/noctty/lib`;
 - explicitly copies the dynamically loaded `libgtk-layer-shell.so.0`;
 - installs thin `noctty` and `nocted` launchers that set the bundle-local library path;

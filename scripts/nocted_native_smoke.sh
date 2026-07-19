@@ -65,7 +65,7 @@ printf '%s\n' \
   'pub fn second() void {' \
   '    const count = 2;' \
   '    if (count > 1) {' \
-  '        std.debug.print("fold two\\n", .{});' \
+  '        std.debug.print("fold two λ\\n", .{});' \
   '    }' \
   '}' \
   >"$scratch/project/src/sample.zig"
@@ -187,6 +187,7 @@ for field in \
   'save_as_collision=1' \
   'save_as_atomic=1' \
   'save_as_language=1' \
+  'tree_sitter=1' \
   'quick_open=1' \
   'quick_open_bounded=1' \
   'quick_open_activation=1' \
@@ -239,7 +240,7 @@ scratch_path=$scratch
 rm -rf "$scratch_path"
 scratch=
 test ! -e "$scratch_path"
-echo "nocted_native_gate rendered=true folding=true minimap_overlay_translucent=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true backend=$backend scratch_clean=true"
+echo "nocted_native_gate rendered=true tree_sitter=true folding=true minimap_overlay_translucent=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true backend=$backend scratch_clean=true"
 echo "nocted_search_load_native_gate search_load=true cycles=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true warning_fatal=true backend=$backend scratch_clean=true"
 if [ "$lifecycle_mode" = 1 ]; then
   echo "nocted_project_lifecycle_gate backend=$backend real_project=true cycles=8 gtk_tree_draw=true model_latency=true draw_latency=true monitor_burst=true burst_cycles=8 files_per_burst=12 publication_latency=true overflow_recovery=true late_callback_guard=true worker_drained=true scratch_clean=true"

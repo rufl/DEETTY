@@ -14,8 +14,6 @@ struct NocttyTreeSitterDocument {
     TSTree *tree;
     TSQuery *query;
     const TSLanguage *language;
-    const char *source;
-    size_t length;
 };
 
 static const char *query_for_language(int language) {
@@ -102,13 +100,12 @@ int noctty_tree_sitter_document_update(NocttyTreeSitterDocument *document,
         };
         ts_tree_edit(document->tree, &input);
     }
-    TSTree *next = ts_parser_parse_string(document->parser, document->tree,
+    TSTree *previous = edit != NULL ? document->tree : NULL;
+    TSTree *next = ts_parser_parse_string(document->parser, previous,
                                            source, (uint32_t)length);
     if (next == NULL) return -1;
     if (document->tree != NULL) ts_tree_delete(document->tree);
     document->tree = next;
-    document->source = source;
-    document->length = length;
     return 0;
 }
 

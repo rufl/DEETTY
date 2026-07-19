@@ -61,25 +61,7 @@ pub fn build(b: *std.Build) void {
         .file = b.path("src/terminal/vt_public.c"),
         .flags = &.{"-std=c11"},
     });
-    root_mod.addIncludePath(b.path("vendor/tree-sitter/lib/include"));
-    root_mod.addIncludePath(b.path("vendor/tree-sitter-zig/src"));
-    root_mod.addIncludePath(b.path("src/editor"));
-    root_mod.addCSourceFile(.{
-        .file = b.path("vendor/tree-sitter/lib/src/lib.c"),
-        .flags = &.{ "-std=c11", "-D_GNU_SOURCE" },
-    });
-    for ([_][]const u8{
-        "vendor/tree-sitter-json/src/parser.c",
-        "vendor/tree-sitter-c/src/parser.c",
-        "vendor/tree-sitter-bash/src/parser.c",
-        "vendor/tree-sitter-bash/src/scanner.c",
-        "vendor/tree-sitter-markdown/tree-sitter-markdown/src/parser.c",
-        "vendor/tree-sitter-markdown/tree-sitter-markdown/src/scanner.c",
-        "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/parser.c",
-        "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c",
-        "vendor/tree-sitter-zig/src/parser.c",
-        "src/editor/tree_sitter_adapter.c",
-    }) |file| root_mod.addCSourceFile(.{ .file = b.path(file), .flags = &.{"-std=c11"} });
+    addTreeSitterSources(b, root_mod);
 
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -116,6 +98,7 @@ pub fn build(b: *std.Build) void {
     nocted_mod.addOptions("build_options", nocted_runtime_options);
     nocted_mod.addImport("nocted_core", nocted_core_mod);
     nocted_mod.addImport("noctty_release", release_mod);
+    addTreeSitterSources(b, nocted_mod);
     nocted_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_exe = b.addExecutable(.{
@@ -193,6 +176,7 @@ pub fn build(b: *std.Build) void {
     nocted_smoke_mod.addOptions("build_options", nocted_smoke_options);
     nocted_smoke_mod.addImport("nocted_core", nocted_core_mod);
     nocted_smoke_mod.addImport("noctty_release", release_mod);
+    addTreeSitterSources(b, nocted_smoke_mod);
     nocted_smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_smoke_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_smoke_exe = b.addExecutable(.{
@@ -505,6 +489,28 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&nocted_smoke_exe.step);
     check_step.dependOn(&run_tests.step);
     check_step.dependOn(&run_nocted_tests.step);
+}
+
+fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
+    module.addIncludePath(b.path("vendor/tree-sitter/lib/include"));
+    module.addIncludePath(b.path("vendor/tree-sitter-zig/src"));
+    module.addIncludePath(b.path("src/nocted"));
+    module.addCSourceFile(.{
+        .file = b.path("vendor/tree-sitter/lib/src/lib.c"),
+        .flags = &.{ "-std=c11", "-D_GNU_SOURCE" },
+    });
+    for ([_][]const u8{
+        "vendor/tree-sitter-json/src/parser.c",
+        "vendor/tree-sitter-c/src/parser.c",
+        "vendor/tree-sitter-bash/src/parser.c",
+        "vendor/tree-sitter-bash/src/scanner.c",
+        "vendor/tree-sitter-markdown/tree-sitter-markdown/src/parser.c",
+        "vendor/tree-sitter-markdown/tree-sitter-markdown/src/scanner.c",
+        "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/parser.c",
+        "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c",
+        "vendor/tree-sitter-zig/src/parser.c",
+        "src/nocted/tree_sitter_adapter.c",
+    }) |file| module.addCSourceFile(.{ .file = b.path(file), .flags = &.{"-std=c11"} });
 }
 
 fn addNativeGridSources(

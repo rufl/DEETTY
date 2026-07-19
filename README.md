@@ -71,7 +71,7 @@ NoctEd provides:
 - standalone `nocted` binary/process
 - project tree
 - file tabs
-- UTF-8 editing through GtkSourceView
+- UTF-8 editing through GtkSourceView with direct vendored Tree-sitter highlighting and GtkSourceView fallback
 - document find and project Find in Files
 - quick open
 - reversible folding

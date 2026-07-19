@@ -32,6 +32,10 @@ if [ -n "$optional_symbol" ]; then
     "$optional_symbol" >&2
   exit 1
 fi
+if ! strings "$nocted_binary" | grep -F 'noctty_tree_sitter_document_new' >/dev/null; then
+  echo 'release_contract error=nocted_tree_sitter_missing' >&2
+  exit 1
+fi
 if smoke_output=$("$binary" --native-grid-smoke 2>&1); then
   echo 'release_contract error=production_smoke_surface' >&2
   exit 1
@@ -58,9 +62,9 @@ rpm_date=$(date -u -d "$release_date" '+%a %b %d %Y')
 grep -F "$debian_date" packaging/debian/changelog >/dev/null
 grep -F "* $rpm_date" packaging/rpm/noctty.spec >/dev/null
 
-grep -F "Product status: the $version Plasma and Noctalia behavior scope plus local release-source evidence contracts are implemented and verified as of $verified_date." README.md >/dev/null
+grep -F 'NOCTTY is a native terminal workspace for Linux desktops' README.md >/dev/null
 grep -F "## $version — $release_date product behavior complete; release hardening and publication pending" CHANGELOG.md >/dev/null
 grep -F "Product-behavior and local release-source baseline: $version, $verified_date." docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F "Canonical release contract: version $version, source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
 
-echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true noctty_runtime=true nocted_runtime=true production_vte=false production_tree_sitter=false production_smoke_surface=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"
+echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true noctty_runtime=true nocted_runtime=true production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"

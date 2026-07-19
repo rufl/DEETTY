@@ -4,6 +4,7 @@ const build_options = @import("build_options");
 
 const c = @import("gtk.zig");
 const filesystem_worker = @import("FilesystemWorker.zig");
+const tree_sitter = @import("TreeSitter.zig");
 
 const version = @import("noctty_release").version;
 
@@ -64,6 +65,36 @@ const ProjectLoad = struct {
     }
 };
 
+const SyntaxTags = struct {
+    comment: *c.GtkTextTag,
+    string: *c.GtkTextTag,
+    number: *c.GtkTextTag,
+    constant: *c.GtkTextTag,
+    keyword: *c.GtkTextTag,
+    function: *c.GtkTextTag,
+    property: *c.GtkTextTag,
+    type_name: *c.GtkTextTag,
+    heading: *c.GtkTextTag,
+    code_fence: *c.GtkTextTag,
+    variable: *c.GtkTextTag,
+
+    fn get(self: SyntaxTags, scope: tree_sitter.Scope) *c.GtkTextTag {
+        return switch (scope) {
+            .comment => self.comment,
+            .string => self.string,
+            .number => self.number,
+            .constant => self.constant,
+            .keyword => self.keyword,
+            .function => self.function,
+            .property => self.property,
+            .type => self.type_name,
+            .heading => self.heading,
+            .code_fence => self.code_fence,
+            .variable => self.variable,
+        };
+    }
+};
+
 const Document = struct {
     app: *App,
     path: ?[:0]u8,
@@ -83,8 +114,14 @@ const Document = struct {
     editable: bool,
     loading: bool = false,
     identity: ?core.document.FileIdentity = null,
+    syntax: ?tree_sitter.Document = null,
+    syntax_tags: SyntaxTags,
+    syntax_source: c.guint = 0,
+    syntax_capture_count: usize = 0,
 
     fn deinit(self: *Document) void {
+        self.cancelTreeSitterRefresh();
+        if (self.syntax) |*syntax| syntax.deinit();
         self.clearMultiSelections();
         self.secondary_selections.deinit();
         _ = self.clearFolds();
@@ -95,6 +132,90 @@ const Document = struct {
         if (self.path) |path| self.app.allocator.free(path);
         self.app.allocator.free(self.display_name);
         self.* = undefined;
+    }
+
+    fn cancelTreeSitterRefresh(self: *Document) void {
+        if (self.syntax_source == 0) return;
+        _ = c.g_source_remove(self.syntax_source);
+        self.syntax_source = 0;
+    }
+
+    fn configureTreeSitter(self: *Document, path: ?[]const u8) void {
+        self.cancelTreeSitterRefresh();
+        if (self.syntax) |*syntax| syntax.deinit();
+        self.syntax = null;
+        self.syntax_capture_count = 0;
+        const language = tree_sitter.languageForPath(path orelse "") orelse {
+            c.gtk_source_buffer_set_highlight_syntax(self.buffer, 1);
+            return;
+        };
+        self.syntax = tree_sitter.Document.init(language) catch {
+            c.gtk_source_buffer_set_highlight_syntax(self.buffer, 1);
+            return;
+        };
+        c.gtk_source_buffer_set_highlight_syntax(self.buffer, 0);
+        self.refreshTreeSitter() catch {
+            if (self.syntax) |*syntax| syntax.deinit();
+            self.syntax = null;
+            c.gtk_source_buffer_set_highlight_syntax(self.buffer, 1);
+        };
+    }
+
+    fn scheduleTreeSitterRefresh(self: *Document) void {
+        if (self.syntax == null) return;
+        self.cancelTreeSitterRefresh();
+        self.syntax_source = c.g_timeout_add(60, onTreeSitterRefresh, self);
+    }
+
+    fn refreshTreeSitter(self: *Document) !void {
+        var start: c.GtkTextIter = undefined;
+        var end: c.GtkTextIter = undefined;
+        c.gtk_text_buffer_get_bounds(@ptrCast(self.buffer), &start, &end);
+        const text_z = c.gtk_text_buffer_get_text(
+            @ptrCast(self.buffer),
+            &start,
+            &end,
+            1,
+        ) orelse return error.TextUnavailable;
+        defer c.g_free(text_z);
+        const text = std.mem.span(text_z);
+        const syntax = if (self.syntax) |*value| value else return;
+        try syntax.update(text);
+        const captures = try syntax.capturesAlloc(self.app.allocator);
+        defer self.app.allocator.free(captures);
+        self.syntax_capture_count = captures.len;
+
+        inline for (std.meta.fields(SyntaxTags)) |field| {
+            c.gtk_text_buffer_remove_tag(
+                @ptrCast(self.buffer),
+                @field(self.syntax_tags, field.name),
+                &start,
+                &end,
+            );
+        }
+        for (captures) |capture| {
+            if (capture.end <= capture.start or capture.end > text.len) continue;
+            const start_offset = utf8CharacterOffset(text, capture.start) orelse continue;
+            const end_offset = utf8CharacterOffset(text, capture.end) orelse continue;
+            var capture_start: c.GtkTextIter = undefined;
+            var capture_end: c.GtkTextIter = undefined;
+            c.gtk_text_buffer_get_iter_at_offset(
+                @ptrCast(self.buffer),
+                &capture_start,
+                start_offset,
+            );
+            c.gtk_text_buffer_get_iter_at_offset(
+                @ptrCast(self.buffer),
+                &capture_end,
+                end_offset,
+            );
+            c.gtk_text_buffer_apply_tag(
+                @ptrCast(self.buffer),
+                self.syntax_tags.get(capture.scope),
+                &capture_start,
+                &capture_end,
+            );
+        }
     }
 
     fn clearMultiSelections(self: *Document) void {
@@ -290,6 +411,7 @@ const Document = struct {
             @intCast(earliest + replacement_characters),
         );
         c.gtk_text_buffer_select_range(@ptrCast(self.buffer), &caret, &caret);
+        self.scheduleTreeSitterRefresh();
         return true;
     }
 
@@ -541,6 +663,39 @@ const Document = struct {
         return self.app.allocator.dupe(u8, std.mem.span(text));
     }
 };
+
+fn createSyntaxTag(buffer: *c.GtkSourceBuffer, color: [*:0]const u8) !*c.GtkTextTag {
+    return c.gtk_text_buffer_create_tag(
+        @ptrCast(buffer),
+        null,
+        "foreground",
+        color,
+        @as(?*anyopaque, null),
+    ) orelse error.SyntaxTagCreationFailed;
+}
+
+fn createSyntaxTags(buffer: *c.GtkSourceBuffer) !SyntaxTags {
+    return .{
+        .comment = try createSyntaxTag(buffer, "#6b7280"),
+        .string = try createSyntaxTag(buffer, "#9ece6a"),
+        .number = try createSyntaxTag(buffer, "#ff9e64"),
+        .constant = try createSyntaxTag(buffer, "#bb9af7"),
+        .keyword = try createSyntaxTag(buffer, "#7aa2f7"),
+        .function = try createSyntaxTag(buffer, "#7dcfff"),
+        .property = try createSyntaxTag(buffer, "#73daca"),
+        .type_name = try createSyntaxTag(buffer, "#2ac3de"),
+        .heading = try createSyntaxTag(buffer, "#e0af68"),
+        .code_fence = try createSyntaxTag(buffer, "#565f89"),
+        .variable = try createSyntaxTag(buffer, "#c0caf5"),
+    };
+}
+
+fn utf8CharacterOffset(text: []const u8, byte_offset: u32) ?c_int {
+    if (byte_offset > text.len) return null;
+    const count = std.unicode.utf8CountCodepoints(text[0..byte_offset]) catch return null;
+    if (count > std.math.maxInt(c_int)) return null;
+    return @intCast(count);
+}
 
 const App = struct {
     allocator: std.mem.Allocator,
@@ -2018,6 +2173,7 @@ const App = struct {
         document.editable = loaded.mode == .editable;
         document.identity = loaded.identity;
         document.loading = false;
+        document.scheduleTreeSitterRefresh();
         c.gtk_text_view_set_editable(
             @ptrCast(document.view),
             @intFromBool(document.editable),
@@ -2304,6 +2460,7 @@ const App = struct {
             "#d7dde8",
             @as(?*anyopaque, null),
         ) orelse return error.SelectionTagCreationFailed;
+        const syntax_tags = try createSyntaxTags(buffer);
 
         const view = c.gtk_source_view_new_with_buffer(buffer) orelse unreachable;
         c.gtk_source_view_set_show_line_numbers(@ptrCast(view), 1);
@@ -2348,6 +2505,7 @@ const App = struct {
             .buffer = buffer,
             .tab_label = tab_label,
             .identity = identity,
+            .syntax_tags = syntax_tags,
             .fold_tag = fold_tag,
             .folds = std.array_list.Managed(Fold).init(self.allocator),
             .selection_tag = selection_tag,
@@ -2357,6 +2515,7 @@ const App = struct {
         document_initialized = true;
         metadata_owned = false;
         buffer_owned = false;
+        document.configureTreeSitter(path);
         errdefer {
             document.deinit();
             self.allocator.destroy(document);
@@ -2533,6 +2692,7 @@ const App = struct {
             null,
         );
         c.gtk_source_buffer_set_language(document.buffer, language);
+        document.configureTreeSitter(resolved);
         self.updateTabLabel(document);
         self.updateDocumentStatus(document);
         if (self.project_root) |root| {
@@ -4181,6 +4341,10 @@ const App = struct {
         else
             "none";
         const language_ok = std.mem.eql(u8, std.mem.span(language_id), "zig");
+        const tree_sitter_ok = if (document) |value|
+            value.syntax != null and value.syntax_capture_count > 0
+        else
+            false;
         const line_numbers_ok = if (document) |value|
             c.gtk_source_view_get_show_line_numbers(@ptrCast(value.view)) != 0
         else
@@ -4532,7 +4696,7 @@ const App = struct {
                 document_reopen_ok = self.currentDocument() != null;
             }
         }
-        const pass = self.currentDocument() != null and language_ok and line_numbers_ok and
+        const pass = self.currentDocument() != null and language_ok and tree_sitter_ok and line_numbers_ok and
             minimap_bound and project_ok and project_activation_ok and
             project_tree_lazy_ok and
             language_count >= 100 and undo_ok and redo_ok and save_ok and
@@ -4561,11 +4725,12 @@ const App = struct {
             self.settings.minimap_visible and
             self.settings.sidebar_visible;
         c.g_print(
-            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d line_numbers=%d minimap_bound=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
+            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
             @as(c_int, @intFromBool(pass)),
             self.documents.items.len,
             language_id,
             @as(c_int, @intFromBool(language_ok)),
+            @as(c_int, @intFromBool(tree_sitter_ok)),
             @as(c_int, @intFromBool(line_numbers_ok)),
             @as(c_int, @intFromBool(minimap_bound)),
             @as(c_int, @intFromBool(project_ok)),
@@ -5347,6 +5512,18 @@ fn onBufferChanged(_: ?*c.GtkTextBuffer, data: ?*anyopaque) callconv(.c) void {
     if (document.multi_editing) return;
     document.clearMultiSelections();
     _ = document.clearFolds();
+    document.scheduleTreeSitterRefresh();
+}
+
+fn onTreeSitterRefresh(data: ?*anyopaque) callconv(.c) c.gboolean {
+    const document: *Document = @ptrCast(@alignCast(data orelse return c.G_SOURCE_REMOVE));
+    document.syntax_source = 0;
+    document.refreshTreeSitter() catch {
+        if (document.syntax) |*syntax| syntax.deinit();
+        document.syntax = null;
+        c.gtk_source_buffer_set_highlight_syntax(document.buffer, 1);
+    };
+    return c.G_SOURCE_REMOVE;
 }
 
 fn onEditorKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque) callconv(.c) c.gboolean {
@@ -5867,7 +6044,7 @@ fn onSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
     }
     if (app.smoke_passed) {
         c.g_print(
-            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
+            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true tree_sitter=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
             app.languageCount(),
             app.project_entry_count,
         );
