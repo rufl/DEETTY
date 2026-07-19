@@ -73,6 +73,12 @@ gate is not claimed green until it completes outside the short agent timeout.
 
 ## Known open alpha items
 
+Current dogfood status:
+
+```text
+dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
+```
+
 - counted real dogfood sessions are still needed
 - full maintainer `./scripts/verify.sh` receipt still needs a long local run
 - signing/publication/artifact signatures are not complete
