@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added `docs/PUBLIC_ALPHA_GO_NO_GO.md`, a final decision sheet that keeps the project no-go for public alpha announcement while counted dogfood remains zero, while documenting the narrower acceptable source-alpha path once dogfood starts.
 - Refreshed the bounded source-alpha proof: `./scripts/public_alpha_verify.sh` passes with build/check, no-surprise network, docs truth, native-grid X11/Wayland smoke, and NoctEd native smoke true; `./scripts/dogfood_status.sh` still reports zero counted sessions, so dogfood remains the honest blocker.
 - Added `./scripts/dogfood_status.sh`, a small read-only dogfood progress summary that counts only `docs/DOGFOOD_LOG.md` entries not marked "not counted" and reports the remaining alpha coverage flags.
 - Added `docs/DOGFOOD_RUNBOOK.md`, a short counted-session protocol for the remaining public-alpha dogfood work. It defines what counts, the first-session target, four-pane target, foreground-job close-confirmation target, NoctEd edit/search/save coverage, and what not to count.

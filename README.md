@@ -231,7 +231,7 @@ Before publishing as a Lichforge public alpha, the project should have:
 - package/signing/redistribution status clearly separated from source release
 - a retained no-surprise network/telemetry source scan
 
-See [Public alpha plan](docs/PUBLIC_ALPHA_PLAN.md), [draft alpha release notes](docs/PUBLIC_ALPHA_RELEASE_NOTES.md), [Roadmap](ROADMAP.md),
+See [Public alpha plan](docs/PUBLIC_ALPHA_PLAN.md), [go/no-go sheet](docs/PUBLIC_ALPHA_GO_NO_GO.md), [draft alpha release notes](docs/PUBLIC_ALPHA_RELEASE_NOTES.md), [Roadmap](ROADMAP.md),
 [project memory](MEMORY.md), the [dogfood runbook](docs/DOGFOOD_RUNBOOK.md), the [dogfood log](docs/DOGFOOD_LOG.md), and the
 historical [pitch audit](docs/PITCH_AUDIT.md). Dogfood progress can be checked with
 `./scripts/dogfood_status.sh`.

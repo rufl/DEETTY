@@ -5,6 +5,7 @@ for path in README.md docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHA
   docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md \
   docs/COMPACT_UX.md docs/NOCTED.md docs/NOCTALIA.md docs/INSTALL.md docs/RELEASE_CHECKLIST.md \
   docs/RELEASE_OPERATIONS.md docs/NO_SURPRISE_NETWORK.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md \
+  docs/PUBLIC_ALPHA_GO_NO_GO.md \
   scripts/public_alpha_verify.sh scripts/dogfood_status.sh \
   docs/TERMINAL_BENCHMARK.md docs/DAILY_DRIVER.md docs/DOGFOOD_RUNBOOK.md \
   .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/alpha_dogfood.yml \
@@ -72,6 +73,7 @@ grep -F 'docs/KNOWN_LIMITATIONS.md' README.md >/dev/null
 grep -F 'docs/NO_SURPRISE_NETWORK.md' README.md >/dev/null
 grep -F 'docs/CODE_MAP.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_PLAN.md' README.md >/dev/null
+grep -F 'docs/PUBLIC_ALPHA_GO_NO_GO.md' README.md >/dev/null
 grep -F 'docs/PUBLIC_ALPHA_RELEASE_NOTES.md' README.md >/dev/null
 grep -F 'docs/DOGFOOD_RUNBOOK.md' README.md >/dev/null
 grep -F 'docs/DOGFOOD_LOG.md' README.md >/dev/null
@@ -125,6 +127,9 @@ grep -F './scripts/dogfood_status.sh' README.md docs/DOGFOOD_RUNBOOK.md docs/PUB
 dogfood_status_output=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status_output" | grep -F 'counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' >/dev/null
 grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F 'go/no-go sheet in `docs/PUBLIC_ALPHA_GO_NO_GO.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
+grep -F -- '- [x] public alpha go/no-go sheet' ROADMAP.md >/dev/null
+grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood exists.' docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
 grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null
