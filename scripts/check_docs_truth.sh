@@ -571,7 +571,7 @@ grep -F 'native_grid_credentialed_ssh_smoke profile=true system_client=true syst
 grep -F 'NOCTTY_SSH_SMOKE_TARGET=' scripts/native_grid_credentialed_ssh_smoke.sh >/dev/null
 grep -F 'run_smoke ./scripts/native_grid_credentialed_ssh_smoke.sh' scripts/native_release_smoke.sh >/dev/null
 grep -F 'credentialed_ssh=true settings_stacking=true' scripts/native_release_smoke.sh >/dev/null
-grep -F 'const config_version: u8 = 9;' src/config/Storage.zig >/dev/null
+grep -F 'const config_version: u8 = 10;' src/config/Storage.zig >/dev/null
 grep -F 'config_v9=true atomic=true separate_process_policy=true' src/main.zig scripts/native_grid_workspace_activation_smoke.sh BACKLOG.md docs/WORKSPACE_ACTIVATION.md >/dev/null
 grep -F 'mktemp -d "$repo_root/.noctty-workspace-activation.XXXXXX"' scripts/native_grid_workspace_activation_smoke.sh >/dev/null
 grep -F 'tmux = 3,' src/terminal/LaunchProfile.zig >/dev/null
@@ -876,8 +876,8 @@ for path in scripts/native_grid_pipeline_qualification.sh docs/TECHNICAL_STATUS.
 done
 grep -F '6ffcf3f95517772167cb41074a4af7afdc82aa2ec9edd621ff85fd90500c55fc' CHANGELOG.md docs/TERMINAL_PIPELINE_QUALIFICATION.md >/dev/null
 grep -F 'not a mapped GTK widget, frame-clock callback, compositor presentation, or visible photon' docs/TERMINAL_PIPELINE_QUALIFICATION.md >/dev/null
-grep -F 'churn_cycles=8 sessions_created=32 sessions_closed=32' scripts/native_grid_resource_qualification.sh >/dev/null
-grep -F 'native_grid_resource_qualification debug=true release_safe=true churn_cycles=8 sessions_created=32 sessions_closed=32 root_memory_separate=true process_tree_memory=true scratch_clean=true' scripts/native_grid_resource_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
+grep -F 'layout_4x4=true panes_4x4=16' scripts/native_grid_resource_qualification.sh >/dev/null
+grep -F 'native_grid_resource_qualification debug=true release_safe=true churn_cycles=8 max_live_sessions=16 overflow_preserved=true root_memory_separate=true process_tree_memory=true scratch_clean=true' scripts/native_grid_resource_qualification.sh BACKLOG_ARCHIVE.md docs/DAILY_DRIVER.md >/dev/null
 grep -F 'terminal_history_matrix debug=true release_safe=true lines=100000 compact=true reflow=true grow_shrink=true scratch_clean=true' scripts/terminal_history_qualification.sh BACKLOG_ARCHIVE.md CHANGELOG.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F '.name = "nocted"' build.zig >/dev/null
 grep -F 'nocted_mod.addImport("noctty_release", release_mod);' build.zig >/dev/null
@@ -1032,7 +1032,12 @@ grep -F 'Close Terminal' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPA
 grep -F 'add_reopen_after_close=true fresh_context=true' scripts/native_grid_two_tab_smoke.sh >/dev/null
 grep -F 'primary_pty_closed=true late_callback_guard=true remaining_tabs=1' scripts/native_grid_two_tab_smoke.sh >/dev/null
 grep -F 'close_terminal=true foreground_guard=true close_confirmed=true model_closed=true rendered_closed=true primary_pty_closed=true session_storage_released=true' scripts/native_grid_pane_close_smoke.sh >/dev/null
-grep -F 'layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 sessions_created=32 sessions_closed=32 layout_3x3=true panes_3x3=9 live_sessions=9 balanced_3x3=true layout_1x1=true panes_1x1=1 surplus_ptys_closed=true session_storage_released=true' scripts/native_grid_layout_preset_smoke.sh >/dev/null
+grep -F 'layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true' scripts/native_grid_layout_preset_smoke.sh >/dev/null
+test -x scripts/native_grid_layout_tui_matrix.sh
+sh -n scripts/native_grid_layout_tui_matrix.sh
+grep -F 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true' scripts/native_grid_layout_tui_matrix.sh docs/COMPACT_UX.md docs/DAILY_DRIVER.md >/dev/null
+grep -F 'run_smoke ./scripts/native_grid_layout_tui_matrix.sh' scripts/native_release_smoke.sh >/dev/null
+grep -F 'layout_presets=true layout_tui=true resize_overlay=true' scripts/native_release_smoke.sh docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 test -x scripts/native_grid_tab_reorder_smoke.sh
 sh -n scripts/native_grid_tab_reorder_smoke.sh
 grep -F 'search --onlyvisible --pid "$pid"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null

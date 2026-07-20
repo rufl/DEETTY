@@ -291,6 +291,8 @@ pub const App = struct {
         set_long_running_minutes: u16,
         set_font_size: f32,
         set_font_family: []const u8,
+        set_font_antialias: Config.FontAntialias,
+        set_font_hinting: Config.FontHinting,
         set_default_theme: []const u8,
         set_syntax_theme: []const u8,
         set_panel_metrics: Config.PanelMetrics,
@@ -503,6 +505,8 @@ pub const App = struct {
         long_running_minutes,
         font_size,
         font_family,
+        font_antialias,
+        font_hinting,
         default_theme,
         syntax_theme,
         panel_metrics,
@@ -1339,6 +1343,18 @@ pub const App = struct {
                 try self.setOwnedFontFamily(family);
                 return .{ .config_changed = .font_family };
             },
+            .set_font_antialias => |antialias| {
+                var next = self.config;
+                next.font.antialias = antialias;
+                try self.applyConfig(next);
+                return .{ .config_changed = .font_antialias };
+            },
+            .set_font_hinting => |hinting| {
+                var next = self.config;
+                next.font.hinting = hinting;
+                try self.applyConfig(next);
+                return .{ .config_changed = .font_hinting };
+            },
             .set_default_theme => |name| {
                 try self.setOwnedDefaultTheme(name);
                 return .{ .config_changed = .default_theme };
@@ -2051,7 +2067,7 @@ test "app dispatches host mode shortcut font and broadcast commands" {
     try std.testing.expect(app.config.dropdown.shortcut.ctrl);
 
     const font_result = try app.dispatch(.font_larger);
-    try std.testing.expectEqual(@as(f32, 13.0), font_result.font_changed);
+    try std.testing.expectEqual(@as(f32, 14.0), font_result.font_changed);
 
     const broadcast_result = try app.dispatch(.toggle_broadcast);
     try std.testing.expect(broadcast_result.broadcast_changed);
@@ -2341,7 +2357,7 @@ test "app rejects stale profile preset menu selection" {
         .pane_id = 1,
         .preset = .compact,
     } }));
-    try std.testing.expectEqual(@as(f32, 12.0), app.workspace.findPane(1).?.profile.font_size_pt);
+    try std.testing.expectEqual(@as(f32, 13.0), app.workspace.findPane(1).?.profile.font_size_pt);
     try std.testing.expectError(error.PaneNotFound, app.dispatch(.{ .show_profile_preset_menu = .{ .pane_id = 99 } }));
 
     const request = (try app.dispatch(.{ .show_profile_preset_menu = .{ .pane_id = 1 } })).profile_preset_menu_requested;
@@ -2459,10 +2475,10 @@ test "app rejects invalid gui settings without mutating current config" {
     defer app.deinit();
 
     try std.testing.expectError(error.InvalidFontSize, app.dispatch(.{ .set_font_size = 99 }));
-    try std.testing.expectEqual(@as(f32, 12.0), app.config.font.size_pt);
+    try std.testing.expectEqual(@as(f32, 13.0), app.config.font.size_pt);
 
     try std.testing.expectError(error.InvalidFontFamily, app.dispatch(.{ .set_font_family = "   " }));
-    try std.testing.expectEqualStrings("JetBrains Mono", app.config.font.family);
+    try std.testing.expectEqualStrings("Monospace", app.config.font.family);
 
     var metrics = app.config.panels;
     metrics.main_titlebar_px = 12;

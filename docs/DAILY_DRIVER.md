@@ -109,14 +109,15 @@ scheduling calculation, not a new CPU benchmark
 `source_cleanup=centralized`).
 
 The bounded native-grid qualification repeats real 1x1/2x2/1x1 churn eight
-times, then removes a 3x3 layout, for 32 dynamic session creates and closes in
-both Debug and `ReleaseSafe`. A complementary headless production-session lane
+times, grows through balanced 3x3 and 4x4 layouts, then proves cancel-first
+shrink protection and preservation of 15 surplus sessions in an overflow tab
+in both Debug and `ReleaseSafe`. A mapped matrix additionally runs 16-pane Vim and mixed btop/Vim grids on both native Wayland and X11, requiring nonblank content, routed input, 80×24 auto-fit, and session preservation (`native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true`). A complementary headless production-session lane
 now repeats 64 ordinary plus eight forced real-PTY lifecycles per mode. The
 forced job ignores `SIGHUP` and `SIGTERM`; all 16 cases exhaust the 500 ms grace,
 lose both shell and foreground group, and leave zero process or allocator
 residue. Both lanes sample the terminal root separately from the complete child
 process tree and report
-`native_grid_resource_qualification debug=true release_safe=true churn_cycles=8 sessions_created=32 sessions_closed=32 root_memory_separate=true process_tree_memory=true scratch_clean=true`
+`native_grid_resource_qualification debug=true release_safe=true churn_cycles=8 max_live_sessions=16 overflow_preserved=true root_memory_separate=true process_tree_memory=true scratch_clean=true`
 and
 `terminal_session_qualification_matrix debug=true release_safe=true normal_cycles=64 forced_cycles=8 sessions_per_mode=72 total_sessions=144 allocator_leak_free=true forced_group_shutdown=true latency_percentiles=true root_memory_separate=true process_tree_memory=true scratch_clean=true`.
 The controlled installed-application lane adds

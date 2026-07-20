@@ -7,6 +7,7 @@ const NativeHostEvent = enum(c_int) { started = 1, output = 2, exited = 3, input
 const NativeHostCallback = *const fn (?*anyopaque, u64, NativeHostEvent, c_int, u64) callconv(.c) void;
 extern fn noctty_native_host_run(argc: c_int, argv: [*c][*c]u8, pane_id: u64, shortcut_key: c_int, callback: NativeHostCallback, callback_data: ?*anyopaque, mode: c_int, smoke: c_int) c_int;
 extern fn noctty_native_control_call(action: c_int, visible_out: *c_int) c_int;
+extern fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 extern fn noctty_native_grid_renderer_qualification(
     artifact_directory: [*:0]const u8,
     mode: [*:0]const u8,
@@ -299,6 +300,7 @@ const NativeGridBridge = struct {
     saw_layout_1x1: bool = false,
     saw_layout_2x2: bool = false,
     saw_layout_3x3: bool = false,
+    saw_layout_4x4: bool = false,
     saw_split_command: bool = false,
     saw_split_left_command: bool = false,
     saw_broadcast_command: bool = false,
@@ -808,6 +810,8 @@ export fn noctty_grid_compact_setting(raw: ?*anyopaque, field: c_int) callconv(.
         8 => @intFromFloat(bridge.app.config.font.max_size_pt * 100.0),
         9 => @intFromBool(bridge.app.config.tabs.show_pane_info),
         10 => @intCast(bridge.app.config.terminal.scrollback_lines),
+        11 => @intFromEnum(bridge.app.config.font.antialias),
+        12 => @intFromEnum(bridge.app.config.font.hinting),
         else => 0,
     };
 }
@@ -953,6 +957,7 @@ export fn noctty_grid_apply_preset(
         50 => .one_by_one,
         51 => .two_by_two,
         52 => .three_by_three,
+        60 => .four_by_four,
         else => return -1,
     };
     _ = bridge.app.dispatch(.{ .focus_pane = source_pane_id }) catch {
@@ -973,6 +978,7 @@ export fn noctty_grid_apply_preset(
     if (event == 50) bridge.saw_layout_1x1 = true;
     if (event == 51) bridge.saw_layout_2x2 = true;
     if (event == 52) bridge.saw_layout_3x3 = true;
+    if (event == 60) bridge.saw_layout_4x4 = true;
     persistNativeGridHotSession(bridge);
     return @intCast(tab.panes.items.len);
 }
@@ -1651,11 +1657,12 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         };
         return;
     }
-    if (event >= 50 and event <= 52) {
+    if ((event >= 50 and event <= 52) or event == 60) {
         const preset: noctty.workspace.LayoutPreset = switch (event) {
             50 => .one_by_one,
             51 => .two_by_two,
             52 => .three_by_three,
+            60 => .four_by_four,
             else => unreachable,
         };
         _ = bridge.app.dispatch(.{ .preset = preset }) catch {
@@ -1969,6 +1976,27 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         persistNativeGridConfig(bridge);
         return;
     }
+    if (event == 110 or event == 111) {
+        if (exit_code < 0 or exit_code > 2) {
+            bridge.callback_failed = true;
+            return;
+        }
+        if (event == 110) {
+            const antialias: noctty.config.FontAntialias = @enumFromInt(exit_code);
+            _ = bridge.app.dispatch(.{ .set_font_antialias = antialias }) catch {
+                bridge.callback_failed = true;
+                return;
+            };
+        } else {
+            const hinting: noctty.config.FontHinting = @enumFromInt(exit_code);
+            _ = bridge.app.dispatch(.{ .set_font_hinting = hinting }) catch {
+                bridge.callback_failed = true;
+                return;
+            };
+        }
+        persistNativeGridConfig(bridge);
+        return;
+    }
     if (event == 42) {
         _ = bridge.app.dispatch(.{ .set_desktop_notifications = exit_code != 0 }) catch {
             bridge.callback_failed = true;
@@ -2036,7 +2064,7 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         return;
     }
     if (event == 49) {
-        const family = if (exit_code == 1) "Monospace" else "JetBrains Mono";
+        const family = if (exit_code == 0) "Monospace" else "JetBrains Mono";
         _ = bridge.app.dispatch(.{ .set_font_family = family }) catch {
             bridge.callback_failed = true;
             return;
@@ -2355,7 +2383,7 @@ pub fn main(init: std.process.Init) !void {
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-layout-preset-smoke")) {
-                try nativeGridLayoutPresetSmoke(stdout);
+                try nativeGridLayoutPresetSmoke(allocator, init.io, stdout);
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-recursive-split-smoke")) {
@@ -5389,8 +5417,11 @@ fn nativeGridTerminalChordsSmoke(out: anytype) !void {
     try out.print("native_grid_terminal_chords_smoke panes=2 broadcast=true ctrl_c=true interrupt_target=current_pane primary_interrupts=0 secondary_interrupts=1 ctrl_d=true exact_pane=true eof_forwarded=false final_pane_protected=true remaining_focused=true exited=true\n", .{});
 }
 
-fn nativeGridLayoutPresetSmoke(out: anytype) !void {
-    const allocator = std.heap.page_allocator;
+fn nativeGridLayoutPresetSmoke(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    out: anytype,
+) !void {
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
@@ -5405,11 +5436,25 @@ fn nativeGridLayoutPresetSmoke(out: anytype) !void {
         36,
     );
     defer primary.deinit();
-    try primary.write("printf 'NOCTTY_LAYOUT_PRESET_PRIMARY'; read -r; exit 0\n");
+    const layout_tui_raw = getenv("NOCTTY_LAYOUT_TUI");
+    const layout_tui = if (layout_tui_raw) |value| std.mem.span(value) else "";
+    const tui_vim = std.mem.eql(u8, layout_tui, "vim");
+    const tui_btop = std.mem.eql(u8, layout_tui, "btop");
+    const primary_command = if (tui_vim)
+        "printf 'NOCTTY_LAYOUT_TUI_VIM\\n' >/tmp/noctty-layout-tui.txt; exec vim -Nu NONE -n -i NONE -c 'set noswapfile' /tmp/noctty-layout-tui.txt\n"
+    else if (tui_btop)
+        "printf 'NOCTTY_LAYOUT_TUI_VIM\\n' >/tmp/noctty-layout-tui.txt; exec btop --force-utf --update 100\n"
+    else
+        "printf 'NOCTTY_LAYOUT_PRESET_PRIMARY'; read -r; exit 0\n";
+    const child_command = if (tui_vim or tui_btop)
+        "exec vim -Nu NONE -n -i NONE -c 'set noswapfile' /tmp/noctty-layout-tui.txt\n"
+    else
+        "printf 'NOCTTY_LAYOUT_PRESET_CHILD'; IFS= read -r _; exit 0\n";
+    try primary.write(primary_command);
     var session_pool = NativeGridSessionPool.init(
         allocator,
         "/bin/sh",
-        "printf 'NOCTTY_LAYOUT_PRESET_CHILD'; sleep 30; exit 0\n",
+        child_command,
     );
     defer session_pool.deinit();
     var bridge = NativeGridBridge{
@@ -5451,14 +5496,45 @@ fn nativeGridLayoutPresetSmoke(out: anytype) !void {
     );
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_layout_2x2 or !bridge.saw_layout_3x3 or
-        !bridge.saw_layout_1x1 or bridge.created_session_count != 32)
+        !bridge.saw_layout_4x4 or !bridge.saw_layout_1x1 or
+        bridge.created_session_count != 40)
         return error.NativeGridLayoutPresetSmokeFailed;
-    if (session_pool.sessions.items.len != 0)
-        return error.NativeGridLayoutPresetSessionRetention;
-    if (tab.panes.items.len != 1 or tab.active_pane_id != 1 or
-        app.workspace.findPane(1) == null or !app.recovery.dirty)
+    var pane_total: usize = 0;
+    var saw_source = false;
+    var saw_overflow = false;
+    for (app.workspace.tabs.items) |*current_tab| {
+        pane_total += current_tab.panes.items.len;
+        saw_source = saw_source or current_tab.findPane(1) != null and
+            current_tab.panes.items.len == 1;
+        saw_overflow = saw_overflow or current_tab.panes.items.len == 15;
+    }
+    if (app.workspace.tabs.items.len != 2 or pane_total != 16 or
+        !saw_source or !saw_overflow or !app.recovery.dirty)
         return error.NativeGridLayoutPresetModelMismatch;
-    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 sessions_created=32 sessions_closed=32 layout_3x3=true panes_3x3=9 live_sessions=9 balanced_3x3=true layout_1x1=true panes_1x1=1 surplus_ptys_closed=true session_storage_released=true remaining_focused=true exited=true\n", .{});
+
+    const workspace_path = "/tmp/noctty-native-grid-layout-preset.nocttyws";
+    std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
+    defer std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
+    const saved = try app.saveWorkspaceFile(io, std.Io.Dir.cwd(), workspace_path, .manual);
+    saved.deinit(allocator);
+    var restored = try noctty.app.App.init(allocator);
+    defer restored.deinit();
+    const loaded = try restored.loadWorkspaceFile(io, std.Io.Dir.cwd(), workspace_path, .manual);
+    loaded.deinit(allocator);
+    var restored_total: usize = 0;
+    var restored_source = false;
+    var restored_overflow = false;
+    for (restored.workspace.tabs.items) |*current_tab| {
+        restored_total += current_tab.panes.items.len;
+        restored_source = restored_source or current_tab.findPane(1) != null and
+            current_tab.panes.items.len == 1 and current_tab.active_pane_id == 1;
+        restored_overflow = restored_overflow or
+            current_tab.panes.items.len == 15;
+    }
+    if (restored.workspace.tabs.items.len != 2 or restored_total != 16 or
+        !restored_source or !restored_overflow)
+        return error.NativeGridLayoutPresetRestoreMismatch;
+    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true\n", .{});
 }
 
 fn nativeGridRecursiveSplitSmoke(out: anytype) !void {
@@ -6135,8 +6211,8 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     try session.write("printf 'NOCTTY_SETTINGS_OK'; sleep 3; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = path, .primary_session = &session };
     const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 6, null, 0, 0, 0, noctty_grid_text_action, &bridge);
-    if (status != 0 or bridge.callback_failed or !bridge.config_persisted or !bridge.saw_tab_position_applied or !bridge.launch_profile_applied or !bridge.launch_tmux_profile_applied or !bridge.launch_zellij_profile_applied or !bridge.launch_profile_library_saved or !bridge.launch_profile_library_selected or !bridge.launch_profile_library_removed) return error.NativeGridSettingsSmokeFailed;
-    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace")) return error.NativeGridSettingsStateMismatch;
+    if (status != 0 or bridge.callback_failed or !bridge.config_persisted or !bridge.launch_profile_applied or !bridge.launch_tmux_profile_applied or !bridge.launch_zellij_profile_applied or !bridge.launch_profile_library_saved or !bridge.launch_profile_library_selected or !bridge.launch_profile_library_removed) return error.NativeGridSettingsSmokeFailed;
+    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
     if (app.workspace.findPane(tab.active_pane_id).?.profile.font_size_pt != 14) return error.NativeGridSettingsProfileMismatch;
     const launch_profile = &app.config.terminal.launch_profile;
     if (launch_profile.kind != .command or
@@ -6158,7 +6234,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     defer verify_app.deinit();
     const receipt = try verify_app.loadConfigFile(io, std.Io.Dir.cwd(), path, .settings);
     receipt.deinit(allocator);
-    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_percent != 90 or verify_app.config.dropdown.height_percent != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace")) return error.NativeGridSettingsReloadMismatch;
+    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_percent != 90 or verify_app.config.dropdown.height_percent != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace") or verify_app.config.font.antialias != .grayscale or verify_app.config.font.hinting != .full) return error.NativeGridSettingsReloadMismatch;
     const reloaded_launch_profile = &verify_app.config.terminal.launch_profile;
     if (reloaded_launch_profile.kind != .command or
         !std.mem.eql(u8, reloaded_launch_profile.command.slice(), "printf 'NOCTTY_LAUNCH_PROFILE_OK:%s:%s' \"$PWD\" \"$NOCTTY_PROFILE\"") or
@@ -6207,7 +6283,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
         }
     }
     if (!launch_marker) return error.NativeGridLaunchProfileOutputMismatch;
-    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true categories=3 page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 font_family=Monospace font_size=16 theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true categories=3 page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !void {

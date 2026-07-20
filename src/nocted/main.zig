@@ -4832,6 +4832,22 @@ pub fn main(init: std.process.Init) !void {
         try writer.interface.flush();
         return;
     }
+    if (args.len > 1 and std.mem.eql(u8, args[1], "--runtime-contract")) {
+        var document = try tree_sitter.Document.init(.zig);
+        defer document.deinit();
+        try document.update("const runtime_contract = true;\n");
+        const captures = try document.capturesAlloc(allocator);
+        defer allocator.free(captures);
+        if (captures.len == 0) return error.TreeSitterContractFailed;
+        var buffer: [128]u8 = undefined;
+        var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+        try writer.interface.print(
+            "nocted_runtime_contract tree_sitter=true captures={d}\n",
+            .{captures.len},
+        );
+        try writer.interface.flush();
+        return;
+    }
     if (c.gtk_init_check(null, null) == 0) return error.GtkUnavailable;
     const home = init.environ_map.get("HOME") orelse ".";
     var app = try App.init(

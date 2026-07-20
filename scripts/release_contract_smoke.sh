@@ -32,10 +32,9 @@ if [ -n "$optional_symbol" ]; then
     "$optional_symbol" >&2
   exit 1
 fi
-if ! strings "$nocted_binary" | grep -F 'noctty_tree_sitter_document_new' >/dev/null; then
-  echo 'release_contract error=nocted_tree_sitter_missing' >&2
-  exit 1
-fi
+nocted_runtime_contract=$("$nocted_binary" --runtime-contract)
+printf '%s\n' "$nocted_runtime_contract" | grep -E \
+  '^nocted_runtime_contract tree_sitter=true captures=[1-9][0-9]*$' >/dev/null
 if smoke_output=$("$binary" --native-grid-smoke 2>&1); then
   echo 'release_contract error=production_smoke_surface' >&2
   exit 1

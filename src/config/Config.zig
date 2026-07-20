@@ -227,13 +227,18 @@ pub const KeyEvent = struct {
     super: bool = false,
 };
 
+pub const FontAntialias = enum { system, grayscale, subpixel };
+pub const FontHinting = enum { none, slight, full };
+
 pub const FontConfig = struct {
-    family: []const u8 = "JetBrains Mono",
-    size_pt: f32 = 12.0,
+    family: []const u8 = "Monospace",
+    size_pt: f32 = 13.0,
     min_size_pt: f32 = 7.0,
     max_size_pt: f32 = 28.0,
     ligatures: bool = true,
     hidpi: bool = true,
+    antialias: FontAntialias = .subpixel,
+    hinting: FontHinting = .slight,
 
     pub fn clampSize(self: FontConfig, requested: f32) f32 {
         return @min(self.max_size_pt, @max(self.min_size_pt, requested));
@@ -248,15 +253,15 @@ pub const FontConfig = struct {
 
 pub const DropdownConfig = struct {
     shortcut: Shortcut = .{},
-    width_percent: u8 = 100,
-    height_percent: u8 = 45,
-    animation_ms: u16 = 80,
+    width_percent: u8 = 96,
+    height_percent: u8 = 55,
+    animation_ms: u16 = 120,
     hide_on_focus_loss: bool = true,
 };
 
 pub const TabConfig = struct {
-    position: TabPosition = .top,
-    compact_height_px: u16 = 20,
+    position: TabPosition = .bottom,
+    compact_height_px: u16 = 22,
     show_status_counts: bool = true,
     tooltip_details: bool = true,
     focus_follows_pointer: bool = false,
@@ -268,8 +273,8 @@ pub const TabConfig = struct {
 };
 
 pub const PanelMetrics = struct {
-    padding_px: u16 = 4,
-    spacing_px: u16 = 2,
+    padding_px: u16 = 6,
+    spacing_px: u16 = 4,
     divider_px: u16 = 1,
     border_px: u16 = 1,
     terminal_titlebar_px: u16 = 0,
@@ -283,7 +288,7 @@ pub const PanelMetrics = struct {
 };
 
 pub const StatusConfig = struct {
-    indicator: StatusIndicator = .border,
+    indicator: StatusIndicator = .background,
     long_running_minutes: u16 = 20,
     desktop_notifications: bool = true,
 
@@ -393,8 +398,17 @@ test "defaults match product constraints" {
     try cfg.validate();
     try std.testing.expectEqual(WindowMode.dropdown, cfg.default_mode);
     try std.testing.expectEqual(Shortcut.Key.f10, cfg.dropdown.shortcut.key);
-    try std.testing.expectEqualStrings("JetBrains Mono", cfg.font.family);
+    try std.testing.expectEqualStrings("Monospace", cfg.font.family);
+    try std.testing.expectEqual(@as(f32, 13.0), cfg.font.size_pt);
+    try std.testing.expectEqual(@as(u8, 96), cfg.dropdown.width_percent);
+    try std.testing.expectEqual(@as(u8, 55), cfg.dropdown.height_percent);
+    try std.testing.expectEqual(@as(u16, 120), cfg.dropdown.animation_ms);
+    try std.testing.expectEqual(TabPosition.bottom, cfg.tabs.position);
+    try std.testing.expectEqual(@as(u16, 22), cfg.tabs.compact_height_px);
+    try std.testing.expectEqual(StatusIndicator.background, cfg.status.indicator);
     try std.testing.expect(cfg.font.ligatures);
+    try std.testing.expectEqual(FontAntialias.subpixel, cfg.font.antialias);
+    try std.testing.expectEqual(FontHinting.slight, cfg.font.hinting);
     try std.testing.expectEqual(@as(u32, 1000), cfg.terminal.scrollback_lines);
     try std.testing.expectEqual(LaunchProfile.Kind.shell, cfg.terminal.launch_profile.kind);
     try std.testing.expectEqual(@as(u8, 0), cfg.terminal.launch_profiles.count);

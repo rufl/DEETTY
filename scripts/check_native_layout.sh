@@ -29,8 +29,8 @@ grep -F 'tcgetpgrp(fd)' "$pty" >/dev/null
 grep -F 'noctty_pane_info_strip_update' "$pane_info_strip" >/dev/null
 grep -F 'refresh_active_pane_info(root);' "$grid" >/dev/null
 grep -F 'grid_page_content_root' "$grid" >/dev/null
-grep -F 'Show active pane information' "$grid" >/dev/null
-grep -F 'pane_info=true pane_source=pty_proc pane_refresh=coalesced pane_info_dedup=true' src/main.zig >/dev/null
+grep -F 'Show bottom pane and resource bar' "$grid" >/dev/null
+grep -F 'pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true' src/main.zig >/dev/null
 grep -F 'mark_workspace_menu_action(item);' "$grid" >/dev/null
 grep -F '"noctty-workspace-action"' "$grid" >/dev/null
 grep -F 'gtk_widget_grab_focus(active->area);' "$grid" >/dev/null
@@ -52,7 +52,7 @@ grep -F 'Code Folding Enabled' "$nocted" >/dev/null
 grep -F 'Find in Files...' "$nocted" >/dev/null
 grep -F 'Close Other Files' "$nocted" >/dev/null
 grep -F 'Close All Files' "$nocted" >/dev/null
-grep -F '#nocted-minimap.scrubber { background-color: rgba(102, 217, 239, 0.16); }' "$nocted" >/dev/null
+grep -F '#nocted-minimap.scrubber { background-color: rgba(143, 184, 255, 0.18); }' "$nocted" >/dev/null
 grep -F 'pub const max_regions: usize = 4096;' "$nocted_folding" >/dev/null
 grep -F 'pub const max_results: usize = 1000;' "$nocted_search" >/dev/null
 grep -F 'fn completeTextAlloc' "$nocted" >/dev/null
@@ -67,7 +67,7 @@ grep -F 'const progress = try cursor.step(1);' "$nocted_worker" >/dev/null
 grep -F 'pending >= Job.search_batch_size or timed_flush or' "$nocted_worker" >/dev/null
 grep -F 'documents_by_path: std.StringHashMap(*Document)' "$nocted" >/dev/null
 grep -F 'if (self.shutting_down) return null;' "$nocted" >/dev/null
-grep -F 'nocted_native_gate rendered=true folding=true' scripts/nocted_native_smoke.sh >/dev/null
+grep -F 'nocted_native_gate rendered=true tree_sitter=true folding=true' scripts/nocted_native_smoke.sh >/dev/null
 grep -F "'fold_undo_preserved=1'" scripts/nocted_native_smoke.sh >/dev/null
 grep -F 'nocted_native_matrix x11=true wayland=true' scripts/nocted_native_matrix.sh >/dev/null
 grep -F 'run_smoke ./scripts/nocted_native_matrix.sh' scripts/native_release_smoke.sh >/dev/null

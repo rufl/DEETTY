@@ -29,8 +29,8 @@ pub const StatusEvent = union(enum) {
 
 pub const TerminalProfile = struct {
     theme_name: []const u8 = "noctty-dark",
-    font_family: []const u8 = "JetBrains Mono",
-    font_size_pt: f32 = 12.0,
+    font_family: []const u8 = "Monospace",
+    font_size_pt: f32 = 13.0,
     ligatures: bool = true,
 
     pub fn validate(self: TerminalProfile, font_config: Config.FontConfig) !void {

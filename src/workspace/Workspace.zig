@@ -13,6 +13,7 @@ pub const LayoutPreset = enum {
     one_by_one,
     two_by_two,
     three_by_three,
+    four_by_four,
 };
 
 pub const SelectionMode = enum {
@@ -1914,6 +1915,7 @@ pub const Tab = struct {
             .one_by_one => 1,
             .two_by_two => 4,
             .three_by_three => 9,
+            .four_by_four => 16,
         };
         while (self.panes.items.len > target_count) {
             var pane = self.panes.pop().?;
@@ -1932,6 +1934,7 @@ pub const Tab = struct {
             .one_by_one => 1,
             .two_by_two => 2,
             .three_by_three => 3,
+            .four_by_four => 4,
         };
         const cols = rows;
         const ids = try self.allocator.alloc(Terminal.PaneId, target_count);
@@ -3043,6 +3046,15 @@ test "workspace presets create compact grids" {
     try std.testing.expectEqual(@as(u16, 333), first_row.ratio_permille);
     const remaining_rows = tab.layout.nodes.items[root.second.?];
     try std.testing.expectEqual(@as(u16, 500), remaining_rows.ratio_permille);
+
+    const first_nine = [_]Terminal.PaneId{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    try ws.applyPresetToActiveTab(.four_by_four);
+    try std.testing.expectEqual(@as(usize, 16), tab.panes.items.len);
+    for (first_nine, tab.panes.items[0..first_nine.len]) |expected, pane|
+        try std.testing.expectEqual(expected, pane.id);
+    const four_root = tab.layout.nodes.items[tab.layout.root.?];
+    try std.testing.expectEqual(Axis.vertical, four_root.axis);
+    try std.testing.expectEqual(@as(u16, 250), four_root.ratio_permille);
 }
 
 test "workspace 1x1 preset removes extra panes" {
@@ -3121,10 +3133,10 @@ test "pane font size changes remain isolated" {
     try ws.applyPresetToActiveTab(.two_by_two);
     const font_config = Config.Config.defaults().font;
 
-    const change = try ws.setPaneFontSize(2, 13.0, font_config);
+    const change = try ws.setPaneFontSize(2, 14.0, font_config);
     try std.testing.expectEqual(@as(Terminal.PaneId, 2), change.pane_id);
-    try std.testing.expectEqual(@as(f32, 13.0), ws.findPane(2).?.profile.font_size_pt);
-    try std.testing.expectEqual(@as(f32, 12.0), ws.findPane(1).?.profile.font_size_pt);
+    try std.testing.expectEqual(@as(f32, 14.0), ws.findPane(2).?.profile.font_size_pt);
+    try std.testing.expectEqual(@as(f32, 13.0), ws.findPane(1).?.profile.font_size_pt);
     try std.testing.expectError(error.InvalidFontSize, ws.setPaneFontSize(2, 99.0, font_config));
 }
 

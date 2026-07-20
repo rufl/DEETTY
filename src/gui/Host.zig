@@ -1553,8 +1553,8 @@ test "dropdown geometry and zen mode are deterministic" {
         .width_px = 3000,
         .height_px = 2000,
     });
-    try std.testing.expectEqual(@as(u32, 3000), host.window.rect.width_px);
-    try std.testing.expectEqual(@as(u32, 900), host.window.rect.height_px);
+    try std.testing.expectEqual(@as(u32, 2880), host.window.rect.width_px);
+    try std.testing.expectEqual(@as(u32, 1100), host.window.rect.height_px);
     try std.testing.expect(!host.window.visible);
 
     host.toggleDropdown();
@@ -2069,8 +2069,8 @@ test "launch plan describes first visible dropdown activation" {
     try std.testing.expect(plan.use_desktop_notifications);
     try std.testing.expect(plan.use_external_activation);
     try std.testing.expect(plan.hidpi);
-    try std.testing.expectEqual(@as(u32, 2560), plan.shortcut_activation_rect.width_px);
-    try std.testing.expectEqual(@as(u32, 648), plan.shortcut_activation_rect.height_px);
+    try std.testing.expectEqual(@as(u32, 2457), plan.shortcut_activation_rect.width_px);
+    try std.testing.expectEqual(@as(u32, 792), plan.shortcut_activation_rect.height_px);
     try std.testing.expectEqual(@as(u16, 0), plan.chrome.main_titlebar_px);
 }
 
