@@ -6931,6 +6931,15 @@ static void on_restored_layout_size_allocate(GtkWidget *widget,
                                      allocation->height);
 }
 
+static void on_preset_page_size_allocate(GtkWidget *page,
+                                         GtkAllocation *allocation,
+                                         gpointer grid_root) {
+    (void)page;
+    if (allocation->width > 0 && allocation->height > 0)
+        apply_preset_paned_positions(GTK_WIDGET(grid_root),
+                                     allocation->width, allocation->height);
+}
+
 static gboolean rebuild_hot_session_page(
     NocttyGridContext *root, int tab_index, GtkWidget *page,
     int node_count, int root_node) {
@@ -7801,8 +7810,9 @@ static gboolean rebuild_grid_preset_page(
     GtkWidget *grid_root = build_preset_line(
         row_widgets, rows, GTK_ORIENTATION_VERTICAL);
     if (grid_root == NULL) return FALSE;
-    g_signal_connect(grid_root, "size-allocate",
-                     G_CALLBACK(on_restored_layout_size_allocate), NULL);
+    g_signal_connect_object(page, "size-allocate",
+                            G_CALLBACK(on_preset_page_size_allocate),
+                            grid_root, 0);
     gtk_box_pack_start(GTK_BOX(page), grid_root, TRUE, TRUE, 0);
     for (guint index = 0; index < count; index++) {
         ordered[index]->page = page;
