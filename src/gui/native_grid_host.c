@@ -8697,8 +8697,8 @@ static gboolean drive_focus_click_smoke(gpointer user_data) {
 }
 
 static void restore_settings_parent_layer(NocttyGridContext *context);
-static gboolean configure_settings_window_stacking(
-    NocttyGridContext *context, GtkWidget *dialog);
+static gboolean configure_overlay_window_stacking(
+    NocttyGridContext *context, GtkWidget *dialog, const char *namespace_name);
 
 static void on_settings_destroy(GtkWidget *widget, gpointer user_data) {
     (void)widget;
@@ -8855,8 +8855,9 @@ static void restore_settings_parent_layer(NocttyGridContext *context) {
         get_layer(GTK_WINDOW(root->window)) == 3;
 }
 
-static gboolean configure_settings_window_stacking(
-    NocttyGridContext *context, GtkWidget *dialog) {
+static gboolean configure_overlay_window_stacking(
+    NocttyGridContext *context, GtkWidget *dialog,
+    const char *namespace_name) {
     NocttyGridContext *root = root_grid_context(context);
     if (!GTK_IS_WINDOW(dialog) || !GTK_IS_WINDOW(root->window)) return FALSE;
 
@@ -8907,7 +8908,7 @@ static gboolean configure_settings_window_stacking(
     root->settings_parent_layer_lowered_seen =
         root->settings_parent_layer_lowered;
     init_for_window(GTK_WINDOW(dialog));
-    set_namespace(GTK_WINDOW(dialog), "noctty-settings");
+    set_namespace(GTK_WINDOW(dialog), namespace_name);
     set_layer(GTK_WINDOW(dialog), 3);
     set_keyboard_mode(GTK_WINDOW(dialog), 1);
     set_exclusive_zone(GTK_WINDOW(dialog), 0);
@@ -8982,17 +8983,21 @@ static void apply_pane_info_visibility(NocttyGridContext *context,
 static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = gtk_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 14, value);
+    sync_compact_setting(context, 0, value);
+    sync_compact_setting(context, 14, 0);
+    sync_compact_setting(context, 15, 0);
     apply_dropdown_dimensions(context);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 70, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, 76, value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = gtk_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 15, value);
+    sync_compact_setting(context, 1, value);
+    sync_compact_setting(context, 14, 0);
+    sync_compact_setting(context, 15, 0);
     apply_dropdown_dimensions(context);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 71, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, 77, value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_data) {
@@ -9608,8 +9613,19 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *dialog = gtk_dialog_new_with_buttons(
         "Configure NOCTTY", GTK_WINDOW(context->window),
         GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
-    (void)configure_settings_window_stacking(context, dialog);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 760, 560);
+    (void)configure_overlay_window_stacking(
+        context, dialog, "noctty-settings");
+    GdkRectangle settings_workarea = {0, 0, 760, 560};
+    GdkDisplay *settings_display = gtk_widget_get_display(context->window);
+    GdkWindow *settings_window = gtk_widget_get_window(context->window);
+    GdkMonitor *settings_monitor = settings_window != NULL
+        ? gdk_display_get_monitor_at_window(settings_display, settings_window)
+        : gdk_display_get_primary_monitor(settings_display);
+    if (settings_monitor != NULL)
+        gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
+    gtk_window_set_default_size(
+        GTK_WINDOW(dialog), MIN(760, MAX(1, settings_workarea.width - 32)),
+        MIN(560, MAX(1, settings_workarea.height - 32)));
     gtk_window_set_resizable(GTK_WINDOW(dialog), TRUE);
     gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
@@ -9662,27 +9678,16 @@ static void open_grid_settings(NocttyGridContext *context) {
                        FALSE, FALSE, 0);
 
     GtkWidget *dropdown_grid = settings_grid_new();
-    GdkRectangle dropdown_geometry = {0, 0, 900, 420};
-    GdkMonitor *dropdown_monitor = gdk_display_get_primary_monitor(
-        gtk_widget_get_display(context->window));
-    if (dropdown_monitor != NULL)
-        gdk_monitor_get_geometry(dropdown_monitor, &dropdown_geometry);
-    GtkWidget *dropdown_width = gtk_spin_button_new_with_range(
-        1, MAX(16384, dropdown_geometry.width), 1);
-    gtk_spin_button_set_value(
-        GTK_SPIN_BUTTON(dropdown_width),
-        context->dropdown_width_px > 0 ? context->dropdown_width_px
-            : dropdown_geometry.width * context->dropdown_width_percent / 100);
-    GtkWidget *dropdown_height = gtk_spin_button_new_with_range(
-        1, MAX(16384, dropdown_geometry.height), 1);
-    gtk_spin_button_set_value(
-        GTK_SPIN_BUTTON(dropdown_height),
-        context->dropdown_height_px > 0 ? context->dropdown_height_px
-            : dropdown_geometry.height * context->dropdown_height_percent / 100);
+    GtkWidget *dropdown_width = gtk_spin_button_new_with_range(1, 100, 1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_width),
+                              context->dropdown_width_percent);
+    GtkWidget *dropdown_height = gtk_spin_button_new_with_range(1, 100, 1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_height),
+                              context->dropdown_height_percent);
     GtkWidget *animation = gtk_spin_button_new_with_range(0, 2000, 10);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(animation), context->dropdown_animation_ms);
-    settings_grid_attach_control(dropdown_grid, "Width (px)", dropdown_width, 0);
-    settings_grid_attach_control(dropdown_grid, "Height (px)", dropdown_height, 1);
+    settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
+    settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
     settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)",
                                  animation, 2);
     gtk_box_pack_start(GTK_BOX(window_page_body),
@@ -11786,6 +11791,7 @@ static void on_palette_search_activate(GtkEntry *entry, gpointer user_data) {
 static void on_palette_destroy(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     NocttyGridContext *root = user_data;
+    if (root->layer_shell_active) restore_settings_parent_layer(root);
     root->palette_dialog = NULL;
     root->palette_search = NULL;
     root->palette_list = NULL;
@@ -11836,7 +11842,12 @@ static void open_command_palette(NocttyGridContext *context) {
     root->palette_list = list;
     root->compact_palette_shown = 1;
     g_object_set_data(G_OBJECT(dialog), "noctty-palette-target", context);
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root->window));
+    if (root->layer_shell_active)
+        (void)configure_overlay_window_stacking(
+            root, dialog, "noctty-command-palette");
+    else
+        gtk_window_set_transient_for(GTK_WINDOW(dialog),
+                                     GTK_WINDOW(root->window));
     gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
     gtk_window_set_decorated(GTK_WINDOW(dialog), FALSE);
     gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);

@@ -1418,7 +1418,7 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         bridge.saw_directional_focus = true;
         return;
     }
-    if (event >= 70 and event <= 74) {
+    if ((event >= 70 and event <= 74) or event == 76 or event == 77) {
         switch (event) {
             70, 71 => {
                 var dimensions = noctty.app.App.DropdownDimensions{
@@ -1445,7 +1445,21 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
                 bridge.callback_failed = true;
                 return;
             },
-            else => unreachable,
+            76, 77 => {
+                var dimensions = noctty.app.App.DropdownDimensions{
+                    .width_percent = bridge.app.config.dropdown.width_percent,
+                    .height_percent = bridge.app.config.dropdown.height_percent,
+                };
+                if (event == 76)
+                    dimensions.width_percent = @intCast(@max(1, @min(exit_code, 100)))
+                else
+                    dimensions.height_percent = @intCast(@max(1, @min(exit_code, 100)));
+                _ = bridge.app.dispatch(.{ .set_dropdown_dimensions = dimensions }) catch {
+                    bridge.callback_failed = true;
+                    return;
+                };
+            },
+            else => {},
         }
         persistNativeGridConfig(bridge);
         return;
@@ -6220,7 +6234,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = path, .primary_session = &session };
     const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 6, null, 0, 0, 0, noctty_grid_text_action, &bridge);
     if (status != 0 or bridge.callback_failed or !bridge.config_persisted or !bridge.launch_profile_applied or !bridge.launch_tmux_profile_applied or !bridge.launch_zellij_profile_applied or !bridge.launch_profile_library_saved or !bridge.launch_profile_library_selected or !bridge.launch_profile_library_removed) return error.NativeGridSettingsSmokeFailed;
-    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_px != 90 or app.config.dropdown.height_px != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
+    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
     if (app.workspace.findPane(tab.active_pane_id).?.profile.font_size_pt != 14) return error.NativeGridSettingsProfileMismatch;
     const launch_profile = &app.config.terminal.launch_profile;
     if (launch_profile.kind != .command or
@@ -6242,7 +6256,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     defer verify_app.deinit();
     const receipt = try verify_app.loadConfigFile(io, std.Io.Dir.cwd(), path, .settings);
     receipt.deinit(allocator);
-    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_px != 90 or verify_app.config.dropdown.height_px != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace") or verify_app.config.font.antialias != .grayscale or verify_app.config.font.hinting != .full) return error.NativeGridSettingsReloadMismatch;
+    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_percent != 90 or verify_app.config.dropdown.height_percent != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace") or verify_app.config.font.antialias != .grayscale or verify_app.config.font.hinting != .full) return error.NativeGridSettingsReloadMismatch;
     const reloaded_launch_profile = &verify_app.config.terminal.launch_profile;
     if (reloaded_launch_profile.kind != .command or
         !std.mem.eql(u8, reloaded_launch_profile.command.slice(), "printf 'NOCTTY_LAUNCH_PROFILE_OK:%s:%s' \"$PWD\" \"$NOCTTY_PROFILE\"") or
