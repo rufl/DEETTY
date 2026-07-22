@@ -6555,6 +6555,17 @@ static NocttyGridContext *create_grid_context(NocttyGridContext *source,
     return create_grid_context_for_session(source, userdata, pane_id);
 }
 
+static NocttyGridContext *restore_grid_context(
+    NocttyGridContext *source, uint64_t pane_id) {
+    if (source->create_session == NULL || pane_id == 0) return NULL;
+    uint64_t restored_pane_id = 0;
+    void *userdata = source->create_session(
+        source->event_data, pane_id, 99,
+        MAX(source->columns, 2), MAX(source->rows, 2), &restored_pane_id);
+    if (userdata == NULL || restored_pane_id != pane_id) return NULL;
+    return create_grid_context_for_session(source, userdata, pane_id);
+}
+
 static GtkWidget *pane_info_strip_for_page(GtkWidget *page) {
     if (!GTK_IS_WIDGET(page)) return NULL;
     return g_object_get_data(G_OBJECT(page), "noctty-pane-info-strip");
@@ -6697,13 +6708,18 @@ static guint grid_contexts_on_page(NocttyGridContext *context, GtkWidget *page) 
 
 static NocttyGridContext *grid_context_for_pane(NocttyGridContext *context,
                                                 uint64_t pane_id) {
+    NocttyGridContext *fallback = NULL;
     for (guint index = 0; context->contexts != NULL &&
          index < context->contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(context->contexts, index);
-        if (candidate->pane_id == pane_id) return candidate;
+        if (candidate->pane_id != pane_id) continue;
+        if (candidate->userdata != NULL && !candidate->retiring &&
+            !candidate->exited)
+            return candidate;
+        fallback = candidate;
     }
-    return NULL;
+    return fallback;
 }
 
 static gboolean flush_grid_layout_hot_session(gpointer user_data) {
@@ -7943,6 +7959,14 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     NocttyGridContext *ordered[16] = {0};
     for (guint index = 0; index < target_count; index++) {
         ordered[index] = grid_context_for_pane(root, pane_ids[index]);
+        if (ordered[index] == NULL || ordered[index]->userdata == NULL ||
+            ordered[index]->retiring || ordered[index]->exited) {
+            ordered[index] = restore_grid_context(context, pane_ids[index]);
+            if (ordered[index] != NULL) {
+                ordered[index]->page = page;
+                ordered[index]->tab_label = context->tab_label;
+            }
+        }
         if (ordered[index] == NULL || ordered[index]->area == NULL ||
             ordered[index]->page != page) {
             if (root->workspace_smoke == 21)
