@@ -14343,10 +14343,11 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
     gtk_window_get_size(GTK_WINDOW(root->window),
                         &root->window_resize_drag_start_width,
                         &root->window_resize_drag_start_height);
-    if (root->window_resize_drag_start_height >
-        NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX)
-        root->window_resize_restore_height =
-            root->window_resize_drag_start_height;
+    int configured_height = root->dropdown_height_px > 0
+        ? root->dropdown_height_px
+        : root->window_resize_drag_start_height;
+    if (configured_height > NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX)
+        root->window_resize_restore_height = configured_height;
     else if (root->mode == 0 && index >= 5) {
         GdkMonitor *monitor = grid_monitor_for_window(root->window);
         GdkRectangle geometry = {0, 0, 900, 420};
