@@ -2550,7 +2550,7 @@ pub fn main(init: std.process.Init) !void {
     }
     var existing_visible: c_int = 0;
     if (noctty_native_control_call(2, &existing_visible) != 0) return;
-    try runNativeGrid(allocator, init.io, home_dir, init.environ_map, 0, .automatic);
+    try runNativeGrid(allocator, init.io, home_dir, init.environ_map, -1, .automatic);
 }
 
 fn sendNativeControl(action: c_int, action_name: []const u8, out: anytype) !bool {
@@ -7161,12 +7161,16 @@ fn runNativeGridActivated(
     defer session_pool.deinit();
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .hot_session_loaded = hot_session_load == .restored, .session_pool = &session_pool, .primary_session = &session };
     persistNativeGridHotSession(&bridge);
-    const shortcut_mode: c_int = if (mode != 0) 0 else switch (launch_policy) {
+    const effective_mode: c_int = if (mode >= 0)
+        mode
+    else
+        @intCast(@intFromEnum(app.config.default_mode));
+    const shortcut_mode: c_int = if (effective_mode != 0) 0 else switch (launch_policy) {
         .automatic => if (app.backend.capabilities.app_shortcut_registration) 1 else if (app.backend.capabilities.external_activation) 3 else 0,
         .visible => if (!app.backend.capabilities.app_shortcut_registration and app.backend.capabilities.external_activation) 3 else 0,
         .external_hidden => 2,
     };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 120, 40, mode, qtShortcutKey(app.config.dropdown.shortcut), shortcut_mode, -1, null, 0, 0, if (app.config.status.desktop_notifications) 1 else 0, noctty_grid_text_action, &bridge);
+    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 120, 40, effective_mode, qtShortcutKey(app.config.dropdown.shortcut), shortcut_mode, -1, null, 0, 0, if (app.config.status.desktop_notifications) 1 else 0, noctty_grid_text_action, &bridge);
     persistNativeGridHotSession(&bridge);
     if (status != 0) return error.NativeGridHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridStateSyncFailed;
