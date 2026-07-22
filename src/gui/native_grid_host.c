@@ -8021,7 +8021,16 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
     }
     if ((event_code >= 50 && event_code <= 52) || event_code == 60 ||
         event_code == 61) {
-        (void)apply_grid_layout_preset(context, event_code);
+        NocttyGridContext *root = root_grid_context(context);
+        if (root->workspace_smoke == 21) {
+            (void)apply_grid_layout_preset(context, event_code);
+            return;
+        }
+        NocttyGridContext *created = create_grid_context(context, 20);
+        if (created == NULL || !add_grid_tab(context, created)) return;
+        start_grid_context(created);
+        if (!apply_grid_layout_preset(created, event_code)) return;
+        gtk_widget_grab_focus(created->area);
         return;
     }
     if (event_code == 56) {
@@ -12981,11 +12990,11 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), broadcast);
     append_workspace_menu_item(menu, "Move Pane to Other Tab", 56, context);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
-    append_workspace_menu_item(menu, "Layout 1×1", 50, context);
-    append_workspace_menu_item(menu, "Layout 2×2", 51, context);
-    append_workspace_menu_item(menu, "Layout 4×2", 61, context);
-    append_workspace_menu_item(menu, "Layout 3×3", 52, context);
-    append_workspace_menu_item(menu, "Layout 4×4", 60, context);
+    append_workspace_menu_item(menu, "New 1×1", 50, context);
+    append_workspace_menu_item(menu, "New 2×2", 51, context);
+    append_workspace_menu_item(menu, "New 4×2", 61, context);
+    append_workspace_menu_item(menu, "New 3×3", 52, context);
+    append_workspace_menu_item(menu, "New 4×4", 60, context);
     append_workspace_menu_item(menu, "Add Pane to Selection", 53, context);
     append_workspace_menu_item(menu, "Toggle Pane Selection", 54, context);
     GtkWidget *tag_selected = gtk_menu_item_new_with_label("Tag Selected Panes…");
@@ -13721,15 +13730,15 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
     gboolean menu_ready = menu != NULL && gtk_widget_get_mapped(menu) &&
         gtk_widget_get_mapped(root->window) && root->window_presented;
     GtkWidget *layout_1x1 = menu_ready
-        ? find_workspace_menu_item(menu, "Layout 1×1") : NULL;
+        ? find_workspace_menu_item(menu, "New 1×1") : NULL;
     GtkWidget *layout_2x2 = menu_ready
-        ? find_workspace_menu_item(menu, "Layout 2×2") : NULL;
+        ? find_workspace_menu_item(menu, "New 2×2") : NULL;
     GtkWidget *layout_4x2 = menu_ready
-        ? find_workspace_menu_item(menu, "Layout 4×2") : NULL;
+        ? find_workspace_menu_item(menu, "New 4×2") : NULL;
     GtkWidget *layout_3x3 = menu_ready
-        ? find_workspace_menu_item(menu, "Layout 3×3") : NULL;
+        ? find_workspace_menu_item(menu, "New 3×3") : NULL;
     GtkWidget *layout_4x4 = menu_ready
-        ? find_workspace_menu_item(menu, "Layout 4×4") : NULL;
+        ? find_workspace_menu_item(menu, "New 4×4") : NULL;
     gboolean routes_ready =
         layout_1x1 != NULL && layout_2x2 != NULL && layout_4x2 != NULL &&
         layout_3x3 != NULL && layout_4x4 != NULL &&
