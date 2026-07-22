@@ -14218,8 +14218,7 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
                                                 gpointer user_data) {
     (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
-    if (!root->window_resize_drag_active ||
-        !(event->state & GDK_BUTTON1_MASK)) return FALSE;
+    if (!root->window_resize_drag_active) return FALSE;
     int index = root->window_resize_drag_handle;
     GdkDisplay *display = gtk_widget_get_display(root->window);
     GdkWindow *window = gtk_widget_get_window(root->window);
