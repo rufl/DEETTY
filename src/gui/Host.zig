@@ -1279,8 +1279,14 @@ pub fn rectForMode(mode: Config.WindowMode, config: Config.Config, screen: Scree
         .dropdown => .{
             .x = screen.x,
             .y = screen.y,
-            .width_px = percentOf(screen.width_px, config.dropdown.width_percent),
-            .height_px = percentOf(screen.height_px, config.dropdown.height_percent),
+            .width_px = if (config.dropdown.width_px > 0)
+                @min(screen.width_px, @as(u32, config.dropdown.width_px))
+            else
+                percentOf(screen.width_px, config.dropdown.width_percent),
+            .height_px = if (config.dropdown.height_px > 0)
+                @min(screen.height_px, @as(u32, config.dropdown.height_px))
+            else
+                percentOf(screen.height_px, config.dropdown.height_percent),
         },
         .windowed => .{
             .x = screen.x + @as(i32, @intCast(screen.width_px / 10)),

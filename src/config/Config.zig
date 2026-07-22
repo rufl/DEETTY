@@ -255,6 +255,8 @@ pub const DropdownConfig = struct {
     shortcut: Shortcut = .{},
     width_percent: u8 = 96,
     height_percent: u8 = 55,
+    width_px: u16 = 0,
+    height_px: u16 = 0,
     animation_ms: u16 = 120,
     hide_on_focus_loss: bool = true,
 };

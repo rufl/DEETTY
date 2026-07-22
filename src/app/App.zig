@@ -434,6 +434,8 @@ pub const App = struct {
     pub const DropdownDimensions = struct {
         width_percent: u8,
         height_percent: u8,
+        width_px: u16 = 0,
+        height_px: u16 = 0,
     };
 
     pub const PaneStatusEvent = struct {
@@ -1105,6 +1107,8 @@ pub const App = struct {
                 var next = self.config;
                 next.dropdown.width_percent = dimensions.width_percent;
                 next.dropdown.height_percent = dimensions.height_percent;
+                next.dropdown.width_px = dimensions.width_px;
+                next.dropdown.height_px = dimensions.height_px;
                 try self.applyConfig(next);
                 return .{ .config_changed = .dropdown_dimensions };
             },

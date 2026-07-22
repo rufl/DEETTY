@@ -361,6 +361,8 @@ typedef struct NocttyGridContextTag {
     size_t find_ordinal;
     int dropdown_width_percent;
     int dropdown_height_percent;
+    int dropdown_width_px;
+    int dropdown_height_px;
     int dropdown_animation_ms;
     int hide_on_focus_loss;
     int focus_follows_pointer;
@@ -6505,6 +6507,8 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->requested_shortcut_key = root->requested_shortcut_key;
     created->dropdown_width_percent = root->dropdown_width_percent;
     created->dropdown_height_percent = root->dropdown_height_percent;
+    created->dropdown_width_px = root->dropdown_width_px;
+    created->dropdown_height_px = root->dropdown_height_px;
     created->dropdown_animation_ms = root->dropdown_animation_ms;
     created->hide_on_focus_loss = root->hide_on_focus_loss;
     created->focus_follows_pointer = root->focus_follows_pointer;
@@ -8745,9 +8749,16 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
     GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
-    int width = MAX(320, geometry.width * root->dropdown_width_percent / 100);
-    int height = MAX(180, geometry.height * root->dropdown_height_percent / 100);
+    int width = CLAMP(root->dropdown_width_px > 0
+                          ? root->dropdown_width_px
+                          : geometry.width * root->dropdown_width_percent / 100,
+                      1, geometry.width);
+    int height = CLAMP(root->dropdown_height_px > 0
+                           ? root->dropdown_height_px
+                           : geometry.height * root->dropdown_height_percent / 100,
+                       1, geometry.height);
     int horizontal_margin = MAX(0, (geometry.width - width) / 2);
+    int horizontal_remainder = MAX(0, geometry.width - width - horizontal_margin);
 
     for (int edge = 0; edge < 4; edge++) {
         set_anchor(GTK_WINDOW(root->window), edge, FALSE);
@@ -8760,7 +8771,7 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
         set_anchor(GTK_WINDOW(root->window), 2, TRUE);
         set_anchor(GTK_WINDOW(root->window), 3, TRUE);
         set_margin(GTK_WINDOW(root->window), 0, horizontal_margin);
-        set_margin(GTK_WINDOW(root->window), 1, horizontal_margin);
+        set_margin(GTK_WINDOW(root->window), 1, horizontal_remainder);
         set_margin(GTK_WINDOW(root->window), 3,
                    MAX(0, geometry.height - height));
         gtk_widget_set_size_request(root->window, -1, -1);
@@ -8920,8 +8931,14 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
         : gdk_display_get_primary_monitor(display);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int width = MAX(320, workarea.width * root->dropdown_width_percent / 100);
-    int height = MAX(180, workarea.height * root->dropdown_height_percent / 100);
+    int width = CLAMP(root->dropdown_width_px > 0
+                          ? root->dropdown_width_px
+                          : workarea.width * root->dropdown_width_percent / 100,
+                      1, workarea.width);
+    int height = CLAMP(root->dropdown_height_px > 0
+                           ? root->dropdown_height_px
+                           : workarea.height * root->dropdown_height_percent / 100,
+                       1, workarea.height);
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
     if (root->mode == 0)
         gtk_window_move(GTK_WINDOW(root->window),
@@ -8935,6 +8952,8 @@ static void sync_compact_setting(NocttyGridContext *context, int field, int valu
         if (field == 0) candidate->dropdown_width_percent = value;
         else if (field == 1) candidate->dropdown_height_percent = value;
         else if (field == 2) candidate->dropdown_animation_ms = value;
+        else if (field == 14) candidate->dropdown_width_px = value;
+        else if (field == 15) candidate->dropdown_height_px = value;
         else if (field == 3) candidate->hide_on_focus_loss = value;
         else if (field == 4) candidate->focus_follows_pointer = value;
         else if (field == 5) candidate->show_pane_info = value;
@@ -8963,7 +8982,7 @@ static void apply_pane_info_visibility(NocttyGridContext *context,
 static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = gtk_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 0, value);
+    sync_compact_setting(context, 14, value);
     apply_dropdown_dimensions(context);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 70, value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
@@ -8971,7 +8990,7 @@ static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer use
 static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = gtk_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 1, value);
+    sync_compact_setting(context, 15, value);
     apply_dropdown_dimensions(context);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 71, value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
@@ -9643,14 +9662,27 @@ static void open_grid_settings(NocttyGridContext *context) {
                        FALSE, FALSE, 0);
 
     GtkWidget *dropdown_grid = settings_grid_new();
-    GtkWidget *dropdown_width = gtk_spin_button_new_with_range(20, 100, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_width), context->dropdown_width_percent);
-    GtkWidget *dropdown_height = gtk_spin_button_new_with_range(20, 100, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_height), context->dropdown_height_percent);
+    GdkRectangle dropdown_geometry = {0, 0, 900, 420};
+    GdkMonitor *dropdown_monitor = gdk_display_get_primary_monitor(
+        gtk_widget_get_display(context->window));
+    if (dropdown_monitor != NULL)
+        gdk_monitor_get_geometry(dropdown_monitor, &dropdown_geometry);
+    GtkWidget *dropdown_width = gtk_spin_button_new_with_range(
+        1, MAX(16384, dropdown_geometry.width), 1);
+    gtk_spin_button_set_value(
+        GTK_SPIN_BUTTON(dropdown_width),
+        context->dropdown_width_px > 0 ? context->dropdown_width_px
+            : dropdown_geometry.width * context->dropdown_width_percent / 100);
+    GtkWidget *dropdown_height = gtk_spin_button_new_with_range(
+        1, MAX(16384, dropdown_geometry.height), 1);
+    gtk_spin_button_set_value(
+        GTK_SPIN_BUTTON(dropdown_height),
+        context->dropdown_height_px > 0 ? context->dropdown_height_px
+            : dropdown_geometry.height * context->dropdown_height_percent / 100);
     GtkWidget *animation = gtk_spin_button_new_with_range(0, 2000, 10);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(animation), context->dropdown_animation_ms);
-    settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
-    settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
+    settings_grid_attach_control(dropdown_grid, "Width (px)", dropdown_width, 0);
+    settings_grid_attach_control(dropdown_grid, "Height (px)", dropdown_height, 1);
     settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)",
                                  animation, 2);
     gtk_box_pack_start(GTK_BOX(window_page_body),
@@ -14322,22 +14354,22 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
         return TRUE;
     }
     if (root->mode != 0) return FALSE;
-    int width = CLAMP(
-        root->window_resize_drag_start_width_percent +
-        (int)(horizontal * 200.0 / MAX(1, geometry.width)), 20, 100);
-    int height = CLAMP(
-        root->window_resize_drag_start_height_percent +
-        (int)(vertical * 100.0 / MAX(1, geometry.height)), 20, 100);
+    int width = CLAMP(root->window_resize_drag_start_width +
+                          (int)horizontal,
+                      1, geometry.width);
+    int height = CLAMP(root->window_resize_drag_start_height +
+                           (int)vertical,
+                       1, geometry.height);
     gboolean changed = FALSE;
-    if (horizontal != 0.0 && width != root->dropdown_width_percent) {
-        sync_compact_setting(root, 0, width);
+    if (horizontal != 0.0 && width != root->dropdown_width_px) {
+        sync_compact_setting(root, 14, width);
         if (root->event != NULL)
             root->event(root->event_data, root->pane_id, 70, width,
                         (uint64_t)(g_get_monotonic_time() / 1000));
         changed = TRUE;
     }
-    if (vertical != 0.0 && height != root->dropdown_height_percent) {
-        sync_compact_setting(root, 1, height);
+    if (vertical != 0.0 && height != root->dropdown_height_px) {
+        sync_compact_setting(root, 15, height);
         if (root->event != NULL)
             root->event(root->event_data, root->pane_id, 71, height,
                         (uint64_t)(g_get_monotonic_time() / 1000));
@@ -14645,6 +14677,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.mode = mode;
     context.dropdown_width_percent = event_data != NULL ? noctty_grid_compact_setting(event_data, 0) : 96;
     context.dropdown_height_percent = event_data != NULL ? noctty_grid_compact_setting(event_data, 1) : 55;
+    context.dropdown_width_px = event_data != NULL ? noctty_grid_compact_setting(event_data, 14) : 0;
+    context.dropdown_height_px = event_data != NULL ? noctty_grid_compact_setting(event_data, 15) : 0;
     context.dropdown_animation_ms = event_data != NULL ? noctty_grid_compact_setting(event_data, 2) : 120;
     context.hide_on_focus_loss = event_data != NULL ? noctty_grid_compact_setting(event_data, 3) : 1;
     context.focus_follows_pointer = event_data != NULL ? noctty_grid_compact_setting(event_data, 4) : 0;
