@@ -7800,16 +7800,19 @@ static void apply_preset_paned_positions(GtkWidget *widget,
     guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
         G_OBJECT(widget), "noctty-preset-ratio"));
     gint extent = orientation == GTK_ORIENTATION_HORIZONTAL ? width : height;
-    gint position = extent * (gint)ratio_permille / 1000;
+    gint handle_size = 0;
+    gtk_widget_style_get(widget, "handle-size", &handle_size, NULL);
+    gint usable = MAX(1, extent - MAX(0, handle_size));
+    gint position = usable * (gint)ratio_permille / 1000;
     if (extent > 0) gtk_paned_set_position(GTK_PANED(widget), position);
     GtkWidget *first = gtk_paned_get_child1(GTK_PANED(widget));
     GtkWidget *second = gtk_paned_get_child2(GTK_PANED(widget));
     if (orientation == GTK_ORIENTATION_HORIZONTAL) {
         apply_preset_paned_positions(first, position, height);
-        apply_preset_paned_positions(second, MAX(1, width - position), height);
+        apply_preset_paned_positions(second, MAX(1, usable - position), height);
     } else {
         apply_preset_paned_positions(first, width, position);
-        apply_preset_paned_positions(second, width, MAX(1, height - position));
+        apply_preset_paned_positions(second, width, MAX(1, usable - position));
     }
 }
 
