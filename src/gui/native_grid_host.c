@@ -14822,18 +14822,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     secondary.window_layout = context.window_layout;
     secondary.resize_grip = context.resize_grip;
     if (mode == 0) {
-        GtkWidget *clip = gtk_scrolled_window_new(NULL, NULL);
-        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(clip),
-                                       GTK_POLICY_NEVER, GTK_POLICY_NEVER);
-        gtk_scrolled_window_set_propagate_natural_width(
-            GTK_SCROLLED_WINDOW(clip), FALSE);
-        gtk_scrolled_window_set_propagate_natural_height(
-            GTK_SCROLLED_WINDOW(clip), FALSE);
-        gtk_scrolled_window_set_min_content_width(
-            GTK_SCROLLED_WINDOW(clip), 1);
-        gtk_scrolled_window_set_min_content_height(
-            GTK_SCROLLED_WINDOW(clip), 1);
-        gtk_container_add(GTK_CONTAINER(clip), context.window_layout);
+        GtkWidget *clip = gtk_overlay_new();
+        GtkWidget *minimum = gtk_drawing_area_new();
+        gtk_widget_set_size_request(minimum, 1, 1);
+        gtk_container_add(GTK_CONTAINER(clip), minimum);
+        gtk_widget_set_halign(context.window_layout, GTK_ALIGN_FILL);
+        gtk_widget_set_valign(context.window_layout, GTK_ALIGN_FILL);
+        gtk_overlay_add_overlay(GTK_OVERLAY(clip), context.window_layout);
         gtk_container_add(GTK_CONTAINER(context.window), clip);
     } else {
         gtk_container_add(GTK_CONTAINER(context.window), context.window_layout);
