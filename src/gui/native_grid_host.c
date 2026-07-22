@@ -8731,6 +8731,18 @@ typedef gboolean (*NocttyLayerIsLayerWindow)(GtkWindow *);
 typedef void (*NocttyLayerSetEdge)(GtkWindow *, int, gboolean);
 typedef void (*NocttyLayerSetMargin)(GtkWindow *, int, int);
 
+static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
+    GdkDisplay *display = gtk_widget_get_display(window);
+    GdkWindow *gdk_window = gtk_widget_get_window(window);
+    GdkMonitor *monitor = gdk_window != NULL
+        ? gdk_display_get_monitor_at_window(display, gdk_window)
+        : NULL;
+    if (monitor == NULL) monitor = gdk_display_get_primary_monitor(display);
+    if (monitor == NULL && gdk_display_get_n_monitors(display) > 0)
+        monitor = gdk_display_get_monitor(display, 0);
+    return monitor;
+}
+
 static void apply_grid_layer_geometry(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (!root->layer_shell_active || root->layer_shell_library == NULL) return;
@@ -8745,8 +8757,7 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
                                     "gtk_layer_set_margin");
     if (set_namespace == NULL || set_anchor == NULL || set_margin == NULL) return;
 
-    GdkDisplay *display = gtk_widget_get_display(root->window);
-    GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
     int width = CLAMP(root->dropdown_width_px > 0
@@ -8925,11 +8936,7 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
         apply_grid_layer_geometry(root);
         return;
     }
-    GdkDisplay *display = gtk_widget_get_display(root->window);
-    GdkWindow *window = gtk_widget_get_window(root->window);
-    GdkMonitor *monitor = window != NULL
-        ? gdk_display_get_monitor_at_window(display, window)
-        : gdk_display_get_primary_monitor(display);
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
     int width = CLAMP(root->dropdown_width_px > 0
@@ -9616,11 +9623,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-settings");
     GdkRectangle settings_workarea = {0, 0, 760, 560};
-    GdkDisplay *settings_display = gtk_widget_get_display(context->window);
-    GdkWindow *settings_window = gtk_widget_get_window(context->window);
-    GdkMonitor *settings_monitor = settings_window != NULL
-        ? gdk_display_get_monitor_at_window(settings_display, settings_window)
-        : gdk_display_get_primary_monitor(settings_display);
+    GdkMonitor *settings_monitor = grid_monitor_for_window(context->window);
     if (settings_monitor != NULL)
         gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
     gtk_window_set_default_size(
@@ -14336,11 +14339,7 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     NocttyGridContext *root = root_grid_context(user_data);
     if (!root->window_resize_drag_active) return FALSE;
     int index = root->window_resize_drag_handle;
-    GdkDisplay *display = gtk_widget_get_display(root->window);
-    GdkWindow *window = gtk_widget_get_window(root->window);
-    GdkMonitor *monitor = window != NULL
-        ? gdk_display_get_monitor_at_window(display, window)
-        : gdk_display_get_primary_monitor(display);
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
 
