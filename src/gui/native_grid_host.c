@@ -7988,6 +7988,8 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
                 ordered[index]->tab_label = context->tab_label;
             }
         }
+        if (ordered[index] != NULL && !ordered[index]->active)
+            start_grid_context(ordered[index]);
         if (ordered[index] == NULL || ordered[index]->area == NULL ||
             ordered[index]->page != page) {
             g_printerr("native_grid_layout_apply event=%d reason=context pane=%" G_GUINT64_FORMAT " found=%d area=%d page=%d\n",
