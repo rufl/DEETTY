@@ -8758,9 +8758,13 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
         set_anchor(GTK_WINDOW(root->window), 0, TRUE);
         set_anchor(GTK_WINDOW(root->window), 1, TRUE);
         set_anchor(GTK_WINDOW(root->window), 2, TRUE);
+        set_anchor(GTK_WINDOW(root->window), 3,
+                   root->dropdown_height_percent == 100);
         set_margin(GTK_WINDOW(root->window), 0, horizontal_margin);
         set_margin(GTK_WINDOW(root->window), 1, horizontal_margin);
-        gtk_widget_set_size_request(root->window, -1, height);
+        gtk_widget_set_size_request(root->window, -1,
+                                    root->dropdown_height_percent == 100
+                                        ? -1 : height);
     } else if (root->mode == 2) {
         set_namespace(GTK_WINDOW(root->window), "noctty-zen");
         for (int edge = 0; edge < 4; edge++)
