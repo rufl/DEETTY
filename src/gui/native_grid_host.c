@@ -14821,7 +14821,23 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         &context, context.revealer);
     secondary.window_layout = context.window_layout;
     secondary.resize_grip = context.resize_grip;
-    gtk_container_add(GTK_CONTAINER(context.window), context.window_layout);
+    if (mode == 0) {
+        GtkWidget *clip = gtk_scrolled_window_new(NULL, NULL);
+        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(clip),
+                                       GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+        gtk_scrolled_window_set_propagate_natural_width(
+            GTK_SCROLLED_WINDOW(clip), FALSE);
+        gtk_scrolled_window_set_propagate_natural_height(
+            GTK_SCROLLED_WINDOW(clip), FALSE);
+        gtk_scrolled_window_set_min_content_width(
+            GTK_SCROLLED_WINDOW(clip), 1);
+        gtk_scrolled_window_set_min_content_height(
+            GTK_SCROLLED_WINDOW(clip), 1);
+        gtk_container_add(GTK_CONTAINER(clip), context.window_layout);
+        gtk_container_add(GTK_CONTAINER(context.window), clip);
+    } else {
+        gtk_container_add(GTK_CONTAINER(context.window), context.window_layout);
+    }
     int initial_tab_position = event_data != NULL
         ? noctty_grid_tab_position(event_data)
         : 0;
