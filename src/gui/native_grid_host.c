@@ -14086,13 +14086,28 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     double next_size = base_size;
     double width_fit = DBL_MAX;
     double height_fit = DBL_MAX;
+    NocttyGridContext *root = root_grid_context(context);
     if (context->page != NULL &&
-        grid_contexts_on_page(root_grid_context(context), context->page) >= 4 &&
+        grid_contexts_on_page(root, context->page) >= 4 &&
         allocation->width > 0 && allocation->height > 0) {
-        width_fit = allocation->width /
-            (80.0 * (96.0 / 72.0) * 0.64);
-        height_fit = allocation->height /
-            (24.0 * (96.0 / 72.0) * 1.28);
+        int fit_width = allocation->width;
+        int fit_height = allocation->height;
+        for (guint index = 0; root->contexts != NULL &&
+             index < root->contexts->len; index++) {
+            NocttyGridContext *candidate =
+                g_ptr_array_index(root->contexts, index);
+            if (!candidate->active || candidate->exited ||
+                candidate->page != context->page || candidate->area == NULL)
+                continue;
+            GtkAllocation candidate_allocation;
+            gtk_widget_get_allocation(candidate->area, &candidate_allocation);
+            if (candidate_allocation.width > 1)
+                fit_width = MIN(fit_width, candidate_allocation.width);
+            if (candidate_allocation.height > 1)
+                fit_height = MIN(fit_height, candidate_allocation.height);
+        }
+        width_fit = fit_width / (80.0 * (96.0 / 72.0) * 0.64);
+        height_fit = fit_height / (24.0 * (96.0 / 72.0) * 1.28);
         next_size = MIN(base_size, floor(MIN(width_fit, height_fit) * 4.0) / 4.0);
         next_size = MAX(3.0, next_size);
     }
@@ -14104,9 +14119,18 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
         MIN(width_fit, height_fit) < 3.0;
     gboolean font_changed = fabs(context->font_size - next_size) > 0.01;
     if (font_changed) {
-        context->font_size = next_size;
-        clear_ascii_glyph_cache(context);
-        gtk_widget_queue_draw(context->area);
+        for (guint index = 0; root->contexts != NULL &&
+             index < root->contexts->len; index++) {
+            NocttyGridContext *candidate =
+                g_ptr_array_index(root->contexts, index);
+            if (!candidate->active || candidate->exited ||
+                candidate->page != context->page || candidate->area == NULL)
+                continue;
+            candidate->font_size = next_size;
+            candidate->resize_overlay_zoom_percent = zoom_percent;
+            clear_ascii_glyph_cache(candidate);
+            gtk_widget_queue_draw(candidate->area);
+        }
     }
     context->resize_overlay_zoom_percent = zoom_percent;
 
