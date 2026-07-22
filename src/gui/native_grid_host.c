@@ -14150,15 +14150,15 @@ static const GdkWindowEdge noctty_resize_edges[8] = {
     GDK_WINDOW_EDGE_SOUTH_EAST,
 };
 
-static const GdkCursorType noctty_resize_cursors[8] = {
-    GDK_TOP_LEFT_CORNER,
-    GDK_TOP_SIDE,
-    GDK_TOP_RIGHT_CORNER,
-    GDK_LEFT_SIDE,
-    GDK_RIGHT_SIDE,
-    GDK_BOTTOM_LEFT_CORNER,
-    GDK_BOTTOM_SIDE,
-    GDK_BOTTOM_RIGHT_CORNER,
+static const char *noctty_resize_cursors[8] = {
+    "nwse-resize",
+    "ns-resize",
+    "nesw-resize",
+    "ew-resize",
+    "ew-resize",
+    "nesw-resize",
+    "ns-resize",
+    "nwse-resize",
 };
 
 static int window_resize_handle_index(GtkWidget *widget) {
@@ -14173,8 +14173,11 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
     if (index < 0 || index >= 8) return;
     GdkWindow *window = gtk_widget_get_window(widget);
     if (window == NULL) return;
-    GdkCursor *cursor = gdk_cursor_new_for_display(
-        gtk_widget_get_display(widget), noctty_resize_cursors[index]);
+    GdkDisplay *display = gtk_widget_get_display(widget);
+    GdkCursor *cursor = gdk_cursor_new_from_name(
+        display, noctty_resize_cursors[index]);
+    if (cursor == NULL)
+        cursor = gdk_cursor_new_for_display(display, GDK_SB_H_DOUBLE_ARROW);
     gdk_window_set_cursor(window, cursor);
     g_object_unref(cursor);
 }
@@ -14322,8 +14325,8 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
     gtk_widget_set_vexpand(content, TRUE);
     const int columns[8] = {0, 1, 2, 0, 2, 0, 1, 2};
     const int rows[8] = {0, 0, 0, 1, 1, 2, 2, 2};
-    const int widths[8] = {6, -1, 6, 6, 6, 6, -1, 6};
-    const int heights[8] = {6, 6, 6, -1, -1, 6, 6, 6};
+    const int widths[8] = {12, -1, 12, 12, 12, 12, -1, 12};
+    const int heights[8] = {12, 12, 12, -1, -1, 12, 12, 12};
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = create_window_resize_handle(
             context, index, widths[index], heights[index]);
