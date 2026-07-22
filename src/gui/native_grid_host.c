@@ -7838,7 +7838,8 @@ static gboolean respond_layout_preset_prompt_smoke(gpointer user_data) {
 }
 
 static gboolean apply_grid_layout_preset(NocttyGridContext *context,
-                                         int event_code) {
+                                         int event_code,
+                                         gboolean restore_missing) {
     NocttyGridContext *root = root_grid_context(context);
     if (context == NULL || !context->active || context->area == NULL ||
         context->page == NULL || root->event_data == NULL ||
@@ -7937,7 +7938,7 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         current_count--;
     }
 
-    while (current_count < target_count) {
+    while (!restore_missing && current_count < target_count) {
         NocttyGridContext *created = create_grid_context(context, 21);
         if (created == NULL) return FALSE;
         created->page = page;
@@ -8023,13 +8024,13 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
         event_code == 61) {
         NocttyGridContext *root = root_grid_context(context);
         if (root->workspace_smoke == 21) {
-            (void)apply_grid_layout_preset(context, event_code);
+            (void)apply_grid_layout_preset(context, event_code, FALSE);
             return;
         }
         NocttyGridContext *created = create_grid_context(context, 20);
         if (created == NULL || !add_grid_tab(context, created)) return;
         start_grid_context(created);
-        if (!apply_grid_layout_preset(created, event_code)) return;
+        if (!apply_grid_layout_preset(created, event_code, TRUE)) return;
         gtk_widget_grab_focus(created->area);
         return;
     }
