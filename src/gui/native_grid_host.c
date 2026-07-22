@@ -6556,12 +6556,13 @@ static NocttyGridContext *create_grid_context(NocttyGridContext *source,
 }
 
 static NocttyGridContext *restore_grid_context(
-    NocttyGridContext *source, uint64_t pane_id) {
+    NocttyGridContext *source, uint64_t pane_id,
+    int columns, int rows) {
     if (source->create_session == NULL || pane_id == 0) return NULL;
     uint64_t restored_pane_id = 0;
     void *userdata = source->create_session(
         source->event_data, pane_id, 99,
-        MAX(source->columns, 2), MAX(source->rows, 2), &restored_pane_id);
+        MAX(columns, 2), MAX(rows, 2), &restored_pane_id);
     if (userdata == NULL || restored_pane_id != pane_id) return NULL;
     return create_grid_context_for_session(source, userdata, pane_id);
 }
@@ -6931,18 +6932,46 @@ static void on_restored_layout_size_allocate(GtkWidget *widget,
                                      allocation->height);
 }
 
+static gboolean apply_preset_page_positions(gpointer user_data) {
+    GtkWidget *grid_root = GTK_WIDGET(user_data);
+    g_object_set_data(G_OBJECT(grid_root), "noctty-preset-resize-source", NULL);
+    NocttyGridContext *root = g_object_get_data(
+        G_OBJECT(grid_root), "noctty-grid-root-context");
+    int width = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(grid_root), "noctty-preset-width"));
+    int height = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(grid_root), "noctty-preset-height"));
+    if (root != NULL && width > 0 && height > 0) {
+        root->layout_restore_applying = 1;
+        apply_preset_paned_positions(grid_root, width, height);
+        root->layout_restore_applying = 0;
+    }
+    g_object_unref(grid_root);
+    return G_SOURCE_REMOVE;
+}
+
 static void on_preset_page_size_allocate(GtkWidget *page,
                                          GtkAllocation *allocation,
                                          gpointer grid_root) {
     (void)page;
-    NocttyGridContext *root = g_object_get_data(
-        G_OBJECT(grid_root), "noctty-grid-root-context");
-    if (root == NULL || allocation->width <= 0 || allocation->height <= 0)
-        return;
-    root->layout_restore_applying = 1;
-    apply_preset_paned_positions(GTK_WIDGET(grid_root),
-                                 allocation->width, allocation->height);
-    root->layout_restore_applying = 0;
+    if (allocation->width <= 0 || allocation->height <= 0) return;
+    GObject *object = G_OBJECT(grid_root);
+    int previous_width = GPOINTER_TO_INT(g_object_get_data(
+        object, "noctty-preset-width"));
+    int previous_height = GPOINTER_TO_INT(g_object_get_data(
+        object, "noctty-preset-height"));
+    if (previous_width == allocation->width &&
+        previous_height == allocation->height) return;
+    g_object_set_data(object, "noctty-preset-width",
+                      GINT_TO_POINTER(allocation->width));
+    g_object_set_data(object, "noctty-preset-height",
+                      GINT_TO_POINTER(allocation->height));
+    if (g_object_get_data(object, "noctty-preset-resize-source") == NULL) {
+        guint source = g_idle_add(apply_preset_page_positions,
+                                  g_object_ref(grid_root));
+        g_object_set_data(object, "noctty-preset-resize-source",
+                          GUINT_TO_POINTER(source));
+    }
 }
 
 static gboolean rebuild_hot_session_page(
@@ -7982,7 +8011,10 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         ordered[index] = grid_context_for_pane(root, pane_ids[index]);
         if (ordered[index] == NULL || ordered[index]->userdata == NULL ||
             ordered[index]->retiring || ordered[index]->exited) {
-            ordered[index] = restore_grid_context(context, pane_ids[index]);
+            ordered[index] = restore_grid_context(
+                context, pane_ids[index],
+                MAX(2, context->columns / (int)cols),
+                MAX(2, context->rows / (int)rows));
             if (ordered[index] != NULL) {
                 ordered[index]->page = page;
                 ordered[index]->tab_label = context->tab_label;
