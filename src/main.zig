@@ -5501,7 +5501,7 @@ fn nativeGridLayoutPresetSmoke(
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_layout_2x2 or !bridge.saw_layout_4x2 or
         !bridge.saw_layout_3x3 or !bridge.saw_layout_4x4 or
-        !bridge.saw_layout_1x1 or bridge.created_session_count != 44)
+        !bridge.saw_layout_1x1 or bridge.created_session_count != 48)
         return error.NativeGridLayoutPresetSmokeFailed;
     var pane_total: usize = 0;
     var saw_source = false;
