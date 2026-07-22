@@ -20,6 +20,7 @@
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
 #endif
+#define NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX 12
 
 typedef enum {
     NOCTTY_CLOSE_ORIGIN_NONE = 0,
@@ -8774,11 +8775,11 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
     int width = CLAMP(root->dropdown_width_px > 0
                           ? root->dropdown_width_px
                           : geometry.width * root->dropdown_width_percent / 100,
-                      1, geometry.width);
+                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.width);
     int height = CLAMP(root->dropdown_height_px > 0
                            ? root->dropdown_height_px
                            : geometry.height * root->dropdown_height_percent / 100,
-                       1, geometry.height);
+                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.height);
     int horizontal_margin = MAX(0, (geometry.width - width) / 2);
     int horizontal_remainder = MAX(0, geometry.width - width - horizontal_margin);
 
@@ -8959,11 +8960,11 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
     int width = CLAMP(root->dropdown_width_px > 0
                           ? root->dropdown_width_px
                           : workarea.width * root->dropdown_width_percent / 100,
-                      1, workarea.width);
+                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, workarea.width);
     int height = CLAMP(root->dropdown_height_px > 0
                            ? root->dropdown_height_px
                            : workarea.height * root->dropdown_height_percent / 100,
-                       1, workarea.height);
+                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, workarea.height);
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
     if (root->mode == 0)
         gtk_window_move(GTK_WINDOW(root->window),
@@ -14383,10 +14384,10 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     if (root->mode != 0) return FALSE;
     int width = CLAMP(root->window_resize_drag_start_width +
                           (int)horizontal,
-                      1, geometry.width);
+                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.width);
     int height = CLAMP(root->window_resize_drag_start_height +
                            (int)vertical,
-                       1, geometry.height);
+                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.height);
     gboolean changed = FALSE;
     if (horizontal != 0.0 && width != root->dropdown_width_px) {
         sync_compact_setting(root, 14, width);
