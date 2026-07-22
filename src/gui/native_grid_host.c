@@ -7952,9 +7952,8 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         root->event_data, context->pane_id, event_code,
         pane_ids, G_N_ELEMENTS(pane_ids));
     if (model_count != (int)target_count) {
-        if (root->workspace_smoke == 21)
-            g_printerr("native_grid_layout_apply event=%d reason=model_count expected=%u actual=%d\n",
-                       event_code, target_count, model_count);
+        g_printerr("native_grid_layout_apply event=%d reason=model_count expected=%u actual=%d\n",
+                   event_code, target_count, model_count);
         return FALSE;
     }
     NocttyGridContext *ordered[16] = {0};
@@ -7970,11 +7969,10 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         }
         if (ordered[index] == NULL || ordered[index]->area == NULL ||
             ordered[index]->page != page) {
-            if (root->workspace_smoke == 21)
-                g_printerr("native_grid_layout_apply event=%d reason=context pane=%" G_GUINT64_FORMAT " found=%d area=%d page=%d\n",
-                           event_code, pane_ids[index], ordered[index] != NULL,
-                           ordered[index] != NULL && ordered[index]->area != NULL,
-                           ordered[index] != NULL && ordered[index]->page == page);
+            g_printerr("native_grid_layout_apply event=%d reason=context pane=%" G_GUINT64_FORMAT " found=%d area=%d page=%d\n",
+                       event_code, pane_ids[index], ordered[index] != NULL,
+                       ordered[index] != NULL && ordered[index]->area != NULL,
+                       ordered[index] != NULL && ordered[index]->page == page);
             return FALSE;
         }
     }
@@ -7982,11 +7980,11 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         context, ordered, target_count, rows, cols);
     if (rebuilt) {
         gboolean bound = bind_grid_layout_for_page(context);
-        if (!bound && root->workspace_smoke == 21)
+        if (!bound)
             g_printerr("native_grid_layout_apply event=%d reason=bind_failed contexts=%u\n",
                        event_code, grid_contexts_on_page(root, page));
         rebuilt = bound;
-    } else if (root->workspace_smoke == 21) {
+    } else {
         g_printerr("native_grid_layout_apply event=%d reason=rebuild_failed contexts=%u\n",
                    event_code, grid_contexts_on_page(root, page));
     }
@@ -8030,7 +8028,13 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
         NocttyGridContext *created = create_grid_context(context, 20);
         if (created == NULL || !add_grid_tab(context, created)) return;
         start_grid_context(created);
-        if (!apply_grid_layout_preset(created, event_code, TRUE)) return;
+        if (!apply_grid_layout_preset(created, event_code, TRUE)) {
+            g_printerr("native_grid_new_layout_failed event=%d pane=%" G_GUINT64_FORMAT "\n",
+                       event_code, created->pane_id);
+            return;
+        }
+        g_printerr("native_grid_new_layout_ready event=%d panes=%u\n",
+                   event_code, grid_contexts_on_page(root, created->page));
         gtk_widget_grab_focus(created->area);
         return;
     }
