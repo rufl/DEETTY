@@ -14462,8 +14462,9 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = create_window_resize_handle(
             context, index, widths[index], heights[index]);
-        gtk_grid_attach(GTK_GRID(layout), handle, columns[index], rows[index],
-                        1, 1);
+        if (index != 6)
+            gtk_grid_attach(GTK_GRID(layout), handle, columns[index],
+                            rows[index], 1, 1);
     }
     GtkWidget *grip_line = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_container_add(GTK_CONTAINER(context->window_resize_handles[6]),
@@ -14471,7 +14472,12 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
     gtk_widget_show(grip_line);
     context->resize_grip = context->window_resize_handles[6];
     gtk_grid_attach(GTK_GRID(layout), content, 1, 1, 1, 1);
-    return layout;
+    GtkWidget *overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(overlay), layout);
+    gtk_widget_set_halign(context->resize_grip, GTK_ALIGN_FILL);
+    gtk_widget_set_valign(context->resize_grip, GTK_ALIGN_END);
+    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), context->resize_grip);
+    return overlay;
 }
 
 static void update_window_resize_handles(NocttyGridContext *context) {
