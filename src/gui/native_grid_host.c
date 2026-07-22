@@ -7801,6 +7801,8 @@ static gboolean rebuild_grid_preset_page(
     GtkWidget *grid_root = build_preset_line(
         row_widgets, rows, GTK_ORIENTATION_VERTICAL);
     if (grid_root == NULL) return FALSE;
+    g_signal_connect(grid_root, "size-allocate",
+                     G_CALLBACK(on_restored_layout_size_allocate), NULL);
     gtk_box_pack_start(GTK_BOX(page), grid_root, TRUE, TRUE, 0);
     for (guint index = 0; index < count; index++) {
         ordered[index]->page = page;
@@ -8033,8 +8035,6 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
                        event_code, created->pane_id);
             return;
         }
-        g_printerr("native_grid_new_layout_ready event=%d panes=%u\n",
-                   event_code, grid_contexts_on_page(root, created->page));
         gtk_widget_grab_focus(created->area);
         return;
     }
