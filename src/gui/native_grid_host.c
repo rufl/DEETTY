@@ -6748,18 +6748,15 @@ static void on_grid_layout_position_changed(
         object, "noctty-layout-tab-index")) - 1;
     int node_index = GPOINTER_TO_INT(g_object_get_data(
         object, "noctty-layout-node-index")) - 1;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(GTK_WIDGET(object), &allocation);
-    GtkOrientation orientation = gtk_orientable_get_orientation(
-        GTK_ORIENTABLE(object));
-    int extent = orientation == GTK_ORIENTATION_HORIZONTAL
-        ? allocation.width : allocation.height;
+    gint max_position = 0;
+    g_object_get(object, "max-position", &max_position, NULL);
     if (root->event_data == NULL || tab_index < 0 || node_index < 0 ||
-        extent <= 0 || root->layout_restore_applying)
+        max_position <= 0 || max_position >= G_MAXINT / 2 ||
+        root->layout_restore_applying)
         return;
     int position = gtk_paned_get_position(GTK_PANED(object));
     int ratio_permille = CLAMP(
-        (position * 1000 + extent / 2) / extent, 0, 1000);
+        (position * 1000 + max_position / 2) / max_position, 0, 1000);
     g_object_set_data(G_OBJECT(object), "noctty-preset-ratio",
                       GUINT_TO_POINTER((guint)ratio_permille));
     if (noctty_grid_set_layout_ratio(
@@ -6775,16 +6772,14 @@ static gboolean on_grid_layout_button_release(
     if (event->type != GDK_BUTTON_RELEASE || event->button != 1 ||
         !GTK_IS_PANED(widget))
         return FALSE;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-    int extent = gtk_orientable_get_orientation(GTK_ORIENTABLE(widget)) ==
-        GTK_ORIENTATION_HORIZONTAL ? allocation.width : allocation.height;
-    if (extent <= 0) return FALSE;
+    gint max_position = 0;
+    g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
+    if (max_position <= 0 || max_position >= G_MAXINT / 2) return FALSE;
     const int snap_points[] = {
-        extent / 4, extent / 3, extent / 2,
-        extent * 2 / 3, extent * 3 / 4,
+        max_position / 4, max_position / 3, max_position / 2,
+        max_position * 2 / 3, max_position * 3 / 4,
     };
-    const int threshold = MAX(12, extent / 32);
+    const int threshold = MAX(12, max_position / 32);
     int position = gtk_paned_get_position(GTK_PANED(widget));
     for (guint index = 0; index < G_N_ELEMENTS(snap_points); index++) {
         if (ABS(position - snap_points[index]) <= threshold) {
