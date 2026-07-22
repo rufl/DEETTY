@@ -582,6 +582,7 @@ typedef struct NocttyGridContextTag {
     int window_resize_drag_start_height;
     int window_resize_drag_start_width_percent;
     int window_resize_drag_start_height_percent;
+    int window_resize_restore_height;
     double font_size;
     double requested_font_size;
     double font_min_size;
@@ -14342,6 +14343,26 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
     gtk_window_get_size(GTK_WINDOW(root->window),
                         &root->window_resize_drag_start_width,
                         &root->window_resize_drag_start_height);
+    if (root->window_resize_drag_start_height >
+        NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX)
+        root->window_resize_restore_height =
+            root->window_resize_drag_start_height;
+    else if (root->mode == 0 && index >= 5) {
+        GdkMonitor *monitor = grid_monitor_for_window(root->window);
+        GdkRectangle geometry = {0, 0, 900, 420};
+        if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
+        int height = root->window_resize_restore_height >
+                NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX
+            ? root->window_resize_restore_height
+            : MAX(NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX,
+                  geometry.height * root->dropdown_height_percent / 100);
+        sync_compact_setting(root, 15, height);
+        if (root->event != NULL)
+            root->event(root->event_data, root->pane_id, 71, height,
+                        (uint64_t)(g_get_monotonic_time() / 1000));
+        apply_dropdown_dimensions(root);
+        root->window_resize_drag_start_height = height;
+    }
     root->window_resize_drag_start_width_percent =
         root->dropdown_width_percent;
     root->window_resize_drag_start_height_percent =
