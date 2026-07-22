@@ -6755,7 +6755,8 @@ static void on_grid_layout_position_changed(
     int extent = orientation == GTK_ORIENTATION_HORIZONTAL
         ? allocation.width : allocation.height;
     if (root->event_data == NULL || tab_index < 0 || node_index < 0 ||
-        extent <= 0 || root->layout_restore_applying)
+        extent <= 0 || root->layout_restore_applying ||
+        g_object_get_data(object, "noctty-preset-ratio") != NULL)
         return;
     int position = gtk_paned_get_position(GTK_PANED(object));
     int ratio_permille = CLAMP(
@@ -6930,48 +6931,6 @@ static void on_restored_layout_size_allocate(GtkWidget *widget,
     if (allocation->width > 0 && allocation->height > 0)
         apply_preset_paned_positions(widget, allocation->width,
                                      allocation->height);
-}
-
-static gboolean apply_preset_page_positions(gpointer user_data) {
-    GtkWidget *grid_root = GTK_WIDGET(user_data);
-    g_object_set_data(G_OBJECT(grid_root), "noctty-preset-resize-source", NULL);
-    NocttyGridContext *root = g_object_get_data(
-        G_OBJECT(grid_root), "noctty-grid-root-context");
-    int width = GPOINTER_TO_INT(g_object_get_data(
-        G_OBJECT(grid_root), "noctty-preset-width"));
-    int height = GPOINTER_TO_INT(g_object_get_data(
-        G_OBJECT(grid_root), "noctty-preset-height"));
-    if (root != NULL && width > 0 && height > 0) {
-        root->layout_restore_applying = 1;
-        apply_preset_paned_positions(grid_root, width, height);
-        root->layout_restore_applying = 0;
-    }
-    g_object_unref(grid_root);
-    return G_SOURCE_REMOVE;
-}
-
-static void on_preset_page_size_allocate(GtkWidget *page,
-                                         GtkAllocation *allocation,
-                                         gpointer grid_root) {
-    (void)page;
-    if (allocation->width <= 0 || allocation->height <= 0) return;
-    GObject *object = G_OBJECT(grid_root);
-    int previous_width = GPOINTER_TO_INT(g_object_get_data(
-        object, "noctty-preset-width"));
-    int previous_height = GPOINTER_TO_INT(g_object_get_data(
-        object, "noctty-preset-height"));
-    if (previous_width == allocation->width &&
-        previous_height == allocation->height) return;
-    g_object_set_data(object, "noctty-preset-width",
-                      GINT_TO_POINTER(allocation->width));
-    g_object_set_data(object, "noctty-preset-height",
-                      GINT_TO_POINTER(allocation->height));
-    if (g_object_get_data(object, "noctty-preset-resize-source") == NULL) {
-        guint source = g_idle_add(apply_preset_page_positions,
-                                  g_object_ref(grid_root));
-        g_object_set_data(object, "noctty-preset-resize-source",
-                          GUINT_TO_POINTER(source));
-    }
 }
 
 static gboolean rebuild_hot_session_page(
@@ -7794,26 +7753,41 @@ static GtkWidget *build_preset_line(GtkWidget **widgets, guint count,
 
 static void apply_preset_paned_positions(GtkWidget *widget,
                                          gint width, gint height) {
+    (void)width;
+    (void)height;
     if (!GTK_IS_PANED(widget)) return;
-    GtkOrientation orientation = gtk_orientable_get_orientation(
-        GTK_ORIENTABLE(widget));
+    gint max_position = 0;
+    g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
     guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
         G_OBJECT(widget), "noctty-preset-ratio"));
-    gint extent = orientation == GTK_ORIENTATION_HORIZONTAL ? width : height;
-    gint handle_size = 0;
-    gtk_widget_style_get(widget, "handle-size", &handle_size, NULL);
-    gint usable = MAX(1, extent - MAX(0, handle_size));
-    gint position = usable * (gint)ratio_permille / 1000;
-    if (extent > 0) gtk_paned_set_position(GTK_PANED(widget), position);
-    GtkWidget *first = gtk_paned_get_child1(GTK_PANED(widget));
-    GtkWidget *second = gtk_paned_get_child2(GTK_PANED(widget));
-    if (orientation == GTK_ORIENTATION_HORIZONTAL) {
-        apply_preset_paned_positions(first, position, height);
-        apply_preset_paned_positions(second, MAX(1, usable - position), height);
-    } else {
-        apply_preset_paned_positions(first, width, position);
-        apply_preset_paned_positions(second, width, MAX(1, usable - position));
-    }
+    if (max_position > 0 && max_position < G_MAXINT / 2)
+        gtk_paned_set_position(GTK_PANED(widget), (gint)(
+            ((gint64)max_position * ratio_permille + 500) / 1000));
+    apply_preset_paned_positions(
+        gtk_paned_get_child1(GTK_PANED(widget)), 0, 0);
+    apply_preset_paned_positions(
+        gtk_paned_get_child2(GTK_PANED(widget)), 0, 0);
+}
+
+static void on_preset_max_position_changed(
+    GObject *object, GParamSpec *parameter, gpointer user_data) {
+    (void)parameter;
+    NocttyGridContext *root = root_grid_context(user_data);
+    if (!GTK_IS_PANED(object) || root->layout_restore_applying) return;
+    root->layout_restore_applying = 1;
+    apply_preset_paned_positions(GTK_WIDGET(object), 0, 0);
+    root->layout_restore_applying = 0;
+}
+
+static void bind_preset_max_positions(NocttyGridContext *root,
+                                      GtkWidget *widget) {
+    if (!GTK_IS_PANED(widget)) return;
+    g_signal_connect(widget, "notify::max-position",
+                     G_CALLBACK(on_preset_max_position_changed), root);
+    bind_preset_max_positions(
+        root, gtk_paned_get_child1(GTK_PANED(widget)));
+    bind_preset_max_positions(
+        root, gtk_paned_get_child2(GTK_PANED(widget)));
 }
 
 static gboolean rebuild_grid_preset_page(
@@ -7848,10 +7822,7 @@ static gboolean rebuild_grid_preset_page(
     GtkWidget *grid_root = build_preset_line(
         row_widgets, rows, GTK_ORIENTATION_VERTICAL);
     if (grid_root == NULL) return FALSE;
-    g_object_set_data(G_OBJECT(grid_root), "noctty-grid-root-context", root);
-    g_signal_connect_object(page, "size-allocate",
-                            G_CALLBACK(on_preset_page_size_allocate),
-                            grid_root, 0);
+    bind_preset_max_positions(root, grid_root);
     gtk_box_pack_start(GTK_BOX(page), grid_root, TRUE, TRUE, 0);
     for (guint index = 0; index < count; index++) {
         ordered[index]->page = page;
@@ -7859,12 +7830,6 @@ static gboolean rebuild_grid_preset_page(
         if (held[index]) g_object_unref(areas[index]);
     }
     gtk_widget_show_all(page);
-    GtkAllocation page_allocation;
-    gtk_widget_get_allocation(page, &page_allocation);
-    root->layout_restore_applying = 1;
-    apply_preset_paned_positions(grid_root, page_allocation.width,
-                                 page_allocation.height);
-    root->layout_restore_applying = 0;
     gtk_widget_queue_resize(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
