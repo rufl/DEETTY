@@ -14777,12 +14777,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     gtk_window_set_default_size(GTK_WINDOW(context.window), 1100, 640);
     gtk_window_set_decorated(GTK_WINDOW(context.window), FALSE);
     gtk_window_set_resizable(GTK_WINDOW(context.window), TRUE);
-    GdkGeometry minimum_geometry = {
-        .min_width = 1,
-        .min_height = 1,
-    };
-    gtk_window_set_geometry_hints(GTK_WINDOW(context.window), NULL,
-                                  &minimum_geometry, GDK_HINT_MIN_SIZE);
     gtk_window_set_keep_above(GTK_WINDOW(context.window), mode == 0);
     if (mode == 2) gtk_window_fullscreen(GTK_WINDOW(context.window));
     context.notebook = gtk_notebook_new();
@@ -14843,18 +14837,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         &context, context.revealer);
     secondary.window_layout = context.window_layout;
     secondary.resize_grip = context.resize_grip;
-    if (mode == 0) {
-        GtkWidget *clip = gtk_overlay_new();
-        GtkWidget *minimum = gtk_drawing_area_new();
-        gtk_widget_set_size_request(minimum, 1, 1);
-        gtk_container_add(GTK_CONTAINER(clip), minimum);
-        gtk_widget_set_halign(context.window_layout, GTK_ALIGN_FILL);
-        gtk_widget_set_valign(context.window_layout, GTK_ALIGN_FILL);
-        gtk_overlay_add_overlay(GTK_OVERLAY(clip), context.window_layout);
-        gtk_container_add(GTK_CONTAINER(context.window), clip);
-    } else {
-        gtk_container_add(GTK_CONTAINER(context.window), context.window_layout);
-    }
+    gtk_container_add(GTK_CONTAINER(context.window), context.window_layout);
     int initial_tab_position = event_data != NULL
         ? noctty_grid_tab_position(event_data)
         : 0;
