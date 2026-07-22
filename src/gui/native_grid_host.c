@@ -14087,7 +14087,7 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     double width_fit = DBL_MAX;
     double height_fit = DBL_MAX;
     NocttyGridContext *root = root_grid_context(context);
-    if (context->page != NULL &&
+    if (root->workspace_smoke == 21 && context->page != NULL &&
         grid_contexts_on_page(root, context->page) >= 4 &&
         allocation->width > 0 && allocation->height > 0) {
         int fit_width = allocation->width;
@@ -14114,8 +14114,8 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     int zoom_percent = base_size > 0
         ? CLAMP((int)round(next_size * 100.0 / base_size), 1, 100) : 100;
     context->resize_overlay_floor_reached =
-        context->page != NULL &&
-        grid_contexts_on_page(root_grid_context(context), context->page) >= 4 &&
+        root->workspace_smoke == 21 && context->page != NULL &&
+        grid_contexts_on_page(root, context->page) >= 4 &&
         MIN(width_fit, height_fit) < 3.0;
     gboolean font_changed = fabs(context->font_size - next_size) > 0.01;
     if (font_changed) {
@@ -14215,7 +14215,7 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
         event->type != GDK_BUTTON_PRESS || root->mode == 2) return FALSE;
     root->window_resize_handle_mask |= 1 << index;
     if (root->workspace_smoke == 19) return TRUE;
-    if (root->mode == 1 && !root->layer_shell_active) {
+    if (!root->layer_shell_active) {
         gtk_window_begin_resize_drag(
             GTK_WINDOW(root->window), noctty_resize_edges[index],
             event->button, (gint)event->x_root, (gint)event->y_root,
