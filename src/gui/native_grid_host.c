@@ -8725,6 +8725,7 @@ static void on_settings_destroy(GtkWidget *widget, gpointer user_data) {
 typedef gboolean (*NocttyLayerIsSupported)(void);
 typedef void (*NocttyLayerInitForWindow)(GtkWindow *);
 typedef void (*NocttyLayerSetNamespace)(GtkWindow *, const char *);
+typedef void (*NocttyLayerSetMonitor)(GtkWindow *, GdkMonitor *);
 typedef void (*NocttyLayerSetInt)(GtkWindow *, int);
 typedef int (*NocttyLayerGetInt)(GtkWindow *);
 typedef gboolean (*NocttyLayerIsLayerWindow)(GtkWindow *);
@@ -8738,6 +8739,16 @@ static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
         ? gdk_display_get_monitor_at_window(display, gdk_window)
         : NULL;
     if (monitor == NULL) monitor = gdk_display_get_primary_monitor(display);
+    if (monitor == NULL) {
+        GdkSeat *seat = gdk_display_get_default_seat(display);
+        GdkDevice *pointer = seat != NULL ? gdk_seat_get_pointer(seat) : NULL;
+        gint x = 0;
+        gint y = 0;
+        if (pointer != NULL) {
+            gdk_device_get_position(pointer, NULL, &x, &y);
+            monitor = gdk_display_get_monitor_at_point(display, x, y);
+        }
+    }
     if (monitor == NULL && gdk_display_get_n_monitors(display) > 0)
         monitor = gdk_display_get_monitor(display, 0);
     return monitor;
@@ -8822,6 +8833,9 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     NocttyLayerInitForWindow init_for_window =
         (NocttyLayerInitForWindow)dlsym(root->layer_shell_library,
                                         "gtk_layer_init_for_window");
+    NocttyLayerSetMonitor set_monitor =
+        (NocttyLayerSetMonitor)dlsym(root->layer_shell_library,
+                                     "gtk_layer_set_monitor");
     NocttyLayerSetInt set_layer =
         (NocttyLayerSetInt)dlsym(root->layer_shell_library,
                                  "gtk_layer_set_layer");
@@ -8831,7 +8845,8 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     NocttyLayerSetInt set_exclusive_zone =
         (NocttyLayerSetInt)dlsym(root->layer_shell_library,
                                  "gtk_layer_set_exclusive_zone");
-    if (is_supported == NULL || init_for_window == NULL || set_layer == NULL ||
+    if (is_supported == NULL || init_for_window == NULL ||
+        set_monitor == NULL || set_layer == NULL ||
         set_keyboard_mode == NULL || set_exclusive_zone == NULL ||
         !is_supported()) {
         dlclose(root->layer_shell_library);
@@ -8839,6 +8854,8 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
         return 0;
     }
     init_for_window(GTK_WINDOW(root->window));
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
+    if (monitor != NULL) set_monitor(GTK_WINDOW(root->window), monitor);
     set_layer(GTK_WINDOW(root->window), 3);
     set_keyboard_mode(GTK_WINDOW(root->window), 1);
     set_exclusive_zone(GTK_WINDOW(root->window), 0);
