@@ -7790,6 +7790,29 @@ static void bind_preset_max_positions(NocttyGridContext *root,
         root, gtk_paned_get_child2(GTK_PANED(widget)));
 }
 
+static gboolean ensure_grid_preset_page_ready(gpointer user_data) {
+    GtkWidget *page = GTK_WIDGET(user_data);
+    NocttyGridContext *root = g_object_get_data(
+        G_OBJECT(page), "noctty-grid-root-context");
+    if (root != NULL && root->contexts != NULL) {
+        gtk_widget_show_all(page);
+        for (guint index = 0; index < root->contexts->len; index++) {
+            NocttyGridContext *candidate =
+                g_ptr_array_index(root->contexts, index);
+            if (candidate->page != page || candidate->area == NULL ||
+                candidate->retiring || candidate->exited)
+                continue;
+            if (!candidate->active) start_grid_context(candidate);
+            gtk_widget_set_sensitive(candidate->area, TRUE);
+            gtk_widget_show(candidate->area);
+            candidate->damage_initialized = 0;
+            queue_grid_damage_when_mapped(candidate);
+        }
+    }
+    g_object_unref(page);
+    return G_SOURCE_REMOVE;
+}
+
 static gboolean rebuild_grid_preset_page(
     NocttyGridContext *source, NocttyGridContext **ordered,
     guint count, guint rows, guint columns) {
@@ -7831,6 +7854,8 @@ static gboolean rebuild_grid_preset_page(
     }
     gtk_widget_show_all(page);
     gtk_widget_queue_resize(page);
+    g_object_set_data(G_OBJECT(page), "noctty-grid-root-context", root);
+    g_timeout_add(75, ensure_grid_preset_page_ready, g_object_ref(page));
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
         gtk_widget_set_sensitive(ordered[index]->area, TRUE);
