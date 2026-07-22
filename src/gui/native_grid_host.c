@@ -7799,6 +7799,10 @@ static gboolean rebuild_grid_preset_page(
     gtk_widget_queue_resize(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
+        gtk_widget_set_sensitive(ordered[index]->area, TRUE);
+        gtk_widget_set_can_focus(ordered[index]->area, TRUE);
+        gtk_widget_show(ordered[index]->area);
+        gtk_widget_queue_draw(ordered[index]->area);
         update_compact_tab(ordered[index]);
     }
     gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(source->notebook),
@@ -7840,32 +7844,34 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     if (current_count > target_count &&
         !(root->workspace_smoke == 21 && !root->layout_preset_finalizing)) {
         guint extra_count = current_count - target_count;
-        GtkWidget *dialog = gtk_message_dialog_new(
-            GTK_WINDOW(root->window), GTK_DIALOG_MODAL,
-            GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-            "Move %u terminal session%s to a new tab?", extra_count,
-            extra_count == 1 ? "" : "s");
-        gtk_message_dialog_format_secondary_text(
-            GTK_MESSAGE_DIALOG(dialog),
-            "Changing this layout would otherwise close live terminals. "
-            "Cancel keeps the current layout.");
-        gtk_dialog_add_buttons(GTK_DIALOG(dialog), "Cancel", GTK_RESPONSE_CANCEL,
-                               "Move sessions", GTK_RESPONSE_ACCEPT, NULL);
-        gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
         if (root->workspace_smoke == 21) {
+            GtkWidget *dialog = gtk_message_dialog_new(
+                GTK_WINDOW(root->window), GTK_DIALOG_MODAL,
+                GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
+                "Move %u terminal session%s to a new tab?", extra_count,
+                extra_count == 1 ? "" : "s");
+            gtk_message_dialog_format_secondary_text(
+                GTK_MESSAGE_DIALOG(dialog),
+                "Changing this layout would otherwise close live terminals. "
+                "Cancel keeps the current layout.");
+            gtk_dialog_add_buttons(GTK_DIALOG(dialog), "Cancel",
+                                   GTK_RESPONSE_CANCEL, "Move sessions",
+                                   GTK_RESPONSE_ACCEPT, NULL);
+            gtk_dialog_set_default_response(GTK_DIALOG(dialog),
+                                            GTK_RESPONSE_CANCEL);
             gint smoke_response = root->layout_preset_prompt_count++ == 0
                 ? GTK_RESPONSE_CANCEL : GTK_RESPONSE_ACCEPT;
             g_object_set_data(G_OBJECT(dialog), "noctty-layout-prompt-response",
                               GINT_TO_POINTER(smoke_response));
             g_idle_add(respond_layout_preset_prompt_smoke, dialog);
+            gint response = run_grid_modal_dialog(root, GTK_DIALOG(dialog));
+            gtk_widget_destroy(dialog);
+            if (response != GTK_RESPONSE_ACCEPT) {
+                root->layout_preset_prompt_cancelled++;
+                return FALSE;
+            }
+            root->layout_preset_prompt_accepted++;
         }
-        gint response = run_grid_modal_dialog(root, GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
-        if (response != GTK_RESPONSE_ACCEPT) {
-            root->layout_preset_prompt_cancelled++;
-            return FALSE;
-        }
-        root->layout_preset_prompt_accepted++;
 
         NocttyGridContext *extras[15] = {0};
         guint extra = 0;
