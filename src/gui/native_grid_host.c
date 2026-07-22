@@ -6935,9 +6935,14 @@ static void on_preset_page_size_allocate(GtkWidget *page,
                                          GtkAllocation *allocation,
                                          gpointer grid_root) {
     (void)page;
-    if (allocation->width > 0 && allocation->height > 0)
-        apply_preset_paned_positions(GTK_WIDGET(grid_root),
-                                     allocation->width, allocation->height);
+    NocttyGridContext *root = g_object_get_data(
+        G_OBJECT(grid_root), "noctty-grid-root-context");
+    if (root == NULL || allocation->width <= 0 || allocation->height <= 0)
+        return;
+    root->layout_restore_applying = 1;
+    apply_preset_paned_positions(GTK_WIDGET(grid_root),
+                                 allocation->width, allocation->height);
+    root->layout_restore_applying = 0;
 }
 
 static gboolean rebuild_hot_session_page(
@@ -7785,6 +7790,7 @@ static gboolean rebuild_grid_preset_page(
     if (source == NULL || source->page == NULL || count == 0 ||
         count > 16 || rows == 0 || columns == 0 ||
         rows * columns != count) return FALSE;
+    NocttyGridContext *root = root_grid_context(source);
     GtkWidget *page = source->page;
     GtkWidget *areas[16] = {0};
     gboolean held[16] = {FALSE};
@@ -7810,6 +7816,7 @@ static gboolean rebuild_grid_preset_page(
     GtkWidget *grid_root = build_preset_line(
         row_widgets, rows, GTK_ORIENTATION_VERTICAL);
     if (grid_root == NULL) return FALSE;
+    g_object_set_data(G_OBJECT(grid_root), "noctty-grid-root-context", root);
     g_signal_connect_object(page, "size-allocate",
                             G_CALLBACK(on_preset_page_size_allocate),
                             grid_root, 0);
@@ -7822,8 +7829,10 @@ static gboolean rebuild_grid_preset_page(
     gtk_widget_show_all(page);
     GtkAllocation page_allocation;
     gtk_widget_get_allocation(page, &page_allocation);
+    root->layout_restore_applying = 1;
     apply_preset_paned_positions(grid_root, page_allocation.width,
                                  page_allocation.height);
+    root->layout_restore_applying = 0;
     gtk_widget_queue_resize(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
