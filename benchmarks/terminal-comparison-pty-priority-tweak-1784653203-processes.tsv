@@ -1,0 +1,21 @@
+run_serial	terminal	scenario	panes	trial	pid	ppid	excluded	pss_kib	rss_kib	cmdline
+2	noctty	idle	1	1	3690571	3690081	false	17045	45736	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+2	noctty	idle	1	1	3690578	3690571	true	669	4048	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+3	noctty	idle	1	2	3690745	3690081	false	16792	45188	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+3	noctty	idle	1	2	3690752	3690745	true	675	4160	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+4	noctty	idle	1	3	3690930	3690081	false	18789	47352	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+4	noctty	idle	1	3	3690937	3690930	true	672	4156	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+5	noctty	idle	1	4	3691111	3690081	false	16811	45308	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+5	noctty	idle	1	4	3691118	3691111	true	674	4164	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+6	noctty	idle	1	5	3691278	3690081	false	16908	45516	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+6	noctty	idle	1	5	3691285	3691278	true	658	4076	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+8	noctty	output	1	1	3691622	3690081	false	21226	49688	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+8	noctty	output	1	1	3691629	3691622	true	668	4128	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+9	noctty	output	1	2	3691811	3690081	false	19355	47936	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+9	noctty	output	1	2	3691818	3691811	true	665	4112	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+10	noctty	output	1	3	3692011	3690081	false	19410	47892	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+10	noctty	output	1	3	3692018	3692011	true	674	4156	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+11	noctty	output	1	4	3692211	3690081	false	21364	49976	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+11	noctty	output	1	4	3692218	3692211	true	674	4168	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 
+12	noctty	output	1	5	3692399	3690081	false	19511	48000	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+12	noctty	output	1	5	3692406	3692399	true	675	4176	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 

@@ -1,0 +1,3 @@
+run_serial	terminal	scenario	panes	trial	pid	ppid	excluded	pss_kib	rss_kib	cmdline
+1	noctty	idle	1	1	3464473	3464412	false	18632	47252	/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty --native-grid-benchmark 1 
+1	noctty	idle	1	1	3464480	3464473	true	622	4060	sh /home/lich/lichforge/code/monorepo/desktop/NOCTTY/scripts/terminal_benchmark_workload.sh 

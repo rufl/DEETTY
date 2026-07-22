@@ -4,18 +4,19 @@ pub const max_parameters = 16;
 pub const max_subparameters = 8;
 pub const max_intermediates = 2;
 pub const max_string_bytes = 4096;
+const empty_parameter = Parameter{};
 
 pub const Parameter = struct {
     values: [max_subparameters]u16 = [_]u16{0} ** max_subparameters,
     present: [max_subparameters]bool = [_]bool{false} ** max_subparameters,
     count: usize = 1,
 
-    pub fn valueOr(self: Parameter, index: usize, default: u16) u16 {
+    pub fn valueOr(self: *const Parameter, index: usize, default: u16) u16 {
         if (index >= self.count or !self.present[index]) return default;
         return self.values[index];
     }
 
-    pub fn isPresent(self: Parameter, index: usize) bool {
+    pub fn isPresent(self: *const Parameter, index: usize) bool {
         return index < self.count and self.present[index];
     }
 
@@ -30,6 +31,8 @@ pub const Parameter = struct {
 
     fn nextSubparameter(self: *Parameter) bool {
         if (self.count >= max_subparameters) return false;
+        self.values[self.count] = 0;
+        self.present[self.count] = false;
         self.count += 1;
         return true;
     }
@@ -43,11 +46,11 @@ pub const Csi = struct {
     parameter_count: usize = 1,
     final: u8 = 0,
 
-    pub fn parameter(self: Csi, index: usize) Parameter {
-        return if (index < self.parameter_count) self.parameters[index] else .{};
+    pub fn parameter(self: *const Csi, index: usize) *const Parameter {
+        return if (index < self.parameter_count) &self.parameters[index] else &empty_parameter;
     }
 
-    pub fn valueOr(self: Csi, index: usize, default: u16) u16 {
+    pub fn valueOr(self: *const Csi, index: usize, default: u16) u16 {
         return self.parameter(index).valueOr(0, default);
     }
 
@@ -79,7 +82,7 @@ pub const Event = union(enum) {
     print: u8,
     execute: u8,
     escape: Escape,
-    csi: Csi,
+    csi: *const Csi,
     string: StringEvent,
 };
 
@@ -154,7 +157,7 @@ pub const Parser = struct {
 
     pub fn reset(self: *Parser) void {
         self.state = .ground;
-        self.csi = .{};
+        self.resetCsi();
         self.escape_intermediate_count = 0;
         self.string_length = 0;
         self.string_overflow = false;
@@ -353,7 +356,7 @@ pub const Parser = struct {
     }
 
     fn startCsi(self: *Parser, dcs: bool) Event {
-        self.csi = .{};
+        self.resetCsi();
         self.state = if (dcs) .dcs_entry else .csi_entry;
         return .none;
     }
@@ -391,10 +394,8 @@ pub const Parser = struct {
             self.dcs_header = self.csi;
             return self.startString(.dcs);
         }
-        const event = self.csi;
-        self.csi = .{};
         self.state = .ground;
-        return .{ .csi = event };
+        return .{ .csi = &self.csi };
     }
 
     fn finishString(self: *Parser) Event {
@@ -413,8 +414,19 @@ pub const Parser = struct {
 
     fn nextParameter(self: *Parser) bool {
         if (self.csi.parameter_count >= max_parameters) return false;
+        self.csi.parameters[self.csi.parameter_count] = .{};
         self.csi.parameter_count += 1;
         return true;
+    }
+
+    fn resetCsi(self: *Parser) void {
+        self.csi.private_marker = 0;
+        self.csi.intermediate_count = 0;
+        self.csi.parameter_count = 1;
+        self.csi.parameters[0].values[0] = 0;
+        self.csi.parameters[0].present[0] = false;
+        self.csi.parameters[0].count = 1;
+        self.csi.final = 0;
     }
 
     fn appendStringByte(self: *Parser, byte: u8) void {
@@ -446,7 +458,7 @@ test "VT parser retains explicit missing and colon subparameters" {
         const next = parser.feed(byte);
         if (next != .none) event = next;
     }
-    const csi = event.csi;
+    const csi = event.csi.*;
     try std.testing.expectEqual(@as(u8, 'm'), csi.final);
     try std.testing.expectEqual(@as(usize, 3), csi.parameter_count);
     try std.testing.expectEqual(@as(u16, 1), csi.valueOr(0, 0));

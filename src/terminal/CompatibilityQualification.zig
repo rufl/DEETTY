@@ -200,8 +200,9 @@ fn runFeatureAssertions(allocator: std.mem.Allocator) !void {
         defer grid.deinit();
         try grid.feed("\x1b[1;2;3;4;9;38;2;10;20;30;48;5;17mX");
         const cell = grid.cell(0, 0);
-        if (!cell.bold or !cell.dim or !cell.italic or !cell.underline or
-            !cell.strikethrough or grid.colorRgb(cell.foreground) != 0x0a141e or
+        if (!cell.flags.bold or !cell.flags.dim or !cell.flags.italic or
+            !cell.flags.underline or !cell.flags.strikethrough or
+            grid.colorRgb(cell.foreground) != 0x0a141e or
             cell.background != 17)
             return error.SgrAssertionFailed;
     }

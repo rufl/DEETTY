@@ -4,8 +4,8 @@ const Vt = @import("Vt.zig");
 const LaunchProfile = @import("LaunchProfile.zig");
 
 pub const TerminalSession = struct {
-    const max_pump_bytes = 128 * 1024;
-    const output_buffer_bytes = 16 * 1024;
+    const max_pump_bytes = 2 * 1024 * 1024;
+    const output_buffer_bytes = 128 * 1024;
 
     allocator: std.mem.Allocator,
     pty: Pty.Session,

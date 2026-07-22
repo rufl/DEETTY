@@ -40,6 +40,8 @@ run_zig_build() {
 ./scripts/native_grid_pipeline_qualification.sh
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
+./scripts/nocted_lsp_smoke.sh
+./scripts/nocted_task_smoke.sh
 ./scripts/nocted_state_recovery_qualification.sh
 ./scripts/nocted_fuzz_race_qualification.sh
 ./scripts/nocted_core_stability_qualification.sh

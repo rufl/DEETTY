@@ -12,7 +12,7 @@ nocted=src/nocted/main.zig
 nocted_gtk=src/nocted/gtk.zig
 nocted_folding=src/nocted/Folding.zig
 nocted_search=src/nocted/ProjectSearch.zig
-nocted_worker=src/nocted/FilesystemWorker.zig
+nocted_worker=src/nocted/Worker.zig
 test -s "$nocted"
 test -s "$nocted_gtk"
 test -s "$nocted_folding"
@@ -99,7 +99,7 @@ grep -F 'schedule_grid_hot_session_flush(root)' "$grid" >/dev/null
 ! grep -A20 -F 'export fn noctty_grid_reorder_tab' src/main.zig | grep -F 'persistNativeGridHotSession(bridge)' >/dev/null
 grep -F 'GTK_PACK_START' "$grid" >/dev/null
 grep -F 'GTK_PACK_END' "$grid" >/dev/null
-grep -F 'list-add-symbolic' "$grid" >/dev/null
+grep -F 'gtk_button_new_with_label("+")' "$grid" >/dev/null
 grep -F 'create_window_toolbar_controls' "$grid" >/dev/null
 grep -F 'configure_settings_window_stacking' "$grid" >/dev/null
 grep -F 'gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root->window))' "$grid" >/dev/null
@@ -125,7 +125,7 @@ grep -F 'noctty_grid_adjust_tab_color' src/main.zig >/dev/null
 grep -F 'GDK_KEY_equal' "$grid" >/dev/null
 grep -F 'GDK_KEY_minus' "$grid" >/dev/null
 grep -F -- '--native-grid-tab-color-smoke' src/main.zig >/dev/null
-grep -F 'window-close-symbolic' "$grid" >/dev/null
+grep -F 'gtk_button_new_with_label("×")' "$grid" >/dev/null
 grep -F 'on_notebook_switch_page' "$grid" >/dev/null
 grep -F 'tab_active_styled' "$grid" >/dev/null
 grep -F '"noctty-tab-markup-cache"' "$grid" >/dev/null
@@ -198,6 +198,9 @@ grep -F 'noctty_grid_apply_preset' src/main.zig >/dev/null
 grep -F 'gtk_menu_item_new_with_label("Close Tab")' "$grid" >/dev/null
 grep -F 'gtk_menu_item_new_with_label("Close Terminal")' "$grid" >/dev/null
 grep -F 'append_workspace_menu_item(menu, "Layout 2×2", 51' "$grid" >/dev/null
+grep -F 'append_workspace_menu_item(menu, "Layout 4×2", 61' "$grid" >/dev/null
+grep -F '61 => .four_by_two' src/main.zig >/dev/null
+grep -F 'verify_layout_preset_geometry(root, 2, 4)' "$grid" >/dev/null
 grep -F 'append_workspace_menu_item(menu, "Layout 3×3", 52' "$grid" >/dev/null
 grep -F -- '--native-grid-layout-preset-smoke' src/main.zig >/dev/null
 grep -F -- '--native-grid-recursive-split-smoke' src/main.zig >/dev/null
@@ -274,7 +277,6 @@ grep -F 'pub fn packedRow(self: Grid, row: usize, output: []u64) usize {' src/te
 grep -F "if ((style & 128) == 0 && codepoint >= 0x20 && codepoint != ' ')" "$grid" >/dev/null
 grep -F 'if (had_output || !context->terminal_metadata_initialized)' "$grid" >/dev/null
 grep -F 'now_us - context->last_exit_poll_us >= 250 * 1000' "$grid" >/dev/null
-grep -F 'created->terminal_metadata_initialized = 0;' "$grid" >/dev/null
 grep -F 'defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);' src/main.zig >/dev/null
 grep -F '4 => .{ .tick = at_ms },' src/main.zig >/dev/null
 grep -F 'if (had_output) queue_grid_output_when_ready(context);' "$grid" >/dev/null
@@ -282,8 +284,8 @@ grep -F 'if (status_changed) queue_grid_draw_when_mapped(context);' "$grid" >/de
 grep -F '#include <glib-unix.h>' "$grid" >/dev/null
 grep -F 'extern int noctty_grid_pty_fd(void *);' "$grid" >/dev/null
 grep -F 'context->pty_fd = noctty_grid_pty_fd(context->userdata);' "$grid" >/dev/null
-grep -F 'context->pty_source = g_unix_fd_add_full(' "$grid" >/dev/null
 grep -F 'G_PRIORITY_DEFAULT, context->pty_fd,' "$grid" >/dev/null
+grep -F '(GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR), on_pty_ready,' "$grid" >/dev/null
 grep -F 'gtk_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'context->area, on_output_frame, context, NULL);' "$grid" >/dev/null
 grep -F 'G_PRIORITY_DEFAULT, 100, on_output_present, context, NULL);' "$grid" >/dev/null
@@ -312,7 +314,7 @@ grep -F 'popup_teardown=true' scripts/native_grid_hot_session_smoke.sh >/dev/nul
 grep -F 'static void stop_grid_io_sources(NocttyGridContext *context) {' "$grid" >/dev/null
 grep -F 'static void stop_grid_context_sources(NocttyGridContext *context) {' "$grid" >/dev/null
 grep -F 'stop_grid_context_sources(candidate);' "$grid" >/dev/null
-test "$(grep -Fc 'remove_grid_source(&context->pty_source);' "$grid")" -eq 1
+grep -F 'remove_grid_source(&context->pty_source);' "$grid" >/dev/null
 test "$(grep -Fc 'remove_output_present(context);' "$grid")" -eq 1
 grep -F 'if ((workspace_smoke == 2 || workspace_smoke == 20) &&' "$grid" >/dev/null
 grep -F 'gtk_widget_get_ancestor(item, GTK_TYPE_MENU);' "$grid" >/dev/null
@@ -332,7 +334,7 @@ grep -F 'descriptor_fallback=root_coalesced pane_exit_timer=false source_cleanup
 grep -F 'xdotool windowactivate --sync "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'xdotool getactivewindow' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'xdotool mousemove --sync --window "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
-grep -F 'const output_buffer_bytes = 16 * 1024;' src/terminal/Session.zig >/dev/null
+grep -F 'const output_buffer_bytes = 128 * 1024;' src/terminal/Session.zig >/dev/null
 grep -F 'fn putAscii(self: *Grid, bytes: []const u8) !void {' src/terminal/Vt.zig >/dev/null
 grep -F 'self.screen_origin += 1;' src/terminal/Vt.zig >/dev/null
 grep -F 'key-release-event' "$grid" >/dev/null

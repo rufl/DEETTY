@@ -1,0 +1,9 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,ingest_n,ingest_mad_ms
+noctty,noctty 0.1.0,1,139,139,139,17.238,44.242,0.000,21.295,77.924,1,0,0.000,1,0
+konsole,konsole 26.04.3,1,266,266,266,30.420,104.668,0.000,58.709,28.265,1,0,0.000,1,0
+kitty,kitty 0.48.0 created by Kovid Goyal,1,219,219,219,91.944,149.973,0.000,22.764,72.896,1,0,0.000,1,0
+wezterm,wezterm 20240203-110809-5046fc22,1,130,130,130,90.545,167.637,0.000,39.686,41.813,1,0,0.000,1,0
+terminator,(terminator:3064130): dbind-WARNING **: 11:44:50.781: Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: Connection refused,1,315,315,315,65.937,122.812,0.953,31.104,53.350,1,0,0.000,1,0
+ghostty,Ghostty 1.3.1-arch2,1,615,615,615,123.341,216.496,0.964,57.309,28.955,1,0,0.000,1,0
+alacritty,alacritty 0.17.0 (94e7c887),1,199,199,199,43.651,95.078,0.000,19.686,84.293,1,0,0.000,1,0
+yakuake,yakuake 26.04.3,1,297,297,297,34.762,112.703,0.960,36.832,45.053,1,0,0.000,1,0

@@ -1,7 +1,7 @@
 # NoctEd GLib Worker Qualification
 
 Retained on 2026-07-18 with Zig 0.16.0, GLib 2.88.2, and Linux x86_64.
-This display-independent receipt covers the production `FilesystemWorker`
+This display-independent receipt covers the production `Worker`
 admission, queue transaction, and GLib scheduling seam without initializing
 GTK.
 

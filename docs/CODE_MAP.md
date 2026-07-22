@@ -59,7 +59,7 @@ zig build run-nocted -- --project . --open README.md
   today: GUI construction, callbacks, file/project actions, smoke flows, and
   app lifecycle live together for alpha.
 - `src/nocted/root.zig` — import root for reusable NoctEd core modules.
-- `src/nocted/FilesystemWorker.zig` — GLib worker-job model for project scans,
+- `src/nocted/Worker.zig` — GLib worker-job model for project scans,
   searches, document load/save, cancellation, lane admission, queue limits, and
   completion handoff.
 - `src/nocted/project_index*` / `src/nocted/project_search*` — project indexing
@@ -112,5 +112,5 @@ For a fast review, read in this order:
 5. `src/app/App.zig` top-level types and `init/deinit/launchPlan`
 6. `src/gui/Host.zig` launch/presentation structs
 7. `src/terminal/Vt.zig` top-level data model
-8. `src/nocted/FilesystemWorker.zig`
+8. `src/nocted/Worker.zig`
 9. `src/nocted/main.zig` app lifecycle and save/search/open paths

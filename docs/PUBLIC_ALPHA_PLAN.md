@@ -114,9 +114,13 @@ NoctEd alpha is useful enough when the following are reliable in dogfood:
 - recent projects
 - bounded resource behavior on current Lichforge repos
 
+Added after this plan was written:
+
+- bounded on-demand local LSP client actions, without server or language-semantic implementation
+
 Defer:
 
-- LSP
+- persistent language-server sessions and IDE-parity LSP UX
 - DAP
 - plugin APIs
 - batch replace

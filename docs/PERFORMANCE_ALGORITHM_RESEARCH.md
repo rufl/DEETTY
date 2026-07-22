@@ -23,6 +23,18 @@ GTK text model with a rope or piece tree would require either a custom editor
 view or two synchronized text models, both of which conflict with the current
 lean and stable product boundary.
 
+### Local profiling gate
+
+Use the existing exact renderer and real PTY pipeline directly:
+
+```sh
+./scripts/native_grid_renderer_qualification.sh
+./scripts/native_grid_pipeline_qualification.sh
+```
+
+They retain Debug/ReleaseSafe timing, allocation, memory, and pixel evidence
+without a separate profiling wrapper or runtime metrics.
+
 The implementation order and current acceptance state are:
 
 1. NCT-119: frame-clock presentation, allocation-bounded Cairo glyph delivery,
@@ -94,7 +106,7 @@ derived from peer architecture alone.
 - Project search borrows the index, searches immutable unsaved-buffer snapshots
   first, reuses bounded chunks, and publishes at most 24 results or 25 ms with
   a two-batch GTK backpressure cap.
-- `FilesystemWorker.zig` and `main.zig` separate foreground document I/O from
+- `Worker.zig` and `main.zig` separate foreground document I/O from
   background scan/search/index-delta work through at most two lazy single-thread lanes.
 - `QuickOpen.zig` uses smart-case gating, path-aware scoring, and fixed-size
   top-K selection. Coalesced GIO monitors drive external clean/dirty decisions
@@ -222,6 +234,14 @@ path injection in the
 Correctness and bounded failure behavior are the transferable lessons; SIMD is
 not the first step.
 
+Kitty 0.48.0 uses one child-monitor I/O thread to drain all PTYs into bounded
+1 MiB parser buffers, coalesces main-loop wakeups with `input_delay`, and routes
+contiguous text through `simd-string.h` before screen mutation. NOCTTY already
+has contiguous ASCII runs and coalesced presentation; its current transferable
+steps are larger bounded reads and direct hot-history ring reuse. Add a shared
+I/O reader only if PTY-read-to-draw profiling proves GTK-thread parsing remains
+the bottleneck; per-pane thread sets remain deferred.
+
 **Implemented in NOCTTY.** NCT-110 introduces:
 
 - a table-driven state machine for Ground, Escape, CSI entry/parameter/
@@ -285,7 +305,11 @@ flags directly to every retained cell could multiply the cost of 100,000-line
 history. Kitty explicitly warns against huge interactive cell history and keeps
 an optional separate UTF-8 pager history in its
 [`scrollback options`](https://raw.githubusercontent.com/kovidgoyal/kitty/master/kitty/options/definition.py).
-Ghostty 1.3 also reports that allocating alternate-screen memory on demand saves
+Its `HistoryBuf` is a preallocated circular row store: overwriting a full ring
+advances `start_of_data` and copies directly into that slot rather than
+releasing and searching for storage. NOCTTY now applies that bounded-ring
+property to already-hot rows while retaining compact cold history for larger
+configured limits. Ghostty 1.3 also reports that allocating alternate-screen memory on demand saves
 multiple MiB per terminal.
 
 Recommended representation:
@@ -532,7 +556,7 @@ exit, while monotonic p50/p95/p99 and root-process PSS/RSS are retained in
 `docs/NOCTED_STABILITY_QUALIFICATION.md`:
 `nocted_core_stability_matrix debug=true release_safe=true cycles=128 fixture_files=128 document_round_trip=true edit_fold=true project_scan=true project_search=true quick_open=true deterministic_ranking=true ranking_queries=3 ranking_cycles=128 grammar_conversion=true allocator_leak_free=true latency_percentiles=true process_memory=true scratch_clean=true`.
 The opt-in endurance companion exercises the same lower-complexity algorithms for 512 cycles per mode and retains 1,024 total operation cycles plus 3,072 full-order ranking evaluations: `nocted_core_endurance_matrix debug=true release_safe=true cycles_per_mode=512 total_cycles=1024 fixture_files=128 document_round_trip=true edit_fold=true project_scan=true project_search=true quick_open=true deterministic_ranking=true ranking_queries=3 ranking_evaluations=3072 grammar_conversion=true allocator_leak_free=true latency_percentiles=true process_memory=true duration_recorded=true scratch_clean=true`. This extends bounded core repetition; it does not convert headless algorithm evidence into GTK worker, compositor, varied-project, or multi-day stability proof.
-The maintained worker companion now qualifies the shared admission and queue transaction called by production `App`—newer-generation cancellation, the 64 attached-job cap, 32-live-job lane caps, cancelled-lane exclusion, kind cancellation, pending lookup, lazy pool creation, failure-safe append, push rollback, and ordered retirement—then executes the search/index model through `FilesystemWorker` and two real one-thread GLib pools: `nocted_worker_matrix debug=true release_safe=true shared_admission_policy=true generation_supersession=true shared_queue_cap=64 lane_queue_cap=32 cancelled_lane_excluded=true kind_cancel=true pending_lookup=true lazy_pool_creation=true transactional_enqueue=true append_failure_safe=true push_failure_rollback=true ordered_retirement=true glib_thread_pools=true worker_lanes=2 project_scan=true search_streaming=true snapshot_first=true cooperative_cancellation=true search_batch_size=24 search_batch_cap=2 backpressure_exercised=true foreground_save_under_backpressure=true worker_drained=true allocator_leak_free=true process_memory=true scratch_clean=true`. It deliberately holds scan at its two-batch cap, proves atomic foreground save completes independently, then retires one cancelled generation and drains the snapshot-first replacement. This supplies real headless admission/queue/scheduling/backpressure evidence, not GTK publication/draw, compositor, or sustained-load distributions.
+The maintained worker companion now qualifies the shared admission and queue transaction called by production `App`—newer-generation cancellation, the 64 attached-job cap, 32-live-job lane caps, cancelled-lane exclusion, kind cancellation, pending lookup, lazy pool creation, failure-safe append, push rollback, and ordered retirement—then executes the search/index model through `Worker` and two real one-thread GLib pools: `nocted_worker_matrix debug=true release_safe=true shared_admission_policy=true generation_supersession=true shared_queue_cap=64 lane_queue_cap=32 cancelled_lane_excluded=true kind_cancel=true pending_lookup=true lazy_pool_creation=true transactional_enqueue=true append_failure_safe=true push_failure_rollback=true ordered_retirement=true glib_thread_pools=true worker_lanes=2 project_scan=true search_streaming=true snapshot_first=true cooperative_cancellation=true search_batch_size=24 search_batch_cap=2 backpressure_exercised=true foreground_save_under_backpressure=true worker_drained=true allocator_leak_free=true process_memory=true scratch_clean=true`. It deliberately holds scan at its two-batch cap, proves atomic foreground save completes independently, then retires one cancelled generation and drains the snapshot-first replacement. This supplies real headless admission/queue/scheduling/backpressure evidence, not GTK publication/draw, compositor, or sustained-load distributions.
 Together these remove stale-byte/new-identity publication and supply bounded
 core allocator/operation plus worker-concurrency evidence. The separate project-index matrix retains
 real disposable 4K/25K/100K full-scan/delta timing, exact compact/two-snapshot
@@ -624,8 +648,8 @@ Median-only claims are insufficient.
 - authenticated Codex plus Claude Code, Antigravity, broader ncurses, tmux, and
   zellij visual/interaction/exit receipts on Plasma Wayland and X11.
 
-Yakuake remains excluded from automated comparison or control while it owns the
-active Codex sessions.
+The benchmark stops Yakuake before and after its isolated comparison run; it
+no longer preserves active Yakuake sessions.
 
 ### Editor gate
 

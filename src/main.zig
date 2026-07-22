@@ -299,6 +299,7 @@ const NativeGridBridge = struct {
     profile_preset_selection_order: [3]c_int = .{ -1, -1, -1 },
     saw_layout_1x1: bool = false,
     saw_layout_2x2: bool = false,
+    saw_layout_4x2: bool = false,
     saw_layout_3x3: bool = false,
     saw_layout_4x4: bool = false,
     saw_split_command: bool = false,
@@ -958,6 +959,7 @@ export fn noctty_grid_apply_preset(
         51 => .two_by_two,
         52 => .three_by_three,
         60 => .four_by_four,
+        61 => .four_by_two,
         else => return -1,
     };
     _ = bridge.app.dispatch(.{ .focus_pane = source_pane_id }) catch {
@@ -979,6 +981,7 @@ export fn noctty_grid_apply_preset(
     if (event == 51) bridge.saw_layout_2x2 = true;
     if (event == 52) bridge.saw_layout_3x3 = true;
     if (event == 60) bridge.saw_layout_4x4 = true;
+    if (event == 61) bridge.saw_layout_4x2 = true;
     persistNativeGridHotSession(bridge);
     return @intCast(tab.panes.items.len);
 }
@@ -1657,12 +1660,13 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         };
         return;
     }
-    if ((event >= 50 and event <= 52) or event == 60) {
+    if ((event >= 50 and event <= 52) or event == 60 or event == 61) {
         const preset: noctty.workspace.LayoutPreset = switch (event) {
             50 => .one_by_one,
             51 => .two_by_two,
             52 => .three_by_three,
             60 => .four_by_four,
+            61 => .four_by_two,
             else => unreachable,
         };
         _ = bridge.app.dispatch(.{ .preset = preset }) catch {
@@ -2515,7 +2519,7 @@ pub fn main(init: std.process.Init) !void {
                 return error.InvalidBenchmarkArguments;
             const workload = init.environ_map.get("NOCTTY_BENCH_WORKLOAD") orelse
                 return error.MissingBenchmarkWorkload;
-            try runNativeGridBenchmark(allocator, pane_count, workload);
+            try runNativeGridBenchmark(allocator, pane_count, workload, init.environ_map);
             return;
         }
         if (std.mem.eql(u8, cmd, "--native-grid")) {
@@ -5495,9 +5499,9 @@ fn nativeGridLayoutPresetSmoke(
         &bridge,
     );
     if (status != 0 or bridge.callback_failed or
-        !bridge.saw_layout_2x2 or !bridge.saw_layout_3x3 or
-        !bridge.saw_layout_4x4 or !bridge.saw_layout_1x1 or
-        bridge.created_session_count != 40)
+        !bridge.saw_layout_2x2 or !bridge.saw_layout_4x2 or
+        !bridge.saw_layout_3x3 or !bridge.saw_layout_4x4 or
+        !bridge.saw_layout_1x1 or bridge.created_session_count != 44)
         return error.NativeGridLayoutPresetSmokeFailed;
     var pane_total: usize = 0;
     var saw_source = false;
@@ -5534,7 +5538,7 @@ fn nativeGridLayoutPresetSmoke(
     if (restored.workspace.tabs.items.len != 2 or restored_total != 16 or
         !restored_source or !restored_overflow)
         return error.NativeGridLayoutPresetRestoreMismatch;
-    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true\n", .{});
+    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true\n", .{});
 }
 
 fn nativeGridRecursiveSplitSmoke(out: anytype) !void {
@@ -6974,6 +6978,7 @@ fn runNativeGridBenchmark(
     allocator: std.mem.Allocator,
     pane_count: usize,
     workload: []const u8,
+    environ_map: anytype,
 ) !void {
     if (pane_count != 1 and pane_count != 2 and
         pane_count != 4 and pane_count != 8)
@@ -6983,6 +6988,11 @@ fn runNativeGridBenchmark(
 
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
+    const font_size = std.fmt.parseFloat(
+        f32,
+        environ_map.get("NOCTTY_BENCH_FONT_SIZE") orelse "11",
+    ) catch return error.InvalidBenchmarkFontSize;
+    _ = try app.dispatch(.{ .set_font_size = font_size });
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     var pane_ids: [8]u64 = undefined;
     pane_ids[0] = tab.active_pane_id;
@@ -7052,7 +7062,7 @@ fn runNativeGridBenchmark(
         1,
         0,
         0,
-        0,
+        -1,
         null,
         0,
         0,

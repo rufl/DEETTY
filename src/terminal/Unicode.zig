@@ -27,6 +27,13 @@ pub const Stream = struct {
         self.* = .{};
     }
 
+    pub fn startAscii(self: *Stream) void {
+        self.* = .{
+            .initialized = true,
+            .previous = .other,
+        };
+    }
+
     pub fn push(self: *Stream, codepoint: u21) bool {
         const current = properties(codepoint);
         if (!self.initialized) {

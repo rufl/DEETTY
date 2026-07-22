@@ -1,0 +1,3 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s
+alacritty,0.17.0-1,1,177,177,177,38.777,95.305,0.000,,
+yakuake,26.04.3-1,1,314,314,314,32.040,109.000,0.000,,

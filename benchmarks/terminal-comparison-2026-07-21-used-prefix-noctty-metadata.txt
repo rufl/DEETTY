@@ -1,0 +1,8 @@
+terminal_benchmark date=2026-07-21T04:26:12+01:00
+kernel=Linux 7.1.3-arch2-2 x86_64 GNU/Linux
+cpu=Genuine Intel(R) 0000
+session=wayland desktop=KDE
+common_backend=x11_xwayland window=1200x800 runs=7 panes=4 output_panes=1,4 output_lines=20000 payload_bytes=1740000 idle_cpu_sample_ms=1000 inter_trial_settle_ms=1000 skip_build=0 terminal_order=rotated_snake
+yakuake_isolated=true yakuake_pids_before=none
+noctty_version=0.1.0
+yakuake_pids_after=none yakuake_untouched=true

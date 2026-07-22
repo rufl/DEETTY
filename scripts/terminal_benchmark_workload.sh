@@ -23,10 +23,19 @@ while [ ! -e "$run_dir/go" ]; do
     sleep 0.01
 done
 
+stty size >"$run_dir/geometry.$$"
+
 if [ "$NOCTTY_BENCH_MODE" = output ]; then
     : "${NOCTTY_BENCH_PAYLOAD:?}"
     cat "$NOCTTY_BENCH_PAYLOAD"
     printf '\033[0mNOCTTY_BENCH_OUTPUT_DONE\n'
+    awk 'BEGIN {
+        printf "\033[2J\033[H\033[48;2;18;52;86m"
+        for (row = 0; row < 100; row++) {
+            for (column = 0; column < 160; column++) printf " "
+            printf "\n"
+        }
+    }'
 fi
 : >"$run_dir/done.$$"
 

@@ -476,8 +476,8 @@ fn summarizeScreen(grid: Vt.Grid) ScreenSummary {
                 1099511628211;
             if (cell.codepoint != ' ' and cell.codepoint != 0)
                 summary.nonblank += 1;
-            if (cell.bold or cell.inverse or cell.italic or cell.underline or
-                cell.strikethrough or cell.dim or
+            if (cell.flags.bold or cell.flags.inverse or cell.flags.italic or
+                cell.flags.underline or cell.flags.strikethrough or cell.flags.dim or
                 cell.foreground != Vt.default_color_id or
                 cell.background != Vt.default_color_id)
                 summary.styled += 1;

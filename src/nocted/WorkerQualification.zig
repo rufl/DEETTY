@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const core = @import("nocted_core");
 const c = @import("gtk.zig");
-const worker = @import("FilesystemWorker.zig");
+const worker = @import("Worker.zig");
 
 const fixture_files: usize = 193;
 const AccountedAllocator = std.heap.DebugAllocator(.{
@@ -520,6 +520,7 @@ fn admissionJob(
         .resolve_save_path => .{ .resolve_save_path = .{
             .requested_path = &.{},
         } },
+        .lsp_request, .task_request => unreachable,
     };
     return worker.Job.init(
         state,

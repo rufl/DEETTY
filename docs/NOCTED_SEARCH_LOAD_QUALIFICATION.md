@@ -28,7 +28,7 @@ The dated [core endurance receipt](NOCTED_CORE_ENDURANCE_QUALIFICATION.md) retai
 
 The maintained [worker receipt](NOCTED_WORKER_QUALIFICATION.md) now qualifies
 the shared admission policy called by production `App` and then executes the
-production `FilesystemWorker` through two real single-thread GLib pools without
+production `Worker` through two real single-thread GLib pools without
 initializing GTK:
 
 ```text

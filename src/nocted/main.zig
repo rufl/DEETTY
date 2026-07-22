@@ -3,7 +3,7 @@ const core = @import("nocted_core");
 const build_options = @import("build_options");
 
 const c = @import("gtk.zig");
-const filesystem_worker = @import("FilesystemWorker.zig");
+const worker = @import("Worker.zig");
 const tree_sitter = @import("TreeSitter.zig");
 
 const version = @import("noctty_release").version;
@@ -13,8 +13,8 @@ const project_placeholder_entry = project_root_entry - 1;
 const max_project_monitors: usize = 512;
 const max_project_monitor_changes = core.project_index.max_filesystem_changes;
 const document_page_key = "nocted-document";
-const WorkerJob = filesystem_worker.Job;
-const WorkerJobKind = filesystem_worker.Kind;
+const WorkerJob = worker.Job;
+const WorkerJobKind = worker.Kind;
 
 const Fold = struct {
     anchor_line: u32,
@@ -690,6 +690,13 @@ fn createSyntaxTags(buffer: *c.GtkSourceBuffer) !SyntaxTags {
     };
 }
 
+fn utf8ByteOffset(text: []const u8, character_offset: usize) ?usize {
+    var view = std.unicode.Utf8View.init(text) catch return null;
+    var iterator = view.iterator();
+    for (0..character_offset) |_| _ = iterator.nextCodepoint() orelse return null;
+    return iterator.i;
+}
+
 fn utf8CharacterOffset(text: []const u8, byte_offset: u32) ?c_int {
     if (byte_offset > text.len) return null;
     const count = std.unicode.utf8CountCodepoints(text[0..byte_offset]) catch return null;
@@ -717,13 +724,15 @@ const App = struct {
     documents: std.array_list.Managed(*Document),
     documents_by_path: std.StringHashMap(*Document),
     active_document: ?*Document = null,
-    worker_pools: filesystem_worker.Pools = .{},
+    worker_pools: worker.Pools = .{},
     worker_jobs: std.array_list.Managed(*WorkerJob),
     worker_peak_pending: usize = 0,
     worker_peak_search_batches: u8 = 0,
     worker_cancelled_jobs: usize = 0,
     project_generation: u64 = 0,
     project_search_generation: u64 = 0,
+    lsp_generation: u64 = 0,
+    task_generation: u64 = 0,
     project_load_ok: bool = true,
     project_search_ok: bool = true,
     project_root: ?[]u8 = null,
@@ -927,14 +936,14 @@ const App = struct {
     }
 
     fn submitWorkerJob(self: *App, job: *WorkerJob) !void {
-        const admission = filesystem_worker.admit(self.worker_jobs.items, job);
+        const admission = worker.admit(self.worker_jobs.items, job);
         self.worker_cancelled_jobs += admission.cancelled_jobs;
         switch (admission.status) {
             .accepted => {},
             .queue_full => return error.WorkerQueueFull,
             .lane_full => return error.WorkerLaneQueueFull,
         }
-        const pending_jobs = try filesystem_worker.enqueue(
+        const pending_jobs = try worker.enqueue(
             &self.worker_pools,
             &self.worker_jobs,
             job,
@@ -947,18 +956,18 @@ const App = struct {
     }
 
     fn cancelWorkerJobs(self: *App, kind: WorkerJobKind) void {
-        self.worker_cancelled_jobs += filesystem_worker.cancelKind(
+        self.worker_cancelled_jobs += worker.cancelKind(
             self.worker_jobs.items,
             kind,
         );
     }
 
     fn hasWorkerJob(self: *App, kind: WorkerJobKind) bool {
-        return filesystem_worker.hasKind(self.worker_jobs.items, kind);
+        return worker.hasKind(self.worker_jobs.items, kind);
     }
 
     fn detachWorkerJob(self: *App, job: *WorkerJob) bool {
-        return filesystem_worker.detach(&self.worker_jobs, job);
+        return worker.detach(&self.worker_jobs, job);
     }
 
     fn destroyWorkerJob(self: *App, job: *WorkerJob) void {
@@ -989,7 +998,7 @@ const App = struct {
             0,
             true,
             .{ .resolve_save_path = .{ .requested_path = path } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         path_owned = false;
         errdefer if (job_owned) job.deinit();
@@ -1033,7 +1042,7 @@ const App = struct {
                 .path = path_copy,
                 .contents = contents_copy,
             } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         path_owned = false;
         contents_owned = false;
@@ -1133,6 +1142,8 @@ const App = struct {
                     self.showWorkerError("Open failed", err);
                 },
                 .document_save, .resolve_save_path => {},
+                .lsp_request => self.showWorkerError("Language service failed", err),
+                .task_request => self.showWorkerError("Project task failed", err),
             }
             return;
         }
@@ -1149,6 +1160,8 @@ const App = struct {
                 self.publishProjectSearch(job);
             },
             .document_load => self.finishDocumentLoad(job),
+            .lsp_request => self.finishLanguageFeature(job),
+            .task_request => self.finishProjectTask(job),
             .document_save, .resolve_save_path => unreachable,
         }
     }
@@ -1352,6 +1365,20 @@ const App = struct {
             &onImportTextMateGrammar,
             self,
         );
+        appendMenuSeparator(tools_menu);
+        appendToolAction(tools_menu, "Language Diagnostics", .diagnostics, self);
+        appendToolAction(tools_menu, "Language Completion", .completion, self);
+        appendToolAction(tools_menu, "Language Hover", .hover, self);
+        appendToolAction(tools_menu, "Go to Definition", .definition, self);
+        appendToolAction(tools_menu, "Find References", .references, self);
+        appendToolAction(tools_menu, "Rename Symbol...", .rename, self);
+        appendToolAction(tools_menu, "Document Symbols", .symbols, self);
+        appendToolAction(tools_menu, "Format Document", .formatting, self);
+        appendMenuSeparator(tools_menu);
+        appendToolAction(tools_menu, "Check Project", .check, self);
+        appendToolAction(tools_menu, "Build Project", .build, self);
+        appendToolAction(tools_menu, "Test Project", .test_project, self);
+        appendToolAction(tools_menu, "Run Project", .run, self);
         appendMenuRoot(bar, "Tools", tools_menu);
 
         const help_menu = c.gtk_menu_new() orelse unreachable;
@@ -1708,7 +1735,7 @@ const App = struct {
             self.nextProjectGeneration(),
             false,
             .{ .project_scan = .{ .root = resolved } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         errdefer job.deinit();
         self.project_load_started = std.Io.Clock.awake.now(self.io);
@@ -2092,7 +2119,7 @@ const App = struct {
                 .index = self.project_index.retain(),
                 .changes = changes,
             } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         resolved_owned = false;
         changes_owned = false;
@@ -2125,7 +2152,7 @@ const App = struct {
                 .requested_path = path,
                 .reveal_line = reveal_line,
             } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         errdefer job.deinit();
         try self.submitWorkerJob(job);
@@ -3099,7 +3126,7 @@ const App = struct {
                 .index = index,
                 .snapshots = snapshots,
             } },
-            onFilesystemWorkerComplete,
+            onWorkerComplete,
         );
         job.batch_completion = onFilesystemSearchBatch;
         root_owned = false;
@@ -3477,6 +3504,361 @@ const App = struct {
         ) catch return;
         defer self.allocator.free(status);
         self.updateStatus(status.ptr);
+    }
+
+    fn runProjectTask(self: *App, action: core.task.Action) void {
+        const root = self.project_root orelse {
+            self.updateStatus("Open a project before running a task");
+            return;
+        };
+        const plan = core.task.detect(self.io, root, action) orelse {
+            self.updateStatus("No supported project task detected");
+            return;
+        };
+        const root_copy = self.allocator.dupe(u8, root) catch return;
+        const job = self.allocator.create(WorkerJob) catch {
+            self.allocator.free(root_copy);
+            return;
+        };
+        job.* = WorkerJob.init(
+            self,
+            self.allocator,
+            self.io,
+            self.task_generation +% 1,
+            false,
+            .{ .task_request = .{ .root = root_copy, .plan = plan } },
+            onWorkerComplete,
+        );
+        self.task_generation +%= 1;
+        self.cancelWorkerJobs(.task_request);
+        self.submitWorkerJob(job) catch |err| {
+            job.deinit();
+            self.allocator.destroy(job);
+            self.showWorkerError("Project task unavailable", err);
+            return;
+        };
+        self.updateStatus("Project task running...");
+    }
+
+    fn finishProjectTask(self: *App, job: *WorkerJob) void {
+        if (job.generation != self.task_generation) return;
+        const payload = &job.payload.task_request;
+        const raw = payload.output orelse "Task produced no output";
+        var length = @min(raw.len, 16 * 1024);
+        while (length > 0 and !std.unicode.utf8ValidateSlice(raw[0..length])) length -= 1;
+        const output = if (length == 0) "Task output was not UTF-8" else raw[0..length];
+        const output_z = self.allocator.dupeZ(u8, output) catch return;
+        defer self.allocator.free(output_z);
+        const dialog = c.gtk_message_dialog_new(
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            if (payload.success) c.GTK_MESSAGE_INFO else c.GTK_MESSAGE_WARNING,
+            c.GTK_BUTTONS_CLOSE,
+            "%s",
+            output_z.ptr,
+        ) orelse return;
+        _ = c.gtk_dialog_run(@ptrCast(dialog));
+        c.gtk_widget_destroy(dialog);
+        self.updateStatus(if (payload.success) "Project task passed" else "Project task failed");
+    }
+
+    fn runLanguageFeature(
+        self: *App,
+        feature: core.lsp.Feature,
+        new_name: ?[]const u8,
+    ) void {
+        const document = self.currentDocument() orelse {
+            self.updateStatus("No file open");
+            return;
+        };
+        const path = document.path orelse {
+            self.updateStatus("Save the file before using a language service");
+            return;
+        };
+        const server = core.lsp.serverForPath(path) orelse {
+            self.updateStatus("No language-service preset for this file type");
+            return;
+        };
+        const text = document.completeTextAlloc() catch {
+            self.updateStatus("Unable to read document text");
+            return;
+        };
+        var text_owned = true;
+        defer if (text_owned) self.allocator.free(text);
+        const uri = core.lsp.fileUriAlloc(self.allocator, path) catch return;
+        var uri_owned = true;
+        defer if (uri_owned) self.allocator.free(uri);
+        const cwd_source = self.project_root orelse std.fs.path.dirname(path) orelse ".";
+        const cwd = self.allocator.dupe(u8, cwd_source) catch return;
+        var cwd_owned = true;
+        defer if (cwd_owned) self.allocator.free(cwd);
+        const root_uri = core.lsp.fileUriAlloc(self.allocator, cwd_source) catch return;
+        var root_uri_owned = true;
+        defer if (root_uri_owned) self.allocator.free(root_uri);
+        const owned_name = if (new_name) |name| self.allocator.dupe(u8, name) catch return else null;
+        var name_owned = owned_name != null;
+        defer if (name_owned) self.allocator.free(owned_name.?);
+
+        var cursor: c.GtkTextIter = undefined;
+        c.gtk_text_buffer_get_iter_at_mark(
+            @ptrCast(document.buffer),
+            &cursor,
+            c.gtk_text_buffer_get_insert(@ptrCast(document.buffer)),
+        );
+        const line: u32 = @intCast(@max(c.gtk_text_iter_get_line(&cursor), 0));
+        const line_offset: usize = @intCast(@max(c.gtk_text_iter_get_line_offset(&cursor), 0));
+        var line_start: usize = 0;
+        var line_number: u32 = 0;
+        while (line_number < line) : (line_number += 1) {
+            line_start = (std.mem.indexOfScalarPos(u8, text, line_start, '\n') orelse text.len) +| 1;
+            line_start = @min(line_start, text.len);
+        }
+        const line_end = std.mem.indexOfScalarPos(u8, text, line_start, '\n') orelse text.len;
+        const byte_offset = utf8ByteOffset(text[line_start..line_end], line_offset) orelse {
+            self.updateStatus("Unable to map cursor position");
+            return;
+        };
+        const character = core.lsp.utf16Column(text[line_start..line_end], byte_offset) catch return;
+
+        const job = self.allocator.create(WorkerJob) catch return;
+        job.* = WorkerJob.init(
+            self,
+            self.allocator,
+            self.io,
+            self.lsp_generation +% 1,
+            false,
+            .{ .lsp_request = .{
+                .server = server,
+                .cwd = cwd,
+                .root_uri = root_uri,
+                .uri = uri,
+                .text = text,
+                .line = line,
+                .character = character,
+                .feature = feature,
+                .new_name = owned_name,
+            } },
+            onWorkerComplete,
+        );
+        text_owned = false;
+        uri_owned = false;
+        cwd_owned = false;
+        root_uri_owned = false;
+        name_owned = false;
+        self.lsp_generation +%= 1;
+        self.cancelWorkerJobs(.lsp_request);
+        self.submitWorkerJob(job) catch |err| {
+            job.deinit();
+            self.allocator.destroy(job);
+            self.showWorkerError("Language service unavailable", err);
+            return;
+        };
+        self.updateStatus("Language service working...");
+    }
+
+    fn applyLanguageEdits(
+        self: *App,
+        response: []const u8,
+        fallback_uri: []const u8,
+        workspace: bool,
+    ) bool {
+        const sets = core.lsp.editsAlloc(self.allocator, response, fallback_uri) catch return false;
+        defer {
+            for (sets) |*set| set.deinit(self.allocator);
+            self.allocator.free(sets);
+        }
+        if (sets.len == 0) {
+            self.updateStatus("Language service returned no edits");
+            return true;
+        }
+        const current_path = self.currentDocument().?.path.?;
+        var changed_files: usize = 0;
+        for (sets) |set| {
+            const path = core.lsp.filePathAlloc(self.allocator, set.uri) catch {
+                self.updateStatus("Language service returned a non-local edit");
+                return true;
+            };
+            defer self.allocator.free(path);
+            const allowed = if (workspace)
+                if (self.project_root) |root|
+                    std.mem.eql(u8, path, root) or
+                        (std.mem.startsWith(u8, path, root) and path.len > root.len and
+                            std.fs.path.isSep(path[root.len]))
+                else
+                    std.mem.eql(u8, path, current_path)
+            else
+                std.mem.eql(u8, path, current_path);
+            if (!allowed) {
+                self.updateStatus("Language service edit escaped the active workspace");
+                return true;
+            }
+
+            if (self.documents_by_path.get(path)) |document| {
+                const before = document.completeTextAlloc() catch return false;
+                defer self.allocator.free(before);
+                const after = core.lsp.applyTextEditsAlloc(self.allocator, before, set.edits) catch return false;
+                defer self.allocator.free(after);
+                _ = document.clearFolds();
+                c.gtk_text_buffer_begin_user_action(@ptrCast(document.buffer));
+                c.gtk_text_buffer_set_text(
+                    @ptrCast(document.buffer),
+                    after.ptr,
+                    @intCast(after.len),
+                );
+                c.gtk_text_buffer_end_user_action(@ptrCast(document.buffer));
+            } else {
+                var loaded = core.document.loadFileAlloc(self.allocator, self.io, path) catch return false;
+                defer loaded.deinit(self.allocator);
+                if (loaded.mode != .editable) {
+                    self.updateStatus("Language service tried to edit a read-only preview");
+                    return true;
+                }
+                const after = core.lsp.applyTextEditsAlloc(
+                    self.allocator,
+                    loaded.contents,
+                    set.edits,
+                ) catch return false;
+                defer self.allocator.free(after);
+                core.document.saveFileAtomic(self.io, loaded.path, after) catch return false;
+            }
+            changed_files += 1;
+        }
+        const status = std.fmt.allocPrintSentinel(
+            self.allocator,
+            "Applied language-service edits to {d} file{s}",
+            .{ changed_files, if (changed_files == 1) "" else "s" },
+            0,
+        ) catch return true;
+        defer self.allocator.free(status);
+        self.updateStatus(status.ptr);
+        return true;
+    }
+
+    fn chooseCompletion(self: *App, payload: *const @TypeOf(@as(WorkerJob.Payload, undefined).lsp_request), response: []const u8) bool {
+        const completions = core.lsp.completionsAlloc(
+            self.allocator,
+            response,
+            payload.line,
+            payload.character,
+        ) catch return false;
+        defer {
+            for (completions) |*completion| completion.deinit(self.allocator);
+            self.allocator.free(completions);
+        }
+        if (completions.len == 0) {
+            self.updateStatus("No completions");
+            return true;
+        }
+        const dialog = c.gtk_message_dialog_new(
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            c.GTK_MESSAGE_QUESTION,
+            c.GTK_BUTTONS_NONE,
+            "%s",
+            "Choose completion",
+        ) orelse return false;
+        defer c.gtk_widget_destroy(dialog);
+        _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Cancel", c.GTK_RESPONSE_CANCEL);
+        _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Insert", c.GTK_RESPONSE_ACCEPT);
+        const combo = c.gtk_combo_box_text_new() orelse return false;
+        for (completions) |completion| {
+            const label = self.allocator.dupeZ(u8, completion.label) catch continue;
+            defer self.allocator.free(label);
+            c.gtk_combo_box_text_append_text(@ptrCast(combo), label.ptr);
+        }
+        c.gtk_combo_box_set_active(@ptrCast(combo), 0);
+        const area = c.gtk_dialog_get_content_area(@ptrCast(dialog)) orelse return false;
+        c.gtk_box_pack_start(asBox(area), combo, 0, 0, 8);
+        c.gtk_widget_show(combo);
+        if (c.gtk_dialog_run(@ptrCast(dialog)) != c.GTK_RESPONSE_ACCEPT) return true;
+        const selected = c.gtk_combo_box_get_active(@ptrCast(combo));
+        if (selected < 0 or selected >= completions.len) return true;
+        const document = self.currentDocument() orelse return true;
+        const before = document.completeTextAlloc() catch return false;
+        defer self.allocator.free(before);
+        const after = core.lsp.applyTextEditsAlloc(
+            self.allocator,
+            before,
+            &.{completions[@intCast(selected)].edit},
+        ) catch return false;
+        defer self.allocator.free(after);
+        _ = document.clearFolds();
+        c.gtk_text_buffer_begin_user_action(@ptrCast(document.buffer));
+        c.gtk_text_buffer_set_text(@ptrCast(document.buffer), after.ptr, @intCast(after.len));
+        c.gtk_text_buffer_end_user_action(@ptrCast(document.buffer));
+        self.updateStatus("Inserted completion");
+        return true;
+    }
+
+    fn finishLanguageFeature(self: *App, job: *WorkerJob) void {
+        if (job.generation != self.lsp_generation) return;
+        const payload = &job.payload.lsp_request;
+        const response = payload.response orelse return;
+        if (payload.feature == .completion and self.chooseCompletion(payload, response)) return;
+        if (payload.feature == .definition) {
+            if (core.lsp.firstLocationAlloc(self.allocator, response) catch null) |location_value| {
+                var location = location_value;
+                defer location.deinit(self.allocator);
+                const path = core.lsp.filePathAlloc(self.allocator, location.uri) catch return;
+                defer self.allocator.free(path);
+                self.openDocumentAtLine(path, location.line + 1) catch |err| {
+                    self.showWorkerError("Unable to open definition", err);
+                };
+                return;
+            }
+        }
+        if (payload.feature == .formatting or payload.feature == .rename) {
+            if (self.applyLanguageEdits(response, payload.uri, payload.feature == .rename))
+                return;
+        }
+        const summary = core.lsp.summaryAlloc(self.allocator, response) catch {
+            self.updateStatus("Invalid language-service response");
+            return;
+        };
+        defer self.allocator.free(summary);
+        const summary_z = self.allocator.dupeZ(u8, summary) catch return;
+        defer self.allocator.free(summary_z);
+        const dialog = c.gtk_message_dialog_new(
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            c.GTK_MESSAGE_INFO,
+            c.GTK_BUTTONS_CLOSE,
+            "%s",
+            summary_z.ptr,
+        ) orelse return;
+        _ = c.gtk_dialog_run(@ptrCast(dialog));
+        c.gtk_widget_destroy(dialog);
+        self.updateStatus("Language service response received");
+    }
+
+    fn promptRename(self: *App) void {
+        const dialog = c.gtk_message_dialog_new(
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            c.GTK_MESSAGE_QUESTION,
+            c.GTK_BUTTONS_NONE,
+            "%s",
+            "New symbol name",
+        ) orelse return;
+        _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Cancel", c.GTK_RESPONSE_CANCEL);
+        _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Rename", c.GTK_RESPONSE_ACCEPT);
+        const entry = c.gtk_entry_new() orelse {
+            c.gtk_widget_destroy(dialog);
+            return;
+        };
+        c.gtk_entry_set_placeholder_text(@ptrCast(entry), "New name");
+        const area = c.gtk_dialog_get_content_area(@ptrCast(dialog)) orelse {
+            c.gtk_widget_destroy(dialog);
+            return;
+        };
+        c.gtk_box_pack_start(asBox(area), entry, 0, 0, 8);
+        c.gtk_widget_show(entry);
+        const response = c.gtk_dialog_run(@ptrCast(dialog));
+        if (response == c.GTK_RESPONSE_ACCEPT) {
+            const name = std.mem.span(c.gtk_entry_get_text(@ptrCast(entry)));
+            if (name.len != 0) self.runLanguageFeature(.rename, name);
+        }
+        c.gtk_widget_destroy(dialog);
     }
 
     fn persistSettings(self: *App) void {
@@ -4798,7 +5180,7 @@ const App = struct {
     }
 };
 
-fn onFilesystemWorkerComplete(job: *WorkerJob) void {
+fn onWorkerComplete(job: *WorkerJob) void {
     const app: *App = @ptrCast(@alignCast(job.owner));
     app.completeWorkerJob(job);
 }
@@ -4829,6 +5211,66 @@ pub fn main(init: std.process.Init) !void {
         var buffer: [64]u8 = undefined;
         var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
         try writer.interface.print("nocted {s}\n", .{version});
+        try writer.interface.flush();
+        return;
+    }
+    if (args.len > 3 and std.mem.eql(u8, args[1], "--task-probe")) {
+        const action: core.task.Action = if (std.mem.eql(u8, args[3], "check"))
+            .check
+        else if (std.mem.eql(u8, args[3], "build"))
+            .build
+        else if (std.mem.eql(u8, args[3], "test"))
+            .test_project
+        else if (std.mem.eql(u8, args[3], "run"))
+            .run
+        else
+            return error.InvalidTaskAction;
+        const plan = core.task.detect(init.io, args[2], action) orelse
+            return error.ProjectTaskUnavailable;
+        const result = try core.task.runAlloc(allocator, init.io, args[2], plan);
+        defer allocator.free(result.output);
+        var buffer: [4096]u8 = undefined;
+        var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+        try writer.interface.print(
+            "nocted_task_probe project={s} action={s} success={} output={s}\n",
+            .{ plan.name, args[3], result.success, result.output },
+        );
+        try writer.interface.flush();
+        if (!result.success) return error.ProjectTaskFailed;
+        return;
+    }
+    if (args.len > 2 and std.mem.eql(u8, args[1], "--lsp-probe")) {
+        var loaded = try core.document.loadFileAlloc(allocator, init.io, args[2]);
+        defer loaded.deinit(allocator);
+        const server = core.lsp.serverForPath(loaded.path) orelse
+            return error.LanguageServerUnavailable;
+        const cwd = std.fs.path.dirname(loaded.path) orelse ".";
+        const uri = try core.lsp.fileUriAlloc(allocator, loaded.path);
+        defer allocator.free(uri);
+        const root_uri = try core.lsp.fileUriAlloc(allocator, cwd);
+        defer allocator.free(root_uri);
+        const response = try core.lsp.runFeatureAlloc(
+            allocator,
+            init.io,
+            server,
+            cwd,
+            root_uri,
+            uri,
+            loaded.contents,
+            0,
+            0,
+            .symbols,
+            null,
+        );
+        defer allocator.free(response);
+        const summary = try core.lsp.summaryAlloc(allocator, response);
+        defer allocator.free(summary);
+        var buffer: [4096]u8 = undefined;
+        var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+        try writer.interface.print(
+            "nocted_lsp_probe server={s} language={s} response={s}\n",
+            .{ server.argv[0], server.language_id, summary },
+        );
         try writer.interface.flush();
         return;
     }
@@ -5089,6 +5531,28 @@ fn appendMenuRoot(bar: *c.GtkWidget, label: [*:0]const u8, menu: *c.GtkWidget) v
 fn appendMenuAction(menu: *c.GtkWidget, label: [*:0]const u8, callback: anytype, app: *App) void {
     const item = c.gtk_menu_item_new_with_label(label) orelse unreachable;
     connect(item, "activate", @ptrCast(callback), app);
+    c.gtk_menu_shell_append(@ptrCast(menu), item);
+}
+
+const ToolAction = enum(usize) {
+    diagnostics,
+    completion,
+    hover,
+    definition,
+    references,
+    rename,
+    symbols,
+    formatting,
+    check,
+    build,
+    test_project,
+    run,
+};
+
+fn appendToolAction(menu: *c.GtkWidget, label: [*:0]const u8, action: ToolAction, app: *App) void {
+    const item = c.gtk_menu_item_new_with_label(label) orelse unreachable;
+    c.g_object_set_data(item, "nocted-tool-action", @ptrFromInt(@intFromEnum(action) + 1));
+    connect(item, "activate", @ptrCast(&onToolAction), app);
     c.gtk_menu_shell_append(@ptrCast(menu), item);
 }
 
@@ -6025,6 +6489,26 @@ fn onImportTextMateGrammar(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) voi
         }
     }
     c.gtk_widget_destroy(dialog);
+}
+
+fn onToolAction(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const raw = c.g_object_get_data(widget, "nocted-tool-action") orelse return;
+    const action: ToolAction = @enumFromInt(@intFromPtr(raw) - 1);
+    const app: *App = @ptrCast(@alignCast(data.?));
+    switch (action) {
+        .diagnostics => app.runLanguageFeature(.diagnostics, null),
+        .completion => app.runLanguageFeature(.completion, null),
+        .hover => app.runLanguageFeature(.hover, null),
+        .definition => app.runLanguageFeature(.definition, null),
+        .references => app.runLanguageFeature(.references, null),
+        .rename => app.promptRename(),
+        .symbols => app.runLanguageFeature(.symbols, null),
+        .formatting => app.runLanguageFeature(.formatting, null),
+        .check => app.runProjectTask(.check),
+        .build => app.runProjectTask(.build),
+        .test_project => app.runProjectTask(.test_project),
+        .run => app.runProjectTask(.run),
+    }
 }
 
 fn onAbout(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {

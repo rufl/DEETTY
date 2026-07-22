@@ -1,0 +1,2 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s
+noctty,0.1.0,4,103,139,145,22.045,45.996,0.000,62,107.058

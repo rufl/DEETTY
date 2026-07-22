@@ -3,6 +3,7 @@
 #include <glib-unix.h>
 #include <pango/pangocairo.h>
 #include <dlfcn.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -528,12 +529,14 @@ typedef struct NocttyGridContextTag {
     uint64_t terminal_chord_closed_pane_id;
     int layout_preset_1x1_applied;
     int layout_preset_2x2_applied;
+    int layout_preset_4x2_applied;
     int layout_preset_3x3_applied;
     int layout_preset_4x4_applied;
     int layout_preset_created_count;
     int layout_preset_closed_count;
     int layout_preset_menu_survived;
     int layout_preset_2x2_rendered;
+    int layout_preset_4x2_rendered;
     int layout_preset_3x3_rendered;
     int layout_preset_4x4_rendered;
     int layout_preset_1x1_rendered;
@@ -541,11 +544,6 @@ typedef struct NocttyGridContextTag {
     int layout_preset_prompt_cancelled;
     int layout_preset_prompt_accepted;
     int layout_preset_moved_count;
-    int layout_preset_auto_fit;
-    int layout_preset_zoom_overlay;
-    int layout_preset_tui_rendered;
-    int layout_preset_tui_input;
-    int layout_preset_floor_feedback;
     int layout_preset_remaining_focused;
     int layout_preset_smoke_stage;
     int layout_preset_smoke_attempts;
@@ -618,6 +616,7 @@ typedef struct NocttyGridContextTag {
     cairo_scaled_font_t *ascii_scaled_fonts[4];
     unsigned long ascii_glyph_indices[4][95];
     uint8_t ascii_glyph_cache_valid[4];
+    PangoFontDescription *terminal_font_descriptions[4];
     uint32_t last_cursor_position;
     int damage_initialized;
     int terminal_dirty_rows_used;
@@ -754,10 +753,11 @@ static void apply_terminal_font_options(NocttyGridContext *context,
         CAIRO_HINT_STYLE_NONE, CAIRO_HINT_STYLE_SLIGHT,
         CAIRO_HINT_STYLE_FULL,
     };
+    NocttyGridContext *root = root_grid_context(context);
     cairo_font_options_set_antialias(
-        options, antialias[CLAMP(context->font_antialias, 0, 2)]);
+        options, antialias[CLAMP(root->font_antialias, 0, 2)]);
     cairo_font_options_set_hint_style(
-        options, hinting[CLAMP(context->font_hinting, 0, 2)]);
+        options, hinting[CLAMP(root->font_hinting, 0, 2)]);
     cairo_font_options_set_hint_metrics(options, CAIRO_HINT_METRICS_ON);
     cairo_set_font_options(cr, options);
     cairo_font_options_destroy(options);
@@ -770,23 +770,26 @@ static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
     if (text == NULL || length <= 0) return;
     PangoLayout *layout = pango_cairo_create_layout(cr);
     if (layout == NULL) return;
-    PangoFontDescription *description = pango_font_description_new();
-    if (description != NULL) {
-        pango_font_description_set_family(
-            description,
-            context != NULL && context->font_family != NULL
-                ? context->font_family : "monospace");
-        pango_font_description_set_absolute_size(
-            description, terminal_font_px(context) * PANGO_SCALE);
-        pango_font_description_set_style(
-            description,
-            (style & 4) ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
-        pango_font_description_set_weight(
-            description,
-            (style & 1) ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-        pango_layout_set_font_description(layout, description);
-        pango_font_description_free(description);
+    const int face = ((style & 1) != 0) | (((style & 4) != 0) << 1);
+    PangoFontDescription *description = context->terminal_font_descriptions[face];
+    if (description == NULL) {
+        description = pango_font_description_new();
+        if (description != NULL) {
+            pango_font_description_set_family(
+                description,
+                context != NULL && context->font_family != NULL
+                    ? context->font_family : "monospace");
+            pango_font_description_set_absolute_size(
+                description, terminal_font_px(context) * PANGO_SCALE);
+            pango_font_description_set_style(
+                description, (face & 2) ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
+            pango_font_description_set_weight(
+                description, (face & 1) ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
+            context->terminal_font_descriptions[face] = description;
+        }
     }
+    if (description != NULL)
+        pango_layout_set_font_description(layout, description);
     pango_layout_set_single_paragraph_mode(layout, TRUE);
     pango_layout_set_text(layout, text, length);
     const int pango_baseline = pango_layout_get_baseline(layout);
@@ -858,6 +861,8 @@ static gboolean ensure_grid_glyph_scratch(NocttyGridContext *context,
 
 static void clear_ascii_glyph_cache(NocttyGridContext *context) {
     for (int face = 0; face < 4; face++) {
+        g_clear_pointer(&context->terminal_font_descriptions[face],
+                        pango_font_description_free);
         if (context->ascii_scaled_fonts[face] != NULL)
             cairo_scaled_font_destroy(context->ascii_scaled_fonts[face]);
         context->ascii_scaled_fonts[face] = NULL;
@@ -3946,58 +3951,6 @@ static GVariant *new_empty_grid_tray_pixmaps(void) {
     return g_variant_builder_end(&builder);
 }
 
-static GVariant *load_grid_tray_icon_pixmaps(int *available_out) {
-    GError *error = NULL;
-    GdkPixbuf *pixbuf = gtk_icon_theme_load_icon(
-        gtk_icon_theme_get_default(), "com.noctty.NOCTTY", 48,
-        GTK_ICON_LOOKUP_FORCE_SIZE, &error);
-    g_clear_error(&error);
-    const char *fallbacks[] = {
-        "resources/icons/48x48/com.noctty.NOCTTY.png",
-        "zig-out/share/icons/hicolor/48x48/apps/com.noctty.NOCTTY.png",
-        NULL,
-    };
-    for (int index = 0; pixbuf == NULL && fallbacks[index] != NULL; index++) {
-        pixbuf = gdk_pixbuf_new_from_file(fallbacks[index], &error);
-        g_clear_error(&error);
-    }
-
-    GVariantBuilder pixmaps;
-    g_variant_builder_init(&pixmaps, G_VARIANT_TYPE("a(iiay)"));
-    if (pixbuf != NULL && gdk_pixbuf_get_bits_per_sample(pixbuf) == 8 &&
-        gdk_pixbuf_get_n_channels(pixbuf) >= 3) {
-        int width = gdk_pixbuf_get_width(pixbuf);
-        int height = gdk_pixbuf_get_height(pixbuf);
-        int channels = gdk_pixbuf_get_n_channels(pixbuf);
-        int rowstride = gdk_pixbuf_get_rowstride(pixbuf);
-        gboolean alpha = gdk_pixbuf_get_has_alpha(pixbuf);
-        const guchar *pixels = gdk_pixbuf_read_pixels(pixbuf);
-        gsize length = (gsize)width * (gsize)height * 4u;
-        guchar *argb = g_malloc(length);
-        for (int row = 0; row < height; row++) {
-            const guchar *source = pixels + row * rowstride;
-            for (int column = 0; column < width; column++) {
-                const guchar *pixel = source + column * channels;
-                guchar *target = argb + ((gsize)row * width + column) * 4u;
-                target[0] = alpha ? pixel[3] : 255;
-                target[1] = pixel[0];
-                target[2] = pixel[1];
-                target[3] = pixel[2];
-            }
-        }
-        GVariant *bytes = g_variant_new_fixed_array(
-            G_VARIANT_TYPE_BYTE, argb, length, sizeof(guchar));
-        g_variant_builder_add(&pixmaps, "(ii@ay)", width, height, bytes);
-        g_free(argb);
-        if (available_out != NULL) *available_out = 1;
-        g_object_unref(pixbuf);
-    } else {
-        if (available_out != NULL) *available_out = 0;
-        if (pixbuf != NULL) g_object_unref(pixbuf);
-    }
-    return g_variant_ref_sink(g_variant_builder_end(&pixmaps));
-}
-
 static gboolean grid_tray_menu_id_valid(gint32 id) {
     return id >= NOCTTY_TRAY_MENU_ROOT && id <= NOCTTY_TRAY_MENU_CLOSE;
 }
@@ -4395,8 +4348,7 @@ static void on_grid_tray_bus_ready(GObject *source, GAsyncResult *result,
     root->tray_menu_node = g_dbus_node_info_new_for_xml(
         noctty_tray_menu_xml, &error);
     if (root->tray_menu_node == NULL) goto failed;
-    root->tray_icon_pixmaps = load_grid_tray_icon_pixmaps(
-        &root->tray_icon_available);
+    root->tray_icon_available = 1;
     root->tray_menu_revision = 1;
     root->tray_menu_object_id = g_dbus_connection_register_object(
         root->tray_bus, "/MenuBar", root->tray_menu_node->interfaces[0],
@@ -5613,15 +5565,14 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
     GtkWidget *event_box = gtk_event_box_new();
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
     GtkWidget *label = gtk_label_new(text);
-    GtkWidget *close = gtk_button_new_from_icon_name(
-        "window-close-symbolic", GTK_ICON_SIZE_MENU);
+    GtkWidget *close = gtk_button_new_with_label("×");
     gtk_event_box_set_visible_window(GTK_EVENT_BOX(event_box), FALSE);
     gtk_event_box_set_above_child(GTK_EVENT_BOX(event_box), FALSE);
     gtk_widget_add_events(event_box,
                           GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
     gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close, FALSE);
-    gtk_button_set_always_show_image(GTK_BUTTON(close), TRUE);
+
     gtk_widget_set_size_request(close, 18, 18);
     configure_action_button(close, "Close Tab");
     gtk_style_context_add_class(gtk_widget_get_style_context(content),
@@ -5693,10 +5644,9 @@ static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
 
 static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *button = gtk_button_new_from_icon_name(
-        "list-add-symbolic", GTK_ICON_SIZE_MENU);
+    GtkWidget *button = gtk_button_new_with_label("+");
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-    gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
+
     gtk_widget_set_can_focus(button, TRUE);
     gint extent = MAX(22, root->compact_tab_height + 2);
     gtk_widget_set_size_request(button, extent, extent);
@@ -5731,10 +5681,8 @@ static void on_window_close_button_clicked(GtkButton *button,
 static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    GtkWidget *settings = gtk_button_new_from_icon_name(
-        "configure", GTK_ICON_SIZE_MENU);
-    GtkWidget *close = gtk_button_new_from_icon_name(
-        "window-close", GTK_ICON_SIZE_MENU);
+    GtkWidget *settings = gtk_button_new_with_label("⚙");
+    GtkWidget *close = gtk_button_new_with_label("×");
     GtkWidget *buttons[] = { settings, close };
     const gchar *tooltips[] = { "Settings", "Close NOCTTY" };
     const gchar *accessible_names[] = { "Settings", "Close NOCTTY" };
@@ -5742,7 +5690,7 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
     for (guint index = 0; index < G_N_ELEMENTS(buttons); index++) {
         gtk_button_set_relief(GTK_BUTTON(buttons[index]), GTK_RELIEF_NONE);
         gtk_widget_set_focus_on_click(buttons[index], FALSE);
-        gtk_button_set_always_show_image(GTK_BUTTON(buttons[index]), TRUE);
+
         gtk_widget_set_size_request(buttons[index], extent, extent);
         configure_action_button(buttons[index], tooltips[index]);
         AtkObject *accessible = gtk_widget_get_accessible(buttons[index]);
@@ -5770,13 +5718,9 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
 static gboolean request_new_tab_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *button = root->new_tab_button;
-    GtkWidget *image = button != NULL
-        ? gtk_button_get_image(GTK_BUTTON(button))
+    const gchar *label = button != NULL
+        ? gtk_button_get_label(GTK_BUTTON(button))
         : NULL;
-    const gchar *icon_name = NULL;
-    GtkIconSize icon_size = GTK_ICON_SIZE_INVALID;
-    if (GTK_IS_IMAGE(image))
-        gtk_image_get_icon_name(GTK_IMAGE(image), &icon_name, &icon_size);
     AtkObject *accessible = button != NULL
         ? gtk_widget_get_accessible(button)
         : NULL;
@@ -5787,9 +5731,7 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
     root->new_tab_button_at_start = button != NULL &&
         gtk_notebook_get_action_widget(GTK_NOTEBOOK(root->notebook),
                                        GTK_PACK_START) == button;
-    root->new_tab_button_icon = icon_name != NULL &&
-        g_strcmp0(icon_name, "list-add-symbolic") == 0 &&
-        icon_size == GTK_ICON_SIZE_MENU;
+    root->new_tab_button_icon = label != NULL && g_strcmp0(label, "+") == 0;
     root->new_tab_button_accessible = accessible != NULL &&
         g_strcmp0(atk_object_get_name(accessible), "New Tab, Ctrl+Shift+T") == 0;
     if (button != NULL) gtk_button_clicked(GTK_BUTTON(button));
@@ -6222,6 +6164,11 @@ static void queue_grid_output_when_ready(NocttyGridContext *context) {
     }
     remove_grid_source(&context->synchronized_output_source);
     queue_grid_damage_when_mapped(context);
+    if (context->area != NULL && gtk_widget_get_mapped(context->area)) {
+        GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
+        if (clock != NULL)
+            gdk_frame_clock_request_phase(clock, GDK_FRAME_CLOCK_PHASE_PAINT);
+    }
 }
 
 static int pump_grid_context(NocttyGridContext *context,
@@ -6309,6 +6256,17 @@ static int pump_grid_context(NocttyGridContext *context,
 static gboolean on_output_present(gpointer user_data);
 static gboolean on_output_frame(GtkWidget *widget, GdkFrameClock *frame_clock,
                                 gpointer user_data);
+static gboolean on_pty_ready(gint fd, GIOCondition condition,
+                             gpointer user_data);
+static void remove_grid_source(guint *source);
+
+static int register_grid_pty(NocttyGridContext *context) {
+    context->pty_source = g_unix_fd_add_full(
+        G_PRIORITY_DEFAULT, context->pty_fd,
+        (GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR), on_pty_ready,
+        context, NULL);
+    return context->pty_source != 0;
+}
 
 static void remove_grid_source(guint *source) {
     if (*source == 0) return;
@@ -6374,6 +6332,7 @@ static gboolean on_pty_ready(gint fd, GIOCondition condition,
     int pumped = context->pump(context->userdata);
     if (pumped > 0) {
         context->pty_output_dirty = 1;
+        queue_grid_output_when_ready(context);
         schedule_output_present(context);
         return G_SOURCE_CONTINUE;
     }
@@ -6480,10 +6439,7 @@ static void start_grid_context(NocttyGridContext *context) {
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 1, 0, (uint64_t)(g_get_monotonic_time() / 1000));
     context->pty_fd = noctty_grid_pty_fd(context->userdata);
     if (context->pty_fd >= 0) {
-        context->pty_source = g_unix_fd_add_full(
-            G_PRIORITY_DEFAULT, context->pty_fd,
-            (GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR | G_IO_NVAL),
-            on_pty_ready, context, NULL);
+        (void)register_grid_pty(context);
     }
     if (context->pty_source != 0) {
         context->pty_event_source_started = 1;
@@ -6556,8 +6512,6 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->compact_tab_height = root->compact_tab_height;
     created->font_size = source->requested_font_size;
     created->requested_font_size = source->requested_font_size;
-    created->font_antialias = root->font_antialias;
-    created->font_hinting = root->font_hinting;
     created->font_min_size = root->font_min_size;
     created->font_max_size = root->font_max_size;
     created->ligatures = source->ligatures;
@@ -6570,37 +6524,7 @@ static NocttyGridContext *create_grid_context_for_session(
     NocttyGridContext *created = g_new0(NocttyGridContext, 1);
     inherit_grid_session_context(created, source);
     created->area = gtk_drawing_area_new();
-    created->window_layout = NULL;
-    memset(created->window_resize_handles, 0,
-           sizeof(created->window_resize_handles));
-    created->settings_dialog = NULL;
-    created->settings_categories = NULL;
-    created->settings_stack = NULL;
-    created->palette_dialog = NULL;
-    created->palette_search = NULL;
-    created->palette_list = NULL;
-    created->find_dialog = NULL;
-    created->find_entry = NULL;
-    created->find_status = NULL;
-    created->note_dialog = NULL;
-    created->note_view = NULL;
-    created->note_overlay_text = NULL;
-    created->note_overlay_label = NULL;
-    created->note_overlay_font = NULL;
-    created->shortcuts_dialog = NULL;
     created->im_context = gtk_im_multicontext_new();
-    created->project_dialog = NULL;
-    created->editor_dialog = NULL;
-    created->editor_view = NULL;
-    created->editor_chooser = NULL;
-    created->editor_file_label = NULL;
-    created->editor_status = NULL;
-    created->editor_save_button = NULL;
-    created->editor_confirm_dialog = NULL;
-    created->workspace_menu = NULL;
-    created->editor_path = NULL;
-    created->editor_directory = NULL;
-    created->display_title = NULL;
     created->font_family = g_strdup(source->font_family != NULL
                                         ? source->font_family
                                         : "monospace");
@@ -6608,271 +6532,12 @@ static NocttyGridContext *create_grid_context_for_session(
     created->pane_id = pane_id;
     created->profile_preset = -1;
     (void)sync_grid_context_profile(created);
-    created->selecting = 0;
-    created->selection_dragging = 0;
-    created->selection_border_drawn = 0;
-    created->suppress_primary_release = 0;
     created->cursor_visible = 1;
     created->last_cursor_position = UINT32_MAX;
-    created->focused = 0;
-    created->saw_draw = 0;
-    created->exited = 0;
-    created->exit_code = 0;
-    created->shortcut_bus = NULL;
-    created->shortcut_subscription = 0;
-    created->shortcut_action_registered = 0;
-    created->shortcut_registered = 0;
-    created->shortcut_invoked = 0;
-    created->tray_bus = NULL;
-    created->tray_node = NULL;
-    created->tray_menu_node = NULL;
-    created->tray_icon_pixmaps = NULL;
-    created->tray_object_id = 0;
-    created->tray_menu_object_id = 0;
-    created->tray_watcher_subscription = 0;
-    created->tray_menu_revision = 0;
-    created->tray_registered = 0;
-    created->tray_menu_registered = 0;
-    created->tray_watcher_registered = 0;
-    created->tray_icon_available = 0;
-    created->tray_activation_count = 0;
-    created->tray_secondary_seen = 0;
-    created->tray_context_seen = 0;
-    created->tray_menu_layout_seen = 0;
-    created->tray_close_seen = 0;
-    created->tray_close_session_stopped = 0;
-    created->application_close_requested = 0;
-    created->primary = 0;
-    created->active = 0;
-    created->retiring = 0;
-    created->clipboard_pasted = 0;
-    created->clipboard_requests = 0;
-    created->notification_delivered = 0;
-    created->status_kind = 0;
-    created->settings_opened = 0;
-    created->settings_pane_info_toggle = NULL;
-    created->settings_launch_library = NULL;
-    created->settings_launch_name = NULL;
-    created->settings_launch_kind = NULL;
-    created->settings_launch_shell = NULL;
-    created->settings_launch_command = NULL;
-    created->settings_launch_cwd = NULL;
-    created->settings_launch_environment = NULL;
-    created->settings_launch_ssh_target = NULL;
-    created->settings_launch_scrollback = NULL;
-    created->settings_launch_apply = NULL;
-    created->settings_launch_save = NULL;
-    created->settings_launch_delete = NULL;
-    created->settings_category_count = 0;
-    created->settings_page_switched = 0;
-    created->settings_stacking_visible = 0;
-    created->settings_transient_parent = 0;
-    created->settings_keep_above = 0;
-    created->settings_layer_overlay = 0;
-    created->settings_parent_layer_lowered = 0;
-    created->settings_parent_layer_lowered_seen = 0;
-    created->settings_parent_layer_restored = 0;
-    created->settings_stacking_ready = 0;
-    created->theme_imported = 0;
-    created->project_smoke_done = 0;
-    created->project_smoke_attempts = 0;
-    created->context_menu_opened = 0;
-    created->context_menu_survived = 0;
-    created->editor_here_opened = 0;
-    created->nocted_launch_attempted = 0;
-    created->nocted_launch_succeeded = 0;
-    created->nocted_process_separate = 0;
-    created->editor_directory_listed = 0;
-    created->editor_directory_navigated = 0;
-    created->editor_file_opened = 0;
-    created->editor_loading = 0;
-    created->editor_close_in_progress = 0;
-    created->editor_clean_save_disabled = 0;
-    created->editor_dirty_visible = 0;
-    created->editor_ctrl_s_saved = 0;
-    created->editor_switch_cancelled = 0;
-    created->editor_switch_saved = 0;
-    created->editor_switch_discarded = 0;
-    created->editor_close_cancelled = 0;
-    created->editor_close_discarded = 0;
-    created->editor_delete_event_seen = 0;
-    created->editor_prompt_mapped_count = 0;
-    created->editor_parent_mapped = 0;
-    created->editor_smoke_prompt_response = 0;
-    created->tab_context_menu_opened = 0;
-    created->tab_context_menu_survived = 0;
-    created->tab_close_targeted_background = 0;
-    created->tab_close_applied = 0;
-    created->tab_close_session_stopped = 0;
-    created->tab_close_remaining_focused = 0;
-    created->late_callback_guarded = 0;
-    created->tab_active_styled = 0;
-    created->tab_close_button_visible = 0;
-    created->new_tab_button_visible = 0;
-    created->new_tab_button_at_start = 0;
-    created->new_tab_button_icon = 0;
-    created->new_tab_button_accessible = 0;
-    created->new_tab_button_clicked = 0;
-    created->new_tab_button_visible_after_close = 0;
-    created->new_tab_button_reopened_after_close = 0;
-    created->new_tab_button_fresh_context = 0;
-    created->new_tab_button_cleanup = 0;
-    created->window_toolbar_visible = 0;
-    created->window_toolbar_yakuake_order = 0;
-    created->window_settings_button_activated = 0;
-    created->window_close_button_activated = 0;
-    created->window_close_session_stopped = 0;
-    created->pane_close_menu_opened = 0;
-    created->pane_close_menu_survived = 0;
-    created->pane_close_menu_popped_down = 0;
-    created->pane_close_targeted_primary = 0;
-    created->pane_close_applied = 0;
-    created->pane_close_session_stopped = 0;
-    created->pane_close_rendered_collapsed = 0;
-    created->pane_close_remaining_focused = 0;
-    created->pane_close_last_terminal_protected = 0;
-    created->pane_close_smoke_attempts = 0;
-    created->ctrl_c_local_interrupt = 0;
-    created->ctrl_d_close_attempted = 0;
-    created->ctrl_d_close_succeeded = 0;
-    created->terminal_chord_interrupt_focused = 0;
-    created->terminal_chord_close_exact = 0;
-    created->terminal_chord_close_rendered = 0;
-    created->terminal_chord_close_session_stopped = 0;
-    created->terminal_chord_remaining_focused = 0;
-    created->terminal_chord_final_protected = 0;
-    created->layout_preset_1x1_applied = 0;
-    created->layout_preset_2x2_applied = 0;
-    created->layout_preset_3x3_applied = 0;
-    created->layout_preset_4x4_applied = 0;
-    created->layout_preset_created_count = 0;
-    created->layout_preset_closed_count = 0;
-    created->layout_preset_menu_survived = 0;
-    created->layout_preset_2x2_rendered = 0;
-    created->layout_preset_3x3_rendered = 0;
-    created->layout_preset_4x4_rendered = 0;
-    created->layout_preset_1x1_rendered = 0;
-    created->layout_preset_prompt_count = 0;
-    created->layout_preset_prompt_cancelled = 0;
-    created->layout_preset_prompt_accepted = 0;
-    created->layout_preset_moved_count = 0;
-    created->layout_preset_auto_fit = 0;
-    created->layout_preset_zoom_overlay = 0;
-    created->layout_preset_tui_rendered = 0;
-    created->layout_preset_tui_input = 0;
-    created->layout_preset_floor_feedback = 0;
-    created->layout_preset_remaining_focused = 0;
-    created->layout_preset_smoke_stage = 0;
-    created->layout_preset_smoke_attempts = 0;
-    created->layout_preset_churn_rounds = 0;
-    created->layout_preset_finalizing = 0;
-    created->focus_click_smoke_stage = NOCTTY_FOCUS_SMOKE_PRIMARY_ACTION;
-    created->focus_click_smoke_attempts = 0;
-    created->focus_click_primary = 0;
-    created->focus_click_secondary = 0;
-    created->focus_click_controlled_exit = 0;
-    created->pane_move_applied = 0;
-    created->resize_overlay_armed = 0;
-    created->resize_overlay_visible = 0;
-    created->resize_overlay_columns = 0;
-    created->resize_overlay_rows = 0;
-    created->resize_overlay_zoom_percent = 100;
-    created->resize_overlay_initial_suppressed = 0;
-    created->resize_overlay_show_count = 0;
-    created->resize_overlay_update_count = 0;
-    created->resize_overlay_drawn = 0;
-    created->window_resize_handle_count = 0;
-    created->window_resize_handle_mask = 0;
-    created->window_resize_handles_visible = 0;
-    created->window_resize_geometry_changed = 0;
-    created->window_resize_drag_active = 0;
-    created->resize_overlay_hidden = 0;
-    created->resize_overlay_smoke_initial_hidden = 0;
-    created->resize_overlay_smoke_visible = 0;
-    created->resize_overlay_smoke_realtime = 0;
-    created->resize_overlay_smoke_hidden = 0;
-    created->resize_overlay_smoke_moves = 0;
-    created->compact_font_scroll_up = 0;
-    created->compact_font_scroll_down = 0;
-    created->compact_font_scroll_isolated = 0;
-    created->compact_plain_scroll_preserved = 0;
-    created->alt_scroll_cycle_next = 0;
-    created->alt_scroll_cycle_previous = 0;
-    created->alt_scroll_current_tab = 0;
-    created->alt_scroll_hidden_skipped = 0;
-    created->ctrl_alt_scroll_cycle_next = 0;
-    created->ctrl_alt_scroll_cycle_previous = 0;
-    created->ctrl_alt_scroll_wraparound = 0;
-    created->pane_cycle_feedback_visible = 0;
-    created->pane_cycle_feedback_index = 0;
-    created->pane_cycle_feedback_count = 0;
-    created->pane_cycle_feedback_drawn = 0;
-    created->alt_scroll_start_pane_id = 0;
-    created->alt_scroll_start_page = NULL;
-    created->tab_cycle_feedback_visible = 0;
-    created->tab_cycle_feedback_index = 0;
-    created->tab_cycle_feedback_count = 0;
-    created->tab_cycle_feedback_drawn = 0;
-    created->ctrl_alt_scroll_start_page = NULL;
-    created->compact_zoom_hid_tab_bar = 0;
-    created->compact_zoom_restored_tab_bar = 0;
-    created->compact_pane_info_rendered = 0;
-    created->compact_pane_info_positioned = 0;
-    created->compact_pane_info_source = 0;
-    created->compact_pane_info_dedup = 0;
-    created->pane_info_setting_control = 0;
-    created->pane_info_setting_toggled = 0;
-    created->launch_profile_setting_control = 0;
-    created->launch_profile_setting_applied = 0;
-    created->launch_profile_library_control = 0;
-    created->launch_profile_library_saved = 0;
-    created->launch_profile_library_selected = 0;
-    created->launch_profile_library_removed = 0;
-    created->note_overlay_visible = 0;
-    created->note_overlay_content_loaded = 0;
-    created->note_overlay_alt_pressed = 0;
-    created->note_overlay_alt_released = 0;
-    created->note_overlay_drawn = 0;
-    created->note_overlay_compact = 0;
-    created->note_overlay_smoke_panes = 0;
-    created->note_overlay_smoke_all_drawn = 0;
-    created->note_overlay_smoke_hidden = 0;
-    created->font_scroll_accumulator = 0.0;
-    created->pane_cycle_scroll_accumulator = 0.0;
-    created->tab_cycle_scroll_accumulator = 0.0;
-    created->attention = 0;
     created->last_bell_serial = noctty_grid_bell_serial(userdata);
-    created->terminal_metadata_initialized = 0;
-    created->last_exit_poll_us = 0;
-    created->tick_source = 0;
-    created->pty_source = 0;
-    created->output_present_source = 0;
-    created->output_present_is_tick = 0;
-    created->synchronized_output_source = 0;
-    created->synchronized_output_pending = 0;
-    created->resize_commit_source = 0;
-    created->pending_resize_columns = 0;
-    created->pending_resize_rows = 0;
-    created->pending_resize_width = 0;
-    created->pending_resize_height = 0;
     created->pty_fd = -1;
-    created->pty_output_dirty = 0;
-    created->pty_event_source_started = 0;
-    created->descriptor_tick_coalesced = 0;
-    created->descriptor_maintenance_fallback_seen = 0;
-    created->source_cleanup_count = 0;
-    created->cursor_blink_source = 0;
-    created->maintenance_source = 0;
-    created->note_save_source = 0;
-    created->hide_source = 0;
-    created->focus_hide_source = 0;
-    created->resize_overlay_arm_source = 0;
-    created->resize_overlay_hide_source = 0;
-    created->layout_save_source = 0;
-    created->pane_cycle_feedback_source = 0;
-    created->tab_cycle_feedback_source = 0;
     created->heap_allocated = 1;
-    created->peer = NULL;
+
     g_ptr_array_add(source->contexts, created);
     connect_grid_area(created);
     update_status_tooltip(created, "starting");
@@ -8157,11 +7822,14 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     NocttyGridContext *root = root_grid_context(context);
     if (context == NULL || !context->active || context->area == NULL ||
         context->page == NULL || root->event_data == NULL ||
-        !((event_code >= 50 && event_code <= 52) || event_code == 60))
+        !((event_code >= 50 && event_code <= 52) || event_code == 60 ||
+          event_code == 61))
         return FALSE;
-    guint side = event_code == 50 ? 1 : event_code == 51 ? 2 :
-        event_code == 52 ? 3 : 4;
-    guint target_count = side * side;
+    guint rows = event_code == 50 ? 1 : event_code == 51 ? 2 :
+        event_code == 61 ? 2 : event_code == 52 ? 3 : 4;
+    guint cols = event_code == 50 ? 1 : event_code == 51 ? 2 :
+        event_code == 61 ? 4 : event_code == 52 ? 3 : 4;
+    guint target_count = rows * cols;
     GtkWidget *page = context->page;
     if (root->zoomed_pane_id != 0) restore_zoomed_page(root);
     if (context->event != NULL)
@@ -8280,7 +7948,7 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         }
     }
     gboolean rebuilt = rebuild_grid_preset_page(
-        context, ordered, target_count, side, side);
+        context, ordered, target_count, rows, cols);
     if (rebuilt) {
         gboolean bound = bind_grid_layout_for_page(context);
         if (!bound && root->workspace_smoke == 21)
@@ -8293,6 +7961,7 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     }
     if (rebuilt && event_code == 50) root->layout_preset_1x1_applied = 1;
     if (rebuilt && event_code == 51) root->layout_preset_2x2_applied = 1;
+    if (rebuilt && event_code == 61) root->layout_preset_4x2_applied = 1;
     if (rebuilt && event_code == 52) root->layout_preset_3x3_applied = 1;
     if (rebuilt && event_code == 60) root->layout_preset_4x4_applied = 1;
     return rebuilt;
@@ -8320,7 +7989,8 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
         gtk_widget_grab_focus(created->area);
         return;
     }
-    if ((event_code >= 50 && event_code <= 52) || event_code == 60) {
+    if ((event_code >= 50 && event_code <= 52) || event_code == 60 ||
+        event_code == 61) {
         (void)apply_grid_layout_preset(context, event_code);
         return;
     }
@@ -9489,11 +9159,11 @@ static void on_settings_family_changed(GtkComboBox *combo, gpointer user_data) {
 static void apply_font_rendering_setting(NocttyGridContext *context,
                                          int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
+    if (event_code == 110) root->font_antialias = value;
+    else root->font_hinting = value;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (event_code == 110) candidate->font_antialias = value;
-        else candidate->font_hinting = value;
         clear_ascii_glyph_cache(candidate);
         gtk_widget_queue_draw(candidate->area);
     }
@@ -12457,22 +12127,12 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
     GtkWidget *close = children != NULL && children->next != NULL
         ? children->next->data
         : NULL;
-    GtkWidget *settings_image = GTK_IS_BUTTON(settings)
-        ? gtk_button_get_image(GTK_BUTTON(settings))
+    const gchar *settings_label = GTK_IS_BUTTON(settings)
+        ? gtk_button_get_label(GTK_BUTTON(settings))
         : NULL;
-    GtkWidget *close_image = GTK_IS_BUTTON(close)
-        ? gtk_button_get_image(GTK_BUTTON(close))
+    const gchar *close_label = GTK_IS_BUTTON(close)
+        ? gtk_button_get_label(GTK_BUTTON(close))
         : NULL;
-    const gchar *settings_icon = NULL;
-    const gchar *close_icon = NULL;
-    GtkIconSize settings_icon_size = GTK_ICON_SIZE_INVALID;
-    GtkIconSize close_icon_size = GTK_ICON_SIZE_INVALID;
-    if (GTK_IS_IMAGE(settings_image))
-        gtk_image_get_icon_name(GTK_IMAGE(settings_image), &settings_icon,
-                                &settings_icon_size);
-    if (GTK_IS_IMAGE(close_image))
-        gtk_image_get_icon_name(GTK_IMAGE(close_image), &close_icon,
-                                &close_icon_size);
     AtkObject *settings_accessible = settings != NULL
         ? gtk_widget_get_accessible(settings)
         : NULL;
@@ -12538,11 +12198,8 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
         g_list_length(children) == 2 &&
         settings == root->window_settings_button &&
         close == root->window_close_button &&
-        settings_icon != NULL && g_strcmp0(settings_icon, "configure") == 0 &&
-        close_icon != NULL &&
-        g_strcmp0(close_icon, "window-close") == 0 &&
-        settings_icon_size == GTK_ICON_SIZE_MENU &&
-        close_icon_size == GTK_ICON_SIZE_MENU &&
+        settings_label != NULL && g_strcmp0(settings_label, "⚙") == 0 &&
+        close_label != NULL && g_strcmp0(close_label, "×") == 0 &&
         settings_accessible != NULL &&
         g_strcmp0(atk_object_get_name(settings_accessible), "Settings") == 0 &&
         close_accessible != NULL &&
@@ -13296,6 +12953,7 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     append_workspace_menu_item(menu, "Layout 1×1", 50, context);
     append_workspace_menu_item(menu, "Layout 2×2", 51, context);
+    append_workspace_menu_item(menu, "Layout 4×2", 61, context);
     append_workspace_menu_item(menu, "Layout 3×3", 52, context);
     append_workspace_menu_item(menu, "Layout 4×4", 60, context);
     append_workspace_menu_item(menu, "Add Pane to Selection", 53, context);
@@ -13787,7 +13445,7 @@ static guint preset_unique_band_count(const gint *values, guint count) {
 }
 
 static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
-                                              guint side) {
+                                              guint rows, guint cols) {
     NocttyGridContext *root = root_grid_context(context);
     gint current_index = gtk_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
@@ -13830,16 +13488,16 @@ static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
         max_height = MAX(max_height, allocation.height);
         count++;
     }
-    guint target_count = side * side;
+    guint target_count = rows * cols;
     guint x_bands = preset_unique_band_count(centers_x, count);
     guint y_bands = preset_unique_band_count(centers_y, count);
     gboolean balanced = max_width - min_width <= MAX(16, max_width / 5) &&
         max_height - min_height <= MAX(16, max_height / 5);
     gboolean valid = mapped && io_ready && count == target_count &&
-        x_bands == side && y_bands == side && balanced;
+        x_bands == cols && y_bands == rows && balanced;
     if (!valid && root->workspace_smoke == 21)
-        g_printerr("native_grid_layout_geometry side=%u count=%u mapped=%d io_ready=%d x_bands=%u y_bands=%u width=%d..%d height=%d..%d balanced=%d\n",
-                   side, count, mapped, io_ready, x_bands, y_bands,
+        g_printerr("native_grid_layout_geometry rows=%u cols=%u count=%u mapped=%d io_ready=%d x_bands=%u y_bands=%u width=%d..%d height=%d..%d balanced=%d\n",
+                   rows, cols, count, mapped, io_ready, x_bands, y_bands,
                    min_width, max_width, min_height, max_height, balanced);
     return valid;
 }
@@ -13865,19 +13523,13 @@ static gboolean verify_layout_auto_fit(NocttyGridContext *context) {
             candidate->resize_overlay_show_count > 0 &&
             candidate->resize_overlay_drawn;
     }
-    root->layout_preset_auto_fit = count == 16 && fitted;
-    root->layout_preset_zoom_overlay = count == 16 && overlay;
-    return root->layout_preset_auto_fit && root->layout_preset_zoom_overlay;
+    return count == 16 && fitted && overlay;
 }
 
 static gboolean verify_layout_tui(NocttyGridContext *context) {
     const char *tui = g_getenv("NOCTTY_LAYOUT_TUI");
     NocttyGridContext *root = root_grid_context(context);
-    if (tui == NULL || tui[0] == '\0') {
-        root->layout_preset_tui_rendered = 1;
-        root->layout_preset_tui_input = 1;
-        return TRUE;
-    }
+    if (tui == NULL || tui[0] == '\0') return TRUE;
     GtkWidget *page = gtk_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
         gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
@@ -13901,12 +13553,10 @@ static gboolean verify_layout_tui(NocttyGridContext *context) {
         if (candidate->write != NULL &&
             candidate->write(candidate->userdata, "l", 1) == 1) input++;
     }
-    root->layout_preset_tui_rendered = rendered == 16;
-    root->layout_preset_tui_input = input == 16;
-    if (!root->layout_preset_tui_rendered || !root->layout_preset_tui_input)
+    if (rendered != 16 || input != 16)
         g_printerr("native_grid_layout_tui_not_ready app=%s rendered=%u input=%u\n",
                    tui, rendered, input);
-    return root->layout_preset_tui_rendered && root->layout_preset_tui_input;
+    return rendered == 16 && input == 16;
 }
 
 static gboolean verify_layout_floor_feedback(NocttyGridContext *context) {
@@ -13917,11 +13567,10 @@ static gboolean verify_layout_floor_feedback(NocttyGridContext *context) {
     gtk_widget_get_allocation(candidate->area, &actual);
     GtkAllocation impossible = { .x = 0, .y = 0, .width = 100, .height = 80 };
     resize_grid_to_allocation(candidate, &impossible);
-    root->layout_preset_floor_feedback =
-        candidate->resize_overlay_floor_reached &&
+    gboolean reached = candidate->resize_overlay_floor_reached &&
         fabs(candidate->font_size - 3.0) < 0.01;
     resize_grid_to_allocation(candidate, &actual);
-    return root->layout_preset_floor_feedback;
+    return reached;
 }
 
 static gboolean apply_layout_preset_smoke_stage(gpointer user_data);
@@ -13932,36 +13581,42 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
     if (root->layout_preset_smoke_stage == 2) {
         gboolean rendered =
             root->layout_preset_2x2_applied &&
-            verify_layout_preset_geometry(root, 2);
+            verify_layout_preset_geometry(root, 2, 2);
         root->layout_preset_2x2_rendered =
-            root->layout_preset_churn_rounds == 0
+            root->layout_preset_churn_rounds == 1
                 ? rendered
                 : root->layout_preset_2x2_rendered && rendered;
         root->layout_preset_smoke_stage = 1;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 3) {
-        root->layout_preset_3x3_rendered =
-            root->layout_preset_3x3_applied &&
-            verify_layout_preset_geometry(root, 3);
-        root->layout_preset_smoke_stage = 4;
+        root->layout_preset_4x2_rendered =
+            root->layout_preset_4x2_applied &&
+            verify_layout_preset_geometry(root, 2, 4);
+        root->layout_preset_smoke_stage = 1;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 4) {
-        root->layout_preset_4x4_rendered =
-            root->layout_preset_4x4_applied &&
-            verify_layout_preset_geometry(root, 4) &&
-            verify_layout_auto_fit(root) && verify_layout_tui(root) &&
-            verify_layout_floor_feedback(root);
-        root->layout_preset_finalizing = 1;
+        root->layout_preset_3x3_rendered =
+            root->layout_preset_3x3_applied &&
+            verify_layout_preset_geometry(root, 3, 3);
         root->layout_preset_smoke_stage = 5;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 5) {
         root->layout_preset_4x4_rendered =
-            root->layout_preset_4x4_rendered &&
-            root->layout_preset_prompt_cancelled == 1 &&
-            verify_layout_preset_geometry(root, 4);
+            root->layout_preset_4x4_applied &&
+            verify_layout_preset_geometry(root, 4, 4) &&
+            verify_layout_auto_fit(root) && verify_layout_tui(root) &&
+            verify_layout_floor_feedback(root);
+        root->layout_preset_finalizing = 1;
         root->layout_preset_smoke_stage = 6;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 6) {
+        root->layout_preset_4x4_rendered =
+            root->layout_preset_4x4_rendered &&
+            root->layout_preset_prompt_cancelled == 1 &&
+            verify_layout_preset_geometry(root, 4, 4);
+        root->layout_preset_smoke_stage = 7;
+        g_timeout_add(180, apply_layout_preset_smoke_stage, root);
+    } else if (root->layout_preset_smoke_stage == 7) {
         gint source_index = gtk_notebook_page_num(
             GTK_NOTEBOOK(root->notebook), root->page);
         GtkWidget *overflow_page = gtk_notebook_get_nth_page(
@@ -13982,7 +13637,7 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         root->layout_preset_1x1_rendered =
             root->layout_preset_1x1_rendered &&
             root->layout_preset_1x1_applied &&
-            verify_layout_preset_geometry(root, 1) &&
+            verify_layout_preset_geometry(root, 1, 1) &&
             root->layout_preset_prompt_accepted == 1 &&
             root->layout_preset_moved_count == 15 &&
             gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
@@ -14015,7 +13670,7 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         }
     } else if (root->layout_preset_smoke_stage == 1) {
         gboolean rendered = root->layout_preset_1x1_applied &&
-            verify_layout_preset_geometry(root, 1);
+            verify_layout_preset_geometry(root, 1, 1);
         if (!root->layout_preset_finalizing) {
             root->layout_preset_churn_rounds++;
             root->layout_preset_1x1_rendered =
@@ -14023,7 +13678,7 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
                     ? rendered
                     : root->layout_preset_1x1_rendered && rendered;
             root->layout_preset_smoke_stage =
-                root->layout_preset_churn_rounds < 8 ? 2 : 3;
+                root->layout_preset_churn_rounds < 8 ? 2 : 4;
             g_timeout_add(180, apply_layout_preset_smoke_stage, root);
         }
     }
@@ -14039,17 +13694,21 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
         ? find_workspace_menu_item(menu, "Layout 1×1") : NULL;
     GtkWidget *layout_2x2 = menu_ready
         ? find_workspace_menu_item(menu, "Layout 2×2") : NULL;
+    GtkWidget *layout_4x2 = menu_ready
+        ? find_workspace_menu_item(menu, "Layout 4×2") : NULL;
     GtkWidget *layout_3x3 = menu_ready
         ? find_workspace_menu_item(menu, "Layout 3×3") : NULL;
     GtkWidget *layout_4x4 = menu_ready
         ? find_workspace_menu_item(menu, "Layout 4×4") : NULL;
     gboolean routes_ready =
-        layout_1x1 != NULL && layout_2x2 != NULL && layout_3x3 != NULL &&
-        layout_4x4 != NULL &&
+        layout_1x1 != NULL && layout_2x2 != NULL && layout_4x2 != NULL &&
+        layout_3x3 != NULL && layout_4x4 != NULL &&
         GPOINTER_TO_INT(g_object_get_data(
             G_OBJECT(layout_1x1), "noctty-workspace-event")) == 50 &&
         GPOINTER_TO_INT(g_object_get_data(
             G_OBJECT(layout_2x2), "noctty-workspace-event")) == 51 &&
+        GPOINTER_TO_INT(g_object_get_data(
+            G_OBJECT(layout_4x2), "noctty-workspace-event")) == 61 &&
         GPOINTER_TO_INT(g_object_get_data(
             G_OBJECT(layout_3x3), "noctty-workspace-event")) == 52 &&
         GPOINTER_TO_INT(g_object_get_data(
@@ -14067,8 +13726,8 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
     root->layout_preset_menu_survived = 1;
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_2x2);
-    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_2x2, TRUE);
+    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x2);
+    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x2, TRUE);
     g_timeout_add(420, check_layout_preset_smoke, root);
     return G_SOURCE_REMOVE;
 }
@@ -14077,9 +13736,10 @@ static gboolean apply_layout_preset_smoke_stage(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *target = active_grid_context(root);
     if (target == NULL || target->area == NULL) return G_SOURCE_REMOVE;
-    int event_code = root->layout_preset_smoke_stage == 4
-        ? 60 : root->layout_preset_smoke_stage == 3
-        ? 52 : root->layout_preset_smoke_stage == 2 ? 51 : 50;
+    int event_code = root->layout_preset_smoke_stage == 5
+        ? 60 : root->layout_preset_smoke_stage == 4
+        ? 52 : root->layout_preset_smoke_stage == 3
+        ? 61 : root->layout_preset_smoke_stage == 2 ? 51 : 50;
     emit_grid_workspace_event(target, event_code);
     g_timeout_add(420, check_layout_preset_smoke, root);
     return G_SOURCE_REMOVE;
@@ -14100,7 +13760,7 @@ static gboolean start_layout_preset_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->layout_preset_churn_rounds = 0;
     root->layout_preset_finalizing = 0;
-    root->layout_preset_smoke_stage = 2;
+    root->layout_preset_smoke_stage = 3;
     return request_layout_preset_smoke(root);
 }
 
@@ -14883,8 +14543,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         secondary.peer = &context;
     }
     gtk_window_set_title(GTK_WINDOW(context.window), "NOCTTY native grid");
-    gtk_window_set_icon_name(GTK_WINDOW(context.window),
-                             "com.noctty.NOCTTY");
     gtk_window_set_default_size(GTK_WINDOW(context.window), 1100, 640);
     gtk_window_set_decorated(GTK_WINDOW(context.window), FALSE);
     gtk_window_set_resizable(GTK_WINDOW(context.window), TRUE);
@@ -15522,6 +15180,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.layout_preset_menu_survived &&
          context.layout_preset_2x2_applied &&
          context.layout_preset_2x2_rendered &&
+         context.layout_preset_4x2_applied &&
+         context.layout_preset_4x2_rendered &&
          context.layout_preset_3x3_applied &&
          context.layout_preset_3x3_rendered &&
          context.layout_preset_4x4_applied &&
@@ -15529,17 +15189,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.layout_preset_1x1_applied &&
          context.layout_preset_1x1_rendered &&
          context.layout_preset_churn_rounds == 8 &&
-         context.layout_preset_created_count == 39 &&
-         context.layout_preset_closed_count == 24 &&
+         context.layout_preset_created_count == 43 &&
+         context.layout_preset_closed_count == 28 &&
          context.layout_preset_prompt_count == 2 &&
          context.layout_preset_prompt_cancelled == 1 &&
          context.layout_preset_prompt_accepted == 1 &&
          context.layout_preset_moved_count == 15 &&
-         context.layout_preset_auto_fit &&
-         context.layout_preset_zoom_overlay &&
-         context.layout_preset_tui_rendered &&
-         context.layout_preset_tui_input &&
-         context.layout_preset_floor_feedback &&
          context.layout_preset_remaining_focused &&
          final_page_count == 2 && final_tabs_visible);
     int resize_overlay_ok = workspace_smoke != 18 ||

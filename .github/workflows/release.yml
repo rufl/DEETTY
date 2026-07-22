@@ -55,6 +55,7 @@ jobs:
           tar -tzf "$archive" | grep -F './libexec/noctty/noctty' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/noctty/nocted' >/dev/null
           tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
+          tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/noctty/lib/libgtk-layer-shell.so.0' >/dev/null
           tar -tzf "$archive" | grep -F './share/licenses/noctty/dependencies/packages/' >/dev/null
       - uses: actions/upload-artifact@v4

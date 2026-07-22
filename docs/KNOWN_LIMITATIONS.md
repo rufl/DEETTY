@@ -84,7 +84,7 @@ Not claimed yet:
 - VS Code parity
 - Zed/Sublime parity
 - plugin ecosystem
-- LSP/DAP parity
+- persistent language-server sessions, inline diagnostics/code actions, and LSP/DAP parity; current LSP actions are explicit on-demand local requests
 - every-language syntax correctness
 - Tree-sitter-driven folding, structural selection, or symbol navigation
 - incremental/background parsing; the current alpha debounce performs a bounded full parse on GTK's main thread

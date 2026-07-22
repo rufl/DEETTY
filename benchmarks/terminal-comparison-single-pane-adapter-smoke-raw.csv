@@ -1,0 +1,3 @@
+terminal,version,scenario,panes,trial,startup_ms,pss_kib,rss_kib,idle_cpu_pct,ingest_ms,ingest_mib_s,process_count
+alacritty,0.17.0-1,idle,1,1,177,39708,97592,0.000,,,1
+yakuake,26.04.3-1,idle,1,1,314,32809,111616,0.000,,,2

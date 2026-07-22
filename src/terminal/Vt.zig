@@ -6,15 +6,20 @@ extern fn noctty_vt_public_available() bool;
 extern fn noctty_vt_paste_is_safe(data: [*]const u8, length: usize) bool;
 
 pub const Cell = struct {
+    const Flags = packed struct(u16) {
+        bold: bool = false,
+        inverse: bool = false,
+        italic: bool = false,
+        underline: bool = false,
+        strikethrough: bool = false,
+        dim: bool = false,
+        continuation: bool = false,
+        width: u2 = 1,
+        _: u7 = 0,
+    };
+
     codepoint: u21 = ' ',
-    bold: bool = false,
-    inverse: bool = false,
-    italic: bool = false,
-    underline: bool = false,
-    strikethrough: bool = false,
-    dim: bool = false,
-    continuation: bool = false,
-    width: u2 = 1,
+    flags: Flags = .{},
     grapheme_id: u16 = 0,
     hyperlink_id: u16 = 0,
     foreground: u16 = default_color_id,
@@ -24,6 +29,10 @@ pub const Cell = struct {
 pub const default_color_id: u16 = 0x0fff;
 pub const first_truecolor_id: u16 = 256;
 pub const max_truecolor_count: usize = default_color_id - first_truecolor_id;
+
+test "terminal cell flags remain compact" {
+    try std.testing.expectEqual(@as(usize, 16), @sizeOf(Cell));
+}
 
 pub const DirtySpan = extern struct {
     first: u32 = 0,
@@ -55,6 +64,8 @@ const RowMeta = struct {
     generation: u32,
     grapheme_start: u32 = 0,
     wrap_continues: bool = false,
+    used_columns: u16 = 0,
+    recycled_columns: u16 = 0,
 };
 
 const ColdRow = struct {
@@ -211,6 +222,7 @@ pub const Grid = struct {
     row_meta: []RowMeta,
     dirty_rows: []bool,
     dirty_spans: []DirtySpan,
+    all_rows_dirty: bool = true,
     screen_origin: usize = 0,
     tab_stops: []bool,
     alternate_cells: ?[]Cell = null,
@@ -293,7 +305,8 @@ pub const Grid = struct {
     pub const default_history_lines = 1000;
     pub const max_history_lines = 100_000;
     const initial_history_lines = 32;
-    const hot_history_lines = 256;
+    // ponytail: keep only a small hot window; older scrollback is compact cold storage.
+    const hot_history_lines = 1024;
     const no_history_owner = std.math.maxInt(u32);
     const max_cached_find_matches = 1024;
 
@@ -521,6 +534,7 @@ pub const Grid = struct {
         self.row_meta = row_meta;
         self.dirty_rows = dirty_rows;
         self.dirty_spans = dirty_spans;
+        self.all_rows_dirty = true;
         self.screen_origin = 0;
         self.alternate_cells = alternate_cells;
         self.alternate_row_meta = alternate_row_meta;
@@ -653,7 +667,7 @@ pub const Grid = struct {
             }
             try logical.ensureUnusedCapacity(width);
             for (source[0..width]) |value| {
-                if (!value.continuation) logical.appendAssumeCapacity(value);
+                if (!value.flags.continuation) logical.appendAssumeCapacity(value);
             }
             if (meta.wrap_continues) continue;
             try self.flushReflowLine(
@@ -695,6 +709,7 @@ pub const Grid = struct {
         self.row_meta = target.row_meta;
         self.dirty_rows = target.dirty_rows;
         self.dirty_spans = target.dirty_spans;
+        self.all_rows_dirty = target.all_rows_dirty;
         self.screen_origin = target.screen_origin;
         self.tab_stops = target.tab_stops;
         self.history = target.history;
@@ -772,18 +787,18 @@ pub const Grid = struct {
             var column: usize = 0;
             while (cell_index < cells.len) {
                 var value = cells[cell_index];
-                var width: usize = @max(@as(usize, 1), value.width);
+                var width: usize = @max(@as(usize, 1), value.flags.width);
                 if (width > target.columns) {
                     width = 1;
-                    value.width = 1;
+                    value.flags.width = 1;
                 }
                 if (column != 0 and column + width > target.columns) break;
                 row_buffer[column] = value;
                 if (width == 2 and column + 1 < target.columns) {
                     var continuation = value;
                     continuation.codepoint = 0;
-                    continuation.width = 0;
-                    continuation.continuation = true;
+                    continuation.flags.width = 0;
+                    continuation.flags.continuation = true;
                     continuation.grapheme_id = 0;
                     row_buffer[column + 1] = continuation;
                 }
@@ -982,10 +997,12 @@ pub const Grid = struct {
             },
             .escape => |escape| {
                 self.resetGraphemeInput();
+                self.materializeRecycledRows();
                 try self.applyEscape(escape);
             },
             .csi => |csi| {
                 self.resetGraphemeInput();
+                if (csi.final != 'm') self.materializeRecycledRows();
                 self.applyCsi(csi);
             },
             .string => |string| {
@@ -1252,32 +1269,45 @@ pub const Grid = struct {
 
     pub fn takeDirtyRows(self: *Grid, output: []u8) usize {
         const count = @min(output.len, self.rows);
-        for (output[0..count], self.dirty_rows[0..count], self.dirty_spans[0..count]) |*result, *dirty, *span| {
+        if (self.all_rows_dirty) {
+            @memset(output[0..count], 1);
+            @memset(self.dirty_rows[0..count], false);
+            @memset(self.dirty_spans[0..count], .{});
+        } else for (output[0..count], self.dirty_rows[0..count], self.dirty_spans[0..count]) |*result, *dirty, *span| {
             result.* = @intFromBool(dirty.*);
             dirty.* = false;
             span.* = .{};
         }
+        if (count == self.rows) self.all_rows_dirty = false;
         return count;
     }
 
     pub fn takeDirtySpans(self: *Grid, output: []DirtySpan) usize {
         const count = @min(output.len, self.rows);
-        for (output[0..count], self.dirty_rows[0..count], self.dirty_spans[0..count]) |*result, *dirty, *span| {
+        if (self.all_rows_dirty) {
+            @memset(output[0..count], .{ .first = 0, .end = @intCast(self.columns) });
+            @memset(self.dirty_rows[0..count], false);
+            @memset(self.dirty_spans[0..count], .{});
+        } else for (output[0..count], self.dirty_rows[0..count], self.dirty_spans[0..count]) |*result, *dirty, *span| {
             result.* = span.*;
             dirty.* = false;
             span.* = .{};
         }
+        if (count == self.rows) self.all_rows_dirty = false;
         return count;
     }
 
     pub fn markAllDirty(self: *Grid) void {
-        @memset(self.dirty_rows, true);
-        @memset(self.dirty_spans, .{ .first = 0, .end = @intCast(self.columns) });
+        self.all_rows_dirty = true;
     }
 
     fn markDirtyRange(self: *Grid, first: usize, last_inclusive: usize) void {
         if (first >= self.rows) return;
         const end = @min(last_inclusive + 1, self.rows);
+        if (first == 0 and end == self.rows) {
+            self.all_rows_dirty = true;
+            return;
+        }
         @memset(self.dirty_rows[first..end], true);
         @memset(self.dirty_spans[first..end], .{
             .first = 0,
@@ -1288,6 +1318,9 @@ pub const Grid = struct {
     fn markDirtySpan(self: *Grid, row: usize, first: usize, end: usize) void {
         if (row >= self.rows or first >= end or first >= self.columns) return;
         const bounded_end = @min(end, self.columns);
+        const meta = self.rowMeta(row);
+        meta.used_columns = @max(meta.used_columns, @as(u16, @intCast(bounded_end)));
+        if (self.all_rows_dirty) return;
         self.dirty_rows[row] = true;
         const span = &self.dirty_spans[row];
         if (span.end == 0) {
@@ -1341,7 +1374,7 @@ pub const Grid = struct {
     }
 
     fn writeCellText(self: Grid, cell_value: Cell, output: []u8) usize {
-        if (cell_value.continuation) return 0;
+        if (cell_value.flags.continuation) return 0;
         if (cell_value.grapheme_id != 0) {
             const text = self.graphemes.text(cell_value.grapheme_id);
             const count = @min(text.len, output.len);
@@ -1352,15 +1385,15 @@ pub const Grid = struct {
     }
 
     fn styleBitsForCell(cell_value: Cell) u32 {
-        return @as(u32, if (cell_value.bold) 1 else 0) |
-            @as(u32, if (cell_value.inverse) 2 else 0) |
-            @as(u32, if (cell_value.italic) 4 else 0) |
-            @as(u32, if (cell_value.underline) 8 else 0) |
+        return @as(u32, if (cell_value.flags.bold) 1 else 0) |
+            @as(u32, if (cell_value.flags.inverse) 2 else 0) |
+            @as(u32, if (cell_value.flags.italic) 4 else 0) |
+            @as(u32, if (cell_value.flags.underline) 8 else 0) |
             @as(u32, if (cell_value.hyperlink_id != 0) 8 else 0) |
-            @as(u32, if (cell_value.strikethrough) 16 else 0) |
-            @as(u32, if (cell_value.dim) 32 else 0) |
+            @as(u32, if (cell_value.flags.strikethrough) 16 else 0) |
+            @as(u32, if (cell_value.flags.dim) 32 else 0) |
             @as(u32, if (cell_value.grapheme_id != 0) 64 else 0) |
-            @as(u32, if (cell_value.continuation) 128 else 0) |
+            @as(u32, if (cell_value.flags.continuation) 128 else 0) |
             (@as(u32, cell_value.foreground) << 8) |
             (@as(u32, cell_value.background) << 20);
     }
@@ -1383,7 +1416,7 @@ pub const Grid = struct {
         for (0..total_lines) |line_index| {
             const width = self.lineWidth(line_index);
             for (0..width) |column| {
-                if (self.lineCell(line_index, column).continuation) continue;
+                if (self.lineCell(line_index, column).flags.continuation) continue;
                 if (self.logicalLineMatches(line_index, column, points[0..point_count])) {
                     if (match_count < locations.len)
                         locations[match_count] = .{
@@ -1407,7 +1440,7 @@ pub const Grid = struct {
         for (0..total_lines) |line_index| {
             const width = self.lineWidth(line_index);
             for (0..width) |column| {
-                if (self.lineCell(line_index, column).continuation or
+                if (self.lineCell(line_index, column).flags.continuation or
                     !self.logicalLineMatches(line_index, column, points[0..point_count]))
                     continue;
                 if (current == target) {
@@ -1472,7 +1505,7 @@ pub const Grid = struct {
             var seen: u32 = 0;
             for (0..self.lineWidth(line_index)) |column| {
                 if (seen == within) return .{ .line_index = line_index, .column = column };
-                if (!self.lineCell(line_index, column).continuation) seen += 1;
+                if (!self.lineCell(line_index, column).flags.continuation) seen += 1;
             }
             if (seen == within)
                 return .{ .line_index = line_index, .column = self.lineWidth(line_index) -| 1 };
@@ -1490,7 +1523,7 @@ pub const Grid = struct {
         var offset = meta.grapheme_start;
         const end = @min(column, self.lineWidth(line_index));
         for (0..end) |current| {
-            if (!self.lineCell(line_index, current).continuation) offset +|= 1;
+            if (!self.lineCell(line_index, current).flags.continuation) offset +|= 1;
         }
         return .{
             .line_id = meta.line_id,
@@ -1509,7 +1542,7 @@ pub const Grid = struct {
     fn lineGraphemeCount(self: Grid, line_index: usize) u32 {
         var count: u32 = 0;
         for (self.lineSlice(line_index)) |value| {
-            if (!value.continuation) count +|= 1;
+            if (!value.flags.continuation) count +|= 1;
         }
         return count;
     }
@@ -1522,13 +1555,13 @@ pub const Grid = struct {
             var last = line.len;
             while (last > 0) {
                 const tail = line[last - 1];
-                if (tail.continuation or tail.codepoint == ' ')
+                if (tail.flags.continuation or tail.codepoint == ' ')
                     last -= 1
                 else
                     break;
             }
             for (line[0..last]) |current| {
-                if (current.continuation) continue;
+                if (current.flags.continuation) continue;
                 const written = self.writeCellText(current, output[used..]);
                 if (written == 0 and current.codepoint != 0) return error.NoSpaceLeft;
                 used += written;
@@ -1607,10 +1640,15 @@ pub const Grid = struct {
         self.next_generation +%= 1;
         if (self.next_generation == 0) self.next_generation = 1;
         const line_id = self.constRowMeta(logical_row).line_id;
-        for (0..self.rows) |row| {
-            if (self.constRowMeta(row).line_id == line_id)
-                self.rowMeta(row).generation = generation;
+        self.rowMeta(logical_row).generation = generation;
+        var row = logical_row;
+        while (row > 0 and self.constRowMeta(row - 1).line_id == line_id) {
+            row -= 1;
+            self.rowMeta(row).generation = generation;
         }
+        row = logical_row + 1;
+        while (row < self.rows and self.constRowMeta(row).line_id == line_id) : (row += 1)
+            self.rowMeta(row).generation = generation;
     }
 
     fn historyLine(self: Grid, line_index: usize) []Cell {
@@ -1684,9 +1722,14 @@ pub const Grid = struct {
         }
         if (self.history.items.len == 0) return;
         const record_slot = self.history_start;
-        self.discardHistoryRecord(record_slot);
-        const line = try self.acquireHistoryHotSlot(record_slot);
-        @memcpy(line, source[0..self.columns]);
+        const existing = self.history.items[record_slot];
+        if (existing.len != 0) {
+            @memcpy(existing, source[0..self.columns]);
+        } else {
+            self.discardHistoryRecord(record_slot);
+            const line = try self.acquireHistoryHotSlot(record_slot);
+            @memcpy(line, source[0..self.columns]);
+        }
         self.history_meta.items[record_slot] = meta;
         self.history_start = (self.history_start + 1) % self.history.items.len;
         self.viewport_offset = @min(self.viewport_offset, self.history.items.len);
@@ -1695,6 +1738,7 @@ pub const Grid = struct {
     fn acquireHistoryHotSlot(self: *Grid, record_slot: usize) ![]Cell {
         var hot_count = self.history_hot_owners.len;
         var free_slot: ?usize = null;
+        const maximum = @min(self.history_limit, hot_history_lines);
         for (0..hot_count) |offset| {
             const slot = (self.history_next_hot + offset) % hot_count;
             if (self.history_hot_owners[slot] == no_history_owner) {
@@ -1702,7 +1746,7 @@ pub const Grid = struct {
                 break;
             }
         }
-        if (free_slot == null and hot_count < @min(self.history_limit, hot_history_lines)) {
+        if (free_slot == null and hot_count < maximum) {
             try self.ensureHistoryLineCapacity(hot_count + 1);
             hot_count = self.history_hot_owners.len;
             free_slot = self.history_next_hot % hot_count;
@@ -1726,11 +1770,7 @@ pub const Grid = struct {
 
     fn discardHistoryRecord(self: *Grid, record_slot: usize) void {
         if (self.history.items[record_slot].len != 0) {
-            for (self.history_hot_owners, 0..) |owner, hot_slot| {
-                if (owner != record_slot) continue;
-                self.history_hot_owners[hot_slot] = no_history_owner;
-                break;
-            }
+            self.releaseHistoryHotLine(self.history.items[record_slot]);
         } else if (self.history_cold.items[record_slot]) |cold| {
             self.cold_dead_bytes += cold.byte_length;
             self.cold_dead_glyphs += cold.glyph_count;
@@ -1753,19 +1793,53 @@ pub const Grid = struct {
             self.cold_runs.shrinkRetainingCapacity(run_start);
         }
 
-        var last = source.len;
+        var last = @min(source.len, self.history_meta.items[record_slot].used_columns);
         while (last > 0 and isDefaultCell(source[last - 1])) last -= 1;
+        if (last > 0 and last <= std.math.maxInt(u16)) {
+            const style = coldStyle(source[0]);
+            var plain_ascii = true;
+            for (source[0..last]) |cell_value| {
+                if (cell_value.flags.continuation or cell_value.flags.width != 1 or
+                    cell_value.grapheme_id != 0 or cell_value.codepoint < 0x20 or
+                    cell_value.codepoint > 0x7e or coldStyle(cell_value) != style)
+                {
+                    plain_ascii = false;
+                    break;
+                }
+            }
+            if (plain_ascii) {
+                try self.cold_bytes.ensureUnusedCapacity(last);
+                for (source[0..last]) |cell_value|
+                    self.cold_bytes.appendAssumeCapacity(@intCast(cell_value.codepoint));
+                try self.cold_runs.append(.{
+                    .first = 0,
+                    .count = @intCast(last),
+                    .style = style,
+                });
+                self.history_cold.items[record_slot] = .{
+                    .byte_offset = @intCast(byte_start),
+                    .byte_length = @intCast(last),
+                    .glyph_offset = @intCast(glyph_start),
+                    .glyph_count = 0,
+                    .run_offset = @intCast(run_start),
+                    .run_count = 1,
+                };
+                self.releaseHistoryHotLine(source);
+                self.history.items[record_slot] = &.{};
+                return;
+            }
+        }
         var glyph_index: usize = 0;
         var text_buffer: [GraphemeStore.max_cluster_bytes]u8 = undefined;
         for (source[0..last]) |cell_value| {
-            if (cell_value.continuation) continue;
+            if (cell_value.flags.continuation) continue;
             const text_length = self.writeCellText(cell_value, &text_buffer);
             if (text_length == 0 or text_length > std.math.maxInt(u8))
                 return error.InvalidColdHistoryGlyph;
             try self.cold_bytes.appendSlice(text_buffer[0..text_length]);
             try self.cold_glyphs.append(.{
                 .byte_length = @intCast(text_length),
-                .width = cell_value.width,
+                .width = cell_value.flags.width,
                 .grapheme_id = @intCast(cell_value.grapheme_id),
             });
             const style = coldStyle(cell_value);
@@ -1797,19 +1871,29 @@ pub const Grid = struct {
             .run_offset = @intCast(run_start),
             .run_count = @intCast(self.cold_runs.items.len - run_start),
         };
+        self.releaseHistoryHotLine(source);
         self.history.items[record_slot] = &.{};
-        for (self.history_hot_owners, 0..) |owner, hot_slot| {
-            if (owner != record_slot) continue;
-            self.history_hot_owners[hot_slot] = no_history_owner;
-            break;
-        }
+    }
+
+    fn releaseHistoryHotLine(self: *Grid, line: []const Cell) void {
+        const byte_offset = @intFromPtr(line.ptr) - @intFromPtr(self.history_cells.ptr);
+        const hot_slot = byte_offset / (self.columns * @sizeOf(Cell));
+        self.history_hot_owners[hot_slot] = no_history_owner;
     }
 
     fn decodeColdHistoryRow(self: Grid, record_slot: usize) void {
         @memset(self.history_scratch, .{});
         const cold = self.history_cold.items[record_slot] orelse return;
-        const glyphs = self.cold_glyphs.items[cold.glyph_offset .. cold.glyph_offset + cold.glyph_count];
         const runs = self.cold_runs.items[cold.run_offset .. cold.run_offset + cold.run_count];
+        if (cold.glyph_count == 0 and cold.byte_length > 0 and runs.len == 1) {
+            const text = self.cold_bytes.items[cold.byte_offset .. cold.byte_offset + cold.byte_length];
+            for (text, self.history_scratch[0..text.len]) |byte, *cell_value| {
+                cell_value.* = cellFromColdStyle(runs[0].style);
+                cell_value.codepoint = byte;
+            }
+            return;
+        }
+        const glyphs = self.cold_glyphs.items[cold.glyph_offset .. cold.glyph_offset + cold.glyph_count];
         var byte_offset: usize = cold.byte_offset;
         var column: usize = 0;
         var run_index: usize = 0;
@@ -1824,18 +1908,18 @@ pub const Grid = struct {
             const codepoint = std.unicode.utf8Decode(text[0..@min(sequence_length, text.len)]) catch 0xfffd;
             var value = if (runs.len == 0) Cell{} else cellFromColdStyle(runs[run_index].style);
             value.codepoint = codepoint;
-            value.width = @max(@as(u2, 1), glyph.width);
+            value.flags.width = @max(@as(u2, 1), glyph.width);
             value.grapheme_id = glyph.grapheme_id;
             self.history_scratch[column] = value;
-            if (value.width == 2 and column + 1 < self.columns) {
+            if (value.flags.width == 2 and column + 1 < self.columns) {
                 var continuation = value;
                 continuation.codepoint = 0;
-                continuation.width = 0;
-                continuation.continuation = true;
+                continuation.flags.width = 0;
+                continuation.flags.continuation = true;
                 continuation.grapheme_id = 0;
                 self.history_scratch[column + 1] = continuation;
             }
-            column += value.width;
+            column += value.flags.width;
         }
     }
 
@@ -1910,11 +1994,11 @@ pub const Grid = struct {
                 column >= self.lineWidth(line_index))
                 return false;
             const current = self.lineCell(line_index, column);
-            if (current.continuation or
+            if (current.flags.continuation or
                 foldSearchCodepoint(current.codepoint) != foldSearchCodepoint(expected))
                 return false;
             if (query_index + 1 == query.len) return true;
-            column += @max(@as(usize, 1), current.width);
+            column += @max(@as(usize, 1), current.flags.width);
             while (column >= self.lineWidth(line_index)) {
                 if (!self.lineMeta(line_index).wrap_continues) return false;
                 line_index += 1;
@@ -1932,7 +2016,7 @@ pub const Grid = struct {
                 self.last_grapheme_row < self.rows and
                 self.last_grapheme_column < self.columns)
             {
-                if (!self.rowSlice(self.last_grapheme_row)[self.last_grapheme_column].continuation) {
+                if (!self.rowSlice(self.last_grapheme_row)[self.last_grapheme_column].flags.continuation) {
                     self.touchRow(self.last_grapheme_row);
                     const previous = &self.rowSlice(self.last_grapheme_row)[self.last_grapheme_column];
                     previous.grapheme_id = self.graphemes.extend(
@@ -1946,18 +2030,18 @@ pub const Grid = struct {
                     self.markDirtySpan(
                         self.last_grapheme_row,
                         self.last_grapheme_column,
-                        self.last_grapheme_column + previous.width,
+                        self.last_grapheme_column + previous.flags.width,
                     );
-                    if (codepoint == 0xfe0f and previous.width == 1 and
+                    if (codepoint == 0xfe0f and previous.flags.width == 1 and
                         Unicode.isExtendedPictographic(previous.codepoint) and
                         self.last_grapheme_row == self.cursor_row and
                         self.cursor_column == self.last_grapheme_column + 1 and
                         self.cursor_column < self.columns)
                     {
-                        previous.width = 2;
+                        previous.flags.width = 2;
                         var continuation = self.currentCell(0);
-                        continuation.width = 0;
-                        continuation.continuation = true;
+                        continuation.flags.width = 0;
+                        continuation.flags.continuation = true;
                         self.rowSlice(self.cursor_row)[self.cursor_column] = continuation;
                         self.markDirtySpan(self.cursor_row, self.cursor_column, self.cursor_column + 1);
                         self.wide_cells_present = true;
@@ -1987,17 +2071,18 @@ pub const Grid = struct {
         if (self.insert_mode) self.insertCharacters(width);
         const row = self.cursor_row;
         const column = self.cursor_column;
+        self.prepareRecycledRowWrite(row, column, column + width);
         self.touchRow(row);
         self.clearWideCellAt(row, column);
         self.markDirtySpan(row, column, column + width);
         var cell_value = self.currentCell(codepoint);
-        cell_value.width = @intCast(width);
+        cell_value.flags.width = @intCast(width);
         self.rowSlice(row)[column] = cell_value;
         if (width == 2 and column + 1 < self.columns) {
             self.clearWideCellAt(row, column + 1);
             var continuation = self.currentCell(0);
-            continuation.width = 0;
-            continuation.continuation = true;
+            continuation.flags.width = 0;
+            continuation.flags.continuation = true;
             self.rowSlice(row)[column + 1] = continuation;
             self.wide_cells_present = true;
         }
@@ -2016,12 +2101,14 @@ pub const Grid = struct {
     fn currentCell(self: Grid, codepoint: u21) Cell {
         return .{
             .codepoint = codepoint,
-            .bold = self.bold,
-            .inverse = self.inverse,
-            .italic = self.italic,
-            .underline = self.underline,
-            .strikethrough = self.strikethrough,
-            .dim = self.dim,
+            .flags = .{
+                .bold = self.bold,
+                .inverse = self.inverse,
+                .italic = self.italic,
+                .underline = self.underline,
+                .strikethrough = self.strikethrough,
+                .dim = self.dim,
+            },
             .hyperlink_id = self.active_hyperlink,
             .foreground = self.foreground,
             .background = self.background,
@@ -2030,10 +2117,10 @@ pub const Grid = struct {
 
     fn clearWideCellAt(self: *Grid, row: usize, column: usize) void {
         const current_row = self.rowSlice(row);
-        if (current_row[column].continuation and column > 0) {
+        if (current_row[column].flags.continuation and column > 0) {
             current_row[column - 1] = .{};
             self.markDirtySpan(row, column - 1, column + 1);
-        } else if (current_row[column].width == 2 and column + 1 < self.columns) {
+        } else if (current_row[column].flags.width == 2 and column + 1 < self.columns) {
             current_row[column + 1] = .{};
             self.markDirtySpan(row, column, column + 2);
         }
@@ -2046,12 +2133,14 @@ pub const Grid = struct {
         var last_column: usize = self.cursor_column;
         var last_survives = false;
         const style = Cell{
-            .bold = self.bold,
-            .inverse = self.inverse,
-            .italic = self.italic,
-            .underline = self.underline,
-            .strikethrough = self.strikethrough,
-            .dim = self.dim,
+            .flags = .{
+                .bold = self.bold,
+                .inverse = self.inverse,
+                .italic = self.italic,
+                .underline = self.underline,
+                .strikethrough = self.strikethrough,
+                .dim = self.dim,
+            },
             .hyperlink_id = self.active_hyperlink,
             .foreground = self.foreground,
             .background = self.background,
@@ -2059,13 +2148,33 @@ pub const Grid = struct {
         while (offset < bytes.len) {
             const available = self.columns - self.cursor_column;
             const count = @min(available, bytes.len - offset);
+            self.prepareRecycledRowWrite(
+                self.cursor_row,
+                self.cursor_column,
+                self.cursor_column + count,
+            );
             self.touchRow(self.cursor_row);
             const current_row = self.rowSlice(self.cursor_row);
             last_row = self.cursor_row;
             last_column = self.cursor_column + count - 1;
             last_survives = !(count == available and self.cursor_row == self.margin_bottom);
             self.markDirtySpan(self.cursor_row, self.cursor_column, self.cursor_column + count);
-            for (bytes[offset .. offset + count], self.cursor_column..) |byte, column| {
+            const chunk = bytes[offset .. offset + count];
+            if (chunk[0] == ' ') {
+                var spaces = true;
+                for (chunk[1..]) |byte| {
+                    if (byte != ' ') {
+                        spaces = false;
+                        break;
+                    }
+                }
+                if (spaces) {
+                    @memset(current_row[self.cursor_column .. self.cursor_column + count], style);
+                } else for (chunk, self.cursor_column..) |byte, column| {
+                    current_row[column] = style;
+                    current_row[column].codepoint = byte;
+                }
+            } else for (chunk, self.cursor_column..) |byte, column| {
                 current_row[column] = style;
                 current_row[column].codepoint = byte;
             }
@@ -2080,7 +2189,7 @@ pub const Grid = struct {
         self.grapheme_stream.reset();
         self.last_grapheme_valid = last_survives;
         if (last_survives) {
-            _ = self.grapheme_stream.push(bytes[bytes.len - 1]);
+            self.grapheme_stream.startAscii();
             self.last_grapheme_row = last_row;
             self.last_grapheme_column = last_column;
         }
@@ -2099,6 +2208,7 @@ pub const Grid = struct {
             self.cursor_row += 1;
             self.rowMeta(self.cursor_row).* = next_meta;
         } else {
+            self.materializeRecycledRow(self.margin_top);
             const saved = self.constRowSlice(self.margin_top);
             const saved_meta = self.constRowMeta(self.margin_top);
             if (self.margin_top != 0 or self.margin_bottom != self.rows - 1) {
@@ -2112,9 +2222,11 @@ pub const Grid = struct {
     }
 
     fn rowGraphemeCount(self: Grid, logical_row: usize) usize {
+        if (!self.wide_cells_present)
+            return self.constRowMeta(logical_row).used_columns;
         var count: usize = 0;
         for (self.constRowSlice(logical_row)) |cell_value| {
-            if (!cell_value.continuation) count += 1;
+            if (!cell_value.flags.continuation) count += 1;
         }
         return count;
     }
@@ -2136,22 +2248,59 @@ pub const Grid = struct {
         self.scrollRegionWithMeta(self.freshRowMeta());
     }
 
+    fn clearUsedRow(self: *Grid, logical_row: usize) void {
+        const meta = self.rowMeta(logical_row);
+        meta.recycled_columns = @max(meta.recycled_columns, meta.used_columns);
+        meta.used_columns = 0;
+    }
+
+    fn prepareRecycledRowWrite(
+        self: *Grid,
+        logical_row: usize,
+        first: usize,
+        end: usize,
+    ) void {
+        const meta = self.rowMeta(logical_row);
+        if (meta.recycled_columns == 0) return;
+        const stale_end = @min(self.columns, meta.recycled_columns);
+        const row = self.rowSlice(logical_row);
+        @memset(row[0..@min(first, stale_end)], .{});
+        if (end < stale_end) @memset(row[end..stale_end], .{});
+        meta.recycled_columns = 0;
+    }
+
+    fn materializeRecycledRow(self: *Grid, logical_row: usize) void {
+        const meta = self.rowMeta(logical_row);
+        if (meta.recycled_columns == 0) return;
+        @memset(self.rowSlice(logical_row)[0..@min(self.columns, meta.recycled_columns)], .{});
+        meta.recycled_columns = 0;
+    }
+
+    fn materializeRecycledRows(self: *Grid) void {
+        for (0..self.rows) |row| self.materializeRecycledRow(row);
+    }
+
+    fn replaceRecycledRow(self: *Grid, logical_row: usize, replacement: RowMeta) void {
+        self.clearUsedRow(logical_row);
+        var next = replacement;
+        next.recycled_columns = self.rowMeta(logical_row).recycled_columns;
+        self.rowMeta(logical_row).* = next;
+    }
+
     fn scrollRegionWithMeta(self: *Grid, replacement_meta: RowMeta) void {
         if (self.margin_top >= self.margin_bottom) return;
         self.markDirtyRange(self.margin_top, self.margin_bottom);
         if (self.margin_top == 0 and self.margin_bottom == self.rows - 1) {
             self.screen_origin += 1;
             if (self.screen_origin == self.rows) self.screen_origin = 0;
-            @memset(self.rowSlice(self.rows - 1), .{});
-            self.rowMeta(self.rows - 1).* = replacement_meta;
+            self.replaceRecycledRow(self.rows - 1, replacement_meta);
             return;
         }
         for (self.margin_top..self.margin_bottom) |logical_row| {
             @memcpy(self.rowSlice(logical_row), self.constRowSlice(logical_row + 1));
             self.rowMeta(logical_row).* = self.constRowMeta(logical_row + 1);
         }
-        @memset(self.rowSlice(self.margin_bottom), .{});
-        self.rowMeta(self.margin_bottom).* = replacement_meta;
+        self.replaceRecycledRow(self.margin_bottom, replacement_meta);
     }
 
     fn reverseScrollRegion(self: *Grid) void {
@@ -2162,8 +2311,7 @@ pub const Grid = struct {
                 self.rows - 1
             else
                 self.screen_origin - 1;
-            @memset(self.rowSlice(0), .{});
-            self.rowMeta(0).* = self.freshRowMeta();
+            self.replaceRecycledRow(0, self.freshRowMeta());
             return;
         }
         var logical_row = self.margin_bottom;
@@ -2171,11 +2319,10 @@ pub const Grid = struct {
             @memcpy(self.rowSlice(logical_row), self.constRowSlice(logical_row - 1));
             self.rowMeta(logical_row).* = self.constRowMeta(logical_row - 1);
         }
-        @memset(self.rowSlice(self.margin_top), .{});
-        self.rowMeta(self.margin_top).* = self.freshRowMeta();
+        self.replaceRecycledRow(self.margin_top, self.freshRowMeta());
     }
 
-    fn applyCsi(self: *Grid, csi: VtParser.Csi) void {
+    fn applyCsi(self: *Grid, csi: *const VtParser.Csi) void {
         const first = @as(usize, csi.valueOr(0, 0));
         const amount = @max(@as(usize, 1), first);
         switch (csi.final) {
@@ -2270,7 +2417,7 @@ pub const Grid = struct {
         }
     }
 
-    fn replyDeviceStatus(self: *Grid, csi: VtParser.Csi) void {
+    fn replyDeviceStatus(self: *Grid, csi: *const VtParser.Csi) void {
         const request = csi.valueOr(0, 0);
         if (request == 5 and csi.private_marker == 0) {
             self.appendReply("\x1b[0n");
@@ -2289,7 +2436,7 @@ pub const Grid = struct {
         }
     }
 
-    fn replyModeStatus(self: *Grid, csi: VtParser.Csi) void {
+    fn replyModeStatus(self: *Grid, csi: *const VtParser.Csi) void {
         const mode = csi.valueOr(0, 0);
         const status: u8 = if (self.modeStatus(csi.private_marker == '?', mode)) |enabled|
             if (enabled) 1 else 2
@@ -2342,7 +2489,7 @@ pub const Grid = struct {
         }
     }
 
-    fn applySgrSequence(self: *Grid, csi: VtParser.Csi) void {
+    fn applySgrSequence(self: *Grid, csi: *const VtParser.Csi) void {
         var index: usize = 0;
         while (index < csi.parameter_count) : (index += 1) {
             const parameter = csi.parameter(index);
@@ -2373,7 +2520,7 @@ pub const Grid = struct {
         }
     }
 
-    fn applyColonColor(self: *Grid, foreground: bool, parameter: VtParser.Parameter) void {
+    fn applyColonColor(self: *Grid, foreground: bool, parameter: *const VtParser.Parameter) void {
         const model = parameter.valueOr(1, 0);
         if (model == 5 and parameter.isPresent(2)) {
             self.setColor(foreground, @intCast(@min(parameter.valueOr(2, 0), 255)));
@@ -2595,12 +2742,12 @@ fn isDefaultCell(value: Cell) bool {
 
 fn coldStyle(value: Cell) ColdStyle {
     return .{
-        .bold = value.bold,
-        .inverse = value.inverse,
-        .italic = value.italic,
-        .underline = value.underline,
-        .strikethrough = value.strikethrough,
-        .dim = value.dim,
+        .bold = value.flags.bold,
+        .inverse = value.flags.inverse,
+        .italic = value.flags.italic,
+        .underline = value.flags.underline,
+        .strikethrough = value.flags.strikethrough,
+        .dim = value.flags.dim,
         .foreground = @intCast(value.foreground),
         .background = @intCast(value.background),
         .hyperlink_id = @intCast(value.hyperlink_id),
@@ -2609,12 +2756,14 @@ fn coldStyle(value: Cell) ColdStyle {
 
 fn cellFromColdStyle(style: ColdStyle) Cell {
     return .{
-        .bold = style.bold,
-        .inverse = style.inverse,
-        .italic = style.italic,
-        .underline = style.underline,
-        .strikethrough = style.strikethrough,
-        .dim = style.dim,
+        .flags = .{
+            .bold = style.bold,
+            .inverse = style.inverse,
+            .italic = style.italic,
+            .underline = style.underline,
+            .strikethrough = style.strikethrough,
+            .dim = style.dim,
+        },
         .foreground = style.foreground,
         .background = style.background,
         .hyperlink_id = style.hyperlink_id,
@@ -2991,18 +3140,18 @@ test "terminal grid applies rich SGR and bounded truecolor IDs" {
         "\x1b[22;23;24;29;38:2::10:20:30;48:5:17mY");
 
     const first = grid.cell(0, 0);
-    try std.testing.expect(first.bold);
-    try std.testing.expect(first.dim);
-    try std.testing.expect(first.italic);
-    try std.testing.expect(first.underline);
-    try std.testing.expect(first.strikethrough);
+    try std.testing.expect(first.flags.bold);
+    try std.testing.expect(first.flags.dim);
+    try std.testing.expect(first.flags.italic);
+    try std.testing.expect(first.flags.underline);
+    try std.testing.expect(first.flags.strikethrough);
     try std.testing.expectEqual(@as(u16, 202), first.foreground);
     try std.testing.expect(first.background >= first_truecolor_id);
     try std.testing.expectEqual(@as(u32, 0x010203), grid.colorRgb(first.background));
 
     const second = grid.cell(1, 0);
-    try std.testing.expect(!second.bold and !second.dim and !second.italic);
-    try std.testing.expect(!second.underline and !second.strikethrough);
+    try std.testing.expect(!second.flags.bold and !second.flags.dim and !second.flags.italic);
+    try std.testing.expect(!second.flags.underline and !second.flags.strikethrough);
     try std.testing.expectEqual(@as(u32, 0x0a141e), grid.colorRgb(second.foreground));
     try std.testing.expectEqual(@as(u16, 17), second.background);
     try std.testing.expectEqual(second.foreground, @as(u16, @truncate((grid.styleBits(1, 0) >> 8) & 0xfff)));
@@ -3142,7 +3291,7 @@ test "terminal grid grows its bounded scrollback slab lazily" {
     defer grid.deinit();
 
     try std.testing.expectEqual(
-        Grid.initial_history_lines * grid.columns,
+        @min(Grid.initial_history_lines, Grid.hot_history_lines) * grid.columns,
         grid.history_cells.len,
     );
     for (0..Grid.initial_history_lines + 8) |_| {
@@ -3151,8 +3300,8 @@ test "terminal grid grows its bounded scrollback slab lazily" {
 
     try std.testing.expect(grid.history.items.len > Grid.initial_history_lines);
     try std.testing.expect(grid.history_cells.len < Grid.default_history_lines * grid.columns);
-    for (grid.history.items, 0..) |line, index| {
-        try std.testing.expectEqual(@intFromPtr(grid.history_cells.ptr) + index * grid.columns * @sizeOf(Cell), @intFromPtr(line.ptr));
+    for (grid.history.items) |line| {
+        try std.testing.expect(line.len == 0 or line.len == grid.columns);
     }
 }
 
@@ -3221,14 +3370,14 @@ test "terminal anchors fail after bounded history drops their logical line" {
 }
 
 test "terminal cold history preserves styled Unicode with a bounded hot window" {
-    var grid = try Grid.initWithHistoryLimit(std.testing.allocator, 12, 2, 400);
+    var grid = try Grid.initWithHistoryLimit(std.testing.allocator, 12, 2, 1400);
     defer grid.deinit();
-    for (0..320) |_| try grid.feed("\x1b[1;31me\xcc\x81 line\x1b[0m\r\n");
-    try std.testing.expectEqual(@as(usize, 319), grid.history.items.len);
+    for (0..1320) |_| try grid.feed("\x1b[1;31me\xcc\x81 line\x1b[0m\r\n");
+    try std.testing.expectEqual(@as(usize, 1319), grid.history.items.len);
     const oldest_slot = grid.history_start;
     try std.testing.expectEqual(@as(usize, 0), grid.history.items[oldest_slot].len);
     const first = grid.lineCell(0, 0);
-    try std.testing.expect(first.bold);
+    try std.testing.expect(first.flags.bold);
     try std.testing.expect(first.grapheme_id != 0);
     var text: [16]u8 = undefined;
     const text_length = grid.writeCellText(first, &text);
@@ -3389,8 +3538,8 @@ test "terminal grid keeps combining and ZWJ graphemes atomic" {
 
     try grid.feed("\r\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x9a\x80");
     try std.testing.expectEqual(@as(usize, 2), grid.cursor_column);
-    try std.testing.expectEqual(@as(u2, 2), grid.cell(0, 0).width);
-    try std.testing.expect(grid.cell(1, 0).continuation);
+    try std.testing.expectEqual(@as(u2, 2), grid.cell(0, 0).flags.width);
+    try std.testing.expect(grid.cell(1, 0).flags.continuation);
     const emoji_length = grid.cellText(0, 0, &text);
     try std.testing.expectEqualStrings(
         "\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x9a\x80",
@@ -3402,8 +3551,8 @@ test "terminal grid assigns wide cells and exports no continuation bytes" {
     var grid = try Grid.init(std.testing.allocator, 6, 2);
     defer grid.deinit();
     try grid.feed("\xe7\x95\x8cX");
-    try std.testing.expectEqual(@as(u2, 2), grid.cell(0, 0).width);
-    try std.testing.expect(grid.cell(1, 0).continuation);
+    try std.testing.expectEqual(@as(u2, 2), grid.cell(0, 0).flags.width);
+    try std.testing.expect(grid.cell(1, 0).flags.continuation);
     try std.testing.expectEqual(@as(u21, 'X'), grid.cell(2, 0).codepoint);
     try std.testing.expectEqual(@as(usize, 3), grid.cursor_column);
     var output: [64]u8 = undefined;
@@ -3511,7 +3660,7 @@ test "terminal grid stores bounded OSC 8 hyperlinks outside cells" {
         "\x1b]8;;\x1b\\ plain");
     try std.testing.expect(grid.cell(0, 0).hyperlink_id != 0);
     try std.testing.expectEqual(@as(u16, 0), grid.cell(5, 0).hyperlink_id);
-    try std.testing.expect(grid.cell(0, 0).underline == false);
+    try std.testing.expect(grid.cell(0, 0).flags.underline == false);
     try std.testing.expect(grid.styleBits(0, 0) & 8 != 0);
     var uri: [128]u8 = undefined;
     const length = grid.cellHyperlink(0, 0, &uri);

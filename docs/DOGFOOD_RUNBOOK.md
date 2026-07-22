@@ -3,11 +3,14 @@
 Use this for counted public-alpha dogfood sessions. Do not count smoke tests,
 screenshot sessions, or short launch checks.
 
-Install the logging-enabled Debug builds, then check status:
+Install the logging-enabled optimized builds, then check status:
 
 ```sh
 ./scripts/install_dogfood.sh
 ./scripts/dogfood_status.sh
+
+# Optional safety-check build:
+NOCTTY_DOGFOOD_OPTIMIZE=ReleaseSafe ./scripts/install_dogfood.sh
 ```
 
 Logs are documented in `docs/DOGFOOD_LOGGING.md`.

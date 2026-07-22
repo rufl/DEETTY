@@ -2,10 +2,11 @@
 set -eu
 
 prefix=${1:-"$HOME/.local"}
+optimize=${NOCTTY_DOGFOOD_OPTIMIZE:-ReleaseFast}
 stage=$(mktemp -d "${TMPDIR:-/tmp}/noctty-dogfood-install.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 
-zig build -Doptimize=Debug --prefix "$stage"
+zig build -Doptimize="$optimize" --prefix "$stage"
 
 mkdir -p "$prefix/bin" "$prefix/libexec/noctty-dogfood"
 cp -a "$stage/share" "$prefix/"
@@ -62,5 +63,5 @@ command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$
 
 "$prefix/libexec/noctty-dogfood/noctty-bin" --version
 "$prefix/libexec/noctty-dogfood/nocted-bin" --version
-printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true logs=%s/noctty/logs optimize=Debug retained_logs_per_app=20\n' \
-  "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}"
+printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true logs=%s/noctty/logs optimize=%s retained_logs_per_app=20\n' \
+  "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}" "$optimize"

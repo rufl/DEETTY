@@ -1,0 +1,5 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms
+noctty,noctty 0.1.0,1,140,140,140,18.715,46.707,1.921,15.058,0.551,1,0,0.000,1,0,33,33,107,107,92.850,1,0
+kitty,kitty 0.48.0 created by Kovid Goyal,1,281,281,281,98.485,170.848,0.000,14.300,0.580,1,0,0.000,1,0,42,42,133,133,78.052,1,0
+terminator,terminator 2.1.5,1,332,332,332,61.676,123.293,0.000,18.429,0.450,1,0,0.000,1,0,39,39,131,131,100.285,1,0
+alacritty,alacritty 0.17.0 (94e7c887),1,217,217,217,49.709,113.156,0.000,13.245,0.626,1,0,0.000,1,0,40,40,133,133,81.487,1,0

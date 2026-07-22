@@ -73,9 +73,13 @@ Acceptance:
 - [ ] quick open used on a real repo
 - [ ] resource behavior remains acceptable on current Lichforge repos
 
+Added for dogfood beyond the original alpha boundary:
+
+- [x] bounded local stdio LSP client actions; NoctEd remains an editor, never an LSP server
+
 Deferred until after alpha:
 
-- LSP
+- persistent/always-on language-server sessions and VS Code-scale LSP UX
 - DAP
 - plugin system
 - batch replace

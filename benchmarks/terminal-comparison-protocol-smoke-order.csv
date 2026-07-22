@@ -1,0 +1,3 @@
+run_serial,scenario,terminal,panes,trial,order_index,launch_pid,root_pid,window_id
+1,idle,noctty,1,1,0,3056181,3056181,16777219
+2,output,noctty,1,1,0,3056355,3056355,16777219

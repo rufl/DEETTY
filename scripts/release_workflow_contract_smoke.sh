@@ -38,6 +38,7 @@ grep -F "tar -tzf \"\$archive\" | grep -F './bin/nocted' >/dev/null" "$workflow"
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/noctty/noctty' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/noctty/nocted' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/noctty/lib/libgtk-layer-shell.so.0' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './share/licenses/noctty/dependencies/packages/' >/dev/null" "$workflow" >/dev/null
 

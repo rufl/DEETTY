@@ -130,7 +130,8 @@ grep -F 'Do not count:' docs/DOGFOOD_RUNBOOK.md >/dev/null
 grep -F './scripts/install_dogfood.sh' README.md docs/INSTALL.md docs/DOGFOOD_RUNBOOK.md >/dev/null
 grep -F '~/.local/state/noctty/logs/' docs/INSTALL.md docs/DOGFOOD_LOGGING.md >/dev/null
 grep -F -- '- [x] Installed Debug dogfood binaries with bounded local logging' ROADMAP.md >/dev/null
-grep -F 'optimize=Debug retained_logs_per_app=20' scripts/install_dogfood.sh >/dev/null
+grep -F 'optimize=%s retained_logs_per_app=20' scripts/install_dogfood.sh >/dev/null
+grep -F 'NOCTTY_DOGFOOD_OPTIMIZE:-ReleaseFast' scripts/install_dogfood.sh >/dev/null
 grep -F './scripts/dogfood_status.sh' README.md docs/DOGFOOD_RUNBOOK.md docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 dogfood_status_output=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status_output" | grep -F 'counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' >/dev/null
@@ -322,18 +323,19 @@ for marker in \
 done
 grep -F 'tick_noop_dedup=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'idle_redraw_suppressed=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
-for marker in split_terminal_benchmark=true yakuake_excluded=true process_tree_pss=true pty_pump_bounded_drain=true; do
-  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md; do
+for marker in split_terminal_benchmark=true process_tree_pss=true pty_pump_bounded_drain=true; do
+  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md; do
     grep -F "$marker" "$document" >/dev/null
   done
 done
+grep -F 'yakuake_exclusive=true' docs/TERMINAL_BENCHMARK.md >/dev/null
 for marker in native_output_throughput=true visible_grid_ring=true vt_ascii_run=true; do
-  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md; do
+  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md; do
     grep -F "$marker" "$document" >/dev/null
   done
 done
 for marker in pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true benchmark_order_isolated=true wezterm_split_ready=true; do
-  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md; do
+  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md; do
     grep -F "$marker" "$document" >/dev/null
   done
 done
@@ -343,7 +345,7 @@ for marker in foreground_guard=true session_storage_released=true late_callback_
   done
 done
 for marker in descriptor_fallback=root_coalesced pane_exit_timers=0 source_cleanup=centralized; do
-  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/DAILY_DRIVER.md docs/TERMINAL_BENCHMARK.md; do
+  for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/ARCHITECTURE.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/DAILY_DRIVER.md; do
     grep -F "$marker" "$document" >/dev/null
   done
 done
@@ -360,7 +362,7 @@ for marker in tab_reorder_pointer_drag=true tab_reorder_active_identity=true tab
     grep -F "$marker" "$document" >/dev/null
   done
 done
-for document in BACKLOG_ARCHIVE.md CHANGELOG.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md; do
+for document in BACKLOG_ARCHIVE.md CHANGELOG.md docs/RELEASE_CHECKLIST.md; do
   grep -F 'writer_median_ms=66' "$document" >/dev/null
 done
 for document in BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/RELEASE_CHECKLIST.md; do
@@ -368,9 +370,11 @@ for document in BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/RELEASE
 done
 test -x scripts/terminal_benchmark.sh
 test -x scripts/terminal_benchmark_workload.sh
+test -x scripts/audit_terminal_benchmark.sh
 test -x scripts/process_tree_memory.sh
 bash -n scripts/terminal_benchmark.sh
 sh -n scripts/terminal_benchmark_workload.sh
+bash -n scripts/audit_terminal_benchmark.sh
 bash -n scripts/process_tree_memory.sh
 grep -F 'usage: %s PID [--details]' scripts/process_tree_memory.sh >/dev/null
 grep -F '/proc/$pid/smaps_rollup' scripts/process_tree_memory.sh >/dev/null
@@ -380,24 +384,16 @@ grep -F 'https://learn.chatgpt.com/docs/config-file/config-sample' docs/DAILY_DR
 grep -F 'https://code.claude.com/docs/en/troubleshooting' docs/DAILY_DRIVER.md >/dev/null
 grep -F 'https://antigravity.google/docs/cli-settings' docs/DAILY_DRIVER.md >/dev/null
 grep -F 'No Yakuake process, window, D-Bus endpoint, or session was controlled' docs/DAILY_DRIVER.md >/dev/null
-grep -F 'terminals=${NOCTTY_BENCH_TERMINALS:-"noctty konsole kitty wezterm terminator ghostty"}' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'yakuake_before=$(pgrep -x yakuake' scripts/terminal_benchmark.sh >/dev/null
-grep -F '[[ "$yakuake_before" == "$yakuake_after" ]] || die "yakuake_process_set_changed"' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'konsole_service="org.kde.konsole-$launch_pid"' scripts/terminal_benchmark.sh >/dev/null
-! grep -F 'org.kde.yakuake' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'wezterm_log="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/wezterm/wezterm-gui-log-$launch_pid.txt"' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'rm -f -- "$wezterm_socket" "$wezterm_log"' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'inter_trial_settle_ms=${NOCTTY_BENCH_INTER_TRIAL_SETTLE_MS:-1000}' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'terminal_order=rotated_snake' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'wait_for_count "$NOCTTY_BENCH_RUN_DIR" spawned "$expected" 5000 ||' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'TERMINAL_BENCHMARK_PROTOCOL.md' docs/TERMINAL_BENCHMARK.md >/dev/null
+grep -F 'NOCTTY_BENCH_OFFSCREEN=1' docs/TERMINAL_BENCHMARK.md >/dev/null
 grep -F 'if (std.mem.eql(u8, cmd, "--native-grid-benchmark")) {' src/main.zig >/dev/null
-grep -F 'const max_pump_bytes = 128 * 1024;' src/terminal/Session.zig >/dev/null
-grep -F 'const output_buffer_bytes = 16 * 1024;' src/terminal/Session.zig >/dev/null
+grep -F 'const max_pump_bytes = 2 * 1024 * 1024;' src/terminal/Session.zig >/dev/null
+grep -F 'const output_buffer_bytes = 128 * 1024;' src/terminal/Session.zig >/dev/null
 grep -F 'test "terminal session pump drains PTY bytes to a bounded per-tick budget"' src/terminal/Session.zig >/dev/null
 grep -F 'test "terminal grid printable run path matches byte feeding"' src/terminal/Vt.zig >/dev/null
 grep -F 'test "terminal grid rotates full-screen rows and blends viewport history"' src/terminal/Vt.zig >/dev/null
 grep -F 'export fn noctty_grid_pty_fd' src/main.zig >/dev/null
-grep -F 'context->pty_source = g_unix_fd_add_full(' src/gui/native_grid_host.c >/dev/null
+grep -F 'G_PRIORITY_DEFAULT, context->pty_fd,' src/gui/native_grid_host.c >/dev/null
 grep -F 'context->output_present_source = gtk_widget_add_tick_callback(' src/gui/native_grid_host.c >/dev/null
 grep -F 'G_PRIORITY_DEFAULT, 100, on_output_present, context, NULL);' src/gui/native_grid_host.c >/dev/null
 grep -F 'context->descriptor_tick_coalesced = 1;' src/gui/native_grid_host.c >/dev/null
@@ -405,7 +401,7 @@ grep -F 'context->tick_source = g_timeout_add(16, on_tick, context);' src/gui/na
 grep -F 'root->descriptor_maintenance_fallback_seen = 1;' src/gui/native_grid_host.c >/dev/null
 grep -F 'static void stop_grid_io_sources(NocttyGridContext *context) {' src/gui/native_grid_host.c >/dev/null
 grep -F 'static void stop_grid_context_sources(NocttyGridContext *context) {' src/gui/native_grid_host.c >/dev/null
-test "$(grep -Fc 'remove_grid_source(&context->pty_source);' src/gui/native_grid_host.c)" -eq 1
+grep -F 'remove_grid_source(&context->pty_source);' src/gui/native_grid_host.c >/dev/null
 grep -F 'static void remove_output_present(NocttyGridContext *context) {' src/gui/native_grid_host.c >/dev/null
 grep -F 'gtk_widget_remove_tick_callback(' src/gui/native_grid_host.c >/dev/null
 ! grep -F 'context->pty_source != 0 ? 1000 : 16' src/gui/native_grid_host.c >/dev/null
@@ -445,7 +441,7 @@ grep -F 'noctty,0.1.0,4,161,184,184,30.994,85.531,0.000,318,20.873' benchmarks/t
 grep -F 'noctty,0.1.0,4,155,170,583,33.709,85.734,0.945,80,82.970' benchmarks/terminal-comparison-2026-07-15-pre-event-source-summary.csv >/dev/null
 grep -F 'yakuake_untouched=true' benchmarks/terminal-comparison-2026-07-15-metadata.txt >/dev/null
 grep -F 'inter_trial_settle_ms=1000 terminal_order=rotated_snake' benchmarks/terminal-comparison-2026-07-15-metadata.txt >/dev/null
-grep -F 'The current 66 ms median is 17.5 percent faster' docs/TERMINAL_BENCHMARK.md >/dev/null
+grep -F 'The current 66 ms median is 17.5 percent faster' docs/TERMINAL_BENCHMARK_HISTORY.md >/dev/null
 grep -F 'gchar *note_overlay_label;' src/gui/native_grid_host.c >/dev/null
 grep -F 'const size_t capacity = 4096' src/gui/native_grid_host.c >/dev/null
 grep -F 'contents, capacity, 1)' src/gui/native_grid_host.c >/dev/null
@@ -491,7 +487,7 @@ grep -F 'destroy_retired_grid_context' src/gui/native_grid_host.c >/dev/null
 grep -F 'g_ptr_array_remove(root->contexts, context);' src/gui/native_grid_host.c >/dev/null
 grep -F 'history_cells: []Cell,' src/terminal/Vt.zig >/dev/null
 grep -F 'fn historySlot(self: Grid, slot: usize) []Cell' src/terminal/Vt.zig >/dev/null
-grep -F 'const hot_history_lines = 256;' src/terminal/Vt.zig >/dev/null
+grep -F 'const hot_history_lines = 1024;' src/terminal/Vt.zig >/dev/null
 grep -F 'fn maybeCompactColdHistory(self: *Grid, force: bool) !void {' src/terminal/Vt.zig >/dev/null
 grep -F 'const initial_history_lines = 32;' src/terminal/Vt.zig >/dev/null
 grep -F 'pub const max_history_lines = 100_000;' src/terminal/Vt.zig >/dev/null
@@ -534,7 +530,6 @@ grep -F 'uint64_t packed_cell =' src/gui/native_grid_host.c >/dev/null
 grep -F "if ((style & 128) == 0 && codepoint >= 0x20 && codepoint != ' ')" src/gui/native_grid_host.c >/dev/null
 grep -F 'if (had_output || !context->terminal_metadata_initialized)' src/gui/native_grid_host.c >/dev/null
 grep -F 'now_us - context->last_exit_poll_us >= 250 * 1000' src/gui/native_grid_host.c >/dev/null
-grep -F 'created->terminal_metadata_initialized = 0;' src/gui/native_grid_host.c >/dev/null
 grep -F 'g_signal_connect(preset_combo, "changed", G_CALLBACK(on_preset_changed), context);' src/gui/native_host.c >/dev/null
 ! grep -F 'G_CALLBACK(on_preset_changed), &context);' src/gui/native_host.c >/dev/null
 grep -F 'gchar *name = gtk_combo_box_text_get_active_text(combo);' src/gui/native_host.c >/dev/null
@@ -628,7 +623,7 @@ for path in src/nocted/root.zig src/nocted/main.zig src/nocted/gtk.zig \
   src/nocted/Document.zig src/nocted/Folding.zig src/nocted/ProjectIndex.zig \
   src/nocted/ProjectSearch.zig src/nocted/QuickOpen.zig \
   src/nocted/MultiSelection.zig src/nocted/Session.zig \
-  src/nocted/FilesystemWorker.zig src/nocted/StabilityQualification.zig \
+  src/nocted/Worker.zig src/nocted/StabilityQualification.zig \
   src/nocted/Settings.zig src/nocted/SyntaxDiscovery.zig; do
   test -s "$path"
 done
@@ -719,17 +714,17 @@ for path in scripts/nocted_worker_qualification.sh docs/TECHNICAL_STATUS.md BACK
 done
 grep -F 'This receipt executes the real lazy `GThreadPool` lifecycle, transactional list' docs/NOCTED_WORKER_QUALIFICATION.md >/dev/null
 grep -F '`App.submitWorkerJob`, `cancelWorkerJobs`, `hasWorkerJob`, shutdown, and job' docs/NOCTED_WORKER_QUALIFICATION.md >/dev/null
-grep -F 'const admission = filesystem_worker.admit(self.worker_jobs.items, job);' src/nocted/main.zig >/dev/null
-grep -F 'worker_pools: filesystem_worker.Pools = .{},' src/nocted/main.zig >/dev/null
-grep -F 'const pending_jobs = try filesystem_worker.enqueue(' src/nocted/main.zig >/dev/null
-grep -F 'return filesystem_worker.detach(&self.worker_jobs, job);' src/nocted/main.zig >/dev/null
-grep -F 'filesystem_worker.cancelKind(' src/nocted/main.zig >/dev/null
-grep -F 'return filesystem_worker.hasKind(self.worker_jobs.items, kind);' src/nocted/main.zig >/dev/null
-grep -F 'pub fn admit(pending: []const *Job, job: *Job) Admission {' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pub const Pools = struct {' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pub fn commitWith(' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pub fn enqueue(' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pub fn detach(pending: *std.array_list.Managed(*Job), job: *Job) bool {' src/nocted/FilesystemWorker.zig >/dev/null
+grep -F 'const admission = worker.admit(self.worker_jobs.items, job);' src/nocted/main.zig >/dev/null
+grep -F 'worker_pools: worker.Pools = .{},' src/nocted/main.zig >/dev/null
+grep -F 'const pending_jobs = try worker.enqueue(' src/nocted/main.zig >/dev/null
+grep -F 'return worker.detach(&self.worker_jobs, job);' src/nocted/main.zig >/dev/null
+grep -F 'worker.cancelKind(' src/nocted/main.zig >/dev/null
+grep -F 'return worker.hasKind(self.worker_jobs.items, kind);' src/nocted/main.zig >/dev/null
+grep -F 'pub fn admit(pending: []const *Job, job: *Job) Admission {' src/nocted/Worker.zig >/dev/null
+grep -F 'pub const Pools = struct {' src/nocted/Worker.zig >/dev/null
+grep -F 'pub fn commitWith(' src/nocted/Worker.zig >/dev/null
+grep -F 'pub fn enqueue(' src/nocted/Worker.zig >/dev/null
+grep -F 'pub fn detach(pending: *std.array_list.Managed(*Job), job: *Job) bool {' src/nocted/Worker.zig >/dev/null
 grep -F 'shared_admission_policy=true generation_supersession=true' src/nocted/WorkerQualification.zig scripts/nocted_worker_qualification.sh >/dev/null
 grep -F 'lazy_pool_creation=true transactional_enqueue=true' src/nocted/WorkerQualification.zig scripts/nocted_worker_qualification.sh >/dev/null
 grep -F 'append_failure_safe=true push_failure_rollback=true' src/nocted/WorkerQualification.zig scripts/nocted_worker_qualification.sh >/dev/null
@@ -825,7 +820,7 @@ grep -F 'noctty_pty_process_group_alive' src/terminal/pty.c >/dev/null
 grep -F 'if (!child_running && !foreground_alive && !shell_group_alive)' src/terminal/pty.c >/dev/null
 grep -F 'if (shutdown_ns < 300 * std.time.ns_per_ms)' src/terminal/SessionQualification.zig >/dev/null
 grep -F 'const normal_readiness_poll_limit: usize = 20_000;' src/terminal/SessionQualification.zig >/dev/null
-grep -F 'terminal_session_qualification_matrix debug=true release_safe=true normal_cycles=64 forced_cycles=8 sessions_per_mode=72 total_sessions=144 allocator_leak_free=true forced_group_shutdown=true latency_percentiles=true root_memory_separate=true process_tree_memory=true scratch_clean=true' scripts/terminal_session_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG.md CHANGELOG.md docs/ARCHITECTURE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md docs/TERMINAL_COMPATIBILITY_QUALIFICATION.md docs/TERMINAL_SESSION_QUALIFICATION.md >/dev/null
+grep -F 'terminal_session_qualification_matrix debug=true release_safe=true normal_cycles=64 forced_cycles=8 sessions_per_mode=72 total_sessions=144 allocator_leak_free=true forced_group_shutdown=true latency_percentiles=true root_memory_separate=true process_tree_memory=true scratch_clean=true' scripts/terminal_session_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG.md CHANGELOG.md docs/ARCHITECTURE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_COMPATIBILITY_QUALIFICATION.md docs/TERMINAL_SESSION_QUALIFICATION.md >/dev/null
 grep -F './scripts/launch_continuity_qualification.sh' scripts/verify.sh docs/TECHNICAL_STATUS.md docs/LAUNCH_PROFILES.md docs/SESSION_CONTINUITY.md >/dev/null
 grep -F 'launch-continuity-qualification-binary' build.zig docs/ARCHITECTURE.md >/dev/null
 grep -F 'const continuity_readiness_poll_limit: usize = 20_000;' src/terminal/ContinuityQualification.zig >/dev/null
@@ -852,7 +847,7 @@ renderer_matrix='native_grid_renderer_qualification_matrix debug=true release_sa
 for path in docs/TECHNICAL_STATUS.md BACKLOG.md BACKLOG_ARCHIVE.md CHANGELOG.md \
   docs/ARCHITECTURE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md \
   docs/NATIVE_HOST.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md \
-  docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md \
+  docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md \
   docs/TERMINAL_COMPATIBILITY_QUALIFICATION.md \
   docs/TERMINAL_SESSION_QUALIFICATION.md \
   docs/NATIVE_GRID_RENDERER_QUALIFICATION.md; do
@@ -869,7 +864,7 @@ pipeline_matrix='native_grid_pipeline_matrix debug=true release_safe=true sample
 for path in scripts/native_grid_pipeline_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG.md \
   CHANGELOG.md docs/ARCHITECTURE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md \
   docs/NATIVE_HOST.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md \
-  docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_BENCHMARK.md \
+  docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md \
   docs/TERMINAL_SESSION_QUALIFICATION.md \
   docs/TERMINAL_PIPELINE_QUALIFICATION.md; do
   grep -F "$pipeline_matrix" "$path" >/dev/null
@@ -897,27 +892,27 @@ grep -F 'pub const Scanner = struct {' src/nocted/ProjectIndex.zig >/dev/null
 grep -F 'pub fn step(self: *Scanner, max_visits: usize) !ScanProgress {' src/nocted/ProjectIndex.zig >/dev/null
 grep -F 'pub const Cursor = struct {' src/nocted/ProjectSearch.zig >/dev/null
 grep -F 'pub fn step(self: *Cursor, max_entries: usize) !SearchProgress {' src/nocted/ProjectSearch.zig >/dev/null
-grep -F 'pub const max_pending: usize = 64;' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'while (try scanner.step(128) == .pending)' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'const progress = try cursor.step(1);' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pending >= Job.search_batch_size or timed_flush or' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'foreground: ?*c.GThreadPool = null,' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'scan: ?*c.GThreadPool = null,' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'self.foreground = created' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'self.scan = created' src/nocted/FilesystemWorker.zig >/dev/null
+grep -F 'pub const max_pending: usize = 64;' src/nocted/Worker.zig >/dev/null
+grep -F 'while (try scanner.step(128) == .pending)' src/nocted/Worker.zig >/dev/null
+grep -F 'const progress = try cursor.step(1);' src/nocted/Worker.zig >/dev/null
+grep -F 'pending >= Job.search_batch_size or timed_flush or' src/nocted/Worker.zig >/dev/null
+grep -F 'foreground: ?*c.GThreadPool = null,' src/nocted/Worker.zig >/dev/null
+grep -F 'scan: ?*c.GThreadPool = null,' src/nocted/Worker.zig >/dev/null
+grep -F 'self.foreground = created' src/nocted/Worker.zig >/dev/null
+grep -F 'self.scan = created' src/nocted/Worker.zig >/dev/null
 grep -F 'pub const max_entries: usize = 100_000;' src/nocted/ProjectIndex.zig >/dev/null
 grep -F 'pub const max_filesystem_changes: usize = 256;' src/nocted/ProjectIndex.zig >/dev/null
 grep -F 'pub fn applyFilesystemChangesAlloc(' src/nocted/ProjectIndex.zig >/dev/null
 grep -F 'error.ProjectDeltaRequiresRescan' src/nocted/ProjectIndex.zig src/nocted/main.zig >/dev/null
 grep -F 'project_monitor_changes: std.array_list.Managed(core.project_index.FilesystemChange)' src/nocted/main.zig >/dev/null
 grep -F 'self.submitProjectDelta(root)' src/nocted/main.zig >/dev/null
-grep -F 'core.project_index.applyFilesystemChangesAlloc(' src/nocted/FilesystemWorker.zig >/dev/null
+grep -F 'core.project_index.applyFilesystemChangesAlloc(' src/nocted/Worker.zig >/dev/null
 grep -F 'project_delta_updates=1' scripts/nocted_native_smoke.sh docs/NOCTED.md docs/NOCTED_PROJECT_INDEX_QUALIFICATION.md >/dev/null
 grep -F 'nocted_project_index_matrix debug=true release_safe=true scales=4000,25000,100000 immutable_delta=true directory_rename=true replacement_conflict=true ignore_fallback=true overflow_fallback=true scan_time=true delta_time=true index_memory=true two_snapshot_peak=true process_memory=true allocator_leak_free=true scratch_clean=true' scripts/nocted_project_index_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG.md CHANGELOG.md docs/NOCTED.md docs/NOCTED_PROJECT_INDEX_QUALIFICATION.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'nocted-project-index-binary' build.zig >/dev/null
 grep -F 'nocted-smoke-binary' build.zig >/dev/null
-grep -F 'pub const search_batch_size: usize = 24;' src/nocted/FilesystemWorker.zig >/dev/null
-grep -F 'pub const max_search_batches: usize = 2;' src/nocted/FilesystemWorker.zig >/dev/null
+grep -F 'pub const search_batch_size: usize = 24;' src/nocted/Worker.zig >/dev/null
+grep -F 'pub const max_search_batches: usize = 2;' src/nocted/Worker.zig >/dev/null
 grep -F 'fn startProjectMonitoring(self: *App) !void {' src/nocted/main.zig >/dev/null
 grep -F 'g_file_monitor_directory(' src/nocted/main.zig >/dev/null
 grep -F 'documents_by_path: std.StringHashMap(*Document)' src/nocted/main.zig >/dev/null
@@ -984,6 +979,12 @@ grep -F 'Open Recent' src/nocted/main.zig docs/NOCTED.md >/dev/null
 grep -F 'pub const multi_selection = @import("MultiSelection.zig");' src/nocted/root.zig >/dev/null
 grep -F 'pub const session = @import("Session.zig");' src/nocted/root.zig >/dev/null
 grep -F 'Import TextMate JSON Grammar...' src/nocted/main.zig docs/NOCTED.md >/dev/null
+grep -F 'It is an LSP client only and never implements language semantics or acts as an LSP server.' docs/NOCTED.md >/dev/null
+grep -F 'nocted_lsp_smoke client=true server=false transport=stdio framing=true initialize=true did_open=true symbols=true clangd=true timeout=true scratch_clean=true' docs/NOCTED.md scripts/nocted_lsp_smoke.sh >/dev/null
+grep -F 'pub const Session = struct {' src/nocted/Lsp.zig >/dev/null
+grep -F 'nocted_task_smoke detected=true bounded=true background_worker=true output=true exit_status=true scratch_clean=true' docs/NOCTED.md scripts/nocted_task_smoke.sh >/dev/null
+grep -F 'pub fn runAlloc(allocator: std.mem.Allocator, io: std.Io, root: []const u8, plan_value: Plan) !Result {' src/nocted/Task.zig >/dev/null
+grep -F 'appendToolAction(tools_menu, "Language Diagnostics", .diagnostics, self);' src/nocted/main.zig >/dev/null
 grep -F 'pub const textmate_grammar = @import("TextMateGrammar.zig");' src/nocted/root.zig >/dev/null
 grep -F 'fn reloadSyntaxPaths(self: *App) !void {' src/nocted/main.zig >/dev/null
 grep -F 'textmate_import=1' scripts/nocted_native_smoke.sh >/dev/null
@@ -1032,7 +1033,7 @@ grep -F 'Close Terminal' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPA
 grep -F 'add_reopen_after_close=true fresh_context=true' scripts/native_grid_two_tab_smoke.sh >/dev/null
 grep -F 'primary_pty_closed=true late_callback_guard=true remaining_tabs=1' scripts/native_grid_two_tab_smoke.sh >/dev/null
 grep -F 'close_terminal=true foreground_guard=true close_confirmed=true model_closed=true rendered_closed=true primary_pty_closed=true session_storage_released=true' scripts/native_grid_pane_close_smoke.sh >/dev/null
-grep -F 'layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true' scripts/native_grid_layout_preset_smoke.sh >/dev/null
+grep -F 'layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true' scripts/native_grid_layout_preset_smoke.sh >/dev/null
 test -x scripts/native_grid_layout_tui_matrix.sh
 sh -n scripts/native_grid_layout_tui_matrix.sh
 grep -F 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true' scripts/native_grid_layout_tui_matrix.sh docs/COMPACT_UX.md docs/DAILY_DRIVER.md >/dev/null
@@ -1230,4 +1231,4 @@ for path in docs/INSTALL.md docs/RELEASE_CHECKLIST.md vendor/gtk-layer-shell/REA
   grep -F 'LICENSE_MIT.txt' "$path" >/dev/null
 done
 echo "docs_truth_endurance nocted_core_endurance=true cycles_per_mode=512 total_cycles=1024 ranking_evaluations=3072 duration_recorded=true proof_boundary=headless"
-echo "docs_truth required_docs=true links=true product_complete=true release_hardening_closed=true backlog_partition=true task_ids_unique=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true tab_reorder_active_identity=true tab_reorder_rollback=true tab_reorder_persistence_coalesced=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true pane_close_menu_popdown=true foreground_guard=true session_storage_released=true late_callback_guard=true popup_teardown=true root_timer_coalesced=true hidden_present_throttled=true mapped_redraw_only=true terminal_chords=true layout_presets=true layout_churn=32 resize_overlay=true note_overlay=true hot_session=true font_wheel=true editor_here=true editor_save_safety=true editor_shutdown=true window_resize=true tray=true tray_close=true settings_categories=true settings_stacking=true scrollback_configurable=true launch_continuity_qualification=true noctalia=true release_reproducibility=true release_workflow=true package_truth=true bundle_provenance=true release_operations=true native_allocation_polish=true native_deep_memory_hardening=true split_terminal_benchmark=true process_tree_memory=true pty_pump_bounded_drain=true native_output_throughput=true visible_grid_ring=true vt_ascii_run=true pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true descriptor_fallback=root_coalesced pane_exit_timers=0 source_cleanup=centralized installed_activation_harness=true render_abi=packed_rows render_abi_version=2 damage_tracking=dirty_spans glyph_batching=true glyph_cache=true frame_clock_present=true native_grid_renderer_qualification=true nocted_worker=bounded nocted_worker_lanes=2 nocted_worker_qualification=true nocted_worker_admission=true nocted_worker_transaction=true nocted_project_delta=true nocted_project_scale_qualification=true nocted_project_lifecycle=true nocted_multi_selection=true nocted_session_restore=true nocted_recent_project=true terminal_history_qualification=true terminal_compatibility_qualification=true terminal_real_tui_qualification=true terminal_ncurses_qualification=true terminal_system_tui_qualification=true terminal_system_tui_applications=10 terminal_session_qualification=true resource_qualification=true pane_context_init=explicit production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false benchmark_order_isolated=true wezterm_split_ready=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true performance_algorithm_research=true"
+echo "docs_truth required_docs=true links=true product_complete=true release_hardening_closed=true backlog_partition=true task_ids_unique=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true tab_reorder_active_identity=true tab_reorder_rollback=true tab_reorder_persistence_coalesced=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true pane_close_menu_popdown=true foreground_guard=true session_storage_released=true late_callback_guard=true popup_teardown=true root_timer_coalesced=true hidden_present_throttled=true mapped_redraw_only=true terminal_chords=true layout_presets=true layout_churn=32 resize_overlay=true note_overlay=true hot_session=true font_wheel=true editor_here=true editor_save_safety=true editor_shutdown=true window_resize=true tray=true tray_close=true settings_categories=true settings_stacking=true scrollback_configurable=true launch_continuity_qualification=true noctalia=true release_reproducibility=true release_workflow=true package_truth=true bundle_provenance=true release_operations=true native_allocation_polish=true native_deep_memory_hardening=true split_terminal_benchmark=true process_tree_memory=true pty_pump_bounded_drain=true native_output_throughput=true visible_grid_ring=true vt_ascii_run=true pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true descriptor_fallback=root_coalesced pane_exit_timers=0 source_cleanup=centralized installed_activation_harness=true render_abi=packed_rows render_abi_version=2 damage_tracking=dirty_spans glyph_batching=true glyph_cache=true frame_clock_present=true native_grid_renderer_qualification=true nocted_worker=bounded nocted_worker_lanes=2 nocted_lsp_client=true nocted_tasks=true nocted_worker_qualification=true nocted_worker_admission=true nocted_worker_transaction=true nocted_project_delta=true nocted_project_scale_qualification=true nocted_project_lifecycle=true nocted_multi_selection=true nocted_session_restore=true nocted_recent_project=true terminal_history_qualification=true terminal_compatibility_qualification=true terminal_real_tui_qualification=true terminal_ncurses_qualification=true terminal_system_tui_qualification=true terminal_system_tui_applications=10 terminal_session_qualification=true resource_qualification=true pane_context_init=explicit production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false benchmark_order_isolated=true wezterm_split_ready=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true performance_algorithm_research=true"

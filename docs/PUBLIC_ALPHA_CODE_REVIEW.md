@@ -98,14 +98,16 @@ Recommended alpha action:
 
 ### 5. NoctEd should stay small for alpha
 
-NoctEd has enough surface for useful quick edits. The temptation will be LSP,
-plugins, debugging, or VS Code parity. Defer that.
+NoctEd has enough surface for useful quick edits. The original review deferred LSP,
+plugins, debugging, and VS Code parity. Dogfood requirements later added a bounded,
+on-demand local LSP client; NoctEd still does not implement an LSP server, plugin
+runtime, debugger, or parity layer.
 
 Recommended alpha action:
 
-- Dogfood real edit/search/save workflows.
-- Fix only data-loss, crash, save, search, and severe usability bugs.
-- Keep LSP/DAP/plugin work post-alpha.
+- Dogfood real edit/search/save and local language-service workflows.
+- Fix data-loss, crash, save, search, protocol-boundary, and severe usability bugs.
+- Keep persistent LSP sessions, DAP, and plugin work post-alpha.
 
 ## What still needs to be done
 
@@ -128,7 +130,7 @@ Already closed for source-alpha prep: screenshots, `docs/CODE_MAP.md`, clean sou
 
 ### Defer until after alpha
 
-- LSP/DAP in NoctEd
+- persistent/IDE-parity LSP sessions and DAP in NoctEd
 - plugin systems
 - VS Code/Zed/Sublime parity claims
 - broad terminal compatibility claims

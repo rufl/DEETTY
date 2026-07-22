@@ -50,7 +50,7 @@ for mode in Debug ReleaseSafe; do
     wait "$runner_pid"
     end_ns=$(date +%s%N)
     elapsed_ms=$(((end_ns - start_ns) / 1000000))
-    grep -F 'churn_cycles=8 layout_3x3=true panes_3x3=9' "$output_file" >/dev/null
+    grep -F 'churn_cycles=8 layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9' "$output_file" >/dev/null
     grep -F 'layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true' "$output_file" >/dev/null
     grep -F 'cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true' "$output_file" >/dev/null
     printf 'native_grid_resource_qualification mode=%s elapsed_ms=%d root_peak_pss_kib=%d root_peak_rss_kib=%d tree_peak_pss_kib=%d tree_peak_rss_kib=%d samples=%d\n' \

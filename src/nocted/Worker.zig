@@ -8,6 +8,8 @@ pub const Kind = enum {
     document_load,
     document_save,
     resolve_save_path,
+    lsp_request,
+    task_request,
 };
 
 pub const Lane = enum { foreground, scan };
@@ -15,7 +17,7 @@ pub const Lane = enum { foreground, scan };
 pub fn lane(kind_value: Kind) Lane {
     return switch (kind_value) {
         .project_scan, .project_search => .scan,
-        .document_load, .document_save, .resolve_save_path => .foreground,
+        .document_load, .document_save, .resolve_save_path, .lsp_request, .task_request => .foreground,
     };
 }
 
@@ -219,6 +221,24 @@ pub const Job = struct {
             requested_path: []u8,
             resolved: ?[:0]u8 = null,
         },
+        lsp_request: struct {
+            server: core.lsp.Server,
+            cwd: ?[]u8,
+            root_uri: ?[]u8,
+            uri: []u8,
+            text: []u8,
+            line: u32,
+            character: u32,
+            feature: core.lsp.Feature,
+            new_name: ?[]u8,
+            response: ?[]u8 = null,
+        },
+        task_request: struct {
+            root: []u8,
+            plan: core.task.Plan,
+            output: ?[]u8 = null,
+            success: bool = false,
+        },
     };
 
     pub fn init(
@@ -281,6 +301,18 @@ pub const Job = struct {
             .resolve_save_path => |*payload| {
                 self.allocator.free(payload.requested_path);
                 if (payload.resolved) |resolved| self.allocator.free(resolved);
+            },
+            .lsp_request => |payload| {
+                if (payload.cwd) |cwd| self.allocator.free(cwd);
+                if (payload.root_uri) |root_uri| self.allocator.free(root_uri);
+                self.allocator.free(payload.uri);
+                self.allocator.free(payload.text);
+                if (payload.new_name) |new_name| self.allocator.free(new_name);
+                if (payload.response) |response| self.allocator.free(response);
+            },
+            .task_request => |payload| {
+                self.allocator.free(payload.root);
+                if (payload.output) |output| self.allocator.free(output);
             },
         }
         self.* = undefined;
@@ -383,6 +415,31 @@ fn execute(job: *Job) !void {
                 job.io,
                 payload.requested_path,
             );
+        },
+        .lsp_request => |*payload| {
+            payload.response = try core.lsp.runFeatureAlloc(
+                job.allocator,
+                job.io,
+                payload.server,
+                payload.cwd,
+                payload.root_uri,
+                payload.uri,
+                payload.text,
+                payload.line,
+                payload.character,
+                payload.feature,
+                payload.new_name,
+            );
+        },
+        .task_request => |*payload| {
+            const result = try core.task.runAlloc(
+                job.allocator,
+                job.io,
+                payload.root,
+                payload.plan,
+            );
+            payload.output = result.output;
+            payload.success = result.success;
         },
     }
 }

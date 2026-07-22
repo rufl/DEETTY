@@ -68,6 +68,7 @@ build_archive() {
   tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.noctty.NOCTTY.svg' >/dev/null
   tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.noctty.NoctEd.svg' >/dev/null
   tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
+  tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
   tar -tzf "$archive" | grep -F './share/nocted/styles/nocted-dark.xml' >/dev/null
   tar -tzf "$archive" | grep -F './share/licenses/noctty/LICENSE' >/dev/null
   if tar -tzf "$archive" | grep -Eq '/(noctty-smoke|nocted-smoke|noctty-vte)$'; then

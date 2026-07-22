@@ -12,8 +12,19 @@ pub const SplitDirection = enum {
 pub const LayoutPreset = enum {
     one_by_one,
     two_by_two,
+    four_by_two,
     three_by_three,
     four_by_four,
+
+    pub fn dimensions(self: LayoutPreset) struct { rows: usize, cols: usize } {
+        return switch (self) {
+            .one_by_one => .{ .rows = 1, .cols = 1 },
+            .two_by_two => .{ .rows = 2, .cols = 2 },
+            .four_by_two => .{ .rows = 2, .cols = 4 },
+            .three_by_three => .{ .rows = 3, .cols = 3 },
+            .four_by_four => .{ .rows = 4, .cols = 4 },
+        };
+    }
 };
 
 pub const SelectionMode = enum {
@@ -1911,12 +1922,8 @@ pub const Tab = struct {
     }
 
     pub fn applyPreset(self: *Tab, preset: LayoutPreset, next_id: *Terminal.PaneId) !void {
-        const target_count: usize = switch (preset) {
-            .one_by_one => 1,
-            .two_by_two => 4,
-            .three_by_three => 9,
-            .four_by_four => 16,
-        };
+        const dimensions = preset.dimensions();
+        const target_count = dimensions.rows * dimensions.cols;
         while (self.panes.items.len > target_count) {
             var pane = self.panes.pop().?;
             pane.deinit();
@@ -1930,13 +1937,8 @@ pub const Tab = struct {
             try self.panes.append(try base.cloneForSplit(id, title));
         }
 
-        const rows: usize = switch (preset) {
-            .one_by_one => 1,
-            .two_by_two => 2,
-            .three_by_three => 3,
-            .four_by_four => 4,
-        };
-        const cols = rows;
+        const rows = dimensions.rows;
+        const cols = dimensions.cols;
         const ids = try self.allocator.alloc(Terminal.PaneId, target_count);
         defer self.allocator.free(ids);
         for (ids, 0..) |*slot, idx| slot.* = self.panes.items[idx].id;
@@ -3035,6 +3037,15 @@ test "workspace presets create compact grids" {
     const tab = ws.activeTab().?;
     try std.testing.expectEqual(@as(usize, 4), tab.panes.items.len);
     try std.testing.expect(tab.layout.root != null);
+
+    try ws.applyPresetToActiveTab(.four_by_two);
+    try std.testing.expectEqual(@as(usize, 8), tab.panes.items.len);
+    const two_row_root = tab.layout.nodes.items[tab.layout.root.?];
+    try std.testing.expectEqual(Axis.vertical, two_row_root.axis);
+    try std.testing.expectEqual(@as(u16, 500), two_row_root.ratio_permille);
+    const first_four = tab.layout.nodes.items[two_row_root.first.?];
+    try std.testing.expectEqual(Axis.horizontal, first_four.axis);
+    try std.testing.expectEqual(@as(u16, 250), first_four.ratio_permille);
 
     try ws.applyPresetToActiveTab(.three_by_three);
     try std.testing.expectEqual(@as(usize, 9), tab.panes.items.len);
