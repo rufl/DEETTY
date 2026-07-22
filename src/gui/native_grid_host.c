@@ -14761,6 +14761,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     gtk_window_set_default_size(GTK_WINDOW(context.window), 1100, 640);
     gtk_window_set_decorated(GTK_WINDOW(context.window), FALSE);
     gtk_window_set_resizable(GTK_WINDOW(context.window), TRUE);
+    GdkGeometry minimum_geometry = {
+        .min_width = 1,
+        .min_height = 1,
+    };
+    gtk_window_set_geometry_hints(GTK_WINDOW(context.window), NULL,
+                                  &minimum_geometry, GDK_HINT_MIN_SIZE);
     gtk_window_set_keep_above(GTK_WINDOW(context.window), mode == 0);
     if (mode == 2) gtk_window_fullscreen(GTK_WINDOW(context.window));
     context.notebook = gtk_notebook_new();
