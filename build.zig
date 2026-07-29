@@ -9,7 +9,13 @@ pub fn build(b: *std.Build) void {
         );
     }
 
-    const target = b.standardTargetOptions(.{});
+    var target = b.standardTargetOptions(.{});
+    if (target.query.isNative() and builtin.target.os.tag == .linux) {
+        // Zig 0.16's linker cannot read newer distro CRT .sframe relocations.
+        // Keep the host OS/libc native while avoiding host-specific CPU instructions.
+        target = b.resolveTargetQuery(.{ .cpu_model = .baseline });
+        b.addSearchPrefix("/usr");
+    }
     const optimize = b.standardOptimizeOption(.{});
     const strip = b.option(bool, "strip", "Strip debug and symbol sections from packaged binaries") orelse false;
 
@@ -45,24 +51,32 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    root_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
+    const tree_sitter_mod = b.createModule(.{
+        .root_source_file = b.path("src/TreeSitter.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
     });
-    runtime_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
+    addTreeSitterSources(b, tree_sitter_mod);
+    const ghostty_vt_public_mod = b.createModule(.{
+        .root_source_file = b.path("src/ghostty/VtPublic.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
     });
-    root_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/vt_public.c"),
-        .flags = &.{"-std=c11"},
+    const vte_host_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/gui/VteHost.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
     });
-    runtime_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/vt_public.c"),
-        .flags = &.{"-std=c11"},
-    });
-    addTreeSitterSources(b, root_mod);
 
+    root_mod.addImport("tree_sitter", tree_sitter_mod);
+    root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    runtime_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -98,7 +112,7 @@ pub fn build(b: *std.Build) void {
     nocted_mod.addOptions("build_options", nocted_runtime_options);
     nocted_mod.addImport("nocted_core", nocted_core_mod);
     nocted_mod.addImport("noctty_release", release_mod);
-    addTreeSitterSources(b, nocted_mod);
+    nocted_mod.addImport("tree_sitter", tree_sitter_mod);
     nocted_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_exe = b.addExecutable(.{
@@ -121,10 +135,6 @@ pub fn build(b: *std.Build) void {
     vte_mod.addOptions("build_options", vte_options);
     vte_mod.addImport("noctty", runtime_mod);
     addNativeGridSources(b, vte_mod, false);
-    vte_mod.addCSourceFile(.{
-        .file = b.path("src/gui/native_host.c"),
-        .flags = &.{"-std=c11"},
-    });
     vte_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("dl", .{});
@@ -152,10 +162,6 @@ pub fn build(b: *std.Build) void {
     smoke_mod.addOptions("build_options", smoke_options);
     smoke_mod.addImport("noctty", root_mod);
     addNativeGridSources(b, smoke_mod, true);
-    smoke_mod.addCSourceFile(.{
-        .file = b.path("src/gui/native_host.c"),
-        .flags = &.{"-std=c11"},
-    });
     smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     smoke_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
     smoke_mod.linkSystemLibrary("dl", .{});
@@ -176,7 +182,7 @@ pub fn build(b: *std.Build) void {
     nocted_smoke_mod.addOptions("build_options", nocted_smoke_options);
     nocted_smoke_mod.addImport("nocted_core", nocted_core_mod);
     nocted_smoke_mod.addImport("noctty_release", release_mod);
-    addTreeSitterSources(b, nocted_smoke_mod);
+    nocted_smoke_mod.addImport("tree_sitter", tree_sitter_mod);
     nocted_smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_smoke_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_smoke_exe = b.addExecutable(.{
@@ -272,6 +278,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    terminal_compatibility_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_compatibility_exe = b.addExecutable(.{
         .name = "noctty-terminal-compatibility",
         .root_module = terminal_compatibility_mod,
@@ -293,10 +300,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    terminal_session_qualification_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
-    });
+    terminal_session_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_session_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-session-qualification",
         .root_module = terminal_session_qualification_mod,
@@ -320,10 +324,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    launch_continuity_qualification_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
-    });
+    launch_continuity_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const launch_continuity_qualification_exe = b.addExecutable(.{
         .name = "noctty-launch-continuity-qualification",
         .root_module = launch_continuity_qualification_mod,
@@ -347,10 +348,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    terminal_real_tui_qualification_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
-    });
+    terminal_real_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_real_tui_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-real-tui-qualification",
         .root_module = terminal_real_tui_qualification_mod,
@@ -374,10 +372,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    terminal_ncurses_qualification_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
-    });
+    terminal_ncurses_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_ncurses_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-ncurses-qualification",
         .root_module = terminal_ncurses_qualification_mod,
@@ -401,10 +396,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    terminal_system_tui_qualification_mod.addCSourceFile(.{
-        .file = b.path("src/terminal/pty.c"),
-        .flags = &.{"-std=c11"},
-    });
+    terminal_system_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_system_tui_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-system-tui-qualification",
         .root_module = terminal_system_tui_qualification_mod,
@@ -477,10 +469,20 @@ pub fn build(b: *std.Build) void {
         .root_module = nocted_core_mod,
     });
     const run_nocted_tests = b.addRunArtifact(nocted_tests);
+    const ghostty_vt_public_tests = b.addTest(.{
+        .root_module = ghostty_vt_public_mod,
+    });
+    const run_ghostty_vt_public_tests = b.addRunArtifact(ghostty_vt_public_tests);
+    const vte_host_tests = b.addTest(.{
+        .root_module = vte_host_test_mod,
+    });
+    const run_vte_host_tests = b.addRunArtifact(vte_host_tests);
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
     test_step.dependOn(&run_nocted_tests.step);
+    test_step.dependOn(&run_ghostty_vt_public_tests.step);
+    test_step.dependOn(&run_vte_host_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -490,12 +492,14 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&nocted_smoke_exe.step);
     check_step.dependOn(&run_tests.step);
     check_step.dependOn(&run_nocted_tests.step);
+    check_step.dependOn(&run_ghostty_vt_public_tests.step);
+    check_step.dependOn(&run_vte_host_tests.step);
 }
 
 fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
     module.addIncludePath(b.path("vendor/tree-sitter/lib/include"));
+    module.addIncludePath(b.path("vendor/tree-sitter/lib/src"));
     module.addIncludePath(b.path("vendor/tree-sitter-zig/src"));
-    module.addIncludePath(b.path("src/nocted"));
     module.addCSourceFile(.{
         .file = b.path("vendor/tree-sitter/lib/src/lib.c"),
         .flags = &.{ "-std=c11", "-D_GNU_SOURCE" },
@@ -510,7 +514,6 @@ fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
         "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/parser.c",
         "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c",
         "vendor/tree-sitter-zig/src/parser.c",
-        "src/nocted/tree_sitter_adapter.c",
     }) |file| module.addCSourceFile(.{ .file = b.path(file), .flags = &.{"-std=c11"} });
 }
 
@@ -520,15 +523,33 @@ fn addNativeGridSources(
     enable_smoke: bool,
 ) void {
     const flags: []const []const u8 = if (enable_smoke)
-        &.{ "-std=c11", "-DNOCTTY_ENABLE_SMOKE=1" }
+        &.{
+            "-std=c11",
+            "-DNOCTTY_ENABLE_SMOKE=1",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat=2",
+            "-Werror",
+        }
     else
-        &.{ "-std=c11", "-DNOCTTY_ENABLE_SMOKE=0" };
+        &.{
+            "-std=c11",
+            "-DNOCTTY_ENABLE_SMOKE=0",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat=2",
+            // Smoke helpers remain compiled but unreachable in production.
+            "-Wno-unused-function",
+            "-Werror",
+        };
     module.addCSourceFile(.{
         .file = b.path("src/gui/native_grid_host.c"),
         .flags = flags,
-    });
-    module.addCSourceFile(.{
-        .file = b.path("src/gui/pane_info_strip.c"),
-        .flags = &.{"-std=c11"},
     });
 }

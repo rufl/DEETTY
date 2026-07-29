@@ -7,6 +7,7 @@ release_value() {
 
 version=$(release_value version)
 out_dir="${1:-release/evidence/$version}"
+todo=TODO # craft-ignore: intentional incomplete-evidence sentinel
 
 write_template() {
   path=$1
@@ -23,7 +24,7 @@ write_template "$out_dir/README.md" <<EOF
 # NOCTTY $version Release Evidence
 
 This directory is a scaffold for retained release-operation evidence.
-Do not treat these templates as release proof. Replace every TODO before
+Do not treat these templates as release proof. Replace every $todo before
 running:
 
 \`\`\`sh
@@ -49,25 +50,25 @@ EOF
 write_template "$out_dir/publication-receipt.txt" <<EOF
 version=$version
 tag=v$version
-artifacts_published=TODO
-checksums_published=TODO
-signatures_published=TODO
-release_notes_published=TODO
-publication_url=TODO
-published_at_utc=TODO
-operator=TODO
+artifacts_published=$todo
+checksums_published=$todo
+signatures_published=$todo
+release_notes_published=$todo
+publication_url=$todo
+published_at_utc=$todo
+operator=$todo
 EOF
 
 write_template "$out_dir/dependency-bundle-redistribution-notices.md" <<EOF
 # Dependency Bundle Redistribution Notices
 
-all_copied_host_libraries_accounted=TODO
-redistribution_notices_complete=TODO
-bundle_manifest_redistribution_ready=TODO
-bundle_license_payload_complete=TODO
+all_copied_host_libraries_accounted=$todo
+redistribution_notices_complete=$todo
+bundle_manifest_redistribution_ready=$todo
+bundle_license_payload_complete=$todo
 
 Replace this scaffold with the actual notice inventory before publishing a
-dependency bundle. The checker intentionally rejects TODO, TBD, unresolved,
+dependency bundle. The checker intentionally rejects $todo, TBD, unresolved,
 missing, placeholder, dummy, and retained evidence wording.
 EOF
 
@@ -75,21 +76,21 @@ for compositor in niri hyprland sway scroll labwc mango; do
   write_template "$out_dir/compositors/$compositor.txt" <<EOF
 version=$version
 compositor=$compositor
-native_release_smoke=TODO
-operator_acceptance=TODO
-session=TODO
-captured_at_utc=TODO
-operator=TODO
+native_release_smoke=$todo
+operator_acceptance=$todo
+session=$todo
+captured_at_utc=$todo
+operator=$todo
 EOF
 done
 
 write_template "$out_dir/wayland-hid-consent-receipt.txt" <<EOF
 version=$version
 portal=RemoteDesktop/EIS
-explicit_user_consent=TODO
-physical_input_receipt=TODO
-captured_at_utc=TODO
-operator=TODO
+explicit_user_consent=$todo
+physical_input_receipt=$todo
+captured_at_utc=$todo
+operator=$todo
 EOF
 
 echo "release_operations_scaffold version=$version path=$out_dir receipt_templates=true compositor_templates=6 placeholder_blocking=true artifact_files=false"

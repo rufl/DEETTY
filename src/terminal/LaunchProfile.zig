@@ -70,7 +70,10 @@ pub const Profile = struct {
     }
 
     pub fn shellPath(self: *const Profile, fallback_shell: []const u8) []const u8 {
-        return if (self.shell.slice().len == 0) fallback_shell else self.shell.slice();
+        return if (self.shell.slice().len == 0)
+            safeFallbackShell(fallback_shell)
+        else
+            self.shell.slice();
     }
 
     pub fn workingDirectory(self: *const Profile, pane_cwd: []const u8) []const u8 {
@@ -103,6 +106,10 @@ pub const Profile = struct {
             self.scrollback_lines == other.scrollback_lines;
     }
 };
+
+pub fn safeFallbackShell(shell: []const u8) []const u8 {
+    return if (std.fs.path.isAbsolute(shell)) shell else "/bin/sh";
+}
 
 pub const NamedProfile = struct {
     name: BoundedText(max_name_bytes) = .{},
@@ -214,7 +221,7 @@ fn validateSingleLine(value: []const u8, invalid: anyerror) !void {
     }
 }
 
-fn validateEnvironment(value: []const u8) !void {
+pub fn validateEnvironment(value: []const u8) !void {
     if (value.len == 0) return;
 
     var keys: [max_environment_entries][]const u8 = undefined;
@@ -273,6 +280,7 @@ test "launch profiles validate shell command cwd environment and ssh modes" {
     var profile = Profile{};
     try profile.validate();
     try std.testing.expectEqualStrings("/bin/fish", profile.shellPath("/bin/fish"));
+    try std.testing.expectEqualStrings("/bin/sh", profile.shellPath("fish"));
     try std.testing.expectEqualStrings("/workspace", profile.workingDirectory("/workspace"));
 
     profile.kind = .command;

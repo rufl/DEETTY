@@ -6,6 +6,12 @@ test -s "$workflow"
 
 grep -F 'version: 0.16.0' "$workflow" >/dev/null
 ! grep -F 'version: master' "$workflow" >/dev/null
+grep -F 'contents: read' "$workflow" >/dev/null
+grep -F 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$workflow" >/dev/null
+grep -F 'persist-credentials: false' "$workflow" >/dev/null
+grep -F 'mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29' "$workflow" >/dev/null
+grep -F 'use-cache: false' "$workflow" >/dev/null
+! grep -E 'uses: (actions/checkout|mlugg/setup-zig|actions/upload-artifact)@v[0-9]+' "$workflow" >/dev/null
 
 grep -F 'runner: ubuntu-24.04' "$workflow" >/dev/null
 grep -F 'arch: x86_64' "$workflow" >/dev/null
@@ -42,7 +48,7 @@ grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/svelte.
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/noctty/lib/libgtk-layer-shell.so.0' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './share/licenses/noctty/dependencies/packages/' >/dev/null" "$workflow" >/dev/null
 
-grep -F 'actions/upload-artifact@v4' "$workflow" >/dev/null
+grep -F 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$workflow" >/dev/null
 grep -F 'noctty-linux-${{ matrix.arch }}.tar.gz.sha256' "$workflow" >/dev/null
 grep -F 'noctty-linux-${{ matrix.arch }}.tar.gz.manifest' "$workflow" >/dev/null
 

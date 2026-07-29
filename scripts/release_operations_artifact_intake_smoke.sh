@@ -67,6 +67,17 @@ if ./scripts/release_operations_artifact_intake.sh x86_64 "$bad_archive" "$scrat
   exit 1
 fi
 
+symlink_evidence="$scratch/symlink-evidence"
+mkdir -p "$symlink_evidence"
+victim="$scratch/artifact-victim"
+printf 'victim-safe\n' >"$victim"
+ln -s "$victim" "$symlink_evidence/noctty-linux-x86_64.tar.gz"
+./scripts/release_operations_artifact_intake.sh x86_64 \
+  "$src/input-x86_64.tar.gz" "$symlink_evidence" >/dev/null
+test "$(cat "$victim")" = victim-safe
+test ! -L "$symlink_evidence/noctty-linux-x86_64.tar.gz"
+cmp -s "$src/input-x86_64.tar.gz" "$symlink_evidence/noctty-linux-x86_64.tar.gz"
+
 scratch_path=$scratch
 rm -rf "$scratch_path"
 scratch=

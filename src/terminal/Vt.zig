@@ -1,9 +1,7 @@
 const std = @import("std");
 const VtParser = @import("VtParser.zig");
 const Unicode = @import("Unicode.zig");
-
-extern fn noctty_vt_public_available() bool;
-extern fn noctty_vt_paste_is_safe(data: [*]const u8, length: usize) bool;
+const GhosttyVt = @import("ghostty_vt_public");
 
 pub const Cell = struct {
     const Flags = packed struct(u16) {
@@ -2944,11 +2942,11 @@ fn encodeCodepoint(codepoint: u21, output: []u8) !usize {
 }
 
 pub fn publicVtAvailable() bool {
-    return noctty_vt_public_available();
+    return GhosttyVt.available();
 }
 
 pub fn publicPasteIsSafe(bytes: []const u8) bool {
-    return noctty_vt_public_available() and noctty_vt_paste_is_safe(bytes.ptr, bytes.len);
+    return GhosttyVt.pasteIsSafe(bytes);
 }
 
 fn fixtureNibble(value: u8) !u8 {

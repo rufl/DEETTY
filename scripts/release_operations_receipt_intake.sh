@@ -5,6 +5,8 @@ release_value() {
   sed -n "s/^pub const $1 = \"\([^\"]*\)\";$/\1/p" src/release.zig
 }
 
+. ./scripts/release_operations_common.sh
+
 usage() {
   echo "usage: $0 <publication|dependency-bundle-redistribution> <receipt-file> [evidence-dir]" >&2
   exit 2
@@ -34,7 +36,7 @@ fi
 evidence_dir="${3:-release/evidence/$version}"
 test -s "$receipt"
 
-if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$receipt" >/dev/null; then
+if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$receipt" >/dev/null; then # craft-ignore: intentional placeholder rejection
   echo "release_operations_receipt_intake refused placeholder receipt: $receipt" >&2
   exit 1
 fi
@@ -61,8 +63,7 @@ case "$receipt_kind" in
     ;;
 esac
 
-mkdir -p "$evidence_dir"
-cp "$receipt" "$evidence_dir/$target_name"
+retain_file "$receipt" "$evidence_dir/$target_name"
 test -s "$evidence_dir/$target_name"
 
 echo "release_operations_receipt_intake version=$version receipt=$receipt_kind semantic=true placeholder_blocking=true retained=true path=$evidence_dir"

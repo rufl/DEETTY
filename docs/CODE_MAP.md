@@ -33,7 +33,10 @@ zig build run-nocted -- --project . --open README.md
   large C boundary that owns the current production grid window/dropdown UI,
   pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
   and bridge calls into Zig.
-- `src/gui/native_host.c` — older/optional VTE-backed native host path used for
+- `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
+  action-button affordances, compact-tab styling, tab-child lookup, and color
+  styling behind the narrow `native_gtk.h` ABI.
+- `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
@@ -49,9 +52,11 @@ zig build run-nocted -- --project . --open README.md
   screen state.
 - `src/terminal/VtParser.zig` — terminal escape/control parser.
 - `src/terminal/Unicode.zig` — Unicode width/encoding helpers used by the grid.
-- `src/terminal/pty.c` — native PTY/process boundary.
-- `src/terminal/vt_public.c` — small C ABI helper surface used by smoke/public
-  VT checks.
+- `src/terminal/Pty.zig`: PTY/session wrapper plus foreground `/proc` metadata
+  and shared app/pane process-tree resource sampling; fixed-argv fork/exec,
+  descriptor I/O, resize, wait, and process-group teardown are Zig-owned.
+- `src/ghostty/VtPublic.zig`: isolated dynamic `libghostty-vt` probe used by
+  smoke/public VT checks; its symbol is resolved once and stays outside product state.
 
 ## NoctEd editor core
 
@@ -65,7 +70,7 @@ zig build run-nocted -- --project . --open README.md
 - `src/nocted/project_index*` / `src/nocted/project_search*` — project indexing
   and Find in Files support.
 - `src/nocted/document*` — document load/save/edit support used by the editor.
-- `src/nocted/TreeSitter.zig` and `tree_sitter_adapter.*` — NoctEd-owned parser boundary and bounded highlight captures; GtkSourceView remains the only text buffer/widget.
+- `src/TreeSitter.zig` and `src/nocted/TreeSitter.zig`: Zig-owned parser/query boundary and bounded highlight captures; only the vendored generated parsers remain C, and GtkSourceView remains the only text buffer/widget.
 - `src/nocted/TextMateGrammar.zig` and syntax modules — fallback syntax-definition import/highlight support.
 
 ## Smoke and qualification code

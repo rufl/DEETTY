@@ -49,10 +49,10 @@ Fast contributor gate captured during this prep pass:
 zig build check -j1 --summary all
 ```
 
-Result on 2026-07-19: passed, `17/17` build steps succeeded and `320/320` tests
-passed. The same pass also refreshed README screenshots after the font/tab
-presentation work and fixed the NoctEd relative `--project . --open README.md`
-launch assertion.
+Current result on 2026-07-29: passed, `21/21` build steps succeeded and
+`336/336` tests passed. The same prep pass includes the refreshed native GTK,
+PTY, Tree-sitter, and Ghostty VT boundaries plus the NoctEd relative
+`--project . --open README.md` launch assertion.
 
 The full maintainer gate is:
 
@@ -60,19 +60,15 @@ The full maintainer gate is:
 ./scripts/verify.sh
 ```
 
-During the public-alpha prep pass, one normal full-verification attempt reached
-a Zig compiler `SEGV` while compiling a smoke binary. A 2026-07-19 retry with:
+A fresh 2026-07-29 retry with:
 
 ```sh
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
-ran for the 20-minute agent limit and retained green output through terminal
-compatibility, terminal session, launch continuity, ncurses/system TUI,
-production-Cairo renderer, and real PTY/VT-to-Cairo pipeline matrices before the
-harness timeout. Treat this as an alpha verification/toolchain/environment
-follow-up until a fresh full green receipt is captured outside the short agent
-limit.
+completed successfully through the terminal, renderer, PTY, NoctEd
+core/worker/index, package/release, and source-truth lanes, ending with
+`verify_cleanup scratch=true cache=true install=true artifacts=true`.
 
 ## Phase 2 — Daily-driver dogfood
 

@@ -127,4 +127,5 @@ for backend in "${backends[@]}"; do
     printf 'native_grid_installed_activation backend=%s desktop_dispatch=true parent_rendered=true recent_clicked=true child_rendered=true tabs=2 controlled_exit=true\n' "$backend"
 done
 
-printf 'native_grid_installed_activation_matrix backends=%s installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true\n' "$(IFS=,; echo "${backends[*]}")"
+backends_csv=$(printf ',%s' "${backends[@]}")
+printf 'native_grid_installed_activation_matrix backends=%s installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true\n' "${backends_csv#,}"

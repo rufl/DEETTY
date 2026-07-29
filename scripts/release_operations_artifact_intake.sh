@@ -5,6 +5,8 @@ release_value() {
   sed -n "s/^pub const $1 = \"\([^\"]*\)\";$/\1/p" src/release.zig
 }
 
+. ./scripts/release_operations_common.sh
+
 usage() {
   echo "usage: $0 <x86_64|aarch64> <archive.tar.gz> [evidence-dir]" >&2
   exit 2
@@ -52,9 +54,10 @@ target_archive="$evidence_dir/noctty-linux-$arch.tar.gz"
 target_checksum="$target_archive.sha256"
 target_manifest="$target_archive.manifest"
 
-cp "$archive" "$target_archive"
-cp "$manifest" "$target_manifest"
-printf '%s  %s\n' "$digest" "$(basename "$target_archive")" >"$target_checksum"
+retain_file "$archive" "$target_archive"
+retain_file "$manifest" "$target_manifest"
+printf '%s  %s\n' "$digest" "$(basename "$target_archive")" |
+  retain_from_stdin "$target_checksum"
 (
   cd "$evidence_dir"
   sha256sum -c "$(basename "$target_checksum")" >/dev/null

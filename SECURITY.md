@@ -36,6 +36,9 @@ NOCTTY should maintain these boundaries:
 - OSC 52 clipboard behavior remains blocked unless a future explicit user-owned
   policy changes it
 - launch profiles must avoid shell-string construction for structured actions
+- PTY children must reject relative launch paths and close inherited descriptors before exec
+- runtime shared libraries must not load from current-directory or custom override paths
+- release temporary files and retained evidence must use private staging plus atomic replacement
 - settings/session files must recover safely from malformed or oversized data
 - dependency bundles must keep ownership/license payload checks fail-closed
 
@@ -51,3 +54,9 @@ The alpha source tree does not yet claim:
 
 Treat NOCTTY as a local developer tool and run untrusted commands with the same
 care you would use in any terminal emulator.
+
+The repository-owned local SAST check is:
+
+```sh
+semgrep scan --config .semgrep.yml --error
+```

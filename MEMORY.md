@@ -70,9 +70,9 @@ Public alpha should prove:
 2. Fix only P0/P1 blockers found by dogfooding.
 3. Replace/refresh screenshots when UI presentation changes materially.
 4. Keep `./scripts/check_no_surprise_network.sh` green when touching launch/network-adjacent code.
-5. Capture a fresh full `./scripts/verify.sh` receipt outside the short agent
-   timeout if the local Zig/toolchain path is stable.
-5. Keep release/package claims below the retained signing/publication evidence.
+5. Keep the fresh full `./scripts/verify.sh` receipt green when changing shared
+   runtime, package, or proof surfaces.
+6. Keep release/package claims below the retained signing/publication evidence.
 
 ## Verification notes
 
@@ -88,18 +88,19 @@ On constrained hosts, use:
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
-Recent public-readiness pass note: `zig build check -j1 --summary all` passes
-with 322/322 tests in both the working tree and a clean source copy after the pane resource slice. A 2026-07-19 single-job full-verification retry:
+Current local pass note: `zig build check -j1 --summary all` passes with
+336/336 tests after the Tree-sitter, Ghostty VT, native GTK, complete PTY, and
+optional VTE-host migrations. A fresh clean-source-copy run on 2026-07-29 passed the same 21/21 steps and
+336/336 tests. A fresh 2026-07-29 single-job full run:
 
 ```sh
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
-ran for the 20-minute agent limit and retained green output through terminal
-compatibility, terminal session, launch continuity, ncurses/system TUI,
-production-Cairo renderer, and real PTY/VT-to-Cairo pipeline matrices before the
-harness timeout. No assertion failure was observed before timeout, but this is
-still not a closed green receipt for the full maintainer gate.
+completed successfully through terminal compatibility/session/continuity/TUI,
+production-Cairo renderer and PTY/VT pipeline, Zig build/test, NoctEd
+core/worker/index, package/release contracts, and source-truth checks. The final
+receipt was `verify_cleanup scratch=true cache=true install=true artifacts=true`.
 
 ## Public claim rule
 

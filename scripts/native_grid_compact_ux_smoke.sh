@@ -15,4 +15,4 @@ else
   exit "$status"
 fi
 cat "$output_file"
-grep -q '^native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true$' "$output_file"
+grep -q '^native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true windowed_grip=12 pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true$' "$output_file"

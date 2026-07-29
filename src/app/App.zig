@@ -581,6 +581,10 @@ pub const App = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator) !App {
+        var cwd_buffer: [std.fs.max_path_bytes]u8 = undefined;
+        const cwd_pointer = std.c.getcwd(&cwd_buffer, cwd_buffer.len) orelse
+            return error.CurrentWorkingDirectoryUnavailable;
+        const cwd = std.mem.sliceTo(cwd_pointer[0..cwd_buffer.len], 0);
         const config = Config.Config.defaults();
         const backend = Gui.Descriptor.preferredForLinux();
         var app = App{
@@ -588,7 +592,7 @@ pub const App = struct {
             .config = config,
             .backend = backend,
             .host = Host.NativeHost.init(config, backend, .default()),
-            .workspace = try Workspace.Workspace.init(allocator, "."),
+            .workspace = try Workspace.Workspace.init(allocator, cwd),
             .themes = std.array_list.Managed(ThemeEntry).init(allocator),
             .editor_documents = std.array_list.Managed(EditorDocumentEntry).init(allocator),
             .telemetry_enabled = false,
@@ -2040,6 +2044,8 @@ test "app defaults enforce no telemetry and no thick title bars" {
     defer app.deinit();
     try app.validate();
     try std.testing.expect(!app.telemetry_enabled);
+    const tab = app.workspace.activeTab().?;
+    try std.testing.expect(std.fs.path.isAbsolute(app.workspace.findPane(tab.active_pane_id).?.cwd));
 }
 
 test "app dispatches context menu split and grid commands" {

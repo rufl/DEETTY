@@ -4,7 +4,7 @@ Status: bounded NCT-110/NCT-112 installed top/watch/info/whiptail/fzf/sqlite3/gl
 
 ## Qualified Boundary
 
-`scripts/terminal_system_tui_qualification.sh` discovers installed procps top, procps watch, GNU info, newt whiptail, fzf, SQLite, Glances, Bash, man-db, less, OpenSSH SFTP client, and OpenSSH SFTP server executables and builds the Zig/C-only `noctty-terminal-system-tui-qualification` runner in Debug and `ReleaseSafe`. Each of the ten application cases starts at 120x40 through the production `LaunchProfile`, C PTY adapter, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
+`scripts/terminal_system_tui_qualification.sh` discovers installed procps top, procps watch, GNU info, newt whiptail, fzf, SQLite, Glances, Bash, man-db, less, OpenSSH SFTP client, and OpenSSH SFTP server executables and builds the native Zig `noctty-terminal-system-tui-qualification` runner in Debug and `ReleaseSafe`. Each of the ten application cases starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
 
 The isolated cases are:
 
@@ -19,7 +19,7 @@ The isolated cases are:
 - man-db 2.13.1 formats a deterministic local manual page and hands it to the explicitly selected installed less pager. The nested pager owns the foreground terminal, renders styled text on the alternate screen, accepts `q`, returns control to man, and both processes exit cleanly.
 - OpenSSH SFTP 10.4p1 attaches directly to the installed local `sftp-server` with `-D`, renders its plaintext interactive prompt on the primary screen, accepts `pwd` and `quit`, and exits cleanly without SSH transport, credential use, or a network bind.
 
-The external tools do not enter NOCTTY. The qualification binary and product remain native Zig plus the existing C PTY ABI, and the lane adds no product dependency, browser runtime, network request or bind, credential, telemetry, or persisted user state.
+The external tools do not enter NOCTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request or bind, credential, telemetry, or persisted user state.
 
 ## Retained Result
 

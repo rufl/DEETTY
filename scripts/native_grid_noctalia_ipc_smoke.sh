@@ -54,4 +54,4 @@ fi
 rm -f "$ready"
 trap - EXIT
 cat "$output"
-grep -F 'native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true exited=true' "$output" >/dev/null
+grep -F 'native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_grip=4 exited=true' "$output" >/dev/null

@@ -5,8 +5,12 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: read
+
 jobs:
   linux:
+    timeout-minutes: 90
     strategy:
       matrix:
         include:
@@ -16,10 +20,13 @@ jobs:
             arch: aarch64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: mlugg/setup-zig@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: 0.16.0
+          use-cache: false
       - run: sudo apt-get update
       - run: sudo apt-get install -y libgtk-3-dev libvte-2.91-dev libgtksourceview-4-dev libgtk-layer-shell0 desktop-file-utils libxml2-utils rpm
       - name: Assert runner architecture
@@ -58,7 +65,7 @@ jobs:
           tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/noctty/lib/libgtk-layer-shell.so.0' >/dev/null
           tar -tzf "$archive" | grep -F './share/licenses/noctty/dependencies/packages/' >/dev/null
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: noctty-linux-${{ matrix.arch }}
           path: |

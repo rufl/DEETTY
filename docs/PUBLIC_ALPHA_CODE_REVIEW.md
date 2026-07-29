@@ -1,6 +1,6 @@
 # Public Alpha Code Review
 
-Review date: 2026-07-19.
+Review date: 2026-07-29.
 
 Scope: source-level public-alpha review of NOCTTY and NoctEd, focused on what is
 still needed before publishing an honest open-source alpha. This is not a formal
@@ -68,7 +68,10 @@ Recommended alpha action:
 ### 3. Verification is strong but currently heavy/fragile for contributors
 
 The full `./scripts/verify.sh` is authoritative but long and environment-heavy.
-During this pass, one normal run hit a Zig compile `SEGV`; later single-job retries progressed through long qualification matrices but exceeded the agent timeout. A bounded source-alpha gate now exists as `./scripts/public_alpha_verify.sh` and passes with `full_verify=false`.
+A fresh 2026-07-29 single-job run completed successfully with final
+scratch/cache/install cleanup. A bounded source-alpha gate still exists as
+`./scripts/public_alpha_verify.sh` and deliberately reports `full_verify=false`
+because it does not execute the full matrix itself.
 
 Recommended alpha action:
 
@@ -115,7 +118,7 @@ Recommended alpha action:
 
 1. Add first counted entries to `docs/DOGFOOD_LOG.md` from real sessions.
 2. Keep package/signing language clearly incomplete.
-3. Keep full `./scripts/verify.sh` status honest: the bounded source-alpha gate is green, the full maintainer matrix is not claimed green in this agent harness.
+3. Keep the fresh full `./scripts/verify.sh` receipt green when changing shared runtime, package, or proof surfaces.
 
 Already closed for source-alpha prep: screenshots, `docs/CODE_MAP.md`, clean source-copy fast build/check, public alpha release notes, no-surprise network guard, GitHub issue/PR templates, local Git baseline, and the bounded `./scripts/public_alpha_verify.sh` gate.
 

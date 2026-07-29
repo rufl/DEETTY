@@ -1,8 +1,8 @@
 # Third-Party Notices
 
 NOCTTY and NoctEd remain native Zig/C applications. The items below are either
-compiled compatibility sources, generated data inputs, or a repo-local native
-fallback; none adds a browser runtime, telemetry service, or runtime download.
+compiled sources, generated data inputs, or a repo-local native packaging
+payload; none adds a browser runtime, telemetry service, or runtime download.
 
 ## Unicode Character Database 17.0.0
 
@@ -15,19 +15,21 @@ files are copyright Unicode, Inc. and distributed under the
 
 ## Tree-sitter
 
-Tree-sitter core and the vendored Zig, JSON, C, Bash, and Markdown grammar
-sources are used by compatibility tests and optional editor adapters. They are
-not linked into the production `noctty` or `nocted` binaries. Version and
-license pointers are recorded in `vendor/tree-sitter/LICENSES.md`; the complete
-license texts remain beside each vendored source tree.
+Tree-sitter core and the vendored Zig, JSON, C, Bash, and Markdown generated
+parser sources are linked into production NoctEd and reused by compatibility
+tests. They are not linked into production `noctty`. Unused upstream workflows,
+lockfiles, and container metadata are intentionally omitted; version and license
+pointers remain in `vendor/tree-sitter/LICENSES.md`, with complete license texts
+beside each vendored source tree.
 
 ## GTK Layer Shell
 
-The repo-local same-architecture GTK Layer Shell fallback is
+The repo-local same-architecture GTK Layer Shell packaging payload is
 LGPL-3.0-or-later. Its provenance and the distinction between the project
 license and MIT-licensed individual source files are documented in
 `vendor/gtk-layer-shell/README.md` and `vendor/gtk-layer-shell/LICENSE_MIT.txt`.
-Distribution packages normally use the host system library.
+Runtime loading uses the system soname; distribution packages provide it and
+bundles expose their private copy through the launcher library path.
 
 ## Generated Dependency-Bundle Notices
 

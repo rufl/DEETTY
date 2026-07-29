@@ -34,12 +34,13 @@ zig build check -j1 --summary all
 Current result:
 
 ```text
-17/17 steps succeeded
-322/322 tests passed
+21/21 steps succeeded
+336/336 tests passed
 ```
 
-Clean source-copy check: the same fast gate passed after copying the source tree
-without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.
+Clean source-copy check: a fresh 2026-07-29 copy of the source tree without
+`.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state passed the same
+`21/21 steps succeeded` and `336/336 tests passed` result.
 
 Bounded public-source-alpha gate:
 
@@ -66,10 +67,11 @@ The full maintainer gate remains:
 ./scripts/verify.sh
 ```
 
-A single-job retry ran to the 20-minute agent limit with green output through
-terminal compatibility, terminal session, launch continuity, ncurses/system TUI,
-production-Cairo renderer, and real PTY/VT-to-Cairo pipeline matrices. The full
-gate is not claimed green until it completes outside the short agent timeout.
+A fresh 2026-07-29 single-job run completed successfully through terminal
+compatibility/session/continuity/TUI, renderer and PTY/VT pipeline, Zig
+build/test, NoctEd core/worker/index, package/release contracts, and truth
+checks. It ended with
+`verify_cleanup scratch=true cache=true install=true artifacts=true`.
 
 ## Known open alpha items
 
@@ -80,7 +82,6 @@ dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false fou
 ```
 
 - counted real dogfood sessions are still needed
-- full maintainer `./scripts/verify.sh` receipt still needs a long local run
 - signing/publication/artifact signatures are not complete
 - longer native GUI soaks and authenticated agent workflows remain future proof
 

@@ -179,6 +179,10 @@ const Document = struct {
         ) orelse return error.TextUnavailable;
         defer c.g_free(text_z);
         const text = std.mem.span(text_z);
+        // ponytail: Full-document highlighting stays bounded on the GTK thread;
+        // use incremental edits before raising this limit.
+        if (!core.document.useDirectTreeSitter(text.len))
+            return error.TreeSitterDocumentTooLarge;
         const syntax = if (self.syntax) |*value| value else return;
         try syntax.update(text);
         const captures = try syntax.capturesAlloc(self.app.allocator);
@@ -194,20 +198,24 @@ const Document = struct {
             );
         }
         for (captures) |capture| {
-            if (capture.end <= capture.start or capture.end > text.len) continue;
-            const start_offset = utf8CharacterOffset(text, capture.start) orelse continue;
-            const end_offset = utf8CharacterOffset(text, capture.end) orelse continue;
+            if (capture.end <= capture.start or capture.end > text.len or
+                capture.start_point.row > std.math.maxInt(c_int) or
+                capture.start_point.column > std.math.maxInt(c_int) or
+                capture.end_point.row > std.math.maxInt(c_int) or
+                capture.end_point.column > std.math.maxInt(c_int)) continue;
             var capture_start: c.GtkTextIter = undefined;
             var capture_end: c.GtkTextIter = undefined;
-            c.gtk_text_buffer_get_iter_at_offset(
+            c.gtk_text_buffer_get_iter_at_line_index(
                 @ptrCast(self.buffer),
                 &capture_start,
-                start_offset,
+                @intCast(capture.start_point.row),
+                @intCast(capture.start_point.column),
             );
-            c.gtk_text_buffer_get_iter_at_offset(
+            c.gtk_text_buffer_get_iter_at_line_index(
                 @ptrCast(self.buffer),
                 &capture_end,
-                end_offset,
+                @intCast(capture.end_point.row),
+                @intCast(capture.end_point.column),
             );
             c.gtk_text_buffer_apply_tag(
                 @ptrCast(self.buffer),
@@ -697,13 +705,6 @@ fn utf8ByteOffset(text: []const u8, character_offset: usize) ?usize {
     return iterator.i;
 }
 
-fn utf8CharacterOffset(text: []const u8, byte_offset: u32) ?c_int {
-    if (byte_offset > text.len) return null;
-    const count = std.unicode.utf8CountCodepoints(text[0..byte_offset]) catch return null;
-    if (count > std.math.maxInt(c_int)) return null;
-    return @intCast(count);
-}
-
 const App = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -718,6 +719,7 @@ const App = struct {
         [_]?*c.GtkWidget{null} ** core.session.max_recent_projects,
     recent_project_actions: [core.session.max_recent_projects]RecentProjectAction = undefined,
     suppress_session_persist: bool = false,
+    synchronous_worker_running: bool = false,
     session_restores: usize = 0,
     recent_project_activations: usize = 0,
     default_language_paths: std.array_list.Managed([]u8),
@@ -985,6 +987,10 @@ const App = struct {
         self: *App,
         requested_path: []const u8,
     ) ![:0]u8 {
+        if (self.synchronous_worker_running)
+            return error.SynchronousWorkerReentry;
+        self.synchronous_worker_running = true;
+        defer self.synchronous_worker_running = false;
         const path = try self.allocator.dupe(u8, requested_path);
         var path_owned = true;
         errdefer if (path_owned) self.allocator.free(path);
@@ -1023,6 +1029,10 @@ const App = struct {
         path: []const u8,
         contents: []const u8,
     ) !void {
+        if (self.synchronous_worker_running)
+            return error.SynchronousWorkerReentry;
+        self.synchronous_worker_running = true;
+        defer self.synchronous_worker_running = false;
         const path_copy = try self.allocator.dupe(u8, path);
         var path_owned = true;
         errdefer if (path_owned) self.allocator.free(path_copy);
@@ -1242,6 +1252,7 @@ const App = struct {
         c.gtk_notebook_set_scrollable(asNotebook(self.notebook), 1);
         c.gtk_notebook_set_show_border(asNotebook(self.notebook), 0);
         c.gtk_widget_set_name(self.notebook, "nocted-tabs");
+        setAccessibleName(self.notebook, "Open files");
         connect(self.notebook, "switch-page", @ptrCast(&onNotebookSwitch), self);
         connect(self.notebook, "page-reordered", @ptrCast(&onNotebookPageReordered), self);
         c.gtk_paned_pack1(asPaned(self.main_paned), self.sidebar, 0, 0);
@@ -1525,6 +1536,7 @@ const App = struct {
         c.gtk_tree_view_set_enable_search(asTreeView(self.tree), 1);
         c.gtk_tree_view_set_search_column(asTreeView(self.tree), 0);
         c.gtk_widget_set_name(self.tree, "nocted-project-tree");
+        setAccessibleName(self.tree, "Project files");
         const icon = c.gtk_cell_renderer_pixbuf_new() orelse unreachable;
         const text = c.gtk_cell_renderer_text_new() orelse unreachable;
         const column = c.gtk_tree_view_column_new() orelse unreachable;
@@ -1553,17 +1565,20 @@ const App = struct {
         const box = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 6) orelse unreachable;
         c.gtk_widget_set_name(box, "nocted-search");
         self.search_entry = c.gtk_search_entry_new() orelse unreachable;
-        c.gtk_widget_set_size_request(self.search_entry, 360, -1);
+        c.gtk_widget_set_hexpand(self.search_entry, 1);
+        setAccessibleName(self.search_entry, "Find in current file");
         const previous = iconButton("go-up-symbolic", "Find previous");
         const next = iconButton("go-down-symbolic", "Find next");
         const close = iconButton("window-close-symbolic", "Close find");
         self.search_status = c.gtk_label_new("") orelse unreachable;
+        c.gtk_label_set_ellipsize(asLabel(self.search_status), c.PANGO_ELLIPSIZE_END);
+        setAccessibleName(self.search_status, "Find status");
         connect(self.search_entry, "search-changed", @ptrCast(&onSearchChanged), self);
         connect(self.search_entry, "activate", @ptrCast(&onFindNext), self);
         connect(previous, "clicked", @ptrCast(&onFindPrevious), self);
         connect(next, "clicked", @ptrCast(&onFindNext), self);
         connect(close, "clicked", @ptrCast(&onHideFind), self);
-        c.gtk_box_pack_start(asBox(box), self.search_entry, 0, 0, 8);
+        c.gtk_box_pack_start(asBox(box), self.search_entry, 1, 1, 8);
         c.gtk_box_pack_start(asBox(box), previous, 0, 0, 0);
         c.gtk_box_pack_start(asBox(box), next, 0, 0, 0);
         c.gtk_box_pack_start(asBox(box), self.search_status, 0, 0, 8);
@@ -1577,7 +1592,8 @@ const App = struct {
         c.gtk_widget_set_size_request(box, -1, 190);
         const controls = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 6) orelse unreachable;
         self.project_search_entry = c.gtk_search_entry_new() orelse unreachable;
-        c.gtk_widget_set_size_request(self.project_search_entry, 420, -1);
+        c.gtk_widget_set_hexpand(self.project_search_entry, 1);
+        setAccessibleName(self.project_search_entry, "Find in project files");
         c.gtk_widget_set_tooltip_text(
             self.project_search_entry,
             "Find matching lines in project files",
@@ -1586,10 +1602,15 @@ const App = struct {
         const close = iconButton("window-close-symbolic", "Close project search");
         self.project_search_status = c.gtk_label_new("Enter search text") orelse unreachable;
         c.gtk_label_set_xalign(asLabel(self.project_search_status), 0.0);
+        c.gtk_label_set_ellipsize(
+            asLabel(self.project_search_status),
+            c.PANGO_ELLIPSIZE_END,
+        );
+        setAccessibleName(self.project_search_status, "Project search status");
         connect(self.project_search_entry, "activate", @ptrCast(&onProjectSearch), self);
         connect(run, "clicked", @ptrCast(&onProjectSearch), self);
         connect(close, "clicked", @ptrCast(&onHideProjectFind), self);
-        c.gtk_box_pack_start(asBox(controls), self.project_search_entry, 0, 0, 8);
+        c.gtk_box_pack_start(asBox(controls), self.project_search_entry, 1, 1, 8);
         c.gtk_box_pack_start(asBox(controls), run, 0, 0, 0);
         c.gtk_box_pack_start(asBox(controls), self.project_search_status, 1, 1, 8);
         c.gtk_box_pack_end(asBox(controls), close, 0, 0, 6);
@@ -1611,6 +1632,7 @@ const App = struct {
         c.gtk_tree_view_set_enable_search(asTreeView(self.project_search_tree), 1);
         c.gtk_tree_view_set_search_column(asTreeView(self.project_search_tree), 0);
         c.gtk_widget_set_name(self.project_search_tree, "nocted-project-search-results");
+        setAccessibleName(self.project_search_tree, "Project search results");
         const text = c.gtk_cell_renderer_text_new() orelse unreachable;
         const column = c.gtk_tree_view_column_new() orelse unreachable;
         c.gtk_tree_view_column_pack_start(column, text, 1);
@@ -1646,10 +1668,16 @@ const App = struct {
         c.gtk_widget_set_size_request(box, -1, 220);
         const controls = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 6) orelse unreachable;
         self.quick_open_entry = c.gtk_search_entry_new() orelse unreachable;
-        c.gtk_widget_set_size_request(self.quick_open_entry, 480, -1);
+        c.gtk_widget_set_hexpand(self.quick_open_entry, 1);
+        setAccessibleName(self.quick_open_entry, "Quick Open file");
         c.gtk_entry_set_placeholder_text(@ptrCast(self.quick_open_entry), "Quick Open");
         self.quick_open_status = c.gtk_label_new("") orelse unreachable;
         c.gtk_label_set_xalign(asLabel(self.quick_open_status), 0.0);
+        c.gtk_label_set_ellipsize(
+            asLabel(self.quick_open_status),
+            c.PANGO_ELLIPSIZE_END,
+        );
+        setAccessibleName(self.quick_open_status, "Quick Open status");
         const close = iconButton("window-close-symbolic", "Close quick open");
         connect(self.quick_open_entry, "search-changed", @ptrCast(&onQuickOpenChanged), self);
         connect(self.quick_open_entry, "activate", @ptrCast(&onQuickOpenActivate), self);
@@ -1660,7 +1688,7 @@ const App = struct {
             self,
         );
         connect(close, "clicked", @ptrCast(&onHideQuickOpen), self);
-        c.gtk_box_pack_start(asBox(controls), self.quick_open_entry, 0, 0, 8);
+        c.gtk_box_pack_start(asBox(controls), self.quick_open_entry, 1, 1, 8);
         c.gtk_box_pack_start(asBox(controls), self.quick_open_status, 1, 1, 8);
         c.gtk_box_pack_end(asBox(controls), close, 0, 0, 6);
 
@@ -1676,6 +1704,7 @@ const App = struct {
         c.gtk_tree_view_set_headers_visible(asTreeView(self.quick_open_tree), 0);
         c.gtk_tree_view_set_enable_search(asTreeView(self.quick_open_tree), 0);
         c.gtk_widget_set_name(self.quick_open_tree, "nocted-quick-open-results");
+        setAccessibleName(self.quick_open_tree, "Quick Open results");
         const text = c.gtk_cell_renderer_text_new() orelse unreachable;
         const column = c.gtk_tree_view_column_new() orelse unreachable;
         c.gtk_tree_view_column_pack_start(column, text, 1);
@@ -1706,6 +1735,10 @@ const App = struct {
         self.position_label = c.gtk_label_new("Line 1, Column 1") orelse unreachable;
         self.language_label = c.gtk_label_new("Plain Text") orelse unreachable;
         c.gtk_label_set_xalign(asLabel(self.status_label), 0.0);
+        c.gtk_label_set_ellipsize(asLabel(self.status_label), c.PANGO_ELLIPSIZE_END);
+        setAccessibleName(self.status_label, "Editor status");
+        setAccessibleName(self.position_label, "Cursor position");
+        setAccessibleName(self.language_label, "Document language");
         c.gtk_box_pack_start(asBox(box), self.status_label, 1, 1, 8);
         c.gtk_box_pack_end(asBox(box), self.language_label, 0, 0, 8);
         c.gtk_box_pack_end(asBox(box), self.position_label, 0, 0, 0);
@@ -2505,6 +2538,7 @@ const App = struct {
             @intFromBool(editable),
         );
         c.gtk_widget_set_name(view, "nocted-editor");
+        setAccessibleName(view, "Document editor");
         const editor_scroll = c.gtk_scrolled_window_new(null, null) orelse unreachable;
         c.gtk_scrolled_window_set_policy(
             asScrolled(editor_scroll),
@@ -2626,7 +2660,10 @@ const App = struct {
         }
         const path = document.path orelse return self.promptSaveAs(document);
         if (!self.writeDocumentContents(document, path)) return false;
-        self.updateStatus("Saved");
+        self.updateStatus(if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0)
+            "Saved"
+        else
+            "Saved; newer edits remain unsaved");
         return true;
     }
 
@@ -2640,6 +2677,7 @@ const App = struct {
             return false;
         };
         defer self.allocator.free(contents);
+        self.updateStatus("Saving...");
         self.saveContentsOnWorker(path, contents) catch |err| {
             const status = std.fmt.allocPrintSentinel(
                 self.allocator,
@@ -2737,7 +2775,10 @@ const App = struct {
             }
         }
         self.focusDocument(document);
-        self.updateStatus("Saved As");
+        self.updateStatus(if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0)
+            "Saved As"
+        else
+            "Saved As; newer edits remain unsaved");
         return true;
     }
 
@@ -2798,6 +2839,10 @@ const App = struct {
     }
 
     fn confirmCloseDocument(self: *App, document: *Document) bool {
+        if (self.synchronous_worker_running) {
+            self.updateStatus("Wait for the current save to finish");
+            return false;
+        }
         if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0) return true;
         const basename_z = self.allocator.dupeZ(u8, document.display_name) catch return false;
         defer self.allocator.free(basename_z);
@@ -5458,7 +5503,7 @@ fn installCss() void {
         \\#nocted-menu menuitem { padding: 3px 8px; }
         \\#nocted-main { background: #0b0d12; }
         \\#nocted-sidebar { background: #11151d; border-right: 1px solid #222a38; }
-        \\#nocted-sidebar-title { color: #7f8a9c; font-size: 10px; font-weight: bold; padding: 7px 9px 5px; }
+        \\#nocted-sidebar-title { color: #7f8a9c; font-size: 0.9em; font-weight: bold; padding: 7px 9px 5px; }
         \\#nocted-project-tree { background: #11151d; color: #c3cad6; }
         \\#nocted-project-tree:selected { background: #263249; color: #ffffff; }
         \\#nocted-tabs header { background: #11151d; border: 0; padding: 4px 5px 0 5px; }
@@ -5478,7 +5523,7 @@ fn installCss() void {
         \\#nocted-status { background: #151923; color: #c3cad6; border-top: 1px solid #222a38; min-height: 22px; }
         \\#nocted-minimap { background: #11151d; border-left: 1px solid #222a38; }
         \\#nocted-minimap.scrubber { background-color: rgba(143, 184, 255, 0.18); }
-        \\#nocted-editor { font-family: JetBrains Mono, monospace; font-size: 11pt; }
+        \\#nocted-editor { font-family: monospace; }
     ;
     const provider = c.gtk_css_provider_new() orelse return;
     var error_ptr: ?*c.GError = null;
@@ -5581,7 +5626,12 @@ fn iconButton(icon: [*:0]const u8, tooltip: [*:0]const u8) *c.GtkWidget {
     const button = c.gtk_button_new_from_icon_name(icon, c.GTK_ICON_SIZE_MENU) orelse unreachable;
     c.gtk_button_set_relief(@ptrCast(button), c.GTK_RELIEF_NONE);
     c.gtk_widget_set_tooltip_text(button, tooltip);
+    setAccessibleName(button, tooltip);
     return button;
+}
+
+fn setAccessibleName(widget: *c.GtkWidget, name: [*:0]const u8) void {
+    c.atk_object_set_name(c.gtk_widget_get_accessible(widget), name);
 }
 
 fn treeStoreSet(

@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export LC_ALL=C
 
 lifecycle_root=$(pwd -P)
 lifecycle_mode=1
@@ -87,13 +88,13 @@ printf '%s\n' \
   '  "scopeName": "source.task-note",' \
   '  "fileTypes": ["note"],' \
   '  "patterns": [' \
-  '    {"match": "\\\\b(TODO|DONE)\\\\b", "name": "keyword.control.task"},' \
+  '    {"match": "\\\\b(TASK|DONE)\\\\b", "name": "keyword.control.task"},' \
   '    {"begin": "#", "end": "$", "name": "comment.line.number-sign"}' \
   '  ]' \
   '}' \
   >"$scratch/task-notes.tmLanguage.json"
 printf '%s\n' \
-  'TODO prove imported highlighting' \
+  'TASK prove imported highlighting' \
   '# native rendered grammar receipt' \
   >"$scratch/project/src/imported.note"
 

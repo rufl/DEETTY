@@ -23,6 +23,9 @@ printf '%s\n' "$output" | grep -E \
 test -s "$archive"
 test -s "$archive.sha256"
 test -s "$archive.manifest"
+test "$(stat -c %a "$archive")" = 644
+test "$(stat -c %a "$archive.sha256")" = 644
+test "$(stat -c %a "$archive.manifest")" = 644
 (cd "$scratch" && sha256sum -c "$(basename "$archive").sha256" >/dev/null)
 tar -tzf "$archive" | grep -F './bin/noctty' >/dev/null
 tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null

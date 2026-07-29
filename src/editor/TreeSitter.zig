@@ -1,45 +1,39 @@
 const std = @import("std");
 const TextBuffer = @import("TextBuffer.zig");
+const core = @import("tree_sitter");
 
-const c = @cImport({
-    @cInclude("tree_sitter_adapter.h");
-});
-
-pub const Language = enum(c_int) {
-    json = 1,
-    c = 2,
-    shell = 3,
-    markdown = 4,
-    zig = 5,
-};
-
-pub const Edit = c.NocttyTreeSitterEdit;
+pub const Language = core.Language;
+pub const Edit = core.Edit;
 
 pub const Document = struct {
-    raw: *c.NocttyTreeSitterDocument,
+    raw: core.Document,
     language: Language,
 
     pub fn init(language: Language) !Document {
-        return .{ .raw = c.noctty_tree_sitter_document_new(@intFromEnum(language)) orelse return error.ParserUnavailable, .language = language };
+        return .{
+            .raw = try core.Document.init(language),
+            .language = language,
+        };
     }
 
     pub fn deinit(self: *Document) void {
-        c.noctty_tree_sitter_document_free(self.raw);
+        self.raw.deinit();
         self.* = undefined;
     }
 
     pub fn update(self: *Document, source: []const u8, edit: ?Edit) !void {
-        if (c.noctty_tree_sitter_document_update(self.raw, source.ptr, source.len, if (edit) |value| &value else null) != 0)
-            return error.ParseFailed;
+        try self.raw.update(source, edit);
     }
 
-    pub fn highlight(self: Document, allocator: std.mem.Allocator, max_spans: usize) !TextBuffer.SyntaxHighlightSummary {
+    pub fn highlight(
+        self: *Document,
+        allocator: std.mem.Allocator,
+        max_spans: usize,
+    ) !TextBuffer.SyntaxHighlightSummary {
         _ = allocator;
         const bounded = @min(max_spans, TextBuffer.max_syntax_highlight_spans);
-        var captures: [TextBuffer.max_syntax_highlight_spans]c.NocttyTreeSitterCapture = undefined;
-        var total: usize = 0;
-        if (c.noctty_tree_sitter_document_highlight(self.raw, &captures, bounded, &total) != 0)
-            return error.HighlightFailed;
+        var captures: [TextBuffer.max_syntax_highlight_spans]core.Capture = undefined;
+        const total = try self.raw.collectCaptures(captures[0..bounded]);
         var summary = TextBuffer.SyntaxHighlightSummary{
             .language = switch (self.language) {
                 .json => .json,
@@ -53,33 +47,38 @@ pub const Document = struct {
         };
         summary.span_count = @min(total, bounded);
         for (captures[0..summary.span_count], 0..) |capture, index| {
-            const scope = std.mem.sliceTo(capture.scope[0..], 0);
             summary.spans[index] = .{
                 .start = capture.start,
                 .end = capture.end,
-                .kind = kindForScope(scope),
+                .kind = kindForScope(capture.scope),
             };
         }
         return summary;
     }
 };
 
-pub fn highlight(language: Language, source: []const u8, allocator: std.mem.Allocator, max_spans: usize) !TextBuffer.SyntaxHighlightSummary {
+pub fn highlight(
+    language: Language,
+    source: []const u8,
+    allocator: std.mem.Allocator,
+    max_spans: usize,
+) !TextBuffer.SyntaxHighlightSummary {
     var document = try Document.init(language);
     defer document.deinit();
     try document.update(source, null);
     return document.highlight(allocator, max_spans);
 }
 
-fn kindForScope(scope: []const u8) TextBuffer.SyntaxTokenKind {
-    if (std.mem.startsWith(u8, scope, "comment")) return .comment;
-    if (std.mem.startsWith(u8, scope, "heading")) return .heading;
-    if (std.mem.startsWith(u8, scope, "code_fence")) return .code_fence;
-    if (std.mem.startsWith(u8, scope, "string")) return .string;
-    if (std.mem.startsWith(u8, scope, "number")) return .number;
-    if (std.mem.startsWith(u8, scope, "constant")) return .literal;
-    if (std.mem.startsWith(u8, scope, "keyword")) return .keyword;
-    return .keyword;
+fn kindForScope(scope: core.Scope) TextBuffer.SyntaxTokenKind {
+    return switch (scope) {
+        .comment => .comment,
+        .heading => .heading,
+        .code_fence => .code_fence,
+        .string => .string,
+        .number => .number,
+        .constant => .literal,
+        else => .keyword,
+    };
 }
 
 test "tree-sitter JSON highlights and incrementally updates" {
@@ -118,10 +117,44 @@ test "tree-sitter initial shell captures" {
     try expectInitialLanguageCapture(.shell, "if true; then echo \"ok\"; fi");
 }
 
+test "tree-sitter shell comments use the comment scope" {
+    var document = try Document.init(.shell);
+    defer document.deinit();
+    try document.update("# note\n", null);
+    var captures: [8]core.Capture = undefined;
+    const total = try document.raw.collectCaptures(&captures);
+    for (captures[0..@min(total, captures.len)]) |capture| {
+        if (capture.scope == .comment) return;
+    }
+    return error.MissingCommentCapture;
+}
+
 test "tree-sitter initial Markdown captures" {
     try expectInitialLanguageCapture(.markdown, "# Heading\n\n```zig\nconst x = 1;\n```");
 }
 
 test "tree-sitter initial Zig captures" {
     try expectInitialLanguageCapture(.zig, "pub fn main() void { return; }");
+}
+
+test "tree-sitter capture points retain UTF-8 byte columns" {
+    var document = try Document.init(.json);
+    defer document.deinit();
+    try document.update("{\"é\": 1}", null);
+    var captures: [8]core.Capture = undefined;
+    const total = try document.raw.collectCaptures(&captures);
+    const count = @min(total, captures.len);
+    for (captures[0..count]) |capture| {
+        if (capture.scope != .string) continue;
+        try std.testing.expectEqual(
+            core.Point{ .row = 0, .column = 1 },
+            capture.start_point,
+        );
+        try std.testing.expectEqual(
+            core.Point{ .row = 0, .column = 5 },
+            capture.end_point,
+        );
+        return;
+    }
+    return error.MissingStringCapture;
 }

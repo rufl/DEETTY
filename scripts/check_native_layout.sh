@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
-host=src/gui/native_host.c
+host=src/gui/VteHost.zig
 grid=src/gui/native_grid_host.c
 grid_abi=src/gui/native_grid_abi.h
 grid_abi_zig=src/gui/NativeGridAbi.zig
-pane_info_strip=src/gui/pane_info_strip.c
+native_gtk=src/gui/NativeGtk.zig
 pane_info_model=src/terminal/PaneInfo.zig
-pty=src/terminal/pty.c
+pty=src/terminal/Pty.zig
 nocted=src/nocted/main.zig
 nocted_gtk=src/nocted/gtk.zig
 nocted_folding=src/nocted/Folding.zig
@@ -20,17 +20,21 @@ test -s "$nocted_search"
 test -s "$nocted_worker"
 test -s "$grid_abi"
 test -s "$grid_abi_zig"
-test -s "$pane_info_strip"
+test -s "$native_gtk"
 test -s "$pane_info_model"
 test -s "$pty"
 grep -F 'pub fn format(input: Input' "$pane_info_model" >/dev/null
-grep -F 'noctty_pty_process_info' "$pty" >/dev/null
-grep -F 'tcgetpgrp(fd)' "$pty" >/dev/null
-grep -F 'noctty_pane_info_strip_update' "$pane_info_strip" >/dev/null
+grep -F 'pub fn resourceSamplePair' "$pty" >/dev/null
+grep -F 'tcgetpgrp(self.master_fd)' "$pty" >/dev/null
+grep -F 'fn closePty(fd: c_int, child_pid: c_int) void' "$pty" >/dev/null
+grep -F 'std.posix.read(self.master_fd, buffer)' "$pty" >/dev/null
+grep -F 'const child_pid = std.c.fork();' "$pty" >/dev/null
+grep -F 'noctty_pane_info_strip_update' "$native_gtk" >/dev/null
 grep -F 'refresh_active_pane_info(root);' "$grid" >/dev/null
 grep -F 'grid_page_content_root' "$grid" >/dev/null
 grep -F 'Show bottom pane and resource bar' "$grid" >/dev/null
-grep -F 'pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true' src/main.zig >/dev/null
+grep -F 'pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true' src/main.zig >/dev/null
+grep -F '#define NOCTTY_DROPDOWN_RESIZE_GRIP_PX 4' "$grid" >/dev/null
 grep -F 'mark_workspace_menu_action(item);' "$grid" >/dev/null
 grep -F '"noctty-workspace-action"' "$grid" >/dev/null
 grep -F 'gtk_widget_grab_focus(active->area);' "$grid" >/dev/null
@@ -76,15 +80,15 @@ grep -F 'static gboolean launch_nocted' "$grid" >/dev/null
 grep -F 'g_spawn_async(' "$grid" >/dev/null
 grep -F 'Open NoctEd Here' "$grid" >/dev/null
 grep -F 'gtk_notebook_new' "$host" >/dev/null
-grep -F 'append_terminal_tab' "$host" >/dev/null
+grep -F 'appendTerminalTab' "$host" >/dev/null
 grep -F 'gtk_paned_new' "$host" >/dev/null
-grep -F 'NocttySecondaryContext' "$host" >/dev/null
+grep -F 'SecondaryContext' "$host" >/dev/null
 grep -F '.pane_id = pane_id + 1' "$host" >/dev/null
-grep -F 'on_secondary_spawned' "$host" >/dev/null
-grep -F 'on_secondary_contents_changed' "$host" >/dev/null
-grep -F 'on_secondary_child_exited' "$host" >/dev/null
-grep -F 'on_maintenance_timer' "$host" >/dev/null
-grep -F 'g_timeout_add(smoke != 0 ? 100 : 1000' "$host" >/dev/null
+grep -F 'onSecondarySpawned' "$host" >/dev/null
+grep -F 'onSecondaryContentsChanged' "$host" >/dev/null
+grep -F 'onSecondaryChildExited' "$host" >/dev/null
+grep -F 'onMaintenanceTimer' "$host" >/dev/null
+grep -F 'g_timeout_add(if (smoke != 0) 100 else 1000' "$host" >/dev/null
 grep -F 'secondary_userdata' "$grid" >/dev/null
 grep -F 'gtk_paned_pack2' "$grid" >/dev/null
 grep -F 'NocttyGridCreateSession' "$grid" >/dev/null
@@ -101,25 +105,30 @@ grep -F 'GTK_PACK_START' "$grid" >/dev/null
 grep -F 'GTK_PACK_END' "$grid" >/dev/null
 grep -F 'gtk_button_new_with_label("+")' "$grid" >/dev/null
 grep -F 'create_window_toolbar_controls' "$grid" >/dev/null
-grep -F 'configure_settings_window_stacking' "$grid" >/dev/null
+grep -F 'configure_overlay_window_stacking' "$grid" >/dev/null
 grep -F 'gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root->window))' "$grid" >/dev/null
 grep -F 'gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE)' "$grid" >/dev/null
-grep -F 'set_namespace(GTK_WINDOW(dialog), "noctty-settings")' "$grid" >/dev/null
+grep -F 'context, dialog, "noctty-settings"' "$grid" >/dev/null
 grep -F 'set_layer(GTK_WINDOW(root->window), 2)' "$grid" >/dev/null
 grep -F 'set_layer(GTK_WINDOW(dialog), 3)' "$grid" >/dev/null
 grep -F -- '--native-grid-settings-stacking-smoke' src/main.zig >/dev/null
 grep -F 'G_CALLBACK(on_window_settings_button_clicked)' "$grid" >/dev/null
 grep -F 'G_CALLBACK(on_window_close_button_clicked)' "$grid" >/dev/null
 grep -F 'window_toolbar_yakuake_order' "$grid" >/dev/null
-grep -F 'configure_action_button' "$grid" >/dev/null
-grep -F 'gdk_cursor_new_from_name(display, "default")' "$grid" >/dev/null
+grep -F 'pub export fn noctty_configure_action_button' "$native_gtk" >/dev/null
+grep -F 'gdk_cursor_new_from_name(display, "default")' "$native_gtk" >/dev/null
 grep -F 'gtk_widget_get_has_tooltip' "$grid" >/dev/null
 grep -F 'action_button_pointer_normal' "$grid" >/dev/null
-grep -F 'install_compact_tab_styles' "$grid" >/dev/null
-grep -F 'notebook.noctty-tab-notebook > header > tabs > tab' "$grid" >/dev/null
+grep -F 'pub export fn noctty_install_compact_tab_styles' "$native_gtk" >/dev/null
+grep -F 'notebook.noctty-tab-notebook > header > tabs > tab' "$native_gtk" >/dev/null
+! grep -F 'static void configure_action_button' "$grid" >/dev/null
 grep -F 'compact_tab_geometry' "$grid" >/dev/null
 grep -F 'compact_tabs=true' src/main.zig >/dev/null
 grep -F 'create_tab_color_menu' "$grid" >/dev/null
+grep -F 'pub export fn noctty_apply_tab_color_style' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_tab_color_uses_dark_text' "$native_gtk" >/dev/null
+! grep -F 'static void apply_tab_color_style' "$grid" >/dev/null
+! grep -F 'static gboolean tab_color_uses_dark_text' "$grid" >/dev/null
 grep -F 'noctty_grid_set_tab_color' src/main.zig >/dev/null
 grep -F 'noctty_grid_adjust_tab_color' src/main.zig >/dev/null
 grep -F 'GDK_KEY_equal' "$grid" >/dev/null
@@ -130,10 +139,10 @@ grep -F 'on_notebook_switch_page' "$grid" >/dev/null
 grep -F 'tab_active_styled' "$grid" >/dev/null
 grep -F '"noctty-tab-markup-cache"' "$grid" >/dev/null
 grep -F '"noctty-tab-tooltip-cache"' "$grid" >/dev/null
-grep -F '"noctty-tab-color-active"' "$grid" >/dev/null
+grep -F '"noctty-tab-color-active"' "$native_gtk" >/dev/null
 grep -F 'if (g_strcmp0(cached_markup, markup) != 0)' "$grid" >/dev/null
 grep -F 'if (g_strcmp0(cached_tooltip, tooltip) != 0)' "$grid" >/dev/null
-grep -F 'if (cached_rgb == rgb && (rgb == 0 || cached_active == is_active))' "$grid" >/dev/null
+grep -F 'if (cached_rgb == rgb and (rgb == 0 or cached_active == active))' "$native_gtk" >/dev/null
 grep -F 'GDK_KEY_Page_Up' "$grid" >/dev/null
 grep -F 'GDK_KEY_Page_Down' "$grid" >/dev/null
 grep -F 'GDK_KEY_ISO_Left_Tab' "$grid" >/dev/null
@@ -197,11 +206,11 @@ grep -F 'rebuild_grid_preset_page' "$grid" >/dev/null
 grep -F 'noctty_grid_apply_preset' src/main.zig >/dev/null
 grep -F 'gtk_menu_item_new_with_label("Close Tab")' "$grid" >/dev/null
 grep -F 'gtk_menu_item_new_with_label("Close Terminal")' "$grid" >/dev/null
-grep -F 'append_workspace_menu_item(menu, "Layout 2×2", 51' "$grid" >/dev/null
-grep -F 'append_workspace_menu_item(menu, "Layout 4×2", 61' "$grid" >/dev/null
+grep -F 'append_workspace_menu_item(menu, "New 2×2", 51' "$grid" >/dev/null
+grep -F 'append_workspace_menu_item(menu, "New 4×2", 61' "$grid" >/dev/null
 grep -F '61 => .four_by_two' src/main.zig >/dev/null
 grep -F 'verify_layout_preset_geometry(root, 2, 4)' "$grid" >/dev/null
-grep -F 'append_workspace_menu_item(menu, "Layout 3×3", 52' "$grid" >/dev/null
+grep -F 'append_workspace_menu_item(menu, "New 3×3", 52' "$grid" >/dev/null
 grep -F -- '--native-grid-layout-preset-smoke' src/main.zig >/dev/null
 grep -F -- '--native-grid-recursive-split-smoke' src/main.zig >/dev/null
 grep -F -- '--native-grid-click-focus-smoke' src/main.zig >/dev/null
@@ -333,7 +342,7 @@ grep -F 'descriptor_fallback=root_coalesced pane_exit_timers=0 periodic_callback
 grep -F 'descriptor_fallback=root_coalesced pane_exit_timer=false source_cleanup=centralized' src/main.zig scripts/native_grid_maintenance_smoke.sh >/dev/null
 grep -F 'xdotool windowactivate --sync "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'xdotool getactivewindow' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
-grep -F 'xdotool mousemove --sync --window "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
+grep -F 'xdotool mousemove --sync "$mid_x" "$mid_y"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'const output_buffer_bytes = 128 * 1024;' src/terminal/Session.zig >/dev/null
 grep -F 'fn putAscii(self: *Grid, bytes: []const u8) !void {' src/terminal/Vt.zig >/dev/null
 grep -F 'self.screen_origin += 1;' src/terminal/Vt.zig >/dev/null

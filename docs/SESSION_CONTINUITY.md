@@ -21,7 +21,7 @@ Run:
 ./scripts/launch_continuity_qualification.sh
 ```
 
-The self-cleaning qualification builds Debug and `ReleaseSafe`, puts exact-argv smoke-only `tmux` and `zellij` executables on a disposable `PATH`, and starts both profiles through the production `LaunchProfile` → `TerminalSession` → C PTY adapter. Each executable rejects an incorrect argument count/order, cwd, or environment; the runner requires its marker through the real PTY/VT grid, a zero exit, bounded history, and zero allocator residue.
+The self-cleaning qualification builds Debug and `ReleaseSafe`, puts exact-argv smoke-only `tmux` and `zellij` executables on a disposable `PATH`, and starts both profiles through the production `LaunchProfile` → `TerminalSession` → Zig PTY path. Each executable rejects an incorrect argument count/order, cwd, or environment; the runner requires its marker through the real PTY/VT grid, a zero exit, bounded history, and zero allocator residue.
 
 ```text
 launch_continuity_matrix debug=true release_safe=true kinds=tmux,zellij direct_argv=true create_or_attach=true production_pty=true cwd=true environment=true controlled_exit=true allocator_leak_free=true tool_shims=true installed_tools=false live_reattach=false scratch_clean=true

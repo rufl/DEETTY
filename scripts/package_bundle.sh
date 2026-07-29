@@ -20,17 +20,10 @@ case "$scratch_parent" in
   /*) ;;
   *) scratch_parent="$(pwd -P)/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.noctty-bundle.XXXXXX")
-stage="$scratch/stage"
-local_cache="$scratch/zig-local"
-global_cache="$scratch/zig-global"
-export TMPDIR="$scratch/tmp"
-export XDG_CACHE_HOME="$scratch/xdg-cache"
-archive_tmp="$out_dir/.$out_name.tmp.$$"
-checksum_tmp="$out_dir/.$out_name.sha256.tmp.$$"
-manifest_tmp="$out_dir/.$out_name.manifest.tmp.$$"
-manifest_path="$out_path.manifest"
-
+scratch=
+archive_tmp=
+checksum_tmp=
+manifest_tmp=
 cleanup() {
   if [ -n "${scratch:-}" ] && [ -d "$scratch" ]; then
     find "$scratch" -depth -delete 2>/dev/null || true
@@ -40,6 +33,17 @@ cleanup() {
   if [ -n "${manifest_tmp:-}" ]; then rm -f "$manifest_tmp"; fi
 }
 trap cleanup EXIT HUP INT TERM
+
+scratch=$(mktemp -d "$scratch_parent/.noctty-bundle.XXXXXX")
+stage="$scratch/stage"
+local_cache="$scratch/zig-local"
+global_cache="$scratch/zig-global"
+export TMPDIR="$scratch/tmp"
+export XDG_CACHE_HOME="$scratch/xdg-cache"
+archive_tmp=$(mktemp "$out_dir/.$out_name.tmp.XXXXXX")
+checksum_tmp=$(mktemp "$out_dir/.$out_name.sha256.tmp.XXXXXX")
+manifest_tmp=$(mktemp "$out_dir/.$out_name.manifest.tmp.XXXXXX")
+manifest_path="$out_path.manifest"
 
 mkdir -p "$stage" "$local_cache" "$global_cache" "$TMPDIR" "$XDG_CACHE_HOME"
 zig build --cache-dir "$local_cache" --global-cache-dir "$global_cache" test >/dev/null
@@ -147,6 +151,8 @@ license_file_count=$(wc -l < "$license_files" | tr -d ' ')
   cat "$license_files"
   printf 'license_files_end\n'
 } > "$manifest_tmp"
+
+chmod 0644 "$archive_tmp" "$checksum_tmp" "$manifest_tmp"
 
 mv -f "$archive_tmp" "$out_path"
 archive_tmp=

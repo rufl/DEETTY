@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export LC_ALL=C
 
 command -v xdotool >/dev/null 2>&1 || {
   printf 'native_grid_tab_reorder_smoke error=xdotool_not_found\n' >&2
@@ -108,13 +109,13 @@ if ! xdotool mousemove --sync "$source_x" "$source_y" 2>/dev/null || \
   exit 1
 fi
 sleep 0.10
-if ! xdotool mousemove --sync --window "$window" "$mid_x" "$mid_y" 2>/dev/null; then
+if ! xdotool mousemove --sync "$mid_x" "$mid_y" 2>/dev/null; then
   cat "$log" >&2
   printf 'native_grid_tab_reorder_smoke error=pointer_midpoint_failed\n' >&2
   exit 1
 fi
 sleep 0.12
-if ! xdotool mousemove --sync --window "$window" "$target_x" "$target_y" 2>/dev/null; then
+if ! xdotool mousemove --sync "$target_x" "$target_y" 2>/dev/null; then
   cat "$log" >&2
   printf 'native_grid_tab_reorder_smoke error=pointer_target_failed\n' >&2
   exit 1

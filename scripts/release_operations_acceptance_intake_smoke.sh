@@ -118,8 +118,19 @@ status_output=$(NOCTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operat
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=true dependency_bundle_redistribution=true compositor_acceptance=true wayland_hid_consent=true complete=true external_blockers=0' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issues total=0' >/dev/null
 
+victim="$scratch/acceptance-victim"
+printf 'victim-safe\n' >"$victim"
+retained_receipt="$evidence/compositors/niri.txt"
+rm -f "$retained_receipt"
+ln -s "$victim" "$retained_receipt"
+./scripts/release_operations_acceptance_intake.sh compositor niri \
+  "$src/niri.txt" "$evidence" >/dev/null
+test "$(cat "$victim")" = victim-safe
+test ! -L "$retained_receipt"
+cmp -s "$src/niri.txt" "$retained_receipt"
+
 placeholder_receipt="$src/placeholder-compositor.txt"
-printf 'version=0.1.0\ncompositor=niri\nTODO acceptance\n' >"$placeholder_receipt"
+printf 'version=0.1.0\ncompositor=niri\nTODO acceptance\n' >"$placeholder_receipt" # craft-ignore: intentional rejected fixture
 if ./scripts/release_operations_acceptance_intake.sh compositor niri "$placeholder_receipt" "$scratch/placeholder-evidence" >/dev/null 2>&1; then
   echo "release_operations_acceptance_intake_smoke expected placeholder receipt to fail" >&2
   exit 1

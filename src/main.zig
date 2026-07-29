@@ -2,11 +2,35 @@ const std = @import("std");
 const noctty = @import("noctty");
 const build_options = @import("build_options");
 const NativeGridAbi = @import("gui/NativeGridAbi.zig");
+const NativeGtk = @import("gui/NativeGtk.zig");
+const VteHost = @import("gui/VteHost.zig");
 
-const NativeHostEvent = enum(c_int) { started = 1, output = 2, exited = 3, input_sent = 4, resized = 5, input_marker = 6, shown = 7, hidden = 8, focused = 9, global_shortcut = 10, shortcut_registered = 11, shortcut_unregistered = 12, placement = 13, shortcut_conflict = 14, shortcut_failed = 15, shortcut_captured = 16, shortcut_recorder_shown = 17, preset_changed = 18, maintenance_tick = 19 };
-const NativeHostCallback = *const fn (?*anyopaque, u64, NativeHostEvent, c_int, u64) callconv(.c) void;
-extern fn noctty_native_host_run(argc: c_int, argv: [*c][*c]u8, pane_id: u64, shortcut_key: c_int, callback: NativeHostCallback, callback_data: ?*anyopaque, mode: c_int, smoke: c_int) c_int;
-extern fn noctty_native_control_call(action: c_int, visible_out: *c_int) c_int;
+comptime {
+    _ = NativeGtk.noctty_pane_info_strip_new;
+    _ = NativeGtk.noctty_pane_info_strip_set_enabled;
+    _ = NativeGtk.noctty_pane_info_strip_update;
+    _ = NativeGtk.noctty_pane_info_strip_text;
+    _ = NativeGtk.noctty_pane_info_strip_tooltip;
+    _ = NativeGtk.noctty_pane_info_strip_revision;
+    _ = NativeGtk.noctty_configure_action_button;
+    _ = NativeGtk.noctty_prepare_action_button_tree;
+    _ = NativeGtk.noctty_show_all_with_action_affordances;
+    _ = NativeGtk.noctty_install_compact_tab_styles;
+    _ = NativeGtk.noctty_action_button_event_window;
+    _ = NativeGtk.noctty_action_button_enter;
+    _ = NativeGtk.noctty_action_button_leave;
+    _ = NativeGtk.noctty_tab_label_from_widget;
+    _ = NativeGtk.noctty_tab_close_button_from_widget;
+    _ = NativeGtk.noctty_tab_color_uses_dark_text;
+    _ = NativeGtk.noctty_apply_tab_color_style;
+}
+
+const NativeHostEvent = VteHost.Event;
+
+export fn noctty_qt_shortcut_from_gdk(keyval: c_uint, state: c_uint) callconv(.c) c_int {
+    return VteHost.qtKeyFromGdk(keyval, state);
+}
+
 extern fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 extern fn noctty_native_grid_renderer_qualification(
     artifact_directory: [*:0]const u8,
@@ -777,11 +801,14 @@ export fn noctty_grid_pane_info(
         &cwd,
         &process_name,
     );
-    const app_sample = noctty.pty.resourceSample(0) orelse noctty.pty.ResourceSample{};
-    const pane_sample = noctty.pty.resourceSample(metadata.root_process_id) orelse noctty.pty.ResourceSample{};
+    const resources = noctty.pty.resourceSamplePair(metadata.root_process_id) orelse
+        noctty.pty.ResourceSamplePair{
+            .app = .{},
+            .pane = .{},
+        };
     const usage = pane_usage_sampler.sample(
-        app_sample,
-        pane_sample,
+        resources.app,
+        resources.pane,
         metadata.root_process_id,
     );
     const formatted = noctty.pane_info.format(.{
@@ -1638,7 +1665,7 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         };
         return;
     }
-    if (event == 77) {
+    if (event == 100) {
         bridge.editor_syntax_highlighting = exit_code > 0;
         return;
     }
@@ -2166,14 +2193,14 @@ pub fn main(init: std.process.Init) !void {
         }
         if (std.mem.eql(u8, cmd, "--hidden")) {
             var visible: c_int = 0;
-            if (noctty_native_control_call(3, &visible) == 0)
+            if (VteHost.controlCall(3, &visible) == 0)
                 try runNativeGrid(allocator, init.io, home_dir, init.environ_map, 0, .external_hidden);
             return;
         }
         if (std.mem.eql(u8, cmd, "--open-uri")) {
             if (args.len == 2) {
                 var existing_visible: c_int = 0;
-                if (noctty_native_control_call(2, &existing_visible) == 0)
+                if (VteHost.controlCall(2, &existing_visible) == 0)
                     try runNativeGrid(
                         allocator,
                         init.io,
@@ -2567,13 +2594,13 @@ pub fn main(init: std.process.Init) !void {
         return error.UnknownRenderer;
     }
     var existing_visible: c_int = 0;
-    if (noctty_native_control_call(2, &existing_visible) != 0) return;
+    if (VteHost.controlCall(2, &existing_visible) != 0) return;
     try runNativeGrid(allocator, init.io, home_dir, init.environ_map, -1, .automatic);
 }
 
 fn sendNativeControl(action: c_int, action_name: []const u8, out: anytype) !bool {
     var visible: c_int = 0;
-    const handled = noctty_native_control_call(action, &visible) != 0;
+    const handled = VteHost.controlCall(action, &visible) != 0;
     try out.print("noctty_control action={s} running={} visible={}\n", .{
         action_name,
         handled,
@@ -2583,6 +2610,7 @@ fn sendNativeControl(action: c_int, action_name: []const u8, out: anytype) !bool
 }
 
 fn runNativeHost(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8, args: []const [:0]const u8, smoke_mode: c_int, out: ?*std.Io.Writer) !void {
+    _ = args;
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
@@ -2603,8 +2631,7 @@ fn runNativeHost(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8,
         _ = try app.dispatch(.begin_shortcut_recording);
         _ = try app.dispatch(.{ .capture_shortcut = .{ .key = .f12 } });
     }
-    const native_argv: [*c][*c]u8 = @ptrCast(@constCast(args.ptr));
-    const status = noctty_native_host_run(@intCast(args.len), native_argv, pane_id, qtShortcutKey(app.config.dropdown.shortcut), nativeHostEvent, &bridge, @intFromEnum(native_mode), smoke_mode);
+    const status = VteHost.run(pane_id, qtShortcutKey(app.config.dropdown.shortcut), nativeHostEvent, &bridge, @intFromEnum(native_mode), smoke_mode);
     if (status != 0) return error.NativeHostUnavailable;
     if (bridge.callback_failed) return error.NativeHostStateSyncFailed;
     if (smoke_mode != 0) {
@@ -5179,7 +5206,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true windowed_grip=12 pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {
@@ -6758,7 +6785,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
     try session.write("printf 'NOCTTY_NOCTALIA_IPC_OK'; IFS= read -r _; exit 0\n");
     const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, 0, 0, 2, 16, null, 0, 0, 0, null, null);
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
-    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true exited=true\n", .{});
+    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_grip=4 exited=true\n", .{});
 }
 
 fn nativeGridWorkspaceActivationSmoke(
@@ -6967,7 +6994,9 @@ fn runNativeGridTwoPane(allocator: std.mem.Allocator, io: std.Io, home_dir: []co
     _ = try app.dispatch(.split_down);
     const primary_pane = app.workspace.findPane(1) orelse return error.PaneNotFound;
     const secondary_pane = app.workspace.findPane(2) orelse return error.PaneNotFound;
-    const shell_raw = environ_map.get("SHELL") orelse "/bin/sh";
+    const shell_raw = noctty.launch_profile.safeFallbackShell(
+        environ_map.get("SHELL") orelse "/bin/sh",
+    );
     const primary_cwd = try allocator.dupeZ(u8, primary_pane.cwd);
     defer allocator.free(primary_cwd);
     const secondary_cwd = try allocator.dupeZ(u8, secondary_pane.cwd);
@@ -7141,7 +7170,9 @@ fn runNativeGridActivated(
     try populateProjectPanels(&app, allocator, io);
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     const pane = app.workspace.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
-    const shell_raw = environ_map.get("SHELL") orelse "/bin/sh";
+    const shell_raw = noctty.launch_profile.safeFallbackShell(
+        environ_map.get("SHELL") orelse "/bin/sh",
+    );
     const cwd = try allocator.dupeZ(u8, pane.cwd);
     defer allocator.free(cwd);
     const shell = try allocator.dupeZ(u8, shell_raw);

@@ -66,7 +66,7 @@ check_file() {
 check_no_placeholder() {
   category=$1
   rel_path=$2
-  if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$evidence_dir/$rel_path" >/dev/null; then
+  if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$evidence_dir/$rel_path" >/dev/null; then # craft-ignore: intentional placeholder rejection
     record_issue "$category" "$rel_path" "placeholder_text"
     return 1
   fi

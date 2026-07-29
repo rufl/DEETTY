@@ -139,7 +139,8 @@ grep -F 'draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_N
 grep -F 'go/no-go sheet in `docs/PUBLIC_ALPHA_GO_NO_GO.md`' docs/PUBLIC_ALPHA_PLAN.md >/dev/null
 grep -F -- '- [x] public alpha go/no-go sheet' ROADMAP.md >/dev/null
 grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood exists.' docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
-grep -F 'gate is not claimed green until it completes outside the short agent timeout.' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
+grep -F 'verify_cleanup scratch=true cache=true install=true artifacts=true' README.md MEMORY.md docs/PUBLIC_ALPHA_PLAN.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
+grep -F -- '- [x] full `./scripts/verify.sh` status recorded' ROADMAP.md >/dev/null
 grep -F 'dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false' docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.' MEMORY.md >/dev/null
 grep -F 'GitHub issue templates are provided for ordinary bugs and alpha dogfood reports.' CONTRIBUTING.md >/dev/null
@@ -411,7 +412,7 @@ grep -F 'descriptor_fallback=root_coalesced pane_exit_timers=0 periodic_callback
 grep -F 'descriptor_fallback=root_coalesced pane_exit_timer=false source_cleanup=centralized' src/main.zig scripts/native_grid_maintenance_smoke.sh >/dev/null
 grep -F 'xdotool windowactivate --sync "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'xdotool getactivewindow' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
-grep -F 'xdotool mousemove --sync --window "$window"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
+grep -F 'xdotool mousemove --sync "$mid_x" "$mid_y"' scripts/native_grid_tab_reorder_smoke.sh >/dev/null
 grep -F 'grid_context_session_available' src/gui/native_grid_host.c >/dev/null
 grep -F 'context->retiring = 1;' src/gui/native_grid_host.c >/dev/null
 grep -F 'candidate->retiring = 1;' src/gui/native_grid_host.c >/dev/null
@@ -449,10 +450,10 @@ grep -F 'if (format_raw != 0) {' src/main.zig >/dev/null
 grep -F 'const preview_len = @min(note.len, second_len);' src/main.zig >/dev/null
 grep -F '"noctty-tab-markup-cache"' src/gui/native_grid_host.c >/dev/null
 grep -F '"noctty-tab-tooltip-cache"' src/gui/native_grid_host.c >/dev/null
-grep -F '"noctty-tab-color-active"' src/gui/native_grid_host.c >/dev/null
+grep -F '"noctty-tab-color-active"' src/gui/NativeGtk.zig >/dev/null
 grep -F 'if (g_strcmp0(cached_markup, markup) != 0)' src/gui/native_grid_host.c >/dev/null
 grep -F 'if (g_strcmp0(cached_tooltip, tooltip) != 0)' src/gui/native_grid_host.c >/dev/null
-grep -F 'if (cached_rgb == rgb && (rgb == 0 || cached_active == is_active))' src/gui/native_grid_host.c >/dev/null
+grep -F 'if (cached_rgb == rgb and (rgb == 0 or cached_active == active))' src/gui/NativeGtk.zig >/dev/null
 grep -F 'const gchar *title_ellipsis = title_prefix != NULL ? "…" : "";' src/gui/native_grid_host.c >/dev/null
 grep -F 'char selection_suffix[64] = {0};' src/gui/native_grid_host.c >/dev/null
 grep -F 'char pane_suffix[32] = {0};' src/gui/native_grid_host.c >/dev/null
@@ -511,7 +512,7 @@ grep -F -- '--native-grid-notification-smoke 2>&1 || true' scripts/native_grid_n
 grep -F 'fn applySingleEditFast(self: *TextBuffer, edit: TextEdit) !bool' src/editor/TextBuffer.zig >/dev/null
 grep -F 'if (matches.items.len == 0) {' src/editor/TextBuffer.zig >/dev/null
 grep -F 'const absent = try buffer.findAllAlloc(std.testing.failing_allocator, "missing", .{});' src/editor/TextBuffer.zig >/dev/null
-grep -F 'var captures: [TextBuffer.max_syntax_highlight_spans]c.NocttyTreeSitterCapture = undefined;' src/editor/TreeSitter.zig >/dev/null
+grep -F 'var captures: [TextBuffer.max_syntax_highlight_spans]core.Capture = undefined;' src/editor/TreeSitter.zig >/dev/null
 grep -F 'syntax_document: ?TreeSitter.Document = null,' src/app/App.zig >/dev/null
 grep -F 'fn highlightEditorSyntax(self: *App, request: Editor.SyntaxHighlightRequest)' src/app/App.zig >/dev/null
 grep -F 'pub fn importTokenColorsAlloc(allocator: std.mem.Allocator, name: []const u8, contents: []const u8) !SyntaxTheme' src/editor/SyntaxTheme.zig >/dev/null
@@ -530,12 +531,12 @@ grep -F 'uint64_t packed_cell =' src/gui/native_grid_host.c >/dev/null
 grep -F "if ((style & 128) == 0 && codepoint >= 0x20 && codepoint != ' ')" src/gui/native_grid_host.c >/dev/null
 grep -F 'if (had_output || !context->terminal_metadata_initialized)' src/gui/native_grid_host.c >/dev/null
 grep -F 'now_us - context->last_exit_poll_us >= 250 * 1000' src/gui/native_grid_host.c >/dev/null
-grep -F 'g_signal_connect(preset_combo, "changed", G_CALLBACK(on_preset_changed), context);' src/gui/native_host.c >/dev/null
-! grep -F 'G_CALLBACK(on_preset_changed), &context);' src/gui/native_host.c >/dev/null
-grep -F 'gchar *name = gtk_combo_box_text_get_active_text(combo);' src/gui/native_host.c >/dev/null
-grep -F 'g_free(name);' src/gui/native_host.c >/dev/null
-grep -F 'static void on_shortcut_dialog_destroy' src/gui/native_host.c >/dev/null
-grep -F 'clear_smoke_sources(&context);' src/gui/native_host.c >/dev/null
+grep -F 'connect(preset_combo, "changed", &onPresetChanged, ctx);' src/gui/VteHost.zig >/dev/null
+! grep -F 'connect(preset_combo, "changed", &onPresetChanged, &ctx);' src/gui/VteHost.zig >/dev/null
+grep -F 'const name = gtk_combo_box_text_get_active_text(combo) orelse return;' src/gui/VteHost.zig >/dev/null
+grep -F 'defer g_free(name);' src/gui/VteHost.zig >/dev/null
+grep -F 'fn onShortcutDialogDestroy' src/gui/VteHost.zig >/dev/null
+grep -F 'clearSmokeSources(&ctx);' src/gui/VteHost.zig >/dev/null
 grep -F 'fn prepareLiteralPasteAlloc' src/terminal/Paste.zig >/dev/null
 grep -F 'test "literal paste preparation uses one owned buffer"' src/terminal/Paste.zig >/dev/null
 grep -F 'preparePasteAlloc(session.allocator' src/main.zig >/dev/null
@@ -566,13 +567,13 @@ grep -F 'native_grid_credentialed_ssh_smoke profile=true system_client=true syst
 grep -F 'NOCTTY_SSH_SMOKE_TARGET=' scripts/native_grid_credentialed_ssh_smoke.sh >/dev/null
 grep -F 'run_smoke ./scripts/native_grid_credentialed_ssh_smoke.sh' scripts/native_release_smoke.sh >/dev/null
 grep -F 'credentialed_ssh=true settings_stacking=true' scripts/native_release_smoke.sh >/dev/null
-grep -F 'const config_version: u8 = 10;' src/config/Storage.zig >/dev/null
+grep -F 'const config_version: u8 = 11;' src/config/Storage.zig >/dev/null
 grep -F 'config_v9=true atomic=true separate_process_policy=true' src/main.zig scripts/native_grid_workspace_activation_smoke.sh BACKLOG.md docs/WORKSPACE_ACTIVATION.md >/dev/null
 grep -F 'mktemp -d "$repo_root/.noctty-workspace-activation.XXXXXX"' scripts/native_grid_workspace_activation_smoke.sh >/dev/null
 grep -F 'tmux = 3,' src/terminal/LaunchProfile.zig >/dev/null
 grep -F 'zellij = 4,' src/terminal/LaunchProfile.zig >/dev/null
-grep -F 'execlp("tmux", "tmux", "new-session", "-A", "-s", argument,' src/terminal/pty.c >/dev/null
-grep -F 'execlp("zellij", "zellij", "attach", "--create", argument,' src/terminal/pty.c >/dev/null
+grep -F 'const argv = [_:null]?[*:0]const u8{ "tmux", "new-session", "-A", "-s", options.argument.ptr };' src/terminal/Pty.zig >/dev/null
+grep -F 'const argv = [_:null]?[*:0]const u8{ "zellij", "attach", "--create", options.argument.ptr };' src/terminal/Pty.zig >/dev/null
 grep -F 'pub const max_recent_workspaces: usize = 8;' src/workspace/Activation.zig >/dev/null
 grep -F 'if (std.mem.startsWith(u8, uri, "noctty://"))' src/workspace/Activation.zig >/dev/null
 grep -F 'if (std.mem.startsWith(u8, uri, "file://"))' src/workspace/Activation.zig >/dev/null
@@ -583,7 +584,7 @@ grep -F 'save_named_launch_profile:' src/app/App.zig >/dev/null
 grep -F 'pub const max_named_profiles: usize = 8;' src/terminal/LaunchProfile.zig >/dev/null
 grep -F 'pub const Library = struct {' src/terminal/LaunchProfile.zig >/dev/null
 grep -F 'pub fn spawnProfile(' src/terminal/Session.zig >/dev/null
-grep -F 'int noctty_pty_spawn_profile(' src/terminal/pty.c >/dev/null
+grep -F 'fn spawnPty(options: SpawnOptions) !Session' src/terminal/Pty.zig >/dev/null
 grep -F 'static void on_settings_launch_apply(' src/gui/native_grid_host.c >/dev/null
 grep -F 'static void on_settings_launch_save(' src/gui/native_grid_host.c >/dev/null
 grep -F 'static void on_settings_launch_library_changed(' src/gui/native_grid_host.c >/dev/null
@@ -816,8 +817,8 @@ grep -F 'Ten applications are not universal TUI compatibility.' docs/TERMINAL_SY
 test -s src/terminal/SessionQualification.zig
 grep -F './scripts/terminal_session_qualification.sh' scripts/verify.sh docs/TECHNICAL_STATUS.md docs/TERMINAL_SESSION_QUALIFICATION.md >/dev/null
 grep -F 'terminal-session-qualification-binary' build.zig docs/ARCHITECTURE.md >/dev/null
-grep -F 'noctty_pty_process_group_alive' src/terminal/pty.c >/dev/null
-grep -F 'if (!child_running && !foreground_alive && !shell_group_alive)' src/terminal/pty.c >/dev/null
+grep -F 'fn processGroupAlive(process_group: c_int, own_group: c_int) bool' src/terminal/Pty.zig >/dev/null
+grep -F 'if (!child_running and !foreground_alive and !shell_group_alive) break;' src/terminal/Pty.zig >/dev/null
 grep -F 'if (shutdown_ns < 300 * std.time.ns_per_ms)' src/terminal/SessionQualification.zig >/dev/null
 grep -F 'const normal_readiness_poll_limit: usize = 20_000;' src/terminal/SessionQualification.zig >/dev/null
 grep -F 'terminal_session_qualification_matrix debug=true release_safe=true normal_cycles=64 forced_cycles=8 sessions_per_mode=72 total_sessions=144 allocator_leak_free=true forced_group_shutdown=true latency_percentiles=true root_memory_separate=true process_tree_memory=true scratch_clean=true' scripts/terminal_session_qualification.sh docs/TECHNICAL_STATUS.md BACKLOG.md CHANGELOG.md docs/ARCHITECTURE.md docs/COMPACT_UX.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/PERFORMANCE_ALGORITHM_RESEARCH.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md docs/TERMINAL_COMPATIBILITY_QUALIFICATION.md docs/TERMINAL_SESSION_QUALIFICATION.md >/dev/null
@@ -1154,8 +1155,11 @@ for path in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/COMPAC
   done
 done
 grep -F 'pane_resources=true' src/main.zig scripts/native_grid_compact_ux_smoke.sh docs/COMPACT_UX.md >/dev/null
-grep -F 'gtk_box_pack_end(GTK_BOX(page), strip, FALSE, FALSE, 0);' src/gui/native_grid_host.c >/dev/null
-grep -F 'final page child below the terminal layout' docs/COMPACT_UX.md >/dev/null
+grep -F 'tab_bar_above_info=true' src/main.zig scripts/native_grid_compact_ux_smoke.sh docs/COMPACT_UX.md >/dev/null
+grep -F 'gtk_box_pack_end(GTK_BOX(context.content_box), context.pane_info_strip,' src/gui/native_grid_host.c >/dev/null
+grep -F 'notebook-first/strip-last root ordering' docs/COMPACT_UX.md >/dev/null
+grep -F '#define NOCTTY_DROPDOWN_RESIZE_GRIP_PX 4' src/gui/native_grid_host.c >/dev/null
+grep -F 'dropdown_grip=4' src/main.zig scripts/native_grid_noctalia_ipc_smoke.sh >/dev/null
 grep -F 'Selected terminal tree:' src/terminal/PaneInfo.zig src/gui/native_grid_host.c >/dev/null
 grep -F 'NOCTTY process tree and selected terminal shell tree' docs/NATIVE_HOST.md >/dev/null
 grep -F 'Active-pane session identity' docs/PITCH_AUDIT.md >/dev/null

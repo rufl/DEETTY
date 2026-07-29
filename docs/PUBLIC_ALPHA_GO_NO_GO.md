@@ -53,7 +53,8 @@ session if the wording stays narrow:
 
 - say source alpha, not daily-driver release
 - say fast gate and bounded alpha gate pass
-- say full maintainer verify still needs long local completion
+- say the full single-job maintainer gate passes locally, while the bounded
+  source-alpha gate does not run that full matrix
 - say dogfood evidence has started, not completed
 - say package/signing/release operations are incomplete
 

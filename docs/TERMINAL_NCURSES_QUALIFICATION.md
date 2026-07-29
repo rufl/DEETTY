@@ -4,7 +4,7 @@ Status: bounded NCT-110/NCT-112 installed nano/less/dialog PTY/VT tranche passed
 
 ## Qualified Boundary
 
-`scripts/terminal_ncurses_qualification.sh` discovers installed nano, less, and dialog executables and builds the Zig/C-only `noctty-terminal-ncurses-qualification` runner in Debug and `ReleaseSafe`. Each application starts at 120x40 through the production `LaunchProfile`, C PTY adapter, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
+`scripts/terminal_ncurses_qualification.sh` discovers installed nano, less, and dialog executables and builds the native Zig `noctty-terminal-ncurses-qualification` runner in Debug and `ReleaseSafe`. Each application starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
 
 The isolated cases are:
 
@@ -12,7 +12,7 @@ The isolated cases are:
 - less 704 pages a disposable 201-line fixture. The retained state includes its first-page marker, styled cells, alternate screen, `q` routing, and clean exit.
 - dialog 1.3-20260107 opens a titled message box. The retained state includes the title and body, styled border cells, mouse plus SGR-mouse reporting, Enter routing, and clean exit. This build clears and uses the primary screen rather than entering the alternate screen; the qualification records and asserts that behavior instead of claiming otherwise.
 
-The external tools do not enter NOCTTY. The qualification binary and product remain native Zig plus the existing C PTY ABI, and the lane adds no product dependency, browser runtime, network request, credential, telemetry, or persisted user state.
+The external tools do not enter NOCTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request, credential, telemetry, or persisted user state.
 
 ## Retained Result
 

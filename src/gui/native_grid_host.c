@@ -14,13 +14,15 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "pane_info_strip.h"
+#include "native_gtk.h"
 #include "native_grid_abi.h"
 
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
 #endif
 #define NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX 32
+#define NOCTTY_DROPDOWN_RESIZE_GRIP_PX 4
+#define NOCTTY_WINDOW_RESIZE_GRIP_PX 12
 
 typedef enum {
     NOCTTY_CLOSE_ORIGIN_NONE = 0,
@@ -85,6 +87,7 @@ extern int noctty_grid_restore_layout_node(void *, int, int, int *, uint64_t *, 
 extern int noctty_grid_set_layout_ratio(void *, int, int, int);
 extern int noctty_grid_flush_hot_session(void *);
 extern int noctty_grid_smart_filter_tag(void *, char *, size_t);
+extern int noctty_qt_shortcut_from_gdk(guint keyval, guint state);
 
 typedef struct NocttyGridContextTag {
     GtkWidget *window;
@@ -93,6 +96,7 @@ typedef struct NocttyGridContextTag {
     GtkWidget *notebook;
     GtkWidget *revealer;
     GtkWidget *content_box;
+    GtkWidget *pane_info_strip;
     GtkWidget *resize_grip;
     GtkWidget *window_layout;
     GtkWidget *window_resize_handles[8];
@@ -257,12 +261,12 @@ typedef struct NocttyGridContextTag {
     int application_modal_depth_max;
     int application_close_preflight_active;
     int application_close_deferred;
-    int application_close_deferred_origin;
+    NocttyApplicationCloseOrigin application_close_deferred_origin;
     guint application_close_deferred_source;
     guint application_close_dwell_source;
-    int application_close_origin;
-    int application_close_accepted_origin;
-    int application_close_aborted_origin;
+    NocttyApplicationCloseOrigin application_close_origin;
+    NocttyApplicationCloseOrigin application_close_accepted_origin;
+    NocttyApplicationCloseOrigin application_close_aborted_origin;
     int application_close_modal_deferred;
     int application_close_modal_resumed;
     int application_close_editor_prompt_not_overwritten;
@@ -582,7 +586,6 @@ typedef struct NocttyGridContextTag {
     int window_resize_drag_start_height;
     int window_resize_drag_start_width_percent;
     int window_resize_drag_start_height_percent;
-    int window_resize_restore_height;
     double font_size;
     double requested_font_size;
     double font_min_size;
@@ -2252,152 +2255,6 @@ static void apply_smart_filter(NocttyGridContext *context);
 static int populate_tag_suggestions(NocttyGridContext *context,
                                     GtkComboBoxText *combo);
 
-static GdkWindow *action_button_event_window(GtkWidget *widget,
-                                             GdkEventCrossing *event) {
-    if (event != NULL && event->window != NULL) return event->window;
-    for (GtkWidget *candidate = widget; candidate != NULL;
-         candidate = gtk_widget_get_parent(candidate)) {
-        GdkWindow *window = gtk_widget_get_window(candidate);
-        if (window != NULL) return window;
-    }
-    return NULL;
-}
-
-static gboolean on_action_button_enter(GtkWidget *widget,
-                                       GdkEventCrossing *event,
-                                       gpointer user_data) {
-    (void)user_data;
-    GdkWindow *window = action_button_event_window(widget, event);
-    if (window == NULL) return FALSE;
-    GdkDisplay *display = gdk_window_get_display(window);
-    GdkCursor *cursor = gdk_cursor_new_from_name(display, "default");
-    if (cursor == NULL)
-        cursor = gdk_cursor_new_for_display(display, GDK_ARROW);
-    if (cursor == NULL) return FALSE;
-    gdk_window_set_cursor(window, cursor);
-    g_object_unref(cursor);
-    g_object_set_data(G_OBJECT(widget), "noctty-action-pointer-active",
-                      GINT_TO_POINTER(1));
-    g_object_set_data(G_OBJECT(widget), "noctty-action-pointer-name",
-                      (gpointer)"default");
-    return FALSE;
-}
-
-static gboolean on_action_button_leave(GtkWidget *widget,
-                                       GdkEventCrossing *event,
-                                       gpointer user_data) {
-    (void)user_data;
-    GdkWindow *window = action_button_event_window(widget, event);
-    if (window != NULL) gdk_window_set_cursor(window, NULL);
-    g_object_set_data(G_OBJECT(widget), "noctty-action-pointer-active", NULL);
-    return FALSE;
-}
-
-static gchar *button_fallback_tooltip_alloc(GtkWidget *button) {
-    gchar *tooltip = gtk_widget_get_tooltip_text(button);
-    if (tooltip != NULL && tooltip[0] != '\0') return tooltip;
-    g_free(tooltip);
-
-    const gchar *source = gtk_button_get_label(GTK_BUTTON(button));
-    if (source == NULL || source[0] == '\0') {
-        AtkObject *accessible = gtk_widget_get_accessible(button);
-        source = accessible != NULL ? atk_object_get_name(accessible) : NULL;
-    }
-    if (source == NULL || source[0] == '\0') return NULL;
-
-    GString *plain = g_string_new(NULL);
-    for (const gchar *cursor = source; *cursor != '\0'; cursor++) {
-        if (*cursor != '_') {
-            g_string_append_c(plain, *cursor);
-            continue;
-        }
-        if (cursor[1] == '_') {
-            g_string_append_c(plain, '_');
-            cursor++;
-        }
-    }
-    g_strstrip(plain->str);
-    if (plain->len == 0) {
-        g_string_free(plain, TRUE);
-        return NULL;
-    }
-    return g_string_free(plain, FALSE);
-}
-
-static void configure_action_button(GtkWidget *button,
-                                    const gchar *tooltip) {
-    if (!GTK_IS_BUTTON(button)) return;
-    if (tooltip != NULL && tooltip[0] != '\0') {
-        gtk_widget_set_tooltip_text(button, tooltip);
-    } else {
-        gchar *fallback = button_fallback_tooltip_alloc(button);
-        if (fallback != NULL) {
-            gtk_widget_set_tooltip_text(button, fallback);
-            g_free(fallback);
-        }
-    }
-    if (g_object_get_data(G_OBJECT(button),
-                          "noctty-action-affordance") != NULL)
-        return;
-    gtk_widget_add_events(button,
-                          GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
-    g_signal_connect(button, "enter-notify-event",
-                     G_CALLBACK(on_action_button_enter), NULL);
-    g_signal_connect(button, "leave-notify-event",
-                     G_CALLBACK(on_action_button_leave), NULL);
-    g_object_set_data(G_OBJECT(button), "noctty-action-affordance",
-                      GINT_TO_POINTER(1));
-}
-
-static void prepare_action_button_tree(GtkWidget *widget) {
-    if (widget == NULL) return;
-    if (GTK_IS_BUTTON(widget)) configure_action_button(widget, NULL);
-    if (!GTK_IS_CONTAINER(widget)) return;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
-    for (GList *item = children; item != NULL; item = item->next)
-        prepare_action_button_tree(GTK_WIDGET(item->data));
-    g_list_free(children);
-}
-
-static void show_all_with_action_affordances(GtkWidget *widget) {
-    prepare_action_button_tree(widget);
-    gtk_widget_show_all(widget);
-}
-
-static void install_compact_tab_styles(GtkWidget *notebook) {
-    if (!GTK_IS_NOTEBOOK(notebook)) return;
-    static const gchar css[] =
-        "notebook.noctty-tab-notebook > header { margin: 0; padding: 4px 5px 0 5px; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; background: #11151d; }"
-        "notebook.noctty-tab-notebook > header > tabs { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; }"
-        "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 2px 8px 3px 8px; border-width: 0; border-radius: 9px 9px 0 0; box-shadow: none; min-width: 0; min-height: 0; background: #1a202b; color: #aeb7c6; }"
-        "notebook.noctty-tab-notebook > header > tabs > tab:checked { background: #0b0d12; color: #e5e9f0; box-shadow: inset 0 2px #8fb8ff; }"
-        "notebook.noctty-tab-notebook > header > tabs > tab:hover { background: #242c3a; color: #ffffff; }"
-        ".noctty-tab-content, .noctty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }"
-        "button.noctty-tab-close { margin: 0; padding: 0; border-width: 0; border-radius: 8px; box-shadow: none; min-width: 18px; min-height: 18px; }"
-        "button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 20px; min-height: 20px; }"
-        "entry.noctty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }"
-        ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }";
-    GtkCssProvider *provider = gtk_css_provider_new();
-    GError *error = NULL;
-    gtk_css_provider_load_from_data(provider, css, -1, &error);
-    if (error != NULL) {
-        g_printerr("native_grid_compact_tab_css_failed message=%s\n",
-                   error->message);
-        g_clear_error(&error);
-        g_object_unref(provider);
-        return;
-    }
-    GdkScreen *screen = gtk_widget_get_screen(notebook);
-    if (screen == NULL) screen = gdk_screen_get_default();
-    if (screen != NULL)
-        gtk_style_context_add_provider_for_screen(
-            screen, GTK_STYLE_PROVIDER(provider),
-            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    gtk_style_context_add_class(gtk_widget_get_style_context(notebook),
-                                "noctty-tab-notebook");
-    g_object_unref(provider);
-}
-
 static gboolean clear_smart_filter(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->event_data == NULL || noctty_grid_set_smart_filter(root->event_data, "", 0) != 0)
@@ -2692,7 +2549,6 @@ static gboolean emit_workspace_smoke_tab(gpointer user_data) {
 
 static const char *title_overflow_smoke_text = "A deliberately long shell title for native overflow verification";
 static const char *dirty_smoke_title = "Dirty native tab";
-static const char *reorder_smoke_path = "/tmp/noctty-native-grid-reorder.nocttyws";
 static void open_command_palette(NocttyGridContext *context);
 static void on_palette_search_activate(GtkEntry *entry, gpointer user_data);
 
@@ -3644,7 +3500,7 @@ static void toggle_grid_window(NocttyGridContext *context) {
         if (root->revealer != NULL && root->dropdown_animation_ms > 0) {
             gtk_revealer_set_reveal_child(GTK_REVEALER(root->revealer), FALSE);
             if (root->hide_source != 0) g_source_remove(root->hide_source);
-            root->hide_source = g_timeout_add(root->dropdown_animation_ms,
+            root->hide_source = g_timeout_add((guint)root->dropdown_animation_ms,
                                               finish_grid_hide, root);
         } else gtk_widget_hide(root->window);
     } else {
@@ -3830,32 +3686,6 @@ static int register_grid_control(NocttyGridContext *context) {
     begin_grid_dbus_operation(root);
     g_bus_get(G_BUS_TYPE_SESSION, root->dbus_cancellable,
               on_grid_control_bus_ready, root);
-    return 1;
-}
-
-int noctty_native_control_call(int action, int *visible_out) {
-    const char *method = action == 1 ? "Toggle" :
-                         action == 2 ? "Show" :
-                         action == 3 ? "Hide" : "GetState";
-    GError *error = NULL;
-    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &error);
-    if (bus == NULL) {
-        if (error != NULL) g_error_free(error);
-        return 0;
-    }
-    GVariant *reply = g_dbus_connection_call_sync(
-        bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY",
-        "com.noctty.NOCTTY.Control", method, NULL, G_VARIANT_TYPE("(b)"),
-        G_DBUS_CALL_FLAGS_NONE, 2000, NULL, &error);
-    g_object_unref(bus);
-    if (reply == NULL) {
-        if (error != NULL) g_error_free(error);
-        return 0;
-    }
-    gboolean visible = FALSE;
-    g_variant_get(reply, "(b)", &visible);
-    g_variant_unref(reply);
-    if (visible_out != NULL) *visible_out = visible ? 1 : 0;
     return 1;
 }
 
@@ -4612,39 +4442,6 @@ static void unregister_grid_shortcut(NocttyGridContext *context) {
     context->shortcut_registered = 0;
 }
 
-static int qt_shortcut_from_grid_event(GdkEventKey *event) {
-    guint keyval = gdk_keyval_to_upper(event->keyval);
-    int key = 0;
-    if (keyval >= GDK_KEY_F1 && keyval <= GDK_KEY_F12)
-        key = 0x01000030 + (keyval - GDK_KEY_F1);
-    else if (keyval >= GDK_KEY_A && keyval <= GDK_KEY_Z)
-        key = 'A' + (keyval - GDK_KEY_A);
-    else if (keyval >= GDK_KEY_0 && keyval <= GDK_KEY_9)
-        key = '0' + (keyval - GDK_KEY_0);
-    else if (keyval == GDK_KEY_grave) key = '`';
-    else if (keyval == GDK_KEY_Escape) key = 0x01000000;
-    else if (keyval == GDK_KEY_Tab) key = 0x01000001;
-    else if (keyval == GDK_KEY_BackSpace) key = 0x01000003;
-    else if (keyval == GDK_KEY_Return || keyval == GDK_KEY_KP_Enter) key = 0x01000005;
-    else if (keyval == GDK_KEY_space) key = 0x20;
-    else if (keyval == GDK_KEY_Insert) key = 0x01000006;
-    else if (keyval == GDK_KEY_Delete) key = 0x01000007;
-    else if (keyval == GDK_KEY_Home) key = 0x01000010;
-    else if (keyval == GDK_KEY_End) key = 0x01000011;
-    else if (keyval == GDK_KEY_Left) key = 0x01000012;
-    else if (keyval == GDK_KEY_Up) key = 0x01000013;
-    else if (keyval == GDK_KEY_Right) key = 0x01000014;
-    else if (keyval == GDK_KEY_Down) key = 0x01000015;
-    else if (keyval == GDK_KEY_Page_Up) key = 0x01000016;
-    else if (keyval == GDK_KEY_Page_Down) key = 0x01000017;
-    else return 0;
-    if (event->state & GDK_SHIFT_MASK) key |= 0x02000000;
-    if (event->state & GDK_CONTROL_MASK) key |= 0x04000000;
-    if (event->state & GDK_MOD1_MASK) key |= 0x08000000;
-    if (event->state & GDK_SUPER_MASK) key |= 0x10000000;
-    return key;
-}
-
 static void on_grid_shortcut_recorder_destroy(GtkWidget *widget,
                                                gpointer user_data) {
     (void)widget;
@@ -4661,7 +4458,7 @@ static gboolean on_grid_shortcut_capture(GtkWidget *widget, GdkEventKey *event,
         gtk_widget_destroy(root->shortcut_recorder_dialog);
         return TRUE;
     }
-    int key = qt_shortcut_from_grid_event(event);
+    int key = noctty_qt_shortcut_from_gdk(event->keyval, event->state);
     int base = key & 0x01ffffff;
     gboolean function_key = base >= 0x01000030 && base <= 0x0100003b;
     gboolean has_modifier = (key & 0x1e000000) != 0;
@@ -4882,6 +4679,8 @@ static void update_status_tooltip(NocttyGridContext *context, const gchar *statu
         G_OBJECT(context->area), "noctty-pane-tooltip-cache");
     if (g_strcmp0(cached, text) != 0) {
         gtk_widget_set_tooltip_text(context->area, text);
+        AtkObject *accessible = gtk_widget_get_accessible(context->area);
+        if (accessible != NULL) atk_object_set_description(accessible, text);
         g_object_set_data_full(G_OBJECT(context->area),
                                "noctty-pane-tooltip-cache",
                                g_strdup(text), g_free);
@@ -4977,9 +4776,6 @@ static NocttyGridContext *grid_context_for_page(NocttyGridContext *context,
     return NULL;
 }
 
-static GtkWidget *tab_close_button_from_widget(GtkWidget *tab_widget);
-static GtkWidget *tab_label_from_widget(GtkWidget *tab_widget);
-
 static const gchar *tab_color_preset_name(int preset) {
     static const gchar *names[] = {
         "Red", "Orange", "Yellow", "Green",
@@ -4995,89 +4791,6 @@ static const gchar *tab_color_shade_name(int shade) {
     if (shade >= 3) return "much lighter";
     if (shade > 0) return "lighter";
     return "base shade";
-}
-
-static gboolean tab_color_uses_dark_text(uint32_t rgb) {
-    guint64 red = (rgb >> 16) & 0xff;
-    guint64 green = (rgb >> 8) & 0xff;
-    guint64 blue = rgb & 0xff;
-    guint64 luminance = red * red * 2126 +
-        green * green * 7152 + blue * blue * 722;
-    return luminance >= 116394750;
-}
-
-static void remove_tab_color_provider(GtkWidget *tab_widget,
-                                      GtkWidget *content,
-                                      GtkWidget *label,
-                                      GtkWidget *close) {
-    GtkCssProvider *provider = tab_widget != NULL
-        ? g_object_get_data(G_OBJECT(tab_widget),
-                            "noctty-tab-color-provider")
-        : NULL;
-    if (provider == NULL) return;
-    GtkWidget *widgets[] = { content, label, close };
-    for (guint index = 0; index < G_N_ELEMENTS(widgets); index++) {
-        if (widgets[index] != NULL)
-            gtk_style_context_remove_provider(
-                gtk_widget_get_style_context(widgets[index]),
-                GTK_STYLE_PROVIDER(provider));
-    }
-    g_object_set_data(G_OBJECT(tab_widget), "noctty-tab-color-provider", NULL);
-}
-
-static void apply_tab_color_style(GtkWidget *tab_widget, uint32_t rgb,
-                                  gboolean is_active) {
-    if (!GTK_IS_BIN(tab_widget)) return;
-    uint32_t cached_rgb = GPOINTER_TO_UINT(g_object_get_data(
-        G_OBJECT(tab_widget), "noctty-tab-color-rgb"));
-    gboolean cached_active = GPOINTER_TO_INT(g_object_get_data(
-        G_OBJECT(tab_widget), "noctty-tab-color-active")) != 0;
-    if (cached_rgb == rgb && (rgb == 0 || cached_active == is_active))
-        return;
-    GtkWidget *content = gtk_bin_get_child(GTK_BIN(tab_widget));
-    GtkWidget *label = tab_label_from_widget(tab_widget);
-    GtkWidget *close = tab_close_button_from_widget(tab_widget);
-    remove_tab_color_provider(tab_widget, content, label, close);
-    g_object_set_data(G_OBJECT(tab_widget), "noctty-tab-color-rgb",
-                      GUINT_TO_POINTER(rgb));
-    g_object_set_data(G_OBJECT(tab_widget), "noctty-tab-color-active",
-                      GINT_TO_POINTER(is_active ? 1 : 0));
-    if (rgb == 0 || content == NULL) return;
-
-    const gchar *foreground = tab_color_uses_dark_text(rgb)
-        ? "#11151b" : "#ffffff";
-    gchar css[768];
-    g_snprintf(
-        css, sizeof(css),
-        ".noctty-tab-content { background-color: #%06x; color: %s; "
-        "border-radius: 9px 9px 0 0; box-shadow: inset 0 %s 0 rgba(255,255,255,%s); }"
-        ".noctty-tab-label { color: %s; }"
-        "button.noctty-tab-close { color: %s; background: transparent; border-radius: 8px; }",
-        rgb & 0xffffff, foreground,
-        is_active ? "-2px" : "-1px",
-        is_active ? "0.42" : "0.20",
-        foreground, foreground);
-    GtkCssProvider *provider = gtk_css_provider_new();
-    GError *error = NULL;
-    gtk_css_provider_load_from_data(provider, css, -1, &error);
-    if (error != NULL) {
-        g_printerr("native_grid_tab_color_css_failed message=%s\n",
-                   error->message);
-        g_clear_error(&error);
-        g_object_unref(provider);
-        return;
-    }
-    GtkWidget *widgets[] = { content, label, close };
-    for (guint index = 0; index < G_N_ELEMENTS(widgets); index++) {
-        if (widgets[index] != NULL)
-            gtk_style_context_add_provider(
-                gtk_widget_get_style_context(widgets[index]),
-                GTK_STYLE_PROVIDER(provider),
-                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 2);
-    }
-    g_object_set_data_full(G_OBJECT(tab_widget),
-                           "noctty-tab-color-provider", provider,
-                           g_object_unref);
 }
 
 static gchar *current_tab_title_alloc(NocttyGridContext *context) {
@@ -5523,39 +5236,6 @@ static void on_notebook_drag_end(GtkWidget *widget, GdkDragContext *drag,
         schedule_grid_hot_session_flush(root);
 }
 
-static GtkWidget *tab_label_from_widget(GtkWidget *tab_widget) {
-    if (!GTK_IS_BIN(tab_widget)) return NULL;
-    GtkWidget *content = gtk_bin_get_child(GTK_BIN(tab_widget));
-    if (GTK_IS_LABEL(content)) return content;
-    if (!GTK_IS_BOX(content)) return NULL;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(content));
-    GtkWidget *label = NULL;
-    for (GList *item = children; item != NULL; item = item->next) {
-        if (GTK_IS_LABEL(item->data)) {
-            label = item->data;
-            break;
-        }
-    }
-    g_list_free(children);
-    return label;
-}
-
-static GtkWidget *tab_close_button_from_widget(GtkWidget *tab_widget) {
-    if (!GTK_IS_BIN(tab_widget)) return NULL;
-    GtkWidget *content = gtk_bin_get_child(GTK_BIN(tab_widget));
-    if (!GTK_IS_BOX(content)) return NULL;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(content));
-    GtkWidget *button = NULL;
-    for (GList *item = children; item != NULL; item = item->next) {
-        if (GTK_IS_BUTTON(item->data)) {
-            button = item->data;
-            break;
-        }
-    }
-    g_list_free(children);
-    return button;
-}
-
 static void on_tab_close_button_clicked(GtkButton *button, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *page = g_object_get_data(G_OBJECT(button), "noctty-tab-page");
@@ -5579,6 +5259,9 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
 
     gtk_widget_set_size_request(close, 18, 18);
     configure_action_button(close, "Close Tab");
+    AtkObject *close_accessible = gtk_widget_get_accessible(close);
+    if (close_accessible != NULL)
+        atk_object_set_name(close_accessible, "Close Tab");
     gtk_style_context_add_class(gtk_widget_get_style_context(content),
                                 "noctty-tab-content");
     gtk_style_context_add_class(gtk_widget_get_style_context(label),
@@ -5796,7 +5479,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         : close_allocation.height;
     root->compact_tab_action_extent = MAX(action_allocation.width,
                                           action_allocation.height);
-    gint strip_limit = MAX(24, root->compact_tab_height + 4);
+    gint strip_limit = MAX(24, root->compact_tab_height * 3 / 2 + 1);
     root->compact_tab_geometry = page_count == 2 && horizontal &&
         close != NULL && gtk_widget_get_visible(close) &&
         gtk_widget_get_mapped(close) &&
@@ -6471,6 +6154,7 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->notebook = root->notebook;
     created->revealer = root->revealer;
     created->content_box = root->content_box;
+    created->pane_info_strip = root->pane_info_strip;
     created->resize_grip = root->resize_grip;
     created->window_layout = root->window_layout;
     created->contexts = root->contexts;
@@ -6581,9 +6265,8 @@ static GtkWidget *pane_info_strip_for_page(GtkWidget *page) {
 static GtkWidget *create_grid_page(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    GtkWidget *strip = noctty_pane_info_strip_new(root->show_pane_info);
-    g_object_set_data(G_OBJECT(page), "noctty-pane-info-strip", strip);
-    gtk_box_pack_end(GTK_BOX(page), strip, FALSE, FALSE, 0);
+    g_object_set_data(G_OBJECT(page), "noctty-pane-info-strip",
+                      root->pane_info_strip);
     return page;
 }
 
@@ -7267,7 +6950,7 @@ static gboolean dispatch_deferred_grid_application_close(gpointer user_data) {
         root->application_close_preflight_active)
         return G_SOURCE_REMOVE;
     NocttyApplicationCloseOrigin origin =
-        (NocttyApplicationCloseOrigin)root->application_close_deferred_origin;
+        root->application_close_deferred_origin;
     root->application_close_deferred = 0;
     root->application_close_deferred_origin = NOCTTY_CLOSE_ORIGIN_NONE;
     root->application_close_modal_resumed = 1;
@@ -7357,8 +7040,8 @@ static gboolean close_grid_application_idle(gpointer user_data) {
             ? 1 : noctty_grid_close_session(candidate->userdata,
                                              root->event_data);
         if (close_status > 1) candidate->userdata = NULL;
-        stopped_sessions += already_exited || close_status > 0;
-        already_exited_sessions += already_exited;
+        if (already_exited || close_status > 0) stopped_sessions++;
+        if (already_exited) already_exited_sessions++;
         if (candidate->peer != NULL) {
             if (candidate->peer->peer == candidate)
                 candidate->peer->peer = NULL;
@@ -7933,26 +7616,26 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         }
 
         NocttyGridContext *extras[15] = {0};
-        guint extra = 0;
+        guint collected = 0;
         for (gint index = (gint)root->contexts->len - 1;
-             index >= 0 && extra < extra_count; index--) {
+             index >= 0 && collected < extra_count; index--) {
             NocttyGridContext *candidate = g_ptr_array_index(
                 root->contexts, (guint)index);
             if (candidate != context && candidate->active &&
                 !candidate->exited && candidate->page == page &&
                 candidate->area != NULL && candidate->pane_id <= G_MAXINT)
-                extras[extra++] = candidate;
+                extras[collected++] = candidate;
         }
-        if (extra != extra_count) return FALSE;
+        if (collected != extra_count) return FALSE;
         NocttyGridContext *destination = create_grid_context(context, 20);
         if (destination == NULL || !add_grid_tab(context, destination)) return FALSE;
         start_grid_context(destination);
-        for (guint extra = 0; extra < extra_count; extra++) {
+        for (guint extra_index = 0; extra_index < extra_count; extra_index++) {
             if (context->event != NULL)
                 context->event(context->event_data, destination->pane_id, 55,
-                               (int)extras[extra]->pane_id,
+                               (int)extras[extra_index]->pane_id,
                                (uint64_t)(g_get_monotonic_time() / 1000));
-            if (!move_grid_context(extras[extra], destination)) return FALSE;
+            if (!move_grid_context(extras[extra_index], destination)) return FALSE;
         }
         if (!close_grid_pane(destination)) return FALSE;
         if (context->event != NULL)
@@ -8251,7 +7934,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_w || event->keyval == GDK_KEY_W)) {
-        NocttyGridContext *root = root_grid_context(context);
         gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
         GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
         root->tab_shortcut_close = close_grid_tab(root, page);
@@ -8259,7 +7941,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_r || event->keyval == GDK_KEY_R)) {
-        NocttyGridContext *root = root_grid_context(context);
         gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
         GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
         open_tab_rename(root, page);
@@ -8321,14 +8002,16 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
         char text[16384];
-        int length = context->copy(context->userdata, text, sizeof(text) - 1,
-                                   context->selecting ? context->selection_start_column : -1,
-                                   context->selecting ? context->selection_start_row : -1,
-                                   context->selecting ? context->selection_end_column : -1,
-                                   context->selecting ? context->selection_end_row : -1);
-        if (length > 0) {
-            text[length] = '\0';
-            gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, length);
+        int copied_length = context->copy(
+            context->userdata, text, sizeof(text) - 1,
+            context->selecting ? context->selection_start_column : -1,
+            context->selecting ? context->selection_start_row : -1,
+            context->selecting ? context->selection_end_column : -1,
+            context->selecting ? context->selection_end_row : -1);
+        if (copied_length > 0) {
+            text[copied_length] = '\0';
+            gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
+                                   text, copied_length);
         }
         return TRUE;
     }
@@ -8798,7 +8481,7 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
         set_margin(GTK_WINDOW(root->window), 1, horizontal_remainder);
         set_margin(GTK_WINDOW(root->window), 3,
                    MAX(0, geometry.height - height));
-        gtk_widget_set_size_request(root->window, -1, -1);
+        gtk_widget_set_size_request(root->window, width, height);
     } else if (root->mode == 2) {
         set_namespace(GTK_WINDOW(root->window), "noctty-zen");
         for (int edge = 0; edge < 4; edge++)
@@ -8810,23 +8493,14 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
                                     MAX(480, geometry.width * 80 / 100),
                                     MAX(320, geometry.height * 75 / 100));
     }
-    gtk_window_resize(GTK_WINDOW(root->window), 1, 1);
 }
 
 static int configure_grid_layer_shell(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->mode != 0 ||
         !GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(root->window))) return 0;
-    const char *override = g_getenv("NOCTTY_LAYER_SHELL_LIBRARY");
-    if (override != NULL && override[0] != '\0')
-        root->layer_shell_library = dlopen(override, RTLD_NOW | RTLD_LOCAL);
-    if (root->layer_shell_library == NULL)
-        root->layer_shell_library = dlopen("libgtk-layer-shell.so.0",
-                                           RTLD_NOW | RTLD_LOCAL);
-    if (root->layer_shell_library == NULL)
-        root->layer_shell_library = dlopen(
-            "vendor/gtk-layer-shell/usr/lib/libgtk-layer-shell.so.0.10.1",
-            RTLD_NOW | RTLD_LOCAL);
+    root->layer_shell_library = dlopen("libgtk-layer-shell.so.0",
+                                       RTLD_NOW | RTLD_LOCAL);
     if (root->layer_shell_library == NULL) return 0;
 
     NocttyLayerIsSupported is_supported =
@@ -8995,14 +8669,7 @@ static void apply_pane_info_visibility(NocttyGridContext *context,
          index < root->contexts->len; index++)
         ((NocttyGridContext *)g_ptr_array_index(root->contexts, index))
             ->show_pane_info = enabled != 0;
-    for (gint index = 0; root->notebook != NULL &&
-         index < gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
-         index++) {
-        GtkWidget *page = gtk_notebook_get_nth_page(
-            GTK_NOTEBOOK(root->notebook), index);
-        noctty_pane_info_strip_set_enabled(
-            pane_info_strip_for_page(page), enabled);
-    }
+    noctty_pane_info_strip_set_enabled(root->pane_info_strip, enabled);
     if (enabled) refresh_active_pane_info(root);
 }
 
@@ -9032,7 +8699,8 @@ static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_dat
     sync_compact_setting(context, 2, value);
     NocttyGridContext *root = root_grid_context(context);
     if (root->revealer != NULL)
-        gtk_revealer_set_transition_duration(GTK_REVEALER(root->revealer), value);
+        gtk_revealer_set_transition_duration(GTK_REVEALER(root->revealer),
+                                             (guint)value);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 72, value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
@@ -10266,7 +9934,7 @@ static gboolean confirm_grid_application_close(NocttyGridContext *context) {
         }
 
         NocttyApplicationCloseOrigin aborted_origin =
-            (NocttyApplicationCloseOrigin)root->application_close_origin;
+            root->application_close_origin;
         root->application_close_aborted_origin = aborted_origin;
         root->application_close_requested = 0;
         root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
@@ -10296,7 +9964,7 @@ static gboolean confirm_grid_application_close(NocttyGridContext *context) {
     guint busy_count = foreground_process_count(root, NULL);
     if (!confirm_terminal_process_close(root, "application", busy_count)) {
         NocttyApplicationCloseOrigin aborted_origin =
-            (NocttyApplicationCloseOrigin)root->application_close_origin;
+            root->application_close_origin;
         root->application_close_aborted_origin = aborted_origin;
         root->application_close_requested = 0;
         root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
@@ -10481,10 +10149,11 @@ static void show_editor_document(NocttyGridContext *context,
             cursor = newline + 1;
         }
         context->syntax_highlighting_applied = context->syntax_highlight_span_count > 0;
-        if (context->event != NULL)
-            context->event(context->event_data, context->pane_id, 77,
+        if (context->event != NULL) {
+            context->event(context->event_data, context->pane_id, 100,
                            context->syntax_highlight_span_count,
                            (uint64_t)(g_get_monotonic_time() / 1000));
+        }
     }
     gtk_text_view_set_editable(GTK_TEXT_VIEW(context->editor_view), editable);
     gchar *display_path = g_filename_display_name(path);
@@ -11461,7 +11130,7 @@ static void apply_terminal_find(NocttyGridContext *root) {
         target->selecting = 1;
         char status[96];
         g_snprintf(status, sizeof(status), "%zu / %d  ·  Enter for previous",
-                   root->find_ordinal % MAX(1, matches) + 1,
+                   root->find_ordinal % (size_t)MAX(1, matches) + 1,
                    matches);
         gtk_label_set_text(GTK_LABEL(root->find_status), status);
     } else {
@@ -11953,9 +11622,11 @@ static gboolean inspect_compact_pane_info_smoke(gpointer user_data) {
     const char *text = noctty_pane_info_strip_text(strip);
     const char *tooltip = noctty_pane_info_strip_tooltip(strip);
 
-    GList *children = gtk_container_get_children(GTK_CONTAINER(page));
+    GList *children = gtk_container_get_children(
+        GTK_CONTAINER(root->content_box));
     root->compact_pane_info_positioned =
-        children != NULL && GTK_WIDGET(g_list_last(children)->data) == strip;
+        children != NULL && GTK_WIDGET(children->data) == root->notebook &&
+        GTK_WIDGET(g_list_last(children)->data) == strip;
     g_list_free(children);
     root->compact_pane_info_rendered = strip != NULL &&
         gtk_widget_get_visible(strip) && gtk_widget_get_mapped(strip) &&
@@ -12256,9 +11927,9 @@ static gboolean action_button_pointer_is_normal(GtkWidget *button,
                                                 int *cursor_type_out) {
     if (cursor_type_out != NULL) *cursor_type_out = -1;
     if (!GTK_IS_BUTTON(button)) return FALSE;
-    GdkWindow *window = action_button_event_window(button, NULL);
+    GdkWindow *window = noctty_action_button_event_window(button);
     if (window == NULL) return FALSE;
-    (void)on_action_button_enter(button, NULL, NULL);
+    (void)noctty_action_button_enter(button);
     GdkCursor *cursor = gdk_window_get_cursor(window);
     if (cursor_type_out != NULL && cursor != NULL)
         *cursor_type_out = (int)gdk_cursor_get_cursor_type(cursor);
@@ -12271,7 +11942,7 @@ static gboolean action_button_pointer_is_normal(GtkWidget *button,
          gdk_cursor_get_cursor_type(cursor) == GDK_CURSOR_IS_PIXMAP ||
          gdk_cursor_get_cursor_type(cursor) == GDK_ARROW ||
          gdk_cursor_get_cursor_type(cursor) == GDK_LEFT_PTR);
-    (void)on_action_button_leave(button, NULL, NULL);
+    (void)noctty_action_button_leave(button);
     return normal;
 }
 
@@ -12322,8 +11993,8 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
                        index,
                        GTK_IS_BUTTON(action_buttons[index]),
                        action_buttons[index] != NULL &&
-                           action_button_event_window(action_buttons[index],
-                                                      NULL) != NULL,
+                           noctty_action_button_event_window(
+                               action_buttons[index]) != NULL,
                        cursor_type,
                        action_buttons[index] != NULL &&
                            g_object_get_data(G_OBJECT(action_buttons[index]),
@@ -12979,10 +12650,10 @@ static gboolean continue_tab_close_smoke(gpointer user_data) {
     root->tab_context_menu_survived = 1;
     GtkWidget *page = g_object_get_data(G_OBJECT(close), "noctty-tab-page");
     NocttyGridContext *closing = grid_context_for_page(root, page);
-    if (closing != NULL)
-        g_timeout_add(25, probe_retired_tab_callback, closing);
     gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), close);
     gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), close, TRUE);
+    if (closing != NULL && !closing->heap_allocated)
+        g_timeout_add(25, probe_retired_tab_callback, closing);
     g_timeout_add(150, finish_tab_close_smoke, root);
     return G_SOURCE_REMOVE;
 }
@@ -14320,6 +13991,14 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
     g_object_unref(cursor);
 }
 
+static void finish_window_resize_drag(NocttyGridContext *root) {
+    int index = root->window_resize_drag_handle;
+    root->window_resize_drag_active = 0;
+    if (index >= 0 && index < 8 &&
+        gtk_widget_has_grab(root->window_resize_handles[index]))
+        gtk_grab_remove(root->window_resize_handles[index]);
+}
+
 static gboolean on_window_resize_handle_button(GtkWidget *widget,
                                                 GdkEventButton *event,
                                                 gpointer user_data) {
@@ -14332,10 +14011,11 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
     if (!root->layer_shell_active) {
         gtk_window_begin_resize_drag(
             GTK_WINDOW(root->window), noctty_resize_edges[index],
-            event->button, (gint)event->x_root, (gint)event->y_root,
+            (gint)event->button, (gint)event->x_root, (gint)event->y_root,
             event->time);
         return TRUE;
     }
+    finish_window_resize_drag(root);
     root->window_resize_drag_active = 1;
     root->window_resize_drag_handle = index;
     root->window_resize_drag_start_x = event->x_root;
@@ -14343,27 +14023,6 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
     gtk_window_get_size(GTK_WINDOW(root->window),
                         &root->window_resize_drag_start_width,
                         &root->window_resize_drag_start_height);
-    int configured_height = root->dropdown_height_px > 0
-        ? root->dropdown_height_px
-        : root->window_resize_drag_start_height;
-    if (configured_height > NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX)
-        root->window_resize_restore_height = configured_height;
-    else if (root->mode == 0 && index >= 5) {
-        GdkMonitor *monitor = grid_monitor_for_window(root->window);
-        GdkRectangle geometry = {0, 0, 900, 420};
-        if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
-        int height = root->window_resize_restore_height >
-                NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX
-            ? root->window_resize_restore_height
-            : MAX(NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX,
-                  geometry.height * root->dropdown_height_percent / 100);
-        sync_compact_setting(root, 15, height);
-        if (root->event != NULL)
-            root->event(root->event_data, root->pane_id, 71, height,
-                        (uint64_t)(g_get_monotonic_time() / 1000));
-        apply_dropdown_dimensions(root);
-        root->window_resize_drag_start_height = height;
-    }
     root->window_resize_drag_start_width_percent =
         root->dropdown_width_percent;
     root->window_resize_drag_start_height_percent =
@@ -14378,6 +14037,10 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
     if (!root->window_resize_drag_active) return FALSE;
+    if (!(event->state & GDK_BUTTON1_MASK)) {
+        finish_window_resize_drag(root);
+        return FALSE;
+    }
     int index = root->window_resize_drag_handle;
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
@@ -14432,10 +14095,10 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
 static gboolean on_window_resize_handle_release(GtkWidget *widget,
                                                  GdkEventButton *event,
                                                  gpointer user_data) {
+    (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
     if (!root->window_resize_drag_active || event->button != 1) return FALSE;
-    root->window_resize_drag_active = 0;
-    if (gtk_widget_has_grab(widget)) gtk_grab_remove(widget);
+    finish_window_resize_drag(root);
     NocttyGridContext *focus_target = active_grid_context(root);
     if (focus_target->area != NULL)
         gtk_widget_grab_focus(focus_target->area);
@@ -14479,8 +14142,18 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
     gtk_widget_set_vexpand(content, TRUE);
     const int columns[8] = {0, 1, 2, 0, 2, 0, 1, 2};
     const int rows[8] = {0, 0, 0, 1, 1, 2, 2, 2};
-    const int widths[8] = {12, -1, 12, 12, 12, 12, -1, 12};
-    const int heights[8] = {12, 12, 12, -1, -1, 12, 12, 12};
+    const int widths[8] = {NOCTTY_WINDOW_RESIZE_GRIP_PX, -1,
+                          NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                          NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                          NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                          NOCTTY_WINDOW_RESIZE_GRIP_PX, -1,
+                          NOCTTY_WINDOW_RESIZE_GRIP_PX};
+    const int heights[8] = {NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                           NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                           NOCTTY_WINDOW_RESIZE_GRIP_PX, -1, -1,
+                           NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                           NOCTTY_WINDOW_RESIZE_GRIP_PX,
+                           NOCTTY_WINDOW_RESIZE_GRIP_PX};
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = create_window_resize_handle(
             context, index, widths[index], heights[index]);
@@ -14504,6 +14177,11 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
 
 static void update_window_resize_handles(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
+    if (root->resize_grip != NULL)
+        gtk_widget_set_size_request(
+            root->resize_grip, -1,
+            root->mode == 0 ? NOCTTY_DROPDOWN_RESIZE_GRIP_PX
+                            : NOCTTY_WINDOW_RESIZE_GRIP_PX);
     int visible = 0;
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = root->window_resize_handles[index];
@@ -14605,6 +14283,13 @@ static void connect_grid_area(NocttyGridContext *context) {
     gtk_style_context_add_class(gtk_widget_get_style_context(context->area),
                                 "noctty-grid-area");
     gtk_widget_set_can_focus(context->area, TRUE);
+    AtkObject *accessible = gtk_widget_get_accessible(context->area);
+    if (accessible != NULL) {
+        char name[64];
+        g_snprintf(name, sizeof(name), "Terminal pane %" G_GUINT64_FORMAT,
+                   context->pane_id);
+        atk_object_set_name(accessible, name);
+    }
     g_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
     g_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);
     g_signal_connect(context->area, "key-release-event",
@@ -14830,14 +14515,21 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     gtk_widget_show_all(context.window_toolbar_controls);
     context.revealer = gtk_revealer_new();
     context.content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    context.pane_info_strip =
+        noctty_pane_info_strip_new(context.show_pane_info);
+    if (context.pane_info_strip == NULL) {
+        gtk_widget_destroy(context.window);
+        return 2;
+    }
     gtk_revealer_set_transition_type(GTK_REVEALER(context.revealer),
                                      GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN);
     gtk_revealer_set_transition_duration(GTK_REVEALER(context.revealer),
-                                         context.dropdown_animation_ms);
+                                         (guint)context.dropdown_animation_ms);
     gtk_revealer_set_reveal_child(GTK_REVEALER(context.revealer), TRUE);
     secondary.notebook = context.notebook;
     secondary.revealer = context.revealer;
     secondary.content_box = context.content_box;
+    secondary.pane_info_strip = context.pane_info_strip;
     GtkWidget *first_page = create_grid_page(&context);
     context.page = first_page;
     secondary.page = first_page;
@@ -14861,6 +14553,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     g_signal_connect(context.notebook, "page-reordered",
                      G_CALLBACK(on_notebook_page_reordered), &context);
     gtk_box_pack_start(GTK_BOX(context.content_box), context.notebook, TRUE, TRUE, 0);
+    gtk_box_pack_end(GTK_BOX(context.content_box), context.pane_info_strip,
+                     FALSE, FALSE, 0);
     gtk_container_add(GTK_CONTAINER(context.revealer), context.content_box);
     context.window_layout = create_window_resize_layout(
         &context, context.revealer);
@@ -15155,6 +14849,17 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         gtk_notebook_get_current_page(GTK_NOTEBOOK(context.notebook));
     gboolean final_tabs_visible =
         gtk_notebook_get_show_tabs(GTK_NOTEBOOK(context.notebook));
+    int resize_grip_request_height = -1;
+    if (context.resize_grip != NULL)
+        gtk_widget_get_size_request(context.resize_grip, NULL,
+                                    &resize_grip_request_height);
+    GList *content_children = gtk_container_get_children(
+        GTK_CONTAINER(context.content_box));
+    int pane_info_below_notebook = content_children != NULL &&
+        GTK_WIDGET(content_children->data) == context.notebook &&
+        GTK_WIDGET(g_list_last(content_children)->data) ==
+            context.pane_info_strip;
+    g_list_free(content_children);
     int tab_rename_rendered = 0;
     int hot_session_titles_rendered = 0;
     int hot_session_color_rendered = 0;
@@ -15237,7 +14942,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.window_close_session_stopped &&
          context.settings_opened && context.settings_category_count == 3 &&
          context.settings_page_switched && context.tab_position == 1 &&
-         final_tab_position == GTK_POS_BOTTOM &&
+         final_tab_position == GTK_POS_BOTTOM && pane_info_below_notebook &&
          context.shortcut_recorder_shown && context.shortcut_recorded &&
          context.pane_info_setting_control &&
          context.pane_info_setting_toggled && context.show_pane_info &&
@@ -15354,7 +15059,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         (control_was_registered && layer_shell_was_active &&
          context.control_status_seen && context.control_status_count >= 2 &&
          context.control_show_seen && context.control_hide_seen &&
-         context.control_toggle_seen);
+         context.control_toggle_seen &&
+         resize_grip_request_height == NOCTTY_DROPDOWN_RESIZE_GRIP_PX);
     int focus_ok = workspace_smoke != 12 ||
         (context.focus_click_primary && context.focus_click_secondary &&
          context.focus_click_controlled_exit &&
@@ -15377,7 +15083,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.compact_pane_info_rendered &&
          context.compact_pane_info_positioned &&
          context.compact_pane_info_source &&
-         context.compact_pane_info_dedup);
+         context.compact_pane_info_dedup &&
+         resize_grip_request_height == NOCTTY_WINDOW_RESIZE_GRIP_PX);
     int tab_rename_ok = workspace_smoke != 17 ||
         (context.tab_rename_double_click_seen && context.tab_rename_inline_shown &&
          context.tab_rename_inline_embedded &&

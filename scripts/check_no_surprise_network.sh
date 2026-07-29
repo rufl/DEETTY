@@ -6,6 +6,8 @@ set -eu
 # This is not a firewall or legal audit; it is a cheap source/build scan.
 
 roots="build.zig build.zig.zon src resources"
+hit_file=$(mktemp "${TMPDIR:-/tmp}/noctty-network-guard.XXXXXX")
+trap 'rm -f "$hit_file"' EXIT HUP INT TERM
 
 for pattern in \
   '\bsentry\b' '\bbugsnag\b' '\brollbar\b' '\bcrashlytics\b' \
@@ -14,9 +16,9 @@ for pattern in \
   'update_ping|update-ping' 'remote_feature_flag|remote-feature-flag' \
   'feature_flag_service|feature-flag-service'
  do
-  if rg -i --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >/tmp/noctty-network-guard-hit 2>/dev/null; then
+  if rg -i --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >"$hit_file" 2>/dev/null; then
     echo "forbidden telemetry/update token found: $pattern" >&2
-    cat /tmp/noctty-network-guard-hit >&2
+    cat "$hit_file" >&2
     exit 1
   fi
 done
@@ -31,12 +33,13 @@ for pattern in \
   'SOCK_STREAM|SOCK_DGRAM' \
   'http_client|HttpClient'
  do
-  if rg -n --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >/tmp/noctty-network-guard-hit 2>/dev/null; then
+  if rg -n --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >"$hit_file" 2>/dev/null; then
     echo "surprise network API found: $pattern" >&2
-    cat /tmp/noctty-network-guard-hit >&2
+    cat "$hit_file" >&2
     exit 1
   fi
 done
 
-rm -f /tmp/noctty-network-guard-hit
+rm -f "$hit_file"
+hit_file=
 printf '%s\n' 'no_surprise_network_check telemetry=false update_pings=false crash_uploaders=false remote_flags=false hidden_network_api=false proof_boundary=static_source_scan'

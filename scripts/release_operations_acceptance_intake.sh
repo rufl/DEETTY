@@ -5,6 +5,8 @@ release_value() {
   sed -n "s/^pub const $1 = \"\([^\"]*\)\";$/\1/p" src/release.zig
 }
 
+. ./scripts/release_operations_common.sh
+
 usage() {
   echo "usage: $0 compositor <niri|hyprland|sway|scroll|labwc|mango> <receipt-file> [evidence-dir]" >&2
   echo "       $0 wayland-hid <receipt-file> [evidence-dir]" >&2
@@ -19,7 +21,7 @@ require_field() {
 }
 
 reject_placeholder() {
-  if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$receipt" >/dev/null; then
+  if grep -Ei 'TODO|TBD|unresolved|missing|placeholder|dummy|retained evidence' "$receipt" >/dev/null; then # craft-ignore: intentional placeholder rejection
     echo "release_operations_acceptance_intake refused placeholder receipt: $receipt" >&2
     exit 1
   fi
@@ -46,8 +48,7 @@ case "${1:-}" in
     require_field "compositor=$compositor"
     require_field "native_release_smoke=true"
     require_field "operator_acceptance=true"
-    mkdir -p "$evidence_dir/compositors"
-    cp "$receipt" "$evidence_dir/compositors/$compositor.txt"
+    retain_file "$receipt" "$evidence_dir/compositors/$compositor.txt"
     test -s "$evidence_dir/compositors/$compositor.txt"
     echo "release_operations_acceptance_intake version=$version receipt=compositor compositor=$compositor semantic=true placeholder_blocking=true retained=true path=$evidence_dir"
     ;;
@@ -63,8 +64,7 @@ case "${1:-}" in
     require_field "portal=RemoteDesktop/EIS"
     require_field "explicit_user_consent=true"
     require_field "physical_input_receipt=true"
-    mkdir -p "$evidence_dir"
-    cp "$receipt" "$evidence_dir/wayland-hid-consent-receipt.txt"
+    retain_file "$receipt" "$evidence_dir/wayland-hid-consent-receipt.txt"
     test -s "$evidence_dir/wayland-hid-consent-receipt.txt"
     echo "release_operations_acceptance_intake version=$version receipt=wayland-hid semantic=true placeholder_blocking=true retained=true path=$evidence_dir"
     ;;

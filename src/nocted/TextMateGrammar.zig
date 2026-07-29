@@ -355,7 +355,7 @@ test "converts bounded TextMate JSON with repository includes" {
         \\  "scopeName": "source.task-note",
         \\  "fileTypes": ["note", ".task"],
         \\  "patterns": [
-        \\    {"match": "\\\\b(TODO|DONE)\\\\b", "name": "keyword.control.task"},
+        \\    {"match": "\\\\b(TASK|DONE)\\\\b", "name": "keyword.control.task"},
         \\    {"begin": "#", "end": "$", "name": "comment.line.number-sign"},
         \\    {"include": "#numbers"}
         \\  ],
@@ -434,7 +434,7 @@ test "rejects cyclic repository includes" {
 
 test "deterministic TextMate mutation corpus rejects safely or stays bounded" {
     const source =
-        \\{"name":"Mutation","scopeName":"source.mutation","fileTypes":["mut"],"patterns":[{"match":"\\\\b(TODO|DONE)\\\\b","name":"keyword.control"},{"begin":"#","end":"$","name":"comment.line"}]}
+        \\{"name":"Mutation","scopeName":"source.mutation","fileTypes":["mut"],"patterns":[{"match":"\\\\b(TASK|DONE)\\\\b","name":"keyword.control"},{"begin":"#","end":"$","name":"comment.line"}]}
     ;
     const mutation_bytes = [_]u8{ 0, 0xff, '{', '}', '[', ']', '"', '\\', '\n', 'x' };
     var random_state: u64 = 0x7465_7874_6d61_7465;

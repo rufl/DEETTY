@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export LC_ALL=C
 
 # Bounded public-source-alpha gate. This is intentionally smaller than
 # ./scripts/verify.sh and does not replace the maintainer qualification matrix.

@@ -22,16 +22,19 @@ release_date=$(release_value release_date)
 test -n "$version"
 test -n "$release_date"
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-tarball.XXXXXX")
-publish_tmp="$out_dir/.${out_name}.tmp.$$"
-sidecar_tmp="$out_dir/.${out_name}.sha256.tmp.$$"
-
+scratch=
+publish_tmp=
+sidecar_tmp=
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
   if [ -n "${publish_tmp:-}" ]; then rm -f "$publish_tmp"; fi
   if [ -n "${sidecar_tmp:-}" ]; then rm -f "$sidecar_tmp"; fi
 }
 trap cleanup EXIT HUP INT TERM
+
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-tarball.XXXXXX")
+publish_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")
+sidecar_tmp=$(mktemp "$out_dir/.${out_name}.sha256.tmp.XXXXXX")
 
 build_archive() {
   build_name=$1
@@ -90,6 +93,7 @@ test "$digest_a" = "$digest_b"
 
 cp "$archive_a" "$publish_tmp"
 printf '%s  %s\n' "$digest_a" "$out_name" > "$sidecar_tmp"
+chmod 0644 "$publish_tmp" "$sidecar_tmp"
 mv -f "$publish_tmp" "$out_path"
 publish_tmp=
 mv -f "$sidecar_tmp" "$out_path.sha256"

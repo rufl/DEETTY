@@ -87,7 +87,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 - Added one optional 18-pixel information strip per notebook page. It follows Yakuake/Konsole's local `%d : %n` shape as `short cwd : foreground process`, ellipsizes in the row, and exposes pane ID, PID, process, and full directory in its tooltip without adding a title bar to every split.
 - Added one bounded POSIX metadata seam: `tcgetpgrp` resolves the PTY foreground process group, `/proc/<pid>/cwd` and `/proc/<pid>/comm` provide local metadata, shell-child retry handles foreground-exit races, and workspace cwd plus `shell` remain deterministic fallbacks. A pure Zig formatter validates UTF-8/control safety and writes label/tooltip text into caller-owned buffers without heap allocation.
-- Isolated GTK ownership and setter dedupe in `pane_info_strip.c`. Focus and notebook changes refresh immediately; foreground command transitions reuse the existing one-second root maintenance timer and query only the active page. Identical metadata retains the same widget revision (`pane_refresh=coalesced`, `pane_info_dedup=true`).
+- Isolated GTK ownership and setter dedupe in `NativeGtk.zig` behind the retained C header. Focus and notebook changes refresh immediately; foreground command transitions reuse the existing one-second root maintenance timer and query only the active page. Identical metadata retains the same widget revision (`pane_refresh=coalesced`, `pane_info_dedup=true`).
 - Added the Appearance > Client chrome checkbox, config snapshot v4 migration/default coverage, typed app command, live toggle, immediate atomic persistence, and fresh-App reload proof.
 - Replaced implicit first-page-child assumptions with explicit terminal-content lookup across layout binding, hot-session rebuild, presets, and cross-tab moves. The preset menu smoke now uses bounded mapped-menu retries and fail-fast shell release, preventing a compositor-delay failure from hanging the gate.
 - Aligned `package_bundle.sh` with the reproducible tarball by requesting `ReleaseSafe -Dstrip=true` and guarded that release-source contract.
@@ -116,7 +116,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-109 Agent-session lifecycle and idle-scheduling hardening — done
 
-- Added a native foreground-process-group query across the PTY C ABI and Zig session boundary. Pane, tab, toolbar, tray, and window close now require explicit `Close Anyway` confirmation before stopping active Codex/Claude/Antigravity-style foreground jobs; final-terminal protection remains unchanged.
+- Added a native foreground-process-group query at the PTY/session boundary, now fully Zig-owned. Pane, tab, toolbar, tray, and window close require explicit `Close Anyway` confirmation before stopping active Codex/Claude/Antigravity-style foreground jobs; final-terminal protection remains unchanged.
 - Made PTY shutdown bounded: foreground and shell process groups receive SIGHUP, the shell receives up to 500 ms to exit, and a stuck group is forced instead of blocking the GTK thread indefinitely.
 - Made `TerminalSession.deinit` idempotent and changed accepted pane/tab close to deinitialize the complete PTY plus VT grid. Dynamic sessions are removed and destroyed from `NativeGridSessionPool` immediately, closing the retained scrollback/grid and embedded-buffer lifetime left by prior context-only retirement.
 - Raised a callback-retirement barrier before IM and GTK tree teardown. Generic draw, focus, key, mouse, scroll, resize, PTY, drag, and clipboard paths reject retired session userdata; an outstanding asynchronous clipboard read retains only the small C context until its callback drains. The two-tab native lane schedules a deliberate post-close focus callback and fails unless it is ignored without touching the released Zig session.
@@ -694,7 +694,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-034 Tree-sitter grammar and native editor rendering — done
 
 - Vendored and recorded MIT revisions for the Tree-sitter C runtime plus JSON, C, Bash, Markdown, and Zig grammar sources.
-- Compiled the runtime and JSON/C/Bash generated parsers directly into the native Zig build behind `src/editor/tree_sitter_adapter.c`.
+- Compiled the runtime and JSON/C/Bash generated parsers directly into the native Zig build; the former C adapter is now owned by `src/TreeSitter.zig`.
 - Added an incremental document API, Tree-sitter query captures, canonical scope-to-span conversion, and App-level parser-first dispatch with fallback to the bounded highlighter.
 - Compiled the generated MIT Zig parser source and routed Zig through the same parser-first path; the existing editor highlight receipt remains stable.
 - The editor load flow proves editable, large read-only preview, and metadata-only hard-limit fallback behavior.
@@ -805,7 +805,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-011 Zig-Native PTY — done
 
-- Zig owns PTY creation, interactive shell lifecycle, nonblocking I/O, resize, exit status, and teardown through the small POSIX C ABI shim.
+- Zig owns PTY creation, fixed-argv child setup, interactive shell lifecycle, nonblocking I/O, resize, exit status, foreground metadata, resource sampling, and teardown directly through libc/POSIX declarations.
 - `TerminalSession` feeds the PTY into the default native grid; dynamic tab/split activation runs independent sessions and the VTE host is only an explicit fallback.
 - PTY, session, dynamic tab, and dynamic split gates all pass.
 

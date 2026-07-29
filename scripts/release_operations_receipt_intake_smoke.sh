@@ -89,7 +89,7 @@ printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=compositor_acceptance path=compositors/niri.txt reason=missing' >/dev/null
 
 placeholder_receipt="$src/placeholder-publication.txt"
-printf 'version=0.1.0\nTODO publication\n' >"$placeholder_receipt"
+printf 'version=0.1.0\nTODO publication\n' >"$placeholder_receipt" # craft-ignore: intentional rejected fixture
 if ./scripts/release_operations_receipt_intake.sh publication "$placeholder_receipt" "$scratch/placeholder-evidence" >/dev/null 2>&1; then
   echo "release_operations_receipt_intake_smoke expected placeholder receipt to fail" >&2
   exit 1
@@ -123,6 +123,17 @@ mkdir -p "$publication_without_prereqs"
 cp "$publication_receipt" "$publication_without_prereqs/publication-receipt.txt"
 without_prereqs_status=$(NOCTTY_RELEASE_EVIDENCE_DIR="$publication_without_prereqs" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$without_prereqs_status" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=publication_prerequisites_missing' >/dev/null
+
+victim="$scratch/receipt-victim"
+printf 'victim-safe\n' >"$victim"
+retained_receipt="$evidence/publication-receipt.txt"
+rm -f "$retained_receipt"
+ln -s "$victim" "$retained_receipt"
+./scripts/release_operations_receipt_intake.sh publication \
+  "$publication_receipt" "$evidence" >/dev/null
+test "$(cat "$victim")" = victim-safe
+test ! -L "$retained_receipt"
+cmp -s "$publication_receipt" "$retained_receipt"
 
 scratch_path=$scratch
 rm -rf "$scratch_path"

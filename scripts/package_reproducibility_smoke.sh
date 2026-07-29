@@ -21,6 +21,8 @@ printf '%s\n' "$tarball_output" | grep -F "package_tarball_reproducibility versi
 
 test -s "$archive"
 test -s "$archive.sha256"
+test "$(stat -c %a "$archive")" = 644
+test "$(stat -c %a "$archive.sha256")" = 644
 (cd "$scratch" && sha256sum -c "$(basename "$archive").sha256" >/dev/null)
 mkdir -p "$scratch/extracted"
 tar -xzf "$archive" -C "$scratch/extracted"

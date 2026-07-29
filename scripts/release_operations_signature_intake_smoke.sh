@@ -64,7 +64,7 @@ printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=missing' >/dev/null
 
 placeholder_sig="$src/placeholder.sig"
-printf 'TODO signature retained evidence\n' >"$placeholder_sig"
+printf 'TODO signature retained evidence\n' >"$placeholder_sig" # craft-ignore: intentional rejected fixture
 if ./scripts/release_operations_signature_intake.sh x86_64 archive "$placeholder_sig" "$evidence" >/dev/null 2>&1; then
   echo "release_operations_signature_intake_smoke expected placeholder signature to fail" >&2
   exit 1
@@ -76,6 +76,17 @@ if ./scripts/release_operations_signature_intake.sh x86_64 archive "$target_requ
   echo "release_operations_signature_intake_smoke expected missing retained target to fail" >&2
   exit 1
 fi
+
+victim="$scratch/signature-victim"
+printf 'victim-safe\n' >"$victim"
+retained_signature="$evidence/noctty-linux-x86_64.tar.gz.sig"
+rm -f "$retained_signature"
+ln -s "$victim" "$retained_signature"
+./scripts/release_operations_signature_intake.sh x86_64 archive \
+  "$src/x86_64-archive.sig" "$evidence" >/dev/null
+test "$(cat "$victim")" = victim-safe
+test ! -L "$retained_signature"
+cmp -s "$src/x86_64-archive.sig" "$retained_signature"
 
 scratch_path=$scratch
 rm -rf "$scratch_path"

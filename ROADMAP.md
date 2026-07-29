@@ -25,7 +25,7 @@ or universal terminal compatibility.
 
 ## Phase 0 — Public-readiness docs
 
-Status: in progress.
+Status: complete.
 
 Required:
 
@@ -93,7 +93,7 @@ Required before tagging alpha:
 
 - [x] fast source build/check path confirmed with `zig build check -j1 --summary all`
 - [x] fast build/check path confirmed from a clean source copy
-- [ ] full `./scripts/verify.sh` status recorded
+- [x] full `./scripts/verify.sh` status recorded
 - [x] README screenshots current
 - [x] limitations current
 - [x] changelog has alpha note
