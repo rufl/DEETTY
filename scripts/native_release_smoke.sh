@@ -45,7 +45,6 @@ run_smoke ./scripts/native_grid_settings_stacking_smoke.sh
 run_smoke ./scripts/native_grid_theme_smoke.sh
 run_smoke ./scripts/native_grid_project_editor_smoke.sh
 run_smoke ./scripts/native_grid_workspace_activation_smoke.sh
-run_smoke ./scripts/native_grid_editor_shutdown_smoke.sh
 run_smoke ./scripts/native_grid_maintenance_smoke.sh
 run_smoke ./scripts/native_grid_hot_session_smoke.sh
 run_smoke ./scripts/native_grid_workspace_smoke.sh
@@ -61,4 +60,4 @@ fi
 sleep 0.2
 run_smoke ./scripts/native_grid_hidpi_theme_smoke.sh
 run_smoke ./scripts/nocted_native_matrix.sh
-echo "native_release_smoke renderer=true modes=true tabs=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true late_callback_guard=true popup_teardown=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true terminal_chords=true layout_presets=true layout_tui=true resize_overlay=true window_resize=true tray=true splits=true recursive_splits=true eight_panes=true click_focus=true clean_selection=true pane_move=true live_tab_position=true compact_ux=true note_overlay=true hot_session=true clipboard=true notifications=true settings=true credentialed_ssh=true settings_stacking=true themes=true project=true workspace_activation=true recent_workspaces=true editor=true editor_shutdown=true nocted=true maintenance=true workspace=true shortcut=true noctalia_ipc=true hidpi=true"
+echo "native_release_smoke renderer=true modes=true tabs=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true late_callback_guard=true popup_teardown=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true terminal_chords=true layout_presets=true layout_tui=true resize_overlay=true window_resize=true tray=true splits=true recursive_splits=true eight_panes=true click_focus=true clean_selection=true pane_move=true live_tab_position=true compact_ux=true note_overlay=true hot_session=true clipboard=true notifications=true settings=true credentialed_ssh=true settings_stacking=true themes=true project=true workspace_activation=true recent_workspaces=true nocted_handoff=true nocted=true maintenance=true workspace=true shortcut=true noctalia_ipc=true hidpi=true"

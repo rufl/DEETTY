@@ -1,4 +1,4 @@
 status=passed
-command=zig build check -j1 --summary all && ./scripts/nocted_native_smoke.sh && ./scripts/release_contract_smoke.sh && ./scripts/check_no_surprise_network.sh && ./scripts/check_docs_truth.sh && ./scripts/install_dogfood.sh ~/.local
-reason=NoctEd now owns direct vendored Tree-sitter parsing/highlight publication behind GtkSourceView with native Zig/UTF-8 smoke proof; build/check passed with 17/17 steps and 322/322 tests; release contract distinguishes parser-free NOCTTY from Tree-sitter-enabled NoctEd; no-surprise network and docs truth passed; updated unstripped dogfood binaries installed
-source=local maintainer run
+command=zig build check -j1 --summary all && zig build check -j1 -Doptimize=ReleaseSafe --summary all && ./scripts/release_contract_smoke.sh && ./scripts/check_no_surprise_network.sh && ./scripts/check_docs_truth.sh && ./scripts/check_native_layout.sh && LC_ALL=C LANG=C xvfb-run -a ./scripts/native_grid_project_editor_smoke.sh
+reason=Obsolete embedded-editor state, CLI/build options, GTK compatibility UI, and shutdown-only smoke were removed; repository and clean-source build/check passed with 19/19 steps and 311/311 tests; Debug/ReleaseSafe, production release contract, no-surprise network, docs truth, native layout, and focused X11 NoctEd handoff passed. A fresh full verifier attempt passed through the terminal pipeline matrix before the one-hour harness timeout; real Plasma compositor evidence was not rerun.
+source=local headless/Xvfb maintainer run 2026-07-29

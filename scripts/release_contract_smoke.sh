@@ -44,7 +44,7 @@ if editor_output=$("$binary" --editor-plan 2>&1); then
   echo 'release_contract error=production_legacy_editor_surface' >&2
   exit 1
 fi
-printf '%s\n' "$editor_output" | grep -F 'LegacyEditorUnavailable' >/dev/null
+printf '%s\n' "$editor_output" | grep -F 'LegacyEditorRemoved' >/dev/null
 
 grep -F ".version = \"$version\"," build.zig.zon >/dev/null
 grep -F 'noctty.release.version' src/main.zig >/dev/null

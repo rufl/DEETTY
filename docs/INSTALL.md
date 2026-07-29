@@ -109,7 +109,7 @@ sha256sum -c /tmp/noctty-linux-bundle.tar.gz.sha256
 The bundle:
 
 - builds `ReleaseSafe` for the current architecture;
-- includes production `noctty` without VTE, Tree-sitter, smoke commands, or the legacy embedded-editor command surface, plus `nocted` with statically vendored Tree-sitter parsing;
+- includes production `noctty` without VTE, Tree-sitter, or smoke commands, plus `nocted` with statically vendored Tree-sitter parsing;
 - moves both real binaries under `libexec/noctty` and copies their combined linked runtime libraries into `libexec/noctty/lib`;
 - explicitly copies the dynamically loaded `libgtk-layer-shell.so.0`;
 - installs thin `noctty` and `nocted` launchers that set the bundle-local library path;

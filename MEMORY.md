@@ -89,18 +89,15 @@ NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 Current local pass note: `zig build check -j1 --summary all` passes with
-336/336 tests after the Tree-sitter, Ghostty VT, native GTK, complete PTY, and
-optional VTE-host migrations. A fresh clean-source-copy run on 2026-07-29 passed the same 21/21 steps and
-336/336 tests. A fresh 2026-07-29 single-job full run:
-
-```sh
-NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
-```
-
-completed successfully through terminal compatibility/session/continuity/TUI,
-production-Cairo renderer and PTY/VT pipeline, Zig build/test, NoctEd
-core/worker/index, package/release contracts, and source-truth checks. The final
-receipt was `verify_cleanup scratch=true cache=true install=true artifacts=true`.
+311/311 tests after removing the obsolete embedded-editor build and test surface.
+A fresh clean-source-copy run on 2026-07-29 passed the same 19/19 steps and
+311/311 tests. The previous baseline single-job full verifier completed with
+`verify_cleanup scratch=true cache=true install=true artifacts=true`. After the
+embedded-editor removal, a fresh verifier attempt passed terminal compatibility,
+session, continuity, ncurses/system-TUI, production-Cairo renderer, and PTY/VT
+pipeline lanes before the one-hour harness timeout. Focused Debug/`ReleaseSafe`
+build checks, release contract, docs/native-layout/network guards, and the X11
+NoctEd handoff all passed; no broader compositor claim was added.
 
 ## Public claim rule
 

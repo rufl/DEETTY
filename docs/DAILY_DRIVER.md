@@ -74,10 +74,9 @@ defects:
   foreground identity, allocator/process teardown, and separate root/tree
   memory. This does not authenticate Codex or submit a model request.
 
-Production `noctty` also excludes VTE, Tree-sitter, smoke commands, and the
-legacy embedded-editor command surface. The optional fallback and smoke hosts
-are separate non-default binaries, reducing production code and dependency
-surface without weakening the verification matrix.
+Production `noctty` also excludes VTE, Tree-sitter, and smoke commands. The
+optional fallback and smoke hosts are separate non-default binaries, reducing
+production code and dependency surface without weakening the verification matrix.
 
 The source-backed [performance and algorithm research](PERFORMANCE_ALGORITHM_RESEARCH.md)
 keeps GTK/Cairo and event-driven descriptor reads. Its frame-clock, glyph-cache,

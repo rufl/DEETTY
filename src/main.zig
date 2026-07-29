@@ -342,10 +342,6 @@ const NativeGridBridge = struct {
     config_persisted: bool = false,
     workspace_saved: bool = false,
     workspace_loaded: bool = false,
-    editor_loaded: bool = false,
-    editor_saved: bool = false,
-    fail_next_editor_save: bool = false,
-    editor_syntax_highlighting: bool = false,
     maintenance_tick_seen: bool = false,
     autosave_executed: bool = false,
     project_refresh_executed: bool = false,
@@ -1015,50 +1011,6 @@ export fn noctty_grid_apply_preset(
     return @intCast(tab.panes.items.len);
 }
 
-fn ensureNativeEditorFileSource(
-    bridge: *NativeGridBridge,
-    path: []const u8,
-) !noctty.workspace.ProjectPanelActivationRequest {
-    const panels = bridge.app.workspace.project_panels;
-    for (panels.files, 0..) |entry, index| {
-        if (entry.kind == .file and std.mem.eql(u8, entry.path, path)) {
-            return .{ .kind = .files, .source_index = index };
-        }
-    }
-
-    const allocator = bridge.app.allocator;
-    const git_status = try allocator.alloc(noctty.workspace.GitStatusInput, panels.git_status.len);
-    defer allocator.free(git_status);
-    for (panels.git_status, 0..) |entry, index| {
-        git_status[index] = .{ .path = entry.path, .state = entry.state };
-    }
-    const git_graph = try allocator.alloc(noctty.workspace.GitGraphInput, panels.git_graph.len);
-    defer allocator.free(git_graph);
-    for (panels.git_graph, 0..) |node, index| {
-        git_graph[index] = .{
-            .commit = node.commit,
-            .summary = node.summary,
-            .branch = node.branch,
-        };
-    }
-    const files = try allocator.alloc(noctty.workspace.ProjectFileInput, panels.files.len + 1);
-    defer allocator.free(files);
-    for (panels.files, 0..) |entry, index| {
-        files[index] = .{
-            .path = entry.path,
-            .kind = entry.kind,
-            .dirty = entry.dirty,
-        };
-    }
-    files[panels.files.len] = .{ .path = path, .kind = .file };
-    _ = try bridge.app.dispatch(.{ .set_project_panels = .{
-        .git_status = git_status,
-        .git_graph = git_graph,
-        .files = files,
-    } });
-    return .{ .kind = .files, .source_index = panels.files.len };
-}
-
 export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*]const u8, first_len: usize, second_ptr: [*]const u8, second_len: usize, format_raw: c_int) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
     if (action == 15 or action == 16) {
@@ -1114,61 +1066,6 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
         bridge.launch_profile_library_removed = true;
         persistNativeGridConfig(bridge);
         return 0;
-    }
-    if (build_options.enable_legacy_editor and action == 14) {
-        bridge.fail_next_editor_save = true;
-        return 0;
-    }
-    if (build_options.enable_legacy_editor and action == 13) {
-        const path = first_ptr[0..first_len];
-        var contents: []const u8 = &.{};
-        for (bridge.app.editor_documents.items) |entry| {
-            if (std.mem.eql(u8, entry.document.path, path)) {
-                contents = entry.document.buffer.slice();
-                break;
-            }
-        }
-        const request = noctty.editor.SyntaxHighlightRequest{
-            .path = path,
-            .contents = contents,
-            .max_spans = noctty.editor.max_syntax_highlight_spans,
-        };
-        const highlighted = bridge.app.dispatch(.{ .highlight_editor_syntax = request }) catch return -1;
-        const syntax_theme = noctty.editor_syntax_theme.SyntaxTheme.named(bridge.app.config.syntax_theme);
-        const output: []u8 = @constCast(second_ptr[0..second_len]);
-        var writer = std.Io.Writer.fixed(output);
-        for (highlighted.editor_syntax_highlighted.spanSlice()) |span| {
-            const style = syntax_theme.resolve(span.textMateScope());
-            const color = style.foreground orelse syntax_theme.foreground;
-            var flags: u8 = 0;
-            if (style.font.bold) flags |= 1;
-            if (style.font.italic) flags |= 2;
-            if (style.font.underline) flags |= 4;
-            writer.print("{d} {d} {d} {d} {d} {d}\n", .{ span.start, span.end, color.r, color.g, color.b, flags }) catch return -1;
-        }
-        return @intCast(writer.buffered().len);
-    }
-    if (build_options.enable_legacy_editor and action == 12) {
-        const index = bridge.app.active_editor_document_index orelse return 0;
-        if (index >= bridge.app.editor_documents.items.len) return 0;
-        return @intFromBool(bridge.app.editor_documents.items[index].can_edit);
-    }
-    if (build_options.enable_legacy_editor and action == 11) {
-        const io = bridge.io orelse return -1;
-        const path = first_ptr[0..first_len];
-        const source = ensureNativeEditorFileSource(bridge, path) catch return -1;
-        const loaded = bridge.app.loadEditorDocumentFile(
-            io,
-            std.Io.Dir.cwd(),
-            .{ .source = source },
-        ) catch return -1;
-        if (!loaded.result.stored) return -1;
-        const index = loaded.result.document_index orelse return -1;
-        const contents = bridge.app.editor_documents.items[index].document.buffer.slice();
-        if (contents.len > second_len or contents.len > std.math.maxInt(c_int)) return -1;
-        @memcpy(@constCast(second_ptr[0..contents.len]), contents);
-        bridge.editor_loaded = true;
-        return @intCast(contents.len);
     }
     if (action == 8) {
         const note = (bridge.app.dispatch(.read_quick_note) catch return -1).quick_note_read;
@@ -1252,48 +1149,6 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
             return -1;
         };
         persistNativeGridConfig(bridge);
-        return 0;
-    }
-    if (build_options.enable_legacy_editor and action == 4) {
-        const path = first_ptr[0..first_len];
-        _ = bridge.app.dispatch(.{ .set_project_panels = .{ .files = &.{.{ .path = path, .kind = .file }} } }) catch {
-            bridge.callback_failed = true;
-            return -1;
-        };
-        const loaded = bridge.app.dispatch(.{ .load_editor_document = .{ .source = .{ .kind = .files, .source_index = 0 }, .contents = second_ptr[0..second_len] } }) catch {
-            bridge.callback_failed = true;
-            return -1;
-        };
-        if (!loaded.editor_document_loaded.stored) return -1;
-        bridge.editor_loaded = true;
-        return 0;
-    }
-    if (build_options.enable_legacy_editor and action == 5) {
-        if (bridge.fail_next_editor_save) {
-            bridge.fail_next_editor_save = false;
-            return -1;
-        }
-        const io = bridge.io orelse return -1;
-        const path = first_ptr[0..first_len];
-        var document_index: ?usize = null;
-        for (bridge.app.editor_documents.items, 0..) |entry, index| {
-            if (std.mem.eql(u8, entry.document.path, path)) {
-                document_index = index;
-                break;
-            }
-        }
-        const index = document_index orelse return -1;
-        const length = bridge.app.editor_documents.items[index].document.buffer.slice().len;
-        const edits = [_]noctty.editor.TextEdit{.{ .start = 0, .end = length, .replacement = second_ptr[0..second_len] }};
-        _ = bridge.app.dispatch(.{ .edit_editor_document = .{ .document_index = index, .edits = &edits } }) catch {
-            bridge.callback_failed = true;
-            return -1;
-        };
-        _ = bridge.app.saveEditorDocumentFile(io, std.Io.Dir.cwd(), .{ .document_index = index }) catch {
-            bridge.callback_failed = true;
-            return -1;
-        };
-        bridge.editor_saved = true;
         return 0;
     }
     if (action != 1) return -1;
@@ -1663,10 +1518,6 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         _ = bridge.app.dispatch(.focus_previous_pane) catch {
             bridge.callback_failed = true;
         };
-        return;
-    }
-    if (event == 100) {
-        bridge.editor_syntax_highlighting = exit_code > 0;
         return;
     }
     if (event == 55) {
@@ -2277,36 +2128,6 @@ pub fn main(init: std.process.Init) !void {
             try selfCheck(allocator, stdout);
             return;
         }
-        if (build_options.enable_legacy_editor) {
-            if (std.mem.eql(u8, cmd, "--editor-plan")) {
-                try editorPlan(allocator, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-open-flow")) {
-                try editorOpenFlow(allocator, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-load-flow")) {
-                try editorLoadFlow(allocator, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-file-load-flow")) {
-                try editorFileLoadFlow(allocator, init.io, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-save-flow")) {
-                try editorSaveFlow(allocator, init.io, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-highlight")) {
-                try editorHighlight(allocator, stdout);
-                return;
-            }
-            if (std.mem.eql(u8, cmd, "--editor-find")) {
-                try editorFind(allocator, stdout);
-                return;
-            }
-        }
         if (std.mem.eql(u8, cmd, "--host-plan")) {
             try hostPlan(allocator, init.environ_map, stdout);
             return;
@@ -2505,10 +2326,6 @@ pub fn main(init: std.process.Init) !void {
                 try nativeGridProjectEditorSmoke(allocator, init.io, stdout);
                 return;
             }
-            if (std.mem.eql(u8, cmd, "--native-grid-editor-shutdown-smoke")) {
-                try nativeGridEditorShutdownSmoke(allocator, init.io, stdout);
-                return;
-            }
             if (std.mem.eql(u8, cmd, "--native-grid-maintenance-smoke")) {
                 try nativeGridMaintenanceSmoke(allocator, init.io, stdout);
                 return;
@@ -2552,8 +2369,8 @@ pub fn main(init: std.process.Init) !void {
         }
         if (!build_options.enable_smoke and std.mem.endsWith(u8, cmd, "-smoke"))
             return error.SmokeModeUnavailable;
-        if (!build_options.enable_legacy_editor and std.mem.startsWith(u8, cmd, "--editor-"))
-            return error.LegacyEditorUnavailable;
+        if (std.mem.startsWith(u8, cmd, "--editor-"))
+            return error.LegacyEditorRemoved;
         if (std.mem.eql(u8, cmd, "--native-grid-two-pane")) {
             try runNativeGridTwoPane(allocator, init.io, home_dir, init.environ_map, 0);
             return;
@@ -3002,570 +2819,6 @@ fn dumpDefaultConfig(out: anytype) !void {
     try out.print("font={s} {d:.1}pt ligatures={}\n", .{ cfg.font.family, cfg.font.size_pt, cfg.font.ligatures });
     try out.print("tab_position={s}\n", .{@tagName(cfg.tabs.position)});
     try out.print("status_indicator={s}\n", .{@tagName(cfg.status.indicator)});
-}
-
-fn editorPlan(allocator: std.mem.Allocator, out: anytype) !void {
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    try writeEditorOpenPlan(out, (try app.dispatch(.{ .plan_editor_open = .{
-        .path = "/repo/src/main.zig",
-        .worktree_root = "/repo",
-        .byte_count = 32 * 1024,
-        .line_count = 400,
-    } })).editor_open_planned);
-    try writeEditorOpenPlan(out, (try app.dispatch(.{ .plan_editor_open = .{
-        .path = "/repo/logs/large.log",
-        .worktree_root = "/repo",
-        .byte_count = 2 * 1024 * 1024,
-        .line_count = 20_000,
-    } })).editor_open_planned);
-    try writeEditorOpenPlan(out, (try app.dispatch(.{ .plan_editor_open = .{
-        .path = "/repo/dumps/huge.json",
-        .worktree_root = "/repo",
-        .byte_count = 16 * 1024 * 1024,
-    } })).editor_open_planned);
-}
-
-fn writeEditorOpenPlan(out: anytype, plan: noctty.editor.EditorOpenPlan) !void {
-    try out.print("editor_open_plan path={s} relative={s} language={s} mode={s} reason={s} bytes={d} lines=", .{
-        plan.path,
-        plan.relative_path,
-        @tagName(plan.language),
-        @tagName(plan.mode),
-        @tagName(plan.reason),
-        plan.byte_count,
-    });
-    if (plan.line_count) |lines| {
-        try out.print("{d}", .{lines});
-    } else {
-        try out.writeAll("unknown");
-    }
-    try out.print(" can_open={} can_edit={} loads_buffer={} undo={} search={} syntax={} confirm={} warning={}\n", .{
-        plan.canOpen(),
-        plan.can_edit,
-        plan.loads_buffer,
-        plan.tracks_undo,
-        plan.enables_search,
-        plan.enables_syntax,
-        plan.requires_confirmation,
-        plan.warns_large_file,
-    });
-}
-
-fn editorOpenFlow(allocator: std.mem.Allocator, out: anytype) !void {
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    _ = try app.dispatch(.{ .set_project_panels = .{
-        .files = &.{
-            .{ .path = "/repo/src/main.zig", .kind = .file, .dirty = true },
-            .{ .path = "/repo/logs/large.log", .kind = .file },
-            .{ .path = "/repo/dumps/huge.json", .kind = .file },
-            .{ .path = "/repo/src", .kind = .directory },
-        },
-    } });
-
-    try writeEditorDocumentOpenPlan(out, "editable", (try app.dispatch(.{ .plan_editor_document_open = .{
-        .source = .{ .kind = .files, .source_index = 0 },
-        .worktree_root = "/repo",
-        .byte_count = 32 * 1024,
-        .line_count = 400,
-    } })).editor_document_open_planned);
-    try writeEditorDocumentOpenPlan(out, "large_read_only", (try app.dispatch(.{ .plan_editor_document_open = .{
-        .source = .{ .kind = .files, .source_index = 1 },
-        .worktree_root = "/repo",
-        .byte_count = 2 * 1024 * 1024,
-        .line_count = 20_000,
-    } })).editor_document_open_planned);
-    try writeEditorDocumentOpenPlan(out, "metadata_only", (try app.dispatch(.{ .plan_editor_document_open = .{
-        .source = .{ .kind = .files, .source_index = 2 },
-        .worktree_root = "/repo",
-        .byte_count = 16 * 1024 * 1024,
-    } })).editor_document_open_planned);
-}
-
-fn writeEditorDocumentOpenPlan(out: anytype, label: []const u8, plan: noctty.app.App.EditorDocumentOpenPlan) !void {
-    try out.print("editor_document_open label={s} source={s}:{d} operation={s} executor={s} path={s} relative={s} language={s} mode={s} reason={s} bytes={d} lines=", .{
-        label,
-        @tagName(plan.source.kind),
-        plan.source.source_index,
-        @tagName(plan.action_operation),
-        @tagName(plan.executor),
-        plan.path,
-        plan.relative_path,
-        @tagName(plan.editor.language),
-        @tagName(plan.editor.mode),
-        @tagName(plan.editor.reason),
-        plan.editor.byte_count,
-    });
-    if (plan.editor.line_count) |lines| {
-        try out.print("{d}", .{lines});
-    } else {
-        try out.writeAll("unknown");
-    }
-    try out.print(" can_open={} can_edit={} loads_buffer={} undo={} search={} syntax={} confirm={} warning={}\n", .{
-        plan.canOpen(),
-        plan.canEdit(),
-        plan.loadsBuffer(),
-        plan.editor.tracks_undo,
-        plan.editor.enables_search,
-        plan.editor.enables_syntax,
-        plan.requiresConfirmation(),
-        plan.editor.warns_large_file,
-    });
-}
-
-fn editorLoadFlow(allocator: std.mem.Allocator, out: anytype) !void {
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    _ = try app.dispatch(.{ .set_project_panels = .{
-        .files = &.{
-            .{ .path = "/repo/src/main.zig", .kind = .file, .dirty = true },
-            .{ .path = "/repo/notes.txt", .kind = .file },
-            .{ .path = "/repo/dumps/huge.json", .kind = .file },
-        },
-    } });
-
-    try writeEditorDocumentLoad(out, "editable", (try app.dispatch(.{ .load_editor_document = .{
-        .source = .{ .kind = .files, .source_index = 0 },
-        .worktree_root = "/repo",
-        .contents =
-        \\pub fn main() void {
-        \\    return;
-        \\}
-        ,
-    } })).editor_document_loaded);
-
-    var many_lines = std.array_list.Managed(u8).init(allocator);
-    defer many_lines.deinit();
-    for (0..noctty.editor.default_editable_line_limit + 1) |_| {
-        try many_lines.appendSlice("x\n");
-    }
-    try writeEditorDocumentLoad(out, "large_read_only", (try app.dispatch(.{ .load_editor_document = .{
-        .source = .{ .kind = .files, .source_index = 1 },
-        .worktree_root = "/repo",
-        .contents = many_lines.items,
-    } })).editor_document_loaded);
-
-    const huge_contents = try allocator.alloc(u8, noctty.editor.default_preview_byte_limit + 1);
-    defer allocator.free(huge_contents);
-    @memset(huge_contents, 'x');
-    try writeEditorDocumentLoad(out, "metadata_only", (try app.dispatch(.{ .load_editor_document = .{
-        .source = .{ .kind = .files, .source_index = 2 },
-        .worktree_root = "/repo",
-        .contents = huge_contents,
-    } })).editor_document_loaded);
-
-    try writeEditorDocumentLoad(out, "reload", (try app.dispatch(.{ .load_editor_document = .{
-        .source = .{ .kind = .files, .source_index = 0 },
-        .worktree_root = "/repo",
-        .contents = "const reloaded = true;\n",
-    } })).editor_document_loaded);
-}
-
-fn writeEditorDocumentLoad(out: anytype, label: []const u8, result: noctty.app.App.EditorDocumentLoadResult) !void {
-    try out.print("editor_document_load label={s} source={s}:{d} operation={s} executor={s} stored={} replaced={} index=", .{
-        label,
-        @tagName(result.source.kind),
-        result.source.source_index,
-        @tagName(result.action_operation),
-        @tagName(result.executor),
-        result.stored,
-        result.replaced_existing,
-    });
-    if (result.document_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.writeAll(" active=");
-    if (result.active_document_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.print(" documents={d} path={s} relative={s} language={s} mode={s} reason={s} bytes={d} buffer_bytes={d} lines={d} can_open={} can_edit={} loads_buffer={} undo={} search={} syntax={} confirm={} warning={} dirty={} revision={d}\n", .{
-        result.document_count,
-        result.path,
-        result.relative_path,
-        @tagName(result.language),
-        @tagName(result.mode),
-        @tagName(result.reason),
-        result.byte_count,
-        result.buffer_bytes,
-        result.line_count,
-        result.canOpen(),
-        result.can_edit,
-        result.loadsBuffer(),
-        result.tracks_undo,
-        result.enables_search,
-        result.enables_syntax,
-        result.requires_confirmation,
-        result.warns_large_file,
-        result.dirty,
-        result.revision,
-    });
-}
-
-fn editorFileLoadFlow(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
-    var tmp_dir = try std.Io.Dir.openDirAbsolute(io, "/tmp", .{});
-    defer tmp_dir.close(io);
-
-    const editable_path = "noctty-editor-file-load-main.zig";
-    const large_path = "noctty-editor-file-load-large.log";
-    const huge_path = "noctty-editor-file-load-huge.json";
-    defer tmp_dir.deleteFile(io, editable_path) catch {};
-    defer tmp_dir.deleteFile(io, large_path) catch {};
-    defer tmp_dir.deleteFile(io, huge_path) catch {};
-
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    _ = try app.dispatch(.{ .set_project_panels = .{
-        .files = &.{
-            .{ .path = editable_path, .kind = .file, .dirty = true },
-            .{ .path = large_path, .kind = .file },
-            .{ .path = huge_path, .kind = .file },
-        },
-    } });
-
-    try writeEditorFlowFile(io, tmp_dir, editable_path,
-        \\pub fn main() void {
-        \\    return;
-        \\}
-    );
-    try writeEditorDocumentFileLoad(out, "editable", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 0 },
-    }));
-
-    const soft_contents = try allocator.alloc(u8, noctty.editor.default_editable_byte_limit + 1);
-    defer allocator.free(soft_contents);
-    @memset(soft_contents, 'x');
-    try writeEditorFlowFile(io, tmp_dir, large_path, soft_contents);
-    try writeEditorDocumentFileLoad(out, "large_read_only", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 1 },
-    }));
-
-    const hard_contents = try allocator.alloc(u8, noctty.editor.default_preview_byte_limit + 1);
-    defer allocator.free(hard_contents);
-    @memset(hard_contents, 'x');
-    try writeEditorFlowFile(io, tmp_dir, huge_path, hard_contents);
-    try writeEditorDocumentFileLoad(out, "metadata_only", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 2 },
-    }));
-
-    try writeEditorFlowFile(io, tmp_dir, editable_path, "const reloaded = true;\n");
-    try writeEditorDocumentFileLoad(out, "reload", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 0 },
-    }));
-}
-
-fn writeEditorDocumentFileLoad(out: anytype, label: []const u8, result: noctty.app.App.EditorDocumentFileLoadResult) !void {
-    const loaded = result.result;
-    try out.print("editor_document_file_load label={s} source={s}:{d} operation={s} executor={s} file_size={d} read_bytes={d} line_count_known={} read_from_file={} stored={} replaced={} index=", .{
-        label,
-        @tagName(loaded.source.kind),
-        loaded.source.source_index,
-        @tagName(loaded.action_operation),
-        @tagName(loaded.executor),
-        result.file_size,
-        result.read_bytes,
-        result.line_count_known,
-        result.readFromFile(),
-        loaded.stored,
-        loaded.replaced_existing,
-    });
-    if (loaded.document_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.writeAll(" active=");
-    if (loaded.active_document_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.print(" documents={d} path={s} relative={s} language={s} mode={s} reason={s} bytes={d} buffer_bytes={d} lines=", .{
-        loaded.document_count,
-        loaded.path,
-        loaded.relative_path,
-        @tagName(loaded.language),
-        @tagName(loaded.mode),
-        @tagName(loaded.reason),
-        loaded.byte_count,
-        loaded.buffer_bytes,
-    });
-    if (result.line_count_known) {
-        try out.print("{d}", .{loaded.line_count});
-    } else {
-        try out.writeAll("unknown");
-    }
-    try out.print(" can_open={} can_edit={} loads_buffer={} undo={} search={} syntax={} confirm={} warning={} dirty={} revision={d}\n", .{
-        loaded.canOpen(),
-        loaded.can_edit,
-        loaded.loadsBuffer(),
-        loaded.tracks_undo,
-        loaded.enables_search,
-        loaded.enables_syntax,
-        loaded.requires_confirmation,
-        loaded.warns_large_file,
-        loaded.dirty,
-        loaded.revision,
-    });
-}
-
-fn editorSaveFlow(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
-    var tmp_dir = try std.Io.Dir.openDirAbsolute(io, "/tmp", .{});
-    defer tmp_dir.close(io);
-
-    const editable_path = "noctty-editor-save-main.zig";
-    const large_path = "noctty-editor-save-large.log";
-    defer tmp_dir.deleteFile(io, editable_path) catch {};
-    defer tmp_dir.deleteFile(io, large_path) catch {};
-
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    _ = try app.dispatch(.{ .set_project_panels = .{
-        .files = &.{
-            .{ .path = editable_path, .kind = .file, .dirty = true },
-            .{ .path = large_path, .kind = .file },
-        },
-    } });
-
-    const editable_contents =
-        \\pub fn main() void {
-        \\    return;
-        \\}
-        \\
-    ;
-    try writeEditorFlowFile(io, tmp_dir, editable_path, editable_contents);
-    try writeEditorDocumentFileLoad(out, "editable", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 0 },
-    }));
-
-    const return_start = std.mem.indexOf(u8, editable_contents, "return").?;
-    const edit = (try app.dispatch(.{ .edit_editor_document = .{
-        .edits = &.{.{
-            .start = return_start,
-            .end = return_start + "return".len,
-            .replacement = "const saved = true",
-        }},
-    } })).editor_document_edited;
-    try writeEditorDocumentEdit(out, "editable", edit);
-
-    const save = try app.saveEditorDocumentFile(io, tmp_dir, .{});
-    const saved_contents = try tmp_dir.readFileAlloc(io, editable_path, allocator, .limited(1024));
-    defer allocator.free(saved_contents);
-    try writeEditorDocumentSave(out, "editable", save, std.mem.indexOf(u8, saved_contents, "const saved = true;") != null);
-
-    const soft_contents = try allocator.alloc(u8, noctty.editor.default_editable_byte_limit + 1);
-    defer allocator.free(soft_contents);
-    @memset(soft_contents, 'x');
-    try writeEditorFlowFile(io, tmp_dir, large_path, soft_contents);
-    try writeEditorDocumentFileLoad(out, "large_read_only", try app.loadEditorDocumentFile(io, tmp_dir, .{
-        .source = .{ .kind = .files, .source_index = 1 },
-    }));
-
-    if (app.dispatch(.{ .edit_editor_document = .{
-        .document_index = 1,
-        .edits = &.{.{ .start = 0, .end = 1, .replacement = "y" }},
-    } })) |_| {
-        return error.UnexpectedEditableEditorDocument;
-    } else |err| {
-        try out.print("editor_document_edit_blocked label=large_read_only error={s}\n", .{@errorName(err)});
-    }
-
-    if (app.saveEditorDocumentFile(io, tmp_dir, .{ .document_index = 1 })) |_| {
-        return error.UnexpectedEditableEditorDocument;
-    } else |err| {
-        try out.print("editor_document_save_blocked label=large_read_only error={s}\n", .{@errorName(err)});
-    }
-}
-
-fn writeEditorDocumentEdit(out: anytype, label: []const u8, result: noctty.app.App.EditorDocumentEditResult) !void {
-    try out.print("editor_document_edit label={s} index={d} path={s} relative={s} language={s} mode={s} edits={d} bytes={d} lines={d} can_edit={} undo={} dirty={} revision={d}\n", .{
-        label,
-        result.document_index,
-        result.path,
-        result.relative_path,
-        @tagName(result.language),
-        @tagName(result.mode),
-        result.edit_count,
-        result.byte_count,
-        result.line_count,
-        result.can_edit,
-        result.tracks_undo,
-        result.dirty,
-        result.revision,
-    });
-}
-
-fn writeEditorDocumentSave(
-    out: anytype,
-    label: []const u8,
-    result: noctty.app.App.EditorDocumentSaveResult,
-    saved_contains_replacement: bool,
-) !void {
-    try out.print("editor_document_save label={s} index={d} path={s} relative={s} language={s} mode={s} bytes={d} lines={d} dirty={} revision={d} wrote_file={} saved_contains_replacement={}\n", .{
-        label,
-        result.document_index,
-        result.path,
-        result.relative_path,
-        @tagName(result.language),
-        @tagName(result.mode),
-        result.bytes,
-        result.line_count,
-        result.dirty,
-        result.revision,
-        result.wrote_file,
-        saved_contains_replacement,
-    });
-}
-
-fn writeEditorFlowFile(io: std.Io, dir: std.Io.Dir, path: []const u8, data: []const u8) !void {
-    var atomic = try dir.createFileAtomic(io, path, .{
-        .make_path = true,
-        .replace = true,
-    });
-    defer atomic.deinit(io);
-    try atomic.file.writeStreamingAll(io, data);
-    try atomic.replace(io);
-}
-
-fn editorHighlight(allocator: std.mem.Allocator, out: anytype) !void {
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    try writeSyntaxHighlight(out, "zig", (try app.dispatch(.{ .highlight_editor_syntax = .{
-        .path = "/repo/src/main.zig",
-        .contents =
-        \\pub fn main() void {
-        \\    const value = 42;
-        \\    // comment
-        \\    return;
-        \\}
-        ,
-    } })).editor_syntax_highlighted);
-    try writeSyntaxHighlight(out, "json", (try app.dispatch(.{ .highlight_editor_syntax = .{
-        .path = "/repo/package.json",
-        .contents = "{\"ok\": true, \"count\": 12}",
-    } })).editor_syntax_highlighted);
-    try writeSyntaxHighlight(out, "markdown", (try app.dispatch(.{ .highlight_editor_syntax = .{
-        .path = "/repo/README.md",
-        .contents =
-        \\# Title
-        \\
-        \\```zig
-        \\const value = 1;
-        \\```
-        ,
-    } })).editor_syntax_highlighted);
-}
-
-fn writeSyntaxHighlight(out: anytype, label: []const u8, summary: noctty.editor.SyntaxHighlightSummary) !void {
-    try out.print("editor_highlight label={s} language={s} spans={d} total={d} max={d} truncated={}\n", .{
-        label,
-        @tagName(summary.language),
-        summary.span_count,
-        summary.total_spans,
-        summary.max_spans,
-        summary.truncated(),
-    });
-    for (summary.spanSlice(), 0..) |span, idx| {
-        try out.print("editor_highlight_span label={s} index={d} kind={s} start={d} end={d}\n", .{
-            label,
-            idx,
-            @tagName(span.kind),
-            span.start,
-            span.end,
-        });
-    }
-}
-
-fn editorFind(allocator: std.mem.Allocator, out: anytype) !void {
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-
-    const contents =
-        \\Alpha beta
-        \\alphabet alpha
-        \\ALPHA beta alpha
-    ;
-    try writeEditorFind(out, "forward", (try app.dispatch(.{ .find_editor_matches = .{
-        .path = "/repo/notes.md",
-        .contents = contents,
-        .query = "alpha",
-        .case_sensitive = false,
-        .whole_word = true,
-        .cursor_offset = 8,
-        .direction = .forward,
-        .max_matches = 2,
-    } })).editor_find_matched);
-    try writeEditorFind(out, "backward_wrap", (try app.dispatch(.{ .find_editor_matches = .{
-        .path = "/repo/notes.md",
-        .contents = contents,
-        .query = "alpha",
-        .case_sensitive = false,
-        .whole_word = true,
-        .cursor_offset = 0,
-        .direction = .backward,
-    } })).editor_find_matched);
-    try writeEditorFind(out, "no_wrap", (try app.dispatch(.{ .find_editor_matches = .{
-        .path = "/repo/notes.md",
-        .contents = contents,
-        .query = "alpha",
-        .case_sensitive = false,
-        .whole_word = true,
-        .cursor_offset = contents.len,
-        .direction = .forward,
-        .wrap = false,
-    } })).editor_find_matched);
-}
-
-fn writeEditorFind(out: anytype, label: []const u8, summary: noctty.editor.EditorFindSummary) !void {
-    try out.print("editor_find label={s} language={s} query_len={d} total={d} matches={d} max={d} truncated={} current=", .{
-        label,
-        @tagName(summary.language),
-        summary.query_len,
-        summary.total_matches,
-        summary.match_count,
-        summary.max_matches,
-        summary.truncated(),
-    });
-    if (summary.current_match_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.print(" stored_current=", .{});
-    if (summary.current_stored_index) |idx| {
-        try out.print("{d}", .{idx});
-    } else {
-        try out.writeAll("none");
-    }
-    try out.print(" direction={s} case_sensitive={} whole_word={} wrapped={} wrap_enabled={}\n", .{
-        @tagName(summary.direction),
-        summary.case_sensitive,
-        summary.whole_word,
-        summary.wrapped,
-        summary.wrap_enabled,
-    });
-    for (summary.matchSlice(), 0..) |match, idx| {
-        const current = if (summary.current_stored_index) |current_idx| current_idx == idx else false;
-        try out.print("editor_find_match label={s} index={d} line={d} column={d} start={d} end={d} current={}\n", .{
-            label,
-            idx,
-            match.line,
-            match.column,
-            match.start,
-            match.end,
-            current,
-        });
-    }
 }
 
 fn sessionEnvironment(environ_map: anytype) noctty.gui.SessionEnvironment {
@@ -6416,103 +5669,31 @@ fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) 
 
 fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
     const workspace_path = "/tmp/noctty-native-grid-project.nocttyws";
-    const config_path = "/tmp/noctty-native-grid-syntax-theme.nocttycfg";
-    const editor_root = "/tmp/noctty-native-grid-editor-here";
-    const editor_path = editor_root ++ "/src/open_here.zig";
-    const editor_second_path = editor_root ++ "/src/second.zig";
-    std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
-    std.Io.Dir.cwd().deleteFile(io, config_path) catch {};
-    std.Io.Dir.cwd().deleteTree(io, editor_root) catch {};
-    defer std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
-    defer std.Io.Dir.cwd().deleteFile(io, config_path) catch {};
-    defer std.Io.Dir.cwd().deleteTree(io, editor_root) catch {};
-    try writeEditorFlowFile(io, std.Io.Dir.cwd(), editor_path, "const before = false;\n");
-    try writeEditorFlowFile(io, std.Io.Dir.cwd(), editor_second_path, "const second = false;\n");
+    const config_path = "/tmp/noctty-native-grid-project.nocttycfg";
+    const project_root = "/tmp/noctty-native-grid-nocted-handoff";
+    const cwd = std.Io.Dir.cwd();
+    cwd.deleteFile(io, workspace_path) catch {};
+    cwd.deleteFile(io, config_path) catch {};
+    cwd.deleteTree(io, project_root) catch {};
+    defer cwd.deleteFile(io, workspace_path) catch {};
+    defer cwd.deleteFile(io, config_path) catch {};
+    defer cwd.deleteTree(io, project_root) catch {};
+    try cwd.createDirPath(io, project_root);
+
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
-    _ = try app.dispatch(.{ .set_syntax_theme = "noctty-syntax-high-contrast" });
-    const config_receipt = try app.saveConfigFile(io, std.Io.Dir.cwd(), config_path, .settings);
-    config_receipt.deinit(allocator);
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
-    var session = try noctty.terminal_session.TerminalSession.spawn(allocator, editor_root, "/bin/sh", 96, 24);
+    var session = try noctty.terminal_session.TerminalSession.spawn(allocator, project_root, "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("printf 'NOCTTY_PROJECT_EDITOR_OK'; read _; exit 0\n");
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 0, 0, 0, 8, null, 0, 0, 0, noctty_grid_text_action, &bridge);
-    if (status != 0 or bridge.callback_failed or !bridge.workspace_saved or !bridge.workspace_loaded or !bridge.editor_loaded or !bridge.editor_saved or !bridge.editor_syntax_highlighting) {
-        std.debug.print("native_grid_project_editor_failure status={d} callback_failed={} workspace_saved={} workspace_loaded={} editor_loaded={} editor_saved={} editor_syntax_highlighting={}\n", .{ status, bridge.callback_failed, bridge.workspace_saved, bridge.workspace_loaded, bridge.editor_loaded, bridge.editor_saved, bridge.editor_syntax_highlighting });
-        return error.NativeGridProjectEditorSmokeFailed;
-    }
-    if (app.workspace.project_panels.files.len == 0 or
-        app.editor_documents.items.len != 2 or
-        !std.mem.eql(u8, app.editor_documents.items[0].document.path, editor_path) or
-        !std.mem.eql(u8, app.editor_documents.items[1].document.path, editor_second_path) or
-        app.active_editor_document_index == null or
-        app.active_editor_document_index.? != 0)
-        return error.NativeGridProjectEditorStateMismatch;
-    var reloaded_app = try noctty.app.App.init(allocator);
-    defer reloaded_app.deinit();
-    const reloaded_config = try reloaded_app.loadConfigFile(io, std.Io.Dir.cwd(), config_path, .settings);
-    reloaded_config.deinit(allocator);
-    if (!std.mem.eql(u8, reloaded_app.config.syntax_theme, "noctty-syntax-high-contrast"))
-        return error.NativeGridSyntaxThemeReloadMismatch;
-    if (reloaded_app.config.recent_workspaces.count != 1 or
-        !std.mem.eql(
-            u8,
-            reloaded_app.config.recent_workspaces.at(0).?,
-            workspace_path,
-        ))
-        return error.NativeGridRecentWorkspaceReloadMismatch;
-    const contents = try std.Io.Dir.cwd().readFileAlloc(io, editor_path, allocator, .limited(1024));
-    defer allocator.free(contents);
-    if (!std.mem.eql(u8, contents, "const unsaved_switch = true;\n"))
-        return error.NativeGridEditorWritebackMismatch;
-    const second_contents = try std.Io.Dir.cwd().readFileAlloc(io, editor_second_path, allocator, .limited(1024));
-    defer allocator.free(second_contents);
-    if (!std.mem.eql(u8, second_contents, "const second = false;\n"))
-        return error.NativeGridEditorDiscardWritebackMismatch;
-    try out.print("native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true context_menu=true menu_survived=true editor_here=true editor_binary=nocted editor_handoff=true editor_process_separate=true directory_listed=true directory_navigated=true compatibility_editor=true rendered_editor=true syntax_highlighting=true syntax_theme=high-contrast reloaded=true file_opened=true edited=true dirty_state=true save_state=true ctrl_s=true file_switch_cancel=true file_switch_save=true file_switch_discard=true close_cancel=true close_discard=true parent_mapped=true saved=true exited=true\n", .{});
-}
-
-fn nativeGridEditorShutdownSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
-    const editor_root = "/tmp/noctty-native-grid-editor-shutdown";
-    const primary_path = editor_root ++ "/primary.zig";
-    const secondary_path = editor_root ++ "/secondary.zig";
-    std.Io.Dir.cwd().deleteTree(io, editor_root) catch {};
-    defer std.Io.Dir.cwd().deleteTree(io, editor_root) catch {};
-    try writeEditorFlowFile(io, std.Io.Dir.cwd(), primary_path, "const primary_before = false;\n");
-    try writeEditorFlowFile(io, std.Io.Dir.cwd(), secondary_path, "const secondary_before = false;\n");
-
-    var app = try noctty.app.App.init(allocator);
-    defer app.deinit();
-    const secondary_pane_id = (try app.dispatch(.split_down)).pane_created;
-    const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
-    var primary = try noctty.terminal_session.TerminalSession.spawn(
-        allocator,
-        editor_root,
-        "/bin/sh",
-        64,
-        24,
-    );
-    defer primary.deinit();
-    var secondary = try noctty.terminal_session.TerminalSession.spawn(
-        allocator,
-        editor_root,
-        "/bin/sh",
-        64,
-        24,
-    );
-    defer secondary.deinit();
-    try primary.write("printf 'NOCTTY_EDITOR_SHUTDOWN_PRIMARY'; IFS= read -r _; exit 7\n");
-    try secondary.write("printf 'NOCTTY_EDITOR_SHUTDOWN_SECONDARY'; IFS= read -r _; exit 9\n");
     var bridge = NativeGridBridge{
         .app = &app,
         .pane_id = tab.active_pane_id,
-        .secondary_pane_id = secondary_pane_id,
         .io = io,
+        .config_path = config_path,
     };
     const status = noctty_native_grid_host_run(
-        &primary,
+        &session,
         noctty_grid_pump,
         noctty_grid_write,
         noctty_grid_cell,
@@ -6530,52 +5711,32 @@ fn nativeGridEditorShutdownSmoke(allocator: std.mem.Allocator, io: std.Io, out: 
         tab.active_pane_id,
         noctty_grid_event,
         &bridge,
-        64,
+        96,
         24,
-        1,
         0,
         0,
-        32,
-        &secondary,
-        secondary_pane_id,
-        1,
+        0,
+        8,
+        null,
+        0,
+        0,
         0,
         noctty_grid_text_action,
         &bridge,
     );
-    if (status != 0 or bridge.callback_failed or !bridge.editor_loaded or
-        !bridge.editor_saved or app.editor_documents.items.len != 2)
-        return error.NativeGridEditorShutdownSmokeFailed;
-    const primary_exit = (try primary.pollExit()) orelse
-        return error.NativeGridEditorShutdownExitCodeMissing;
-    const secondary_exit = (try secondary.pollExit()) orelse
-        return error.NativeGridEditorShutdownExitCodeMissing;
-    if (primary_exit != 7 or secondary_exit != 9)
-        return error.NativeGridEditorShutdownExitCodeMismatch;
-    const primary_contents = try std.Io.Dir.cwd().readFileAlloc(
-        io,
-        primary_path,
-        allocator,
-        .limited(1024),
-    );
-    defer allocator.free(primary_contents);
-    const secondary_contents = try std.Io.Dir.cwd().readFileAlloc(
-        io,
-        secondary_path,
-        allocator,
-        .limited(1024),
-    );
-    defer allocator.free(secondary_contents);
-    if (!std.mem.eql(u8, primary_contents, "const primary_saved = true;\n") or
-        !std.mem.eql(u8, secondary_contents, "const secondary_before = false;\n"))
-    {
-        std.debug.print(
-            "native_grid_editor_shutdown_writeback primary={s} secondary={s}\n",
-            .{ primary_contents, secondary_contents },
-        );
-        return error.NativeGridEditorShutdownWritebackMismatch;
-    }
-    try out.print("native_grid_editor_shutdown_smoke contexts=2 editors=2 prompts=5 direct_prompt=true modal_deferred=true modal_depth=1 prompt_owned=true wm_cancel=true retryable=true window_alive=true editors_alive=true ptys_alive=2 tray_alive=true toolbar_retry=true save_failure=true failure_survived=true natural_cancel=true natural_retry=true natural_dwell_ms=80 already_exited=2 exit_codes=7,9 exit_codes_preserved=true active_validation=true save=true discard=true saved_file=true discarded_file=true sessions=2 sessions_stopped=2 accepted_origin=toolbar tray_unregistered=true menu_unregistered=true exited=true\n", .{});
+    if (status != 0 or bridge.callback_failed or
+        !bridge.workspace_saved or !bridge.workspace_loaded)
+        return error.NativeGridProjectEditorSmokeFailed;
+
+    var reloaded_app = try noctty.app.App.init(allocator);
+    defer reloaded_app.deinit();
+    const reloaded = try reloaded_app.loadConfigFile(io, cwd, config_path, .settings);
+    reloaded.deinit(allocator);
+    if (reloaded_app.config.recent_workspaces.count != 1 or
+        !std.mem.eql(u8, reloaded_app.config.recent_workspaces.at(0).?, workspace_path))
+        return error.NativeGridRecentWorkspaceReloadMismatch;
+
+    try out.writeAll("native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true\n");
 }
 
 fn nativeGridMaintenanceSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {

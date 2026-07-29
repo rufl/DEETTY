@@ -49,9 +49,9 @@ Fast contributor gate captured during this prep pass:
 zig build check -j1 --summary all
 ```
 
-Current result on 2026-07-29: passed, `21/21` build steps succeeded and
-`336/336` tests passed. The same prep pass includes the refreshed native GTK,
-PTY, Tree-sitter, and Ghostty VT boundaries plus the NoctEd relative
+Current result on 2026-07-29: passed, `19/19` build steps succeeded and
+`311/311` tests passed. The same prep pass includes the refreshed native GTK,
+PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
 
 The full maintainer gate is:

@@ -24,8 +24,8 @@ zig build run-nocted -- --project . --open README.md
 ## Main NOCTTY runtime areas
 
 - `src/app/App.zig` — product-level application model. Owns config loading,
-  theme/workspace persistence, editor-document integration, host launch plans,
-  and high-level command results.
+  theme/workspace persistence, host launch plans, and high-level command results.
+  Editor documents belong exclusively to the standalone NoctEd process.
 - `src/gui/Host.zig` — native GUI host-facing planning types for presentation,
   windows, dropdown behavior, shortcuts, notifications, status UI, project panel
   presentation, clipboard/paste flow, and related status structs.

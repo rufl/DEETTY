@@ -26,7 +26,7 @@ test -s "$pty"
 grep -F 'pub fn format(input: Input' "$pane_info_model" >/dev/null
 grep -F 'pub fn resourceSamplePair' "$pty" >/dev/null
 grep -F 'tcgetpgrp(self.master_fd)' "$pty" >/dev/null
-grep -F 'fn closePty(fd: c_int, child_pid: c_int) void' "$pty" >/dev/null
+grep -F 'fn closePty(fd: c_int, child_pid: c_int, child_reaped: bool) void' "$pty" >/dev/null
 grep -F 'std.posix.read(self.master_fd, buffer)' "$pty" >/dev/null
 grep -F 'const child_pid = std.c.fork();' "$pty" >/dev/null
 grep -F 'noctty_pane_info_strip_update' "$native_gtk" >/dev/null
@@ -44,8 +44,8 @@ grep -F 'visual_ready=true controlled_exit=true' src/main.zig scripts/native_gri
 grep -F 'static gboolean open_smoke_workspace_menu' "$grid" >/dev/null
 grep -F 'pane_close_smoke_attempts++ < 80' "$grid" >/dev/null
 grep -F 'gint pending_index = root->saw_draw ? 1 : 0;' "$grid" >/dev/null
-grep -F 'static gboolean cancel_natural_editor_shutdown_smoke' "$grid" >/dev/null
-grep -F 'application_close_origin == NOCTTY_CLOSE_ORIGIN_NATURAL' "$grid" >/dev/null
+grep -F 'static gboolean confirm_grid_application_close' "$grid" >/dev/null
+grep -F 'confirm_terminal_process_close(root, "application", busy_count)' "$grid" >/dev/null
 grep -F 'run_smoke() {' scripts/native_release_smoke.sh >/dev/null
 grep -F 'sleep 0.2' scripts/native_release_smoke.sh >/dev/null
 grep -F 'c.gtk_source_map_set_view' "$nocted" >/dev/null

@@ -112,7 +112,7 @@ The dated [search/load receipt](NOCTED_SEARCH_LOAD_QUALIFICATION.md) now retains
 
 For visual QA, `NOCTED_SMOKE_PREVIEW=fold|search|quick-open` holds the validated state, and `NOCTED_SMOKE_SCREENSHOT=/tmp/name.png` asks GDK to capture only NoctEd's own native window before warning-fatal teardown. The maintained quick-open smoke captures this surface on both backends; setting `NOCTED_CAPTURE_OUTPUT=/tmp/name.png` retains a copy while its disposable project/config tree is still removed. This proof path does not capture or drive another terminal window.
 
-The NOCTTY handoff gate separately requires `editor_binary=nocted editor_handoff=true editor_process_separate=true`.
+The NOCTTY handoff gate separately requires `editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true`.
 
 ## Maturity Boundary
 

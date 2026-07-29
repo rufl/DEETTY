@@ -300,11 +300,9 @@ grep -F 'tab_suffix_stack=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHAN
 grep -F 'native_perf_memory_polish=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'native_memory_leak_hardening=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'native_allocation_polish=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
-grep -F 'syntax_theme_parse_deinit=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'git_parse_cap_before_alloc=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'smart_filter_label_stack=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'terminal_find_status_stack=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
-grep -F 'editor_find_prereserved=true' docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 for marker in \
   native_deep_memory_hardening=true \
   scrollback_lazy_growth=true \
@@ -314,8 +312,6 @@ for marker in \
   idle_metadata_probe_suppressed=true \
   idle_exit_poll_throttled=true \
   native_host_callback_cleanup=true \
-  tree_sitter_capture_stack=true \
-  editor_find_lazy_reserve=true \
   literal_paste_single_pass=true \
   paste_session_allocator=true; do
   for document in docs/TECHNICAL_STATUS.md BACKLOG_ARCHIVE.md CHANGELOG.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md; do
@@ -480,9 +476,6 @@ grep -F 'stop_grid_io_sources(candidate);' src/gui/native_grid_host.c >/dev/null
 grep -F 'remove_grid_source(&context.application_close_deferred_source);' src/gui/native_grid_host.c >/dev/null
 grep -F 'defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);' src/main.zig >/dev/null
 grep -F '4 => .{ .tick = at_ms },' src/main.zig >/dev/null
-grep -F 'pub const max_editor_undo_transactions: usize = 128;' src/editor/TextBuffer.zig >/dev/null
-grep -F 'trimTransactions(&self.undo_stack, self.allocator);' src/editor/TextBuffer.zig >/dev/null
-grep -F 'advanceLineColumn(request.contents[idx .. idx + request.query.len]' src/editor/TextBuffer.zig >/dev/null
 grep -F 'if (std.mem.eql(u8, basename, "vendor")) return true;' src/workspace/ProjectScan.zig >/dev/null
 grep -F 'destroy_retired_grid_context' src/gui/native_grid_host.c >/dev/null
 grep -F 'g_ptr_array_remove(root->contexts, context);' src/gui/native_grid_host.c >/dev/null
@@ -509,15 +502,6 @@ done
 grep -F "expected='native_grid_notification_smoke tooltip=true status_border=true dbus=true delivered=true exited=true'" scripts/native_grid_notification_smoke.sh >/dev/null
 grep -F 'max_attempts=3' scripts/native_grid_notification_smoke.sh >/dev/null
 grep -F -- '--native-grid-notification-smoke 2>&1 || true' scripts/native_grid_notification_smoke.sh >/dev/null
-grep -F 'fn applySingleEditFast(self: *TextBuffer, edit: TextEdit) !bool' src/editor/TextBuffer.zig >/dev/null
-grep -F 'if (matches.items.len == 0) {' src/editor/TextBuffer.zig >/dev/null
-grep -F 'const absent = try buffer.findAllAlloc(std.testing.failing_allocator, "missing", .{});' src/editor/TextBuffer.zig >/dev/null
-grep -F 'var captures: [TextBuffer.max_syntax_highlight_spans]core.Capture = undefined;' src/editor/TreeSitter.zig >/dev/null
-grep -F 'syntax_document: ?TreeSitter.Document = null,' src/app/App.zig >/dev/null
-grep -F 'fn highlightEditorSyntax(self: *App, request: Editor.SyntaxHighlightRequest)' src/app/App.zig >/dev/null
-grep -F 'pub fn importTokenColorsAlloc(allocator: std.mem.Allocator, name: []const u8, contents: []const u8) !SyntaxTheme' src/editor/SyntaxTheme.zig >/dev/null
-grep -F 'var parsed = std.json.parseFromSlice(std.json.Value, allocator, contents, .{}) catch {' src/editor/SyntaxTheme.zig >/dev/null
-grep -F 'defer parsed.deinit();' src/editor/SyntaxTheme.zig >/dev/null
 grep -F 'if (entries.items.len >= max_entries) {' src/workspace/ProjectScan.zig >/dev/null
 grep -F 'if (nodes.items.len >= max_entries) {' src/workspace/ProjectScan.zig >/dev/null
 grep -F 'test "project scan checks git caps before cloning overflow records"' src/workspace/ProjectScan.zig >/dev/null
@@ -541,8 +525,6 @@ grep -F 'fn prepareLiteralPasteAlloc' src/terminal/Paste.zig >/dev/null
 grep -F 'test "literal paste preparation uses one owned buffer"' src/terminal/Paste.zig >/dev/null
 grep -F 'preparePasteAlloc(session.allocator' src/main.zig >/dev/null
 grep -F 'defer prepared.deinit(session.allocator);' src/main.zig >/dev/null
-grep -F 'test "text buffer applies common single edits without rebuilding whole buffer"' src/editor/TextBuffer.zig >/dev/null
-grep -F 'test "app reuses tree-sitter documents for open editor syntax"' src/app/App.zig >/dev/null
 grep -F 'if (had_output) queue_grid_output_when_ready(context);' src/gui/native_grid_host.c >/dev/null
 grep -F 'if (status_changed) queue_grid_draw_when_mapped(context);' src/gui/native_grid_host.c >/dev/null
 grep -F 'Product-behavior and local release-source baseline: 0.1.0' docs/RELEASE_CHECKLIST.md >/dev/null
@@ -598,7 +580,7 @@ for document in docs/TECHNICAL_STATUS.md BACKLOG.md CHANGELOG.md docs/ARCHITECTU
 done
 grep -F 'tab_bar=true compact_tabs=true add_button=true' scripts/native_grid_two_tab_smoke.sh >/dev/null
 grep -F 'font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true' scripts/native_grid_compact_ux_smoke.sh >/dev/null
-grep -F 'context_menu=true menu_survived=true editor_here=true editor_binary=nocted editor_handoff=true editor_process_separate=true directory_listed=true directory_navigated=true compatibility_editor=true' scripts/native_grid_project_editor_smoke.sh >/dev/null
+grep -F 'context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true' scripts/native_grid_project_editor_smoke.sh >/dev/null
 grep -F 'recent_control=true recent_persisted=true' scripts/native_grid_project_editor_smoke.sh >/dev/null
 grep -F 'run_smoke ./scripts/native_grid_workspace_activation_smoke.sh' scripts/native_release_smoke.sh >/dev/null
 grep -F 'workspace_activation=true recent_workspaces=true' scripts/native_release_smoke.sh docs/TECHNICAL_STATUS.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
@@ -619,7 +601,6 @@ grep -F './scripts/native_grid_installed_activation_smoke.sh --contract-only' do
 grep -F 'zig build --global-cache-dir .zig-cache/global install smoke-binaries' scripts/native_grid_project_editor_smoke.sh >/dev/null
 grep -F './scripts/native_grid_shortcut_live_smoke.sh)' scripts/native_release_smoke.sh >/dev/null
 grep -F 'rm -f "$ready" "$activated" "$output"' scripts/native_grid_shortcut_live_smoke.sh >/dev/null
-grep -F 'dirty_state=true save_state=true ctrl_s=true file_switch_cancel=true file_switch_save=true file_switch_discard=true close_cancel=true close_discard=true parent_mapped=true' src/main.zig scripts/native_grid_project_editor_smoke.sh >/dev/null
 for path in src/nocted/root.zig src/nocted/main.zig src/nocted/gtk.zig \
   src/nocted/Document.zig src/nocted/Folding.zig src/nocted/ProjectIndex.zig \
   src/nocted/ProjectSearch.zig src/nocted/QuickOpen.zig \
@@ -969,7 +950,7 @@ grep -F '.name = "nocted-smoke"' build.zig >/dev/null
 grep -F 'vte_options.addOption(bool, "enable_vte", true);' build.zig >/dev/null
 grep -F 'runtime_options.addOption(bool, "enable_vte", false);' build.zig >/dev/null
 grep -F 'return error.SmokeModeUnavailable;' src/main.zig >/dev/null
-grep -F 'return error.LegacyEditorUnavailable;' src/main.zig >/dev/null
+grep -F 'return error.LegacyEditorRemoved;' src/main.zig >/dev/null
 grep -F 'mandatory_vte_dependency=false' scripts/package_manifests_smoke.sh docs/INSTALL.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'Find in Files...' src/nocted/main.zig docs/NOCTED.md >/dev/null
 grep -F 'New File' src/nocted/main.zig docs/NOCTED.md >/dev/null
@@ -1004,7 +985,7 @@ grep -F 'backend=x11 scratch_clean=true' docs/NOCTED.md docs/RELEASE_CHECKLIST.m
 grep -F 'run_smoke ./scripts/nocted_native_matrix.sh' scripts/native_release_smoke.sh >/dev/null
 grep -F 'nocted_native_matrix x11=true wayland=true folding=true find_in_files=true multi_file=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true scratch_clean=true' BACKLOG_ARCHIVE.md CHANGELOG.md >/dev/null
 grep -F 'nocted_native_matrix x11=true wayland=true folding=true find_in_files=true multi_file=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true real_project=true lifecycle_cycles=8 gtk_tree_draw=true model_latency=true draw_latency=true monitor_burst=true burst_cycles=8 files_per_burst=12 publication_latency=true overflow_recovery=true late_callback_guard=true worker_drained=true warning_fatal=true scratch_clean=true' scripts/nocted_native_matrix.sh docs/NOCTED.md docs/NOCTED_PROJECT_LIFECYCLE_QUALIFICATION.md docs/RELEASE_CHECKLIST.md >/dev/null
-grep -F 'editor_shutdown=true nocted=true maintenance=true' scripts/native_release_smoke.sh docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
+grep -F 'nocted_handoff=true nocted=true maintenance=true' scripts/native_release_smoke.sh docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'nocted_standalone=true process_separate=true' BACKLOG_ARCHIVE.md CHANGELOG.md docs/RELEASE_CHECKLIST.md >/dev/null
 for obsolete in 'Lean Editor' 'lean editor' 'lean-editor' 'lightweight editor' \
   'Open Editor Here' 'Project / Editor'; do
@@ -1013,19 +994,10 @@ for obsolete in 'Lean Editor' 'lean editor' 'lean-editor' 'lightweight editor' \
     docs/RELEASE_CHECKLIST.md src/gui/native_grid_host.c resources packaging \
     >/dev/null
 done
-grep -F 'Ctrl+S' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPACT_UX.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
-grep -F 'Save/Discard/Cancel' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md >/dev/null
-for path in docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/PITCH_AUDIT.md docs/RELEASE_CHECKLIST.md; do
-  grep -F 'whole-application Save/Discard/Cancel' "$path" >/dev/null
-  grep -F 'editor_shutdown=true' "$path" >/dev/null
-  grep -F 'forced SIGTERM' "$path" >/dev/null
-done
-test -s scripts/native_grid_editor_shutdown_smoke.sh
-grep -F 'run_smoke ./scripts/native_grid_editor_shutdown_smoke.sh' scripts/native_release_smoke.sh >/dev/null
-grep -F 'editor_shutdown=true' scripts/native_release_smoke.sh >/dev/null
-for path in src/main.zig scripts/native_grid_editor_shutdown_smoke.sh; do
-  grep -F 'native_grid_editor_shutdown_smoke contexts=2 editors=2 prompts=5 direct_prompt=true modal_deferred=true modal_depth=1 prompt_owned=true wm_cancel=true retryable=true window_alive=true editors_alive=true ptys_alive=2 tray_alive=true toolbar_retry=true save_failure=true failure_survived=true natural_cancel=true natural_retry=true natural_dwell_ms=80 already_exited=2 exit_codes=7,9 exit_codes_preserved=true active_validation=true save=true discard=true saved_file=true discarded_file=true sessions=2 sessions_stopped=2 accepted_origin=toolbar tray_unregistered=true menu_unregistered=true exited=true' "$path" >/dev/null
-done
+test ! -d src/editor
+! grep -FR 'enable_legacy_editor' build.zig src >/dev/null
+! grep -F 'compatibility editor' src/gui/native_grid_host.c >/dev/null
+grep -F 'native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true' src/main.zig scripts/native_grid_project_editor_smoke.sh >/dev/null
 grep -F 'Ctrl+wheel' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPACT_UX.md docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F 'Open NoctEd Here' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPACT_UX.md docs/NOCTED.md >/dev/null
 grep -F 'Close Tab' docs/TECHNICAL_STATUS.md docs/NATIVE_HOST.md docs/COMPACT_UX.md >/dev/null
@@ -1235,4 +1207,4 @@ for path in docs/INSTALL.md docs/RELEASE_CHECKLIST.md vendor/gtk-layer-shell/REA
   grep -F 'LICENSE_MIT.txt' "$path" >/dev/null
 done
 echo "docs_truth_endurance nocted_core_endurance=true cycles_per_mode=512 total_cycles=1024 ranking_evaluations=3072 duration_recorded=true proof_boundary=headless"
-echo "docs_truth required_docs=true links=true product_complete=true release_hardening_closed=true backlog_partition=true task_ids_unique=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true tab_reorder_active_identity=true tab_reorder_rollback=true tab_reorder_persistence_coalesced=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true pane_close_menu_popdown=true foreground_guard=true session_storage_released=true late_callback_guard=true popup_teardown=true root_timer_coalesced=true hidden_present_throttled=true mapped_redraw_only=true terminal_chords=true layout_presets=true layout_churn=32 resize_overlay=true note_overlay=true hot_session=true font_wheel=true editor_here=true editor_save_safety=true editor_shutdown=true window_resize=true tray=true tray_close=true settings_categories=true settings_stacking=true scrollback_configurable=true launch_continuity_qualification=true noctalia=true release_reproducibility=true release_workflow=true package_truth=true bundle_provenance=true release_operations=true native_allocation_polish=true native_deep_memory_hardening=true split_terminal_benchmark=true process_tree_memory=true pty_pump_bounded_drain=true native_output_throughput=true visible_grid_ring=true vt_ascii_run=true pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true descriptor_fallback=root_coalesced pane_exit_timers=0 source_cleanup=centralized installed_activation_harness=true render_abi=packed_rows render_abi_version=2 damage_tracking=dirty_spans glyph_batching=true glyph_cache=true frame_clock_present=true native_grid_renderer_qualification=true nocted_worker=bounded nocted_worker_lanes=2 nocted_lsp_client=true nocted_tasks=true nocted_worker_qualification=true nocted_worker_admission=true nocted_worker_transaction=true nocted_project_delta=true nocted_project_scale_qualification=true nocted_project_lifecycle=true nocted_multi_selection=true nocted_session_restore=true nocted_recent_project=true terminal_history_qualification=true terminal_compatibility_qualification=true terminal_real_tui_qualification=true terminal_ncurses_qualification=true terminal_system_tui_qualification=true terminal_system_tui_applications=10 terminal_session_qualification=true resource_qualification=true pane_context_init=explicit production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false benchmark_order_isolated=true wezterm_split_ready=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true performance_algorithm_research=true"
+echo "docs_truth required_docs=true links=true product_complete=true release_hardening_closed=true backlog_partition=true task_ids_unique=true tab_add=true tab_reorder=true tab_reorder_pointer_drag=true tab_reorder_active_identity=true tab_reorder_rollback=true tab_reorder_persistence_coalesced=true window_controls=true tab_rename=true tab_color=true profile_presets=true navigation=true alt_scroll=true ctrl_alt_scroll=true tab_close=true pane_close=true pane_close_menu_popdown=true foreground_guard=true session_storage_released=true late_callback_guard=true popup_teardown=true root_timer_coalesced=true hidden_present_throttled=true mapped_redraw_only=true terminal_chords=true layout_presets=true layout_churn=32 resize_overlay=true note_overlay=true hot_session=true font_wheel=true nocted_handoff=true embedded_editor_removed=true window_resize=true tray=true tray_close=true settings_categories=true settings_stacking=true scrollback_configurable=true launch_continuity_qualification=true noctalia=true release_reproducibility=true release_workflow=true package_truth=true bundle_provenance=true release_operations=true native_allocation_polish=true native_deep_memory_hardening=true split_terminal_benchmark=true process_tree_memory=true pty_pump_bounded_drain=true native_output_throughput=true visible_grid_ring=true vt_ascii_run=true pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true descriptor_fallback=root_coalesced pane_exit_timers=0 source_cleanup=centralized installed_activation_harness=true render_abi=packed_rows render_abi_version=2 damage_tracking=dirty_spans glyph_batching=true glyph_cache=true frame_clock_present=true native_grid_renderer_qualification=true nocted_worker=bounded nocted_worker_lanes=2 nocted_lsp_client=true nocted_tasks=true nocted_worker_qualification=true nocted_worker_admission=true nocted_worker_transaction=true nocted_project_delta=true nocted_project_scale_qualification=true nocted_project_lifecycle=true nocted_multi_selection=true nocted_session_restore=true nocted_recent_project=true terminal_history_qualification=true terminal_compatibility_qualification=true terminal_real_tui_qualification=true terminal_ncurses_qualification=true terminal_system_tui_qualification=true terminal_system_tui_applications=10 terminal_session_qualification=true resource_qualification=true pane_context_init=explicit production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false benchmark_order_isolated=true wezterm_split_ready=true pane_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true performance_algorithm_research=true"

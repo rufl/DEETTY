@@ -193,7 +193,7 @@ zig build check
 ```
 
 The current working tree and a fresh clean source copy pass
-`zig build check -j1 --summary all` with `21/21` steps and `336/336` tests.
+`zig build check -j1 --summary all` with `19/19` steps and `311/311` tests.
 
 Bounded public-source-alpha gate:
 

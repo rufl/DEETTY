@@ -1,14 +1,6 @@
-const build_options = @import("noctty_build_options");
-
 pub const app = @import("app/App.zig");
 pub const config = @import("config/Config.zig");
 pub const config_storage = @import("config/Storage.zig");
-pub const editor = @import("editor/TextBuffer.zig");
-pub const editor_syntax_theme = @import("editor/SyntaxTheme.zig");
-pub const editor_tree_sitter = if (build_options.enable_legacy_editor)
-    @import("editor/TreeSitter.zig")
-else
-    @import("editor/TreeSitterDisabled.zig");
 pub const ghostty = @import("ghostty/root.zig");
 pub const gui = @import("gui/root.zig");
 pub const terminal = @import("terminal/Terminal.zig");
@@ -30,9 +22,6 @@ test {
     _ = app;
     _ = config;
     _ = config_storage;
-    _ = editor;
-    _ = editor_syntax_theme;
-    _ = editor_tree_sitter;
     _ = ghostty;
     _ = gui;
     _ = terminal;

@@ -147,16 +147,7 @@ typedef struct NocttyGridContextTag {
     GtkWidget *project_dialog;
     GtkWidget *recent_workspace_combo;
     GtkWidget *recent_workspace_open;
-    GtkWidget *editor_dialog;
-    GtkWidget *editor_view;
-    GtkWidget *editor_chooser;
-    GtkWidget *editor_file_label;
-    GtkWidget *editor_status;
-    GtkWidget *editor_save_button;
-    GtkWidget *editor_confirm_dialog;
     GtkWidget *workspace_menu;
-    gchar *editor_path;
-    gchar *editor_directory;
     gchar *display_title;
     gchar *smart_filter_tag;
     GPtrArray *contexts;
@@ -258,7 +249,6 @@ typedef struct NocttyGridContextTag {
     int tray_close_session_stopped;
     int application_close_requested;
     int application_modal_depth;
-    int application_modal_depth_max;
     int application_close_preflight_active;
     int application_close_deferred;
     NocttyApplicationCloseOrigin application_close_deferred_origin;
@@ -266,34 +256,6 @@ typedef struct NocttyGridContextTag {
     guint application_close_dwell_source;
     NocttyApplicationCloseOrigin application_close_origin;
     NocttyApplicationCloseOrigin application_close_accepted_origin;
-    NocttyApplicationCloseOrigin application_close_aborted_origin;
-    int application_close_modal_deferred;
-    int application_close_modal_resumed;
-    int application_close_editor_prompt_not_overwritten;
-    int application_close_wm_delete_seen;
-    int application_close_wm_cancelled;
-    int application_close_toolbar_save_failed;
-    int application_close_natural_cancelled;
-    int application_close_natural_retryable;
-    int application_close_natural_dwell_scheduled;
-    int application_close_natural_exit_codes_preserved;
-    int application_close_natural_active_preserved;
-    int application_close_contexts_scanned;
-    int application_close_prompt_count;
-    int application_close_cancelled;
-    int application_close_retryable;
-    int application_close_window_alive;
-    int application_close_editors_alive;
-    int application_close_ptys_alive;
-    int application_close_tray_alive;
-    int application_close_saved;
-    int application_close_discarded;
-    int application_close_save_failed;
-    int application_close_save_failure_survived;
-    int application_close_sessions_total;
-    int application_close_sessions_stopped;
-    int application_close_already_exited;
-    int editor_shutdown_smoke_attempts;
     void *layer_shell_library;
     int layer_shell_active;
     int window_presented;
@@ -326,30 +288,12 @@ typedef struct NocttyGridContextTag {
     int nocted_launch_attempted;
     int nocted_launch_succeeded;
     int nocted_process_separate;
-    int editor_directory_listed;
-    int editor_directory_navigated;
-    int editor_file_opened;
-    int editor_loading;
-    int editor_close_in_progress;
-    int editor_clean_save_disabled;
-    int editor_dirty_visible;
-    int editor_ctrl_s_saved;
-    int editor_switch_cancelled;
-    int editor_switch_saved;
-    int editor_switch_discarded;
-    int editor_close_cancelled;
-    int editor_close_discarded;
-    int editor_delete_event_seen;
-    int editor_prompt_mapped_count;
-    int editor_parent_mapped;
+    int nocted_directory_resolved;
     int recent_workspace_control;
     int recent_workspace_parent_rendered;
     int recent_workspace_child_launched;
     int recent_workspace_child_clicked;
     int activation_child_receipt_attempts;
-    int editor_smoke_prompt_response;
-    int syntax_highlighting_applied;
-    int syntax_highlight_span_count;
     NocttyFocusSmokeStage focus_click_smoke_stage;
     int focus_click_smoke_attempts;
     int focus_click_primary;
@@ -4532,7 +4476,6 @@ static gboolean on_window_delete_event(GtkWidget *widget, GdkEvent *event,
     (void)widget;
     (void)event;
     NocttyGridContext *root = root_grid_context(user_data);
-    root->application_close_wm_delete_seen = 1;
     (void)request_grid_application_close(
         root, NOCTTY_CLOSE_ORIGIN_WINDOW);
     return TRUE;
@@ -6922,15 +6865,11 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     if (context->note_dialog != NULL) gtk_widget_destroy(context->note_dialog);
     if (context->shortcuts_dialog != NULL) gtk_widget_destroy(context->shortcuts_dialog);
     if (context->project_dialog != NULL) gtk_widget_destroy(context->project_dialog);
-    if (context->editor_confirm_dialog != NULL) gtk_widget_destroy(context->editor_confirm_dialog);
-    if (context->editor_dialog != NULL) gtk_widget_destroy(context->editor_dialog);
     if (context->workspace_menu != NULL) gtk_widget_destroy(context->workspace_menu);
     if (context->im_context != NULL) gtk_im_context_focus_out(context->im_context);
     g_clear_pointer(&context->note_overlay_text, g_free);
     g_clear_pointer(&context->note_overlay_label, g_free);
     g_clear_pointer(&context->note_overlay_font, pango_font_description_free);
-    g_clear_pointer(&context->editor_path, g_free);
-    g_clear_pointer(&context->editor_directory, g_free);
     g_clear_pointer(&context->display_title, g_free);
     g_clear_pointer(&context->font_family, g_free);
     g_clear_pointer(&context->row_cells, g_free);
@@ -6953,7 +6892,6 @@ static gboolean dispatch_deferred_grid_application_close(gpointer user_data) {
         root->application_close_deferred_origin;
     root->application_close_deferred = 0;
     root->application_close_deferred_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-    root->application_close_modal_resumed = 1;
     (void)request_grid_application_close(root, origin);
     return G_SOURCE_REMOVE;
 }
@@ -6972,8 +6910,6 @@ static void queue_deferred_grid_application_close(NocttyGridContext *context) {
 static void begin_grid_modal(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     root->application_modal_depth++;
-    root->application_modal_depth_max = MAX(
-        root->application_modal_depth_max, root->application_modal_depth);
 }
 
 static void end_grid_modal(NocttyGridContext *context) {
@@ -6999,7 +6935,6 @@ static gboolean close_grid_application_idle(gpointer user_data) {
         root->application_close_deferred = 1;
         root->application_close_deferred_origin =
             root->application_close_origin;
-        root->application_close_modal_deferred = 1;
         root->application_close_requested = 0;
         root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
         return G_SOURCE_REMOVE;
@@ -7020,9 +6955,6 @@ static gboolean close_grid_application_idle(gpointer user_data) {
     remove_grid_source(&root->maintenance_source);
     guint active_sessions = 0;
     guint stopped_sessions = 0;
-    guint already_exited_sessions = 0;
-    gboolean natural_exit_codes_preserved = TRUE;
-    gboolean natural_active_preserved = TRUE;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
@@ -7035,38 +6967,23 @@ static gboolean close_grid_application_idle(gpointer user_data) {
         if (candidate->im_context != NULL)
             gtk_im_context_focus_out(candidate->im_context);
         active_sessions++;
-        int natural_exit_code = candidate->exit_code;
         int close_status = already_exited
             ? 1 : noctty_grid_close_session(candidate->userdata,
                                              root->event_data);
         if (close_status > 1) candidate->userdata = NULL;
         if (already_exited || close_status > 0) stopped_sessions++;
-        if (already_exited) already_exited_sessions++;
         if (candidate->peer != NULL) {
             if (candidate->peer->peer == candidate)
                 candidate->peer->peer = NULL;
             candidate->peer = NULL;
         }
-        if (already_exited) {
-            natural_exit_codes_preserved =
-                natural_exit_codes_preserved &&
-                candidate->exit_code == natural_exit_code;
-            natural_active_preserved =
-                natural_active_preserved && candidate->active;
-        } else {
+        if (!already_exited) {
             candidate->exited = 1;
             candidate->exit_code = 0;
         }
     }
     gboolean all_sessions_stopped =
         active_sessions > 0 && stopped_sessions == active_sessions;
-    root->application_close_sessions_total = (int)active_sessions;
-    root->application_close_sessions_stopped = (int)stopped_sessions;
-    root->application_close_already_exited = (int)already_exited_sessions;
-    root->application_close_natural_exit_codes_preserved =
-        already_exited_sessions > 0 && natural_exit_codes_preserved;
-    root->application_close_natural_active_preserved =
-        already_exited_sessions > 0 && natural_active_preserved;
     root->tray_close_session_stopped =
         root->application_close_accepted_origin == NOCTTY_CLOSE_ORIGIN_TRAY &&
         all_sessions_stopped;
@@ -7086,7 +7003,6 @@ static gboolean request_grid_application_close(
     if (root->application_modal_depth > 0) {
         root->application_close_deferred = 1;
         root->application_close_deferred_origin = origin;
-        root->application_close_modal_deferred = 1;
         return TRUE;
     }
     root->application_close_requested = 1;
@@ -7095,8 +7011,6 @@ static gboolean request_grid_application_close(
         origin == NOCTTY_CLOSE_ORIGIN_NATURAL
             ? g_timeout_add(80, close_grid_application_idle, root)
             : g_idle_add(close_grid_application_idle, root);
-    if (origin == NOCTTY_CLOSE_ORIGIN_NATURAL)
-        root->application_close_natural_dwell_scheduled = 1;
     return TRUE;
 }
 
@@ -9773,483 +9687,15 @@ static gboolean request_theme_smoke(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
-static void on_editor_destroy(GtkWidget *widget, gpointer user_data) {
-    (void)widget;
-    NocttyGridContext *context = user_data;
-    context->editor_dialog = NULL;
-    context->editor_view = NULL;
-    context->editor_chooser = NULL;
-    context->editor_file_label = NULL;
-    context->editor_status = NULL;
-    context->editor_save_button = NULL;
-    context->editor_confirm_dialog = NULL;
-    context->editor_loading = 0;
-    context->editor_close_in_progress = 0;
-    g_clear_pointer(&context->editor_path, g_free);
-    g_clear_pointer(&context->editor_directory, g_free);
-}
-
-static void set_editor_status(NocttyGridContext *context, const gchar *status) {
-    if (context->editor_status != NULL)
-        gtk_label_set_text(GTK_LABEL(context->editor_status), status);
-}
-
-static GtkTextBuffer *editor_text_buffer(NocttyGridContext *context) {
-    return context->editor_view != NULL
-        ? gtk_text_view_get_buffer(GTK_TEXT_VIEW(context->editor_view))
-        : NULL;
-}
-
-static gboolean editor_has_unsaved_changes(NocttyGridContext *context) {
-    GtkTextBuffer *buffer = editor_text_buffer(context);
-    return buffer != NULL && context->editor_path != NULL &&
-        gtk_text_view_get_editable(GTK_TEXT_VIEW(context->editor_view)) &&
-        gtk_text_buffer_get_modified(buffer);
-}
-
-static void on_editor_buffer_modified_changed(GtkTextBuffer *buffer,
-                                              gpointer user_data) {
-    NocttyGridContext *context = user_data;
-    if (context->editor_loading) return;
-    gboolean dirty = context->editor_path != NULL &&
-        context->editor_view != NULL &&
-        gtk_text_view_get_editable(GTK_TEXT_VIEW(context->editor_view)) &&
-        gtk_text_buffer_get_modified(buffer);
-    if (context->editor_save_button != NULL)
-        gtk_widget_set_sensitive(context->editor_save_button, dirty);
-    if (dirty) {
-        set_editor_status(context, "Unsaved changes");
-        context->editor_dirty_visible = 1;
-    }
-}
-
-static gboolean save_editor_document(NocttyGridContext *context) {
-    GtkTextBuffer *buffer = editor_text_buffer(context);
-    if (context->text_action == NULL || buffer == NULL ||
-        context->editor_path == NULL ||
-        !gtk_text_view_get_editable(GTK_TEXT_VIEW(context->editor_view)))
-        return FALSE;
-    if (!gtk_text_buffer_get_modified(buffer)) {
-        if (context->editor_save_button != NULL)
-            gtk_widget_set_sensitive(context->editor_save_button, FALSE);
-        set_editor_status(context, "Saved");
-        return TRUE;
-    }
-    GtkTextIter start, end;
-    gtk_text_buffer_get_bounds(buffer, &start, &end);
-    gchar *contents = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
-    int result = context->text_action(context->text_action_data, 5,
-                                      context->editor_path,
-                                      strlen(context->editor_path), contents,
-                                      strlen(contents), 0);
-    g_free(contents);
-    if (result != 0) {
-        set_editor_status(context, "Unable to save this file");
-        if (context->editor_save_button != NULL)
-            gtk_widget_set_sensitive(context->editor_save_button, TRUE);
-        return FALSE;
-    }
-    gtk_text_buffer_set_modified(buffer, FALSE);
-    if (context->editor_save_button != NULL)
-        gtk_widget_set_sensitive(context->editor_save_button, FALSE);
-    set_editor_status(context, "Saved");
-    return TRUE;
-}
-
-static void on_editor_save(GtkButton *button, gpointer user_data) {
-    (void)button;
-    (void)save_editor_document(user_data);
-}
-
-typedef enum {
-    EDITOR_TRANSITION_SAVE_FAILED = -1,
-    EDITOR_TRANSITION_CANCELLED = 0,
-    EDITOR_TRANSITION_PROCEED = 1,
-} EditorTransitionDecision;
-
-static EditorTransitionDecision confirm_editor_transition(
-    NocttyGridContext *context, const gchar *transition,
-    gint *response_out) {
-    if (response_out != NULL) *response_out = GTK_RESPONSE_NONE;
-    if (!editor_has_unsaved_changes(context))
-        return EDITOR_TRANSITION_PROCEED;
-    gchar *basename = g_path_get_basename(context->editor_path);
-    gchar *display_name = g_filename_display_name(basename);
-    GtkWidget *dialog = gtk_message_dialog_new(
-        GTK_WINDOW(context->editor_dialog),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-        "Save changes before %s?", transition);
-    gtk_message_dialog_format_secondary_text(
-        GTK_MESSAGE_DIALOG(dialog),
-        "Unsaved changes in \"%s\" will otherwise be discarded.",
-        display_name);
-    gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-                           "Cancel", GTK_RESPONSE_CANCEL,
-                           "Discard", GTK_RESPONSE_REJECT,
-                           "Save", GTK_RESPONSE_ACCEPT, NULL);
-    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
-    context->editor_confirm_dialog = dialog;
-    show_all_with_action_affordances(dialog);
-    gint response = run_grid_modal_dialog(context, GTK_DIALOG(dialog));
-    if (response_out != NULL) *response_out = response;
-    context->editor_confirm_dialog = NULL;
-    gtk_widget_destroy(dialog);
-    g_free(display_name);
-    g_free(basename);
-    if (response == GTK_RESPONSE_ACCEPT)
-        return save_editor_document(context)
-            ? EDITOR_TRANSITION_PROCEED
-            : EDITOR_TRANSITION_SAVE_FAILED;
-    if (response == GTK_RESPONSE_REJECT)
-        return EDITOR_TRANSITION_PROCEED;
-    return EDITOR_TRANSITION_CANCELLED;
-}
-
 static gboolean confirm_grid_application_close(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GPtrArray *dirty_contexts = g_ptr_array_new();
-    root->application_close_contexts_scanned =
-        root->contexts != NULL ? (int)root->contexts->len : 0;
-    for (guint index = 0; root->contexts != NULL &&
-         index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (editor_has_unsaved_changes(candidate))
-            g_ptr_array_add(dirty_contexts, candidate);
-    }
-
-    for (guint index = 0; index < dirty_contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(dirty_contexts, index);
-        if (!editor_has_unsaved_changes(candidate)) continue;
-        gint response = GTK_RESPONSE_NONE;
-        EditorTransitionDecision decision = confirm_editor_transition(
-            candidate, "closing NOCTTY", &response);
-        root->application_close_prompt_count++;
-        if (decision == EDITOR_TRANSITION_PROCEED) {
-            if (response == GTK_RESPONSE_ACCEPT)
-                root->application_close_saved = 1;
-            else if (response == GTK_RESPONSE_REJECT)
-                root->application_close_discarded = 1;
-            continue;
-        }
-
-        NocttyApplicationCloseOrigin aborted_origin =
-            root->application_close_origin;
-        root->application_close_aborted_origin = aborted_origin;
-        root->application_close_requested = 0;
-        root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-        root->application_close_retryable = 1;
-        if (decision == EDITOR_TRANSITION_CANCELLED) {
-            root->application_close_cancelled = 1;
-            if (aborted_origin == NOCTTY_CLOSE_ORIGIN_WINDOW)
-                root->application_close_wm_cancelled = 1;
-            if (aborted_origin == NOCTTY_CLOSE_ORIGIN_NATURAL)
-                root->application_close_natural_cancelled = 1;
-        } else if (decision == EDITOR_TRANSITION_SAVE_FAILED) {
-            root->application_close_save_failed = 1;
-            if (aborted_origin == NOCTTY_CLOSE_ORIGIN_TOOLBAR)
-                root->application_close_toolbar_save_failed = 1;
-        }
-        if (!root->window_presented)
-            toggle_grid_window(root);
-        else
-            gtk_window_present(GTK_WINDOW(root->window));
-        if (candidate->editor_dialog != NULL)
-            gtk_window_present(GTK_WINDOW(candidate->editor_dialog));
-        g_ptr_array_free(dirty_contexts, TRUE);
-        return FALSE;
-    }
-
-    g_ptr_array_free(dirty_contexts, TRUE);
     guint busy_count = foreground_process_count(root, NULL);
     if (!confirm_terminal_process_close(root, "application", busy_count)) {
-        NocttyApplicationCloseOrigin aborted_origin =
-            root->application_close_origin;
-        root->application_close_aborted_origin = aborted_origin;
         root->application_close_requested = 0;
         root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-        root->application_close_retryable = 1;
-        root->application_close_cancelled = 1;
-        if (aborted_origin == NOCTTY_CLOSE_ORIGIN_WINDOW)
-            root->application_close_wm_cancelled = 1;
         return FALSE;
     }
     return TRUE;
-}
-
-static void request_editor_close(NocttyGridContext *context,
-                                 GtkWidget *dialog) {
-    if (context->editor_close_in_progress) return;
-    context->editor_close_in_progress = 1;
-    EditorTransitionDecision decision = confirm_editor_transition(
-        context, "closing the editor", NULL);
-    if (decision == EDITOR_TRANSITION_PROCEED) {
-        gtk_widget_destroy(dialog);
-        return;
-    }
-    context->editor_close_in_progress = 0;
-}
-
-static void on_editor_response(GtkDialog *dialog, gint response,
-                               gpointer user_data) {
-    if (response != GTK_RESPONSE_CLOSE &&
-        response != GTK_RESPONSE_DELETE_EVENT)
-        return;
-    NocttyGridContext *context = user_data;
-    if (response == GTK_RESPONSE_DELETE_EVENT)
-        context->editor_delete_event_seen = 1;
-    request_editor_close(context, GTK_WIDGET(dialog));
-}
-
-static gboolean on_editor_delete_event(GtkWidget *widget, GdkEvent *event,
-                                       gpointer user_data) {
-    (void)event;
-    NocttyGridContext *context = user_data;
-    context->editor_delete_event_seen = 1;
-    request_editor_close(context, widget);
-    return TRUE;
-}
-
-static gboolean on_editor_key_press(GtkWidget *widget, GdkEventKey *event,
-                                    gpointer user_data) {
-    (void)widget;
-    GdkModifierType modifiers = event->state &
-        gtk_accelerator_get_default_mod_mask();
-    if (modifiers != GDK_CONTROL_MASK ||
-        gdk_keyval_to_lower(event->keyval) != GDK_KEY_s)
-        return FALSE;
-    NocttyGridContext *context = user_data;
-    if (editor_has_unsaved_changes(context) &&
-        save_editor_document(context))
-        context->editor_ctrl_s_saved = 1;
-    return TRUE;
-}
-
-static void on_editor_file_activated(GtkFileChooser *chooser,
-                                     gpointer user_data);
-
-static void on_editor_folder_changed(GtkFileChooser *chooser,
-                                     gpointer user_data) {
-    NocttyGridContext *context = user_data;
-    gchar *folder = gtk_file_chooser_get_current_folder(chooser);
-    if (folder == NULL) return;
-    if (context->editor_directory != NULL &&
-        g_strcmp0(context->editor_directory, folder) != 0)
-        context->editor_directory_navigated = 1;
-    g_free(context->editor_directory);
-    context->editor_directory = folder;
-    context->editor_directory_listed = 1;
-}
-
-static void ensure_editor_dialog(NocttyGridContext *context) {
-    if (context->editor_dialog != NULL) return;
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "NOCTED compatibility editor", GTK_WINDOW(context->window),
-        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
-    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    GtkWidget *chooser = gtk_file_chooser_widget_new(GTK_FILE_CHOOSER_ACTION_OPEN);
-    GtkWidget *editor_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    GtkWidget *file_label = gtk_label_new("Select a file to open");
-    GtkWidget *view = gtk_text_view_new();
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    GtkWidget *footer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    GtkWidget *status = gtk_label_new("Browse the current terminal directory");
-    GtkWidget *save = gtk_button_new_with_label("Save");
-    configure_action_button(save, "Save changes to the current file");
-    gtk_file_chooser_set_local_only(GTK_FILE_CHOOSER(chooser), TRUE);
-    gtk_file_chooser_set_select_multiple(GTK_FILE_CHOOSER(chooser), FALSE);
-    gtk_widget_set_size_request(chooser, 390, 520);
-    gtk_text_view_set_monospace(GTK_TEXT_VIEW(view), TRUE);
-    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_NONE);
-    gtk_widget_set_size_request(scroll, 620, 520);
-    gtk_container_add(GTK_CONTAINER(scroll), view);
-    gtk_label_set_xalign(GTK_LABEL(file_label), 0.0);
-    gtk_label_set_ellipsize(GTK_LABEL(file_label), PANGO_ELLIPSIZE_MIDDLE);
-    gtk_label_set_xalign(GTK_LABEL(status), 0.0);
-    gtk_widget_set_opacity(status, 0.72);
-    gtk_widget_set_sensitive(save, FALSE);
-    gtk_box_pack_start(GTK_BOX(footer), status, TRUE, TRUE, 0);
-    gtk_box_pack_end(GTK_BOX(footer), save, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(editor_box), file_label, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(editor_box), scroll, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(editor_box), footer, FALSE, FALSE, 0);
-    gtk_container_set_border_width(GTK_CONTAINER(editor_box), 10);
-    gtk_paned_pack1(GTK_PANED(paned), chooser, FALSE, FALSE);
-    gtk_paned_pack2(GTK_PANED(paned), editor_box, TRUE, FALSE);
-    gtk_container_add(
-        GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), paned);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 1040, 620);
-    context->editor_dialog = dialog;
-    context->editor_view = view;
-    context->editor_chooser = chooser;
-    context->editor_file_label = file_label;
-    context->editor_status = status;
-    context->editor_save_button = save;
-    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
-    g_signal_connect(chooser, "file-activated",
-                     G_CALLBACK(on_editor_file_activated), context);
-    g_signal_connect(chooser, "current-folder-changed",
-                     G_CALLBACK(on_editor_folder_changed), context);
-    g_signal_connect(buffer, "modified-changed",
-                     G_CALLBACK(on_editor_buffer_modified_changed), context);
-    g_signal_connect(save, "clicked", G_CALLBACK(on_editor_save), context);
-    g_signal_connect(dialog, "key-press-event",
-                     G_CALLBACK(on_editor_key_press), context);
-    g_signal_connect(dialog, "response", G_CALLBACK(on_editor_response), context);
-    g_signal_connect(dialog, "delete-event",
-                     G_CALLBACK(on_editor_delete_event), context);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_editor_destroy), context);
-    show_all_with_action_affordances(dialog);
-}
-
-static void show_editor_document(NocttyGridContext *context,
-                                 const gchar *path, const gchar *contents,
-                                 gsize length, gboolean editable) {
-    ensure_editor_dialog(context);
-    context->editor_loading = 1;
-    gtk_text_buffer_set_text(
-        gtk_text_view_get_buffer(GTK_TEXT_VIEW(context->editor_view)),
-        contents, (gint)length);
-    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(context->editor_view));
-    context->syntax_highlight_span_count = 0;
-    context->syntax_highlighting_applied = 0;
-    char serialized[32768];
-    int serialized_length = context->text_action != NULL
-        ? context->text_action(context->text_action_data, 13, path, strlen(path),
-                               serialized, sizeof(serialized), 0)
-        : -1;
-    if (serialized_length > 0) {
-        const char *cursor = serialized;
-        const char *limit = serialized + MIN(serialized_length, (int)sizeof(serialized));
-        while (cursor < limit) {
-            unsigned int start = 0, end = 0, red = 0, green = 0, blue = 0, flags = 0;
-            int consumed = 0;
-            if (sscanf(cursor, "%u %u %u %u %u %u%n", &start, &end, &red,
-                       &green, &blue, &flags, &consumed) != 6 || consumed <= 0)
-                break;
-            const char *newline = memchr(cursor, '\n', (size_t)(limit - cursor));
-            if (newline == NULL) break;
-            if (start <= end && end <= length) {
-                gchar color[16];
-                g_snprintf(color, sizeof(color), "#%02x%02x%02x", red, green, blue);
-                GtkTextTag *tag = gtk_text_buffer_create_tag(
-                    buffer, NULL, "foreground", color,
-                    "weight", (flags & 1) ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
-                    "style", (flags & 2) ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL,
-                    "underline", (flags & 4) ? PANGO_UNDERLINE_SINGLE : PANGO_UNDERLINE_NONE,
-                    NULL);
-                GtkTextIter tag_start, tag_end;
-                gint start_offset = (gint)g_utf8_pointer_to_offset(contents, contents + start);
-                gint end_offset = (gint)g_utf8_pointer_to_offset(contents, contents + end);
-                gtk_text_buffer_get_iter_at_offset(buffer, &tag_start, start_offset);
-                gtk_text_buffer_get_iter_at_offset(buffer, &tag_end, end_offset);
-                gtk_text_buffer_apply_tag(buffer, tag, &tag_start, &tag_end);
-                context->syntax_highlight_span_count++;
-            }
-            cursor = newline + 1;
-        }
-        context->syntax_highlighting_applied = context->syntax_highlight_span_count > 0;
-        if (context->event != NULL) {
-            context->event(context->event_data, context->pane_id, 100,
-                           context->syntax_highlight_span_count,
-                           (uint64_t)(g_get_monotonic_time() / 1000));
-        }
-    }
-    gtk_text_view_set_editable(GTK_TEXT_VIEW(context->editor_view), editable);
-    gchar *display_path = g_filename_display_name(path);
-    gtk_label_set_text(GTK_LABEL(context->editor_file_label), display_path);
-    g_free(display_path);
-    g_free(context->editor_path);
-    context->editor_path = g_strdup(path);
-    gtk_text_buffer_set_modified(buffer, FALSE);
-    gtk_widget_set_sensitive(context->editor_save_button, FALSE);
-    context->editor_loading = 0;
-    context->editor_clean_save_disabled =
-        !gtk_text_buffer_get_modified(buffer) &&
-        !gtk_widget_get_sensitive(context->editor_save_button);
-    context->editor_file_opened = 1;
-    set_editor_status(context, editable ? "Ready" : "Read-only preview");
-    (void)gtk_file_chooser_set_filename(
-        GTK_FILE_CHOOSER(context->editor_chooser), path);
-    gtk_window_present(GTK_WINDOW(context->editor_dialog));
-    gtk_widget_grab_focus(context->editor_view);
-}
-
-static gboolean load_editor_file(NocttyGridContext *context,
-                                 const gchar *path) {
-    if (context->text_action == NULL || path == NULL) return FALSE;
-    GFile *file = g_file_new_for_path(path);
-    GError *error = NULL;
-    GFileInfo *info = g_file_query_info(
-        file, G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_SIZE,
-        G_FILE_QUERY_INFO_NONE, NULL, &error);
-    g_object_unref(file);
-    if (info == NULL) {
-        set_editor_status(context, error != NULL ? error->message
-                                                 : "Unable to inspect file");
-        g_clear_error(&error);
-        return FALSE;
-    }
-    goffset file_size = g_file_info_get_size(info);
-    GFileType file_type = g_file_info_get_file_type(info);
-    g_object_unref(info);
-    if (file_type != G_FILE_TYPE_REGULAR || file_size < 0) {
-        set_editor_status(context, "Choose a regular file");
-        return FALSE;
-    }
-    const goffset max_editor_bytes = 8 * 1024 * 1024;
-    if (file_size > max_editor_bytes || file_size > G_MAXINT) {
-        set_editor_status(context, "File exceeds the 8 MiB preview limit");
-        return FALSE;
-    }
-    gsize capacity = (gsize)file_size + 1;
-    gchar *contents = g_malloc(capacity);
-    int length = context->text_action(
-        context->text_action_data, 11, path, strlen(path), contents, capacity,
-        0);
-    if (length < 0 || (gsize)length >= capacity) {
-        g_free(contents);
-        set_editor_status(context, "Unable to load this file");
-        return FALSE;
-    }
-    contents[length] = '\0';
-    if (!g_utf8_validate(contents, length, NULL)) {
-        g_free(contents);
-        set_editor_status(context, "NoctEd opens UTF-8 text files");
-        return FALSE;
-    }
-    gboolean editable = context->text_action(
-        context->text_action_data, 12, "", 0, "", 0, 0) == 1;
-    show_editor_document(context, path, contents, (gsize)length, editable);
-    g_free(contents);
-    return TRUE;
-}
-
-static void on_editor_file_activated(GtkFileChooser *chooser,
-                                     gpointer user_data) {
-    NocttyGridContext *context = user_data;
-    gchar *path = gtk_file_chooser_get_filename(chooser);
-    if (path == NULL) return;
-    if (context->editor_path != NULL &&
-        g_strcmp0(context->editor_path, path) == 0) {
-        gtk_widget_grab_focus(context->editor_view);
-        g_free(path);
-        return;
-    }
-    EditorTransitionDecision decision = confirm_editor_transition(
-        context, "opening another file", NULL);
-    if (decision == EDITOR_TRANSITION_PROCEED) {
-        if (!load_editor_file(context, path) && context->editor_path != NULL)
-            (void)gtk_file_chooser_set_filename(chooser,
-                                                context->editor_path);
-    } else if (decision == EDITOR_TRANSITION_CANCELLED &&
-               context->editor_path != NULL) {
-        (void)gtk_file_chooser_set_filename(chooser, context->editor_path);
-        set_editor_status(context, "Unsaved changes");
-    } else if (context->editor_path != NULL) {
-        (void)gtk_file_chooser_set_filename(chooser, context->editor_path);
-    }
-    g_free(path);
 }
 
 static gchar *find_nocted_binary(void) {
@@ -10274,6 +9720,9 @@ static gboolean launch_nocted(NocttyGridContext *context,
     context->nocted_launch_attempted = 1;
     context->nocted_launch_succeeded = 0;
     context->nocted_process_separate = 0;
+    context->nocted_directory_resolved = directory != NULL &&
+        g_path_is_absolute(directory) &&
+        g_file_test(directory, G_FILE_TEST_IS_DIR);
     gchar *binary = find_nocted_binary();
     if (binary == NULL) {
         g_set_error_literal(error, G_SPAWN_ERROR, G_SPAWN_ERROR_NOENT,
@@ -10318,34 +9767,14 @@ static void open_editor_here(NocttyGridContext *context) {
         directory = g_get_current_dir();
     }
     GError *error = NULL;
-    gboolean compatibility_smoke = context->workspace_smoke == 8;
     gboolean launched = launch_nocted(
-        context, directory, compatibility_smoke, &error);
+        context, directory, context->workspace_smoke == 8, &error);
     context->editor_here_opened = launched;
-    if (!compatibility_smoke) {
-        if (!launched)
-            show_nocted_launch_error(
-                context, error != NULL ? error->message : NULL);
-        g_clear_error(&error);
-        g_free(directory);
-        return;
-    }
+    if (!launched && context->workspace_smoke != 8)
+        show_nocted_launch_error(
+            context, error != NULL ? error->message : NULL);
     g_clear_error(&error);
-    ensure_editor_dialog(context);
-    g_clear_pointer(&context->editor_directory, g_free);
-    gboolean listed = gtk_file_chooser_set_current_folder(
-        GTK_FILE_CHOOSER(context->editor_chooser), directory);
-    context->editor_here_opened = launched && listed;
-    context->editor_directory_listed = listed;
-    if (listed) {
-        if (context->editor_directory == NULL)
-            context->editor_directory = g_strdup(directory);
-        set_editor_status(context, "Browse folders or activate a UTF-8 text file");
-    } else {
-        set_editor_status(context, "Unable to open the terminal directory");
-    }
     g_free(directory);
-    gtk_window_present(GTK_WINDOW(context->editor_dialog));
 }
 
 static void on_project_editor_open(GtkButton *button, gpointer user_data) {
@@ -10591,195 +10020,18 @@ static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
     return match;
 }
 
-static gboolean respond_editor_prompt_smoke(gpointer user_data) {
-    NocttyGridContext *context = user_data;
-    GtkWidget *dialog = context->editor_confirm_dialog;
-    gboolean prompt_mapped = dialog != NULL && gtk_widget_get_mapped(dialog);
-    gboolean parent_mapped = context->window != NULL &&
-        gtk_widget_get_mapped(context->window) && context->window_presented;
-    if (prompt_mapped) context->editor_prompt_mapped_count++;
-    context->editor_parent_mapped = context->editor_parent_mapped &&
-        parent_mapped;
-    if (dialog != NULL)
-        gtk_dialog_response(GTK_DIALOG(dialog),
-                            context->editor_smoke_prompt_response);
-    else
-        context->project_smoke_done = 0;
-    return G_SOURCE_REMOVE;
-}
-
 static gboolean finish_project_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    if (context->editor_chooser == NULL || context->editor_directory == NULL) {
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    gchar *path = g_build_filename(context->editor_directory,
-                                   "open_here.zig", NULL);
-    gboolean selected = gtk_file_chooser_set_filename(
-        GTK_FILE_CHOOSER(context->editor_chooser), path);
-    if (selected)
-        g_signal_emit_by_name(context->editor_chooser, "file-activated");
-    gboolean opened = context->editor_path != NULL &&
-                      g_strcmp0(context->editor_path, path) == 0 &&
-                      context->editor_file_opened;
-    if (!selected || !opened) {
-        g_free(path);
-        if (context->project_smoke_attempts++ < 10) {
-            g_timeout_add(100, finish_project_smoke, context);
-            return G_SOURCE_REMOVE;
-        }
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    GtkTextBuffer *buffer = editor_text_buffer(context);
-    if (buffer == NULL || context->editor_save_button == NULL ||
-        context->editor_dialog == NULL) {
-        g_free(path);
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    context->editor_clean_save_disabled =
-        context->editor_clean_save_disabled &&
-        !gtk_text_buffer_get_modified(buffer) &&
-        !gtk_widget_get_sensitive(context->editor_save_button);
-
-    gtk_text_buffer_set_text(buffer, "const after = true;\n", -1);
-    const gchar *dirty_status = gtk_label_get_text(
-        GTK_LABEL(context->editor_status));
-    context->editor_dirty_visible = context->editor_dirty_visible &&
-        gtk_text_buffer_get_modified(buffer) &&
-        gtk_widget_get_sensitive(context->editor_save_button) &&
-        g_strcmp0(dirty_status, "Unsaved changes") == 0;
-
-    GdkEventKey save_event = {0};
-    save_event.type = GDK_KEY_PRESS;
-    save_event.state = GDK_CONTROL_MASK;
-    save_event.keyval = GDK_KEY_s;
-    gboolean save_handled = FALSE;
-    g_signal_emit_by_name(context->editor_dialog, "key-press-event",
-                          &save_event, &save_handled);
-    context->editor_ctrl_s_saved = context->editor_ctrl_s_saved &&
-        save_handled && !gtk_text_buffer_get_modified(buffer) &&
-        !gtk_widget_get_sensitive(context->editor_save_button) &&
-        g_strcmp0(gtk_label_get_text(GTK_LABEL(context->editor_status)),
-                  "Saved") == 0;
-
-    gtk_text_buffer_set_text(buffer, "const unsaved_switch = true;\n", -1);
-    gchar *second_path = g_build_filename(context->editor_directory,
-                                          "second.zig", NULL);
-    gboolean second_selected = gtk_file_chooser_set_filename(
-        GTK_FILE_CHOOSER(context->editor_chooser), second_path);
-    if (!second_selected) {
-        g_free(second_path);
-        g_free(path);
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    context->editor_parent_mapped = gtk_widget_get_mapped(context->window) &&
-        context->window_presented;
-    context->editor_smoke_prompt_response = GTK_RESPONSE_CANCEL;
-    g_timeout_add(80, respond_editor_prompt_smoke, context);
-    if (second_selected)
-        g_signal_emit_by_name(context->editor_chooser, "file-activated");
-    GtkTextIter start, end;
-    gtk_text_buffer_get_bounds(buffer, &start, &end);
-    gchar *cancelled_contents = gtk_text_buffer_get_text(
-        buffer, &start, &end, FALSE);
-    context->editor_switch_cancelled = second_selected &&
-        context->editor_path != NULL &&
-        g_strcmp0(context->editor_path, path) == 0 &&
-        gtk_text_buffer_get_modified(buffer) &&
-        g_strcmp0(cancelled_contents,
-                  "const unsaved_switch = true;\n") == 0;
-    g_free(cancelled_contents);
-
-    second_selected = gtk_file_chooser_set_filename(
-        GTK_FILE_CHOOSER(context->editor_chooser), second_path);
-    if (!second_selected) {
-        g_free(second_path);
-        g_free(path);
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    context->editor_smoke_prompt_response = GTK_RESPONSE_ACCEPT;
-    g_timeout_add(80, respond_editor_prompt_smoke, context);
-    if (second_selected)
-        g_signal_emit_by_name(context->editor_chooser, "file-activated");
-    buffer = editor_text_buffer(context);
-    gtk_text_buffer_get_bounds(buffer, &start, &end);
-    gchar *saved_switch_contents = gtk_text_buffer_get_text(
-        buffer, &start, &end, FALSE);
-    context->editor_switch_saved = second_selected &&
-        context->editor_path != NULL &&
-        g_strcmp0(context->editor_path, second_path) == 0 &&
-        !gtk_text_buffer_get_modified(buffer) &&
-        g_strcmp0(saved_switch_contents, "const second = false;\n") == 0;
-    g_free(saved_switch_contents);
-
-    gtk_text_buffer_set_text(buffer, "const unsaved_second = true;\n", -1);
-    gboolean first_selected = gtk_file_chooser_set_filename(
-        GTK_FILE_CHOOSER(context->editor_chooser), path);
-    if (!first_selected) {
-        g_free(second_path);
-        g_free(path);
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    context->editor_smoke_prompt_response = GTK_RESPONSE_REJECT;
-    g_timeout_add(80, respond_editor_prompt_smoke, context);
-    g_signal_emit_by_name(context->editor_chooser, "file-activated");
-    buffer = editor_text_buffer(context);
-    gtk_text_buffer_get_bounds(buffer, &start, &end);
-    gchar *discarded_contents = gtk_text_buffer_get_text(
-        buffer, &start, &end, FALSE);
-    context->editor_switch_discarded = context->editor_path != NULL &&
-        g_strcmp0(context->editor_path, path) == 0 &&
-        !gtk_text_buffer_get_modified(buffer) &&
-        g_strcmp0(discarded_contents,
-                  "const unsaved_switch = true;\n") == 0;
-    g_free(discarded_contents);
-
-    gtk_text_buffer_set_text(buffer, "const unsaved_close = true;\n", -1);
-    GtkWidget *editor_dialog = context->editor_dialog;
-    context->editor_smoke_prompt_response = GTK_RESPONSE_CANCEL;
-    g_timeout_add(80, respond_editor_prompt_smoke, context);
-    gtk_dialog_response(GTK_DIALOG(editor_dialog), GTK_RESPONSE_CLOSE);
-    context->editor_close_cancelled = context->editor_dialog == editor_dialog &&
-        gtk_widget_get_mapped(editor_dialog) &&
-        editor_has_unsaved_changes(context);
-
-    context->editor_smoke_prompt_response = GTK_RESPONSE_REJECT;
-    g_timeout_add(80, respond_editor_prompt_smoke, context);
-    GdkEvent delete_event = {0};
-    delete_event.type = GDK_DELETE;
-    gboolean delete_handled = FALSE;
-    g_signal_emit_by_name(editor_dialog, "delete-event", &delete_event,
-                          &delete_handled);
-    context->editor_close_discarded = context->editor_delete_event_seen &&
-        context->editor_dialog == NULL;
-    context->editor_parent_mapped = context->editor_parent_mapped &&
-        gtk_widget_get_mapped(context->window) && context->window_presented;
-    g_free(second_path);
-
+    NocttyGridContext *root = root_grid_context(context);
     open_project_tools(context);
-    context->project_smoke_done = context->project_smoke_done && selected &&
-        opened && context->context_menu_opened &&
-        context->context_menu_survived && context->editor_here_opened &&
-        context->editor_directory_listed &&
-        context->editor_directory_navigated &&
-        context->editor_clean_save_disabled &&
-        context->editor_dirty_visible && context->editor_ctrl_s_saved &&
-        context->editor_switch_cancelled &&
-        context->editor_switch_saved &&
-        context->editor_switch_discarded &&
-        context->editor_close_cancelled && context->editor_close_discarded &&
-        context->editor_prompt_mapped_count == 5 &&
-        context->editor_parent_mapped && context->project_dialog != NULL &&
+    context->project_smoke_done = context->project_smoke_done &&
+        context->context_menu_opened && context->context_menu_survived &&
+        context->editor_here_opened && context->nocted_launch_attempted &&
+        context->nocted_launch_succeeded && context->nocted_process_separate &&
+        context->nocted_directory_resolved &&
+        context->project_dialog != NULL &&
         gtk_widget_get_mapped(context->project_dialog) &&
-        gtk_widget_get_mapped(context->window) &&
-        context->window_presented;
-    g_free(path);
+        gtk_widget_get_mapped(root->window) && root->window_presented;
     if (context->write != NULL)
         (void)context->write(context->userdata, "done\n", 5);
     return G_SOURCE_REMOVE;
@@ -10805,22 +10057,6 @@ static gboolean continue_project_smoke(gpointer user_data) {
     }
     gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), editor_item);
     gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), editor_item, TRUE);
-    if (context->editor_chooser == NULL || context->editor_directory == NULL) {
-        context->project_smoke_done = 0;
-        return G_SOURCE_REMOVE;
-    }
-    gchar *directory = g_build_filename(context->editor_directory, "src", NULL);
-    gboolean navigated = gtk_file_chooser_set_current_folder(
-        GTK_FILE_CHOOSER(context->editor_chooser), directory);
-    gchar *current = gtk_file_chooser_get_current_folder(
-        GTK_FILE_CHOOSER(context->editor_chooser));
-    context->editor_directory_navigated = navigated &&
-        g_strcmp0(current, directory) == 0;
-    if (current != NULL) {
-        g_free(context->editor_directory);
-        context->editor_directory = current;
-    }
-    g_free(directory);
     context->project_smoke_attempts = 0;
     g_timeout_add(250, finish_project_smoke, context);
     return G_SOURCE_REMOVE;
@@ -10864,228 +10100,15 @@ static gboolean request_project_smoke(gpointer user_data) {
     }
     const char *workspace = "/tmp/noctty-native-grid-project.nocttyws";
     int ok = context->text_action != NULL;
-    if (ok) ok = context->text_action(context->text_action_data, 2, workspace, strlen(workspace), "", 0, 0) == 0;
-    if (ok) ok = context->text_action(context->text_action_data, 3, workspace, strlen(workspace), "", 0, 0) == 0;
+    if (ok) ok = context->text_action(context->text_action_data, 2, workspace,
+                                      strlen(workspace), "", 0, 0) == 0;
+    if (ok) ok = context->text_action(context->text_action_data, 3, workspace,
+                                      strlen(workspace), "", 0, 0) == 0;
     context->project_smoke_done = ok;
     context->project_smoke_attempts = 0;
     if (!ok) return G_SOURCE_REMOVE;
     (void)open_smoke_workspace_menu(context);
     g_timeout_add(25, wait_project_menu_mapped_smoke, context);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean respond_application_close_prompt_smoke(gpointer user_data) {
-    NocttyGridContext *context = user_data;
-    if (context->editor_confirm_dialog == NULL) {
-        if (context->project_smoke_attempts++ < 25)
-            g_timeout_add(20, respond_application_close_prompt_smoke,
-                          context);
-        return G_SOURCE_REMOVE;
-    }
-    context->project_smoke_attempts = 0;
-    gtk_dialog_response(GTK_DIALOG(context->editor_confirm_dialog),
-                        context->editor_smoke_prompt_response);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean request_window_close_during_editor_modal_smoke(
-    gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    GdkEvent delete_event = {0};
-    delete_event.type = GDK_DELETE;
-    gboolean delete_handled = FALSE;
-    g_signal_emit_by_name(root->window, "delete-event", &delete_event,
-                          &delete_handled);
-    root->application_close_wm_delete_seen =
-        root->application_close_wm_delete_seen && delete_handled &&
-        root->application_modal_depth > 0 &&
-        root->application_close_deferred &&
-        root->application_close_deferred_origin ==
-            NOCTTY_CLOSE_ORIGIN_WINDOW;
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean finish_natural_editor_shutdown_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    if (root->contexts == NULL || root->contexts->len != 2)
-        return G_SOURCE_REMOVE;
-    NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
-    NocttyGridContext *secondary = g_ptr_array_index(root->contexts, 1);
-    gboolean naturally_exited = primary->active && primary->exited &&
-        primary->exit_code == 7 && secondary->active && secondary->exited &&
-        secondary->exit_code == 9;
-    if ((!naturally_exited || root->application_close_requested) &&
-        root->editor_shutdown_smoke_attempts++ < 80) {
-        g_timeout_add(50, finish_natural_editor_shutdown_smoke, root);
-        return G_SOURCE_REMOVE;
-    }
-    root->editor_shutdown_smoke_attempts = 0;
-    root->application_close_natural_retryable = naturally_exited &&
-        root->application_close_natural_cancelled &&
-        root->application_close_aborted_origin ==
-            NOCTTY_CLOSE_ORIGIN_NATURAL &&
-        !root->application_close_requested &&
-        editor_has_unsaved_changes(primary) &&
-        editor_has_unsaved_changes(secondary) &&
-        primary->editor_dialog != NULL && secondary->editor_dialog != NULL &&
-        gtk_widget_get_mapped(primary->editor_dialog) &&
-        gtk_widget_get_mapped(secondary->editor_dialog) &&
-        root->window_presented && gtk_widget_get_mapped(root->window) &&
-        root->tray_registered && root->tray_menu_registered;
-
-    primary->editor_smoke_prompt_response = GTK_RESPONSE_ACCEPT;
-    secondary->editor_smoke_prompt_response = GTK_RESPONSE_REJECT;
-    primary->project_smoke_attempts = 0;
-    secondary->project_smoke_attempts = 0;
-    g_timeout_add(80, respond_application_close_prompt_smoke, primary);
-    g_timeout_add(220, respond_application_close_prompt_smoke, secondary);
-    gtk_button_clicked(GTK_BUTTON(root->window_close_button));
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean cancel_natural_editor_shutdown_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    if (root->contexts == NULL || root->contexts->len != 2)
-        return G_SOURCE_REMOVE;
-    NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
-    gboolean natural_prompt =
-        root->application_close_requested &&
-        root->application_close_origin == NOCTTY_CLOSE_ORIGIN_NATURAL &&
-        primary->editor_confirm_dialog != NULL;
-    if (!natural_prompt && root->editor_shutdown_smoke_attempts++ < 200) {
-        g_timeout_add(25, cancel_natural_editor_shutdown_smoke, root);
-        return G_SOURCE_REMOVE;
-    }
-    root->editor_shutdown_smoke_attempts = 0;
-    if (natural_prompt)
-        gtk_dialog_response(GTK_DIALOG(primary->editor_confirm_dialog),
-                            GTK_RESPONSE_CANCEL);
-    g_timeout_add(100, finish_natural_editor_shutdown_smoke, root);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean finish_editor_shutdown_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    if (root->contexts == NULL || root->contexts->len != 2)
-        return G_SOURCE_REMOVE;
-    NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
-    NocttyGridContext *secondary = g_ptr_array_index(root->contexts, 1);
-    int live_sessions = 0;
-    for (guint index = 0; index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (candidate->active && !candidate->exited &&
-            candidate->poll_exit(candidate->userdata) < 0)
-            live_sessions++;
-    }
-    root->application_close_save_failure_survived =
-        root->application_close_save_failed &&
-        root->application_close_toolbar_save_failed &&
-        !root->application_close_requested &&
-        editor_has_unsaved_changes(primary) &&
-        editor_has_unsaved_changes(secondary) &&
-        primary->editor_dialog != NULL && secondary->editor_dialog != NULL &&
-        gtk_widget_get_mapped(primary->editor_dialog) &&
-        gtk_widget_get_mapped(secondary->editor_dialog) &&
-        root->window_presented && gtk_widget_get_mapped(root->window) &&
-        root->tray_registered && root->tray_menu_registered &&
-        live_sessions == 2;
-
-    root->editor_shutdown_smoke_attempts = 0;
-    (void)primary->write(primary->userdata, "\n", 1);
-    (void)secondary->write(secondary->userdata, "\n", 1);
-    g_timeout_add(25, cancel_natural_editor_shutdown_smoke, root);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean continue_editor_shutdown_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    if (root->contexts == NULL || root->contexts->len != 2)
-        return G_SOURCE_REMOVE;
-    NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
-    NocttyGridContext *secondary = g_ptr_array_index(root->contexts, 1);
-    root->application_close_window_alive =
-        root->window_presented && gtk_widget_get_mapped(root->window);
-    root->application_close_editors_alive =
-        (primary->editor_dialog != NULL &&
-         gtk_widget_get_mapped(primary->editor_dialog)) +
-        (secondary->editor_dialog != NULL &&
-         gtk_widget_get_mapped(secondary->editor_dialog));
-    root->application_close_ptys_alive = 0;
-    for (guint index = 0; index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (candidate->active && !candidate->exited &&
-            candidate->poll_exit(candidate->userdata) < 0)
-            root->application_close_ptys_alive++;
-    }
-    root->application_close_tray_alive =
-        root->tray_registered && root->tray_menu_registered &&
-        root->tray_object_id != 0 && root->tray_menu_object_id != 0;
-    root->application_close_retryable =
-        root->application_close_retryable &&
-        root->application_close_modal_deferred &&
-        root->application_close_modal_resumed &&
-        root->application_close_editor_prompt_not_overwritten &&
-        root->application_close_wm_cancelled &&
-        !root->application_close_requested &&
-        editor_has_unsaved_changes(primary) &&
-        editor_has_unsaved_changes(secondary) &&
-        root->application_close_window_alive &&
-        root->application_close_editors_alive == 2 &&
-        root->application_close_ptys_alive == 2 &&
-        root->application_close_tray_alive;
-
-    if (root->text_action == NULL ||
-        root->text_action(root->text_action_data, 14, "", 0, "", 0, 0) != 0)
-        return G_SOURCE_REMOVE;
-    primary->editor_smoke_prompt_response = GTK_RESPONSE_ACCEPT;
-    primary->project_smoke_attempts = 0;
-    g_timeout_add(80, respond_application_close_prompt_smoke, primary);
-    gtk_button_clicked(GTK_BUTTON(root->window_close_button));
-    g_timeout_add(420, finish_editor_shutdown_smoke, root);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean request_editor_shutdown_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    if (root->contexts == NULL || root->contexts->len != 2)
-        return G_SOURCE_REMOVE;
-    NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
-    NocttyGridContext *secondary = g_ptr_array_index(root->contexts, 1);
-    const gchar *primary_path =
-        "/tmp/noctty-native-grid-editor-shutdown/primary.zig";
-    const gchar *secondary_path =
-        "/tmp/noctty-native-grid-editor-shutdown/secondary.zig";
-    if (!load_editor_file(primary, primary_path) ||
-        !load_editor_file(secondary, secondary_path))
-        return G_SOURCE_REMOVE;
-    GtkTextBuffer *primary_buffer = editor_text_buffer(primary);
-    GtkTextBuffer *secondary_buffer = editor_text_buffer(secondary);
-    if (primary_buffer == NULL || secondary_buffer == NULL)
-        return G_SOURCE_REMOVE;
-    gtk_text_buffer_set_text(primary_buffer,
-                             "const primary_saved = true;\n", -1);
-    gtk_text_buffer_set_text(secondary_buffer,
-                             "const secondary_discarded = true;\n", -1);
-    primary->editor_smoke_prompt_response = GTK_RESPONSE_CANCEL;
-    primary->project_smoke_attempts = 0;
-    g_timeout_add(50, request_window_close_during_editor_modal_smoke, root);
-    g_timeout_add(110, respond_application_close_prompt_smoke, primary);
-    gtk_dialog_response(GTK_DIALOG(primary->editor_dialog),
-                        GTK_RESPONSE_CLOSE);
-    root->application_close_editor_prompt_not_overwritten =
-        primary->editor_dialog != NULL &&
-        gtk_widget_get_mapped(primary->editor_dialog) &&
-        editor_has_unsaved_changes(primary) &&
-        primary->editor_confirm_dialog == NULL &&
-        primary->editor_close_in_progress == 0 &&
-        root->application_modal_depth == 0 &&
-        root->application_close_deferred &&
-        root->application_close_deferred_origin ==
-            NOCTTY_CLOSE_ORIGIN_WINDOW;
-    primary->editor_smoke_prompt_response = GTK_RESPONSE_CANCEL;
-    primary->project_smoke_attempts = 0;
-    g_timeout_add(100, respond_application_close_prompt_smoke, primary);
-    g_timeout_add(500, continue_editor_shutdown_smoke, root);
     return G_SOURCE_REMOVE;
 }
 
@@ -14576,8 +13599,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     (void)configure_grid_layer_shell(&context);
     int control_ready = register_grid_control(&context);
     int tray_ready = 0;
-    if ((workspace_smoke < 0 && control_ready) || workspace_smoke == 19 ||
-        workspace_smoke == 32)
+    if ((workspace_smoke < 0 && control_ready) || workspace_smoke == 19)
         tray_ready = register_grid_tray(&context);
     show_all_with_action_affordances(context.window);
     update_window_resize_handles(&context);
@@ -14738,8 +13760,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         g_timeout_add(700, request_terminal_close_chord_smoke, &context);
         g_timeout_add(950, request_terminal_final_pane_guard_smoke, &context);
         g_timeout_add(1200, finish_terminal_chord_smoke, &context);
-    } else if (workspace_smoke == 32) {
-        g_timeout_add(300, request_editor_shutdown_smoke, &context);
     } else if (workspace_smoke == 33) {
         g_timeout_add(350, request_profile_preset_smoke, &context);
     } else if (workspace_smoke == 35) {
@@ -14781,8 +13801,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     g_clear_pointer(&context.smart_filter_tag, g_free);
     for (guint index = 0; index < context.contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(context.contexts, index);
-        g_clear_pointer(&candidate->editor_path, g_free);
-        g_clear_pointer(&candidate->editor_directory, g_free);
         g_clear_pointer(&candidate->display_title, g_free);
         g_clear_pointer(&candidate->font_family, g_free);
         g_clear_pointer(&candidate->row_cells, g_free);
@@ -14813,9 +13831,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     unregister_grid_tray(&context);
     unregister_grid_control(&context);
     cancel_grid_dbus_operations(&context);
-    int tray_objects_unregistered =
-        !context.tray_registered && !context.tray_menu_registered &&
-        context.tray_object_id == 0 && context.tray_menu_object_id == 0;
     remove_grid_source(&context.application_close_deferred_source);
     remove_grid_source(&context.application_close_dwell_source);
     remove_grid_source(&context.cursor_blink_source);
@@ -14833,7 +13848,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         stop_grid_context_sources(candidate);
         if (candidate->active &&
             (!candidate->exited ||
-             (candidate->exit_code != 0 && workspace_smoke != 32) ||
+             candidate->exit_code != 0 ||
              (!candidate->saw_draw && workspace_smoke != 16 &&
               workspace_smoke != 30))) {
             contexts_ok = 0;
@@ -14918,17 +13933,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     dismiss_grid_popup_windows(&context);
     while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
     gtk_widget_destroy(context.window);
-    int shutdown_editors_destroyed = 0;
-    if (workspace_smoke == 32) {
-        for (guint index = 0; index < context.contexts->len; index++) {
-            NocttyGridContext *candidate =
-                g_ptr_array_index(context.contexts, index);
-            if (candidate->editor_dialog == NULL &&
-                candidate->editor_view == NULL &&
-                candidate->editor_confirm_dialog == NULL)
-                shutdown_editors_destroyed++;
-        }
-    }
     if (context.layer_shell_library != NULL) {
         dlclose(context.layer_shell_library);
         context.layer_shell_library = NULL;
@@ -14994,66 +13998,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         (context.project_smoke_done && context.recent_workspace_control &&
          context.nocted_launch_attempted &&
          context.nocted_launch_succeeded && context.nocted_process_separate &&
-         context.editor_clean_save_disabled &&
-         context.editor_dirty_visible && context.editor_ctrl_s_saved &&
-         context.editor_switch_cancelled && context.editor_switch_saved &&
-         context.editor_switch_discarded &&
-         context.editor_close_cancelled && context.editor_close_discarded &&
-         context.editor_prompt_mapped_count == 5 &&
-         context.editor_parent_mapped);
+         context.nocted_directory_resolved);
     int recent_workspace_activation_ok = workspace_smoke != 35 ||
         (context.recent_workspace_control &&
          context.recent_workspace_parent_rendered &&
          context.recent_workspace_child_clicked &&
          context.recent_workspace_child_launched);
-    NocttyGridContext *editor_shutdown_primary =
-        workspace_smoke == 32 && context.contexts->len == 2
-            ? g_ptr_array_index(context.contexts, 0) : NULL;
-    NocttyGridContext *editor_shutdown_secondary =
-        workspace_smoke == 32 && context.contexts->len == 2
-            ? g_ptr_array_index(context.contexts, 1) : NULL;
-    int editor_shutdown_ok = workspace_smoke != 32 ||
-        (context.contexts->len == 2 &&
-         editor_shutdown_primary != NULL &&
-         editor_shutdown_primary->exit_code == 7 &&
-         editor_shutdown_secondary != NULL &&
-         editor_shutdown_secondary->exit_code == 9 &&
-         context.application_close_wm_delete_seen &&
-         context.application_modal_depth == 0 &&
-         context.application_modal_depth_max == 1 &&
-         context.application_close_modal_deferred &&
-         context.application_close_modal_resumed &&
-         context.application_close_editor_prompt_not_overwritten &&
-         context.application_close_wm_cancelled &&
-         context.application_close_toolbar_save_failed &&
-         context.application_close_natural_cancelled &&
-         context.application_close_natural_retryable &&
-         context.application_close_natural_dwell_scheduled &&
-         context.application_close_contexts_scanned == 2 &&
-         context.application_close_prompt_count == 5 &&
-         context.application_close_cancelled &&
-         context.application_close_retryable &&
-         context.application_close_window_alive &&
-         context.application_close_editors_alive == 2 &&
-         context.application_close_ptys_alive == 2 &&
-         context.application_close_tray_alive &&
-         context.application_close_save_failed &&
-         context.application_close_save_failure_survived &&
-         context.application_close_saved &&
-         context.application_close_discarded &&
-         context.application_close_sessions_total == 2 &&
-         context.application_close_sessions_stopped == 2 &&
-         context.application_close_already_exited == 2 &&
-         context.application_close_natural_exit_codes_preserved &&
-         context.application_close_natural_active_preserved &&
-         context.application_close_accepted_origin ==
-             NOCTTY_CLOSE_ORIGIN_TOOLBAR &&
-         context.application_close_aborted_origin ==
-             NOCTTY_CLOSE_ORIGIN_NATURAL &&
-         context.window_close_button_activated &&
-         context.window_close_session_stopped &&
-         tray_was_registered && tray_menu_was_registered &&
-         tray_objects_unregistered && shutdown_editors_destroyed == 2);
     int shortcut_ok = workspace_smoke != 9 || context.shortcut_invoked;
     int control_ok = workspace_smoke != 16 ||
         (control_was_registered && layer_shell_was_active &&
@@ -15223,8 +14173,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     g_clear_pointer(&context.smart_filter_tag, g_free);
     for (guint index = 0; index < context.contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(context.contexts, index);
-        g_clear_pointer(&candidate->editor_path, g_free);
-        g_clear_pointer(&candidate->editor_directory, g_free);
         g_clear_pointer(&candidate->display_title, g_free);
         g_clear_pointer(&candidate->font_family, g_free);
         g_clear_pointer(&candidate->row_cells, g_free);
@@ -15239,7 +14187,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     int host_ok = contexts_ok && clipboard_ok && notification_ok && settings_ok &&
         settings_stacking_ok && note_overlay_ok && navigation_ok &&
         terminal_chords_ok && hot_session_ok &&
-        theme_ok && project_ok && editor_shutdown_ok && shortcut_ok && control_ok && focus_ok && move_ok &&
+        theme_ok && project_ok && shortcut_ok && control_ok && focus_ok && move_ok &&
         compact_ok && tab_rename_ok && tab_color_ok && profile_preset_ok &&
         tab_add_ok && tab_close_ok && pane_close_ok &&
         layout_preset_ok && resize_overlay_ok && selection_visual_ok &&
@@ -15313,87 +14261,14 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.focus_double_click_restore_clean,
                    context.focus_drag_selection_preserved);
     }
-    if (!host_ok && workspace_smoke == 32) {
-        g_printerr("native_grid_editor_shutdown_flags wm_delete=%d modal_depth=%d modal_max=%d deferred=%d resumed=%d prompt_safe=%d wm_cancel=%d toolbar_failure=%d natural_cancel=%d natural_retry=%d scanned=%d prompts=%d cancel=%d retryable=%d window=%d editors=%d ptys=%d tray_alive=%d save_failed=%d failure_survived=%d save=%d discard=%d sessions=%d stopped=%d already_exited=%d exit_codes=%d primary_exit=%d secondary_exit=%d active_preserved=%d accepted_origin=%d aborted_origin=%d toolbar=%d toolbar_stopped=%d tray_registered=%d menu_registered=%d tray_unregistered=%d editors_destroyed=%d\n",
-                   context.application_close_wm_delete_seen,
-                   context.application_modal_depth,
-                   context.application_modal_depth_max,
-                   context.application_close_modal_deferred,
-                   context.application_close_modal_resumed,
-                   context.application_close_editor_prompt_not_overwritten,
-                   context.application_close_wm_cancelled,
-                   context.application_close_toolbar_save_failed,
-                   context.application_close_natural_cancelled,
-                   context.application_close_natural_retryable,
-                   context.application_close_contexts_scanned,
-                   context.application_close_prompt_count,
-                   context.application_close_cancelled,
-                   context.application_close_retryable,
-                   context.application_close_window_alive,
-                   context.application_close_editors_alive,
-                   context.application_close_ptys_alive,
-                   context.application_close_tray_alive,
-                   context.application_close_save_failed,
-                   context.application_close_save_failure_survived,
-                   context.application_close_saved,
-                   context.application_close_discarded,
-                   context.application_close_sessions_total,
-                   context.application_close_sessions_stopped,
-                   context.application_close_already_exited,
-                   context.application_close_natural_exit_codes_preserved,
-                   editor_shutdown_primary != NULL
-                       ? editor_shutdown_primary->exit_code : -1,
-                   editor_shutdown_secondary != NULL
-                       ? editor_shutdown_secondary->exit_code : -1,
-                   context.application_close_natural_active_preserved,
-                   context.application_close_accepted_origin,
-                   context.application_close_aborted_origin,
-                   context.window_close_button_activated,
-                   context.window_close_session_stopped,
-                   tray_was_registered, tray_menu_was_registered,
-                   tray_objects_unregistered, shutdown_editors_destroyed);
-    }
-    if (!host_ok && workspace_smoke == 35) {
-        g_printerr(
-            "native_grid_recent_workspace_activation_flags control=%d parent_rendered=%d clicked=%d child_launched=%d\n",
-            context.recent_workspace_control,
-            context.recent_workspace_parent_rendered,
-            context.recent_workspace_child_clicked,
-            context.recent_workspace_child_launched);
-    }
-    if (!host_ok && workspace_smoke == 1) {
-        g_printerr("native_grid_workspace_flags selection_border=%d selection_indicator=%d tag_applied=%d tag_match=%d tag_hidden=%d tag_cleared=%d tag_indicator=%d tag_focus=%d tag_empty=%d tag_empty_clear=%d tag_empty_context=%d tag_empty_escape=%d tag_suggestions=%d\n",
-                   context.selection_border_drawn,
-                   context.selection_indicator_visible,
-                   context.tag_filter_applied,
-                   context.tag_filter_match,
-                   context.tag_filter_untagged_hidden,
-                   context.tag_filter_cleared,
-                   context.tag_filter_indicator_visible,
-                   context.tag_filter_focus_restored,
-                   context.tag_filter_empty_state_visible,
-                   context.tag_filter_empty_clear,
-                   context.tag_filter_empty_context,
-                   context.tag_filter_empty_escape,
-                   context.tag_suggestions_visible);
-    }
     if (!host_ok && workspace_smoke == 8) {
-        g_printerr("native_grid_editor_flags project=%d recent_control=%d nocted_attempted=%d nocted_launched=%d nocted_separate=%d clean_save=%d dirty=%d ctrl_s=%d switch_cancel=%d switch_save=%d switch_discard=%d close_cancel=%d close_discard=%d prompts=%d parent_mapped=%d\n",
+        g_printerr("native_grid_nocted_flags project=%d recent_control=%d attempted=%d launched=%d separate=%d directory_resolved=%d\n",
                    context.project_smoke_done,
                    context.recent_workspace_control,
                    context.nocted_launch_attempted,
                    context.nocted_launch_succeeded,
                    context.nocted_process_separate,
-                   context.editor_clean_save_disabled,
-                   context.editor_dirty_visible,
-                   context.editor_ctrl_s_saved,
-                   context.editor_switch_cancelled,
-                   context.editor_switch_saved,
-                   context.editor_switch_discarded,
-                   context.editor_close_cancelled,
-                   context.editor_close_discarded,
-                   context.editor_prompt_mapped_count,
-                   context.editor_parent_mapped);
+                   context.nocted_directory_resolved);
     }
     if (!host_ok && workspace_smoke == 6) {
         g_printerr("native_grid_settings_flags toolbar=%d order=%d button_pointer=%d button_tooltips=%d settings_activated=%d close_activated=%d session_stopped=%d settings_opened=%d categories=%d page_switch=%d tab_position=%d shortcut_shown=%d shortcut_recorded=%d launch_control=%d launch_applied=%d library_control=%d library_saved=%d library_selected=%d library_removed=%d\n",

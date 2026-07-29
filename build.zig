@@ -26,19 +26,6 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
-    const runtime_mod = b.createModule(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-        .strip = strip,
-    });
-    const legacy_root_options = b.addOptions();
-    legacy_root_options.addOption(bool, "enable_legacy_editor", true);
-    root_mod.addOptions("noctty_build_options", legacy_root_options);
-    const runtime_root_options = b.addOptions();
-    runtime_root_options.addOption(bool, "enable_legacy_editor", false);
-    runtime_mod.addOptions("noctty_build_options", runtime_root_options);
 
     const nocted_core_mod = b.createModule(.{
         .root_source_file = b.path("src/nocted/root.zig"),
@@ -74,9 +61,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
 
-    root_mod.addImport("tree_sitter", tree_sitter_mod);
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
-    runtime_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -87,9 +72,8 @@ pub fn build(b: *std.Build) void {
     const runtime_options = b.addOptions();
     runtime_options.addOption(bool, "enable_smoke", false);
     runtime_options.addOption(bool, "enable_vte", false);
-    runtime_options.addOption(bool, "enable_legacy_editor", false);
     exe_mod.addOptions("build_options", runtime_options);
-    exe_mod.addImport("noctty", runtime_mod);
+    exe_mod.addImport("noctty", root_mod);
     addNativeGridSources(b, exe_mod, false);
     exe_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     exe_mod.linkSystemLibrary("dl", .{});
@@ -131,9 +115,8 @@ pub fn build(b: *std.Build) void {
     const vte_options = b.addOptions();
     vte_options.addOption(bool, "enable_smoke", false);
     vte_options.addOption(bool, "enable_vte", true);
-    vte_options.addOption(bool, "enable_legacy_editor", false);
     vte_mod.addOptions("build_options", vte_options);
-    vte_mod.addImport("noctty", runtime_mod);
+    vte_mod.addImport("noctty", root_mod);
     addNativeGridSources(b, vte_mod, false);
     vte_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
@@ -158,7 +141,6 @@ pub fn build(b: *std.Build) void {
     const smoke_options = b.addOptions();
     smoke_options.addOption(bool, "enable_smoke", true);
     smoke_options.addOption(bool, "enable_vte", true);
-    smoke_options.addOption(bool, "enable_legacy_editor", true);
     smoke_mod.addOptions("build_options", smoke_options);
     smoke_mod.addImport("noctty", root_mod);
     addNativeGridSources(b, smoke_mod, true);
