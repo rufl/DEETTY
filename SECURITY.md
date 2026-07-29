@@ -39,7 +39,8 @@ NOCTTY should maintain these boundaries:
 - PTY children must reject relative launch paths and close inherited descriptors before exec
 - runtime shared libraries must not load from current-directory or custom override paths
 - release temporary files and retained evidence must use private staging plus atomic replacement
-- settings/session files must recover safely from malformed or oversized data
+- settings/session files must recover safely from malformed or oversized data;
+  NoctEd dirty-buffer snapshots use atomic private (`0600`) session storage
 - dependency bundles must keep ownership/license payload checks fail-closed
 
 ## Out of scope for alpha

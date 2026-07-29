@@ -89,9 +89,11 @@ NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 Current local pass note: Debug and `ReleaseSafe` `zig build check -j1 --summary all`
-pass with 313/313 tests after removing the obsolete embedded-editor surface and
-adding explicit native-grid ABI coverage. A fresh clean-source-copy run passed
-the same 19/19 steps and 313/313 tests. A current-source single-job full verifier
+pass with 315/315 tests after adding private atomic dirty-buffer hot exit on top
+of the embedded-editor removal and native-grid ABI coverage. A fresh clean-source
+copy passed the same 19/19 steps and 315/315 tests in Debug and `ReleaseSafe`;
+both native backends also pass dirty untitled restoration and hot exit. A
+current-source single-job full verifier
 also completed terminal compatibility/session/continuity/TUI, production-Cairo
 renderer and PTY/VT pipeline, NoctEd core/worker/index, package/release, source
 truth, and final cleanup with

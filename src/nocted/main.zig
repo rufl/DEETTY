@@ -719,6 +719,7 @@ const App = struct {
         [_]?*c.GtkWidget{null} ** core.session.max_recent_projects,
     recent_project_actions: [core.session.max_recent_projects]RecentProjectAction = undefined,
     suppress_session_persist: bool = false,
+    session_persist_source: c_uint = 0,
     synchronous_worker_running: bool = false,
     session_restores: usize = 0,
     recent_project_activations: usize = 0,
@@ -895,6 +896,7 @@ const App = struct {
     }
 
     fn deinit(self: *App) void {
+        self.cancelSessionPersist();
         self.cancelProjectLoad();
         self.cancelProjectSearch();
         self.cancelQuickOpenUpdate();
@@ -1415,13 +1417,64 @@ const App = struct {
         }
     }
 
+    fn cancelSessionPersist(self: *App) void {
+        if (self.session_persist_source == 0) return;
+        _ = c.g_source_remove(self.session_persist_source);
+        self.session_persist_source = 0;
+    }
+
+    fn scheduleSessionPersist(self: *App) void {
+        if (self.suppress_session_persist or self.shutting_down) return;
+        self.cancelSessionPersist();
+        // ponytail: Snapshot after an edit pause; move encoding to the worker if
+        // maximum-size sessions measurably block the GTK thread.
+        self.session_persist_source = c.g_timeout_add(1000, onSessionPersist, self);
+    }
+
+    fn persistSessionReported(self: *App) bool {
+        self.persistSession() catch |err| {
+            self.reportSessionPersistError(err);
+            return false;
+        };
+        return true;
+    }
+
+    fn reportSessionPersistError(self: *App, err: anyerror) void {
+        if (err == error.SessionDocumentTooLarge or
+            err == error.SessionStateTooLarge)
+        {
+            self.updateStatus("Session is too large; save or close large dirty files");
+            return;
+        }
+        if (err == error.TooManyOpenFiles) {
+            self.updateStatus("Too many open tabs for hot exit; close or save some tabs");
+            return;
+        }
+        var status_buffer: [160]u8 = undefined;
+        const status = std.fmt.bufPrintZ(
+            &status_buffer,
+            "Unable to preserve unsaved files: {s}",
+            .{@errorName(err)},
+        ) catch return;
+        self.updateStatus(status.ptr);
+    }
+
     fn persistSession(self: *App) !void {
         if (self.suppress_session_persist) return;
-        var open_files: [core.session.max_open_files][]const u8 = undefined;
-        var open_count: usize = 0;
+        self.cancelSessionPersist();
+        var tabs: [core.session.max_open_files]core.session.TabInput = undefined;
+        var snapshots: [core.session.max_open_files]?[]u8 =
+            [_]?[]u8{null} ** core.session.max_open_files;
+        defer for (snapshots) |snapshot| {
+            if (snapshot) |contents| self.allocator.free(contents);
+        };
+        var tab_count: usize = 0;
+        var active_tab: ?usize = null;
         const page_count = c.gtk_notebook_get_n_pages(asNotebook(self.notebook));
+        if (page_count > core.session.max_open_files)
+            return error.TooManyOpenFiles;
         var page_index: c_int = 0;
-        while (page_index < page_count and open_count < open_files.len) : (page_index += 1) {
+        while (page_index < page_count and tab_count < tabs.len) : (page_index += 1) {
             const page = c.gtk_notebook_get_nth_page(
                 asNotebook(self.notebook),
                 page_index,
@@ -1429,26 +1482,22 @@ const App = struct {
             const raw = c.g_object_get_data(@ptrCast(page), document_page_key) orelse
                 continue;
             const document: *Document = @ptrCast(@alignCast(raw));
-            const path = document.path orelse continue;
-            open_files[open_count] = path;
-            open_count += 1;
-        }
-        var active_file: ?[]const u8 = null;
-        if (self.active_document) |document| {
-            if (document.path) |path| {
-                for (open_files[0..open_count]) |open_path| {
-                    if (std.mem.eql(u8, path, open_path)) {
-                        active_file = path;
-                        break;
-                    }
-                }
+            if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) != 0) {
+                snapshots[tab_count] = try document.completeTextAlloc();
             }
+            tabs[tab_count] = .{
+                .path = document.path,
+                .display_name = document.display_name,
+                .contents = snapshots[tab_count],
+            };
+            if (self.active_document == document) active_tab = tab_count;
+            tab_count += 1;
         }
         try self.session.setSession(
             self.allocator,
             self.project_root,
-            open_files[0..open_count],
-            active_file,
+            tabs[0..tab_count],
+            active_tab,
         );
         try core.session.save(self.io, self.session_path, &self.session);
     }
@@ -1456,7 +1505,7 @@ const App = struct {
     fn rememberProject(self: *App, path: []const u8) void {
         self.session.rememberProject(self.allocator, path) catch return;
         self.refreshRecentProjectsMenu();
-        self.persistSession() catch {};
+        _ = self.persistSessionReported();
     }
 
     fn openRecentProject(self: *App, index: usize) void {
@@ -1472,33 +1521,69 @@ const App = struct {
     fn clearRecentProjects(self: *App) void {
         self.session.clearRecentProjects(self.allocator);
         self.refreshRecentProjectsMenu();
-        self.persistSession() catch {};
+        _ = self.persistSessionReported();
         self.updateStatus("Recent projects cleared");
     }
 
     fn restoreSession(self: *App) bool {
-        if (self.session.project == null and self.session.open_files.items.len == 0)
+        if (self.session.project == null and self.session.tabs.items.len == 0)
             return false;
         const was_suppressed = self.suppress_session_persist;
         self.suppress_session_persist = true;
         defer self.suppress_session_persist = was_suppressed;
         if (self.session.project) |project| {
-            self.openProject(project) catch return false;
-            if (!self.drainProjectLoad()) return false;
+            self.openProject(project) catch {};
+            _ = self.drainProjectLoad();
         }
-        for (self.session.open_files.items) |path|
-            self.openDocument(path) catch {};
-        self.drainDocumentLoads();
-        if (self.session.active_file) |active|
-            if (self.documents_by_path.get(active)) |document|
-                self.focusDocument(document);
+        var restored: [core.session.max_open_files]?*Document =
+            [_]?*Document{null} ** core.session.max_open_files;
+        for (self.session.tabs.items, 0..) |tab, index| {
+            if (tab.contents) |contents| {
+                var identity: ?core.document.FileIdentity = null;
+                if (tab.path) |path| {
+                    const path_z = self.allocator.dupeZ(u8, path) catch continue;
+                    defer self.allocator.free(path_z);
+                    identity = core.document.identityForPath(self.io, path_z) catch null;
+                } else {
+                    self.rememberUntitledSerial(tab.display_name);
+                }
+                const document = self.createDocument(
+                    tab.path,
+                    tab.display_name,
+                    contents,
+                    true,
+                    identity,
+                ) catch continue;
+                c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 1);
+                self.updateTabLabel(document);
+                restored[index] = document;
+                continue;
+            }
+            if (tab.path) |path| {
+                self.openDocument(path) catch continue;
+                self.drainDocumentLoads();
+                restored[index] = self.documents_by_path.get(path);
+            } else {
+                self.rememberUntitledSerial(tab.display_name);
+                restored[index] = self.createDocument(
+                    null,
+                    tab.display_name,
+                    "",
+                    true,
+                    null,
+                ) catch null;
+            }
+        }
+        if (self.session.active_tab) |index| {
+            if (restored[index]) |document| self.focusDocument(document);
+        }
         self.session_restores +|= 1;
         return true;
     }
 
     fn sessionMatchesOpenTabs(self: *App, state: *const core.session.State) bool {
-        var path_index: usize = 0;
         const page_count = c.gtk_notebook_get_n_pages(asNotebook(self.notebook));
+        if (page_count != state.tabs.items.len) return false;
         var page_index: c_int = 0;
         while (page_index < page_count) : (page_index += 1) {
             const page = c.gtk_notebook_get_nth_page(
@@ -1508,19 +1593,42 @@ const App = struct {
             const raw = c.g_object_get_data(@ptrCast(page), document_page_key) orelse
                 return false;
             const document: *Document = @ptrCast(@alignCast(raw));
-            const path = document.path orelse continue;
-            if (path_index >= state.open_files.items.len or
-                !std.mem.eql(u8, path, state.open_files.items[path_index]))
+            const tab = state.tabs.items[@intCast(page_index)];
+            if (document.path == null and tab.path != null) return false;
+            if (document.path != null and tab.path == null) return false;
+            if (document.path) |path| {
+                if (!std.mem.eql(u8, path, tab.path.?)) return false;
+            }
+            if (!std.mem.eql(u8, document.display_name, tab.display_name))
                 return false;
-            path_index += 1;
+            const modified = c.gtk_text_buffer_get_modified(
+                @ptrCast(document.buffer),
+            ) != 0;
+            if (modified != tab.modified()) return false;
+            if (tab.contents) |expected| {
+                const actual = document.completeTextAlloc() catch return false;
+                defer self.allocator.free(actual);
+                if (!std.mem.eql(u8, actual, expected)) return false;
+            }
         }
-        if (path_index != state.open_files.items.len) return false;
-        if (state.active_file) |active| {
-            const current = self.currentDocument() orelse return false;
-            const current_path = current.path orelse return false;
-            return std.mem.eql(u8, active, current_path);
+        const active_page = c.gtk_notebook_get_current_page(asNotebook(self.notebook));
+        if (state.active_tab) |index| return active_page == index;
+        return active_page < 0;
+    }
+
+    fn rememberUntitledSerial(self: *App, display_name: []const u8) void {
+        if (std.mem.eql(u8, display_name, "Untitled")) {
+            self.untitled_serial = @max(self.untitled_serial, 1);
+            return;
         }
-        return true;
+        const prefix = "Untitled ";
+        if (!std.mem.startsWith(u8, display_name, prefix)) return;
+        const serial = std.fmt.parseUnsigned(
+            usize,
+            display_name[prefix.len..],
+            10,
+        ) catch return;
+        self.untitled_serial = @max(self.untitled_serial, serial);
     }
 
     fn buildSidebar(self: *App) !*c.GtkWidget {
@@ -2199,7 +2307,7 @@ const App = struct {
             if (document.loading) self.applyReloadedDocument(document, loaded);
             self.focusDocument(document);
             if (payload.reveal_line) |line| self.revealDocumentLine(document, line);
-            self.persistSession() catch {};
+            self.scheduleSessionPersist();
             return;
         }
         const document = self.createDocument(
@@ -2213,7 +2321,7 @@ const App = struct {
             return;
         };
         if (payload.reveal_line) |line| self.revealDocumentLine(document, line);
-        self.persistSession() catch {};
+        self.scheduleSessionPersist();
     }
 
     fn applyReloadedDocument(
@@ -2451,6 +2559,8 @@ const App = struct {
         editable: bool,
         identity: ?core.document.FileIdentity,
     ) !*Document {
+        if (self.documents.items.len >= core.session.max_open_files)
+            return error.TooManyOpenFiles;
         const language = if (path) |value| blk: {
             const path_z = try self.allocator.dupeZ(u8, value);
             defer self.allocator.free(path_z);
@@ -2608,7 +2718,7 @@ const App = struct {
         c.gtk_widget_grab_focus(view);
         self.updateDocumentStatus(document);
         self.updateStatus(if (document.editable) "Ready" else "Read-only preview");
-        self.persistSession() catch {};
+        self.scheduleSessionPersist();
         return document;
     }
 
@@ -2617,7 +2727,7 @@ const App = struct {
         const page = c.gtk_notebook_page_num(asNotebook(self.notebook), document.page);
         if (page >= 0) c.gtk_notebook_set_current_page(asNotebook(self.notebook), page);
         c.gtk_widget_grab_focus(document.view);
-        self.persistSession() catch {};
+        self.scheduleSessionPersist();
     }
 
     fn selectAllOccurrences(self: *App) void {
@@ -2660,6 +2770,7 @@ const App = struct {
         }
         const path = document.path orelse return self.promptSaveAs(document);
         if (!self.writeDocumentContents(document, path)) return false;
+        if (!self.persistSessionReported()) return true;
         self.updateStatus(if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0)
             "Saved"
         else
@@ -2750,7 +2861,7 @@ const App = struct {
         self.documents_by_path.putAssumeCapacity(document.path.?, document);
         document.display_name = display_name;
         display_name_owned = false;
-        self.persistSession() catch {};
+        _ = self.persistSessionReported();
         const language = c.gtk_source_language_manager_guess_language(
             self.language_manager,
             resolved.ptr,
@@ -2882,7 +2993,7 @@ const App = struct {
             c.gtk_label_set_text(asLabel(self.position_label), "Line 1, Column 1");
             self.updateStatus("No file open");
         }
-        self.persistSession() catch {};
+        _ = self.persistSessionReported();
         return true;
     }
 
@@ -2920,10 +3031,16 @@ const App = struct {
         return true;
     }
 
-    fn canCloseAll(self: *App) bool {
-        for (self.documents.items) |document| {
-            if (!self.confirmCloseDocument(document)) return false;
+    fn prepareHotExit(self: *App) bool {
+        if (self.synchronous_worker_running) {
+            self.updateStatus("Wait for the current save to finish");
+            return false;
         }
+        self.persistSession() catch |err| {
+            self.reportSessionPersistError(err);
+            return false;
+        };
+        self.shutting_down = true;
         return true;
     }
 
@@ -4536,7 +4653,8 @@ const App = struct {
             self.project_load == null and self.project_load_source == 0;
         const changes_before = self.project_monitor_changes.items.len;
         const late_before = self.project_monitor_late_callbacks;
-        self.shutting_down = true;
+        const hot_exit = self.prepareHotExit();
+        if (!hot_exit) self.shutting_down = true;
         c.gtk_widget_destroy(self.window);
         onProjectMonitorChanged(
             null,
@@ -4548,7 +4666,7 @@ const App = struct {
         const late_guard = self.project_monitor_late_callbacks == late_before + 1 and
             self.project_monitor_changes.items.len == changes_before and
             self.project_monitor_source == 0 and worker_drained;
-        self.project_lifecycle_passed = qualification_passed and late_guard;
+        self.project_lifecycle_passed = qualification_passed and hot_exit and late_guard;
         var receipt_buffer: [512]u8 = undefined;
         const receipt = std.fmt.bufPrintZ(
             &receipt_buffer,
@@ -4820,6 +4938,7 @@ const App = struct {
         var quick_open_activation_ok = false;
         var session_persist_ok = false;
         var session_restore_ok = false;
+        var session_dirty_restore_ok = false;
         var recent_project_ok = false;
         const original_path = if (document) |value|
             if (value.path) |path|
@@ -5073,7 +5192,20 @@ const App = struct {
             activations_before + 1;
         if (self.currentDocument()) |external_document|
             external_changes_ok = self.smokeExternalChanges(external_document);
-        self.persistSession() catch {};
+        self.newDocument() catch {};
+        if (self.currentDocument()) |dirty_document| {
+            if (dirty_document.path == null) {
+                var dirty_end: c.GtkTextIter = undefined;
+                c.gtk_text_buffer_get_end_iter(@ptrCast(dirty_document.buffer), &dirty_end);
+                c.gtk_text_buffer_insert(
+                    @ptrCast(dirty_document.buffer),
+                    &dirty_end,
+                    "const hot_exit_marker = true;\n",
+                    -1,
+                );
+            }
+        }
+        _ = self.persistSessionReported();
         if (core.session.loadAlloc(
             self.allocator,
             self.io,
@@ -5084,17 +5216,42 @@ const App = struct {
             session_persist_ok = loaded.project != null and
                 self.project_root != null and
                 std.mem.eql(u8, loaded.project.?, self.project_root.?) and
-                loaded.open_files.items.len >= 2 and
-                loaded.active_file != null and
+                loaded.tabs.items.len >= 2 and
+                loaded.active_tab != null and
                 loaded.recent_projects.items.len > 0;
             if (session_persist_ok) {
                 self.suppress_session_persist = true;
+                for (self.documents.items) |open_document|
+                    c.gtk_text_buffer_set_modified(
+                        @ptrCast(open_document.buffer),
+                        0,
+                    );
                 const closed_for_restore = self.closeAllDocuments();
                 self.suppress_session_persist = false;
                 const restores_before = self.session_restores;
                 session_restore_ok = closed_for_restore and self.restoreSession() and
                     self.session_restores == restores_before + 1 and
                     self.sessionMatchesOpenTabs(&loaded);
+                if (session_restore_ok) {
+                    if (self.currentDocument()) |restored_document| {
+                        const restored_text = restored_document.completeTextAlloc() catch null;
+                        defer if (restored_text) |text| self.allocator.free(text);
+                        session_dirty_restore_ok = restored_document.path == null and
+                            restored_text != null and
+                            std.mem.indexOf(
+                                u8,
+                                restored_text.?,
+                                "const hot_exit_marker = true;\n",
+                            ) != null and
+                            c.gtk_text_buffer_get_modified(
+                                @ptrCast(restored_document.buffer),
+                            ) != 0;
+                        c.gtk_text_buffer_set_modified(
+                            @ptrCast(restored_document.buffer),
+                            0,
+                        );
+                    }
+                }
                 const recent_before = self.recent_project_activations;
                 self.openRecentProject(0);
                 recent_project_ok = self.drainProjectLoad() and
@@ -5139,7 +5296,8 @@ const App = struct {
             save_as_ok and save_as_collision_ok and save_as_atomic_ok and
             save_as_language_ok and
             quick_open_ok and quick_open_bounded_ok and quick_open_activation_ok and
-            session_persist_ok and session_restore_ok and recent_project_ok and
+            session_persist_ok and session_restore_ok and
+            session_dirty_restore_ok and recent_project_ok and
             textmate_import_ok and textmate_language_ok and textmate_rendered_ok and
             textmate_precedence_ok and textmate_malformed_rejected and
             self.worker_pools.foreground != null and self.worker_pools.scan != null and
@@ -5152,7 +5310,7 @@ const App = struct {
             self.settings.minimap_visible and
             self.settings.sidebar_visible;
         c.g_print(
-            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
+            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
             @as(c_int, @intFromBool(pass)),
             self.documents.items.len,
             language_id,
@@ -5212,6 +5370,7 @@ const App = struct {
             @as(c_int, @intFromBool(quick_open_activation_ok)),
             @as(c_int, @intFromBool(session_persist_ok)),
             @as(c_int, @intFromBool(session_restore_ok)),
+            @as(c_int, @intFromBool(session_dirty_restore_ok)),
             @as(c_int, @intFromBool(recent_project_ok)),
             @as(c_int, @intFromBool(textmate_import_ok)),
             @as(c_int, @intFromBool(textmate_language_ok)),
@@ -5757,12 +5916,7 @@ fn onWindowDestroy(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 
 fn onWindowDelete(_: ?*c.GtkWidget, _: ?*c.GdkEvent, data: ?*anyopaque) callconv(.c) c.gboolean {
     const app: *App = @ptrCast(@alignCast(data.?));
-    const blocked = !app.canCloseAll();
-    if (!blocked) {
-        app.persistSession() catch {};
-        app.shutting_down = true;
-    }
-    return @intFromBool(blocked);
+    return @intFromBool(!app.prepareHotExit());
 }
 
 fn onWindowKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque) callconv(.c) c.gboolean {
@@ -5887,12 +6041,12 @@ fn onNotebookSwitch(_: ?*c.GtkNotebook, page: ?*c.GtkWidget, _: c.guint, data: ?
         null;
     if (app.active_document) |document| app.updateDocumentStatus(document);
     if (c.gtk_widget_get_visible(app.search_box) != 0) app.updateSearch();
-    app.persistSession() catch {};
+    app.scheduleSessionPersist();
 }
 
 fn onNotebookPageReordered(_: ?*c.GtkNotebook, _: ?*c.GtkWidget, _: c.guint, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
-    if (!app.shutting_down) app.persistSession() catch {};
+    app.scheduleSessionPersist();
 }
 
 fn onBufferModified(_: ?*c.GtkTextBuffer, data: ?*anyopaque) callconv(.c) void {
@@ -6036,9 +6190,17 @@ fn onProjectMonitorFlush(data: ?*anyopaque) callconv(.c) c.gboolean {
     return c.G_SOURCE_REMOVE;
 }
 
+fn onSessionPersist(data: ?*anyopaque) callconv(.c) c.gboolean {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.session_persist_source = 0;
+    _ = app.persistSessionReported();
+    return c.G_SOURCE_REMOVE;
+}
+
 fn onBufferChanged(_: ?*c.GtkTextBuffer, data: ?*anyopaque) callconv(.c) void {
     const document: *Document = @ptrCast(@alignCast(data.?));
     if (document.loading) return;
+    document.app.scheduleSessionPersist();
     if (document.multi_editing) return;
     document.clearMultiSelections();
     _ = document.clearFolds();
@@ -6308,11 +6470,7 @@ fn onNextFile(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 
 fn onQuit(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
-    if (app.canCloseAll()) {
-        app.persistSession() catch {};
-        app.shutting_down = true;
-        c.gtk_widget_destroy(app.window);
-    }
+    if (app.prepareHotExit()) c.gtk_widget_destroy(app.window);
 }
 
 fn onUndo(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
@@ -6594,7 +6752,7 @@ fn onSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
     }
     if (app.smoke_passed) {
         c.g_print(
-            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true tree_sitter=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
+            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true tree_sitter=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
             app.languageCount(),
             app.project_entry_count,
         );
@@ -6646,7 +6804,8 @@ fn onSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
         app.finishProjectLifecycleSmoke(app.smoke_passed);
         app.smoke_passed = app.project_lifecycle_passed;
     } else {
-        app.shutting_down = true;
+        app.smoke_passed = app.prepareHotExit();
+        if (!app.smoke_passed) app.shutting_down = true;
         c.gtk_widget_destroy(app.window);
     }
     return c.G_SOURCE_REMOVE;
@@ -6675,7 +6834,8 @@ fn onSmokePreviewDone(data: ?*anyopaque) callconv(.c) c.gboolean {
         app.finishProjectLifecycleSmoke(app.smoke_passed);
         app.smoke_passed = app.project_lifecycle_passed;
     } else {
-        app.shutting_down = true;
+        app.smoke_passed = app.prepareHotExit();
+        if (!app.smoke_passed) app.shutting_down = true;
         c.gtk_widget_destroy(app.window);
     }
     return c.G_SOURCE_REMOVE;

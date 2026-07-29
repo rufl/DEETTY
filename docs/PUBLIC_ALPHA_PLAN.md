@@ -50,7 +50,7 @@ zig build check -j1 --summary all
 ```
 
 Current result on 2026-07-29: passed, `19/19` build steps succeeded and
-`313/313` tests passed. The same prep pass includes the refreshed native GTK,
+`315/315` tests passed. The same prep pass includes the refreshed native GTK,
 PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
 
@@ -103,6 +103,7 @@ NoctEd alpha is useful enough when the following are reliable in dogfood:
 - project tree navigation
 - open/edit/save/Save As
 - dirty close protection
+- dirty saved and untitled tabs restore after hot exit
 - find in file
 - find in project
 - quick open

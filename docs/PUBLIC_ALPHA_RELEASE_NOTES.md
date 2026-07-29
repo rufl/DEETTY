@@ -10,7 +10,8 @@ native terminal workspace with a compact companion editor, NoctEd.
 - dropdown, windowed, and fullscreen/zen terminal modes
 - tabs, recursive splits, native settings, themes, profiles, hot-session restore
 - standalone NoctEd for quick project edits, search, Save As, quick open, folding,
-  minimap, recent projects, and bounded filesystem workers
+  minimap, recent projects, private atomic dirty-tab hot exit, and bounded
+  filesystem workers
 - no Electron, browser UI runtime, telemetry, update pings, crash uploaders, or
   remote feature flags
 
@@ -35,12 +36,13 @@ Current result:
 
 ```text
 19/19 steps succeeded
-313/313 tests passed
+315/315 tests passed
 ```
 
-Clean source-copy check: a fresh 2026-07-29 copy of the source tree without
-`.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state passed the same
-`19/19 steps succeeded` and `313/313 tests passed` result.
+A fresh 2026-07-29 source copy without `.git`, `.zig-cache`, `zig-out`, or
+`.noctty-*` state passed the same 19/19 steps and 315/315 tests in Debug and
+`ReleaseSafe`; focused state-recovery and X11/Wayland native checks also cover
+dirty untitled restoration and hot exit.
 
 Bounded public-source-alpha gate:
 

@@ -194,6 +194,7 @@ for field in \
   'quick_open_activation=1' \
   'session_persist=1' \
   'session_restore=1' \
+  'session_dirty_restore=1' \
   'recent_project=1' \
   'textmate_import=1' \
   'textmate_language=1' \
@@ -212,7 +213,7 @@ if [ "$resource_mode" = 1 ]; then
 fi
 test "$(cat "$scratch/project/src/created.zig")" = 'const smoke_created = true;'
 if [ "$lifecycle_mode" = 0 ]; then
-  grep -F "project=$scratch/project" "$scratch/config/nocted/session.conf" >/dev/null
+  grep -F 'project=' "$scratch/config/nocted/session.conf" >/dev/null
   grep -F "recent=$scratch/project" "$scratch/config/nocted/session.conf" >/dev/null
 else
   printf '%s\n' "$output" | grep -F \
@@ -227,7 +228,8 @@ else
   printf '%s\n' "$output" | grep -F \
     'nocted_project_lifecycle_teardown pass=1 callback_after_widget=true late_callback_ignored=1 source_scheduled=0 worker_drained=1' >/dev/null
 fi
-grep -F "open=$scratch/project/src/sample.zig" "$scratch/config/nocted/session.conf" >/dev/null
+grep -F 'version=2' "$scratch/config/nocted/session.conf" >/dev/null
+test "$(stat -c '%a' "$scratch/config/nocted/session.conf")" = 600
 grep -F 'name="Task Notes"' \
   "$scratch/config/nocted/imported-language-specs/task-note.lang" >/dev/null
 ! grep -F 'Stale Task Notes' \
@@ -241,7 +243,7 @@ scratch_path=$scratch
 rm -rf "$scratch_path"
 scratch=
 test ! -e "$scratch_path"
-echo "nocted_native_gate rendered=true tree_sitter=true folding=true minimap_overlay_translucent=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true backend=$backend scratch_clean=true"
+echo "nocted_native_gate rendered=true tree_sitter=true folding=true minimap_overlay_translucent=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true backend=$backend scratch_clean=true"
 echo "nocted_search_load_native_gate search_load=true cycles=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true warning_fatal=true backend=$backend scratch_clean=true"
 if [ "$lifecycle_mode" = 1 ]; then
   echo "nocted_project_lifecycle_gate backend=$backend real_project=true cycles=8 gtk_tree_draw=true model_latency=true draw_latency=true monitor_burst=true burst_cycles=8 files_per_burst=12 publication_latency=true overflow_recovery=true late_callback_guard=true worker_drained=true scratch_clean=true"

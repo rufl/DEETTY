@@ -70,6 +70,8 @@ zig build run-nocted -- --project . --open README.md
 - `src/nocted/project_index*` / `src/nocted/project_search*` — project indexing
   and Find in Files support.
 - `src/nocted/document*` — document load/save/edit support used by the editor.
+- `src/nocted/Session.zig` — private atomic ordered-tab state, version-1 import,
+  and bounded version-2 dirty saved/untitled hot-exit snapshots.
 - `src/TreeSitter.zig` and `src/nocted/TreeSitter.zig`: Zig-owned parser/query boundary and bounded highlight captures; only the vendored generated parsers remain C, and GtkSourceView remains the only text buffer/widget.
 - `src/nocted/TextMateGrammar.zig` and syntax modules — fallback syntax-definition import/highlight support.
 

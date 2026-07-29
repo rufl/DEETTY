@@ -78,7 +78,8 @@ NoctEd provides:
 - minimap
 - recent projects
 - atomic save/Save As behavior
-- dirty close protection during graceful GUI close
+- atomic hot-exit recovery for dirty saved and untitled tabs
+- Save/Discard/Cancel protection when closing individual dirty tabs
 
 ## What NOCTTY is not
 
@@ -193,7 +194,7 @@ zig build check
 ```
 
 The current working tree and a fresh clean source copy pass
-`zig build check -j1 --summary all` with `19/19` steps and `313/313` tests.
+`zig build check -j1 --summary all` with `19/19` steps and `315/315` tests.
 
 Bounded public-source-alpha gate:
 
