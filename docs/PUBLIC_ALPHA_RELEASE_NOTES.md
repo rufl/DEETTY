@@ -35,12 +35,12 @@ Current result:
 
 ```text
 19/19 steps succeeded
-311/311 tests passed
+313/313 tests passed
 ```
 
 Clean source-copy check: a fresh 2026-07-29 copy of the source tree without
 `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state passed the same
-`19/19 steps succeeded` and `311/311 tests passed` result.
+`19/19 steps succeeded` and `313/313 tests passed` result.
 
 Bounded public-source-alpha gate:
 

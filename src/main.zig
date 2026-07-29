@@ -1,7 +1,7 @@
 const std = @import("std");
 const noctty = @import("noctty");
 const build_options = @import("build_options");
-const NativeGridAbi = @import("gui/NativeGridAbi.zig");
+const NativeGridAbi = noctty.gui.NativeGridAbi;
 const NativeGtk = @import("gui/NativeGtk.zig");
 const VteHost = @import("gui/VteHost.zig");
 
@@ -23,6 +23,13 @@ comptime {
     _ = NativeGtk.noctty_tab_close_button_from_widget;
     _ = NativeGtk.noctty_tab_color_uses_dark_text;
     _ = NativeGtk.noctty_apply_tab_color_style;
+    _ = NativeGtk.noctty_settings_grid_new;
+    _ = NativeGtk.noctty_settings_grid_attach_control;
+    _ = NativeGtk.noctty_settings_group_new;
+    _ = NativeGtk.noctty_settings_page_new;
+    _ = NativeGtk.noctty_settings_category_row_new;
+    _ = NativeGtk.noctty_settings_category_selected;
+    _ = NativeGtk.noctty_settings_response;
 }
 
 const NativeHostEvent = VteHost.Event;
@@ -52,60 +59,35 @@ extern fn noctty_native_grid_pipeline_qualification(
     artifact_path: [*:0]const u8,
     mode: [*:0]const u8,
 ) c_int;
-const NativeGridPump = NativeGridAbi.Pump;
 const NativeGridWrite = NativeGridAbi.Write;
-const NativeGridCell = NativeGridAbi.Cell;
-const NativeGridPollExit = NativeGridAbi.PollExit;
-const NativeGridResize = NativeGridAbi.Resize;
-const NativeGridMouse = NativeGridAbi.Mouse;
-const NativeGridPaste = NativeGridAbi.Paste;
-const NativeGridCopy = NativeGridAbi.Copy;
-const NativeGridScroll = NativeGridAbi.Scroll;
-const NativeGridCursor = NativeGridAbi.Cursor;
-const NativeGridTitle = NativeGridAbi.Title;
-const NativeGridCursorMode = NativeGridAbi.CursorMode;
-const NativeGridMouseMode = NativeGridAbi.MouseMode;
-const NativeGridFocus = NativeGridAbi.Focus;
-const NativeGridEvent = NativeGridAbi.Event;
-const NativeGridTextAction = NativeGridAbi.TextAction;
 
-fn noctty_native_grid_host_run(
-    userdata: ?*anyopaque,
-    pump: NativeGridPump,
-    write: NativeGridWrite,
-    cell: NativeGridCell,
-    poll_exit: NativeGridPollExit,
-    resize: NativeGridResize,
-    mouse: NativeGridMouse,
-    paste: NativeGridPaste,
-    copy: NativeGridCopy,
-    scroll: NativeGridScroll,
-    cursor: NativeGridCursor,
-    title: NativeGridTitle,
-    cursor_mode: NativeGridCursorMode,
-    mouse_mode: NativeGridMouseMode,
-    focus: NativeGridFocus,
-    pane_id: u64,
-    event: NativeGridEvent,
-    event_data: ?*anyopaque,
-    columns: c_int,
-    rows: c_int,
-    mode: c_int,
-    shortcut_key: c_int,
-    enable_shortcut: c_int,
-    workspace_smoke: c_int,
-    secondary_userdata: ?*anyopaque,
-    secondary_pane_id: u64,
-    secondary_initially_active: c_int,
-    enable_notifications: c_int,
-    text_action: ?NativeGridTextAction,
-    text_action_data: ?*anyopaque,
-) c_int {
+const NativeGridRunOptions = struct {
+    session: *noctty.terminal_session.TerminalSession,
+    write: NativeGridWrite = noctty_grid_write,
+    bridge: ?*NativeGridBridge = null,
+    pane_id: u64 = 0,
+    columns: c_int = 96,
+    rows: c_int = 24,
+    mode: c_int = 1,
+    shortcut_key: c_int = 0,
+    enable_shortcut: c_int = 0,
+    workspace_smoke: c_int = -1,
+    secondary_session: ?*noctty.terminal_session.TerminalSession = null,
+    secondary_pane_id: u64 = 0,
+    secondary_initially_active: c_int = 0,
+    enable_notifications: c_int = 0,
+};
+
+fn runNativeGridHost(options: NativeGridRunOptions) c_int {
+    const bridge_data: ?*anyopaque = if (options.bridge) |bridge|
+        @ptrCast(bridge)
+    else
+        null;
     const callbacks = NativeGridAbi.Callbacks{
-        .userdata = userdata,
-        .pump = pump,
-        .write = write,
-        .cell = cell,
+        .userdata = options.session,
+        .pump = noctty_grid_pump,
+        .write = options.write,
+        .cell = noctty_grid_cell,
         .row = noctty_grid_row,
         .dirty_rows = noctty_grid_take_dirty_rows,
         .dirty_spans = noctty_grid_take_dirty_spans,
@@ -113,36 +95,36 @@ fn noctty_native_grid_host_run(
         .color_rgb = noctty_grid_color_rgb,
         .cell_text = noctty_grid_cell_text,
         .cell_hyperlink = noctty_grid_cell_hyperlink,
-        .poll_exit = poll_exit,
-        .resize = resize,
-        .mouse = mouse,
-        .paste = paste,
-        .copy = copy,
-        .scroll = scroll,
-        .cursor = cursor,
-        .title = title,
-        .cursor_mode = cursor_mode,
-        .mouse_mode = mouse_mode,
-        .focus = focus,
-        .event = event,
-        .event_data = event_data,
-        .text_action = text_action,
-        .text_action_data = text_action_data,
+        .poll_exit = noctty_grid_poll_exit,
+        .resize = noctty_grid_resize,
+        .mouse = noctty_grid_mouse,
+        .paste = noctty_grid_paste,
+        .copy = noctty_grid_copy,
+        .scroll = noctty_grid_scroll,
+        .cursor = noctty_grid_cursor,
+        .title = noctty_grid_title,
+        .cursor_mode = noctty_grid_cursor_mode,
+        .mouse_mode = noctty_grid_mouse_mode,
+        .focus = noctty_grid_focus,
+        .event = noctty_grid_event,
+        .event_data = bridge_data,
+        .text_action = if (options.bridge == null) null else noctty_grid_text_action,
+        .text_action_data = bridge_data,
     };
-    const options = NativeGridAbi.LaunchOptions{
-        .pane_id = pane_id,
-        .columns = columns,
-        .rows = rows,
-        .mode = mode,
-        .shortcut_key = shortcut_key,
-        .enable_shortcut = enable_shortcut,
-        .workspace_smoke = workspace_smoke,
-        .secondary_userdata = secondary_userdata,
-        .secondary_pane_id = secondary_pane_id,
-        .secondary_initially_active = secondary_initially_active,
-        .enable_notifications = enable_notifications,
+    const launch = NativeGridAbi.LaunchOptions{
+        .pane_id = options.pane_id,
+        .columns = options.columns,
+        .rows = options.rows,
+        .mode = options.mode,
+        .shortcut_key = options.shortcut_key,
+        .enable_shortcut = options.enable_shortcut,
+        .workspace_smoke = options.workspace_smoke,
+        .secondary_userdata = options.secondary_session,
+        .secondary_pane_id = options.secondary_pane_id,
+        .secondary_initially_active = options.secondary_initially_active,
+        .enable_notifications = options.enable_notifications,
     };
-    return NativeGridAbi.run(&callbacks, &options);
+    return NativeGridAbi.run(&callbacks, &launch);
 }
 
 const GridLaunchPolicy = enum {
@@ -1085,6 +1067,7 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
         };
         bridge.saw_quick_note = true;
         persistNativeGridHotSession(bridge);
+        if (bridge.callback_failed) return -1;
         return 0;
     }
     if (action == 10) {
@@ -3941,7 +3924,7 @@ export fn noctty_grid_mouse(raw: ?*anyopaque, column: c_int, row: c_int, button:
     return @intCast(length.len);
 }
 
-export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*:0]const u8, length: usize) callconv(.c) c_int {
+export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
     var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
     const prepared = noctty.paste.preparePasteAlloc(session.allocator, bytes[0..length], .{ .bracketed_paste = session.grid.bracketed_paste }) catch return -1;
     defer prepared.deinit(session.allocator);
@@ -4167,7 +4150,11 @@ fn nativeGridSmoke(out: anytype, mode: c_int) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("sleep 0.5; printf '\\033[?2026h\\033[2;1H\\033[1;3;4;9;38;2;96;180;255mNOCTTY_NATIVE_GRID_OK A\\314\\201 \\360\\237\\221\\251\\342\\200\\215\\360\\237\\232\\200'; sleep 0.12; printf '\\033[0m\\033[?2026l\\033]2;native-grid\\007'; sleep 0.1; printf '\\033[?2026hDEADMAN'; sleep 0.5; printf '\\033[?2026l'; sleep 0.2; exit 0\n");
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, mode, 0, 0, 0, null, 0, 0, 0, null, null);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = mode,
+        .workspace_smoke = 0,
+    });
     if (status != 0) return error.NativeGridHostFailed;
     try out.print("native_grid_smoke gtk=true drawing_surface=true keyboard_abi=true pty=true vt=true exited=true\n", .{});
 }
@@ -4249,7 +4236,13 @@ fn nativeGridWorkspaceSmoke(out: anytype) !void {
     var session_pool = NativeGridSessionPool.init(std.heap.page_allocator, "/bin/sh", "printf 'NOCTTY_NATIVE_WORKSPACE_DYNAMIC'; IFS= read -r _; exit 0\n");
     defer session_pool.deinit();
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .session_pool = &session_pool };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 0, 0, 0, 1, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .mode = 0,
+        .workspace_smoke = 1,
+    });
     if (status != 0) return error.NativeGridWorkspaceHostFailed;
     if (bridge.callback_failed) return error.NativeGridWorkspaceStateSyncFailed;
     if (!bridge.saw_tab_command) return error.NativeGridWorkspaceTabCommandMissing;
@@ -4279,7 +4272,12 @@ fn nativeGridTabNavigationSmoke(out: anytype) !void {
     var session_pool = NativeGridSessionPool.init(allocator, "/bin/sh", "printf 'NOCTTY_TAB_NAVIGATION_CHILD'; IFS= read -r _; exit 0\n");
     defer session_pool.deinit();
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .session_pool = &session_pool };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 22, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 22,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_tab_cycle_next or
         !bridge.saw_tab_cycle_previous or !bridge.saw_pane_cycle_shortcut or
         !bridge.saw_alt_scroll_pane_cycle or
@@ -4303,7 +4301,12 @@ fn nativeGridTabTitleSmoke(out: anytype) !void {
     defer session.deinit();
     try session.write("printf 'NOCTTY_TITLE_READY'\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 23, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 23,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_title_fallback or
         !bridge.saw_title_overflow or !bridge.saw_title_tooltip or !bridge.saw_title_rename)
     {
@@ -4324,7 +4327,12 @@ fn nativeGridDirtySmoke(io: std.Io, out: anytype) !void {
     defer session.deinit();
     try session.write("printf 'NOCTTY_DIRTY_READY'\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 24, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 24,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_dirty_marker or
         !bridge.saw_attention_marker or !bridge.workspace_saved or
         !bridge.saw_dirty_cleared or !bridge.saw_dirty_title_preserved or
@@ -4347,7 +4355,12 @@ fn nativeGridTabReorderSmoke(io: std.Io, out: anytype) !void {
     var session_pool = NativeGridSessionPool.init(allocator, "/bin/sh", "printf 'NOCTTY_REORDER_CHILD'; sleep 6; exit 0\n");
     defer session_pool.deinit();
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .session_pool = &session_pool };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 25, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 25,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_reorder_ui or
         !bridge.saw_reorder_model or !bridge.saw_reorder_persisted)
     {
@@ -4365,7 +4378,12 @@ fn nativeGridPaletteRenameSmoke(out: anytype) !void {
     defer session.deinit();
     try session.write("printf 'NOCTTY_PALETTE_RENAME_READY'\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 26, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 26,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_palette_rename_validation or
         !bridge.saw_palette_rename_commit or !bridge.saw_palette_rename_cancel or
         !std.mem.eql(u8, app.workspace.activeTab().?.title, "Palette renamed tab") or
@@ -4392,7 +4410,14 @@ fn nativeGridPaneMoveSmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 72, 32, 1, 0, 0, 14, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 72,
+        .rows = 32,
+        .workspace_smoke = 14,
+    });
     if (status != 0) return error.NativeGridPaneMoveHostFailed;
     if (bridge.callback_failed) return error.NativeGridPaneMoveStateSyncFailed;
     if (!bridge.saw_tab_command or !bridge.saw_move_command or !bridge.saw_rendered_move) return error.NativeGridPaneMoveEventMissing;
@@ -4426,7 +4451,14 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
         .config_path = workspace_path,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 80, 28, 1, 0, 0, 15, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 80,
+        .rows = 28,
+        .workspace_smoke = 15,
+    });
     if (status != 0 or bridge.callback_failed) return error.NativeGridCompactUxHostFailed;
     if (!bridge.saw_palette or !bridge.saw_terminal_find or !bridge.saw_quick_note or
         !bridge.saw_font_increase or !bridge.saw_font_decrease or
@@ -4492,38 +4524,14 @@ fn nativeGridNoteOverlaySmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        80,
-        28,
-        1,
-        0,
-        0,
-        29,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 80,
+        .rows = 28,
+        .workspace_smoke = 29,
+    });
     if (status != 0 or bridge.callback_failed)
         return error.NativeGridNoteOverlaySmokeFailed;
     if (app.workspace.activeTab().?.panes.items.len != 2 or
@@ -4548,7 +4556,15 @@ fn nativeGridTwoPaneSmoke(out: anytype) !void {
     try primary.write("printf 'NOCTTY_NATIVE_PRIMARY'; sleep 1; exit 0\n");
     try secondary.write("printf 'NOCTTY_NATIVE_SECONDARY'; sleep 1; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = 1, .secondary_pane_id = 2 };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 1, noctty_grid_event, &bridge, 48, 24, 1, 0, 0, 2, &secondary, 2, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 48,
+        .workspace_smoke = 2,
+        .secondary_session = &secondary,
+        .secondary_pane_id = 2,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_secondary_started or !bridge.saw_secondary_output or !bridge.saw_secondary_exited) return error.NativeGridTwoPaneSmokeFailed;
     if (tab.panes.items.len != 2) return error.NativeGridTwoPaneLayoutMissing;
     try out.print("native_grid_two_pane_smoke panes=2 dynamic_split=true primary_pty=true secondary_pty=true pty_event_source=true primary_grid=true secondary_grid=true secondary_lifecycle=true exited=true\n", .{});
@@ -4586,38 +4602,16 @@ fn nativeGridPaneCloseSmoke(out: anytype) !void {
         .pane_id = 1,
         .secondary_pane_id = pane_id,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        1,
-        noctty_grid_event,
-        &bridge,
-        64,
-        24,
-        1,
-        0,
-        0,
-        20,
-        &secondary,
-        pane_id,
-        1,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 64,
+        .workspace_smoke = 20,
+        .secondary_session = &secondary,
+        .secondary_pane_id = pane_id,
+        .secondary_initially_active = 1,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_pane_close_command or bridge.closed_pane_id != 1 or
         bridge.pane_close_tab_closed or !bridge.saw_secondary_started or
@@ -4668,38 +4662,17 @@ fn nativeGridTerminalChordsSmoke(out: anytype) !void {
         .pane_id = 1,
         .secondary_pane_id = secondary_pane_id,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_terminal_chord_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        1,
-        noctty_grid_event,
-        &bridge,
-        64,
-        24,
-        1,
-        0,
-        0,
-        31,
-        &secondary,
-        secondary_pane_id,
-        1,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .write = noctty_grid_terminal_chord_write,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 64,
+        .workspace_smoke = 31,
+        .secondary_session = &secondary,
+        .secondary_pane_id = secondary_pane_id,
+        .secondary_initially_active = 1,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_terminal_interrupt_targeted or
         !bridge.saw_terminal_close_chord or
@@ -4764,38 +4737,13 @@ fn nativeGridLayoutPresetSmoke(
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        96,
-        36,
-        1,
-        0,
-        0,
-        21,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .rows = 36,
+        .workspace_smoke = 21,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_layout_2x2 or !bridge.saw_layout_4x2 or
         !bridge.saw_layout_3x3 or !bridge.saw_layout_4x4 or
@@ -4857,7 +4805,14 @@ fn nativeGridRecursiveSplitSmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 72, 32, 1, 0, 0, 11, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 72,
+        .rows = 32,
+        .workspace_smoke = 11,
+    });
     if (status != 0 or bridge.callback_failed) return error.NativeGridRecursiveSplitSmokeFailed;
     if (bridge.created_session_count != 3 or tab.panes.items.len != 4) return error.NativeGridRecursiveSplitCountMismatch;
     if (!bridge.saw_split_down_vertical or !bridge.saw_split_left_horizontal) return error.NativeGridRecursiveSplitOrientationMismatch;
@@ -4882,7 +4837,14 @@ fn nativeGridClickFocusSmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 72, 32, 1, 0, 0, 12, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 72,
+        .rows = 32,
+        .workspace_smoke = 12,
+    });
     if (status != 0) return error.NativeGridClickFocusHostFailed;
     if (bridge.callback_failed) return error.NativeGridClickFocusStateSyncFailed;
     if (bridge.created_session_count != 1 or tab.panes.items.len != 2) return error.NativeGridClickFocusCountMismatch;
@@ -4909,7 +4871,13 @@ fn nativeGridEightPaneSmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 36, 1, 0, 0, 13, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .rows = 36,
+        .workspace_smoke = 13,
+    });
     if (status != 0) return error.NativeGridEightPaneHostFailed;
     if (bridge.callback_failed) return error.NativeGridEightPaneStateSyncFailed;
     if (bridge.created_session_count != 7 or tab.panes.items.len != 8) return error.NativeGridEightPaneCountMismatch;
@@ -4942,7 +4910,15 @@ fn nativeGridTwoTabSmoke(out: anytype) !void {
         .secondary_pane_id = 2,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 1, noctty_grid_event, &bridge, 48, 24, 1, 0, 0, 3, &secondary, 2, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 48,
+        .workspace_smoke = 3,
+        .secondary_session = &secondary,
+        .secondary_pane_id = 2,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_tab_command or
         !bridge.saw_tab_close_command or bridge.closed_tab_pane_count != 1 or
         bridge.created_session_count != 1 or
@@ -4983,38 +4959,13 @@ fn nativeGridTabRenameSmoke(out: anytype) !void {
         .pane_id = 1,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        1,
-        noctty_grid_event,
-        &bridge,
-        64,
-        24,
-        1,
-        0,
-        0,
-        17,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 64,
+        .workspace_smoke = 17,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_tab_command or
         !bridge.saw_tab_rename) return error.NativeGridTabRenameHostFailed;
     if (app.workspace.tabs.items.len != 2 or
@@ -5055,38 +5006,13 @@ fn nativeGridTabColorSmoke(out: anytype) !void {
         .app = &app,
         .pane_id = tab.active_pane_id,
     };
-    const status = noctty_native_grid_host_run(
-        &session,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        64,
-        24,
-        1,
-        0,
-        0,
-        27,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 64,
+        .workspace_smoke = 27,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_tab_color_set or !bridge.saw_tab_color_lighten or
         !bridge.saw_tab_color_darken)
@@ -5154,38 +5080,17 @@ fn nativeGridProfilePresetSmoke(allocator: std.mem.Allocator, io: std.Io, out: a
         .io = io,
         .autosave_path = autosave_path,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        1,
-        noctty_grid_event,
-        &bridge,
-        80,
-        28,
-        1,
-        0,
-        0,
-        33,
-        &secondary,
-        secondary_pane_id,
-        1,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 80,
+        .rows = 28,
+        .workspace_smoke = 33,
+        .secondary_session = &secondary,
+        .secondary_pane_id = secondary_pane_id,
+        .secondary_initially_active = 1,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.saw_profile_preset_menu or !bridge.saw_profile_preset_selection or
         !bridge.profile_preset_target_exact or
@@ -5352,38 +5257,14 @@ fn nativeGridResizeOverlaySmoke(out: anytype) !void {
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        80,
-        28,
-        1,
-        0,
-        0,
-        18,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 80,
+        .rows = 28,
+        .workspace_smoke = 18,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.saw_split_command)
         return error.NativeGridResizeOverlayHostFailed;
     if (bridge.created_session_count != 1 or tab.panes.items.len != 2)
@@ -5401,38 +5282,10 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
     );
     defer session.deinit();
     try session.write("printf 'NOCTTY_WINDOW_TRAY_OK'; sleep 8; exit 0\n");
-    const status = noctty_native_grid_host_run(
-        &session,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        0,
-        noctty_grid_event,
-        null,
-        96,
-        24,
-        1,
-        0,
-        0,
-        19,
-        null,
-        0,
-        0,
-        0,
-        null,
-        null,
-    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .workspace_smoke = 19,
+    });
     if (status != 0) return error.NativeGridWindowTraySmokeFailed;
     try out.print("native_grid_window_tray_smoke resize_handles=8 all_edges=true resized=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
 }
@@ -5440,7 +5293,10 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
 fn nativeGridClipboardSmoke(out: anytype) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, 1, 0, 0, 4, null, 0, 0, 0, null, null);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .workspace_smoke = 4,
+    });
     if (status != 0) return error.NativeGridClipboardSmokeFailed;
     try out.print("native_grid_clipboard_smoke clipboard=true paste_safety=true terminal_delivery=true rendered=true exited=true\n", .{});
 }
@@ -5449,7 +5305,11 @@ fn nativeGridNotificationSmoke(out: anytype) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("printf 'NOCTTY_NOTIFICATION_OK'; exit 0\n");
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, 1, 0, 0, 5, null, 0, 0, 1, null, null);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .workspace_smoke = 5,
+        .enable_notifications = 1,
+    });
     if (status != 0) return error.NativeGridNotificationSmokeFailed;
     try out.print("native_grid_notification_smoke tooltip=true status_border=true dbus=true delivered=true exited=true\n", .{});
 }
@@ -5512,7 +5372,12 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     defer session.deinit();
     try session.write("printf 'NOCTTY_SETTINGS_OK'; sleep 3; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = path, .primary_session = &session };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 1, 0, 0, 6, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 6,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.config_persisted or !bridge.launch_profile_applied or !bridge.launch_tmux_profile_applied or !bridge.launch_zellij_profile_applied or !bridge.launch_profile_library_saved or !bridge.launch_profile_library_selected or !bridge.launch_profile_library_removed) return error.NativeGridSettingsSmokeFailed;
     if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
     if (app.workspace.findPane(tab.active_pane_id).?.profile.font_size_pt != 14) return error.NativeGridSettingsProfileMismatch;
@@ -5602,38 +5467,13 @@ fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !
     defer session.deinit();
     try session.write("printf 'NOCTTY_SETTINGS_STACKING_OK'; sleep 2; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id };
-    const status = noctty_native_grid_host_run(
-        &session,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        96,
-        24,
-        0,
-        0,
-        0,
-        28,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .mode = 0,
+        .workspace_smoke = 28,
+    });
     if (status != 0 or bridge.callback_failed)
         return error.NativeGridSettingsStackingSmokeFailed;
     try out.print("native_grid_settings_stacking_smoke visible=true transient_parent=true keep_above=true compositor_stack=true parent_restored=true exited=true\n", .{});
@@ -5653,7 +5493,13 @@ fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) 
     defer session.deinit();
     try session.write("printf 'NOCTTY_THEME_OK'; sleep 1; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path, .theme_path = theme_path };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 0, 0, 0, 7, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .mode = 0,
+        .workspace_smoke = 7,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.config_persisted) return error.NativeGridThemeSmokeFailed;
     const imported = app.findTheme("Imported Night") orelse return error.NativeGridThemeMissing;
     if (imported.background.r != 0 or imported.background.g != 0 or imported.background.b != 0x11 or !std.mem.eql(u8, app.config.default_theme, "Imported Night")) return error.NativeGridThemeMismatch;
@@ -5692,38 +5538,13 @@ fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: a
         .io = io,
         .config_path = config_path,
     };
-    const status = noctty_native_grid_host_run(
-        &session,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        96,
-        24,
-        0,
-        0,
-        0,
-        8,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .mode = 0,
+        .workspace_smoke = 8,
+    });
     if (status != 0 or bridge.callback_failed or
         !bridge.workspace_saved or !bridge.workspace_loaded)
         return error.NativeGridProjectEditorSmokeFailed;
@@ -5754,7 +5575,13 @@ fn nativeGridMaintenanceSmoke(allocator: std.mem.Allocator, io: std.Io, out: any
     defer session.deinit();
     try session.write("printf 'NOCTTY_MAINTENANCE_OK'; sleep 2; exit 0\n");
     var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .autosave_path = autosave_path };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 96, 24, 0, 0, 0, 34, null, 0, 0, 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .mode = 0,
+        .workspace_smoke = 34,
+    });
     if (status != 0 or bridge.callback_failed or !bridge.maintenance_tick_seen or !bridge.autosave_executed or !bridge.project_refresh_executed or !bridge.recovery_cleanup_executed) return error.NativeGridMaintenanceSmokeFailed;
     _ = try std.Io.Dir.cwd().statFile(io, autosave_path, .{});
     try out.print("native_grid_maintenance_smoke timer=true autosave=true project_refresh=true recovery_cleanup=true descriptor_fallback=root_coalesced pane_exit_timer=false source_cleanup=centralized exited=true\n", .{});
@@ -5882,38 +5709,13 @@ fn nativeGridHotSessionSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyt
         .hot_session_loaded = true,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        96,
-        36,
-        1,
-        0,
-        0,
-        30,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = active_pane_id,
+        .rows = 36,
+        .workspace_smoke = 30,
+    });
     if (status != 0 or bridge.callback_failed or
         bridge.created_session_count != 4)
         return error.NativeGridHotSessionHostFailed;
@@ -5935,7 +5737,13 @@ fn nativeGridShortcutLiveSmoke(out: anytype) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("printf 'NOCTTY_SHORTCUT_LIVE_OK'; sleep 5; exit 0\n");
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, 0, 16777273, 1, 9, null, 0, 0, 0, null, null);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 0,
+        .shortcut_key = 16777273,
+        .enable_shortcut = 1,
+        .workspace_smoke = 9,
+    });
     if (status != 0) return error.NativeGridShortcutLiveSmokeFailed;
     try out.print("native_grid_shortcut_live_smoke registered=true hidden=true physical_key=true activated=true visible=true exited=true\n", .{});
 }
@@ -5944,7 +5752,12 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
     var session = try noctty.terminal_session.TerminalSession.spawn(std.heap.page_allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("printf 'NOCTTY_NOCTALIA_IPC_OK'; IFS= read -r _; exit 0\n");
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 0, noctty_grid_event, null, 96, 24, 0, 0, 2, 16, null, 0, 0, 0, null, null);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 0,
+        .enable_shortcut = 2,
+        .workspace_smoke = 16,
+    });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
     try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_grip=4 exited=true\n", .{});
 }
@@ -6107,38 +5920,12 @@ fn nativeGridRecentWorkspaceActivationSmoke(
         .pane_id = tab.active_pane_id,
         .io = io,
     };
-    const status = noctty_native_grid_host_run(
-        &session,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        96,
-        24,
-        1,
-        0,
-        0,
-        35,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 35,
+    });
     if (status != 0 or bridge.callback_failed)
         return error.NativeGridRecentWorkspaceActivationHostFailed;
     try out.print(
@@ -6177,7 +5964,20 @@ fn runNativeGridTwoPane(allocator: std.mem.Allocator, io: std.Io, home_dir: []co
     const autosave_path = try app.defaultWorkspacePathAlloc(home_dir, "default", .autosave);
     defer allocator.free(autosave_path);
     var bridge = NativeGridBridge{ .app = &app, .pane_id = 1, .secondary_pane_id = 2, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .session_pool = &session_pool };
-    const status = noctty_native_grid_host_run(&primary, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, 1, noctty_grid_event, &bridge, 60, 40, mode, qtShortcutKey(app.config.dropdown.shortcut), if (mode == 0 and app.backend.capabilities.app_shortcut_registration) 1 else 0, -1, &secondary, 2, 1, if (app.config.status.desktop_notifications) 1 else 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = 1,
+        .columns = 60,
+        .rows = 40,
+        .mode = mode,
+        .shortcut_key = qtShortcutKey(app.config.dropdown.shortcut),
+        .enable_shortcut = if (mode == 0 and app.backend.capabilities.app_shortcut_registration) 1 else 0,
+        .secondary_session = &secondary,
+        .secondary_pane_id = 2,
+        .secondary_initially_active = 1,
+        .enable_notifications = if (app.config.status.desktop_notifications) 1 else 0,
+    });
     if (status != 0) return error.NativeGridTwoPaneHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridTwoPaneStateSyncFailed;
 }
@@ -6246,38 +6046,13 @@ fn runNativeGridBenchmark(
         .hot_session_loaded = true,
         .session_pool = &session_pool,
     };
-    const status = noctty_native_grid_host_run(
-        &primary,
-        noctty_grid_pump,
-        noctty_grid_write,
-        noctty_grid_cell,
-        noctty_grid_poll_exit,
-        noctty_grid_resize,
-        noctty_grid_mouse,
-        noctty_grid_paste,
-        noctty_grid_copy,
-        noctty_grid_scroll,
-        noctty_grid_cursor,
-        noctty_grid_title,
-        noctty_grid_cursor_mode,
-        noctty_grid_mouse_mode,
-        noctty_grid_focus,
-        tab.active_pane_id,
-        noctty_grid_event,
-        &bridge,
-        120,
-        40,
-        1,
-        0,
-        0,
-        -1,
-        null,
-        0,
-        0,
-        0,
-        noctty_grid_text_action,
-        &bridge,
-    );
+    const status = runNativeGridHost(.{
+        .session = &primary,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 120,
+        .rows = 40,
+    });
     if (status != 0) return error.NativeGridBenchmarkHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridBenchmarkStateSyncFailed;
     if (bridge.created_session_count + 1 != pane_count)
@@ -6380,7 +6155,17 @@ fn runNativeGridActivated(
         .visible => if (!app.backend.capabilities.app_shortcut_registration and app.backend.capabilities.external_activation) 3 else 0,
         .external_hidden => 2,
     };
-    const status = noctty_native_grid_host_run(&session, noctty_grid_pump, noctty_grid_write, noctty_grid_cell, noctty_grid_poll_exit, noctty_grid_resize, noctty_grid_mouse, noctty_grid_paste, noctty_grid_copy, noctty_grid_scroll, noctty_grid_cursor, noctty_grid_title, noctty_grid_cursor_mode, noctty_grid_mouse_mode, noctty_grid_focus, tab.active_pane_id, noctty_grid_event, &bridge, 120, 40, effective_mode, qtShortcutKey(app.config.dropdown.shortcut), shortcut_mode, -1, null, 0, 0, if (app.config.status.desktop_notifications) 1 else 0, noctty_grid_text_action, &bridge);
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 120,
+        .rows = 40,
+        .mode = effective_mode,
+        .shortcut_key = qtShortcutKey(app.config.dropdown.shortcut),
+        .enable_shortcut = shortcut_mode,
+        .enable_notifications = if (app.config.status.desktop_notifications) 1 else 0,
+    });
     persistNativeGridHotSession(&bridge);
     if (status != 0) return error.NativeGridHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridStateSyncFailed;

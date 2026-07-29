@@ -24,6 +24,7 @@ test {
     _ = config_storage;
     _ = ghostty;
     _ = gui;
+    _ = gui.NativeGridAbi;
     _ = terminal;
     _ = terminal_session;
     _ = vt;

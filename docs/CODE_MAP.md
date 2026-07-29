@@ -34,8 +34,8 @@ zig build run-nocted -- --project . --open README.md
   pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
   and bridge calls into Zig.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
-  action-button affordances, compact-tab styling, tab-child lookup, and color
-  styling behind the narrow `native_gtk.h` ABI.
+  action-button affordances, compact-tab styling, tab-child lookup, color
+  styling, and settings-page composition behind the narrow `native_gtk.h` ABI.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project

@@ -139,6 +139,7 @@ typedef struct NocttyGridContextTag {
     GtkWidget *find_status;
     GtkWidget *note_dialog;
     GtkWidget *note_view;
+    GtkWidget *note_status;
     gchar *note_overlay_text;
     gchar *note_overlay_label;
     PangoFontDescription *note_overlay_font;
@@ -8914,115 +8915,6 @@ static void on_settings_shortcut_clicked(GtkButton *button, gpointer user_data) 
     open_grid_shortcut_recorder(user_data);
 }
 
-static GtkWidget *settings_heading_new(const char *title,
-                                       const char *description) {
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-    GtkWidget *heading = gtk_label_new(NULL);
-    gchar *markup = g_markup_printf_escaped(
-        "<span size=\"x-large\" weight=\"bold\">%s</span>", title);
-    gtk_label_set_markup(GTK_LABEL(heading), markup);
-    g_free(markup);
-    gtk_label_set_xalign(GTK_LABEL(heading), 0.0f);
-
-    GtkWidget *detail = gtk_label_new(description);
-    gtk_label_set_xalign(GTK_LABEL(detail), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(detail), TRUE);
-    gtk_label_set_max_width_chars(GTK_LABEL(detail), 58);
-    gtk_style_context_add_class(gtk_widget_get_style_context(detail),
-                                "dim-label");
-    gtk_box_pack_start(GTK_BOX(box), heading, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), detail, FALSE, FALSE, 0);
-    return box;
-}
-
-static GtkWidget *settings_grid_new(void) {
-    GtkWidget *grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 18);
-    gtk_grid_set_column_homogeneous(GTK_GRID(grid), FALSE);
-    return grid;
-}
-
-static void settings_grid_attach_control(GtkWidget *grid, const char *text,
-                                         GtkWidget *control, int row) {
-    GtkWidget *label = gtk_label_new(text);
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-    gtk_widget_set_hexpand(control, TRUE);
-    gtk_widget_set_halign(control, GTK_ALIGN_FILL);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), control, 1, row, 1, 1);
-}
-
-static GtkWidget *settings_group_new(const char *title, GtkWidget *child) {
-    GtkWidget *frame = gtk_frame_new(NULL);
-    GtkWidget *label = gtk_label_new(NULL);
-    gchar *markup = g_markup_printf_escaped("<b>%s</b>", title);
-    gtk_label_set_markup(GTK_LABEL(label), markup);
-    g_free(markup);
-    gtk_frame_set_label_widget(GTK_FRAME(frame), label);
-    gtk_container_set_border_width(GTK_CONTAINER(child), 12);
-    gtk_container_add(GTK_CONTAINER(frame), child);
-    return frame;
-}
-
-static GtkWidget *settings_page_new(const char *title,
-                                    const char *description,
-                                    GtkWidget **body_out) {
-    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
-                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scrolled),
-                                        GTK_SHADOW_NONE);
-    GtkWidget *body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
-    gtk_container_set_border_width(GTK_CONTAINER(body), 24);
-    gtk_box_pack_start(GTK_BOX(body),
-                       settings_heading_new(title, description),
-                       FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(scrolled), body);
-    *body_out = body;
-    return scrolled;
-}
-
-static GtkWidget *settings_category_row_new(const char *icon_name,
-                                            const char *label_text,
-                                            const char *page_name) {
-    GtkWidget *row = gtk_list_box_row_new();
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name,
-                                                   GTK_ICON_SIZE_LARGE_TOOLBAR);
-    GtkWidget *label = gtk_label_new(label_text);
-    gtk_image_set_pixel_size(GTK_IMAGE(icon), 24);
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
-    gtk_widget_set_hexpand(label, TRUE);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
-    gtk_box_pack_start(GTK_BOX(box), icon, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), label, TRUE, TRUE, 0);
-    gtk_container_add(GTK_CONTAINER(row), box);
-    g_object_set_data_full(G_OBJECT(row), "noctty-settings-page",
-                           g_strdup(page_name), g_free);
-    return row;
-}
-
-static void on_settings_category_selected(GtkListBox *list,
-                                          GtkListBoxRow *row,
-                                          gpointer user_data) {
-    (void)list;
-    if (row == NULL) return;
-    const char *page_name = g_object_get_data(
-        G_OBJECT(row), "noctty-settings-page");
-    if (page_name != NULL)
-        gtk_stack_set_visible_child_name(GTK_STACK(user_data), page_name);
-}
-
-static void on_settings_response(GtkDialog *dialog, gint response,
-                                 gpointer user_data) {
-    (void)response;
-    (void)user_data;
-    gtk_widget_destroy(GTK_WIDGET(dialog));
-}
-
 static void sync_launch_profile_sensitivity(NocttyGridContext *context) {
     if (!GTK_IS_COMBO_BOX(context->settings_launch_kind)) return;
     int kind = gtk_combo_box_get_active(
@@ -10222,18 +10114,27 @@ static void open_terminal_find(NocttyGridContext *context) {
     gtk_widget_grab_focus(entry);
 }
 
-static gboolean flush_quick_note(gpointer user_data) {
-    NocttyGridContext *root = user_data;
-    root->note_save_source = 0;
-    if (root->note_view == NULL || root->text_action == NULL) return G_SOURCE_REMOVE;
+static gboolean save_quick_note(NocttyGridContext *root) {
+    if (root->note_view == NULL || root->text_action == NULL) return FALSE;
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(root->note_view));
     GtkTextIter start, end;
     gtk_text_buffer_get_bounds(buffer, &start, &end);
     gchar *text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
-    (void)root->text_action(root->text_action_data, 9, "", 0, text,
-                            strlen(text), 0);
-    root->compact_note_shown = 1;
+    gboolean saved = root->text_action(
+        root->text_action_data, 9, "", 0, text, strlen(text), 0) == 0;
     g_free(text);
+    if (root->note_status != NULL)
+        gtk_label_set_text(GTK_LABEL(root->note_status), saved
+            ? "Workspace note · saved automatically"
+            : "Workspace note · save failed; keep this window open");
+    if (saved) root->compact_note_shown = 1;
+    return saved;
+}
+
+static gboolean flush_quick_note(gpointer user_data) {
+    NocttyGridContext *root = user_data;
+    root->note_save_source = 0;
+    (void)save_quick_note(root);
     return G_SOURCE_REMOVE;
 }
 
@@ -10250,10 +10151,41 @@ static void on_quick_note_destroy(GtkWidget *widget, gpointer user_data) {
     if (root->note_save_source != 0) {
         g_source_remove(root->note_save_source);
         root->note_save_source = 0;
-        (void)flush_quick_note(root);
+        (void)save_quick_note(root);
     }
     root->note_dialog = NULL;
     root->note_view = NULL;
+    root->note_status = NULL;
+}
+
+static void on_quick_note_response(GtkDialog *dialog, gint response,
+                                   gpointer user_data) {
+    (void)response;
+    NocttyGridContext *root = user_data;
+    if (root->note_save_source != 0) {
+        g_source_remove(root->note_save_source);
+        root->note_save_source = 0;
+    }
+    if (save_quick_note(root)) gtk_widget_destroy(GTK_WIDGET(dialog));
+}
+
+static gboolean on_quick_note_delete(GtkWidget *widget, GdkEvent *event,
+                                     gpointer user_data) {
+    (void)widget;
+    (void)event;
+    NocttyGridContext *root = user_data;
+    if (root->note_save_source != 0) {
+        g_source_remove(root->note_save_source);
+        root->note_save_source = 0;
+    }
+    return save_quick_note(root) ? FALSE : TRUE;
+}
+
+static gboolean on_quick_note_key(GtkWidget *widget, GdkEventKey *event,
+                                  gpointer user_data) {
+    if (event->keyval != GDK_KEY_Escape) return FALSE;
+    on_quick_note_response(GTK_DIALOG(widget), GTK_RESPONSE_CLOSE, user_data);
+    return TRUE;
 }
 
 static void open_quick_note(NocttyGridContext *context) {
@@ -10279,6 +10211,7 @@ static void open_quick_note(NocttyGridContext *context) {
     gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
     root->note_dialog = dialog;
     root->note_view = view;
+    root->note_status = hint;
     char *contents = g_malloc0(1024 * 1024 + 1);
     int length = root->text_action != NULL
         ? root->text_action(root->text_action_data, 8, "", 0, contents,
@@ -10288,8 +10221,9 @@ static void open_quick_note(NocttyGridContext *context) {
     g_free(contents);
     g_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), "changed",
                      G_CALLBACK(on_quick_note_changed), root);
-    g_signal_connect(dialog, "response", G_CALLBACK(gtk_widget_destroy), NULL);
-    g_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
+    g_signal_connect(dialog, "response", G_CALLBACK(on_quick_note_response), root);
+    g_signal_connect(dialog, "delete-event", G_CALLBACK(on_quick_note_delete), root);
+    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_quick_note_key), root);
     g_signal_connect(dialog, "destroy", G_CALLBACK(on_quick_note_destroy), root);
     gtk_window_set_decorated(GTK_WINDOW(dialog), FALSE);
     show_all_with_action_affordances(dialog);
@@ -10377,7 +10311,18 @@ static void save_grid_scrollback(NocttyGridContext *context) {
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) ==
         GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-        (void)save_grid_scrollback_to_path(context, path);
+        if (!save_grid_scrollback_to_path(context, path)) {
+            GtkWidget *error_dialog = gtk_message_dialog_new(
+                GTK_WINDOW(context->window),
+                GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+                "Could not save terminal scrollback");
+            gtk_message_dialog_format_secondary_text(
+                GTK_MESSAGE_DIALOG(error_dialog),
+                "The selected file was not changed. Check the path and permissions, then try again.");
+            (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
+            gtk_widget_destroy(error_dialog);
+        }
         g_free(path);
     }
     gtk_widget_destroy(chooser);

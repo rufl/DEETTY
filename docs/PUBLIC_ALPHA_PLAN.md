@@ -50,7 +50,7 @@ zig build check -j1 --summary all
 ```
 
 Current result on 2026-07-29: passed, `19/19` build steps succeeded and
-`311/311` tests passed. The same prep pass includes the refreshed native GTK,
+`313/313` tests passed. The same prep pass includes the refreshed native GTK,
 PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
 

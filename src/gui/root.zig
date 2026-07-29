@@ -1,5 +1,6 @@
 pub const Backend = @import("Backend.zig");
 pub const Host = @import("Host.zig");
+pub const NativeGridAbi = @import("NativeGridAbi.zig");
 pub const noctalia = @import("Noctalia.zig");
 
 pub const BackendKind = Backend.BackendKind;

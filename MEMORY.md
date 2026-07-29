@@ -46,7 +46,7 @@ proof-bounded claims.
 - `docs/PUBLIC_ALPHA_CODE_REVIEW.md` and `docs/PUBLIC_ALPHA_GO_NO_GO.md` agree on the current state: source-alpha prep is ready except counted dogfood, and public announcement remains no-go while counted dogfood is zero.
 - `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
 - `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
-- `./scripts/install_dogfood.sh` installs unstripped Debug binaries behind bounded local logging launchers; logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
+- `./scripts/install_dogfood.sh` installs unstripped `ReleaseFast` binaries behind bounded local logging launchers by default; `NOCTTY_DOGFOOD_OPTIMIZE` can select another Zig optimization mode. Logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
 - The active-pane bar is bottom-anchored below the terminal layout and shows cached one-second CPU/RSS for the full NOCTTY process tree and selected terminal tree; this is local `/proc` observation, not telemetry.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
@@ -88,16 +88,16 @@ On constrained hosts, use:
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
-Current local pass note: `zig build check -j1 --summary all` passes with
-311/311 tests after removing the obsolete embedded-editor build and test surface.
-A fresh clean-source-copy run on 2026-07-29 passed the same 19/19 steps and
-311/311 tests. The previous baseline single-job full verifier completed with
-`verify_cleanup scratch=true cache=true install=true artifacts=true`. After the
-embedded-editor removal, a fresh verifier attempt passed terminal compatibility,
-session, continuity, ncurses/system-TUI, production-Cairo renderer, and PTY/VT
-pipeline lanes before the one-hour harness timeout. Focused Debug/`ReleaseSafe`
-build checks, release contract, docs/native-layout/network guards, and the X11
-NoctEd handoff all passed; no broader compositor claim was added.
+Current local pass note: Debug and `ReleaseSafe` `zig build check -j1 --summary all`
+pass with 313/313 tests after removing the obsolete embedded-editor surface and
+adding explicit native-grid ABI coverage. A fresh clean-source-copy run passed
+the same 19/19 steps and 313/313 tests. A current-source single-job full verifier
+also completed terminal compatibility/session/continuity/TUI, production-Cairo
+renderer and PTY/VT pipeline, NoctEd core/worker/index, package/release, source
+truth, and final cleanup with
+`verify_cleanup scratch=true cache=true install=true artifacts=true`. The Xvfb
+X11 lane and available local Wayland socket were exercised; no broad compositor
+or HID claim was added.
 
 ## Public claim rule
 

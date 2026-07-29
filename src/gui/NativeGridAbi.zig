@@ -20,7 +20,7 @@ pub const CellHyperlink = *const fn (?*anyopaque, c_int, c_int, [*]u8, usize) ca
 pub const PollExit = *const fn (?*anyopaque) callconv(.c) c_int;
 pub const Resize = *const fn (?*anyopaque, c_int, c_int, c_int, c_int) callconv(.c) c_int;
 pub const Mouse = *const fn (?*anyopaque, c_int, c_int, c_int, c_int) callconv(.c) c_int;
-pub const Paste = *const fn (?*anyopaque, [*:0]const u8, usize) callconv(.c) c_int;
+pub const Paste = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
 pub const Copy = *const fn (?*anyopaque, [*]u8, usize, c_int, c_int, c_int, c_int) callconv(.c) c_int;
 pub const Scroll = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
 pub const Cursor = *const fn (?*anyopaque) callconv(.c) u32;
@@ -87,8 +87,19 @@ pub fn run(callbacks: *const Callbacks, options: *const LaunchOptions) c_int {
     return noctty_native_grid_host_run_v2(callbacks, options);
 }
 
+fn countPasteBytes(_: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
+    _ = bytes;
+    return @intCast(length);
+}
+
 test "native grid ABI layout is explicit and versioned" {
     try std.testing.expectEqual(@as(u32, 2), version);
     try std.testing.expect(@sizeOf(Callbacks) >= 2 * @sizeOf(u32));
     try std.testing.expect(@sizeOf(LaunchOptions) >= 2 * @sizeOf(u32));
+}
+
+test "paste callback accepts length-delimited bytes" {
+    const bytes = [_]u8{ 'a', 'b', 'c' };
+    const callback: Paste = countPasteBytes;
+    try std.testing.expectEqual(@as(c_int, 3), callback(null, &bytes, bytes.len));
 }

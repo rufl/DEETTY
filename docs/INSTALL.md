@@ -39,19 +39,20 @@ Native single-instance controls used by Noctalia compositor bindings are `noctty
 
 The optional split-terminal comparison is not a runtime dependency. It requires the selected peer terminals, `xdotool`, and `qdbus` in an X11/XWayland session. `./scripts/terminal_benchmark.sh` stops Yakuake before and after a run, then writes machine-local artifacts under `benchmarks/`; methodology and limits are in [TERMINAL_BENCHMARK.md](TERMINAL_BENCHMARK.md).
 
-## Dogfood Debug Install
+## Dogfood Install
 
-For unstripped local binaries with per-launch stdout/stderr, GTK/GLib debug,
-exit-status, and crash-log capture:
+For unstripped `ReleaseFast` binaries with per-launch stdout/stderr, GTK/GLib
+messages, exit-status, and crash-log capture:
 
 ```sh
 ./scripts/install_dogfood.sh
 ```
 
 This installs logging launchers as `~/.local/bin/noctty` and
-`~/.local/bin/nocted`, keeps the Debug binaries under
+`~/.local/bin/nocted`, keeps the staged binaries under
 `~/.local/libexec/noctty-dogfood/`, updates the installed desktop entries, and
-retains the newest 20 logs per app under `~/.local/state/noctty/logs/`. See
+retains the newest 20 logs per app under `~/.local/state/noctty/logs/`. Set
+`NOCTTY_DOGFOOD_OPTIMIZE=Debug` for a debugging build. See
 [DOGFOOD_LOGGING.md](DOGFOOD_LOGGING.md).
 
 ## Local Prefix Install

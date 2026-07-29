@@ -55,8 +55,13 @@ The alpha source tree does not yet claim:
 Treat NOCTTY as a local developer tool and run untrusted commands with the same
 care you would use in any terminal emulator.
 
-The repository-owned local SAST check is:
+The retained repository-owned static network/privacy gate is:
 
 ```sh
-semgrep scan --config .semgrep.yml --error
+./scripts/check_no_surprise_network.sh
 ```
+
+No repository Semgrep configuration is currently maintained. A future SAST
+configuration must be checked in and reviewed before its results are treated as
+release evidence; downloading an unpinned remote ruleset is not an equivalent
+gate.

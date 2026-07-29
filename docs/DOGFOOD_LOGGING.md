@@ -1,6 +1,6 @@
 # Dogfood Install and Logging
 
-Install unstripped Debug binaries plus local logging launchers:
+Install unstripped `ReleaseFast` binaries plus local logging launchers:
 
 ```sh
 ./scripts/install_dogfood.sh
@@ -15,11 +15,17 @@ Installed commands:
 ~/.local/bin/nocted
 ```
 
-The commands and installed desktop entries run the Debug binaries from:
+The commands and installed desktop entries run the staged binaries from:
 
 ```text
 ~/.local/libexec/noctty-dogfood/noctty-bin
 ~/.local/libexec/noctty-dogfood/nocted-bin
+```
+
+Override the default optimization mode when debugging a local issue:
+
+```sh
+NOCTTY_DOGFOOD_OPTIMIZE=Debug ./scripts/install_dogfood.sh
 ```
 
 ## Logs

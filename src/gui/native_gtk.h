@@ -22,6 +22,20 @@ GtkWidget *noctty_tab_close_button_from_widget(GtkWidget *tab_widget);
 gboolean noctty_tab_color_uses_dark_text(guint32 rgb);
 void noctty_apply_tab_color_style(GtkWidget *tab_widget, guint32 rgb,
                                   gboolean is_active);
+GtkWidget *noctty_settings_grid_new(void);
+void noctty_settings_grid_attach_control(GtkWidget *grid, const char *text,
+                                         GtkWidget *control, int row);
+GtkWidget *noctty_settings_group_new(const char *title, GtkWidget *child);
+GtkWidget *noctty_settings_page_new(const char *title,
+                                    const char *description,
+                                    GtkWidget **body_out);
+GtkWidget *noctty_settings_category_row_new(const char *icon_name,
+                                            const char *label_text,
+                                            const char *page_name);
+void noctty_settings_category_selected(GtkListBox *list, GtkListBoxRow *row,
+                                       gpointer user_data);
+void noctty_settings_response(GtkDialog *dialog, gint response,
+                              gpointer user_data);
 
 #define configure_action_button noctty_configure_action_button
 #define prepare_action_button_tree noctty_prepare_action_button_tree
@@ -31,5 +45,12 @@ void noctty_apply_tab_color_style(GtkWidget *tab_widget, guint32 rgb,
 #define tab_close_button_from_widget noctty_tab_close_button_from_widget
 #define tab_color_uses_dark_text noctty_tab_color_uses_dark_text
 #define apply_tab_color_style noctty_apply_tab_color_style
+#define settings_grid_new noctty_settings_grid_new
+#define settings_grid_attach_control noctty_settings_grid_attach_control
+#define settings_group_new noctty_settings_group_new
+#define settings_page_new noctty_settings_page_new
+#define settings_category_row_new noctty_settings_category_row_new
+#define on_settings_category_selected noctty_settings_category_selected
+#define on_settings_response noctty_settings_response
 
 #endif

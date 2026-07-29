@@ -193,7 +193,7 @@ zig build check
 ```
 
 The current working tree and a fresh clean source copy pass
-`zig build check -j1 --summary all` with `19/19` steps and `311/311` tests.
+`zig build check -j1 --summary all` with `19/19` steps and `313/313` tests.
 
 Bounded public-source-alpha gate:
 
@@ -215,10 +215,10 @@ Main maintainer gate:
 ./scripts/verify.sh
 ```
 
-A fresh single-job maintainer run completed successfully on 2026-07-29,
-including the Debug/`ReleaseSafe` terminal, renderer, PTY, NoctEd core/worker,
-project-index, package, release-contract, and truth-check lanes, followed by
-`verify_cleanup scratch=true cache=true install=true artifacts=true`.
+A fresh current-source single-job maintainer run completed successfully on
+2026-07-29, including the Debug/`ReleaseSafe` terminal, renderer, PTY, NoctEd
+core/worker, project-index, package, release-contract, and truth-check lanes,
+followed by `verify_cleanup scratch=true cache=true install=true artifacts=true`.
 
 Display-backed smoke gate:
 

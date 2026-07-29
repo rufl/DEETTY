@@ -10,6 +10,15 @@ const GtkNotebook = opaque {};
 const GtkCssProvider = opaque {};
 const GtkStyleProvider = opaque {};
 const GtkStyleContext = opaque {};
+const GtkBox = opaque {};
+const GtkGrid = opaque {};
+const GtkFrame = opaque {};
+const GtkScrolledWindow = opaque {};
+const GtkImage = opaque {};
+const GtkListBox = opaque {};
+const GtkListBoxRow = opaque {};
+const GtkStack = opaque {};
+const GtkDialog = opaque {};
 const GObject = opaque {};
 const AtkObject = opaque {};
 const GdkWindow = opaque {};
@@ -38,6 +47,15 @@ const GTK_STYLE_PROVIDER_PRIORITY_APPLICATION: c_uint = 600;
 const GDK_ENTER_NOTIFY_MASK: c_int = 1 << 12;
 const GDK_LEAVE_NOTIFY_MASK: c_int = 1 << 13;
 const GDK_ARROW: c_int = 2;
+const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
+const GTK_ORIENTATION_VERTICAL: c_int = 1;
+const GTK_ALIGN_FILL: c_int = 0;
+const GTK_ALIGN_START: c_int = 1;
+const GTK_ALIGN_CENTER: c_int = 3;
+const GTK_POLICY_AUTOMATIC: c_int = 1;
+const GTK_POLICY_NEVER: c_int = 2;
+const GTK_SHADOW_NONE: c_int = 0;
+const GTK_ICON_SIZE_LARGE_TOOLBAR: c_int = 3;
 
 extern fn gtk_event_box_new() ?*GtkWidget;
 extern fn gtk_event_box_set_visible_window(*GtkEventBox, c_int) void;
@@ -47,6 +65,9 @@ extern fn gtk_label_set_single_line_mode(*GtkLabel, c_int) void;
 extern fn gtk_label_set_ellipsize(*GtkLabel, c_int) void;
 extern fn gtk_label_set_max_width_chars(*GtkLabel, c_int) void;
 extern fn gtk_label_set_text(*GtkLabel, [*:0]const u8) void;
+extern fn gtk_label_set_markup(*GtkLabel, [*:0]const u8) void;
+extern fn gtk_label_set_line_wrap(*GtkLabel, c_int) void;
+extern fn gtk_label_set_mnemonic_widget(*GtkLabel, *GtkWidget) void;
 extern fn gtk_button_get_label(*GtkButton) ?[*:0]const u8;
 extern fn gtk_bin_get_child(*GtkBin) ?*GtkWidget;
 extern fn gtk_container_add(*GtkContainer, *GtkWidget) void;
@@ -56,6 +77,8 @@ extern fn gtk_widget_set_size_request(*GtkWidget, c_int, c_int) void;
 extern fn gtk_widget_set_hexpand(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_tooltip_text(*GtkWidget, ?[*:0]const u8) void;
 extern fn gtk_widget_get_tooltip_text(*GtkWidget) ?[*:0]u8;
 extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
@@ -63,6 +86,7 @@ extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
 extern fn gtk_widget_show_all(*GtkWidget) void;
+extern fn gtk_widget_destroy(*GtkWidget) void;
 extern fn gtk_widget_get_style_context(*GtkWidget) *GtkStyleContext;
 extern fn gtk_widget_get_accessible(*GtkWidget) *AtkObject;
 extern fn gtk_button_get_type() GType;
@@ -71,6 +95,23 @@ extern fn gtk_box_get_type() GType;
 extern fn gtk_container_get_type() GType;
 extern fn gtk_label_get_type() GType;
 extern fn gtk_notebook_get_type() GType;
+extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
+extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
+extern fn gtk_grid_new() ?*GtkWidget;
+extern fn gtk_grid_set_row_spacing(*GtkGrid, c_uint) void;
+extern fn gtk_grid_set_column_spacing(*GtkGrid, c_uint) void;
+extern fn gtk_grid_set_column_homogeneous(*GtkGrid, c_int) void;
+extern fn gtk_grid_attach(*GtkGrid, *GtkWidget, c_int, c_int, c_int, c_int) void;
+extern fn gtk_frame_new(?[*:0]const u8) ?*GtkWidget;
+extern fn gtk_frame_set_label_widget(*GtkFrame, *GtkWidget) void;
+extern fn gtk_container_set_border_width(*GtkContainer, c_uint) void;
+extern fn gtk_scrolled_window_new(?*anyopaque, ?*anyopaque) ?*GtkWidget;
+extern fn gtk_scrolled_window_set_policy(*GtkScrolledWindow, c_int, c_int) void;
+extern fn gtk_scrolled_window_set_shadow_type(*GtkScrolledWindow, c_int) void;
+extern fn gtk_list_box_row_new() ?*GtkWidget;
+extern fn gtk_image_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
+extern fn gtk_image_set_pixel_size(*GtkImage, c_int) void;
+extern fn gtk_stack_set_visible_child_name(*GtkStack, [*:0]const u8) void;
 extern fn gtk_css_provider_new() ?*GtkCssProvider;
 extern fn gtk_css_provider_load_from_data(*GtkCssProvider, [*:0]const u8, isize, ?*?*GError) c_int;
 extern fn gtk_style_context_add_provider(*GtkStyleContext, *GtkStyleProvider, c_uint) void;
@@ -86,6 +127,7 @@ extern fn g_object_set_data(*GObject, [*:0]const u8, ?*anyopaque) void;
 extern fn g_object_set_data_full(*GObject, [*:0]const u8, ?*anyopaque, GDestroyNotify) void;
 extern fn g_object_get_data(*GObject, [*:0]const u8) ?*anyopaque;
 extern fn g_strdup([*:0]const u8) ?*anyopaque;
+extern fn g_markup_printf_escaped([*:0]const u8, ...) ?[*:0]u8;
 extern fn g_free(?*anyopaque) void;
 extern fn g_error_free(*GError) void;
 extern fn g_strcmp0(?[*:0]const u8, ?[*:0]const u8) c_int;
@@ -329,6 +371,148 @@ pub export fn noctty_apply_tab_color_style(tab_widget: ?*GtkWidget, rgb: u32, is
     for ([3]?*GtkWidget{ content, label, close }) |widget|
         if (widget) |value| gtk_style_context_add_provider(gtk_widget_get_style_context(value), @ptrCast(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 2);
     g_object_set_data_full(object(tab), "noctty-tab-color-provider", provider, g_object_unref);
+}
+
+fn settingsHeadingNew(
+    title: ?[*:0]const u8,
+    description: ?[*:0]const u8,
+) ?*GtkWidget {
+    const title_text = title orelse return null;
+    const detail_text = description orelse return null;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4) orelse return null;
+    const heading = gtk_label_new(null) orelse return null;
+    const markup = g_markup_printf_escaped(
+        "<span size=\"x-large\" weight=\"bold\">%s</span>",
+        title_text,
+    ) orelse return null;
+    defer g_free(markup);
+    gtk_label_set_markup(@ptrCast(heading), markup);
+    gtk_label_set_xalign(@ptrCast(heading), 0.0);
+
+    const detail = gtk_label_new(detail_text) orelse return null;
+    gtk_label_set_xalign(@ptrCast(detail), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(detail), TRUE);
+    gtk_label_set_max_width_chars(@ptrCast(detail), 58);
+    gtk_style_context_add_class(gtk_widget_get_style_context(detail), "dim-label");
+    gtk_box_pack_start(@ptrCast(box), heading, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(box), detail, FALSE, FALSE, 0);
+    return box;
+}
+
+pub export fn noctty_settings_grid_new() ?*GtkWidget {
+    const grid = gtk_grid_new() orelse return null;
+    gtk_grid_set_row_spacing(@ptrCast(grid), 10);
+    gtk_grid_set_column_spacing(@ptrCast(grid), 18);
+    gtk_grid_set_column_homogeneous(@ptrCast(grid), FALSE);
+    return grid;
+}
+
+pub export fn noctty_settings_grid_attach_control(
+    grid: ?*GtkWidget,
+    text: ?[*:0]const u8,
+    control: ?*GtkWidget,
+    row: c_int,
+) void {
+    const grid_widget = grid orelse return;
+    const control_widget = control orelse return;
+    const label = gtk_label_new(text orelse return) orelse return;
+    gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+    gtk_widget_set_hexpand(control_widget, TRUE);
+    gtk_widget_set_halign(control_widget, GTK_ALIGN_FILL);
+    gtk_grid_attach(@ptrCast(grid_widget), label, 0, row, 1, 1);
+    gtk_grid_attach(@ptrCast(grid_widget), control_widget, 1, row, 1, 1);
+}
+
+pub export fn noctty_settings_group_new(
+    title: ?[*:0]const u8,
+    child: ?*GtkWidget,
+) ?*GtkWidget {
+    const child_widget = child orelse return null;
+    const frame = gtk_frame_new(null) orelse return null;
+    const label = gtk_label_new(null) orelse return null;
+    const markup = g_markup_printf_escaped("<b>%s</b>", title orelse return null) orelse
+        return null;
+    defer g_free(markup);
+    gtk_label_set_markup(@ptrCast(label), markup);
+    gtk_frame_set_label_widget(@ptrCast(frame), label);
+    gtk_container_set_border_width(@ptrCast(child_widget), 12);
+    gtk_container_add(@ptrCast(frame), child_widget);
+    return frame;
+}
+
+pub export fn noctty_settings_page_new(
+    title: ?[*:0]const u8,
+    description: ?[*:0]const u8,
+    body_out: ?**GtkWidget,
+) ?*GtkWidget {
+    const output = body_out orelse return null;
+    const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
+    gtk_scrolled_window_set_policy(
+        @ptrCast(scrolled),
+        GTK_POLICY_NEVER,
+        GTK_POLICY_AUTOMATIC,
+    );
+    gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
+    const body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18) orelse return null;
+    gtk_container_set_border_width(@ptrCast(body), 24);
+    const heading = settingsHeadingNew(title, description) orelse return null;
+    gtk_box_pack_start(@ptrCast(body), heading, FALSE, FALSE, 0);
+    gtk_container_add(@ptrCast(scrolled), body);
+    output.* = body;
+    return scrolled;
+}
+
+pub export fn noctty_settings_category_row_new(
+    icon_name: ?[*:0]const u8,
+    label_text: ?[*:0]const u8,
+    page_name: ?[*:0]const u8,
+) ?*GtkWidget {
+    const row = gtk_list_box_row_new() orelse return null;
+    const box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12) orelse return null;
+    const icon = gtk_image_new_from_icon_name(
+        icon_name orelse return null,
+        GTK_ICON_SIZE_LARGE_TOOLBAR,
+    ) orelse return null;
+    const label = gtk_label_new(label_text orelse return null) orelse return null;
+    gtk_image_set_pixel_size(@ptrCast(icon), 24);
+    gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_widget_set_hexpand(label, TRUE);
+    gtk_container_set_border_width(@ptrCast(box), 12);
+    gtk_box_pack_start(@ptrCast(box), icon, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(box), label, TRUE, TRUE, 0);
+    gtk_container_add(@ptrCast(row), box);
+    g_object_set_data_full(
+        object(row),
+        "noctty-settings-page",
+        g_strdup(page_name orelse return null),
+        g_free,
+    );
+    return row;
+}
+
+pub export fn noctty_settings_category_selected(
+    _: ?*GtkListBox,
+    row: ?*GtkListBoxRow,
+    user_data: ?*anyopaque,
+) void {
+    const selected = row orelse return;
+    const stack: *GtkStack = @ptrCast(user_data orelse return);
+    const raw_name = g_object_get_data(
+        @ptrCast(selected),
+        "noctty-settings-page",
+    ) orelse return;
+    gtk_stack_set_visible_child_name(stack, @ptrCast(raw_name));
+}
+
+pub export fn noctty_settings_response(
+    dialog: ?*GtkDialog,
+    _: c_int,
+    _: ?*anyopaque,
+) void {
+    gtk_widget_destroy(@ptrCast(dialog orelse return));
 }
 
 fn addStyle(strip: *GtkWidget, label: *GtkWidget) void {
