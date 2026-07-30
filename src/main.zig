@@ -4226,6 +4226,11 @@ fn terminalHistoryQualification(
 fn nativeGridWorkspaceSmoke(out: anytype) !void {
     var app = try noctty.app.App.init(std.heap.page_allocator);
     defer app.deinit();
+    _ = try app.dispatch(.{ .set_dropdown_dimensions = .{
+        .width_percent = app.config.dropdown.width_percent,
+        .height_percent = app.config.dropdown.height_percent,
+        .height_px = 32,
+    } });
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     const pane = app.workspace.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
     const cwd = try std.heap.page_allocator.dupeZ(u8, pane.cwd);
@@ -4258,7 +4263,7 @@ fn nativeGridWorkspaceSmoke(out: anytype) !void {
     if (!app.workspace.findPane(3).?.selected) return error.NativeGridSelectionMissing;
     if (!app.workspace.findPane(3).?.hasTag("ci")) return error.NativeGridTagMissing;
     if (app.workspace.smart_filter_tag != null) return error.NativeGridFilterNotCleared;
-    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 visual_ready=true controlled_exit=true exited=true\n", .{});
+    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 dropdown_minimum=true visual_ready=true controlled_exit=true exited=true\n", .{});
 }
 
 fn nativeGridTabNavigationSmoke(out: anytype) !void {

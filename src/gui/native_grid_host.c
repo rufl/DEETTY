@@ -20,7 +20,8 @@
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
 #endif
-#define NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX 32
+#define NOCTTY_DROPDOWN_MIN_WIDTH_PX 480
+#define NOCTTY_DROPDOWN_MIN_HEIGHT_PX 240
 #define NOCTTY_DROPDOWN_RESIZE_GRIP_PX 4
 #define NOCTTY_WINDOW_RESIZE_GRIP_PX 12
 
@@ -262,6 +263,7 @@ typedef struct NocttyGridContextTag {
     int window_presented;
     int workspace_smoke;
     int workspace_visual_attempts;
+    int dropdown_minimum_geometry;
     int primary;
     int active;
     int retiring;
@@ -3368,6 +3370,13 @@ static gboolean finish_workspace_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *selected = grid_context_for_pane(root, 3);
     GtkWidget *pending_page = NULL;
+    int window_width = 0;
+    int window_height = 0;
+    gtk_window_get_size(GTK_WINDOW(root->window),
+                        &window_width, &window_height);
+    root->dropdown_minimum_geometry =
+        window_width >= NOCTTY_DROPDOWN_MIN_WIDTH_PX &&
+        window_height >= NOCTTY_DROPDOWN_MIN_HEIGHT_PX;
     gboolean visual_ready = root->pane_move_applied &&
         root->selection_border_drawn && selected != NULL;
     for (guint index = 0;
@@ -8354,6 +8363,15 @@ static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     return monitor;
 }
 
+static int dropdown_dimension(int stored_px, int percent, int available_px,
+                              int minimum_px) {
+    int lower_bound = MIN(minimum_px, available_px);
+    int requested = stored_px >= lower_bound
+        ? stored_px
+        : available_px * percent / 100;
+    return CLAMP(requested, lower_bound, available_px);
+}
+
 static void apply_grid_layer_geometry(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (!root->layer_shell_active || root->layer_shell_library == NULL) return;
@@ -8371,14 +8389,14 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
-    int width = CLAMP(root->dropdown_width_px > 0
-                          ? root->dropdown_width_px
-                          : geometry.width * root->dropdown_width_percent / 100,
-                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.width);
-    int height = CLAMP(root->dropdown_height_px > 0
-                           ? root->dropdown_height_px
-                           : geometry.height * root->dropdown_height_percent / 100,
-                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.height);
+    int width = dropdown_dimension(root->dropdown_width_px,
+                                   root->dropdown_width_percent,
+                                   geometry.width,
+                                   NOCTTY_DROPDOWN_MIN_WIDTH_PX);
+    int height = dropdown_dimension(root->dropdown_height_px,
+                                    root->dropdown_height_percent,
+                                    geometry.height,
+                                    NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
     int horizontal_margin = MAX(0, (geometry.width - width) / 2);
     int horizontal_remainder = MAX(0, geometry.width - width - horizontal_margin);
 
@@ -8547,18 +8565,31 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int width = CLAMP(root->dropdown_width_px > 0
-                          ? root->dropdown_width_px
-                          : workarea.width * root->dropdown_width_percent / 100,
-                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, workarea.width);
-    int height = CLAMP(root->dropdown_height_px > 0
-                           ? root->dropdown_height_px
-                           : workarea.height * root->dropdown_height_percent / 100,
-                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, workarea.height);
+    int width = dropdown_dimension(root->dropdown_width_px,
+                                   root->dropdown_width_percent,
+                                   workarea.width,
+                                   NOCTTY_DROPDOWN_MIN_WIDTH_PX);
+    int height = dropdown_dimension(root->dropdown_height_px,
+                                    root->dropdown_height_percent,
+                                    workarea.height,
+                                    NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
     if (root->mode == 0)
         gtk_window_move(GTK_WINDOW(root->window),
                         workarea.x + (workarea.width - width) / 2, workarea.y);
+}
+
+static void apply_window_dimensions(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
+    GdkRectangle workarea = {0, 0, 900, 420};
+    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    int width = CLAMP(workarea.width * 80 / 100,
+                      MIN(480, workarea.width), workarea.width);
+    int height = CLAMP(workarea.height * 75 / 100,
+                       MIN(320, workarea.height), workarea.height);
+    gtk_widget_set_size_request(root->window, -1, -1);
+    gtk_window_resize(GTK_WINDOW(root->window), width, height);
 }
 
 static void sync_compact_setting(NocttyGridContext *context, int field, int value) {
@@ -8664,7 +8695,10 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
     update_window_resize_handles(root);
     if (root->layer_shell_active) apply_grid_layer_geometry(root);
     else if (mode == 2) gtk_window_fullscreen(GTK_WINDOW(root->window));
-    else gtk_window_unfullscreen(GTK_WINDOW(root->window));
+    else {
+        gtk_window_unfullscreen(GTK_WINDOW(root->window));
+        if (mode == 1) apply_window_dimensions(root);
+    }
     if (mode == 0) apply_dropdown_dimensions(root);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 40, mode, (uint64_t)(g_get_monotonic_time() / 1000));
 }
@@ -13037,10 +13071,12 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     if (root->mode != 0) return FALSE;
     int width = CLAMP(root->window_resize_drag_start_width +
                           (int)horizontal,
-                      NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.width);
+                      MIN(NOCTTY_DROPDOWN_MIN_WIDTH_PX, geometry.width),
+                      geometry.width);
     int height = CLAMP(root->window_resize_drag_start_height +
                            (int)vertical,
-                       NOCTTY_DROPDOWN_MIN_INTERACTIVE_PX, geometry.height);
+                       MIN(NOCTTY_DROPDOWN_MIN_HEIGHT_PX, geometry.height),
+                       geometry.height);
     gboolean changed = FALSE;
     if (horizontal != 0.0 && width != root->dropdown_width_px) {
         sync_compact_setting(root, 14, width);
@@ -13564,6 +13600,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     }
     context.layout_restore_applying = 0;
     if (mode == 0) apply_dropdown_dimensions(&context);
+    else if (mode == 1 && !context.layer_shell_active)
+        apply_window_dimensions(&context);
     update_status_tooltip(&context, "starting");
     if (secondary_userdata != NULL) update_status_tooltip(&secondary, secondary.active ? "starting" : "idle");
     if (secondary_userdata != NULL && !secondary.active) gtk_widget_hide(secondary.area);
@@ -14077,7 +14115,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.tray_secondary_seen && context.tray_context_seen &&
          context.tray_menu_layout_seen && context.tray_close_seen &&
          context.tray_close_session_stopped);
-    int selection_visual_ok = workspace_smoke != 1 || context.selection_border_drawn;
+    int selection_visual_ok = workspace_smoke != 1 ||
+        (context.selection_border_drawn &&
+         context.dropdown_minimum_geometry);
     int tag_filter_ok = workspace_smoke != 1 ||
         (context.tag_filter_applied && context.tag_filter_match &&
          context.tag_filter_untagged_hidden && context.tag_filter_cleared &&
