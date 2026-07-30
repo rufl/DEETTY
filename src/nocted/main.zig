@@ -13,6 +13,9 @@ const project_placeholder_entry = project_root_entry - 1;
 const max_project_monitors: usize = 512;
 const max_project_monitor_changes = core.project_index.max_filesystem_changes;
 const document_page_key = "nocted-document";
+const editor_zoom_percent_default: i16 = 100;
+const editor_zoom_percent_min: i16 = 60;
+const editor_zoom_percent_max: i16 = 240;
 const WorkerJob = worker.Job;
 const WorkerJobKind = worker.Kind;
 
@@ -771,6 +774,9 @@ const App = struct {
     untitled_serial: usize = 0,
     language_manager: *c.GtkSourceLanguageManager,
     style_manager: *c.GtkSourceStyleSchemeManager,
+    editor_zoom_provider: *c.GtkCssProvider,
+    editor_zoom_percent: i16 = editor_zoom_percent_default,
+    editor_zoom_scroll_delta: f64 = 0,
     window: *c.GtkWidget = undefined,
     main_paned: *c.GtkWidget = undefined,
     sidebar: *c.GtkWidget = undefined,
@@ -859,10 +865,21 @@ const App = struct {
         errdefer session.deinit(allocator);
         const resource_root = try locateResourceRoot(allocator, io);
         errdefer allocator.free(resource_root);
-        const language_manager = c.gtk_source_language_manager_new() orelse
-            return error.LanguageManagerUnavailable;
-        const style_manager = c.gtk_source_style_scheme_manager_new() orelse
-            return error.StyleManagerUnavailable;
+        const native = blk: {
+            const language_manager = c.gtk_source_language_manager_new() orelse
+                return error.LanguageManagerUnavailable;
+            errdefer c.g_object_unref(@ptrCast(language_manager));
+            const style_manager = c.gtk_source_style_scheme_manager_new() orelse
+                return error.StyleManagerUnavailable;
+            errdefer c.g_object_unref(@ptrCast(style_manager));
+            const editor_zoom_provider = c.gtk_css_provider_new() orelse
+                return error.EditorZoomProviderUnavailable;
+            break :blk .{
+                .language_manager = language_manager,
+                .style_manager = style_manager,
+                .editor_zoom_provider = editor_zoom_provider,
+            };
+        };
         var app = App{
             .allocator = allocator,
             .io = io,
@@ -881,17 +898,22 @@ const App = struct {
             .project_monitor_changes = std.array_list.Managed(
                 core.project_index.FilesystemChange,
             ).init(allocator),
-            .language_manager = language_manager,
-            .style_manager = style_manager,
+            .language_manager = native.language_manager,
+            .style_manager = native.style_manager,
+            .editor_zoom_provider = native.editor_zoom_provider,
         };
         errdefer app.deinit();
+        try app.applyEditorZoomCss(editor_zoom_percent_default);
         try app.captureDefaultLanguagePaths();
         try app.applySyntaxPaths();
         const style_path = try std.fs.path.join(allocator, &.{ resource_root, "styles" });
         defer allocator.free(style_path);
         const style_path_z = try allocator.dupeZ(u8, style_path);
         defer allocator.free(style_path_z);
-        c.gtk_source_style_scheme_manager_prepend_search_path(style_manager, style_path_z.ptr);
+        c.gtk_source_style_scheme_manager_prepend_search_path(
+            native.style_manager,
+            style_path_z.ptr,
+        );
         return app;
     }
 
@@ -929,6 +951,45 @@ const App = struct {
             c.g_object_unref(@ptrCast(self.quick_open_store));
         c.g_object_unref(@ptrCast(self.language_manager));
         c.g_object_unref(@ptrCast(self.style_manager));
+        c.g_object_unref(@ptrCast(self.editor_zoom_provider));
+    }
+
+    fn applyEditorZoomCss(self: *App, zoom_percent: i16) !void {
+        var css_buffer: [80]u8 = undefined;
+        const css = try std.fmt.bufPrintZ(
+            &css_buffer,
+            "#nocted-editor {{ font-size: {d}%; }}",
+            .{zoom_percent},
+        );
+        var error_ptr: ?*c.GError = null;
+        if (c.gtk_css_provider_load_from_data(
+            self.editor_zoom_provider,
+            css.ptr,
+            @intCast(css.len),
+            &error_ptr,
+        ) == 0) {
+            if (error_ptr) |err| c.g_error_free(err);
+            return error.EditorZoomCssFailed;
+        }
+        if (error_ptr) |err| c.g_error_free(err);
+    }
+
+    fn adjustEditorZoom(self: *App, delta: i16) !void {
+        const next = std.math.clamp(
+            self.editor_zoom_percent + delta,
+            editor_zoom_percent_min,
+            editor_zoom_percent_max,
+        );
+        if (next == self.editor_zoom_percent) return;
+        try self.applyEditorZoomCss(next);
+        self.editor_zoom_percent = next;
+        var status_buffer: [32]u8 = undefined;
+        const status = std.fmt.bufPrintZ(
+            &status_buffer,
+            "Zoom {d}%",
+            .{next},
+        ) catch return;
+        self.updateStatus(status.ptr);
     }
 
     fn shutdownWorker(self: *App) void {
@@ -2648,6 +2709,15 @@ const App = struct {
             @intFromBool(editable),
         );
         c.gtk_widget_set_name(view, "nocted-editor");
+        c.gtk_style_context_add_provider(
+            c.gtk_widget_get_style_context(view),
+            @ptrCast(self.editor_zoom_provider),
+            c.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        );
+        c.gtk_widget_add_events(
+            view,
+            c.GDK_SCROLL_MASK | c.GDK_SMOOTH_SCROLL_MASK,
+        );
         setAccessibleName(view, "Document editor");
         const editor_scroll = c.gtk_scrolled_window_new(null, null) orelse unreachable;
         c.gtk_scrolled_window_set_policy(
@@ -2704,6 +2774,7 @@ const App = struct {
         connect(buffer, "modified-changed", @ptrCast(&onBufferModified), document);
         connect(buffer, "mark-set", @ptrCast(&onBufferMarkSet), document);
         connect(view, "key-press-event", @ptrCast(&onEditorKeyPress), document);
+        connect(view, "scroll-event", @ptrCast(&onEditorScroll), document);
         connect(close, "clicked", @ptrCast(&onTabClose), document);
         const page_number = c.gtk_notebook_append_page(
             asNotebook(self.notebook),
@@ -4902,6 +4973,45 @@ const App = struct {
                 false
         else
             false;
+        const editor_zoom_ok = if (document) |value| zoom: {
+            const initial_zoom = self.editor_zoom_percent;
+            var scroll_event = std.mem.zeroes(c.GdkEventScroll);
+            scroll_event.state = c.GDK_CONTROL_MASK;
+            scroll_event.direction = c.GDK_SCROLL_UP;
+            const zoomed_in = onEditorScroll(
+                value.view,
+                &scroll_event,
+                value,
+            ) != 0 and self.editor_zoom_percent == initial_zoom + 10;
+            scroll_event.direction = c.GDK_SCROLL_DOWN;
+            const zoomed_out = onEditorScroll(
+                value.view,
+                &scroll_event,
+                value,
+            ) != 0 and self.editor_zoom_percent == initial_zoom;
+            scroll_event.direction = c.GDK_SCROLL_SMOOTH;
+            scroll_event.delta_y = -1;
+            const smooth_in = onEditorScroll(
+                value.view,
+                &scroll_event,
+                value,
+            ) != 0 and self.editor_zoom_percent == initial_zoom + 10;
+            scroll_event.delta_y = 1;
+            const smooth_out = onEditorScroll(
+                value.view,
+                &scroll_event,
+                value,
+            ) != 0 and self.editor_zoom_percent == initial_zoom;
+            scroll_event.state = 0;
+            scroll_event.direction = c.GDK_SCROLL_UP;
+            const ordinary_scroll = onEditorScroll(
+                value.view,
+                &scroll_event,
+                value,
+            ) == 0 and self.editor_zoom_percent == initial_zoom;
+            break :zoom zoomed_in and zoomed_out and smooth_in and
+                smooth_out and ordinary_scroll;
+        } else false;
         const project_ok = self.project_entry_count > 0 and !self.project_truncated;
         const language_count = self.languageCount();
         var undo_ok = false;
@@ -5281,7 +5391,7 @@ const App = struct {
             }
         }
         const pass = self.currentDocument() != null and language_ok and tree_sitter_ok and line_numbers_ok and
-            minimap_bound and project_ok and project_activation_ok and
+            minimap_bound and editor_zoom_ok and project_ok and project_activation_ok and
             project_tree_lazy_ok and
             language_count >= 100 and undo_ok and redo_ok and save_ok and
             multi_selection_ok and multi_selection_undo_ok and
@@ -5310,7 +5420,7 @@ const App = struct {
             self.settings.minimap_visible and
             self.settings.sidebar_visible;
         c.g_print(
-            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
+            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d editor_zoom=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
             @as(c_int, @intFromBool(pass)),
             self.documents.items.len,
             language_id,
@@ -5318,6 +5428,7 @@ const App = struct {
             @as(c_int, @intFromBool(tree_sitter_ok)),
             @as(c_int, @intFromBool(line_numbers_ok)),
             @as(c_int, @intFromBool(minimap_bound)),
+            @as(c_int, @intFromBool(editor_zoom_ok)),
             @as(c_int, @intFromBool(project_ok)),
             @as(c_int, @intFromBool(project_activation_ok)),
             @as(c_int, @intFromBool(project_tree_lazy_ok)),
@@ -6218,6 +6329,43 @@ fn onTreeSitterRefresh(data: ?*anyopaque) callconv(.c) c.gboolean {
     return c.G_SOURCE_REMOVE;
 }
 
+fn onEditorScroll(
+    _: ?*c.GtkWidget,
+    event: ?*c.GdkEventScroll,
+    data: ?*anyopaque,
+) callconv(.c) c.gboolean {
+    const document: *Document = @ptrCast(@alignCast(data.?));
+    const scroll = event orelse return 0;
+    const modifiers = scroll.state & c.gtk_accelerator_get_default_mod_mask();
+    if ((modifiers & c.GDK_CONTROL_MASK) == 0) return 0;
+
+    var delta: i16 = 0;
+    switch (scroll.direction) {
+        c.GDK_SCROLL_UP => {
+            document.app.editor_zoom_scroll_delta = 0;
+            delta = 10;
+        },
+        c.GDK_SCROLL_DOWN => {
+            document.app.editor_zoom_scroll_delta = 0;
+            delta = -10;
+        },
+        c.GDK_SCROLL_SMOOTH => {
+            document.app.editor_zoom_scroll_delta += scroll.delta_y;
+            if (document.app.editor_zoom_scroll_delta <= -1) {
+                document.app.editor_zoom_scroll_delta += 1;
+                delta = 10;
+            } else if (document.app.editor_zoom_scroll_delta >= 1) {
+                document.app.editor_zoom_scroll_delta -= 1;
+                delta = -10;
+            } else return 1;
+        },
+        else => return 0,
+    }
+    document.app.adjustEditorZoom(delta) catch
+        document.app.updateStatus("Zoom failed");
+    return 1;
+}
+
 fn onEditorKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque) callconv(.c) c.gboolean {
     const document: *Document = @ptrCast(@alignCast(data.?));
     if (document.secondary_selections.items.len == 0) return 0;
@@ -6752,7 +6900,7 @@ fn onSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
     }
     if (app.smoke_passed) {
         c.g_print(
-            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true tree_sitter=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
+            "nocted_native_smoke binary=nocted process=standalone ui=compact sidebar=true project_activation=true tabs=true minimap=true minimap_overlay_translucent=true line_numbers=true editor_zoom=true search=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true untitled_dirty=true save_as=true save_as_collision=true save_as_atomic=true save_as_language=true quick_open=true quick_open_bounded=true quick_open_activation=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true undo_redo=true code_folding=true folding_configurable=true fold_all=true unfold_all=true folded_save=true folded_edit_restore=true fold_undo_preserved=true atomic_save=true permissions_preserved=true zig_syntax=true tree_sitter=true installed_syntaxes=%zu project_items=%zu rendered=true\n",
             app.languageCount(),
             app.project_entry_count,
         );

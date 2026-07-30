@@ -28,6 +28,7 @@ pub const GtkCheckMenuItem = opaque {};
 pub const GtkClipboard = opaque {};
 pub const GtkCssProvider = opaque {};
 pub const GtkStyleProvider = opaque {};
+pub const GtkStyleContext = opaque {};
 pub const GtkSourceBuffer = opaque {};
 pub const GtkSourceView = opaque {};
 pub const GtkSourceMap = opaque {};
@@ -103,6 +104,23 @@ pub const GdkEventKey = extern struct {
     group: u8,
 };
 
+pub const GdkEventScroll = extern struct {
+    type: c_int,
+    window: ?*GdkWindow,
+    send_event: i8,
+    time: u32,
+    x: f64,
+    y: f64,
+    state: c_uint,
+    direction: c_int,
+    device: ?*anyopaque,
+    x_root: f64,
+    y_root: f64,
+    delta_x: f64,
+    delta_y: f64,
+    is_stop: c_uint,
+};
+
 pub const GTK_WINDOW_TOPLEVEL: c_int = 0;
 pub const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
 pub const GTK_ORIENTATION_VERTICAL: c_int = 1;
@@ -144,6 +162,11 @@ pub const G_TYPE_STRING: GType = 16 << 2;
 pub const GDK_SHIFT_MASK: c_uint = 1 << 0;
 pub const GDK_CONTROL_MASK: c_uint = 1 << 2;
 pub const GDK_MOD1_MASK: c_uint = 1 << 3;
+pub const GDK_SCROLL_MASK: c_int = 1 << 21;
+pub const GDK_SMOOTH_SCROLL_MASK: c_int = 1 << 23;
+pub const GDK_SCROLL_UP: c_int = 0;
+pub const GDK_SCROLL_DOWN: c_int = 1;
+pub const GDK_SCROLL_SMOOTH: c_int = 4;
 pub const GDK_KEY_Escape: c_uint = 0xff1b;
 pub const GDK_KEY_BackSpace: c_uint = 0xff08;
 pub const GDK_KEY_Delete: c_uint = 0xffff;
@@ -173,6 +196,8 @@ pub extern fn gtk_window_set_default_size(window: *GtkWindow, width: c_int, heig
 pub extern fn gtk_window_set_icon_name(window: *GtkWindow, name: [*:0]const u8) void;
 pub extern fn gtk_window_set_transient_for(window: *GtkWindow, parent: *GtkWindow) void;
 pub extern fn gtk_widget_set_name(widget: *GtkWidget, name: [*:0]const u8) void;
+pub extern fn gtk_widget_add_events(widget: *GtkWidget, events: c_int) void;
+pub extern fn gtk_widget_get_style_context(widget: *GtkWidget) *GtkStyleContext;
 pub extern fn gtk_widget_set_size_request(widget: *GtkWidget, width: c_int, height: c_int) void;
 pub extern fn gtk_widget_set_hexpand(widget: *GtkWidget, expand: gboolean) void;
 pub extern fn gtk_widget_set_tooltip_text(widget: *GtkWidget, text: [*:0]const u8) void;
@@ -266,6 +291,7 @@ pub extern fn gtk_tree_selection_get_selected(selection: *GtkTreeSelection, mode
 pub extern fn gtk_tree_selection_select_path(selection: *GtkTreeSelection, path: *GtkTreePath) void;
 pub extern fn gtk_css_provider_new() ?*GtkCssProvider;
 pub extern fn gtk_css_provider_load_from_data(css_provider: *GtkCssProvider, data: [*]const u8, length: isize, error_ptr: *?*GError) gboolean;
+pub extern fn gtk_style_context_add_provider(style_context: *GtkStyleContext, provider: *GtkStyleProvider, priority: c_uint) void;
 pub extern fn gtk_style_context_add_provider_for_screen(screen: *GdkScreen, provider: *GtkStyleProvider, priority: c_uint) void;
 pub extern fn gdk_screen_get_default() ?*GdkScreen;
 pub extern fn gdk_display_get_default() ?*GdkDisplay;

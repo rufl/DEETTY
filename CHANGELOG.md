@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added Sublime-style NoctEd editor zoom: `Ctrl+wheel` adjusts the shared document font from 60% through 240% in 10% steps, handles discrete and smooth scrolling, consumes the modified event without disturbing ordinary scrolling, updates every open document through one GTK CSS provider, and leaves the minimap scale independent.
 - Fixed decorated dogfood drop-down windows on Wayland hosts without a system GTK Layer Shell install. The dogfood installer now stages the existing pinned runtime library beside the binaries and the launcher exposes only that trusted private directory, restoring the undecorated `noctty-dropdown` layer surface instead of falling back to an ordinary titled toplevel.
 - Fixed NOCTTY reopening as an unusably short strip after a legacy or accidental 32 px drop-down resize. Stored pixel overrides below the 480×240 interactive floor now fall back to the configured percentage, future drag resizing respects that floor, and ordinary window mode reapplies a bounded 80%×75% work-area size instead of inheriting collapsed drop-down geometry.
 - Fixed NOCTTY closing before its GTK window appeared when a legacy hot-session snapshot contained a relative pane working directory. Pane construction now enforces the existing absolute-cwd invariant, so invalid autosaves take the maintained fresh-workspace fallback instead of reaching PTY startup.

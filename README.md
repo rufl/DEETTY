@@ -77,6 +77,7 @@ NoctEd provides:
 - quick open
 - reversible folding
 - minimap
+- Sublime-style `Ctrl+wheel` editor zoom
 - recent projects
 - atomic save/Save As behavior
 - atomic hot-exit recovery for dirty saved and untitled tabs
@@ -182,6 +183,7 @@ Ctrl+S                 save
 Ctrl+F                 find in file
 Ctrl+Shift+F           find in project
 Ctrl+PageUp/PageDown   previous / next file
+Ctrl+wheel             zoom editor text in / out
 Ctrl+W                 close file
 Ctrl+Shift+[/]         fold / unfold region
 ```

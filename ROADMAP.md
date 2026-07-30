@@ -82,6 +82,7 @@ Acceptance:
 Added for dogfood beyond the original alpha boundary:
 
 - [x] atomic hot-exit recovery for dirty saved and untitled tabs
+- [x] Sublime-style bounded `Ctrl+wheel` editor zoom
 - [x] bounded local stdio LSP client actions; NoctEd remains an editor, never an LSP server
 
 Deferred until after alpha:

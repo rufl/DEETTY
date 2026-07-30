@@ -12,8 +12,8 @@ native terminal workspace with a compact companion editor, NoctEd.
   floor and a dogfood-private GTK Layer Shell runtime
 - tabs, recursive splits, native settings, themes, profiles, hot-session restore
 - standalone NoctEd for quick project edits, search, Save As, quick open, folding,
-  minimap, recent projects, private atomic dirty-tab hot exit, and bounded
-  filesystem workers
+  minimap, bounded `Ctrl+wheel` editor zoom, recent projects, private atomic
+  dirty-tab hot exit, and bounded filesystem workers
 - no Electron, browser UI runtime, telemetry, update pings, crash uploaders, or
   remote feature flags
 

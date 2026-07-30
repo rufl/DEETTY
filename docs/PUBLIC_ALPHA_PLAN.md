@@ -109,6 +109,7 @@ NoctEd alpha is useful enough when the following are reliable in dogfood:
 - open/edit/save/Save As
 - dirty close protection
 - dirty saved and untitled tabs restore after hot exit
+- `Ctrl+wheel` editor zoom works without disturbing ordinary scrolling
 - find in file
 - find in project
 - quick open

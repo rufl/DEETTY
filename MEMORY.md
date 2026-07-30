@@ -48,6 +48,7 @@ proof-bounded claims.
 - `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
 - `./scripts/install_dogfood.sh` installs unstripped `ReleaseFast` binaries behind bounded local logging launchers by default, stages the pinned GTK Layer Shell runtime in the launcher-owned tree, and can select another Zig optimization mode through `NOCTTY_DOGFOOD_OPTIMIZE`. Logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
 - The latest dogfood blockers are closed locally: legacy relative pane cwd snapshots fall back before PTY startup; collapsed 32 px geometry recovers to a 480×240-minimum percentage size; windowed startup uses a bounded 80%×75% work-area size; and Wayland dogfood dropdowns enter the undecorated, horizontally centered `noctty-dropdown` layer surface even without a system GTK Layer Shell install.
+- NoctEd handles discrete and smooth `Ctrl+wheel` as bounded 60%–240% shared editor zoom while leaving ordinary scrolling and the minimap scale unchanged.
 - The active-pane bar is bottom-anchored below the terminal layout and shows cached one-second CPU/RSS for the full NOCTTY process tree and selected terminal tree; this is local `/proc` observation, not telemetry.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
