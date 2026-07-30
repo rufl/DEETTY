@@ -13,6 +13,11 @@ Install the logging-enabled optimized builds, then check status:
 NOCTTY_DOGFOOD_OPTIMIZE=ReleaseSafe ./scripts/install_dogfood.sh
 ```
 
+The default install is `ReleaseFast`, atomically replaces the staged binaries,
+and includes the private GTK Layer Shell runtime used by the undecorated
+Wayland dropdown. Fully close already-running NOCTTY/NoctEd processes after an
+install so the next launch uses the replaced binary and launcher environment.
+
 Logs are documented in `docs/DOGFOOD_LOGGING.md`.
 
 ## Counted session minimum

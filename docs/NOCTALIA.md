@@ -1,6 +1,6 @@
 # Noctalia Shell Support
 
-Last verified: 2026-07-16.
+Last verified: 2026-07-31.
 
 ## Scope
 
@@ -28,7 +28,7 @@ noctty --toggle
 
 `noctty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `noctty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-Dropdown mode uses `gtk-layer-shell` with the namespace `noctty-dropdown`, overlay layer, top/left/right anchors, no exclusive zone, exclusive keyboard focus while mapped, and configured symmetric width margins. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface. Ordinary windowed and zen launches remain native toplevel/fullscreen windows.
+Dropdown mode uses `gtk-layer-shell` with the namespace `noctty-dropdown`, overlay layer, top/left/right anchors, no exclusive zone, exclusive keyboard focus while mapped, and symmetric width margins recomputed whenever the configured percentage or pixel width changes. Distribution packages provide the runtime; dependency bundles and dogfood installs stage the pinned private copy when needed. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface. Ordinary windowed and zen launches remain native toplevel/fullscreen windows.
 
 Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive NOCTTY completion notifications through `org.freedesktop.Notifications`.
 

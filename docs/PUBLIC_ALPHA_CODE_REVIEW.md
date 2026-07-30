@@ -1,6 +1,6 @@
 # Public Alpha Code Review
 
-Review date: 2026-07-29.
+Review date: 2026-07-31.
 
 Scope: source-level public-alpha review of NOCTTY and NoctEd, focused on what is
 still needed before publishing an honest open-source alpha. This is not a formal
@@ -68,7 +68,7 @@ Recommended alpha action:
 ### 3. Verification is strong but currently heavy/fragile for contributors
 
 The full `./scripts/verify.sh` is authoritative but long and environment-heavy.
-A fresh 2026-07-30 single-job run completed successfully with final
+A fresh 2026-07-31 single-job run completed successfully with final
 scratch/cache/install cleanup. A bounded source-alpha gate still exists as
 `./scripts/public_alpha_verify.sh` and deliberately reports `full_verify=false`
 because it does not execute the full matrix itself.

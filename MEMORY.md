@@ -46,7 +46,8 @@ proof-bounded claims.
 - `docs/PUBLIC_ALPHA_CODE_REVIEW.md` and `docs/PUBLIC_ALPHA_GO_NO_GO.md` agree on the current state: source-alpha prep is ready except counted dogfood, and public announcement remains no-go while counted dogfood is zero.
 - `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
 - `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
-- `./scripts/install_dogfood.sh` installs unstripped `ReleaseFast` binaries behind bounded local logging launchers by default; `NOCTTY_DOGFOOD_OPTIMIZE` can select another Zig optimization mode. Logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
+- `./scripts/install_dogfood.sh` installs unstripped `ReleaseFast` binaries behind bounded local logging launchers by default, stages the pinned GTK Layer Shell runtime in the launcher-owned tree, and can select another Zig optimization mode through `NOCTTY_DOGFOOD_OPTIMIZE`. Logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
+- The latest dogfood blockers are closed locally: legacy relative pane cwd snapshots fall back before PTY startup; collapsed 32 px geometry recovers to a 480×240-minimum percentage size; windowed startup uses a bounded 80%×75% work-area size; and Wayland dogfood dropdowns enter the undecorated, horizontally centered `noctty-dropdown` layer surface even without a system GTK Layer Shell install.
 - The active-pane bar is bottom-anchored below the terminal layout and shows cached one-second CPU/RSS for the full NOCTTY process tree and selected terminal tree; this is local `/proc` observation, not telemetry.
 - `BACKLOG.md` remains the detailed active technical finish list.
 - `CHANGELOG.md` remains detailed and evidence-heavy.
@@ -92,7 +93,10 @@ Current local pass note: Debug and `ReleaseSafe` `zig build check -j1 --summary 
 pass with 316/316 tests after adding private atomic dirty-buffer hot exit and
 rejecting legacy relative pane cwd state before PTY startup. A fresh clean-source
 copy passed the same 19/19 steps and 316/316 tests in Debug and `ReleaseSafe`;
-both native backends also pass dirty untitled restoration and hot exit. A
+both native backends also pass dirty untitled restoration and hot exit. The
+reported stale cwd and collapsed-window dogfood states were reproduced, and a
+local Plasma Wayland hidden launch logged `NOCTTY dropdown layer-shell active`
+through the installed private runtime. A
 current-source single-job full verifier
 also completed terminal compatibility/session/continuity/TUI, production-Cairo
 renderer and PTY/VT pipeline, NoctEd core/worker/index, package/release, source

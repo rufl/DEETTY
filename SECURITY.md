@@ -37,7 +37,7 @@ NOCTTY should maintain these boundaries:
   policy changes it
 - launch profiles must avoid shell-string construction for structured actions
 - PTY children must reject relative launch paths and close inherited descriptors before exec
-- runtime shared libraries must not load from current-directory or custom override paths
+- runtime shared libraries must not load from current-directory or caller-selected override paths; dependency-bundle and dogfood launchers may expose only their own trusted private runtime directory
 - release temporary files and retained evidence must use private staging plus atomic replacement
 - settings/session files must recover safely from malformed or oversized data;
   NoctEd dirty-buffer snapshots use atomic private (`0600`) session storage

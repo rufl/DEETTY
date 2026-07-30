@@ -49,7 +49,7 @@ Fast contributor gate captured during this prep pass:
 zig build check -j1 --summary all
 ```
 
-Current result on 2026-07-29: passed, `19/19` build steps succeeded and
+Current result on 2026-07-31: passed, `19/19` build steps succeeded and
 `316/316` tests passed. The same prep pass includes the refreshed native GTK,
 PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
@@ -60,7 +60,7 @@ The full maintainer gate is:
 ./scripts/verify.sh
 ```
 
-A fresh 2026-07-30 retry with:
+A fresh 2026-07-31 retry with:
 
 ```sh
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
@@ -69,6 +69,11 @@ NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 completed successfully through the terminal, renderer, PTY, NoctEd
 core/worker/index, package/release, and source-truth lanes, ending with
 `verify_cleanup scratch=true cache=true install=true artifacts=true`.
+
+The same dogfood-prep slice reproduces and closes the relative-cwd startup and
+collapsed-window blockers. The local Wayland install stages GTK Layer Shell,
+logs `NOCTTY dropdown layer-shell active`, removes ordinary window decorations,
+and keeps percentage-driven dropdown widths horizontally centered.
 
 ## Phase 2 — Daily-driver dogfood
 

@@ -55,7 +55,8 @@ with `./scripts/capture_alpha_screenshots.sh` when the UI changes materially.
 
 NOCTTY provides:
 
-- dropdown, windowed, and zen/fullscreen terminal modes
+- undecorated, horizontally centered dropdown mode with live percentage sizing,
+  plus borderless windowed and zen/fullscreen modes
 - native terminal tabs and recursive splits
 - compact tab chrome inspired by Yakuake/Konsole workflows
 - bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
@@ -100,7 +101,9 @@ Requirements:
 - Zig 0.16.x or newer
 - GTK 3 development files discoverable through `pkg-config`
 - GtkSourceView 4 development files discoverable through `pkg-config`
-- `gtk-layer-shell` at runtime for Wayland dropdown placement
+- `gtk-layer-shell` at runtime for Wayland dropdown placement; distribution
+  packages provide it, while dependency bundles and dogfood installs stage the
+  pinned private runtime
 - VTE 2.91 development files only for the optional legacy/fallback binary or the
   complete verification matrix
 
@@ -202,7 +205,8 @@ Bounded public-source-alpha gate:
 ./scripts/public_alpha_verify.sh
 ```
 
-Dogfood Debug install with local crash/debug logs:
+Dogfood `ReleaseFast` install with local crash/debug logs and the private GTK
+Layer Shell runtime needed for an undecorated Wayland dropdown:
 
 ```sh
 ./scripts/install_dogfood.sh
@@ -217,7 +221,7 @@ Main maintainer gate:
 ```
 
 A fresh current-source single-job maintainer run completed successfully on
-2026-07-29, including the Debug/`ReleaseSafe` terminal, renderer, PTY, NoctEd
+2026-07-31, including the Debug/`ReleaseSafe` terminal, renderer, PTY, NoctEd
 core/worker, project-index, package, release-contract, and truth-check lanes,
 followed by `verify_cleanup scratch=true cache=true install=true artifacts=true`.
 

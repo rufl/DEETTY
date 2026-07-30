@@ -39,7 +39,8 @@ Required:
 - [x] Security policy
 - [x] Dogfood log template
 - [x] Dogfood runbook
-- [x] Installed `ReleaseFast` dogfood binaries with bounded local logging
+- [x] Installed `ReleaseFast` dogfood binaries with bounded local logging and a
+  pinned private GTK Layer Shell runtime for undecorated Wayland dropdowns
 - [x] Screenshots referenced from README
 
 ## Phase 1 — Dogfood NOCTTY as daily terminal
@@ -57,6 +58,11 @@ Acceptance:
 - [ ] blocker notes recorded in `docs/DOGFOOD_LOG.md`
 
 Only fix P0/P1 dogfood blockers during this phase.
+
+Closed dogfood blockers now include legacy relative-cwd startup failure,
+collapsed 32 px window recovery, centered percentage-driven dropdown geometry,
+bounded windowed startup sizing, and decorated Wayland fallback caused by a
+missing host GTK Layer Shell runtime.
 
 ## Phase 2 — NoctEd useful-enough alpha
 

@@ -77,7 +77,8 @@ Works today in the intended scope:
 - direct vendored Tree-sitter highlighting for Zig, JSON, C, shell, and Markdown, with GtkSourceView fallback
 - minimap
 - recent projects
-- dirty close protection during graceful GUI close
+- private atomic hot-exit restoration for dirty saved and untitled tabs
+- Save/Discard/Cancel protection when closing an individual dirty tab
 
 Not claimed yet:
 
@@ -92,7 +93,8 @@ Not claimed yet:
 - forced SIGKILL/session-logout unsaved-file protection
 
 A forced process kill, desktop session termination, or power loss cannot wait
-for a GUI prompt. Users still need to save important files.
+for a GUI prompt. The one-second debounced snapshot reduces loss but does not
+guarantee the latest keystroke; users still need to save important files.
 
 ## Performance claims
 

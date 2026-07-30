@@ -77,6 +77,8 @@ The maintained NCT-106/NCT-122 GLib worker lane now retains the shared admission
 ## Native Product Gate
 
 - [x] Dropdown, borderless windowed, and zen fullscreen
+- [x] Undecorated Wayland dogfood dropdown through a launcher-owned pinned GTK Layer Shell runtime, with symmetric recentering after percentage/pixel width changes
+- [x] Legacy 32 px dropdown recovery to the percentage setting above a 480×240 usable floor, plus bounded 80%×75% windowed startup sizing
 - [x] Wayland layer-shell and X11 top-edge placement
 - [x] Dynamic independent tabs and recursively splittable sessions
 - [x] Leading accessible `+` New Tab action from the default row and after original-tab closure, with fresh-session routing and persistent one-tab availability

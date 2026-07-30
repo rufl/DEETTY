@@ -8,6 +8,8 @@ native terminal workspace with a compact companion editor, NoctEd.
 - native Zig/GTK/Cairo terminal workspace for Linux
 - focused on KDE Plasma, Wayland, and X11
 - dropdown, windowed, and fullscreen/zen terminal modes
+- undecorated, horizontally centered Wayland dropdowns with a 480×240 usable
+  floor and a dogfood-private GTK Layer Shell runtime
 - tabs, recursive splits, native settings, themes, profiles, hot-session restore
 - standalone NoctEd for quick project edits, search, Save As, quick open, folding,
   minimap, recent projects, private atomic dirty-tab hot exit, and bounded
@@ -39,7 +41,7 @@ Current result:
 316/316 tests passed
 ```
 
-A fresh 2026-07-30 source copy without `.git`, `.zig-cache`, `zig-out`, or
+A fresh 2026-07-31 source copy without `.git`, `.zig-cache`, `zig-out`, or
 `.noctty-*` state passed the same 19/19 steps and 316/316 tests in Debug and
 `ReleaseSafe`; focused state-recovery and X11/Wayland native checks also cover
 dirty untitled restoration and hot exit.
@@ -69,7 +71,7 @@ The full maintainer gate remains:
 ./scripts/verify.sh
 ```
 
-A fresh 2026-07-30 single-job run completed successfully through terminal
+A fresh 2026-07-31 single-job run completed successfully through terminal
 compatibility/session/continuity/TUI, renderer and PTY/VT pipeline, Zig
 build/test, NoctEd core/worker/index, package/release contracts, and truth
 checks. It ended with

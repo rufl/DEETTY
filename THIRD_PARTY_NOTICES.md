@@ -28,8 +28,9 @@ The repo-local same-architecture GTK Layer Shell packaging payload is
 LGPL-3.0-or-later. Its provenance and the distinction between the project
 license and MIT-licensed individual source files are documented in
 `vendor/gtk-layer-shell/README.md` and `vendor/gtk-layer-shell/LICENSE_MIT.txt`.
-Runtime loading uses the system soname; distribution packages provide it and
-bundles expose their private copy through the launcher library path.
+Runtime loading uses the system soname; distribution packages provide it, while
+dependency bundles and dogfood installs expose their pinned private copy
+through a launcher-owned library path.
 
 ## Generated Dependency-Bundle Notices
 

@@ -84,6 +84,9 @@ read this as engineering evidence, not as extra product surface.
   take a long time on contributor machines.
 - `scripts/native_release_smoke.sh` — display-backed native smoke gate.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path.
+- `scripts/install_dogfood.sh` — atomic local `ReleaseFast` install, bounded
+  logging launchers, desktop-entry rewrite, and pinned private GTK Layer Shell
+  runtime staging for undecorated Wayland dropdowns.
 - `scripts/terminal_*_qualification.sh` — terminal compatibility and PTY/TUI
   qualification lanes.
 - `src/*Qualification*.zig` — focused qualification runners built by `build.zig`.

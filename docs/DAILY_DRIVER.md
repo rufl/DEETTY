@@ -1,6 +1,6 @@
 # Daily-driver terminal audit
 
-Audit date: 2026-07-17.
+Audit refreshed: 2026-07-31.
 
 ## Verdict
 
@@ -17,7 +17,11 @@ split geometry, profile state, and working directories by starting new shells;
 it does not resurrect a running agent process.
 
 The 2026-07-16 hardening slice closes the immediate lifecycle and idle-cost
-defects:
+defects. Current dogfood startup additionally rejects legacy relative pane cwd
+state before PTY creation, recovers collapsed 32 px geometry to a usable
+percentage size, keeps dropdown width horizontally centered, and stages GTK
+Layer Shell so Plasma Wayland uses an undecorated overlay instead of a titled
+fallback:
 
 - pane, tab, toolbar, tray, and window close detect foreground process groups
   and require `Close Anyway` confirmation;
