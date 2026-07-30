@@ -8470,6 +8470,7 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     set_exclusive_zone(GTK_WINDOW(root->window), 0);
     root->layer_shell_active = 1;
     apply_grid_layer_geometry(root);
+    g_debug("NOCTTY dropdown layer-shell active");
     return 1;
 }
 

@@ -50,8 +50,9 @@ messages, exit-status, and crash-log capture:
 
 This installs logging launchers as `~/.local/bin/noctty` and
 `~/.local/bin/nocted`, keeps the staged binaries under
-`~/.local/libexec/noctty-dogfood/`, updates the installed desktop entries, and
-retains the newest 20 logs per app under `~/.local/state/noctty/logs/`. Set
+`~/.local/libexec/noctty-dogfood/`, stages the pinned GTK Layer Shell runtime
+needed for undecorated Wayland dropdowns, updates the installed desktop entries,
+and retains the newest 20 logs per app under `~/.local/state/noctty/logs/`. Set
 `NOCTTY_DOGFOOD_OPTIMIZE=Debug` for a debugging build. See
 [DOGFOOD_LOGGING.md](DOGFOOD_LOGGING.md).
 

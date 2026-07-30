@@ -22,6 +22,11 @@ The commands and installed desktop entries run the staged binaries from:
 ~/.local/libexec/noctty-dogfood/nocted-bin
 ```
 
+The installer also stages `libgtk-layer-shell.so.0` in the same private runtime
+tree and the launcher exposes that exact directory to the binaries. Dropdown
+mode therefore uses an undecorated Wayland layer surface even when the host has
+not installed GTK Layer Shell system-wide.
+
 Override the default optimization mode when debugging a local issue:
 
 ```sh

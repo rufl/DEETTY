@@ -8,15 +8,28 @@ trap 'rm -rf "$stage"' EXIT HUP INT TERM
 
 zig build -Doptimize="$optimize" --prefix "$stage"
 
-mkdir -p "$prefix/bin" "$prefix/libexec/noctty-dogfood"
+runtime_dir="$prefix/libexec/noctty-dogfood"
+mkdir -p "$prefix/bin" "$runtime_dir/lib"
 cp -a "$stage/share" "$prefix/"
-install -m 0755 "$stage/bin/noctty" "$prefix/libexec/noctty-dogfood/noctty-bin.new"
-install -m 0755 "$stage/bin/nocted" "$prefix/libexec/noctty-dogfood/nocted-bin.new"
-mv -f "$prefix/libexec/noctty-dogfood/noctty-bin.new" "$prefix/libexec/noctty-dogfood/noctty-bin"
-mv -f "$prefix/libexec/noctty-dogfood/nocted-bin.new" "$prefix/libexec/noctty-dogfood/nocted-bin"
-rm -f "$prefix/libexec/noctty-dogfood/noctty" "$prefix/libexec/noctty-dogfood/nocted"
+install -m 0755 "$stage/bin/noctty" "$runtime_dir/noctty-bin.new"
+install -m 0755 "$stage/bin/nocted" "$runtime_dir/nocted-bin.new"
+mv -f "$runtime_dir/noctty-bin.new" "$runtime_dir/noctty-bin"
+mv -f "$runtime_dir/nocted-bin.new" "$runtime_dir/nocted-bin"
+rm -f "$runtime_dir/noctty" "$runtime_dir/nocted"
 
-cat >"$prefix/libexec/noctty-dogfood/launch" <<'EOF'
+layer_shell=$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')
+if [ -z "$layer_shell" ] && [ "$(uname -m)" = "x86_64" ]; then
+  layer_shell=vendor/gtk-layer-shell/usr/lib/libgtk-layer-shell.so.0.10.1
+fi
+test -f "$layer_shell" || {
+  echo "dogfood install requires libgtk-layer-shell.so.0" >&2
+  exit 1
+}
+install -m 0644 "$layer_shell" "$runtime_dir/lib/libgtk-layer-shell.so.0.new"
+mv -f "$runtime_dir/lib/libgtk-layer-shell.so.0.new" \
+  "$runtime_dir/lib/libgtk-layer-shell.so.0"
+
+cat >"$runtime_dir/launch" <<'EOF'
 #!/bin/sh
 app=$(basename "$0")
 case "$app" in
@@ -42,14 +55,16 @@ ulimit -c unlimited 2>/dev/null || true
 } >>"$log"
 
 launcher=$(readlink -f "$0")
-"$(dirname "$launcher")/$app-bin" "$@" >>"$log" 2>&1
+runtime_dir=$(dirname "$launcher")
+export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+"$runtime_dir/$app-bin" "$@" >>"$log" 2>&1
 status=$?
 printf 'dogfood_exit app=%s timestamp=%s status=%s log=%s\n' \
   "$app" "$(date --iso-8601=seconds)" "$status" "$log" >>"$log"
 exit "$status"
 EOF
-chmod +x "$prefix/libexec/noctty-dogfood/launch"
-ln -sfn launch "$prefix/libexec/noctty-dogfood/nocted"
+chmod +x "$runtime_dir/launch"
+ln -sfn launch "$runtime_dir/nocted"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/noctty"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/nocted"
 
@@ -61,7 +76,7 @@ done
 
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$prefix/share/applications" || true
 
-"$prefix/libexec/noctty-dogfood/noctty-bin" --version
-"$prefix/libexec/noctty-dogfood/nocted-bin" --version
-printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true logs=%s/noctty/logs optimize=%s retained_logs_per_app=20\n' \
+"$runtime_dir/noctty-bin" --version
+"$runtime_dir/nocted-bin" --version
+printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true layer_shell=true logs=%s/noctty/logs optimize=%s retained_logs_per_app=20\n' \
   "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}" "$optimize"
