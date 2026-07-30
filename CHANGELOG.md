@@ -4,6 +4,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Fixed NOCTTY closing before its GTK window appeared when a legacy hot-session snapshot contained a relative pane working directory. Pane construction now enforces the existing absolute-cwd invariant, so invalid autosaves take the maintained fresh-workspace fallback instead of reaching PTY startup.
 - Added Sublime-style NoctEd hot exit. Version-2 atomic session snapshots retain ordered clean tabs plus dirty saved and untitled UTF-8 buffers, restore the active dirty tab, preserve version-1 saved-tab sessions, debounce edit-pause snapshots, and use private `0600` storage. Quitting or closing the application now preserves dirty buffers without prompting; closing an individual dirty tab still uses Save/Discard/Cancel, and a failed recovery write blocks application exit.
 - Continued the bounded C-to-Zig migration by moving native settings headings, grids, groups, pages, category rows, and generic settings callbacks into `src/gui/NativeGtk.zig`; settings labels now explicitly name their associated controls for assistive technology. Native-grid launch sites now use one named Zig options struct instead of repeating a 30-argument callback list, and the paste ABI correctly models length-delimited, non-NUL-terminated input.
 - Hardened native save UX: Quick Note reports persistence failures and refuses dialog close when its final save fails, while scrollback export shows a recoverable error instead of silently discarding a failed write.

@@ -36,11 +36,11 @@ Current result:
 
 ```text
 19/19 steps succeeded
-315/315 tests passed
+316/316 tests passed
 ```
 
-A fresh 2026-07-29 source copy without `.git`, `.zig-cache`, `zig-out`, or
-`.noctty-*` state passed the same 19/19 steps and 315/315 tests in Debug and
+A fresh 2026-07-30 source copy without `.git`, `.zig-cache`, `zig-out`, or
+`.noctty-*` state passed the same 19/19 steps and 316/316 tests in Debug and
 `ReleaseSafe`; focused state-recovery and X11/Wayland native checks also cover
 dirty untitled restoration and hot exit.
 
@@ -69,7 +69,7 @@ The full maintainer gate remains:
 ./scripts/verify.sh
 ```
 
-A fresh 2026-07-29 single-job run completed successfully through terminal
+A fresh 2026-07-30 single-job run completed successfully through terminal
 compatibility/session/continuity/TUI, renderer and PTY/VT pipeline, Zig
 build/test, NoctEd core/worker/index, package/release contracts, and truth
 checks. It ended with

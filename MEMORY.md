@@ -89,9 +89,9 @@ NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 Current local pass note: Debug and `ReleaseSafe` `zig build check -j1 --summary all`
-pass with 315/315 tests after adding private atomic dirty-buffer hot exit on top
-of the embedded-editor removal and native-grid ABI coverage. A fresh clean-source
-copy passed the same 19/19 steps and 315/315 tests in Debug and `ReleaseSafe`;
+pass with 316/316 tests after adding private atomic dirty-buffer hot exit and
+rejecting legacy relative pane cwd state before PTY startup. A fresh clean-source
+copy passed the same 19/19 steps and 316/316 tests in Debug and `ReleaseSafe`;
 both native backends also pass dirty untitled restoration and hot exit. A
 current-source single-job full verifier
 also completed terminal compatibility/session/continuity/TUI, production-Cairo

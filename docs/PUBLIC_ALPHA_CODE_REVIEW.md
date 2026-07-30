@@ -68,7 +68,7 @@ Recommended alpha action:
 ### 3. Verification is strong but currently heavy/fragile for contributors
 
 The full `./scripts/verify.sh` is authoritative but long and environment-heavy.
-A fresh 2026-07-29 single-job run completed successfully with final
+A fresh 2026-07-30 single-job run completed successfully with final
 scratch/cache/install cleanup. A bounded source-alpha gate still exists as
 `./scripts/public_alpha_verify.sh` and deliberately reports `full_verify=false`
 because it does not execute the full matrix itself.

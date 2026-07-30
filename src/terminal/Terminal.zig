@@ -106,6 +106,7 @@ pub const Pane = struct {
     tags: std.array_list.Managed([]u8),
 
     pub fn init(allocator: std.mem.Allocator, id: PaneId, title: []const u8, cwd: []const u8) !Pane {
+        if (!std.fs.path.isAbsolute(cwd)) return error.InvalidPaneWorkingDirectory;
         return .{
             .allocator = allocator,
             .id = id,
@@ -352,6 +353,13 @@ test "pane applies profile presets without changing status state" {
     const profile = try pane.applyProfilePreset(.readable, Config.Config.defaults());
     try std.testing.expectEqual(@as(f32, 14.0), profile.font_size_pt);
     try std.testing.expectEqual(TerminalStatus.running, pane.status);
+}
+
+test "pane rejects relative working directories during restore" {
+    try std.testing.expectError(
+        error.InvalidPaneWorkingDirectory,
+        Pane.init(std.testing.allocator, 1, "legacy", "."),
+    );
 }
 
 test "split panes own copied profile strings" {

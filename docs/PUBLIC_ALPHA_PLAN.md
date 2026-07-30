@@ -50,7 +50,7 @@ zig build check -j1 --summary all
 ```
 
 Current result on 2026-07-29: passed, `19/19` build steps succeeded and
-`315/315` tests passed. The same prep pass includes the refreshed native GTK,
+`316/316` tests passed. The same prep pass includes the refreshed native GTK,
 PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
 
@@ -60,7 +60,7 @@ The full maintainer gate is:
 ./scripts/verify.sh
 ```
 
-A fresh 2026-07-29 retry with:
+A fresh 2026-07-30 retry with:
 
 ```sh
 NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
