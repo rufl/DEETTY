@@ -34,7 +34,7 @@ if [ -n "$optional_symbol" ]; then
 fi
 nocted_runtime_contract=$("$nocted_binary" --runtime-contract)
 printf '%s\n' "$nocted_runtime_contract" | grep -E \
-  '^nocted_runtime_contract tree_sitter=true captures=[1-9][0-9]*$' >/dev/null
+  '^nocted_runtime_contract tree_sitter=true captures=[1-9][0-9]* capture_limit=4096 direct_limit_bytes=32768$' >/dev/null
 if smoke_output=$("$binary" --native-grid-smoke 2>&1); then
   echo 'release_contract error=production_smoke_surface' >&2
   exit 1

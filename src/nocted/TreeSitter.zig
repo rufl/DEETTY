@@ -34,7 +34,8 @@ pub const Document = struct {
         var captures = try allocator.alloc(Capture, max_captures);
         errdefer allocator.free(captures);
         const total = try self.raw.collectCaptures(captures);
-        const count = @min(total, captures.len);
+        if (total > captures.len) return error.TreeSitterCaptureLimitExceeded;
+        const count = total;
         if (count != captures.len)
             captures = try allocator.realloc(captures, count);
         std.mem.sort(Capture, captures, {}, struct {

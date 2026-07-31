@@ -5202,7 +5202,8 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
     GtkWidget *event_box = gtk_event_box_new();
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
     GtkWidget *label = gtk_label_new(text);
-    GtkWidget *close = gtk_button_new_with_label("×");
+    GtkWidget *close = gtk_button_new_from_icon_name(
+        "window-close-symbolic", GTK_ICON_SIZE_MENU);
     gtk_event_box_set_visible_window(GTK_EVENT_BOX(event_box), FALSE);
     gtk_event_box_set_above_child(GTK_EVENT_BOX(event_box), FALSE);
     gtk_widget_add_events(event_box,
@@ -5210,7 +5211,7 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
     gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close, FALSE);
 
-    gtk_widget_set_size_request(close, 18, 18);
+    gtk_widget_set_size_request(close, 24, 24);
     configure_action_button(close, "Close Tab");
     AtkObject *close_accessible = gtk_widget_get_accessible(close);
     if (close_accessible != NULL)
@@ -5284,11 +5285,12 @@ static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
 
 static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *button = gtk_button_new_with_label("+");
+    GtkWidget *button = gtk_button_new_from_icon_name(
+        "list-add-symbolic", GTK_ICON_SIZE_MENU);
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
 
     gtk_widget_set_can_focus(button, TRUE);
-    gint extent = MAX(22, root->compact_tab_height + 2);
+    gint extent = MAX(24, root->compact_tab_height + 2);
     gtk_widget_set_size_request(button, extent, extent);
     configure_action_button(button, "New Tab (Ctrl+Shift+T)");
     AtkObject *accessible = gtk_widget_get_accessible(button);
@@ -5321,12 +5323,14 @@ static void on_window_close_button_clicked(GtkButton *button,
 static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    GtkWidget *settings = gtk_button_new_with_label("⚙");
-    GtkWidget *close = gtk_button_new_with_label("×");
+    GtkWidget *settings = gtk_button_new_from_icon_name(
+        "preferences-system-symbolic", GTK_ICON_SIZE_MENU);
+    GtkWidget *close = gtk_button_new_from_icon_name(
+        "window-close-symbolic", GTK_ICON_SIZE_MENU);
     GtkWidget *buttons[] = { settings, close };
     const gchar *tooltips[] = { "Settings", "Close NOCTTY" };
     const gchar *accessible_names[] = { "Settings", "Close NOCTTY" };
-    gint extent = MAX(22, root->compact_tab_height + 2);
+    gint extent = MAX(24, root->compact_tab_height + 2);
     for (guint index = 0; index < G_N_ELEMENTS(buttons); index++) {
         gtk_button_set_relief(GTK_BUTTON(buttons[index]), GTK_RELIEF_NONE);
         gtk_widget_set_focus_on_click(buttons[index], FALSE);
@@ -5358,9 +5362,13 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
 static gboolean request_new_tab_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *button = root->new_tab_button;
-    const gchar *label = button != NULL
-        ? gtk_button_get_label(GTK_BUTTON(button))
+    GtkWidget *icon = GTK_IS_BUTTON(button)
+        ? gtk_button_get_image(GTK_BUTTON(button))
         : NULL;
+    const gchar *icon_name = NULL;
+    GtkIconSize icon_size = GTK_ICON_SIZE_INVALID;
+    if (GTK_IS_IMAGE(icon))
+        gtk_image_get_icon_name(GTK_IMAGE(icon), &icon_name, &icon_size);
     AtkObject *accessible = button != NULL
         ? gtk_widget_get_accessible(button)
         : NULL;
@@ -5371,7 +5379,9 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
     root->new_tab_button_at_start = button != NULL &&
         gtk_notebook_get_action_widget(GTK_NOTEBOOK(root->notebook),
                                        GTK_PACK_START) == button;
-    root->new_tab_button_icon = label != NULL && g_strcmp0(label, "+") == 0;
+    root->new_tab_button_icon = GTK_IS_IMAGE(icon) &&
+        icon_size == GTK_ICON_SIZE_MENU &&
+        g_strcmp0(icon_name, "list-add-symbolic") == 0;
     root->new_tab_button_accessible = accessible != NULL &&
         g_strcmp0(atk_object_get_name(accessible), "New Tab, Ctrl+Shift+T") == 0;
     if (button != NULL) gtk_button_clicked(GTK_BUTTON(button));
@@ -5393,6 +5403,14 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     GtkWidget *close = tab_close_button_from_widget(tab_widget);
+    GtkWidget *close_icon = GTK_IS_BUTTON(close)
+        ? gtk_button_get_image(GTK_BUTTON(close))
+        : NULL;
+    const gchar *close_icon_name = NULL;
+    GtkIconSize close_icon_size = GTK_ICON_SIZE_INVALID;
+    if (GTK_IS_IMAGE(close_icon))
+        gtk_image_get_icon_name(GTK_IMAGE(close_icon),
+                                &close_icon_name, &close_icon_size);
     GtkAllocation notebook_allocation = {0};
     GtkAllocation page_allocation = {0};
     GtkAllocation tab_allocation = {0};
@@ -5440,8 +5458,11 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         root->compact_tab_strip_extent <= strip_limit &&
         root->compact_tab_widget_extent <= strip_limit &&
         root->compact_tab_max_width <= 150 &&
-        root->compact_tab_close_extent >= 16 &&
-        root->compact_tab_close_extent <= 20 &&
+        GTK_IS_IMAGE(close_icon) &&
+        close_icon_size == GTK_ICON_SIZE_MENU &&
+        g_strcmp0(close_icon_name, "window-close-symbolic") == 0 &&
+        root->compact_tab_close_extent >= 24 &&
+        root->compact_tab_close_extent <= 26 &&
         root->compact_tab_action_extent <= strip_limit;
     return G_SOURCE_REMOVE;
 }
@@ -10959,12 +10980,22 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
     GtkWidget *close = children != NULL && children->next != NULL
         ? children->next->data
         : NULL;
-    const gchar *settings_label = GTK_IS_BUTTON(settings)
-        ? gtk_button_get_label(GTK_BUTTON(settings))
+    GtkWidget *settings_icon = GTK_IS_BUTTON(settings)
+        ? gtk_button_get_image(GTK_BUTTON(settings))
         : NULL;
-    const gchar *close_label = GTK_IS_BUTTON(close)
-        ? gtk_button_get_label(GTK_BUTTON(close))
+    GtkWidget *close_icon = GTK_IS_BUTTON(close)
+        ? gtk_button_get_image(GTK_BUTTON(close))
         : NULL;
+    const gchar *settings_icon_name = NULL;
+    const gchar *close_icon_name = NULL;
+    GtkIconSize settings_icon_size = GTK_ICON_SIZE_INVALID;
+    GtkIconSize close_icon_size = GTK_ICON_SIZE_INVALID;
+    if (GTK_IS_IMAGE(settings_icon))
+        gtk_image_get_icon_name(GTK_IMAGE(settings_icon),
+                                &settings_icon_name, &settings_icon_size);
+    if (GTK_IS_IMAGE(close_icon))
+        gtk_image_get_icon_name(GTK_IMAGE(close_icon),
+                                &close_icon_name, &close_icon_size);
     AtkObject *settings_accessible = settings != NULL
         ? gtk_widget_get_accessible(settings)
         : NULL;
@@ -11020,18 +11051,21 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
         gtk_widget_get_mapped(controls) &&
         gtk_widget_get_mapped(root->window_settings_button) &&
         gtk_widget_get_mapped(root->window_close_button) &&
-        controls_allocation.width >= 44 && controls_allocation.width <= 48 &&
-        controls_allocation.height >= 20 && controls_allocation.height <= 24 &&
-        settings_allocation.width >= 22 && settings_allocation.width <= 24 &&
-        settings_allocation.height >= 20 && settings_allocation.height <= 24 &&
-        close_allocation.width >= 22 && close_allocation.width <= 24 &&
-        close_allocation.height >= 20 && close_allocation.height <= 24;
+        controls_allocation.width >= 48 && controls_allocation.width <= 52 &&
+        controls_allocation.height >= 24 && controls_allocation.height <= 28 &&
+        settings_allocation.width >= 24 && settings_allocation.width <= 26 &&
+        settings_allocation.height >= 24 && settings_allocation.height <= 28 &&
+        close_allocation.width >= 24 && close_allocation.width <= 26 &&
+        close_allocation.height >= 24 && close_allocation.height <= 28;
     root->window_toolbar_yakuake_order =
         g_list_length(children) == 2 &&
         settings == root->window_settings_button &&
         close == root->window_close_button &&
-        settings_label != NULL && g_strcmp0(settings_label, "⚙") == 0 &&
-        close_label != NULL && g_strcmp0(close_label, "×") == 0 &&
+        GTK_IS_IMAGE(settings_icon) && GTK_IS_IMAGE(close_icon) &&
+        settings_icon_size == GTK_ICON_SIZE_MENU &&
+        close_icon_size == GTK_ICON_SIZE_MENU &&
+        g_strcmp0(settings_icon_name, "preferences-system-symbolic") == 0 &&
+        g_strcmp0(close_icon_name, "window-close-symbolic") == 0 &&
         settings_accessible != NULL &&
         g_strcmp0(atk_object_get_name(settings_accessible), "Settings") == 0 &&
         close_accessible != NULL &&

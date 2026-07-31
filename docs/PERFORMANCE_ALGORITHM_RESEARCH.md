@@ -32,6 +32,8 @@ revisions rather than copying architecture by reputation:
 - [`handterm` optimization record](https://github.com/1jehuang/handterm/blob/6dbda57f6e62e2942165e855010ccbedca9f577d/OPTIMIZATION.md): benchmark each pipeline boundary, reuse hot buffers, coalesce PTY-driven presentation, share expensive process/runtime state, and delete an architecture when profiling shows a simpler host path wins;
 - [`agentgrep` benchmarks](https://github.com/1jehuang/agentgrep/blob/66b1148bae243e74e4501bb84068d7d049fa4275/docs/BENCHMARKS.md): reject candidates before expensive structure work and normalize repeated text once rather than once per candidate;
 - [`ffp`](https://github.com/1jehuang/ffp/blob/138e145fd8cc178c83461b3ec3b19bcaf2559a17/README.md): cap large pools, keep expensive discovery off the interaction path, cache genuinely expensive previews, and only fan work across cores when scale measurements justify it;
+- [`jofi` search](https://github.com/1jehuang/jofi/blob/0c0db7cc10697e4f858670dba878031175188b13/src/search.rs): keep edit-distance work explicitly bounded and use it only after cheaper exact/substring candidates; its runtime telemetry was deliberately not copied because NOCTTY forbids telemetry;
+- [`jtop` Linux collector](https://github.com/1jehuang/jtop/blob/4006903ed91d65c12946ee9cd832a72a904cb342/src/linux/jtop_collect.cpp): retain current process state, skip collection when no update is requested, and reserve/reuse containers before recurring `/proc` scans;
 - [`jengine` targets](https://github.com/1jehuang/jengine/blob/005f09845b0a525ff7d33a46411606695913cd58/docs/PERFORMANCE_TARGETS.md): attribute host, setup, upload, compute, and download costs separately; record cache warmth; reduce dispatch and orchestration before chasing a faster inner kernel;
 - [`mermaid-rs-renderer` benchmark design](https://github.com/1jehuang/mermaid-rs-renderer/blob/7ff1196ed297c32a65a6b3cdc28f3ca3787fb65e/docs/benchmark-suite-design.md): separate correctness, quality, stability, and performance; retain cold/warm, tail-latency, memory, and scaling evidence;
 - [`niri-workspaces-rs`](https://github.com/1jehuang/niri-workspaces-rs/blob/43061415a7707d32757e02c76c9a662aee488c94/src/main.rs): subscribe once to incremental events and maintain local state instead of reopening IPC and recomputing full state for every update.
@@ -54,6 +56,24 @@ with identical ranking fingerprints: at least 128x and 56x faster on those
 broad-match fixtures. The retained DebugAllocator-backed `ReleaseSafe`
 100,000-entry qualification reports 69.5 ms and enforces a deliberately loose
 500 ms regression budget.
+
+A second focused pass found one remaining interaction-path ceiling in NoctEd.
+Direct Tree-sitter parse plus capture collection still ran as a full-document
+GTK-thread task after every 60 ms edit pause, accepted 256 KiB, and silently
+truncated files exceeding the 4,096-capture buffer. A one-off ReleaseFast
+repetitive-Zig probe with two warmups and twelve samples measured about 43.5 ms
+p50 / 52.1 ms p95 at 256 KiB, before thousands of GTK tag calls. The maintained
+path now coalesces edits for 100 ms, admits direct parsing only through 32 KiB,
+rejects capture overflow instead of publishing partial highlighting, and visibly
+falls back to GtkSourceView. The same probe measured about 5.9 ms p50 / 6.0 ms
+p95 at 32 KiB. This follows the shared Jeremy Huang pattern—reject expensive
+work early and preserve a cheap fallback—without adding a parser thread, cache,
+or third worker lane.
+
+The native compact row also replaced font-dependent `+`, gear, and multiplication
+glyph controls with GTK symbolic icons and raised New Tab, Settings, application
+Close, and per-tab Close to 24-logical-pixel minimum targets. This is a native
+accessibility correction, not a new toolbar or design system.
 
 ### Local profiling gate
 

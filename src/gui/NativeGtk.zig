@@ -151,8 +151,8 @@ const compact_tab_css =
     "notebook.noctty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
     ".noctty-tab-content, .noctty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
-    "button.noctty-tab-close { margin: 0; padding: 0; border-width: 0; border-radius: 8px; box-shadow: none; min-width: 18px; min-height: 18px; }" ++
-    "button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 20px; min-height: 20px; }" ++
+    "button.noctty-tab-close { margin: 0; padding: 0; border-width: 0; border-radius: 8px; box-shadow: none; min-width: 24px; min-height: 24px; }" ++
+    "button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 24px; min-height: 24px; }" ++
     "entry.noctty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
     ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }";
 

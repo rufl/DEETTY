@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 pub const editable_byte_limit: usize = 1024 * 1024;
 pub const preview_byte_limit: usize = 8 * 1024 * 1024;
 pub const max_stable_read_attempts: usize = 3;
-pub const direct_tree_sitter_byte_limit: usize = 256 * 1024;
+pub const direct_tree_sitter_byte_limit: usize = 32 * 1024;
 
 pub fn useDirectTreeSitter(size_bytes: usize) bool {
     return size_bytes <= direct_tree_sitter_byte_limit;

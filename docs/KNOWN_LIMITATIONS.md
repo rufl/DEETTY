@@ -88,7 +88,7 @@ Not claimed yet:
 - persistent language-server sessions, inline diagnostics/code actions, and LSP/DAP parity; current LSP actions are explicit on-demand local requests
 - every-language syntax correctness
 - Tree-sitter-driven folding, structural selection, or symbol navigation
-- incremental/background parsing; the current alpha debounce performs a bounded full parse on GTK's main thread
+- incremental/background parsing; direct vendored Tree-sitter work is debounced for 100 ms, limited to 32 KiB and 4,096 captures on GTK's main thread, and falls back to GtkSourceView rather than partially highlighting or blocking larger/complex files
 - long-duration GUI editor stability across many projects
 - forced SIGKILL/session-logout unsaved-file protection
 

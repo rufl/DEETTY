@@ -157,17 +157,45 @@ const Document = struct {
             return;
         };
         c.gtk_source_buffer_set_highlight_syntax(self.buffer, 0);
-        self.refreshTreeSitter() catch {
-            if (self.syntax) |*syntax| syntax.deinit();
-            self.syntax = null;
-            c.gtk_source_buffer_set_highlight_syntax(self.buffer, 1);
-        };
+        self.refreshTreeSitter() catch |err| self.fallbackToSourceViewSyntax(err);
+    }
+
+    fn fallbackToSourceViewSyntax(self: *Document, err: anyerror) void {
+        if (self.syntax) |*syntax| syntax.deinit();
+        self.syntax = null;
+        self.syntax_capture_count = 0;
+        var start: c.GtkTextIter = undefined;
+        var end: c.GtkTextIter = undefined;
+        c.gtk_text_buffer_get_bounds(@ptrCast(self.buffer), &start, &end);
+        self.removeTreeSitterTags(&start, &end);
+        c.gtk_source_buffer_set_highlight_syntax(self.buffer, 1);
+        switch (err) {
+            error.TreeSitterDocumentTooLarge,
+            error.TreeSitterCaptureLimitExceeded,
+            => self.app.updateStatus("Large or complex file: using lightweight highlighting"),
+            else => self.app.updateStatus("Using lightweight syntax highlighting"),
+        }
+    }
+
+    fn removeTreeSitterTags(
+        self: *Document,
+        start: *c.GtkTextIter,
+        end: *c.GtkTextIter,
+    ) void {
+        inline for (std.meta.fields(SyntaxTags)) |field| {
+            c.gtk_text_buffer_remove_tag(
+                @ptrCast(self.buffer),
+                @field(self.syntax_tags, field.name),
+                start,
+                end,
+            );
+        }
     }
 
     fn scheduleTreeSitterRefresh(self: *Document) void {
         if (self.syntax == null) return;
         self.cancelTreeSitterRefresh();
-        self.syntax_source = c.g_timeout_add(60, onTreeSitterRefresh, self);
+        self.syntax_source = c.g_timeout_add(100, onTreeSitterRefresh, self);
     }
 
     fn refreshTreeSitter(self: *Document) !void {
@@ -182,8 +210,8 @@ const Document = struct {
         ) orelse return error.TextUnavailable;
         defer c.g_free(text_z);
         const text = std.mem.span(text_z);
-        // ponytail: Full-document highlighting stays bounded on the GTK thread;
-        // use incremental edits before raising this limit.
+        // ponytail: Direct highlighting stays below the measured GTK-thread budget;
+        // use the existing worker lanes if dogfood proves the native fallback insufficient.
         if (!core.document.useDirectTreeSitter(text.len))
             return error.TreeSitterDocumentTooLarge;
         const syntax = if (self.syntax) |*value| value else return;
@@ -192,14 +220,7 @@ const Document = struct {
         defer self.app.allocator.free(captures);
         self.syntax_capture_count = captures.len;
 
-        inline for (std.meta.fields(SyntaxTags)) |field| {
-            c.gtk_text_buffer_remove_tag(
-                @ptrCast(self.buffer),
-                @field(self.syntax_tags, field.name),
-                &start,
-                &end,
-            );
-        }
+        self.removeTreeSitterTags(&start, &end);
         for (captures) |capture| {
             if (capture.end <= capture.start or capture.end > text.len or
                 capture.start_point.row > std.math.maxInt(c_int) or
@@ -5596,11 +5617,27 @@ pub fn main(init: std.process.Init) !void {
         const captures = try document.capturesAlloc(allocator);
         defer allocator.free(captures);
         if (captures.len == 0) return error.TreeSitterContractFailed;
-        var buffer: [128]u8 = undefined;
+        const overflow_line = "const value: usize = 1;\n";
+        var overflow_source: [overflow_line.len * 2000]u8 = undefined;
+        for (0..2000) |line_index| {
+            const start = line_index * overflow_line.len;
+            @memcpy(overflow_source[start..][0..overflow_line.len], overflow_line);
+        }
+        try document.update(&overflow_source);
+        if (document.capturesAlloc(allocator)) |overflow| {
+            allocator.free(overflow);
+            return error.TreeSitterCaptureLimitMissing;
+        } else |err| if (err != error.TreeSitterCaptureLimitExceeded) return err;
+        var buffer: [192]u8 = undefined;
         var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
         try writer.interface.print(
-            "nocted_runtime_contract tree_sitter=true captures={d}\n",
-            .{captures.len},
+            "nocted_runtime_contract tree_sitter=true captures={d} " ++
+                "capture_limit={d} direct_limit_bytes={d}\n",
+            .{
+                captures.len,
+                tree_sitter.max_captures,
+                core.document.direct_tree_sitter_byte_limit,
+            },
         );
         try writer.interface.flush();
         return;
@@ -6321,11 +6358,7 @@ fn onBufferChanged(_: ?*c.GtkTextBuffer, data: ?*anyopaque) callconv(.c) void {
 fn onTreeSitterRefresh(data: ?*anyopaque) callconv(.c) c.gboolean {
     const document: *Document = @ptrCast(@alignCast(data orelse return c.G_SOURCE_REMOVE));
     document.syntax_source = 0;
-    document.refreshTreeSitter() catch {
-        if (document.syntax) |*syntax| syntax.deinit();
-        document.syntax = null;
-        c.gtk_source_buffer_set_highlight_syntax(document.buffer, 1);
-    };
+    document.refreshTreeSitter() catch |err| document.fallbackToSourceViewSyntax(err);
     return c.G_SOURCE_REMOVE;
 }
 

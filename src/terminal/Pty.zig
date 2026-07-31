@@ -673,7 +673,8 @@ test "zig-owned pty closes inherited descriptors before exec" {
                 saw_clean = std.mem.indexOf(u8, output[0..used], "NOCTTY_FD_CLEAN") != null;
             },
             .would_block => sleepBrief(2),
-            .eof => {},
+            // EOF may arrive before waitpid reports the child under host contention.
+            .eof => sleepBrief(2),
         }
         if (try session.pollExit()) |code| {
             try std.testing.expectEqual(@as(u8, 0), code);
