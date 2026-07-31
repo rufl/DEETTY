@@ -59,7 +59,7 @@ for mode in Debug ReleaseSafe; do
             printf '%s\n' "$output" | grep -F "$field" >/dev/null
         done
         printf '%s\n' "$output" | grep -E \
-            'scan_ns=[1-9][0-9]* delta_ns=[1-9][0-9]* index_bytes=[1-9][0-9]* two_snapshot_bytes=[1-9][0-9]*' \
+            'scan_ns=[1-9][0-9]* quick_open_ns=[1-9][0-9]* quick_open_matches=[1-9][0-9]* delta_ns=[1-9][0-9]* index_bytes=[1-9][0-9]* two_snapshot_bytes=[1-9][0-9]*' \
             >/dev/null
         printf '%s\n' "$output" | grep -E \
             'delta_events=5 delta_added=[1-9][0-9]* delta_removed=[1-9][0-9]*' \
@@ -70,4 +70,4 @@ for mode in Debug ReleaseSafe; do
     done
 done
 
-echo 'nocted_project_index_matrix debug=true release_safe=true scales=4000,25000,100000 immutable_delta=true directory_rename=true replacement_conflict=true ignore_fallback=true overflow_fallback=true scan_time=true delta_time=true index_memory=true two_snapshot_peak=true process_memory=true allocator_leak_free=true scratch_clean=true'
+echo 'nocted_project_index_matrix debug=true release_safe=true scales=4000,25000,100000 immutable_delta=true quick_open_scale=true quick_open_release_safe_budget_ms=500 directory_rename=true replacement_conflict=true ignore_fallback=true overflow_fallback=true scan_time=true delta_time=true index_memory=true two_snapshot_peak=true process_memory=true allocator_leak_free=true scratch_clean=true'

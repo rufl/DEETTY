@@ -30,12 +30,29 @@ pub fn filterAlloc(
         std.mem.indexOfAny(u8, query, "\x00\r\n") != null)
         return error.InvalidQuickOpenQuery;
 
+    const case_sensitive = containsUpper(query);
+    var normalized_query_buffer: [max_query_bytes]u8 = undefined;
+    const normalized_query = if (case_sensitive)
+        query
+    else normalized: {
+        for (query, 0..) |byte, query_index|
+            normalized_query_buffer[query_index] = asciiLower(byte);
+        break :normalized normalized_query_buffer[0..query.len];
+    };
+    const query_extension = std.fs.path.extension(normalized_query);
+
     var heap: [max_results]Match = undefined;
     var heap_length: usize = 0;
     var total_matches: usize = 0;
     for (index.entries, 0..) |entry, entry_index| {
         if (entry.kind != .file) continue;
-        const score = scorePath(index, entry, query) orelse continue;
+        const score = scorePath(
+            index,
+            entry,
+            normalized_query,
+            query_extension,
+            case_sensitive,
+        ) orelse continue;
         total_matches += 1;
         const candidate = Match{ .entry_index = entry_index, .score = score };
         if (heap_length < heap.len) {
@@ -63,20 +80,28 @@ const ScoreState = struct {
     ending: i32 = std.math.minInt(i32),
 };
 
-fn scorePath(index: ProjectIndex.Index, entry: ProjectIndex.Entry, query: []const u8) ?i32 {
+fn scorePath(
+    index: ProjectIndex.Index,
+    entry: ProjectIndex.Entry,
+    query: []const u8,
+    query_extension: []const u8,
+    case_sensitive: bool,
+) ?i32 {
     const path = index.path(entry);
     if (query.len == 0) return -@as(i32, @intCast(@min(path.len, std.math.maxInt(i32))));
-    const case_sensitive = containsUpper(query);
     if (!subsequenceEligible(path, query, case_sensitive)) return null;
 
-    var previous = [_]ScoreState{.{}} ** (max_query_bytes + 1);
-    var current = [_]ScoreState{.{}} ** (max_query_bytes + 1);
+    var previous_storage: [max_query_bytes + 1]ScoreState = undefined;
+    var current_storage: [max_query_bytes + 1]ScoreState = undefined;
+    var previous = previous_storage[0 .. query.len + 1];
+    var current = current_storage[0 .. query.len + 1];
+    for (previous) |*state| state.* = .{};
     previous[0].best = 0;
     for (path, 0..) |path_byte, path_index| {
         current[0] = previous[0];
         for (1..query.len + 1) |query_index| {
             current[query_index] = .{ .best = previous[query_index].best };
-            if (!equalByte(path_byte, query[query_index - 1], case_sensitive)) continue;
+            if (!queryByteEqual(path_byte, query[query_index - 1], case_sensitive)) continue;
             const boundary_bonus: i32 = if (isBoundary(entry, path, path_index)) 18 else 0;
             const basename_bonus: i32 = if (path_index == entry.basename_offset) 28 else 0;
             var ending: i32 = std.math.minInt(i32);
@@ -90,13 +115,14 @@ fn scorePath(index: ProjectIndex.Index, entry: ProjectIndex.Entry, query: []cons
             current[query_index].ending = ending;
             current[query_index].best = @max(current[query_index].best, ending);
         }
-        std.mem.swap([max_query_bytes + 1]ScoreState, &previous, &current);
+        // Swap two-word slice headers; swapping the backing arrays copies whole DP rows.
+        std.mem.swap([]ScoreState, &previous, &current);
     }
     var score = previous[query.len].best;
     if (score == std.math.minInt(i32)) return null;
     const basename = index.basename(entry);
     if (startsWithFold(basename, query, case_sensitive)) score += 48;
-    if (extensionMatches(path, query, case_sensitive)) score += 24;
+    if (extensionMatches(path, query_extension, case_sensitive)) score += 24;
     score -= @intCast(@min(path.len, 4096) / 4);
     return score;
 }
@@ -104,7 +130,7 @@ fn scorePath(index: ProjectIndex.Index, entry: ProjectIndex.Entry, query: []cons
 fn subsequenceEligible(path: []const u8, query: []const u8, case_sensitive: bool) bool {
     var cursor: usize = 0;
     for (query) |needle| {
-        while (cursor < path.len and !equalByte(path[cursor], needle, case_sensitive))
+        while (cursor < path.len and !queryByteEqual(path[cursor], needle, case_sensitive))
             cursor += 1;
         if (cursor == path.len) return false;
         cursor += 1;
@@ -121,9 +147,8 @@ fn isBoundary(entry: ProjectIndex.Entry, path: []const u8, position: usize) bool
         (previous >= 'a' and previous <= 'z' and current >= 'A' and current <= 'Z');
 }
 
-fn extensionMatches(path: []const u8, query: []const u8, case_sensitive: bool) bool {
+fn extensionMatches(path: []const u8, query_extension: []const u8, case_sensitive: bool) bool {
     const path_extension = std.fs.path.extension(path);
-    const query_extension = std.fs.path.extension(query);
     return query_extension.len > 1 and path_extension.len == query_extension.len and
         startsWithFold(path_extension, query_extension, case_sensitive);
 }
@@ -131,7 +156,7 @@ fn extensionMatches(path: []const u8, query: []const u8, case_sensitive: bool) b
 fn startsWithFold(haystack: []const u8, needle: []const u8, case_sensitive: bool) bool {
     if (needle.len > haystack.len) return false;
     for (haystack[0..needle.len], needle) |lhs, rhs|
-        if (!equalByte(lhs, rhs, case_sensitive)) return false;
+        if (!queryByteEqual(lhs, rhs, case_sensitive)) return false;
     return true;
 }
 
@@ -140,8 +165,8 @@ fn containsUpper(value: []const u8) bool {
     return false;
 }
 
-fn equalByte(lhs: u8, rhs: u8, case_sensitive: bool) bool {
-    return if (case_sensitive) lhs == rhs else asciiLower(lhs) == asciiLower(rhs);
+fn queryByteEqual(path_byte: u8, query_byte: u8, case_sensitive: bool) bool {
+    return if (case_sensitive) path_byte == query_byte else asciiLower(path_byte) == query_byte;
 }
 
 fn asciiLower(value: u8) u8 {

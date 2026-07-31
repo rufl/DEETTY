@@ -5,10 +5,13 @@ const core = @import("nocted_core");
 const AccountedAllocator = std.heap.DebugAllocator(.{
     .enable_memory_limit = true,
 });
+const quick_open_budget_ns_release_safe: u64 = 500 * std.time.ns_per_ms;
 
 const Outcome = struct {
     entries: usize,
     scan_ns: u64,
+    quick_open_ns: u64,
+    quick_open_matches: usize,
     delta_ns: u64,
     index_bytes: usize,
     two_snapshot_bytes: usize,
@@ -46,7 +49,8 @@ pub fn main(init: std.process.Init) !void {
     defer stdout.flush() catch {};
     try stdout.print(
         "nocted_project_index_qualification mode={s} scale={d} entries={d} " ++
-            "scan_ns={d} delta_ns={d} index_bytes={d} two_snapshot_bytes={d} " ++
+            "scan_ns={d} quick_open_ns={d} quick_open_matches={d} " ++
+            "delta_ns={d} index_bytes={d} two_snapshot_bytes={d} " ++
             "delta_events={d} delta_added={d} delta_removed={d} " ++
             "directory_rename=true replacement_conflict=true ignore_fallback=true " ++
             "overflow_fallback=true snapshot_teardown=true allocator_leak_free=true " ++
@@ -56,6 +60,8 @@ pub fn main(init: std.process.Init) !void {
             scale,
             outcome.entries,
             outcome.scan_ns,
+            outcome.quick_open_ns,
+            outcome.quick_open_matches,
             outcome.delta_ns,
             outcome.index_bytes,
             outcome.two_snapshot_bytes,
@@ -104,6 +110,24 @@ fn runQualification(
     const scan_ns = elapsedNanoseconds(started, io);
     if (baseline.entries.len != scale or baseline.truncated)
         return error.ScaleScanMismatch;
+    started = std.Io.Clock.awake.now(io);
+    const quick_open_matches = quick_open: {
+        var results = try core.quick_open.filterAlloc(
+            allocator,
+            baseline,
+            "modulefilezig",
+        );
+        defer results.deinit(allocator);
+        if (results.total_matches != file_count or
+            results.matches.len != core.quick_open.max_results or
+            !results.truncated)
+            return error.QuickOpenScaleMismatch;
+        break :quick_open results.total_matches;
+    };
+    const quick_open_ns = elapsedNanoseconds(started, io);
+    if (builtin.mode == .ReleaseSafe and scale == core.project_index.max_entries and
+        quick_open_ns > quick_open_budget_ns_release_safe)
+        return error.QuickOpenLatencyBudgetExceeded;
     var retained = baseline.retain();
     defer retained.deinit(allocator);
 
@@ -200,6 +224,8 @@ fn runQualification(
     return .{
         .entries = delta.index.entries.len,
         .scan_ns = scan_ns,
+        .quick_open_ns = quick_open_ns,
+        .quick_open_matches = quick_open_matches,
         .delta_ns = delta_ns,
         .index_bytes = delta.index.memoryBytes(),
         .two_snapshot_bytes = baseline.memoryBytes() + delta.index.memoryBytes(),

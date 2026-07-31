@@ -1,6 +1,6 @@
 # Performance and Algorithm Research
 
-Research date: 2026-07-16. Implementation status refreshed: 2026-07-18.
+Research date: 2026-07-16. Implementation status refreshed: 2026-07-31.
 
 Status: architecture decision, implemented design record, and remaining
 measurement contract. The accepted lower-complexity changes are present in the
@@ -22,6 +22,38 @@ search result latency, worker admission, and quick-open ranking. Replacing the
 GTK text model with a rope or piece tree would require either a custom editor
 view or two synchronized text models, both of which conflict with the current
 lean and stable product boundary.
+
+### Jeremy Huang / `1jehuang` optimization review
+
+A 2026-07-31 review of Jeremy Huang's current public projects used pinned source
+revisions rather than copying architecture by reputation:
+
+- [`jcode` slowness guide](https://github.com/1jehuang/jcode/blob/65aefb6714ae5f978ebb2d74943679e34b3ae1f8/docs/FINDING_SLOWNESS.md) and [memory budget](https://github.com/1jehuang/jcode/blob/65aefb6714ae5f978ebb2d74943679e34b3ae1f8/docs/MEMORY_BUDGET.md): enumerate heavy states, measure cold and warm work separately, gate deterministic work counters where possible, prove a gate by deliberately breaking it, cap caches, and fix duplicated ownership before raising a memory budget;
+- [`handterm` optimization record](https://github.com/1jehuang/handterm/blob/6dbda57f6e62e2942165e855010ccbedca9f577d/OPTIMIZATION.md): benchmark each pipeline boundary, reuse hot buffers, coalesce PTY-driven presentation, share expensive process/runtime state, and delete an architecture when profiling shows a simpler host path wins;
+- [`agentgrep` benchmarks](https://github.com/1jehuang/agentgrep/blob/66b1148bae243e74e4501bb84068d7d049fa4275/docs/BENCHMARKS.md): reject candidates before expensive structure work and normalize repeated text once rather than once per candidate;
+- [`ffp`](https://github.com/1jehuang/ffp/blob/138e145fd8cc178c83461b3ec3b19bcaf2559a17/README.md): cap large pools, keep expensive discovery off the interaction path, cache genuinely expensive previews, and only fan work across cores when scale measurements justify it;
+- [`jengine` targets](https://github.com/1jehuang/jengine/blob/005f09845b0a525ff7d33a46411606695913cd58/docs/PERFORMANCE_TARGETS.md): attribute host, setup, upload, compute, and download costs separately; record cache warmth; reduce dispatch and orchestration before chasing a faster inner kernel;
+- [`mermaid-rs-renderer` benchmark design](https://github.com/1jehuang/mermaid-rs-renderer/blob/7ff1196ed297c32a65a6b3cdc28f3ca3787fb65e/docs/benchmark-suite-design.md): separate correctness, quality, stability, and performance; retain cold/warm, tail-latency, memory, and scaling evidence;
+- [`niri-workspaces-rs`](https://github.com/1jehuang/niri-workspaces-rs/blob/43061415a7707d32757e02c76c9a662aee488c94/src/main.rs): subscribe once to incremental events and maintain local state instead of reopening IPC and recomputing full state for every update.
+
+NOCTTY already follows most of those macro lessons: native/no-browser startup,
+one process for many panes, frame-clock and resize coalescing, terminal dirty
+spans, reusable renderer scratch, bounded caches, immutable project snapshots,
+cheap fuzzy eligibility before scoring, lazy minimap/Tree-sitter work, and two
+bounded filesystem lanes. The review therefore did not justify a GPU rewrite,
+new allocator, new thread pool, daemon split, dependency, or runtime telemetry.
+
+It did expose one concrete Quick Open regression. The two-row dynamic program
+used `std.mem.swap` on whole 257-element arrays, copying a 2,056-byte score row
+for every path byte. A focused one-off ReleaseFast in-memory harness with two
+warmups and twelve samples per query measured about 939 ms p50 for `file` and
+918 ms for `modulefilezig` on a synthetic 100,000-file index. Swapping active slices
+instead, initializing only `query.len + 1` states, and normalizing the bounded
+query/extension once reduced p50 to 6.8-7.3 ms and 15.8-16.2 ms respectively,
+with identical ranking fingerprints: at least 128x and 56x faster on those
+broad-match fixtures. The retained DebugAllocator-backed `ReleaseSafe`
+100,000-entry qualification reports 69.5 ms and enforces a deliberately loose
+500 ms regression budget.
 
 ### Local profiling gate
 
@@ -563,7 +595,7 @@ real disposable 4K/25K/100K full-scan/delta timing, exact compact/two-snapshot
 model bytes, directory rename, replacement conflict, ignore/257-event fallback,
 root memory, and zero-residual allocator proof in
 `docs/NOCTED_PROJECT_INDEX_QUALIFICATION.md`:
-`nocted_project_index_matrix debug=true release_safe=true scales=4000,25000,100000 immutable_delta=true directory_rename=true replacement_conflict=true ignore_fallback=true overflow_fallback=true scan_time=true delta_time=true index_memory=true two_snapshot_peak=true process_memory=true allocator_leak_free=true scratch_clean=true`.
+`nocted_project_index_matrix debug=true release_safe=true scales=4000,25000,100000 immutable_delta=true quick_open_scale=true quick_open_release_safe_budget_ms=500 directory_rename=true replacement_conflict=true ignore_fallback=true overflow_fallback=true scan_time=true delta_time=true index_memory=true two_snapshot_peak=true process_memory=true allocator_leak_free=true scratch_clean=true`.
 The native matrix now complements those headless lanes with eight current-
 repository open-to-model/open-to-tree-draw samples per backend, eight actual
 twelve-file GIO burst-to-draw samples, deterministic 257-event overflow
