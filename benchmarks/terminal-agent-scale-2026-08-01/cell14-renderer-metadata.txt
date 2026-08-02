@@ -1,0 +1,4 @@
+terminal_cell_alignment_renderer_ab date=2026-08-01 pairs=7 execution=simultaneous cpus=12,13 cpu_assignment=alternated mode=ReleaseSafe frames_per_scenario=128 scenarios=idle,fullscreen,rich
+cell16_sha256=6cc134921fa47991f7839cc65f8be09fd5fc484e5c6a28bb29937d8a9a17b762
+cell14_sha256=c2a6a6f92ee953b30555b1907d86fed762f370e63deef48aebd31aff889dc153
+pixel_hashes_match=true interpretation=engineering_evidence_not_release_threshold

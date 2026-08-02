@@ -16,7 +16,8 @@ pub const Cell = struct {
         _: u7 = 0,
     };
 
-    codepoint: u21 = ' ',
+    // Two-byte alignment keeps the direct cell at 14 bytes without narrowing values.
+    codepoint: u21 align(2) = ' ',
     flags: Flags = .{},
     grapheme_id: u16 = 0,
     hyperlink_id: u16 = 0,
@@ -25,11 +26,17 @@ pub const Cell = struct {
 };
 
 pub const default_color_id: u16 = 0x0fff;
+
+pub const NotificationAction = enum(u8) {
+    none,
+    focus_pane,
+    open_project,
+};
 pub const first_truecolor_id: u16 = 256;
 pub const max_truecolor_count: usize = default_color_id - first_truecolor_id;
 
-test "terminal cell flags remain compact" {
-    try std.testing.expectEqual(@as(usize, 16), @sizeOf(Cell));
+test "terminal cells remain compact" {
+    try std.testing.expectEqual(@as(usize, 14), @sizeOf(Cell));
 }
 
 pub const DirtySpan = extern struct {
@@ -63,7 +70,6 @@ const RowMeta = struct {
     grapheme_start: u32 = 0,
     wrap_continues: bool = false,
     used_columns: u16 = 0,
-    recycled_columns: u16 = 0,
 };
 
 const ColdRow = struct {
@@ -214,6 +220,8 @@ const HyperlinkStore = struct {
 
 pub const Grid = struct {
     allocator: std.mem.Allocator,
+    history_allocator: std.mem.Allocator,
+    history_capacity_eager: bool,
     columns: usize,
     rows: usize,
     cells: []Cell,
@@ -228,11 +236,27 @@ pub const Grid = struct {
     alternate_screen_origin: usize = 0,
     saved_cursor_column: usize = 0,
     saved_cursor_row: usize = 0,
+    saved_wrap_pending: bool = false,
+    alternate_saved_cursor_column: usize = 0,
+    alternate_saved_cursor_row: usize = 0,
+    alternate_saved_wrap_pending: bool = false,
+    alternate_saved_margin_top: usize = 0,
+    alternate_saved_margin_bottom: usize = 0,
+    alternate_saved_origin_mode: bool = false,
+    saved_origin_mode: bool = false,
+    saved_charset_g0_dec_special: bool = false,
+    saved_charset_g1_dec_special: bool = false,
+    saved_charset_use_g1: bool = false,
     cursor_visible: bool = true,
     bracketed_paste: bool = false,
     application_cursor_keys: bool = false,
     insert_mode: bool = false,
     auto_wrap: bool = true,
+    wrap_pending: bool = false,
+    origin_mode: bool = false,
+    charset_g0_dec_special: bool = false,
+    charset_g1_dec_special: bool = false,
+    charset_use_g1: bool = false,
     mouse_reporting: bool = false,
     sgr_mouse: bool = false,
     focus_reporting: bool = false,
@@ -242,6 +266,8 @@ pub const Grid = struct {
     parser_string_overflows: u64 = 0,
     reply_overflows: u64 = 0,
     bell_serial: u64 = 0,
+    notification_serial: u64 = 0,
+    notification_action: NotificationAction = .none,
     history: std.array_list.Managed([]Cell),
     history_meta: std.array_list.Managed(RowMeta),
     history_cold: std.array_list.Managed(?ColdRow),
@@ -272,6 +298,7 @@ pub const Grid = struct {
     last_grapheme_row: usize = 0,
     last_grapheme_column: usize = 0,
     last_grapheme_valid: bool = false,
+    last_printed_codepoint: ?u21 = null,
     grapheme_overflows: u64 = 0,
     wide_cells_present: bool = false,
     parser: VtParser.Parser = .{},
@@ -302,6 +329,8 @@ pub const Grid = struct {
 
     pub const default_history_lines = 1000;
     pub const max_history_lines = 100_000;
+    pub const idle_history_hot_lines = 128;
+    pub const idle_history_rows_per_step = 64;
     const initial_history_lines = 32;
     // ponytail: keep only a small hot window; older scrollback is compact cold storage.
     const hot_history_lines = 1024;
@@ -313,12 +342,54 @@ pub const Grid = struct {
         column: usize,
     };
 
+    pub const IdleHistoryCompaction = struct {
+        rows_coldified: usize,
+        bytes_released: usize,
+        complete: bool,
+    };
+
     pub fn init(allocator: std.mem.Allocator, columns: usize, rows: usize) !Grid {
         return initWithHistoryLimit(allocator, columns, rows, default_history_lines);
     }
 
     pub fn initWithHistoryLimit(
         allocator: std.mem.Allocator,
+        columns: usize,
+        rows: usize,
+        history_limit: usize,
+    ) !Grid {
+        return initWithHistoryOptions(
+            allocator,
+            allocator,
+            false,
+            columns,
+            rows,
+            history_limit,
+        );
+    }
+
+    /// Reserves bounded virtual hot-history capacity through a reclaimable slab allocator.
+    pub fn initWithHistoryAllocator(
+        allocator: std.mem.Allocator,
+        history_allocator: std.mem.Allocator,
+        columns: usize,
+        rows: usize,
+        history_limit: usize,
+    ) !Grid {
+        return initWithHistoryOptions(
+            allocator,
+            history_allocator,
+            true,
+            columns,
+            rows,
+            history_limit,
+        );
+    }
+
+    fn initWithHistoryOptions(
+        allocator: std.mem.Allocator,
+        history_allocator: std.mem.Allocator,
+        history_capacity_eager: bool,
         columns: usize,
         rows: usize,
         history_limit: usize,
@@ -340,9 +411,13 @@ pub const Grid = struct {
             hot_history_lines,
             @min(initial_history_lines, history_limit),
         );
-        const history_cells = try allocator.alloc(Cell, initial_lines * columns);
-        errdefer allocator.free(history_cells);
-        const history_hot_owners = try allocator.alloc(u32, initial_lines);
+        const history_capacity = if (history_capacity_eager)
+            @min(hot_history_lines, history_limit)
+        else
+            initial_lines;
+        const history_cells = try history_allocator.alloc(Cell, history_capacity * columns);
+        errdefer history_allocator.free(history_cells);
+        const history_hot_owners = try allocator.alloc(u32, history_capacity);
         errdefer allocator.free(history_hot_owners);
         const history_scratch = try allocator.alloc(Cell, columns);
         errdefer allocator.free(history_scratch);
@@ -370,6 +445,8 @@ pub const Grid = struct {
         }
         return .{
             .allocator = allocator,
+            .history_allocator = history_allocator,
+            .history_capacity_eager = history_capacity_eager,
             .columns = columns,
             .rows = rows,
             .cells = cells,
@@ -406,7 +483,7 @@ pub const Grid = struct {
         self.cold_bytes.deinit();
         self.cold_glyphs.deinit();
         self.cold_runs.deinit();
-        self.allocator.free(self.history_cells);
+        self.history_allocator.free(self.history_cells);
         self.allocator.free(self.history_hot_owners);
         self.allocator.free(self.history_scratch);
         self.allocator.free(self.tab_stops);
@@ -492,10 +569,10 @@ pub const Grid = struct {
 
         const history_capacity = if (old_columns == 0) 0 else self.history_cells.len / old_columns;
         const history_cells = if (columns_changed)
-            try self.allocator.alloc(Cell, history_capacity * columns)
+            try self.history_allocator.alloc(Cell, history_capacity * columns)
         else
             self.history_cells;
-        errdefer if (columns_changed) self.allocator.free(history_cells);
+        errdefer if (columns_changed) self.history_allocator.free(history_cells);
         const history_scratch = if (columns_changed)
             try self.allocator.alloc(Cell, columns)
         else
@@ -503,12 +580,13 @@ pub const Grid = struct {
         errdefer if (columns_changed) self.allocator.free(history_scratch);
 
         if (columns_changed) {
-            @memset(history_cells, .{});
             @memset(history_scratch, .{});
             const copy_columns = @min(old_columns, columns);
-            for (0..history_capacity) |hot_slot| {
+            for (self.history_hot_owners, 0..) |owner, hot_slot| {
+                if (owner == no_history_owner) continue;
                 const source = self.historySlot(hot_slot);
                 const destination = history_cells[hot_slot * columns .. (hot_slot + 1) * columns];
+                @memset(destination, .{});
                 @memcpy(destination[0..copy_columns], source[0..copy_columns]);
             }
         }
@@ -521,7 +599,7 @@ pub const Grid = struct {
         self.allocator.free(self.dirty_spans);
         if (columns_changed) {
             self.allocator.free(self.tab_stops);
-            self.allocator.free(self.history_cells);
+            self.history_allocator.free(self.history_cells);
             self.allocator.free(self.history_scratch);
             for (self.history_hot_owners, 0..) |owner, hot_slot| {
                 if (owner == no_history_owner) continue;
@@ -548,7 +626,18 @@ pub const Grid = struct {
         self.cursor_row = @min(self.cursor_row, rows - 1);
         self.saved_cursor_column = @min(self.saved_cursor_column, columns - 1);
         self.saved_cursor_row = @min(self.saved_cursor_row, rows - 1);
+        self.alternate_saved_cursor_column = @min(
+            self.alternate_saved_cursor_column,
+            columns - 1,
+        );
+        self.alternate_saved_cursor_row = @min(self.alternate_saved_cursor_row, rows - 1);
+        self.alternate_saved_margin_top = @min(self.alternate_saved_margin_top, rows - 1);
+        self.alternate_saved_margin_bottom = @min(
+            self.alternate_saved_margin_bottom,
+            rows - 1,
+        );
         self.viewport_offset = @min(self.viewport_offset, self.history.items.len);
+        self.wrap_pending = false;
         self.resetGraphemeInput();
     }
 
@@ -564,6 +653,7 @@ pub const Grid = struct {
         const active_origin = self.screen_origin;
         const active_cursor_column = self.cursor_column;
         const active_cursor_row = self.cursor_row;
+        const active_wrap_pending = self.wrap_pending;
         const primary_cells = self.alternate_cells.?;
         const primary_meta = self.alternate_row_meta.?;
         const primary_origin = self.alternate_screen_origin;
@@ -592,8 +682,9 @@ pub const Grid = struct {
         self.alternate_cells = null;
         self.alternate_row_meta = null;
         self.alternate_screen_origin = 0;
-        self.cursor_column = self.saved_cursor_column;
-        self.cursor_row = self.saved_cursor_row;
+        self.cursor_column = self.alternate_saved_cursor_column;
+        self.cursor_row = self.alternate_saved_cursor_row;
+        self.wrap_pending = self.alternate_saved_wrap_pending;
         self.resizePrimaryReflow(columns, rows) catch |err| {
             self.cells = active_cells;
             self.row_meta = active_meta;
@@ -603,6 +694,7 @@ pub const Grid = struct {
             self.alternate_screen_origin = primary_origin;
             self.cursor_column = active_cursor_column;
             self.cursor_row = active_cursor_row;
+            self.wrap_pending = active_wrap_pending;
             return err;
         };
 
@@ -614,10 +706,15 @@ pub const Grid = struct {
         self.cells = resized_active;
         self.row_meta = resized_active_meta;
         self.screen_origin = 0;
-        self.saved_cursor_column = self.cursor_column;
-        self.saved_cursor_row = self.cursor_row;
+        self.alternate_saved_cursor_column = self.cursor_column;
+        self.alternate_saved_cursor_row = self.cursor_row;
+        self.alternate_saved_wrap_pending = self.wrap_pending;
+        self.alternate_saved_margin_top = 0;
+        self.alternate_saved_margin_bottom = rows - 1;
+        self.alternate_saved_origin_mode = false;
         self.cursor_column = @min(active_cursor_column, columns - 1);
         self.cursor_row = @min(active_cursor_row, rows - 1);
+        self.wrap_pending = false;
         self.markAllDirty();
     }
 
@@ -634,8 +731,10 @@ pub const Grid = struct {
         else
             null;
 
-        var target = try Grid.initWithHistoryLimit(
+        var target = try Grid.initWithHistoryOptions(
             self.allocator,
+            self.history_allocator,
+            self.history_capacity_eager,
             columns,
             rows,
             self.history_limit,
@@ -653,7 +752,24 @@ pub const Grid = struct {
         defer self.allocator.free(row_buffer);
         var pending_rows: usize = 0;
         var group_meta: ?RowMeta = null;
-        const total_lines = self.history.items.len + self.rows;
+        var visible_lines = self.rows;
+        const minimum_visible_lines = self.cursor_row + 1;
+        while (visible_lines > minimum_visible_lines) {
+            const row = visible_lines - 1;
+            const meta = self.constRowMeta(row);
+            if (meta.used_columns != 0 or meta.wrap_continues) break;
+            if (row > 0 and self.constRowMeta(row - 1).wrap_continues) break;
+            var blank = true;
+            for (self.constRowSlice(row)) |value| {
+                if (!isDefaultCell(value)) {
+                    blank = false;
+                    break;
+                }
+            }
+            if (!blank) break;
+            visible_lines -= 1;
+        }
+        const total_lines = self.history.items.len + visible_lines;
         for (0..total_lines) |line_index| {
             const meta = self.lineMeta(line_index);
             if (group_meta == null) group_meta = meta;
@@ -699,7 +815,7 @@ pub const Grid = struct {
         self.cold_bytes.deinit();
         self.cold_glyphs.deinit();
         self.cold_runs.deinit();
-        self.allocator.free(self.history_cells);
+        self.history_allocator.free(self.history_cells);
         self.allocator.free(self.history_hot_owners);
         self.allocator.free(self.history_scratch);
 
@@ -751,6 +867,7 @@ pub const Grid = struct {
         }
         self.saved_cursor_column = @min(self.saved_cursor_column, columns - 1);
         self.saved_cursor_row = @min(self.saved_cursor_row, rows - 1);
+        self.wrap_pending = false;
         if (viewport_anchor) |anchor| {
             if (self.resolveAnchor(anchor)) |resolved| {
                 if (resolved.line_index < self.history.items.len)
@@ -884,8 +1001,8 @@ pub const Grid = struct {
         try history.ensureTotalCapacity(retained_count);
         try history_meta.ensureTotalCapacity(retained_count);
         try history_cold.ensureTotalCapacity(retained_count);
-        const hot_cells = try self.allocator.alloc(Cell, target_hot_capacity * self.columns);
-        errdefer self.allocator.free(hot_cells);
+        const hot_cells = try self.history_allocator.alloc(Cell, target_hot_capacity * self.columns);
+        errdefer self.history_allocator.free(hot_cells);
         const hot_owners = try self.allocator.alloc(u32, target_hot_capacity);
         errdefer self.allocator.free(hot_owners);
         @memset(hot_cells, .{});
@@ -926,7 +1043,7 @@ pub const Grid = struct {
         self.history.deinit();
         self.history_meta.deinit();
         self.history_cold.deinit();
-        self.allocator.free(self.history_cells);
+        self.history_allocator.free(self.history_cells);
         self.allocator.free(self.history_hot_owners);
         self.history = history;
         self.history_meta = history_meta;
@@ -944,11 +1061,89 @@ pub const Grid = struct {
         self.markAllDirty();
     }
 
+    pub fn compactIdleHistoryStep(
+        self: *Grid,
+        target_hot_lines: usize,
+        rows_per_step: usize,
+    ) !IdleHistoryCompaction {
+        if (target_hot_lines > hot_history_lines)
+            return error.InvalidIdleHistoryTarget;
+        if (rows_per_step == 0) return error.InvalidIdleHistoryStep;
+
+        const bytes_before = self.historyMemoryBytes();
+        var hot_count: usize = 0;
+        for (self.history_hot_owners) |owner| {
+            if (owner != no_history_owner) hot_count += 1;
+        }
+
+        var rows_coldified: usize = 0;
+        if (hot_count > target_hot_lines) {
+            const target_rows = @min(rows_per_step, hot_count - target_hot_lines);
+            for (0..self.history.items.len) |line_index| {
+                const record_slot = (self.history_start + line_index) % self.history.items.len;
+                if (self.history.items[record_slot].len == 0) continue;
+                try self.coldifyHistoryRecord(record_slot);
+                rows_coldified += 1;
+                if (rows_coldified == target_rows) break;
+            }
+            hot_count -= rows_coldified;
+        }
+
+        const complete = hot_count <= target_hot_lines;
+        if (complete and self.history_hot_owners.len > target_hot_lines) {
+            try self.shrinkHistoryHotStorage(target_hot_lines, hot_count);
+            try self.maybeCompactColdHistory(true);
+        }
+        const bytes_after = self.historyMemoryBytes();
+        return .{
+            .rows_coldified = rows_coldified,
+            .bytes_released = bytes_before -| bytes_after,
+            .complete = complete,
+        };
+    }
+
+    fn shrinkHistoryHotStorage(
+        self: *Grid,
+        target_hot_lines: usize,
+        hot_count: usize,
+    ) !void {
+        std.debug.assert(hot_count <= target_hot_lines);
+        std.debug.assert(target_hot_lines < self.history_hot_owners.len);
+
+        const hot_cells = try self.history_allocator.alloc(Cell, target_hot_lines * self.columns);
+        errdefer self.history_allocator.free(hot_cells);
+        const hot_owners = try self.allocator.alloc(u32, target_hot_lines);
+        errdefer self.allocator.free(hot_owners);
+        @memset(hot_cells, .{});
+        @memset(hot_owners, no_history_owner);
+
+        var hot_slot: usize = 0;
+        for (self.history.items, 0..) |line, record_slot| {
+            if (line.len == 0) continue;
+            const start = hot_slot * self.columns;
+            @memcpy(hot_cells[start .. start + self.columns], line);
+            self.history.items[record_slot] = hot_cells[start .. start + self.columns];
+            hot_owners[hot_slot] = @intCast(record_slot);
+            hot_slot += 1;
+        }
+        std.debug.assert(hot_slot == hot_count);
+
+        self.history_allocator.free(self.history_cells);
+        self.allocator.free(self.history_hot_owners);
+        self.history_cells = hot_cells;
+        self.history_hot_owners = hot_owners;
+        self.history_next_hot = if (target_hot_lines == 0)
+            0
+        else
+            hot_slot % target_hot_lines;
+    }
+
     pub fn feed(self: *Grid, bytes: []const u8) !void {
         var index: usize = 0;
         while (index < bytes.len) {
             if (self.parser.isGround() and self.utf8_expected == 0 and
-                !self.insert_mode and self.auto_wrap and !self.wide_cells_present)
+                !self.insert_mode and self.auto_wrap and !self.wide_cells_present and
+                !self.activeDecSpecialCharset())
             {
                 var end = index;
                 while (end < bytes.len and bytes[end] >= 0x20 and bytes[end] <= 0x7e) : (end += 1) {}
@@ -995,13 +1190,11 @@ pub const Grid = struct {
             },
             .escape => |escape| {
                 self.resetGraphemeInput();
-                self.materializeRecycledRows();
                 try self.applyEscape(escape);
             },
             .csi => |csi| {
                 self.resetGraphemeInput();
-                if (csi.final != 'm') self.materializeRecycledRows();
-                self.applyCsi(csi);
+                try self.applyCsi(csi);
             },
             .string => |string| {
                 self.resetGraphemeInput();
@@ -1015,9 +1208,55 @@ pub const Grid = struct {
         self.last_grapheme_valid = false;
     }
 
+    fn activeDecSpecialCharset(self: Grid) bool {
+        return if (self.charset_use_g1)
+            self.charset_g1_dec_special
+        else
+            self.charset_g0_dec_special;
+    }
+
+    fn translateCharset(self: Grid, byte: u8) u21 {
+        if (!self.activeDecSpecialCharset()) return byte;
+        return switch (byte) {
+            '_' => ' ',
+            '`' => 0x25c6,
+            'a' => 0x2592,
+            'b' => 0x2409,
+            'c' => 0x240c,
+            'd' => 0x240d,
+            'e' => 0x240a,
+            'f' => 0x00b0,
+            'g' => 0x00b1,
+            'h' => 0x2424,
+            'i' => 0x240b,
+            'j' => 0x2518,
+            'k' => 0x2510,
+            'l' => 0x250c,
+            'm' => 0x2514,
+            'n' => 0x253c,
+            'o' => 0x23ba,
+            'p' => 0x23bb,
+            'q' => 0x2500,
+            'r' => 0x23bc,
+            's' => 0x23bd,
+            't' => 0x251c,
+            'u' => 0x2524,
+            'v' => 0x2534,
+            'w' => 0x252c,
+            'x' => 0x2502,
+            'y' => 0x2264,
+            'z' => 0x2265,
+            '{' => 0x03c0,
+            '|' => 0x2260,
+            '}' => 0x00a3,
+            '~' => 0x00b7,
+            else => byte,
+        };
+    }
+
     fn consumePrintableByte(self: *Grid, byte: u8) !void {
         if (byte < 0x80) {
-            try self.putCodepoint(byte);
+            try self.putCodepoint(self.translateCharset(byte));
         } else if (byte >= 0xc2 and byte <= 0xdf) {
             self.utf8_codepoint = byte & 0x1f;
             self.utf8_minimum = 0x80;
@@ -1036,22 +1275,53 @@ pub const Grid = struct {
     }
 
     fn executeControl(self: *Grid, byte: u8) !void {
+        self.last_printed_codepoint = null;
         switch (byte) {
             0x07 => self.bell_serial +%= 1,
-            0x08 => self.cursor_column -|= 1,
-            '\t' => self.nextTabStop(),
+            0x08 => {
+                self.wrap_pending = false;
+                self.cursor_column -|= 1;
+            },
+            '\t' => {
+                self.wrap_pending = false;
+                self.nextTabStop();
+            },
             '\n', 0x0b, 0x0c => try self.lineFeed(false),
-            '\r' => self.cursor_column = 0,
+            '\r' => {
+                self.wrap_pending = false;
+                self.cursor_column = 0;
+            },
+            0x0e => self.charset_use_g1 = true,
+            0x0f => self.charset_use_g1 = false,
             else => {},
         }
     }
 
     fn applyEscape(self: *Grid, escape: VtParser.Escape) !void {
+        self.last_printed_codepoint = null;
+        if (escape.intermediate_count == 1 and
+            (escape.intermediates[0] == '(' or escape.intermediates[0] == ')'))
+        {
+            const dec_special = escape.final == '0';
+            if (!dec_special and escape.final != 'B') return;
+            if (escape.intermediates[0] == '(') {
+                self.charset_g0_dec_special = dec_special;
+            } else {
+                self.charset_g1_dec_special = dec_special;
+            }
+            return;
+        }
         if (escape.intermediate_count != 0) return;
+        if (escape.final != '7' and escape.final != '8') self.wrap_pending = false;
         switch (escape.final) {
             '7' => {
                 self.saved_cursor_column = self.cursor_column;
                 self.saved_cursor_row = self.cursor_row;
+                self.saved_wrap_pending = self.wrap_pending;
+                self.saved_origin_mode = self.origin_mode;
+                self.saved_charset_g0_dec_special = self.charset_g0_dec_special;
+                self.saved_charset_g1_dec_special = self.charset_g1_dec_special;
+                self.saved_charset_use_g1 = self.charset_use_g1;
                 self.saved_style_bold = self.bold;
                 self.saved_style_inverse = self.inverse;
                 self.saved_style_italic = self.italic;
@@ -1064,6 +1334,11 @@ pub const Grid = struct {
             '8' => {
                 self.cursor_column = @min(self.saved_cursor_column, self.columns - 1);
                 self.cursor_row = @min(self.saved_cursor_row, self.rows - 1);
+                self.wrap_pending = self.saved_wrap_pending;
+                self.origin_mode = self.saved_origin_mode;
+                self.charset_g0_dec_special = self.saved_charset_g0_dec_special;
+                self.charset_g1_dec_special = self.saved_charset_g1_dec_special;
+                self.charset_use_g1 = self.saved_charset_use_g1;
                 self.bold = self.saved_style_bold;
                 self.inverse = self.saved_style_inverse;
                 self.italic = self.saved_style_italic;
@@ -1080,10 +1355,15 @@ pub const Grid = struct {
             },
             'H' => self.tab_stops[self.cursor_column] = true,
             'M' => {
-                if (self.cursor_row > self.margin_top)
-                    self.cursor_row -= 1
-                else
+                if (self.cursor_row < self.margin_top or
+                    self.cursor_row > self.margin_bottom)
+                {
+                    self.cursor_row -|= 1;
+                } else if (self.cursor_row > self.margin_top) {
+                    self.cursor_row -= 1;
+                } else {
                     self.reverseScrollRegion();
+                }
             },
             'c' => {
                 self.bold = false;
@@ -1101,6 +1381,11 @@ pub const Grid = struct {
                 self.margin_bottom = self.rows - 1;
                 self.insert_mode = false;
                 self.auto_wrap = true;
+                self.origin_mode = false;
+                self.charset_g0_dec_special = false;
+                self.charset_g1_dec_special = false;
+                self.charset_use_g1 = false;
+                self.last_printed_codepoint = null;
                 self.markAllDirty();
                 @memset(self.cells, .{});
                 for (0..self.rows) |row| self.rowMeta(row).* = self.freshRowMeta();
@@ -1110,6 +1395,7 @@ pub const Grid = struct {
     }
 
     fn applyString(self: *Grid, event: VtParser.StringEvent) !void {
+        self.last_printed_codepoint = null;
         if (event.overflow) {
             self.parser_string_overflows +%= 1;
             return;
@@ -1139,7 +1425,24 @@ pub const Grid = struct {
                             };
                         }
                     },
+                    9 => {
+                        if (value.len > 0 and !std.mem.eql(u8, value, "4") and
+                            !std.mem.startsWith(u8, value, "4;"))
+                            self.notification_serial +%= 1;
+                    },
                     52 => self.blocked_osc52 +%= 1,
+                    99 => {
+                        if (value.len > 0 and std.mem.indexOf(u8, value, "p=?") == null) {
+                            self.notification_action = notificationAction(value);
+                            self.notification_serial +%= 1;
+                        }
+                    },
+                    777 => {
+                        if (std.mem.startsWith(u8, value, "notify;") and value.len > 7) {
+                            self.notification_action = notificationAction(value);
+                            self.notification_serial +%= 1;
+                        }
+                    },
                     else => {},
                 }
             },
@@ -1674,22 +1977,21 @@ pub const Grid = struct {
         const current_lines = self.history_cells.len / self.columns;
         const maximum = @min(self.history_limit, hot_history_lines);
         if (required_lines <= current_lines or current_lines >= maximum) return;
-        const target_lines = @min(
-            maximum,
-            @max(required_lines, @max(initial_history_lines, current_lines * 2)),
-        );
-        const next = try self.allocator.alloc(Cell, target_lines * self.columns);
-        errdefer self.allocator.free(next);
+        const target_lines = if (self.history_capacity_eager)
+            maximum
+        else
+            @min(
+                maximum,
+                @max(required_lines, @max(initial_history_lines, current_lines * 2)),
+            );
         const owners = try self.allocator.alloc(u32, target_lines);
         errdefer self.allocator.free(owners);
-        @memset(next, .{});
         @memset(owners, no_history_owner);
-        for (0..current_lines) |slot| {
-            const start = slot * self.columns;
-            @memcpy(next[start .. start + self.columns], self.historySlot(slot));
-            owners[slot] = self.history_hot_owners[slot];
-        }
-        self.allocator.free(self.history_cells);
+        @memcpy(owners[0..current_lines], self.history_hot_owners);
+        const next = try self.history_allocator.realloc(
+            self.history_cells,
+            target_lines * self.columns,
+        );
         self.allocator.free(self.history_hot_owners);
         self.history_cells = next;
         self.history_hot_owners = owners;
@@ -2044,10 +2346,7 @@ pub const Grid = struct {
                         self.markDirtySpan(self.cursor_row, self.cursor_column, self.cursor_column + 1);
                         self.wide_cells_present = true;
                         if (self.cursor_column + 1 == self.columns) {
-                            self.cursor_column = 0;
-                            try self.lineFeed(true);
-                            if (self.last_grapheme_row == self.margin_bottom)
-                                self.last_grapheme_valid = false;
+                            self.wrap_pending = self.auto_wrap;
                         } else {
                             self.cursor_column += 1;
                         }
@@ -2059,9 +2358,14 @@ pub const Grid = struct {
             self.grapheme_stream.reset();
             _ = self.grapheme_stream.push(codepoint);
         }
+        self.last_printed_codepoint = codepoint;
 
         var width: usize = Unicode.scalarWidth(codepoint);
         if (width == 0 or self.columns < 2) width = 1;
+        if (self.wrap_pending) {
+            self.cursor_column = 0;
+            try self.lineFeed(true);
+        }
         if (width == 2 and self.cursor_column + width > self.columns and self.auto_wrap) {
             self.cursor_column = 0;
             try self.lineFeed(true);
@@ -2069,7 +2373,6 @@ pub const Grid = struct {
         if (self.insert_mode) self.insertCharacters(width);
         const row = self.cursor_row;
         const column = self.cursor_column;
-        self.prepareRecycledRowWrite(row, column, column + width);
         self.touchRow(row);
         self.clearWideCellAt(row, column);
         self.markDirtySpan(row, column, column + width);
@@ -2088,11 +2391,8 @@ pub const Grid = struct {
         self.last_grapheme_column = column;
         self.last_grapheme_valid = true;
         if (column + width >= self.columns) {
-            if (self.auto_wrap) {
-                self.cursor_column = 0;
-                try self.lineFeed(true);
-                if (row == self.margin_bottom) self.last_grapheme_valid = false;
-            }
+            self.cursor_column = self.columns - 1;
+            self.wrap_pending = self.auto_wrap;
         } else self.cursor_column = column + width;
     }
 
@@ -2144,18 +2444,17 @@ pub const Grid = struct {
             .background = self.background,
         };
         while (offset < bytes.len) {
+            if (self.wrap_pending) {
+                self.cursor_column = 0;
+                try self.lineFeed(true);
+            }
             const available = self.columns - self.cursor_column;
             const count = @min(available, bytes.len - offset);
-            self.prepareRecycledRowWrite(
-                self.cursor_row,
-                self.cursor_column,
-                self.cursor_column + count,
-            );
             self.touchRow(self.cursor_row);
             const current_row = self.rowSlice(self.cursor_row);
             last_row = self.cursor_row;
             last_column = self.cursor_column + count - 1;
-            last_survives = !(count == available and self.cursor_row == self.margin_bottom);
+            last_survives = true;
             self.markDirtySpan(self.cursor_row, self.cursor_column, self.cursor_column + count);
             const chunk = bytes[offset .. offset + count];
             if (chunk[0] == ' ') {
@@ -2178,13 +2477,14 @@ pub const Grid = struct {
             }
             offset += count;
             if (count == available) {
-                self.cursor_column = 0;
-                try self.lineFeed(true);
+                self.cursor_column = self.columns - 1;
+                self.wrap_pending = true;
             } else {
                 self.cursor_column += count;
             }
         }
         self.grapheme_stream.reset();
+        self.last_printed_codepoint = bytes[bytes.len - 1];
         self.last_grapheme_valid = last_survives;
         if (last_survives) {
             self.grapheme_stream.startAscii();
@@ -2194,6 +2494,11 @@ pub const Grid = struct {
     }
 
     fn lineFeed(self: *Grid, wrapped: bool) !void {
+        self.wrap_pending = false;
+        if (self.cursor_row < self.margin_top or self.cursor_row > self.margin_bottom) {
+            if (self.cursor_row + 1 < self.rows) self.cursor_row += 1;
+            return;
+        }
         const current_meta = self.rowMeta(self.cursor_row);
         current_meta.wrap_continues = wrapped;
         const next_meta = if (wrapped) RowMeta{
@@ -2206,7 +2511,6 @@ pub const Grid = struct {
             self.cursor_row += 1;
             self.rowMeta(self.cursor_row).* = next_meta;
         } else {
-            self.materializeRecycledRow(self.margin_top);
             const saved = self.constRowSlice(self.margin_top);
             const saved_meta = self.constRowMeta(self.margin_top);
             if (self.margin_top != 0 or self.margin_bottom != self.rows - 1) {
@@ -2246,43 +2550,9 @@ pub const Grid = struct {
         self.scrollRegionWithMeta(self.freshRowMeta());
     }
 
-    fn clearUsedRow(self: *Grid, logical_row: usize) void {
-        const meta = self.rowMeta(logical_row);
-        meta.recycled_columns = @max(meta.recycled_columns, meta.used_columns);
-        meta.used_columns = 0;
-    }
-
-    fn prepareRecycledRowWrite(
-        self: *Grid,
-        logical_row: usize,
-        first: usize,
-        end: usize,
-    ) void {
-        const meta = self.rowMeta(logical_row);
-        if (meta.recycled_columns == 0) return;
-        const stale_end = @min(self.columns, meta.recycled_columns);
-        const row = self.rowSlice(logical_row);
-        @memset(row[0..@min(first, stale_end)], .{});
-        if (end < stale_end) @memset(row[end..stale_end], .{});
-        meta.recycled_columns = 0;
-    }
-
-    fn materializeRecycledRow(self: *Grid, logical_row: usize) void {
-        const meta = self.rowMeta(logical_row);
-        if (meta.recycled_columns == 0) return;
-        @memset(self.rowSlice(logical_row)[0..@min(self.columns, meta.recycled_columns)], .{});
-        meta.recycled_columns = 0;
-    }
-
-    fn materializeRecycledRows(self: *Grid) void {
-        for (0..self.rows) |row| self.materializeRecycledRow(row);
-    }
-
-    fn replaceRecycledRow(self: *Grid, logical_row: usize, replacement: RowMeta) void {
-        self.clearUsedRow(logical_row);
-        var next = replacement;
-        next.recycled_columns = self.rowMeta(logical_row).recycled_columns;
-        self.rowMeta(logical_row).* = next;
+    fn replaceRow(self: *Grid, logical_row: usize, replacement: RowMeta) void {
+        @memset(self.rowSlice(logical_row), .{});
+        self.rowMeta(logical_row).* = replacement;
     }
 
     fn scrollRegionWithMeta(self: *Grid, replacement_meta: RowMeta) void {
@@ -2291,14 +2561,14 @@ pub const Grid = struct {
         if (self.margin_top == 0 and self.margin_bottom == self.rows - 1) {
             self.screen_origin += 1;
             if (self.screen_origin == self.rows) self.screen_origin = 0;
-            self.replaceRecycledRow(self.rows - 1, replacement_meta);
+            self.replaceRow(self.rows - 1, replacement_meta);
             return;
         }
         for (self.margin_top..self.margin_bottom) |logical_row| {
             @memcpy(self.rowSlice(logical_row), self.constRowSlice(logical_row + 1));
             self.rowMeta(logical_row).* = self.constRowMeta(logical_row + 1);
         }
-        self.replaceRecycledRow(self.margin_bottom, replacement_meta);
+        self.replaceRow(self.margin_bottom, replacement_meta);
     }
 
     fn reverseScrollRegion(self: *Grid) void {
@@ -2309,7 +2579,7 @@ pub const Grid = struct {
                 self.rows - 1
             else
                 self.screen_origin - 1;
-            self.replaceRecycledRow(0, self.freshRowMeta());
+            self.replaceRow(0, self.freshRowMeta());
             return;
         }
         var logical_row = self.margin_bottom;
@@ -2317,40 +2587,82 @@ pub const Grid = struct {
             @memcpy(self.rowSlice(logical_row), self.constRowSlice(logical_row - 1));
             self.rowMeta(logical_row).* = self.constRowMeta(logical_row - 1);
         }
-        self.replaceRecycledRow(self.margin_top, self.freshRowMeta());
+        self.replaceRow(self.margin_top, self.freshRowMeta());
     }
 
-    fn applyCsi(self: *Grid, csi: *const VtParser.Csi) void {
+    fn applyCsi(self: *Grid, csi: *const VtParser.Csi) !void {
+        if (csi.final != 'b') self.last_printed_codepoint = null;
+        if (csi.private_marker != 0) {
+            var switches_alternate_screen = false;
+            if (csi.private_marker == '?' and (csi.final == 'h' or csi.final == 'l')) {
+                for (0..csi.parameter_count) |index| switch (csi.parameter(index).valueOr(0, 0)) {
+                    47, 1047, 1049 => switches_alternate_screen = true,
+                    else => {},
+                };
+            }
+            if (csi.final != 'm' and !switches_alternate_screen)
+                self.wrap_pending = false;
+            const first = @as(usize, csi.valueOr(0, 0));
+            switch (csi.final) {
+                'c' => if (csi.private_marker == '>')
+                    self.appendReply("\x1b[>0;1;0c"),
+                'n' => self.replyDeviceStatus(csi),
+                'p' => if (csi.hasIntermediate('$')) self.replyModeStatus(csi),
+                'h', 'l' => if (csi.private_marker == '?') {
+                    const enabled = csi.final == 'h';
+                    for (0..csi.parameter_count) |index|
+                        self.applyMode(
+                            true,
+                            csi.parameter(index).valueOr(0, 0),
+                            enabled,
+                        );
+                },
+                'J' => if (csi.private_marker == '?') self.eraseDisplay(first),
+                'K' => if (csi.private_marker == '?') self.eraseLine(first),
+                'u' => if (csi.private_marker == '?') {
+                    // NOCTTY emits legacy key sequences, so advertise no Kitty flags.
+                    self.appendReply("\x1b[?0u");
+                },
+                else => {},
+            }
+            return;
+        }
+
+        if (csi.final != 'm' and csi.final != 's' and csi.final != 'u')
+            self.wrap_pending = false;
         const first = @as(usize, csi.valueOr(0, 0));
         const amount = @max(@as(usize, 1), first);
+        const origin_row_min = if (self.origin_mode) self.margin_top else 0;
+        const origin_row_max = if (self.origin_mode) self.margin_bottom else self.rows - 1;
+        const movement_row_min = if (self.cursor_row >= self.margin_top)
+            self.margin_top
+        else
+            0;
+        const movement_row_max = if (self.cursor_row <= self.margin_bottom)
+            self.margin_bottom
+        else
+            self.rows - 1;
         switch (csi.final) {
-            'c' => {
-                if (csi.private_marker == '>')
-                    self.appendReply("\x1b[>0;1;0c")
-                else if (csi.private_marker == 0)
-                    self.appendReply("\x1b[?1;2c");
-            },
+            'c' => self.appendReply("\x1b[?1;2c"),
             'n' => self.replyDeviceStatus(csi),
             'p' => if (csi.hasIntermediate('$')) self.replyModeStatus(csi),
             'H', 'f' => {
-                const row = @as(usize, csi.valueOr(0, 1));
-                const column = @as(usize, csi.valueOr(1, 1));
-                self.cursor_row = @min(self.rows - 1, row -| 1);
-                self.cursor_column = @min(self.columns - 1, column -| 1);
+                const row = @max(@as(usize, 1), csi.valueOr(0, 1));
+                const column = @max(@as(usize, 1), csi.valueOr(1, 1));
+                self.cursor_row = @min(origin_row_max, origin_row_min + row - 1);
+                self.cursor_column = @min(self.columns - 1, column - 1);
             },
-            'm' => {
-                self.applySgrSequence(csi);
-            },
+            'm' => self.applySgrSequence(csi),
             'J' => self.eraseDisplay(first),
             'K' => self.eraseLine(first),
             'G', '`' => self.cursor_column = @min(
                 self.columns - 1,
-                @as(usize, csi.valueOr(0, 1)) -| 1,
+                @max(@as(usize, 1), csi.valueOr(0, 1)) - 1,
             ),
-            'd' => self.cursor_row = @min(
-                self.rows - 1,
-                @as(usize, csi.valueOr(0, 1)) -| 1,
-            ),
+            'd' => {
+                const row = @max(@as(usize, 1), csi.valueOr(0, 1));
+                self.cursor_row = @min(origin_row_max, origin_row_min + row - 1);
+            },
             'g' => {
                 if (first == 0)
                     self.tab_stops[self.cursor_column] = false
@@ -2363,7 +2675,7 @@ pub const Grid = struct {
                 if (top >= 1 and bottom > top and bottom <= self.rows) {
                     self.margin_top = top - 1;
                     self.margin_bottom = bottom - 1;
-                    self.cursor_row = self.margin_top;
+                    self.cursor_row = if (self.origin_mode) self.margin_top else 0;
                     self.cursor_column = 0;
                 }
             },
@@ -2371,14 +2683,14 @@ pub const Grid = struct {
                 const enabled = csi.final == 'h';
                 for (0..csi.parameter_count) |index|
                     self.applyMode(
-                        csi.private_marker == '?',
+                        false,
                         csi.parameter(index).valueOr(0, 0),
                         enabled,
                     );
             },
-            'A' => self.cursor_row -|= amount,
+            'A' => self.cursor_row = @max(movement_row_min, self.cursor_row -| amount),
             'B', 'e' => self.cursor_row = @min(
-                self.rows - 1,
+                movement_row_max,
                 self.cursor_row +| amount,
             ),
             'C', 'a' => self.cursor_column = @min(
@@ -2387,11 +2699,11 @@ pub const Grid = struct {
             ),
             'D' => self.cursor_column -|= amount,
             'E' => {
-                self.cursor_row = @min(self.rows - 1, self.cursor_row +| amount);
+                self.cursor_row = @min(movement_row_max, self.cursor_row +| amount);
                 self.cursor_column = 0;
             },
             'F' => {
-                self.cursor_row -|= amount;
+                self.cursor_row = @max(movement_row_min, self.cursor_row -| amount);
                 self.cursor_column = 0;
             },
             'I' => for (0..amount) |_| self.nextTabStop(),
@@ -2399,17 +2711,45 @@ pub const Grid = struct {
             '@' => self.insertCharacters(amount),
             'P' => self.deleteCharacters(amount),
             'X' => self.eraseCharacters(amount),
-            'L' => self.insertLines(amount),
-            'M' => self.deleteLines(amount),
+            'L' => {
+                if (self.cursor_row >= self.margin_top and
+                    self.cursor_row <= self.margin_bottom)
+                {
+                    self.insertLines(amount);
+                    self.cursor_column = 0;
+                }
+            },
+            'M' => {
+                if (self.cursor_row >= self.margin_top and
+                    self.cursor_row <= self.margin_bottom)
+                {
+                    self.deleteLines(amount);
+                    self.cursor_column = 0;
+                }
+            },
             'S' => for (0..amount) |_| self.scrollRegion(),
             'T' => for (0..amount) |_| self.reverseScrollRegion(),
+            'b' => if (self.last_printed_codepoint) |codepoint| {
+                for (0..amount) |_| try self.putCodepoint(codepoint);
+                self.last_printed_codepoint = null;
+            },
             's' => {
                 self.saved_cursor_column = self.cursor_column;
                 self.saved_cursor_row = self.cursor_row;
+                self.saved_wrap_pending = self.wrap_pending;
+                self.saved_origin_mode = self.origin_mode;
+                self.saved_charset_g0_dec_special = self.charset_g0_dec_special;
+                self.saved_charset_g1_dec_special = self.charset_g1_dec_special;
+                self.saved_charset_use_g1 = self.charset_use_g1;
             },
             'u' => {
                 self.cursor_column = @min(self.saved_cursor_column, self.columns - 1);
                 self.cursor_row = @min(self.saved_cursor_row, self.rows - 1);
+                self.wrap_pending = self.saved_wrap_pending;
+                self.origin_mode = self.saved_origin_mode;
+                self.charset_g0_dec_special = self.saved_charset_g0_dec_special;
+                self.charset_g1_dec_special = self.saved_charset_g1_dec_special;
+                self.charset_use_g1 = self.saved_charset_use_g1;
             },
             else => {},
         }
@@ -2451,6 +2791,7 @@ pub const Grid = struct {
         if (!private) return if (mode == 4) self.insert_mode else null;
         return switch (mode) {
             1 => self.application_cursor_keys,
+            6 => self.origin_mode,
             7 => self.auto_wrap,
             25 => self.cursor_visible,
             47, 1047, 1049 => self.alternate_cells != null,
@@ -2471,6 +2812,11 @@ pub const Grid = struct {
         if (!private) return;
         switch (mode) {
             1 => self.application_cursor_keys = enabled,
+            6 => {
+                self.origin_mode = enabled;
+                self.cursor_row = if (enabled) self.margin_top else 0;
+                self.cursor_column = 0;
+            },
             7 => self.auto_wrap = enabled,
             25 => self.cursor_visible = enabled,
             47, 1047, 1049 => if (enabled) self.enterAlternate() else self.leaveAlternate(),
@@ -2668,7 +3014,9 @@ pub const Grid = struct {
     }
 
     fn eraseDisplay(self: *Grid, mode: usize) void {
-        if (mode == 2) {
+        if (mode == 3) {
+            self.clearHistory();
+        } else if (mode == 2) {
             self.markAllDirty();
             @memset(self.cells, .{});
             for (0..self.rows) |row| self.rowMeta(row).* = self.freshRowMeta();
@@ -2691,6 +3039,24 @@ pub const Grid = struct {
         }
     }
 
+    fn clearHistory(self: *Grid) void {
+        for (0..self.history.items.len) |record_slot|
+            self.discardHistoryRecord(record_slot);
+        self.history.clearRetainingCapacity();
+        self.history_meta.clearRetainingCapacity();
+        self.history_cold.clearRetainingCapacity();
+        self.cold_bytes.clearRetainingCapacity();
+        self.cold_glyphs.clearRetainingCapacity();
+        self.cold_runs.clearRetainingCapacity();
+        self.cold_dead_bytes = 0;
+        self.cold_dead_glyphs = 0;
+        self.cold_dead_runs = 0;
+        self.history_start = 0;
+        self.history_next_hot = 0;
+        self.viewport_offset = 0;
+        self.markAllDirty();
+    }
+
     fn enterAlternate(self: *Grid) void {
         if (self.alternate_cells != null) return;
         const alternate = self.allocator.alloc(Cell, self.cells.len) catch return;
@@ -2706,12 +3072,18 @@ pub const Grid = struct {
         self.cells = alternate;
         self.row_meta = alternate_meta;
         self.screen_origin = 0;
-        self.saved_cursor_column = self.cursor_column;
-        self.saved_cursor_row = self.cursor_row;
+        self.alternate_saved_cursor_column = self.cursor_column;
+        self.alternate_saved_cursor_row = self.cursor_row;
+        self.alternate_saved_wrap_pending = self.wrap_pending;
+        self.alternate_saved_margin_top = self.margin_top;
+        self.alternate_saved_margin_bottom = self.margin_bottom;
+        self.alternate_saved_origin_mode = self.origin_mode;
         self.cursor_column = 0;
         self.cursor_row = 0;
+        self.wrap_pending = false;
         self.margin_top = 0;
         self.margin_bottom = self.rows - 1;
+        self.origin_mode = false;
         self.markAllDirty();
     }
 
@@ -2726,10 +3098,12 @@ pub const Grid = struct {
         self.alternate_cells = null;
         self.alternate_row_meta = null;
         self.alternate_screen_origin = 0;
-        self.cursor_column = self.saved_cursor_column;
-        self.cursor_row = self.saved_cursor_row;
-        self.margin_top = 0;
-        self.margin_bottom = self.rows - 1;
+        self.cursor_column = self.alternate_saved_cursor_column;
+        self.cursor_row = self.alternate_saved_cursor_row;
+        self.wrap_pending = self.alternate_saved_wrap_pending;
+        self.margin_top = self.alternate_saved_margin_top;
+        self.margin_bottom = self.alternate_saved_margin_bottom;
+        self.origin_mode = self.alternate_saved_origin_mode;
         self.markAllDirty();
     }
 };
@@ -3060,6 +3434,59 @@ test "terminal parser is deterministic across malformed corpus chunk boundaries"
 
         try std.testing.expectEqual(direct.cursor_column, chunked.cursor_column);
         try std.testing.expectEqual(direct.cursor_row, chunked.cursor_row);
+        try std.testing.expectEqual(direct.saved_wrap_pending, chunked.saved_wrap_pending);
+        try std.testing.expectEqual(direct.saved_origin_mode, chunked.saved_origin_mode);
+        try std.testing.expectEqual(
+            direct.alternate_saved_cursor_column,
+            chunked.alternate_saved_cursor_column,
+        );
+        try std.testing.expectEqual(
+            direct.alternate_saved_cursor_row,
+            chunked.alternate_saved_cursor_row,
+        );
+        try std.testing.expectEqual(
+            direct.alternate_saved_wrap_pending,
+            chunked.alternate_saved_wrap_pending,
+        );
+        try std.testing.expectEqual(
+            direct.alternate_saved_margin_top,
+            chunked.alternate_saved_margin_top,
+        );
+        try std.testing.expectEqual(
+            direct.alternate_saved_margin_bottom,
+            chunked.alternate_saved_margin_bottom,
+        );
+        try std.testing.expectEqual(
+            direct.alternate_saved_origin_mode,
+            chunked.alternate_saved_origin_mode,
+        );
+        try std.testing.expectEqual(
+            direct.saved_charset_g0_dec_special,
+            chunked.saved_charset_g0_dec_special,
+        );
+        try std.testing.expectEqual(
+            direct.saved_charset_g1_dec_special,
+            chunked.saved_charset_g1_dec_special,
+        );
+        try std.testing.expectEqual(
+            direct.saved_charset_use_g1,
+            chunked.saved_charset_use_g1,
+        );
+        try std.testing.expectEqual(direct.wrap_pending, chunked.wrap_pending);
+        try std.testing.expectEqual(direct.origin_mode, chunked.origin_mode);
+        try std.testing.expectEqual(
+            direct.charset_g0_dec_special,
+            chunked.charset_g0_dec_special,
+        );
+        try std.testing.expectEqual(
+            direct.charset_g1_dec_special,
+            chunked.charset_g1_dec_special,
+        );
+        try std.testing.expectEqual(direct.charset_use_g1, chunked.charset_use_g1);
+        try std.testing.expectEqual(
+            direct.last_printed_codepoint,
+            chunked.last_printed_codepoint,
+        );
         try std.testing.expectEqual(direct.parser.state, chunked.parser.state);
         try std.testing.expectEqual(direct.bracketed_paste, chunked.bracketed_paste);
         try std.testing.expectEqual(direct.synchronized_output, chunked.synchronized_output);
@@ -3117,6 +3544,7 @@ test "terminal grid printable run path matches byte feeding" {
 
     try std.testing.expectEqual(bytewise.cursor_column, fast.cursor_column);
     try std.testing.expectEqual(bytewise.cursor_row, fast.cursor_row);
+    try std.testing.expectEqual(bytewise.wrap_pending, fast.wrap_pending);
     try std.testing.expectEqual(bytewise.screen_origin, fast.screen_origin);
     try std.testing.expectEqual(bytewise.history.items.len, fast.history.items.len);
     try std.testing.expectEqualStrings(bytewise.titleSlice(), fast.titleSlice());
@@ -3303,6 +3731,37 @@ test "terminal grid grows its bounded scrollback slab lazily" {
     }
 }
 
+test "terminal grid cold-packs idle history in bounded steps and regrows on output" {
+    var grid = try Grid.init(std.testing.allocator, 80, 24);
+    defer grid.deinit();
+    for (0..1100) |_| try grid.feed("agent output line\r\n");
+
+    const oldest = grid.lineCell(0, 0);
+    const bytes_before = grid.historyMemoryBytes();
+    var result = try grid.compactIdleHistoryStep(
+        Grid.idle_history_hot_lines,
+        Grid.idle_history_rows_per_step,
+    );
+    try std.testing.expectEqual(Grid.idle_history_rows_per_step, result.rows_coldified);
+    try std.testing.expect(!result.complete);
+
+    var steps: usize = 1;
+    while (!result.complete and steps < 32) : (steps += 1) {
+        result = try grid.compactIdleHistoryStep(
+            Grid.idle_history_hot_lines,
+            Grid.idle_history_rows_per_step,
+        );
+    }
+    try std.testing.expect(result.complete);
+    try std.testing.expect(steps < 32);
+    try std.testing.expect(grid.historyMemoryBytes() < bytes_before / 2);
+    try std.testing.expectEqualDeep(oldest, grid.lineCell(0, 0));
+    try std.testing.expectEqual(Grid.idle_history_hot_lines, grid.history_hot_owners.len);
+
+    for (0..200) |_| try grid.feed("resumed output\r\n");
+    try std.testing.expect(grid.history_hot_owners.len > Grid.idle_history_hot_lines);
+}
+
 test "terminal grid reuses row-stable history and resizes both alternate screens" {
     var grid = try Grid.init(std.testing.allocator, 6, 2);
     defer grid.deinit();
@@ -3339,6 +3798,19 @@ test "terminal grid preserves logical scrollback across column changes" {
     try grid.resize(3, 2);
     try std.testing.expectEqual(@as(usize, 2), grid.history.items.len);
     try std.testing.expectEqual(@as(u21, 'e'), grid.lineCell(0, 2).codepoint);
+}
+
+test "terminal reflow ignores blank rows below the cursor when shrinking" {
+    var grid = try Grid.init(std.testing.allocator, 8, 6);
+    defer grid.deinit();
+    try grid.feed("A\r\nB\r\nC");
+
+    try grid.resize(4, 3);
+
+    try std.testing.expectEqual(@as(usize, 0), grid.history.items.len);
+    try std.testing.expectEqual(@as(u21, 'A'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'B'), grid.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, 'C'), grid.cell(0, 2).codepoint);
 }
 
 test "terminal reflow preserves grapheme anchors across width changes" {
@@ -3577,12 +4049,199 @@ test "terminal grid honors display erase modes" {
     try std.testing.expectEqual(@as(u21, ' '), grid.cell(0, 1).codepoint);
 }
 
+test "terminal grid erases scrollback with ED 3" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+    try grid.feed("one\r\ntwo\r\nthree");
+    try std.testing.expect(grid.history.items.len > 0);
+    grid.scrollViewport(1);
+
+    try grid.feed("\x1b[3J");
+
+    try std.testing.expectEqual(@as(usize, 0), grid.history.items.len);
+    try std.testing.expectEqual(@as(usize, 0), grid.viewport_offset);
+    for (grid.history_hot_owners) |owner|
+        try std.testing.expectEqual(Grid.no_history_owner, owner);
+    try std.testing.expectEqual(@as(u21, 't'), grid.cell(0, 0).codepoint);
+}
+
 test "terminal grid scrolls only inside configured margins" {
     var grid = try Grid.init(std.testing.allocator, 4, 4);
     defer grid.deinit();
     try grid.feed("top\nkeep\nold\nbase\x1b[2;3r\x1b[3;1H\nnew");
     try std.testing.expectEqual(@as(usize, 1), grid.margin_top);
     try std.testing.expectEqual(@as(usize, 2), grid.margin_bottom);
+}
+
+test "terminal grid keeps line feed and reverse index outside scroll margins" {
+    var line_feed = try Grid.init(std.testing.allocator, 4, 4);
+    defer line_feed.deinit();
+    try line_feed.feed("1111\r\n2222\r\n3333\r\n4444\x1b[2;3r\x1b[4;1H\nZZ");
+    try std.testing.expectEqual(@as(u21, '2'), line_feed.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, '3'), line_feed.cell(0, 2).codepoint);
+    try std.testing.expectEqual(@as(u21, 'Z'), line_feed.cell(0, 3).codepoint);
+
+    var reverse_index = try Grid.init(std.testing.allocator, 4, 4);
+    defer reverse_index.deinit();
+    try reverse_index.feed(
+        "1111\r\n2222\r\n3333\r\n4444\x1b[2;3r\x1b[1;1H\x1bMZZ",
+    );
+    try std.testing.expectEqual(@as(u21, '2'), reverse_index.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, '3'), reverse_index.cell(0, 2).codepoint);
+}
+
+test "terminal grid clamps vertical movement at scroll margins" {
+    var grid = try Grid.init(std.testing.allocator, 4, 4);
+    defer grid.deinit();
+    try grid.feed("\x1b[2;3r\x1b[1;1H\x1b[4B");
+    try std.testing.expectEqual(@as(usize, 2), grid.cursor_row);
+    try grid.feed("\x1b[4;1H\x1b[4A");
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_row);
+    try grid.feed("\x1b[4;1H\x1b[2B");
+    try std.testing.expectEqual(@as(usize, 3), grid.cursor_row);
+    try grid.feed("\x1b[1;1H\x1b[2A");
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
+}
+
+test "terminal grid clears rows vacated by explicit scrolling" {
+    var upward = try Grid.init(std.testing.allocator, 4, 4);
+    defer upward.deinit();
+    try upward.feed("1111\r\n2222\r\n3333\r\n4444\x1b[2;3r\x1b[1S");
+    try std.testing.expectEqual(@as(u21, '3'), upward.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, ' '), upward.cell(0, 2).codepoint);
+
+    var downward = try Grid.init(std.testing.allocator, 4, 4);
+    defer downward.deinit();
+    try downward.feed("1111\r\n2222\r\n3333\r\n4444\x1b[2;3r\x1b[1T");
+    try std.testing.expectEqual(@as(u21, ' '), downward.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, '2'), downward.cell(0, 2).codepoint);
+}
+
+test "terminal grid honors origin mode and validates scroll margins" {
+    var grid = try Grid.init(std.testing.allocator, 4, 4);
+    defer grid.deinit();
+    try grid.feed("1111\r\n2222\r\n3333\r\n4444\x1b[2;3r\x1b[?6h\x1b[1;1HO");
+    try std.testing.expect(grid.origin_mode);
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_row);
+    try std.testing.expectEqual(@as(u21, 'O'), grid.cell(0, 1).codepoint);
+
+    try grid.feed("\x1b[?6l\x1b[0;0r");
+    try std.testing.expect(!grid.origin_mode);
+    try std.testing.expectEqual(@as(usize, 1), grid.margin_top);
+    try std.testing.expectEqual(@as(usize, 2), grid.margin_bottom);
+
+    try grid.feed("\x1b[r");
+    try std.testing.expectEqual(@as(usize, 0), grid.margin_top);
+    try std.testing.expectEqual(@as(usize, 3), grid.margin_bottom);
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
+
+    var restored_outside = try Grid.init(std.testing.allocator, 4, 4);
+    defer restored_outside.deinit();
+    try restored_outside.feed("\x1b[2;3r\x1b[?6h\x1b[u\x1b[2A");
+    try std.testing.expect(!restored_outside.origin_mode);
+    try std.testing.expectEqual(@as(usize, 0), restored_outside.cursor_row);
+
+    try restored_outside.feed("\x1b[?6h\x1b[s\x1b[?6l\x1b[u\x1b[1;1HX");
+    try std.testing.expect(restored_outside.origin_mode);
+    try std.testing.expectEqual(@as(u21, 'X'), restored_outside.cell(0, 1).codepoint);
+}
+
+test "terminal grid repeats the preceding graphic character" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+    try grid.feed("X\x1b[5b");
+    for (0..6) |column|
+        try std.testing.expectEqual(@as(u21, 'X'), grid.cell(column, 0).codepoint);
+    try std.testing.expectEqual(@as(usize, 6), grid.cursor_column);
+
+    try grid.feed("\x1b[2;1HX\x1b[31m\x1b[2b");
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, ' '), grid.cell(1, 1).codepoint);
+
+    try grid.feed("\x1b[2;3HX\x1b[2b\x1b[3b");
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(2, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(4, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, ' '), grid.cell(5, 1).codepoint);
+}
+
+test "terminal grid translates DEC special graphics charsets" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+    try grid.feed("\x1b(0lqqk\x1b(B");
+    try std.testing.expectEqual(@as(u21, 0x250c), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2500), grid.cell(1, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 0x2510), grid.cell(3, 0).codepoint);
+}
+
+test "terminal alternate screen has independent saved cursor state" {
+    var grid = try Grid.init(std.testing.allocator, 8, 4);
+    defer grid.deinit();
+    try grid.feed("abcd\n1234\x1b[?1049h\x1b[2;3H\x1b7\x1b[1;1H\x1b8\x1b[?1049lX");
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(0, 2).codepoint);
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_column);
+    try std.testing.expectEqual(@as(usize, 2), grid.cursor_row);
+}
+
+test "terminal alternate screen restores primary scroll margins" {
+    var grid = try Grid.init(std.testing.allocator, 8, 4);
+    defer grid.deinit();
+    try grid.feed(
+        "\x1b[1;1HA\x1b[2;1HB\x1b[3;1HC\x1b[4;1HD" ++
+            "\x1b[2;3r\x1b[?1049h\x1b[?1049l\x1b[2;1H\x1bM",
+    );
+    try std.testing.expectEqual(@as(u21, 'A'), grid.cell(0, 0).codepoint);
+    try std.testing.expect(grid.cell(0, 1).codepoint == 0 or
+        grid.cell(0, 1).codepoint == ' ');
+    try std.testing.expectEqual(@as(u21, 'B'), grid.cell(0, 2).codepoint);
+    try std.testing.expectEqual(@as(u21, 'D'), grid.cell(0, 3).codepoint);
+    try std.testing.expectEqual(@as(usize, 1), grid.margin_top);
+    try std.testing.expectEqual(@as(usize, 2), grid.margin_bottom);
+}
+
+test "terminal alternate screen restores primary origin mode" {
+    var grid = try Grid.init(std.testing.allocator, 8, 4);
+    defer grid.deinit();
+    try grid.feed(
+        "\x1b[2;3r\x1b[?6h\x1b[?1049h\x1b[?6l\x1b[?1049l\x1b[1;1HX",
+    );
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(0, 1).codepoint);
+    try std.testing.expect(grid.origin_mode);
+}
+
+test "terminal cursor saves preserve DEC character sets" {
+    var designation = try Grid.init(std.testing.allocator, 8, 2);
+    defer designation.deinit();
+    try designation.feed("12345678\x1b(BX");
+    try std.testing.expectEqual(@as(u21, 'X'), designation.cell(0, 1).codepoint);
+
+    var dec_save = try Grid.init(std.testing.allocator, 8, 2);
+    defer dec_save.deinit();
+    try dec_save.feed("\x1b(0\x1b7\x1b(B\x1b8q");
+    try std.testing.expectEqual(@as(u21, 0x2500), dec_save.cell(0, 0).codepoint);
+
+    var csi_save = try Grid.init(std.testing.allocator, 8, 2);
+    defer csi_save.deinit();
+    try csi_save.feed("\x1b)0\x0e\x1b[s\x0f\x1b[uq");
+    try std.testing.expectEqual(@as(u21, 0x2500), csi_save.cell(0, 0).codepoint);
+
+    var dec_wrap = try Grid.init(std.testing.allocator, 8, 2);
+    defer dec_wrap.deinit();
+    try dec_wrap.feed("12345678\x1b7\rA\x1b8X");
+    try std.testing.expectEqual(@as(u21, 'X'), dec_wrap.cell(0, 1).codepoint);
+
+    var csi_wrap = try Grid.init(std.testing.allocator, 8, 2);
+    defer csi_wrap.deinit();
+    try csi_wrap.feed("12345678\x1b[s\rA\x1b[uX");
+    try std.testing.expectEqual(@as(u21, 'X'), csi_wrap.cell(0, 1).codepoint);
+}
+
+test "terminal grid ignores private CSI collisions it does not implement" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+    try grid.feed("\x1b[>4;2mX");
+    const cell = grid.cell(0, 0);
+    try std.testing.expect(!cell.flags.dim);
+    try std.testing.expect(!cell.flags.underline);
 }
 
 test "terminal grid preserves the primary screen across alternate screen mode" {
@@ -3651,6 +4310,42 @@ test "terminal grid answers common XTGETTCAP without allocation" {
     );
 }
 
+test "terminal grid recognizes standard bounded notification sequences" {
+    var grid = try Grid.init(std.testing.allocator, 20, 4);
+    defer grid.deinit();
+
+    try grid.feed("\x1b]9;agent needs input\x1b\\");
+    try grid.feed("\x1b]99;i=agent:d=0;task finished\x1b\\");
+    try grid.feed("\x1b]777;notify;Build;complete\x1b\\");
+    try std.testing.expectEqual(@as(u64, 3), grid.notification_serial);
+
+    try grid.feed("\x1b]9;4;1;50\x1b\\");
+    try grid.feed("\x1b]99;i=query:p=?;\x1b\\");
+    try grid.feed("\x1b]777;progress;50\x1b\\");
+    try std.testing.expectEqual(@as(u64, 3), grid.notification_serial);
+}
+
+fn notificationAction(value: []const u8) NotificationAction {
+    if (std.mem.indexOf(u8, value, "a=focus-pane") != null or
+        std.mem.indexOf(u8, value, "action=focus-pane") != null)
+        return .focus_pane;
+    if (std.mem.indexOf(u8, value, "a=open-project") != null or
+        std.mem.indexOf(u8, value, "action=open-project") != null)
+        return .open_project;
+    return .none;
+}
+
+test "terminal grid maps only bounded safe notification actions" {
+    var grid = try Grid.init(std.testing.allocator, 20, 4);
+    defer grid.deinit();
+    try grid.feed("\x1b]99;i=agent;a=focus-pane\x1b\\");
+    try std.testing.expectEqual(NotificationAction.focus_pane, grid.notification_action);
+    try grid.feed("\x1b]777;notify;a=open-project\x1b\\");
+    try std.testing.expectEqual(NotificationAction.open_project, grid.notification_action);
+    try grid.feed("\x1b]99;i=agent;a=run-command\x1b\\");
+    try std.testing.expectEqual(NotificationAction.none, grid.notification_action);
+}
+
 test "terminal grid stores bounded OSC 8 hyperlinks outside cells" {
     var grid = try Grid.init(std.testing.allocator, 16, 2);
     defer grid.deinit();
@@ -3675,6 +4370,20 @@ test "terminal grid drops whole replies when its fixed queue is full" {
     for (0..600) |_| try grid.feed("\x1b[c");
     try std.testing.expect(grid.pendingReplies().len <= grid.reply_buffer.len);
     try std.testing.expect(grid.reply_overflows > 0);
+}
+
+test "terminal grid does not mistake Kitty keyboard negotiation for cursor restore" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+    try grid.feed("\x1b[2;4H\x1b[s\x1b[1;1H\x1b[>7u\x1b[?u\x1b[<u");
+
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_column);
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
+    try std.testing.expectEqualStrings("\x1b[?0u", grid.pendingReplies());
+
+    try grid.feed("\x1b[u");
+    try std.testing.expectEqual(@as(usize, 3), grid.cursor_column);
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_row);
 }
 
 test "terminal grid tracks application cursor key mode" {
@@ -3710,12 +4419,36 @@ test "terminal grid counts synchronized output begin transitions" {
     try std.testing.expectEqual(@as(u64, 2), grid.synchronized_output_begins);
 }
 
+test "terminal grid delays autowrap until the next printable cell" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+
+    try grid.feed("ABCDEFGH\x1b[0m\x1b]8;;\x07\r\r\nNEXT");
+
+    try std.testing.expectEqual(@as(usize, 0), grid.history.items.len);
+    try std.testing.expectEqual(@as(u21, 'A'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'H'), grid.cell(7, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'N'), grid.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(usize, 4), grid.cursor_column);
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_row);
+    try std.testing.expect(!grid.wrap_pending);
+
+    try grid.feed("1234");
+    try std.testing.expect(grid.wrap_pending);
+    try std.testing.expectEqual(@as(usize, 7), grid.cursor_column);
+    try grid.feed("X");
+    try std.testing.expectEqual(@as(u21, 'X'), grid.cell(0, 2).codepoint);
+    try std.testing.expectEqual(@as(usize, 1), grid.cursor_column);
+    try std.testing.expectEqual(@as(usize, 2), grid.cursor_row);
+}
+
 test "terminal grid honors DEC autowrap mode" {
     var grid = try Grid.init(std.testing.allocator, 3, 2);
     defer grid.deinit();
     try grid.feed("\x1b[?7lABCX");
     try std.testing.expectEqual(@as(u21, 'X'), grid.cell(2, 0).codepoint);
     try std.testing.expectEqual(@as(usize, 2), grid.cursor_column);
+    try std.testing.expect(!grid.wrap_pending);
 }
 
 test "terminal grid honors configurable tab stops" {
@@ -3725,6 +4458,18 @@ test "terminal grid honors configurable tab stops" {
     try std.testing.expectEqual(@as(usize, 4), grid.cursor_column);
     try grid.feed("\x1b[5G\x1b[0g\x1b[1G\t");
     try std.testing.expectEqual(@as(usize, 8), grid.cursor_column);
+}
+
+test "terminal line insertion and deletion reset the cursor column" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+    try grid.feed("\x1b[2;5H\x1b[1L");
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_column);
+    try grid.feed("\x1b[2;5H\x1b[1M");
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_column);
+
+    try grid.feed("\x1b[2;3r\x1b[1;5H\x1b[1L\x1b[1M");
+    try std.testing.expectEqual(@as(usize, 4), grid.cursor_column);
 }
 
 test "terminal grid supports insert delete and erase character operations" {

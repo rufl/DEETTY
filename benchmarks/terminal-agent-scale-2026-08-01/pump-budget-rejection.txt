@@ -1,0 +1,4 @@
+pump_budget_experiment date=2026-08-01 variants_bytes=2097152,1048576,524288,262144,131072
+seven_pair_confirmation_2m_vs_1m panes=8 throughput_mib_s=112.231,103.427 visual_ms=157.137,165.993
+seven_pair_confirmation_2m_vs_1m panes=32 throughput_mib_s=128.074,120.125 visual_ms=453.888,474.923
+decision=retain_2m_budget smaller_budgets_rejected_due_established_and_32_pane_median_regression

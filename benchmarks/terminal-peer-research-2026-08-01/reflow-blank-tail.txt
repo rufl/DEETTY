@@ -1,0 +1,6 @@
+question=What happens when a mostly blank 8x6 primary screen is resized to 4x3 after printing A, B, and C?
+source_inspiration=wezterm term/src/screen.rs pre-prunes blank rows below the cursor before width rewrap
+before=history_rows=3 visible_rows="blank,blank,blank" retained_text="A,B,C in history"
+after=history_rows=0 visible_rows="A,B,C"
+check=Vt.test.terminal reflow ignores blank rows below the cursor when shrinking
+conclusion=blank rows below the cursor no longer displace real content or create fake scrollback during width-changing shrink

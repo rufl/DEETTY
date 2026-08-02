@@ -18,17 +18,43 @@ done
 
 awk -F, '
     NR == 1 { next }
-    NF != 27 || $1 == "" || $3 == "" || $4 !~ /^(1|2|4|8)$/ ||
-        $6 !~ /^[0-9]+$/ || $7 !~ /^[0-9]+$/ || $12 !~ /^[1-9][0-9]*$/ ||
-        $21 !~ /^[1-9][0-9]*$/ || $22 !~ /^[1-9][0-9]*$/ ||
-        $23 !~ /^[1-9][0-9]*$/ || $24 !~ /^[1-9][0-9]*$/ ||
-        ($3 == "output" && ($25 !~ /^[0-9]+([.][0-9]+)?$/ || $26 !~ /^[0-9]+$/ ||
-            $27 !~ /^[0-9]+([.][0-9]+)?$/)) { bad++ }
+    {
+        common_bad = $1 == "" || $3 == "" || $4 !~ /^(1|2|4|8|16|32)$/ ||
+            $6 !~ /^[0-9]+$/ || $7 !~ /^[0-9]+$/ || $8 !~ /^[0-9]+$/
+        if (NF == 26) {
+            if (common_bad || $12 !~ /^[1-9][0-9]*$/ ||
+                $21 !~ /^[1-9][0-9]*$/ || $22 !~ /^[1-9][0-9]*$/ ||
+                $23 !~ /^[1-9][0-9]*$/ || $24 !~ /^[1-9][0-9]*$/ ||
+                ($3 == "output" && ($25 !~ /^[0-9]+([.][0-9]+)?$/ ||
+                    $26 !~ /^[0-9]+$/))) bad++
+        } else if (NF == 27) {
+            if (common_bad || $12 !~ /^[1-9][0-9]*$/ ||
+                $21 !~ /^[1-9][0-9]*$/ || $22 !~ /^[1-9][0-9]*$/ ||
+                $23 !~ /^[1-9][0-9]*$/ || $24 !~ /^[1-9][0-9]*$/ ||
+                ($3 == "output" && ($25 !~ /^[0-9]+([.][0-9]+)?$/ ||
+                    $26 !~ /^[0-9]+$/ || $27 !~ /^[0-9]+([.][0-9]+)?$/))) bad++
+        } else if (NF == 28) {
+            if (common_bad || $9 !~ /^[0-9]+$/ || $13 !~ /^[1-9][0-9]*$/ ||
+                $22 !~ /^[1-9][0-9]*$/ || $23 !~ /^[1-9][0-9]*$/ ||
+                $24 !~ /^[1-9][0-9]*$/ || $25 !~ /^[1-9][0-9]*$/ ||
+                ($3 == "output" && ($26 !~ /^[0-9]+([.][0-9]+)?$/ ||
+                    $27 !~ /^[0-9]+$/ || $28 !~ /^[0-9]+([.][0-9]+)?$/))) bad++
+        } else bad++
+    }
     END { exit bad != 0 }
 ' "$raw"
-awk -F, 'NR > 1 { seen[$13]++ } END { for (serial in seen) if (seen[serial] != 1) exit 1 }' "$raw"
+awk -F, '
+    NR == 1 { for (column = 1; column <= NF; column++) if ($column == "run_serial") serial_column = column; next }
+    { seen[$serial_column]++ }
+    END { if (!serial_column) exit 1; for (serial in seen) if (seen[serial] != 1) exit 1 }
+' "$raw"
 awk -F '\t' 'NR > 1 { seen[$1]++ } END { if (length(seen) == 0) exit 1 }' "$processes"
-grep -F 'metric_output=writer_completion metric_visual=release_to_external_pixel_marker metric_visual_tail=writer_completion_to_external_pixel_marker' "$metadata" >/dev/null
+raw_fields=$(awk -F, 'NR == 1 { print NF; exit }' "$raw")
+if (( raw_fields >= 27 )); then
+    grep -F 'metric_output=writer_completion metric_visual=release_to_external_pixel_marker metric_visual_tail=writer_completion_to_external_pixel_marker' "$metadata" >/dev/null
+else
+    grep -F 'metric_output=writer_completion metric_visual=release_to_external_pixel_marker' "$metadata" >/dev/null
+fi
 grep -F 'git_commit=' "$metadata" >/dev/null
 
 echo "terminal_benchmark_audit ok=true checksums=$file raw_rows=$(($(wc -l <"$raw") - 1))"

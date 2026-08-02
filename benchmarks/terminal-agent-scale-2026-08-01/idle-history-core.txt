@@ -1,0 +1,2 @@
+terminal_idle_history_qualification columns=120 rows=40 history=1000 before_bytes=1759008 after_bytes=335580 saved_bytes=1423428 steps=14 rows_per_step=64 content_preserved=true resumed_output_regrows=true passed=true
+idle_history_bench sessions=30 columns=120 rows=40 history=1000 before_bytes=52770240 after_bytes=10067400 saved_bytes=42702840 compact_ms=9.266 max_step_ms=0.191 steps=420 resume_6000_lines_ms=14.701

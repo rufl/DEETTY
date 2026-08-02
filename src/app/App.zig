@@ -125,6 +125,8 @@ pub const App = struct {
         set_panel_metrics: Config.PanelMetrics,
         set_pane_profile_preset: PaneProfilePreset,
         set_pane_font_size: PaneFontSize,
+        set_agent_resume: AgentResumeChange,
+        clear_agent_resume: Terminal.PaneId,
         preview_theme_import: ThemeImport,
         install_theme_import: ThemeImport,
         select_theme: []const u8,
@@ -272,6 +274,11 @@ pub const App = struct {
     pub const PaneFontSize = struct {
         pane_id: Terminal.PaneId,
         size_pt: f32,
+    };
+
+    pub const AgentResumeChange = struct {
+        pane_id: Terminal.PaneId,
+        reference: @import("../terminal/Continuity.zig").AgentResume,
     };
 
     pub const ProfilePresetMenuTarget = struct {
@@ -1199,6 +1206,18 @@ pub const App = struct {
                 const profile_change = try self.workspace.setPaneFontSize(change.pane_id, change.size_pt, self.config.font);
                 self.markWorkspaceDirtyAt(0);
                 return .{ .profile_changed = profile_change };
+            },
+            .set_agent_resume => |change| {
+                const pane = self.workspace.findPane(change.pane_id) orelse return error.PaneNotFound;
+                try pane.setAgentResume(change.reference);
+                self.markWorkspaceDirtyAt(0);
+                return .none;
+            },
+            .clear_agent_resume => |pane_id| {
+                const pane = self.workspace.findPane(pane_id) orelse return error.PaneNotFound;
+                pane.clearAgentResume();
+                self.markWorkspaceDirtyAt(0);
+                return .none;
             },
             .preview_theme_import => |request| {
                 const theme = try self.previewThemeImport(request);

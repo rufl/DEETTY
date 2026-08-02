@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-07-31.
+Last refreshed: 2026-08-01.
 
 ## Source Of Truth Policy
 
@@ -39,7 +39,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 
 ### NCT-119 Terminal presentation latency and draw allocation — partial
 
-- [ ] [status:yellow] Retain compositor and key-to-frame distributions. `[truth:measurement]`
+- [ ] [status:yellow] Retain compositor/key-to-frame distributions and a one-flooding-pane/29-marker-pane fairness distribution before changing the 2 MiB pump ceiling or GLib scheduling model. `[truth:measurement]`
 
 ### NCT-121 NoctEd shared worktree index and external-change engine — partial
 

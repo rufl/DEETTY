@@ -1,6 +1,7 @@
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const Terminal = @import("../terminal/Terminal.zig");
+const Continuity = @import("../terminal/Continuity.zig");
 
 pub const SplitDirection = enum {
     left,
@@ -1034,6 +1035,7 @@ pub const PaneSnapshot = struct {
     status: Terminal.TerminalStatus,
     selected: bool,
     tags: []const []u8,
+    agent_resume: Continuity.AgentResume = .{},
 
     pub fn deinit(self: *PaneSnapshot, allocator: std.mem.Allocator) void {
         allocator.free(self.title);
@@ -1173,7 +1175,7 @@ pub const WorkspaceExport = struct {
 };
 
 const workspace_export_magic = "NOCTTYWS";
-const workspace_export_version: u8 = 6;
+const workspace_export_version: u8 = 7;
 
 pub fn exportSnapshotAlloc(allocator: std.mem.Allocator, snapshot: ProjectSnapshot) ![]u8 {
     var writer = SnapshotWriter.init(allocator);
@@ -1198,6 +1200,11 @@ pub fn exportSnapshotAlloc(allocator: std.mem.Allocator, snapshot: ProjectSnapsh
     for (snapshot.tabs) |tab| try writer.writeOptionalTabAccent(tab.accent);
     try writer.writeBool(snapshot.smart_filter_tag != null);
     if (snapshot.smart_filter_tag) |tag| try writer.writeString(tag);
+    var resume_count: usize = 0;
+    for (snapshot.tabs) |tab| resume_count += tab.panes.len;
+    try writer.writeU64(resume_count);
+    for (snapshot.tabs) |tab| for (tab.panes) |pane|
+        try writer.writeAgentResume(pane.agent_resume);
 
     return writer.bytes.toOwnedSlice();
 }
@@ -1253,6 +1260,17 @@ pub fn importSnapshotAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Pro
     else
         null;
     errdefer if (smart_filter_tag) |tag| allocator.free(tag);
+    if (version >= 7) {
+        var resume_count: usize = 0;
+        for (tabs) |tab| resume_count += tab.panes.len;
+        if (try reader.readU64AsUsize() != resume_count)
+            return error.InvalidWorkspaceSnapshot;
+        for (tabs) |*tab| {
+            for (tab.panes) |*pane| {
+                pane.agent_resume = try reader.readAgentResume();
+            }
+        }
+    }
     if (!reader.finished()) return error.TrailingWorkspaceSnapshotData;
 
     return .{
@@ -1303,6 +1321,13 @@ const SnapshotWriter = struct {
         try self.writeBool(pane.selected);
         try self.writeU64(pane.tags.len);
         for (pane.tags) |tag| try self.writeString(tag);
+    }
+
+    fn writeAgentResume(self: *SnapshotWriter, reference: Continuity.AgentResume) !void {
+        try self.writeBool(reference.enabled);
+        try self.writeU8(@intFromEnum(reference.provider));
+        try self.writeString(reference.session_id.slice());
+        try self.writeString(reference.label.slice());
     }
 
     fn writeProjectPanels(self: *SnapshotWriter, panels: ProjectPanelState) !void {
@@ -1550,7 +1575,22 @@ const SnapshotReader = struct {
             .status = status,
             .selected = selected,
             .tags = tags,
+            .agent_resume = .{},
         };
+    }
+
+    fn readAgentResume(self: *SnapshotReader) !Continuity.AgentResume {
+        const enabled = try self.readBool();
+        const provider = try Continuity.providerFromInt(try self.readU8());
+        var reference = Continuity.AgentResume{ .enabled = enabled, .provider = provider };
+        const session_id = try self.readStringAlloc();
+        defer self.allocator.free(session_id);
+        const label = try self.readStringAlloc();
+        defer self.allocator.free(label);
+        reference.session_id.set(session_id) catch return error.InvalidWorkspaceSnapshot;
+        reference.label.set(label) catch return error.InvalidWorkspaceSnapshot;
+        reference.validate() catch return error.InvalidWorkspaceSnapshot;
+        return reference;
     }
 
     fn readOptionalTabAccent(self: *SnapshotReader) !?TabAccent {
@@ -2593,6 +2633,7 @@ pub const Workspace = struct {
             .status = pane.status,
             .selected = pane.selected,
             .tags = tags,
+            .agent_resume = pane.agent_resume,
         };
     }
 
@@ -2678,6 +2719,7 @@ pub const Workspace = struct {
         _ = try pane.setProfile(snapshot.profile);
         pane.status = snapshot.status;
         pane.selected = snapshot.selected;
+        try pane.setAgentResume(snapshot.agent_resume);
         for (snapshot.tags) |tag| try pane.addTag(tag);
         return pane;
     }
@@ -3641,6 +3683,10 @@ test "workspace snapshot export imports equivalent owned snapshot" {
         .ligatures = false,
     });
     ws.findPane(2).?.status = .long_running;
+    var resume_reference = Continuity.AgentResume{ .enabled = true, .provider = .codex };
+    try resume_reference.session_id.set("codex-session-42");
+    try resume_reference.label.set("Review agent");
+    try ws.findPane(2).?.setAgentResume(resume_reference);
     _ = try ws.renameTab(1, "Build logs");
     _ = try ws.setTabAccent(1, .orange);
     _ = try ws.adjustTabAccent(1, 1);
@@ -3679,6 +3725,10 @@ test "workspace snapshot export imports equivalent owned snapshot" {
     try std.testing.expectEqualStrings("/repo/worktree", imported.tabs[0].panes[1].worktree_root.?);
     try std.testing.expectEqualStrings("workspace-dark", imported.tabs[0].panes[1].profile.theme_name);
     try std.testing.expectEqualStrings("agent", imported.tabs[0].panes[1].tags[0]);
+    try std.testing.expect(imported.tabs[0].panes[1].agent_resume.enabled);
+    try std.testing.expectEqual(Continuity.Provider.codex, imported.tabs[0].panes[1].agent_resume.provider);
+    try std.testing.expectEqualStrings("codex-session-42", imported.tabs[0].panes[1].agent_resume.session_id.slice());
+    try std.testing.expectEqualStrings("Review agent", imported.tabs[0].panes[1].agent_resume.label.slice());
     try std.testing.expect(imported.tabs[0].panes[1].profile.theme_name.ptr != snapshot.tabs[0].panes[1].profile.theme_name.ptr);
     try std.testing.expectEqual(GitFileState.renamed, imported.project_panels.git_status[0].state);
     try std.testing.expectEqualStrings("panel-state", imported.project_panels.git_graph[0].branch.?);
@@ -3696,8 +3746,11 @@ test "workspace snapshot import rejects malformed or trailing data" {
     const bytes = try exportSnapshotAlloc(allocator, snapshot);
     defer allocator.free(bytes);
 
+    var snapshot_pane_count: usize = 0;
+    for (snapshot.tabs) |tab| snapshot_pane_count += tab.panes.len;
     const post_v1_payload_len = 6 * @sizeOf(u64) +
-        (2 * snapshot.tabs.len) + 1;
+        (2 * snapshot.tabs.len) + 1 +
+        @sizeOf(u64) + snapshot_pane_count * (1 + 1 + 2 * @sizeOf(u64));
     const v1_bytes = try allocator.alloc(u8, bytes.len - post_v1_payload_len);
     defer allocator.free(v1_bytes);
     @memcpy(v1_bytes, bytes[0..v1_bytes.len]);

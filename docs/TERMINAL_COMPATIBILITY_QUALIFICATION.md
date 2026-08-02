@@ -34,7 +34,24 @@ terminal_compatibility mode=ReleaseSafe protocol_cases=23 schedules=6 protocol_r
 terminal_compatibility_matrix debug=true release_safe=true protocol_cases=23 schedules=6 malformed_cases=128 unicode_mutations=256 grapheme_cases=766 allocator_leak_free=true scratch_clean=true protocol_fixture_sha256=65d5f28ec0f2e96bd4625a0d606a0b2a156f7a5f26cafc35edc1d015fc67068f grapheme_fixture_sha256=e2d134d2c52919bace503ebb6a551c1855fe1a1faec18478c78fff254a1793ec
 ```
 
-The lane runs from `scripts/verify.sh` and deletes its build prefixes, Zig caches, binaries, and captured output through its scoped temporary-directory trap.
+The lane runs from `scripts/verify.sh` and deletes its build prefixes, Zig caches, binaries, and captured output through its scoped temporary-directory trap. The optional installed Codex/Vim/btop matrix uses `TMPDIR` and runs Debug then `ReleaseSafe` sequentially so simultaneous Codex SQLite pools cannot manufacture a terminal failure.
+
+## Coding CLI Audit (2026-08-02)
+
+A follow-up audit captured the raw PTY output of locally installed Pi 0.83.0 and Codex CLI 0.144.6 across startup, typed editing, width-changing resize, and controlled exit. Pi exercised synchronized output, full-width padded rows, truecolor SGR, OSC 0/8, Kitty keyboard queries, xterm modify-key requests, cursor movement, erase, and bracketed paste. Codex additionally exercised DSR, focus reporting, OSC 10/11 color queries, and cursor-style requests.
+
+The shared VT fixes were deliberately generic:
+
+- delayed right-margin autowrap prevents full-width rows followed by CR/LF from advancing twice;
+- private CSI dispatch no longer lets Kitty/xterm negotiation collide with cursor restore or SGR;
+- line feed, reverse index, insert/delete line, relative movement, DEC origin mode, and scroll margins now match VTE behavior inside and outside partial regions;
+- `CSI b` repeats only the immediately preceding graphic character;
+- DEC special graphics and G0/G1 save/restore render legacy box drawing instead of literal `lqkx` text;
+- vacated scroll rows are physically cleared, deleting the lazy recycled-row state that could expose stale cells through the packed renderer;
+- alternate-screen cursor saves cannot overwrite primary cursor, delayed-wrap, origin, or scroll-margin state; and
+- ED 3 clears retained scrollback.
+
+An ephemeral VTE 0.84.1 differential compared 32 curated operation streams: 31 matched exactly and one differed only in the equivalent delayed-wrap cursor representation. A second deterministic 50-stream, 4,000-operation corpus without tab characters produced 48 exact matches and two equivalent delayed-wrap cursor representations (VTE reports column 20 while NOCTTY stores column 19 plus `wrap_pending`); material mismatches were zero. Tabs were excluded from that text comparison because VTE's extraction API serializes tab gaps as control bytes rather than visible cells. A direct production PTY/grid Pi run retained typed editing, a legacy left-arrow edit, 100×30 to 88×26 resize, zero history, cursor row 9, and no duplicate rows. One-sample ReleaseFast guards retained 111.649 MiB/s at eight output panes and 134.808 MiB/s at 32 panes after stale-row recycling was removed.
 
 ## Proof Boundary
 

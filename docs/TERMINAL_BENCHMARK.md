@@ -32,12 +32,26 @@ different hosts, versions, or protocol revisions are not a single ranking.
 ## Current status
 
 The harness compares fresh 1/2/4/8-pane terminal process trees with rotated
-order and seven recorded trials by default. Alacritty is one-pane only;
-Yakuake uses a harness-owned isolated instance and is stopped before and after
-the run. Startup, PSS, idle CPU, and writer completion remain separate metrics.
+order and seven recorded trials by default. Power-of-two 16/32-pane runs are
+available through `NOCTTY_BENCH_PANES` and `NOCTTY_BENCH_OUTPUT_PANES` for
+agent-scale work; they are not part of the default peer matrix.
+`NOCTTY_BENCH_SKIP_BUILD=1` plus `NOCTTY_BENCH_NOCTTY_BIN=/path/to/noctty`
+selects an exact detached-worktree binary for A/B evidence.
+`NOCTTY_BENCH_POST_OUTPUT_SETTLE_MS` delays the resource sample after the final
+pixel for idle-release measurements; the default is 250 ms.
+`NOCTTY_BENCH_EXPECT_IDLE_COMPACTION=1` makes NOCTTY benchmark mode fail unless
+a native session reports completed idle-history compaction. Alacritty is
+one-pane only; Yakuake uses a harness-owned isolated instance and is stopped
+before and after the run. Startup, PSS, RSS, USS, idle CPU, writer completion,
+and final-pixel timing remain separate metrics. USS sums private clean, dirty,
+and private huge pages from `/proc/<pid>/smaps_rollup`.
 
 Receipt: `split_terminal_benchmark=true yakuake_exclusive=true
-process_tree_pss=true pty_pump_bounded_drain=true`.
+process_tree_pss=true process_tree_uss=true pty_pump_bounded_drain=true`.
+
+The accepted 32-session memory experiment and rejected buffer/history/renderer
+variants are recorded in
+[TERMINAL_AGENT_SCALE_RESEARCH.md](TERMINAL_AGENT_SCALE_RESEARCH.md).
 
 ## Historical receipts
 

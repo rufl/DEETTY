@@ -34,6 +34,9 @@ for mode in Debug ReleaseSafe; do
     printf '%s\n' "$output" | grep -E \
         'terminal_history_qualification lines=100000 direct_bytes=[1-9][0-9]* compact_bytes=[1-9][0-9]* compact_ratio_bp=[1-9][0-9]* reflow_bytes=[1-9][0-9]* reflow_narrow=true reflow_wide=true shrink_bytes=[1-9][0-9]* grow_shrink_cycles=4 cold_memory_only=true passed=true' \
         >/dev/null
+    printf '%s\n' "$output" | grep -E \
+        'terminal_idle_history_qualification columns=120 rows=40 history=1000 before_bytes=[1-9][0-9]* after_bytes=[1-9][0-9]* saved_bytes=[1-9][0-9]* steps=[1-9][0-9]* rows_per_step=64 content_preserved=true resumed_output_regrows=true passed=true' \
+        >/dev/null
 done
 
-echo 'terminal_history_matrix debug=true release_safe=true lines=100000 compact=true reflow=true grow_shrink=true scratch_clean=true'
+echo 'terminal_history_matrix debug=true release_safe=true lines=100000 compact=true reflow=true grow_shrink=true idle_compaction=true idle_regrow=true scratch_clean=true'

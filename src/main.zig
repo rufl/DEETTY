@@ -171,6 +171,8 @@ const NativeGridSessionPool = struct {
     profile: ?*const noctty.launch_profile.Profile = null,
     smoke_command: ?[]const u8 = null,
     history_limit: usize = noctty.vt.Grid.default_history_lines,
+    // Every native session is pumped serially by the GTK main loop.
+    pump_scratch: noctty.terminal_session.TerminalSession.PumpScratch = .{},
     sessions: std.array_list.Managed(*noctty.terminal_session.TerminalSession),
 
     fn init(allocator: std.mem.Allocator, shell: [:0]const u8, smoke_command: ?[]const u8) NativeGridSessionPool {
@@ -202,28 +204,38 @@ const NativeGridSessionPool = struct {
         self.* = undefined;
     }
 
-    fn spawn(self: *NativeGridSessionPool, cwd: []const u8, columns: u16, rows: u16, use_profile: bool) !*noctty.terminal_session.TerminalSession {
+    fn spawn(
+        self: *NativeGridSessionPool,
+        cwd: []const u8,
+        columns: u16,
+        rows: u16,
+        use_profile: bool,
+        profile_override: ?*const noctty.launch_profile.Profile,
+    ) !*noctty.terminal_session.TerminalSession {
         const session = try self.allocator.create(noctty.terminal_session.TerminalSession);
         errdefer self.allocator.destroy(session);
-        if (use_profile and self.profile != null) {
-            session.* = try noctty.terminal_session.TerminalSession.spawnProfile(
+        const profile = profile_override orelse if (use_profile) self.profile else null;
+        if (profile) |launch_profile| {
+            session.* = try noctty.terminal_session.TerminalSession.spawnProfileWithScratch(
                 self.allocator,
-                self.profile.?,
+                launch_profile,
                 cwd,
                 self.shell,
                 columns,
                 rows,
+                &self.pump_scratch,
             );
         } else {
             const cwd_z = try self.allocator.dupeZ(u8, cwd);
             defer self.allocator.free(cwd_z);
-            session.* = try noctty.terminal_session.TerminalSession.spawnWithHistoryLimit(
+            session.* = try noctty.terminal_session.TerminalSession.spawnWithHistoryLimitAndScratch(
                 self.allocator,
                 cwd_z,
                 self.shell,
                 columns,
                 rows,
                 self.history_limit,
+                &self.pump_scratch,
             );
         }
         errdefer session.deinit();
@@ -279,6 +291,8 @@ const NativeGridBridge = struct {
     saw_reorder_model: bool = false,
     saw_reorder_persisted: bool = false,
     saw_attention_cleared: bool = false,
+    saw_status_notification: bool = false,
+    saw_status_acknowledged: bool = false,
     saw_dirty_marker: bool = false,
     saw_attention_marker: bool = false,
     saw_dirty_cleared: bool = false,
@@ -329,9 +343,11 @@ const NativeGridBridge = struct {
     project_refresh_executed: bool = false,
     recovery_cleanup_executed: bool = false,
     hot_session_loaded: bool = false,
+    restore_mode: noctty.continuity.RestoreMode = .restart_shells,
     session_pool: ?*NativeGridSessionPool = null,
     primary_session: ?*noctty.terminal_session.TerminalSession = null,
     created_session_count: usize = 0,
+    idle_history_compactions: usize = 0,
     saw_split_down_vertical: bool = false,
     saw_split_left_horizontal: bool = false,
     saw_rendered_move: bool = false,
@@ -789,11 +805,16 @@ export fn noctty_grid_pane_info(
         resources.pane,
         metadata.root_process_id,
     );
+    const continuity = if (bridge) |native_bridge| blk: {
+        const pane = native_bridge.app.workspace.findPane(pane_id) orelse break :blk "restartable shell";
+        break :blk pane.continuityLabel(native_bridge.app.config.terminal.launch_profile.kind);
+    } else "restartable shell";
     const formatted = noctty.pane_info.format(.{
         .pane_id = pane_id,
         .process_id = metadata.process_id,
         .cwd = cwd[0..metadata.cwd_length],
         .process_name = process_name[0..metadata.process_name_length],
+        .continuity = continuity,
         .usage = usage,
     }, display[0 .. display_capacity - 1], tooltip[0 .. tooltip_capacity - 1]) catch
         return -1;
@@ -942,7 +963,39 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
     };
     const columns: u16 = @intCast(@max(2, @min(columns_raw, 512)));
     const rows: u16 = @intCast(@max(2, @min(rows_raw, 512)));
-    const session = pool.spawn(pane.cwd, columns, rows, !restoring) catch {
+    var restore_profile: noctty.launch_profile.Profile = .{};
+    var profile_override: ?*const noctty.launch_profile.Profile = null;
+    if (restoring) switch (bridge.restore_mode) {
+        .restart_shells => {},
+        .attach_persistent => {
+            if (bridge.app.config.terminal.launch_profile.kind == .tmux or
+                bridge.app.config.terminal.launch_profile.kind == .zellij)
+                profile_override = &bridge.app.config.terminal.launch_profile;
+        },
+        .resume_agents => if (pane.agent_resume.enabled) {
+            if (noctty.continuity.profileForResume(
+                pane.agent_resume,
+                pane.cwd,
+                bridge.app.config.terminal.scrollback_lines,
+            )) |profile| {
+                restore_profile = profile;
+                profile_override = &restore_profile;
+            } else |err| switch (err) {
+                error.AgentResumeProviderUnsupported, error.AgentResumeUnavailable => {},
+                else => {
+                    bridge.callback_failed = true;
+                    return null;
+                },
+            }
+        },
+    };
+    const session = pool.spawn(
+        pane.cwd,
+        columns,
+        rows,
+        !restoring,
+        profile_override,
+    ) catch {
         bridge.callback_failed = true;
         return null;
     };
@@ -1233,6 +1286,10 @@ fn nativeGridProfilePreset(index: c_int) ?noctty.terminal.ProfilePreset {
     };
 }
 
+const native_event_idle_history_compacted: c_int = 112;
+const native_event_status_notification: c_int = 113;
+const native_event_status_acknowledged: c_int = 114;
+
 export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_code: c_int, at_ms: u64) callconv(.c) void {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return));
     defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);
@@ -1463,6 +1520,10 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             current_tabs[1].id == reloaded_tabs[1].id and
             current_tabs[2].id == reloaded_tabs[2].id and
             reloaded_active.id == 3 and verify_app.workspace.active_tab == 1;
+        return;
+    }
+    if (event == native_event_idle_history_compacted) {
+        bridge.idle_history_compactions += 1;
         return;
     }
     if (event == 93) {
@@ -1971,10 +2032,16 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         persistNativeGridConfig(bridge);
         return;
     }
+    if (event == native_event_status_notification)
+        bridge.saw_status_notification = true;
+    if (event == native_event_status_acknowledged)
+        bridge.saw_status_acknowledged = true;
     const status: ?noctty.terminal.StatusEvent = switch (event) {
         1 => .{ .process_started = at_ms },
         2 => .{ .output_received = at_ms },
         4 => .{ .tick = at_ms },
+        native_event_status_notification => .{ .waiting_for_input = at_ms },
+        native_event_status_acknowledged => .reset_idle,
         3 => .{ .exited = .{ .code = @intCast(@max(0, @min(exit_code, 255))), .at_ms = at_ms } },
         else => null,
     };
@@ -2055,12 +2122,17 @@ pub fn main(init: std.process.Init) !void {
                 0,
                 .visible,
                 parsed.slice(),
+                .restart_shells,
             );
             return;
         }
         if (std.mem.eql(u8, cmd, "--open-workspace")) {
-            if (args.len != 3) return error.InvalidWorkspaceActivationArguments;
+            if (args.len != 3 and args.len != 5) return error.InvalidWorkspaceActivationArguments;
             const parsed = try noctty.workspace_activation.WorkspacePath.init(args[2]);
+            const restore_mode = if (args.len == 5)
+                try parseRestoreMode(args[4])
+            else
+                .restart_shells;
             try runNativeGridActivated(
                 allocator,
                 init.io,
@@ -2069,6 +2141,7 @@ pub fn main(init: std.process.Init) !void {
                 0,
                 .visible,
                 parsed.slice(),
+                restore_mode,
             );
             return;
         }
@@ -3810,10 +3883,30 @@ export fn noctty_grid_pty_fd(raw: ?*anyopaque) callconv(.c) c_int {
     return @intCast(session.fileDescriptor());
 }
 
+export fn noctty_grid_compact_idle_history(raw: ?*anyopaque) callconv(.c) c_int {
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    const result = session.grid.compactIdleHistoryStep(
+        noctty.vt.Grid.idle_history_hot_lines,
+        noctty.vt.Grid.idle_history_rows_per_step,
+    ) catch return -1;
+    if (!result.complete) return 0;
+    return if (result.rows_coldified > 0 or result.bytes_released > 0) 2 else 1;
+}
+
 export fn noctty_grid_write(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
     var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
     session.write(bytes[0..length]) catch return -1;
     return @intCast(length);
+}
+
+export fn noctty_grid_write_pending(raw: ?*anyopaque) callconv(.c) c_int {
+    const session: *const noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
+    return @intFromBool(session.hasPendingWrites());
+}
+
+export fn noctty_grid_flush_write(raw: ?*anyopaque) callconv(.c) c_int {
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    return @intFromBool(session.flushPendingWrites() catch return -1);
 }
 
 export fn noctty_grid_terminal_chord_write(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
@@ -3925,6 +4018,8 @@ export fn noctty_grid_mouse(raw: ?*anyopaque, column: c_int, row: c_int, button:
 }
 
 export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
+    if (length > noctty.terminal_session.TerminalSession.max_pending_write_bytes - 12)
+        return -1;
     var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
     const prepared = noctty.paste.preparePasteAlloc(session.allocator, bytes[0..length], .{ .bracketed_paste = session.grid.bracketed_paste }) catch return -1;
     defer prepared.deinit(session.allocator);
@@ -3989,6 +4084,82 @@ export fn noctty_grid_scrollback(raw: ?*anyopaque, output: [*]u8, capacity: usiz
 export fn noctty_grid_bell_serial(raw: ?*anyopaque) callconv(.c) u64 {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
     return session.grid.bell_serial;
+}
+
+export fn noctty_grid_notification_serial(raw: ?*anyopaque) callconv(.c) u64 {
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
+    return session.grid.notification_serial;
+}
+
+export fn noctty_grid_notification_action(raw: ?*anyopaque) callconv(.c) c_int {
+    const session: *const noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
+    return @intFromEnum(session.grid.notification_action);
+}
+
+export fn noctty_grid_set_agent_resume(
+    raw: ?*anyopaque,
+    pane_id: u64,
+    provider_raw: c_int,
+    session_id: [*]const u8,
+    session_id_len: usize,
+    label: [*]const u8,
+    label_len: usize,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    if (provider_raw < 0 or provider_raw > 2) return -1;
+    const provider = noctty.continuity.providerFromInt(@intCast(provider_raw)) catch return -1;
+    var reference = noctty.continuity.AgentResume{ .enabled = true, .provider = provider };
+    reference.session_id.set(session_id[0..session_id_len]) catch return -1;
+    reference.label.set(label[0..label_len]) catch return -1;
+    _ = bridge.app.dispatch(.{ .set_agent_resume = .{ .pane_id = pane_id, .reference = reference } }) catch {
+        bridge.callback_failed = true;
+        return -1;
+    };
+    persistNativeGridHotSession(bridge);
+    return 0;
+}
+
+export fn noctty_grid_clear_agent_resume(raw: ?*anyopaque, pane_id: u64) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    _ = bridge.app.dispatch(.{ .clear_agent_resume = pane_id }) catch {
+        bridge.callback_failed = true;
+        return -1;
+    };
+    persistNativeGridHotSession(bridge);
+    return 0;
+}
+
+export fn noctty_grid_save_encrypted_history(
+    session_raw: ?*anyopaque,
+    bridge_raw: ?*anyopaque,
+    path: [*]const u8,
+    path_len: usize,
+    password: [*]const u8,
+    password_len: usize,
+) callconv(.c) c_int {
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(session_raw orelse return -1));
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(bridge_raw orelse return -1));
+    const io = bridge.io orelse return -1;
+    const plaintext = bridge.app.allocator.alloc(u8, noctty.history_snapshot.max_plaintext_bytes) catch return -1;
+    defer bridge.app.allocator.free(plaintext);
+    const used = session.grid.writeScrollback(plaintext) catch return -1;
+    const encrypted = noctty.history_snapshot.encryptAlloc(
+        bridge.app.allocator,
+        plaintext[0..used],
+        password[0..password_len],
+    ) catch return -1;
+    defer bridge.app.allocator.free(encrypted);
+    const target = path[0..path_len];
+    if (target.len == 0 or !std.fs.path.isAbsolute(target)) return -1;
+    var atomic = std.Io.Dir.cwd().createFileAtomic(io, target, .{
+        .permissions = std.Io.File.Permissions.fromMode(0o600),
+        .make_path = true,
+        .replace = true,
+    }) catch return -1;
+    defer atomic.deinit(io);
+    atomic.file.writeStreamingAll(io, encrypted) catch return -1;
+    atomic.replace(io) catch return -1;
+    return 0;
 }
 
 export fn noctty_grid_workspace_dirty(raw: ?*anyopaque) callconv(.c) c_int {
@@ -4221,6 +4392,44 @@ fn terminalHistoryQualification(
             cycles,
         },
     );
+
+    var idle_grid = try noctty.vt.Grid.init(allocator, 120, 40);
+    defer idle_grid.deinit();
+    for (0..1100) |_| try idle_grid.feed("agent output line 0123456789\r\n");
+    idle_grid.scrollViewport(@intCast(noctty.vt.Grid.default_history_lines));
+    const idle_oldest = idle_grid.cell(0, 0);
+    const idle_bytes_before = idle_grid.historyMemoryBytes();
+    var idle_steps: usize = 0;
+    while (idle_steps < 32) : (idle_steps += 1) {
+        const result = try idle_grid.compactIdleHistoryStep(
+            noctty.vt.Grid.idle_history_hot_lines,
+            noctty.vt.Grid.idle_history_rows_per_step,
+        );
+        if (result.rows_coldified > noctty.vt.Grid.idle_history_rows_per_step)
+            return error.TerminalIdleHistoryStepUnbounded;
+        if (!result.complete) continue;
+        idle_steps += 1;
+        break;
+    }
+    if (idle_steps >= 32) return error.TerminalIdleHistoryCompactionTimedOut;
+    const idle_bytes_after = idle_grid.historyMemoryBytes();
+    if (idle_bytes_after >= idle_bytes_before / 2)
+        return error.TerminalIdleHistoryMemory;
+    if (!std.meta.eql(idle_oldest, idle_grid.cell(0, 0)))
+        return error.TerminalIdleHistoryContent;
+    for (0..200) |_| try idle_grid.feed("resumed output\r\n");
+    if (idle_grid.history_hot_owners.len <= noctty.vt.Grid.idle_history_hot_lines)
+        return error.TerminalIdleHistoryRegrow;
+    try out.print(
+        "terminal_idle_history_qualification columns=120 rows=40 history=1000 before_bytes={d} after_bytes={d} saved_bytes={d} steps={d} rows_per_step={d} content_preserved=true resumed_output_regrows=true passed=true\n",
+        .{
+            idle_bytes_before,
+            idle_bytes_after,
+            idle_bytes_before - idle_bytes_after,
+            idle_steps,
+            noctty.vt.Grid.idle_history_rows_per_step,
+        },
+    );
 }
 
 fn nativeGridWorkspaceSmoke(out: anytype) !void {
@@ -4339,11 +4548,18 @@ fn nativeGridDirtySmoke(io: std.Io, out: anytype) !void {
         .workspace_smoke = 24,
     });
     if (status != 0 or bridge.callback_failed or !bridge.saw_dirty_marker or
-        !bridge.saw_attention_marker or !bridge.workspace_saved or
+        !bridge.saw_attention_marker or !bridge.saw_status_notification or
+        !bridge.saw_status_acknowledged or !bridge.workspace_saved or
         !bridge.saw_dirty_cleared or !bridge.saw_dirty_title_preserved or
         !bridge.saw_attention_cleared or app.recovery.dirty)
+    {
+        std.debug.print(
+            "native_grid_tab_dirty_missing status={} callback={} dirty={} attention={} status_notification={} status_acknowledged={} saved={} dirty_cleared={} title_preserved={} attention_cleared={} recovery_dirty={}\n",
+            .{ status, bridge.callback_failed, bridge.saw_dirty_marker, bridge.saw_attention_marker, bridge.saw_status_notification, bridge.saw_status_acknowledged, bridge.workspace_saved, bridge.saw_dirty_cleared, bridge.saw_dirty_title_preserved, bridge.saw_attention_cleared, app.recovery.dirty },
+        );
         return error.NativeGridTabDirtySmokeFailed;
-    try out.print("native_grid_tab_dirty_smoke attention=true attention_cleared=true dirty=true saved=true dirty_cleared=true title_preserved=true exited=true\n", .{});
+    }
+    try out.print("native_grid_tab_dirty_smoke attention=true attention_cleared=true status_notification=true status_acknowledged=true dirty=true saved=true dirty_cleared=true title_preserved=true exited=true\n", .{});
 }
 
 fn nativeGridTabReorderSmoke(io: std.Io, out: anytype) !void {
@@ -4469,7 +4685,13 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
         !bridge.saw_font_increase or !bridge.saw_font_decrease or
         !bridge.saw_pane_zoom or !bridge.saw_directional_focus or
         !bridge.scrollback_saved)
+    {
+        std.debug.print(
+            "native_grid_compact_ux_missing palette={} find={} note={} font_up={} font_down={} zoom={} focus={} scrollback={}\n",
+            .{ bridge.saw_palette, bridge.saw_terminal_find, bridge.saw_quick_note, bridge.saw_font_increase, bridge.saw_font_decrease, bridge.saw_pane_zoom, bridge.saw_directional_focus, bridge.scrollback_saved },
+        );
         return error.NativeGridCompactUxEventMissing;
+    }
     if (app.config.font.size_pt != global_font_size)
         return error.NativeGridCompactUxGlobalFontChanged;
     const active_tab = app.workspace.activeTab() orelse return error.NoActiveTab;
@@ -5993,8 +6215,8 @@ fn runNativeGridBenchmark(
     workload: []const u8,
     environ_map: anytype,
 ) !void {
-    if (pane_count != 1 and pane_count != 2 and
-        pane_count != 4 and pane_count != 8)
+    if (pane_count != 1 and pane_count != 2 and pane_count != 4 and
+        pane_count != 8 and pane_count != 16 and pane_count != 32)
         return error.InvalidBenchmarkPaneCount;
     if (workload.len == 0 or std.mem.indexOfScalar(u8, workload, '\n') != null)
         return error.InvalidBenchmarkWorkload;
@@ -6007,7 +6229,7 @@ fn runNativeGridBenchmark(
     ) catch return error.InvalidBenchmarkFontSize;
     _ = try app.dispatch(.{ .set_font_size = font_size });
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
-    var pane_ids: [8]u64 = undefined;
+    var pane_ids: [32]u64 = undefined;
     pane_ids[0] = tab.active_pane_id;
     var pane_ids_len: usize = 1;
     var split_level: usize = 0;
@@ -6030,21 +6252,23 @@ fn runNativeGridBenchmark(
     const command = try std.fmt.allocPrint(allocator, "exec {s}\n", .{workload});
     defer allocator.free(command);
 
-    var primary = try noctty.terminal_session.TerminalSession.spawn(
-        allocator,
-        cwd,
-        "/bin/sh",
-        120,
-        40,
-    );
-    defer primary.deinit();
-    try primary.write(command);
     var session_pool = NativeGridSessionPool.init(
         allocator,
         "/bin/sh",
         command,
     );
     defer session_pool.deinit();
+    var primary = try noctty.terminal_session.TerminalSession.spawnWithHistoryLimitAndScratch(
+        allocator,
+        cwd,
+        "/bin/sh",
+        120,
+        40,
+        noctty.vt.Grid.default_history_lines,
+        &session_pool.pump_scratch,
+    );
+    defer primary.deinit();
+    try primary.write(command);
     var bridge = NativeGridBridge{
         .app = &app,
         .pane_id = tab.active_pane_id,
@@ -6062,6 +6286,35 @@ fn runNativeGridBenchmark(
     if (bridge.callback_failed) return error.NativeGridBenchmarkStateSyncFailed;
     if (bridge.created_session_count + 1 != pane_count)
         return error.NativeGridBenchmarkPaneCountMismatch;
+    if (primary.pump_scratch != &session_pool.pump_scratch)
+        return error.NativeGridBenchmarkPumpScratchMismatch;
+    for (session_pool.sessions.items) |session| {
+        if (session.pump_scratch != &session_pool.pump_scratch)
+            return error.NativeGridBenchmarkPumpScratchMismatch;
+    }
+    if (environ_map.get("NOCTTY_BENCH_EXPECT_IDLE_COMPACTION")) |expected| {
+        if (!std.mem.eql(u8, expected, "1"))
+            return error.InvalidBenchmarkIdleCompactionExpectation;
+        const scenario = environ_map.get("NOCTTY_BENCH_MODE") orelse "";
+        if (std.mem.eql(u8, scenario, "output")) {
+            if (bridge.idle_history_compactions == 0)
+                return error.NativeGridBenchmarkIdleCompactionMissing;
+            std.debug.print(
+                "native_grid_benchmark idle_history_compactions={d}\n",
+                .{bridge.idle_history_compactions},
+            );
+        }
+    }
+}
+
+fn parseRestoreMode(value: []const u8) !noctty.continuity.RestoreMode {
+    const raw = std.fmt.parseInt(u8, value, 10) catch return error.InvalidWorkspaceActivationArguments;
+    return switch (raw) {
+        0 => .restart_shells,
+        1 => .attach_persistent,
+        2 => .resume_agents,
+        else => error.InvalidWorkspaceActivationArguments,
+    };
 }
 
 fn runNativeGrid(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8, environ_map: anytype, mode: c_int, launch_policy: GridLaunchPolicy) !void {
@@ -6073,7 +6326,57 @@ fn runNativeGrid(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8,
         mode,
         launch_policy,
         null,
+        .restart_shells,
     );
+}
+
+fn applyRestoreMode(
+    app: *noctty.app.App,
+    pane: *noctty.terminal.Pane,
+    mode: noctty.continuity.RestoreMode,
+) !void {
+    switch (mode) {
+        .restart_shells => {
+            var profile = app.config.terminal.launch_profile;
+            profile.kind = .shell;
+            profile.command = .{};
+            profile.ssh_target = .{};
+            try app.config.terminal.setLaunchProfile(profile);
+        },
+        .attach_persistent => {
+            if (app.config.terminal.launch_profile.kind != .tmux and
+                app.config.terminal.launch_profile.kind != .zellij)
+            {
+                var profile = app.config.terminal.launch_profile;
+                profile.kind = .shell;
+                profile.command = .{};
+                profile.ssh_target = .{};
+                try app.config.terminal.setLaunchProfile(profile);
+            }
+        },
+        .resume_agents => {
+            if (pane.agent_resume.enabled) {
+                if (noctty.continuity.profileForResume(
+                    pane.agent_resume,
+                    pane.cwd,
+                    app.config.terminal.scrollback_lines,
+                )) |profile| {
+                    try app.config.terminal.setLaunchProfile(profile);
+                    return;
+                } else |err| switch (err) {
+                    error.AgentResumeProviderUnsupported, error.AgentResumeUnavailable => {},
+                    else => return err,
+                }
+            }
+            {
+                var profile = app.config.terminal.launch_profile;
+                profile.kind = .shell;
+                profile.command = .{};
+                profile.ssh_target = .{};
+                try app.config.terminal.setLaunchProfile(profile);
+            }
+        },
+    }
 }
 
 fn runNativeGridActivated(
@@ -6084,6 +6387,7 @@ fn runNativeGridActivated(
     mode: c_int,
     launch_policy: GridLaunchPolicy,
     activated_workspace_path: ?[]const u8,
+    restore_mode: noctty.continuity.RestoreMode,
 ) !void {
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
@@ -6111,6 +6415,8 @@ fn runNativeGridActivated(
     try populateProjectPanels(&app, allocator, io);
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     const pane = app.workspace.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
+    if (activated_workspace_path != null)
+        try applyRestoreMode(&app, pane, restore_mode);
     const shell_raw = noctty.launch_profile.safeFallbackShell(
         environ_map.get("SHELL") orelse "/bin/sh",
     );
@@ -6118,29 +6424,6 @@ fn runNativeGridActivated(
     defer allocator.free(cwd);
     const shell = try allocator.dupeZ(u8, shell_raw);
     defer allocator.free(shell);
-    var session = if (hot_session_load == .restored)
-        try noctty.terminal_session.TerminalSession.spawnWithHistoryLimit(
-            allocator,
-            cwd,
-            shell,
-            120,
-            40,
-            app.config.terminal.scrollback_lines,
-        )
-    else launch: {
-        const profile = &app.config.terminal.launch_profile;
-        const resolved_cwd = profile.workingDirectory(pane.cwd);
-        if (!std.mem.eql(u8, resolved_cwd, pane.cwd)) try pane.setCwd(resolved_cwd);
-        break :launch try noctty.terminal_session.TerminalSession.spawnProfile(
-            allocator,
-            profile,
-            pane.cwd,
-            shell,
-            120,
-            40,
-        );
-    };
-    defer session.deinit();
     var session_pool = NativeGridSessionPool.initWithProfile(
         allocator,
         shell,
@@ -6149,7 +6432,32 @@ fn runNativeGridActivated(
     );
     session_pool.history_limit = app.config.terminal.scrollback_lines;
     defer session_pool.deinit();
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .hot_session_loaded = hot_session_load == .restored, .session_pool = &session_pool, .primary_session = &session };
+    var session = if (hot_session_load == .restored)
+        try noctty.terminal_session.TerminalSession.spawnWithHistoryLimitAndScratch(
+            allocator,
+            cwd,
+            shell,
+            120,
+            40,
+            app.config.terminal.scrollback_lines,
+            &session_pool.pump_scratch,
+        )
+    else launch: {
+        const profile = &app.config.terminal.launch_profile;
+        const resolved_cwd = profile.workingDirectory(pane.cwd);
+        if (!std.mem.eql(u8, resolved_cwd, pane.cwd)) try pane.setCwd(resolved_cwd);
+        break :launch try noctty.terminal_session.TerminalSession.spawnProfileWithScratch(
+            allocator,
+            profile,
+            pane.cwd,
+            shell,
+            120,
+            40,
+            &session_pool.pump_scratch,
+        );
+    };
+    defer session.deinit();
+    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .hot_session_loaded = hot_session_load == .restored, .restore_mode = restore_mode, .session_pool = &session_pool, .primary_session = &session };
     persistNativeGridHotSession(&bridge);
     const effective_mode: c_int = if (mode >= 0)
         mode

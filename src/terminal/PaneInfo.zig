@@ -59,6 +59,7 @@ pub const Input = struct {
     process_id: i32,
     cwd: []const u8,
     process_name: []const u8,
+    continuity: []const u8 = "restartable shell",
     usage: Usage = .{},
 };
 
@@ -75,10 +76,11 @@ pub fn format(input: Input, display: []u8, tooltip: []u8) !Output {
     const pane_mib_tenths = memoryMiBTenths(input.usage.pane_rss_kib);
     const display_text = try std.fmt.bufPrint(
         display,
-        "{s} : {s}  | App {d}.{d}% {d}.{d}M | Pane {d}.{d}% {d}.{d}M",
+        "{s} : {s}  | {s} | App {d}.{d}% {d}.{d}M | Pane {d}.{d}% {d}.{d}M",
         .{
             short_cwd,
             process_name,
+            safeText(input.continuity, "restartable shell"),
             input.usage.app_cpu_tenths / 10,
             input.usage.app_cpu_tenths % 10,
             app_mib_tenths / 10,
@@ -91,12 +93,13 @@ pub fn format(input: Input, display: []u8, tooltip: []u8) !Output {
     );
     const tooltip_text = try std.fmt.bufPrint(
         tooltip,
-        "Pane {d}\nProcess: {s} (PID {d})\nDirectory: {s}\nNOCTTY tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes\nSelected terminal tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes",
+        "Pane {d}\nProcess: {s} (PID {d})\nDirectory: {s}\nContinuity: {s}\nNOCTTY tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes\nSelected terminal tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes",
         .{
             input.pane_id,
             process_name,
             input.process_id,
             cwd,
+            safeText(input.continuity, "restartable shell"),
             input.usage.app_cpu_tenths / 10,
             input.usage.app_cpu_tenths % 10,
             app_mib_tenths / 10,
@@ -151,11 +154,11 @@ test "pane info matches the local Yakuake title shape" {
     }, &display, &tooltip);
 
     try std.testing.expectEqualStrings(
-        "project : zig  | App 0.0% 0.0M | Pane 0.0% 0.0M",
+        "project : zig  | restartable shell | App 0.0% 0.0M | Pane 0.0% 0.0M",
         display[0..output.display_length],
     );
     try std.testing.expectEqualStrings(
-        "Pane 7\nProcess: zig (PID 420)\nDirectory: /home/alice/project\nNOCTTY tree: 0.0% CPU, 0.0 MiB, 0 processes\nSelected terminal tree: 0.0% CPU, 0.0 MiB, 0 processes",
+        "Pane 7\nProcess: zig (PID 420)\nDirectory: /home/alice/project\nContinuity: restartable shell\nNOCTTY tree: 0.0% CPU, 0.0 MiB, 0 processes\nSelected terminal tree: 0.0% CPU, 0.0 MiB, 0 processes",
         tooltip[0..output.tooltip_length],
     );
 }
@@ -170,7 +173,7 @@ test "pane info handles root and rejects unsafe process metadata" {
         .process_name = "bad\nname",
     }, &display, &tooltip);
 
-    try std.testing.expectEqualStrings("/ : shell  | App 0.0% 0.0M | Pane 0.0% 0.0M", display[0..output.display_length]);
+    try std.testing.expectEqualStrings("/ : shell  | restartable shell | App 0.0% 0.0M | Pane 0.0% 0.0M", display[0..output.display_length]);
     try std.testing.expect(std.mem.indexOf(
         u8,
         tooltip[0..output.tooltip_length],

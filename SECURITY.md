@@ -40,7 +40,10 @@ NOCTTY should maintain these boundaries:
 - runtime shared libraries must not load from current-directory or caller-selected override paths; dependency-bundle and dogfood launchers may expose only their own trusted private runtime directory
 - release temporary files and retained evidence must use private staging plus atomic replacement
 - settings/session files must recover safely from malformed or oversized data;
-  NoctEd dirty-buffer snapshots use atomic private (`0600`) session storage
+  NoctEd dirty-buffer snapshots and encrypted `.nocttyhs` history exports use
+  atomic private (`0600`) storage
+- agent resume references are opaque, bounded, provider-limited, and never
+  inferred from terminal output; restore actions require explicit user choice
 - dependency bundles must keep ownership/license payload checks fail-closed
 
 ## Out of scope for alpha
@@ -52,6 +55,8 @@ The alpha source tree does not yet claim:
 - formal audit
 - signed release artifact trust
 - universal terminal escape security
+- provider-owned agent resume correctness beyond validated Claude Code/Codex
+  command construction
 
 Treat NOCTTY as a local developer tool and run untrusted commands with the same
 care you would use in any terminal emulator.

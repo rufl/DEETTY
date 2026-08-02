@@ -27,7 +27,7 @@ reject without trusting NOCTTY.
    evidence. A separate external screenshot observer records when a fixed RGB
    marker reaches the captured X11 window; it is not compositor presentation or
    key-to-photon latency. Process readiness is not called first-frame presentation.
-8. **No composite winner:** startup, PSS, idle CPU, ingestion, and correctness
+8. **No composite winner:** startup, PSS/RSS/USS, idle CPU, ingestion, and correctness
    remain separate. A terminal may lead one and lose another.
 
 ## Current lanes
@@ -35,7 +35,7 @@ reject without trusting NOCTTY.
 | Lane | Pane counts | Boundary | Status |
 | --- | --- | --- | --- |
 | Startup | 1, 2, 4, 8 | launch request → every workload spawned | Cross-terminal; Alacritty is one-pane only |
-| Idle memory | 1, 2, 4, 8 | process-tree PSS/RSS after readiness | Cross-terminal |
+| Idle memory | 1, 2, 4, 8 | process-tree PSS/RSS/USS after readiness | Cross-terminal |
 | Idle CPU | 1, 2, 4, 8 | process-tree jiffies over fixed interval | Cross-terminal; coarse near zero |
 | Output ingestion | 1, 2, 4, 8 | release writers → last writer marker timestamp | Cross-terminal PTY ingestion |
 | External pixel completion | 1, 2, 4, 8 | release writers → fixed RGB marker observed in captured X11 window | Cross-terminal; includes screenshot-observer cost, not compositor presentation |
@@ -63,7 +63,8 @@ pixel metric is useful only with its retained X11/XWayland and observer boundary
   one-pane cells. Yakuake uses its native D-Bus terminal split API for balanced
   2/4/8-panel trees, with an isolated Konsole profile and verified 1000-line
   history on every terminal.
-- PSS depends on host library sharing. Executable versions, process lists, and
+- PSS depends on host library sharing; USS exposes private clean/dirty/huge
+  pages and is better for allocator-release checks. Executable versions, process lists, and
   the desktop/session environment are retained with every run.
 - The common automation path is X11/XWayland. Results do not establish native
   Wayland ordering.

@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 workload="$repo_root/scripts/terminal_benchmark_workload.sh"
-noctty_bin="$repo_root/zig-out/bin/noctty"
+noctty_bin=${NOCTTY_BENCH_NOCTTY_BIN:-"$repo_root/zig-out/bin/noctty"}
 benchmark_dir="$repo_root/benchmarks"
 runs=${NOCTTY_BENCH_RUNS:-7}
 pane_counts=${NOCTTY_BENCH_PANES:-"1 2 4 8"}
@@ -12,12 +12,15 @@ output_lines=${NOCTTY_BENCH_OUTPUT_LINES:-20000}
 cpu_sample_ms=${NOCTTY_BENCH_CPU_SAMPLE_MS:-1000}
 visual_timeout_ms=${NOCTTY_BENCH_VISUAL_TIMEOUT_MS:-30000}
 inter_trial_settle_ms=${NOCTTY_BENCH_INTER_TRIAL_SETTLE_MS:-1000}
+post_output_settle_ms=${NOCTTY_BENCH_POST_OUTPUT_SETTLE_MS:-250}
+expect_idle_compaction=${NOCTTY_BENCH_EXPECT_IDLE_COMPACTION:-0}
 warmup=${NOCTTY_BENCH_WARMUP:-1}
 skip_build=${NOCTTY_BENCH_SKIP_BUILD:-0}
 terminals=${NOCTTY_BENCH_TERMINALS:-"noctty noctty-production konsole kitty wezterm terminator ghostty alacritty yakuake"}
 read -r -a terminal_list <<<"$terminals"
 terminal_count=${#terminal_list[@]}
 inter_trial_settle_seconds=$(awk -v ms="$inter_trial_settle_ms" 'BEGIN { printf "%.3f", ms / 1000 }')
+post_output_settle_seconds=$(awk -v ms="$post_output_settle_ms" 'BEGIN { printf "%.3f", ms / 1000 }')
 window_width=${NOCTTY_BENCH_WINDOW_WIDTH:-1200}
 window_height=${NOCTTY_BENCH_WINDOW_HEIGHT:-800}
 font_size=${NOCTTY_BENCH_FONT_SIZE:-11}
@@ -701,8 +704,8 @@ build_excluded_pids() {
 
 snapshot_processes() {
     local root=$1 terminal=$2 scenario=$3 panes=$4 trial=$5 serial=$6
-    local pid ppid pss rss excluded command
-    local total_pss=0 total_rss=0 process_count=0
+    local pid ppid pss rss uss excluded command
+    local total_pss=0 total_rss=0 total_uss=0 process_count=0
     while IFS= read -r pid; do
         [[ -r "/proc/$pid/status" ]] || continue
         ppid=$(awk '/^PPid:/ { print $2; exit }' "/proc/$pid/status")
@@ -710,18 +713,22 @@ snapshot_processes() {
         [[ ! -r "/proc/$pid/smaps_rollup" ]] ||
             pss=$(awk '/^Pss:/ { print $2; exit }' "/proc/$pid/smaps_rollup")
         rss=$(awk '/^VmRSS:/ { print $2; exit }' "/proc/$pid/status")
+        uss=0
+        [[ ! -r "/proc/$pid/smaps_rollup" ]] ||
+            uss=$(awk '/^Private_(Clean|Dirty|Hugetlb):/ { total += $2 } END { print total + 0 }' "/proc/$pid/smaps_rollup")
         excluded=$([[ -n "${excluded_pids[$pid]+set}" ]] && printf true || printf false)
         command=$(tr '\0\t\r\n' '    ' <"/proc/$pid/cmdline" 2>/dev/null || true)
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
             "$serial" "$terminal" "$scenario" "$panes" "$trial" "$pid" \
-            "${ppid:-0}" "$excluded" "${pss:-0}" "${rss:-0}" "$command" \
+            "${ppid:-0}" "$excluded" "${pss:-0}" "${rss:-0}" "${uss:-0}" "$command" \
             >>"$process_tsv"
         [[ "$excluded" == true ]] && continue
         total_pss=$((total_pss + ${pss:-0}))
         total_rss=$((total_rss + ${rss:-0}))
+        total_uss=$((total_uss + ${uss:-0}))
         process_count=$((process_count + 1))
     done < <(tree_pids "$root")
-    printf '%d %d %d\n' "$total_pss" "$total_rss" "$process_count"
+    printf '%d %d %d %d\n' "$total_pss" "$total_rss" "$total_uss" "$process_count"
 }
 
 sum_jiffies() {
@@ -785,7 +792,7 @@ run_trial() {
     local order_index=${6:-0}
     local run_dir title start_ms ready_ms start_ns ready_ns output_start_ns output_end_ns ingest_ms
     local rows_min rows_max columns_min columns_max visual_ms="" visual_tail_ms="" visual_end_ns=""
-    local pss_kib rss_kib process_count idle_cpu throughput version root_candidate runtime_dir
+    local pss_kib rss_kib uss_kib process_count idle_cpu throughput version root_candidate runtime_dir
 
     trial_serial=$((trial_serial + 1))
     run_dir="$scratch/run-$trial_serial-$terminal-$panes-$scenario"
@@ -840,14 +847,18 @@ run_trial() {
         visual_tail_ms=$(awk -v done="$output_end_ns" -v finish="$visual_end_ns" \
             'BEGIN { printf "%.3f", (finish - done) / 1000000 }')
     fi
-    sleep 0.25
+    if [[ "$scenario" == output ]]; then
+        sleep "$post_output_settle_seconds"
+    else
+        sleep 0.25
+    fi
 
     if (( record == 1 )); then
         build_excluded_pids "$run_dir"
-        read -r pss_kib rss_kib process_count < <(
+        read -r pss_kib rss_kib uss_kib process_count < <(
             snapshot_processes "$root_candidate" "$terminal" "$scenario" "$panes" "$trial" "$trial_serial"
         )
-        (( process_count > 0 && pss_kib > 0 && rss_kib > 0 )) ||
+        (( process_count > 0 && pss_kib > 0 && rss_kib > 0 && uss_kib > 0 )) ||
             die "invalid_process_metrics:$terminal:$root_candidate"
         idle_cpu=$(measure_idle_cpu "$root_candidate")
         if [[ "$scenario" == output ]]; then
@@ -858,18 +869,18 @@ run_trial() {
             throughput=""
         fi
         version=$(version_for "$terminal")
-        printf '%s,%s,%s,%d,%d,%d,%d,%d,%s,%s,%s,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        printf '%s,%s,%s,%d,%d,%d,%d,%d,%d,%s,%s,%s,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
             "$terminal" "$version" "$scenario" "$panes" "$trial" \
-            "$((ready_ms - start_ms))" "$pss_kib" "$rss_kib" \
+            "$((ready_ms - start_ms))" "$pss_kib" "$rss_kib" "$uss_kib" \
             "$idle_cpu" "$ingest_ms" "$throughput" "$process_count" \
             "$trial_serial" "$order_index" "$launch_pid" "$root_candidate" \
             "$start_ns" "$ready_ns" "$output_start_ns" "$output_end_ns" \
             "$rows_min" "$rows_max" "$columns_min" "$columns_max" \
             "$visual_ms" "$visual_end_ns" "$visual_tail_ms" >>"$raw_csv"
         progress_clear
-        printf 'terminal_benchmark terminal=%s scenario=%s panes=%d trial=%d startup_ms=%d pss_kib=%d rss_kib=%d idle_cpu_pct=%s ingest_ms=%s visual_ms=%s visual_tail_ms=%s grid=%s-%sx%s-%s throughput_mib_s=%s processes=%d\n' \
+        printf 'terminal_benchmark terminal=%s scenario=%s panes=%d trial=%d startup_ms=%d pss_kib=%d rss_kib=%d uss_kib=%d idle_cpu_pct=%s ingest_ms=%s visual_ms=%s visual_tail_ms=%s grid=%s-%sx%s-%s throughput_mib_s=%s processes=%d\n' \
             "$terminal" "$scenario" "$panes" "$trial" \
-            "$((ready_ms - start_ms))" "$pss_kib" "$rss_kib" \
+            "$((ready_ms - start_ms))" "$pss_kib" "$rss_kib" "$uss_kib" \
             "$idle_cpu" "${ingest_ms:-na}" "${visual_ms:-na}" "${visual_tail_ms:-na}" \
             "$rows_min" "$rows_max" "$columns_min" "$columns_max" \
             "${throughput:-na}" "$process_count"
@@ -881,6 +892,14 @@ run_trial() {
     fi
     wait_for_exit "$root_candidate"
     wait "$launch_pid" 2>/dev/null || true
+    if [[ "$expect_idle_compaction" == 1 && "$scenario" == output &&
+          "$terminal" == noctty* ]]; then
+        grep -E 'native_grid_benchmark idle_history_compactions=[1-9][0-9]*' \
+            "$run_dir/app.log" >/dev/null || {
+            tail -80 "$run_dir/app.log" >&2 || true
+            die "idle_history_compaction_missing:$terminal:$panes"
+        }
+    fi
     if [[ "$terminal" == wezterm && -n "$wezterm_socket" ]]; then
         runtime_dir=${wezterm_socket%/*}
         rm -f -- "$wezterm_socket" "$wezterm_log"
@@ -928,21 +947,21 @@ write_summary() {
         {
             k=$1 SUBSEP $4
             if ($3 == "idle") {
-                version[k]=$2; add(k,"startup",$6); add(k,"pss",$7); add(k,"rss",$8); add(k,"cpu",$9)
-                add(k,"rows_min",$21); add(k,"rows_max",$22); add(k,"columns_min",$23); add(k,"columns_max",$24)
+                version[k]=$2; add(k,"startup",$6); add(k,"pss",$7); add(k,"rss",$8); add(k,"uss",$9); add(k,"cpu",$10)
+                add(k,"rows_min",$22); add(k,"rows_max",$23); add(k,"columns_min",$24); add(k,"columns_max",$25)
             } else {
-                add(k,"ingest",$10); add(k,"throughput",$11); if ($25 != "") add(k,"visual",$25); if ($27 != "") add(k,"visual_tail",$27)
+                add(k,"ingest",$11); add(k,"throughput",$12); if ($26 != "") add(k,"visual",$26); if ($28 != "") add(k,"visual_tail",$28)
             }
         }
         END {
-            print "terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms,visual_tail_median_ms,visual_tail_mad_ms"
+            print "terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,uss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,uss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms,visual_tail_median_ms,visual_tail_mad_ms"
             nt=split(terminals,ts," "); np=split(panes,ps," ")
             for (ti=1;ti<=nt;ti++) for (pi=1;pi<=np;pi++) {
                 k=ts[ti] SUBSEP ps[pi]; n=count[k SUBSEP "startup"]; if (!n) continue
                 split(values[k SUBSEP "startup"], startup, " "); sort(startup,n)
-                pss=median(values[k SUBSEP "pss"],n)/1024; rss=median(values[k SUBSEP "rss"],n)/1024; pss_mad=mad(values[k SUBSEP "pss"],n)/1024
+                pss=median(values[k SUBSEP "pss"],n)/1024; rss=median(values[k SUBSEP "rss"],n)/1024; uss=median(values[k SUBSEP "uss"],n)/1024; pss_mad=mad(values[k SUBSEP "pss"],n)/1024; uss_mad=mad(values[k SUBSEP "uss"],n)/1024
                 ni=count[k SUBSEP "ingest"]; nv=count[k SUBSEP "visual"]
-                printf "%s,%s,%s,%s,%s,%s,%.3f,%.3f,%s,%s,%s,%d,%s,%.3f,%d,%s,%s,%s,%s,%s,%s,%d,%s,%s,%s\n", ts[ti],version[k],ps[pi],startup[1],median(values[k SUBSEP "startup"],n),startup[n],pss,rss,median(values[k SUBSEP "cpu"],n),median(values[k SUBSEP "ingest"],ni),median(values[k SUBSEP "throughput"],ni),n,mad(values[k SUBSEP "startup"],n),pss_mad,ni,mad(values[k SUBSEP "ingest"],ni),median(values[k SUBSEP "rows_min"],n),median(values[k SUBSEP "rows_max"],n),median(values[k SUBSEP "columns_min"],n),median(values[k SUBSEP "columns_max"],n),median(values[k SUBSEP "visual"],nv),nv,mad(values[k SUBSEP "visual"],nv),median(values[k SUBSEP "visual_tail"],nv),mad(values[k SUBSEP "visual_tail"],nv)
+                printf "%s,%s,%s,%s,%s,%s,%.3f,%.3f,%.3f,%s,%s,%s,%d,%s,%.3f,%.3f,%d,%s,%s,%s,%s,%s,%s,%d,%s,%s,%s\n", ts[ti],version[k],ps[pi],startup[1],median(values[k SUBSEP "startup"],n),startup[n],pss,rss,uss,median(values[k SUBSEP "cpu"],n),median(values[k SUBSEP "ingest"],ni),median(values[k SUBSEP "throughput"],ni),n,mad(values[k SUBSEP "startup"],n),pss_mad,uss_mad,ni,mad(values[k SUBSEP "ingest"],ni),median(values[k SUBSEP "rows_min"],n),median(values[k SUBSEP "rows_max"],n),median(values[k SUBSEP "columns_min"],n),median(values[k SUBSEP "columns_max"],n),median(values[k SUBSEP "visual"],nv),nv,mad(values[k SUBSEP "visual"],nv),median(values[k SUBSEP "visual_tail"],nv),mad(values[k SUBSEP "visual_tail"],nv)
             }
         }
     ' "$raw_csv" >"$summary_csv"
@@ -961,11 +980,14 @@ done
 [[ -x "$workload" ]] || die "workload_not_executable:$workload"
 (( terminal_count > 0 )) || die "missing_terminal_list"
 for pane_count in $pane_counts $output_pane_counts; do
-    case "$pane_count" in 1|2|4|8) ;; *) die "invalid_pane_count:$pane_count" ;; esac
+    case "$pane_count" in 1|2|4|8|16|32) ;; *) die "invalid_pane_count:$pane_count" ;; esac
 done
 [[ "$runs" =~ ^[1-9][0-9]*$ ]] || die "invalid_runs:$runs"
 [[ "$visual_timeout_ms" =~ ^[1-9][0-9]*$ ]] || die "invalid_visual_timeout_ms:$visual_timeout_ms"
 [[ "$inter_trial_settle_ms" =~ ^[0-9]+$ ]] || die "invalid_inter_trial_settle_ms:$inter_trial_settle_ms"
+[[ "$post_output_settle_ms" =~ ^[0-9]+$ ]] || die "invalid_post_output_settle_ms:$post_output_settle_ms"
+[[ "$expect_idle_compaction" == 0 || "$expect_idle_compaction" == 1 ]] ||
+    die "invalid_idle_compaction_expectation:$expect_idle_compaction"
 [[ "$skip_build" == 0 || "$skip_build" == 1 ]] || die "invalid_skip_build:$skip_build"
 [[ "$offscreen" == 0 || "$offscreen" == 1 ]] || die "invalid_offscreen:$offscreen"
 command -v import >/dev/null || die "visual_completion_requires_imagemagick"
@@ -990,8 +1012,8 @@ awk -v lines="$output_lines" 'BEGIN {
 }' >"$payload"
 payload_bytes=$(wc -c <"$payload")
 
-printf 'terminal,version,scenario,panes,trial,startup_ms,pss_kib,rss_kib,idle_cpu_pct,ingest_ms,ingest_mib_s,process_count,run_serial,order_index,launch_pid,root_pid,start_ns,ready_ns,go_ns,done_ns,rows_min,rows_max,columns_min,columns_max,visual_ms,visual_end_ns,visual_tail_ms\n' >"$raw_csv"
-printf 'run_serial\tterminal\tscenario\tpanes\ttrial\tpid\tppid\texcluded\tpss_kib\trss_kib\tcmdline\n' >"$process_tsv"
+printf 'terminal,version,scenario,panes,trial,startup_ms,pss_kib,rss_kib,uss_kib,idle_cpu_pct,ingest_ms,ingest_mib_s,process_count,run_serial,order_index,launch_pid,root_pid,start_ns,ready_ns,go_ns,done_ns,rows_min,rows_max,columns_min,columns_max,visual_ms,visual_end_ns,visual_tail_ms\n' >"$raw_csv"
+printf 'run_serial\tterminal\tscenario\tpanes\ttrial\tpid\tppid\texcluded\tpss_kib\trss_kib\tuss_kib\tcmdline\n' >"$process_tsv"
 yakuake_before=$(pgrep -x yakuake 2>/dev/null | tr '\n' ' ' || true)
 if [[ -n "$yakuake_before" ]]; then
     qdbus org.kde.yakuake /MainApplication \
@@ -1008,10 +1030,11 @@ fi
     printf 'kernel=%s\n' "$(uname -srmo)"
     printf 'cpu=%s\n' "$(awk -F: '/model name/ { sub(/^[ \t]+/, "", $2); print $2; exit }' /proc/cpuinfo)"
     printf 'session=%s desktop=%s offscreen=%s display=%s\n' "${XDG_SESSION_TYPE:-unknown}" "${XDG_CURRENT_DESKTOP:-unknown}" "$offscreen" "${DISPLAY:-unknown}"
-    printf 'common_backend=x11_xwayland window=%sx%s font_size=%s runs=%s panes=%s output_panes=%s output_lines=%s payload_bytes=%s idle_cpu_sample_ms=%s visual_timeout_ms=%s inter_trial_settle_ms=%s skip_build=%s terminal_order=rotated_snake\n' \
+    printf 'common_backend=x11_xwayland window=%sx%s font_size=%s runs=%s panes=%s output_panes=%s output_lines=%s payload_bytes=%s idle_cpu_sample_ms=%s visual_timeout_ms=%s inter_trial_settle_ms=%s post_output_settle_ms=%s expect_idle_compaction=%s skip_build=%s terminal_order=rotated_snake\n' \
         "$window_width" "$window_height" "$font_size" "$runs" "$pane_counts" \
         "$output_pane_counts" "$output_lines" "$payload_bytes" "$cpu_sample_ms" \
-        "$visual_timeout_ms" "$inter_trial_settle_ms" "$skip_build"
+        "$visual_timeout_ms" "$inter_trial_settle_ms" "$post_output_settle_ms" \
+        "$expect_idle_compaction" "$skip_build"
     printf 'yakuake_exclusive=true yakuake_pids_stopped_before=%s\n' "${yakuake_before:-none}"
     printf 'payload_sha256=%s workload_sha256=%s harness_sha256=%s noctty_binary_sha256=%s\n' \
         "$(sha256sum "$payload" | awk '{print $1}')" \

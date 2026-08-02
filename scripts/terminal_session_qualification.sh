@@ -60,17 +60,8 @@ run_mode() {
 }
 
 cd "$repo_root"
-run_mode Debug &
-debug_pid=$!
-run_mode ReleaseSafe &
-release_safe_pid=$!
-debug_status=0
-release_safe_status=0
-wait "$debug_pid" || debug_status=$?
-wait "$release_safe_pid" || release_safe_status=$?
-if [[ "$debug_status" -ne 0 || "$release_safe_status" -ne 0 ]]; then
-    exit 1
-fi
+run_mode Debug
+run_mode ReleaseSafe
 
 for mode in Debug ReleaseSafe; do
     output=$(cat "$scratch/output-$mode")

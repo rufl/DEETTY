@@ -1,6 +1,6 @@
 # Performance and Algorithm Research
 
-Research date: 2026-07-16. Implementation status refreshed: 2026-07-31.
+Research date: 2026-07-16. Implementation status refreshed: 2026-08-01.
 
 Status: architecture decision, implemented design record, and remaining
 measurement contract. The accepted lower-complexity changes are present in the
@@ -40,7 +40,8 @@ revisions rather than copying architecture by reputation:
 
 NOCTTY already follows most of those macro lessons: native/no-browser startup,
 one process for many panes, frame-clock and resize coalescing, terminal dirty
-spans, reusable renderer scratch, bounded caches, immutable project snapshots,
+spans, reusable renderer scratch, one guarded PTY pump scratch shared by the
+serial GTK session set, bounded caches, immutable project snapshots,
 cheap fuzzy eligibility before scoring, lazy minimap/Tree-sitter work, and two
 bounded filesystem lanes. The review therefore did not justify a GPU rewrite,
 new allocator, new thread pool, daemon split, dependency, or runtime telemetry.
@@ -74,6 +75,52 @@ The native compact row also replaced font-dependent `+`, gear, and multiplicatio
 glyph controls with GTK symbolic icons and raised New Tab, Settings, application
 Close, and per-tab Close to 24-logical-pixel minimum targets. This is a native
 accessibility correction, not a new toolbar or design system.
+
+A third measured pass targeted 20-30-agent process scale. `TerminalSession`
+embedded one 128 KiB PTY read array per pane even though native GTK pumps cannot
+run concurrently. Detached 16/32/64/96/128 KiB, compact-history, Pango-layout,
+font-option, and shared-buffer worktrees were compared at eight and 32 real
+PTYs. The retained implementation moves recurring read storage outside the
+session value and shares one guarded 128 KiB scratch across the native session
+pool. `TerminalSession` fell from 141,344 to 10,280 bytes; a nine-pair
+alternating 32-pane stress run observed about 4% lower output PSS, 2% lower
+output RSS, and effectively unchanged aggregate throughput (+0.3%). A second
+seven-pair pass reduced each hot terminal cell from 16 to 14 bytes with lower
+output memory in every RSS pair and no median throughput regression. Smaller
+universal buffers improved some 32-pane
+runs but regressed the established eight-pane path, while early synchronous
+history compression and renderer-object caches lost their focused benchmarks.
+The accepted follow-up moves history cold-packing outside active output: a
+30-grid 120x40 probe released 40.72 MiB logically, libc-backed completion-wave
+trimming made delayed native USS fall by 7,084 KiB in the narrow 32-pane
+fixture, and seven active A/B pairs retained throughput. The benchmark now
+records USS and supports explicit post-output settle windows. The bounded
+method and rejected variants are recorded in
+[`TERMINAL_AGENT_SCALE_RESEARCH.md`](TERMINAL_AGENT_SCALE_RESEARCH.md).
+
+### Current terminal/agent peer review
+
+A fourth source-pinned pass reviewed current Ghostty, WezTerm, Alacritty,
+Kitty, foot, Rio, cmux, Herdr, Agent Deck, Claude Squad, WaveTerm, Zellij,
+tmux, and Better Agent Terminal revisions. It retained three changes instead
+of importing a peer stack:
+
+- WezTerm's blank-tail resize guard exposed a NOCTTY reflow bug: a combined
+  width/height shrink could move all meaningful rows into history and leave a
+  blank viewport. Primary reflow now drops only provably default rows below the
+  cursor before rebuilding.
+- cmux and Herdr's explicit OSC/hook attention model was accepted without their
+  orchestration stacks. Bounded OSC 9, non-query OSC 99, and OSC 777 notify
+  requests now drive native pending-input attention without storing payload
+  text or scanning rendered output heuristically.
+- Kitty, Zellij, and tmux reinforced that PTY backpressure must be explicit.
+  NOCTTY no longer calls sleeping `writeAll` from GTK input/paste callbacks; a
+  capped ordered queue and temporary 4 ms flush source reduced an 8 MiB
+  sleeping-child caller probe from 921.618 to 1.450 ms.
+
+The complete source links, decisions, privacy boundary, and deferred fair-pump,
+compositor-feedback, agent-resume, and hibernation work are in
+[`TERMINAL_PEER_RESEARCH.md`](TERMINAL_PEER_RESEARCH.md).
 
 ### Local profiling gate
 

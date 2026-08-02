@@ -9,6 +9,8 @@ pub const vt = @import("terminal/Vt.zig");
 pub const paste = @import("terminal/Paste.zig");
 pub const pty = @import("terminal/Pty.zig");
 pub const launch_profile = @import("terminal/LaunchProfile.zig");
+pub const continuity = @import("terminal/Continuity.zig");
+pub const history_snapshot = @import("terminal/HistorySnapshot.zig");
 pub const pane_info = @import("terminal/PaneInfo.zig");
 pub const theme = @import("theme/Theme.zig");
 pub const theme_storage = @import("theme/Storage.zig");
@@ -31,6 +33,8 @@ test {
     _ = paste;
     _ = pty;
     _ = launch_profile;
+    _ = continuity;
+    _ = history_snapshot;
     _ = pane_info;
     _ = theme;
     _ = theme_storage;

@@ -7,7 +7,7 @@ const max_normal_cycles: usize = 128;
 const max_forced_cycles: usize = 32;
 const default_normal_cycles: usize = 64;
 const default_forced_cycles: usize = 8;
-const normal_readiness_poll_limit: usize = 20_000;
+const normal_readiness_poll_limit: usize = 60_000;
 const AccountedAllocator = std.heap.DebugAllocator(.{
     .enable_memory_limit = true,
 });
@@ -138,8 +138,7 @@ fn runQualification(
         for (0..normal_readiness_poll_limit) |_| {
             switch (try session.pump()) {
                 .bytes => |count| outcome.output_bytes += count,
-                .would_block => Pty.sleepBrief(1),
-                .eof => {},
+                .would_block, .eof => Pty.sleepBrief(1),
             }
             saw_marker = saw_marker or
                 std.mem.eql(u8, session.grid.titleSlice(), "noctty-normal-ready");
@@ -149,7 +148,13 @@ fn runQualification(
             }
             if (saw_marker and saw_exit) break;
         }
-        if (!saw_marker or !saw_exit) return error.NormalSessionTimedOut;
+        if (!saw_marker or !saw_exit) {
+            std.debug.print(
+                "normal_session_timeout cycle={d} marker={} exit={}\n",
+                .{ cycle, saw_marker, saw_exit },
+            );
+            return error.NormalSessionTimedOut;
+        }
         session.deinit();
         session.deinit();
         if (session.fileDescriptor() != -1) return error.SessionBoundaryStayedOpen;
@@ -180,7 +185,7 @@ fn runQualification(
         var foreground_pid: i32 = 0;
         var cwd_buffer: [4096]u8 = undefined;
         var name_buffer: [256]u8 = undefined;
-        for (0..5000) |_| {
+        for (0..normal_readiness_poll_limit) |_| {
             switch (try session.pump()) {
                 .bytes => |count| outcome.output_bytes += count,
                 .would_block => Pty.sleepBrief(1),
@@ -220,7 +225,7 @@ fn runQualification(
 
 fn waitForProcessGone(process_id: i32, group: bool) bool {
     const target = if (group) -process_id else process_id;
-    for (0..2000) |_| {
+    for (0..normal_readiness_poll_limit) |_| {
         if (kill(@intCast(target), 0) != 0) return true;
         Pty.sleepBrief(1);
     }

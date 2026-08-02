@@ -9,4 +9,4 @@ else
   exit "$status"
 fi
 printf '%s\n' "$output"
-printf '%s\n' "$output" | grep -q '^native_grid_tab_dirty_smoke attention=true attention_cleared=true dirty=true saved=true dirty_cleared=true title_preserved=true exited=true$'
+printf '%s\n' "$output" | grep -q '^native_grid_tab_dirty_smoke attention=true attention_cleared=true status_notification=true status_acknowledged=true dirty=true saved=true dirty_cleared=true title_preserved=true exited=true$'

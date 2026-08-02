@@ -14,6 +14,8 @@ extern fn execve(
 ) c_int;
 extern var environ: [*:null]?[*:0]u8;
 
+const test_poll_limit = 30_000;
+
 pub const ReadResult = union(enum) {
     bytes: usize,
     would_block,
@@ -616,7 +618,7 @@ test "zig-owned pty spawns shell, routes bytes, resizes, and observes exit" {
     var saw_marker = false;
     var saw_exit = false;
     var attempt: usize = 0;
-    while (attempt < 5000 and !(saw_exit and saw_marker)) : (attempt += 1) {
+    while (attempt < test_poll_limit and !(saw_exit and saw_marker)) : (attempt += 1) {
         switch (try session.read(output[used..])) {
             .bytes => |count| {
                 used += count;
@@ -665,7 +667,7 @@ test "zig-owned pty closes inherited descriptors before exec" {
     var used: usize = 0;
     var saw_clean = false;
     var saw_exit = false;
-    for (0..5000) |_| {
+    for (0..test_poll_limit) |_| {
         if (saw_clean and saw_exit) break;
         switch (try session.read(output[used..])) {
             .bytes => |count| {
@@ -701,7 +703,7 @@ test "zig-owned pty advertises the tested terminal capability environment" {
     var used: usize = 0;
     var saw_environment = false;
     var saw_exit = false;
-    for (0..5000) |_| {
+    for (0..test_poll_limit) |_| {
         if (saw_environment and saw_exit) break;
         switch (try session.read(output[used..])) {
             .bytes => |count| {

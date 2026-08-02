@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <float.h>
+#include <malloc.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -24,6 +25,13 @@
 #define NOCTTY_DROPDOWN_MIN_HEIGHT_PX 240
 #define NOCTTY_DROPDOWN_RESIZE_GRIP_PX 4
 #define NOCTTY_WINDOW_RESIZE_GRIP_PX 12
+#define NOCTTY_IDLE_HISTORY_BACKGROUND_US (30 * G_USEC_PER_SEC)
+#define NOCTTY_IDLE_HISTORY_FOCUSED_US (300 * G_USEC_PER_SEC)
+#define NOCTTY_IDLE_HISTORY_STEPS_PER_TICK 16
+#define NOCTTY_WRITE_FLUSH_MS 4
+#define NOCTTY_EVENT_IDLE_HISTORY_COMPACTED 112
+#define NOCTTY_EVENT_STATUS_NOTIFICATION 113
+#define NOCTTY_EVENT_STATUS_ACKNOWLEDGED 114
 
 typedef enum {
     NOCTTY_CLOSE_ORIGIN_NONE = 0,
@@ -65,7 +73,15 @@ extern int noctty_grid_find(void *, const char *, size_t, int, size_t,
                             int *, int *, int *, int *);
 extern int noctty_grid_scrollback(void *, char *, size_t);
 extern uint64_t noctty_grid_bell_serial(void *);
+extern uint64_t noctty_grid_notification_serial(void *);
+extern int noctty_grid_notification_action(void *);
+extern int noctty_grid_set_agent_resume(void *, uint64_t, int, const char *, size_t, const char *, size_t);
+extern int noctty_grid_clear_agent_resume(void *, uint64_t);
+extern int noctty_grid_save_encrypted_history(void *, void *, const char *, size_t, const char *, size_t);
 extern int noctty_grid_pty_fd(void *);
+extern int noctty_grid_compact_idle_history(void *);
+extern int noctty_grid_write_pending(void *);
+extern int noctty_grid_flush_write(void *);
 extern int noctty_grid_workspace_dirty(void *);
 extern int noctty_grid_pane_selected(void *, uint64_t);
 extern int noctty_grid_pane_profile(void *, uint64_t, char *, size_t,
@@ -309,6 +325,9 @@ typedef struct NocttyGridContextTag {
     int pane_move_applied;
     int attention;
     uint64_t last_bell_serial;
+    uint64_t last_notification_serial;
+    int pending_notification_action;
+    gint64 last_desktop_notification_us;
     uint64_t zoomed_pane_id;
     size_t find_ordinal;
     int dropdown_width_percent;
@@ -550,6 +569,7 @@ typedef struct NocttyGridContextTag {
     gint64 last_exit_poll_us;
     guint tick_source;
     guint pty_source;
+    guint write_flush_source;
     guint output_present_source;
     int output_present_is_tick;
     guint synchronized_output_source;
@@ -597,6 +617,8 @@ typedef struct NocttyGridContextTag {
     guint resize_commits;
     int pty_fd;
     int pty_output_dirty;
+    gint64 last_output_us;
+    int idle_history_compacted;
     int pty_event_source_started;
     int descriptor_tick_coalesced;
     int descriptor_maintenance_fallback_seen;
@@ -1211,6 +1233,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     if (context->status_kind != 0) {
         if (context->status_kind == 1) cairo_set_source_rgb(cr, 0.25, 0.55, 0.95);
         else if (context->status_kind == 2) cairo_set_source_rgb(cr, 0.25, 0.80, 0.40);
+        else if (context->status_kind == 4) cairo_set_source_rgb(cr, 0.96, 0.72, 0.18);
         else cairo_set_source_rgb(cr, 0.90, 0.25, 0.25);
         cairo_set_line_width(cr, 1.0);
         cairo_rectangle(cr, 0.5, 0.5, MAX(1, allocation.width - 1), MAX(1, allocation.height - 1));
@@ -2571,7 +2594,8 @@ static gboolean trigger_dirty_smoke(gpointer user_data) {
 
 static gboolean emit_attention_smoke(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
-    const char *command = "printf '\007'\n";
+    const char *command =
+        "printf '\\033]9;Agent needs input\\033\\\\'\n";
     (void)context->write(context->userdata, command, strlen(command));
     return G_SOURCE_REMOVE;
 }
@@ -2595,9 +2619,17 @@ static gboolean check_dirty_smoke(gpointer user_data) {
 static gboolean check_attention_smoke(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
     NocttyGridContext *root = root_grid_context(context);
-    if (context->attention && root->event != NULL)
+    if (context->status_kind == 4 &&
+        noctty_grid_notification_serial(context->userdata) > 0 &&
+        root->event != NULL)
         root->event(root->event_data, root->pane_id, 89, 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean acknowledge_attention_smoke(gpointer user_data) {
+    NocttyGridContext *context = focused_grid_context(user_data);
+    (void)deliver_grid_input(context, "\n", 1);
     return G_SOURCE_REMOVE;
 }
 
@@ -4614,6 +4646,16 @@ static gboolean on_window_focus_out(GtkWidget *widget, GdkEventFocus *event,
     return FALSE;
 }
 
+static const gchar *grid_status_name(int status_kind) {
+    switch (status_kind) {
+    case 1: return "running";
+    case 2: return "done";
+    case 3: return "error";
+    case 4: return "pending input";
+    default: return "idle";
+    }
+}
+
 static void update_status_tooltip(NocttyGridContext *context, const gchar *status) {
     char tag_buffer[256] = {0};
     int tag_length = context->event_data != NULL
@@ -4645,14 +4687,49 @@ static void refresh_tag_tooltips(NocttyGridContext *context) {
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->active && candidate->area != NULL)
-            update_status_tooltip(candidate, candidate->status_kind == 3 ? "error" :
-                                  candidate->status_kind == 2 ? "running" : "idle");
+            update_status_tooltip(candidate,
+                                  grid_status_name(candidate->status_kind));
     }
 }
 
 static NocttyGridContext *root_grid_context(NocttyGridContext *context) {
     if (context == NULL || context->root == NULL) return context;
     return context->root;
+}
+
+static gboolean on_grid_write_flush(gpointer user_data) {
+    NocttyGridContext *context = user_data;
+    if (!grid_context_session_available(context) || context->exited) {
+        context->write_flush_source = 0;
+        return G_SOURCE_REMOVE;
+    }
+    int flushed = noctty_grid_flush_write(context->userdata);
+    if (flushed > 0 || flushed < 0) {
+        context->write_flush_source = 0;
+        return G_SOURCE_REMOVE;
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+static void schedule_grid_write_flush(NocttyGridContext *context) {
+    if (context->write_flush_source != 0 ||
+        noctty_grid_write_pending(context->userdata) == 0)
+        return;
+    context->write_flush_source = g_timeout_add_full(
+        G_PRIORITY_DEFAULT, NOCTTY_WRITE_FLUSH_MS,
+        on_grid_write_flush, context, NULL);
+}
+
+static void acknowledge_grid_attention(NocttyGridContext *context) {
+    if (!context->attention && context->status_kind != 4) return;
+    context->attention = 0;
+    context->status_kind = 0;
+    update_status_tooltip(context, "idle");
+    update_compact_tab(context);
+    if (context->event != NULL)
+        context->event(context->event_data, context->pane_id,
+                       NOCTTY_EVENT_STATUS_ACKNOWLEDGED, 0,
+                       (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static int deliver_grid_input(NocttyGridContext *source, const char *bytes,
@@ -4662,7 +4739,10 @@ static int deliver_grid_input(NocttyGridContext *source, const char *bytes,
     if (root->contexts == NULL ||
         root->event_data == NULL ||
         noctty_grid_broadcast_enabled(root->event_data) == 0) {
-        return source->write(source->userdata, bytes, length);
+        acknowledge_grid_attention(source);
+        int delivered = source->write(source->userdata, bytes, length);
+        if (delivered >= 0) schedule_grid_write_flush(source);
+        return delivered;
     }
 
     guint selected = 0;
@@ -4683,7 +4763,9 @@ static int deliver_grid_input(NocttyGridContext *source, const char *bytes,
         if (selected > 0 &&
             noctty_grid_pane_selected(root->event_data, candidate->pane_id) == 0)
             continue;
+        acknowledge_grid_attention(candidate);
         if (candidate->write(candidate->userdata, bytes, length) < 0) return -1;
+        schedule_grid_write_flush(candidate);
         delivered = 1;
     }
     return delivered ? (int)length : -1;
@@ -4694,8 +4776,12 @@ static int deliver_grid_paste(NocttyGridContext *source, const char *bytes,
     if (!grid_context_session_available(source)) return -1;
     NocttyGridContext *root = root_grid_context(source);
     if (root->contexts == NULL || root->event_data == NULL ||
-        noctty_grid_broadcast_enabled(root->event_data) == 0)
-        return source->paste(source->userdata, bytes, length);
+        noctty_grid_broadcast_enabled(root->event_data) == 0) {
+        acknowledge_grid_attention(source);
+        int delivered = source->paste(source->userdata, bytes, length);
+        if (delivered >= 0) schedule_grid_write_flush(source);
+        return delivered;
+    }
 
     guint selected = 0;
     for (guint index = 0; index < root->contexts->len; index++) {
@@ -4713,7 +4799,9 @@ static int deliver_grid_paste(NocttyGridContext *source, const char *bytes,
         if (selected > 0 &&
             noctty_grid_pane_selected(root->event_data, candidate->pane_id) == 0)
             continue;
+        acknowledge_grid_attention(candidate);
         if (candidate->paste(candidate->userdata, bytes, length) < 0) return -1;
+        schedule_grid_write_flush(candidate);
         delivered = 1;
     }
     return delivered ? (int)length : -1;
@@ -4845,7 +4933,7 @@ static void update_compact_tab(NocttyGridContext *context) {
     const gchar *title_color = tab_color_rgb != 0
         ? (tab_color_uses_dark_text(tab_color_rgb) ? "#11151b" : "#ffffff")
         : (is_active ? "#ffffff" : "#b0b6c0");
-    const gchar *color = attention ? "#f6c85f" :
+    const gchar *color = attention || status == 4 ? "#f6c85f" :
         status == 3 ? "#ff6b6b" : status == 2 ? "#70d6a7" :
         status == 1 ? "#74a7ff" : "#6f7480";
     gchar *markup = g_strdup_printf(
@@ -5561,6 +5649,7 @@ typedef struct {
     NocttyGridContext *root;
     uint64_t pane_id;
     int exit_code;
+    int attention;
 } NocttyNotificationRequest;
 
 static void on_grid_notification_sent(GObject *source, GAsyncResult *result,
@@ -5591,9 +5680,11 @@ static void on_grid_notification_bus_ready(GObject *source,
         g_free(request);
         return;
     }
-    gchar *body = g_strdup_printf(
-        "Pane %" G_GUINT64_FORMAT " exited with code %d",
-        request->pane_id, request->exit_code);
+    gchar *body = request->attention
+        ? g_strdup_printf("Pane %" G_GUINT64_FORMAT " requested attention",
+                          request->pane_id)
+        : g_strdup_printf("Pane %" G_GUINT64_FORMAT " exited with code %d",
+                          request->pane_id, request->exit_code);
     GVariantBuilder hints;
     g_variant_builder_init(&hints, G_VARIANT_TYPE("a{sv}"));
     g_dbus_connection_call(
@@ -5601,7 +5692,10 @@ static void on_grid_notification_bus_ready(GObject *source,
         "/org/freedesktop/Notifications", "org.freedesktop.Notifications",
         "Notify",
         g_variant_new("(susss@as@a{sv}i)", "NOCTTY", 0u,
-                      "com.lichforge.NOCTTY", "Terminal finished", body,
+                      "com.lichforge.NOCTTY",
+                      request->attention ? "Terminal needs attention" :
+                                           "Terminal finished",
+                      body,
                       g_variant_new_strv(NULL, 0),
                       g_variant_builder_end(&hints), 5000),
         G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, 1500,
@@ -5617,6 +5711,22 @@ static void send_exit_notification(NocttyGridContext *context, int exit_code) {
     request->root = root;
     request->pane_id = context->pane_id;
     request->exit_code = exit_code;
+    begin_grid_dbus_operation(root);
+    g_bus_get(G_BUS_TYPE_SESSION, root->dbus_cancellable,
+              on_grid_notification_bus_ready, request);
+}
+
+static void send_attention_notification(NocttyGridContext *context,
+                                        gint64 now_us) {
+    if (!context->enable_notifications || context->focused) return;
+    if (now_us - context->last_desktop_notification_us < G_USEC_PER_SEC)
+        return;
+    context->last_desktop_notification_us = now_us;
+    NocttyGridContext *root = root_grid_context(context);
+    NocttyNotificationRequest *request = g_new0(NocttyNotificationRequest, 1);
+    request->root = root;
+    request->pane_id = context->pane_id;
+    request->attention = 1;
     begin_grid_dbus_operation(root);
     g_bus_get(G_BUS_TYPE_SESSION, root->dbus_cancellable,
               on_grid_notification_bus_ready, request);
@@ -5832,6 +5942,11 @@ static void queue_grid_output_when_ready(NocttyGridContext *context) {
     }
 }
 
+static void mark_grid_output_activity(NocttyGridContext *context) {
+    context->last_output_us = g_get_monotonic_time();
+    context->idle_history_compacted = 0;
+}
+
 static int pump_grid_context(NocttyGridContext *context,
                              gboolean *exited_now) {
     if (!grid_context_session_available(context) || context->exited)
@@ -5839,7 +5954,10 @@ static int pump_grid_context(NocttyGridContext *context,
     int pumped = context->pty_fd == -1
         ? context->pump(context->userdata)
         : -2;
+    if (pumped != -2) schedule_grid_write_flush(context);
+    if (pumped > 0) mark_grid_output_activity(context);
     gboolean had_output = pumped > 0 || context->pty_output_dirty;
+    gboolean notification_requested = FALSE;
     context->pty_output_dirty = 0;
     if (had_output || !context->terminal_metadata_initialized) {
         context->terminal_metadata_initialized = 1;
@@ -5872,6 +5990,15 @@ static int pump_grid_context(NocttyGridContext *context,
             context->last_bell_serial = bell_serial;
             update_compact_tab(context);
         }
+
+        uint64_t notification_serial =
+            noctty_grid_notification_serial(context->userdata);
+        if (notification_serial != context->last_notification_serial) {
+            context->last_notification_serial = notification_serial;
+            context->pending_notification_action =
+                noctty_grid_notification_action(context->userdata);
+            notification_requested = TRUE;
+        }
     }
 
     gint64 now_us = g_get_monotonic_time();
@@ -5900,14 +6027,35 @@ static int pump_grid_context(NocttyGridContext *context,
         *exited_now = TRUE;
         return pumped;
     }
-    int status_changed = context->status_kind != 1;
-    context->status_kind = 1;
+    int active_status = context->status_kind == 4 || context->attention ? 4 : 1;
+    int status_changed = context->status_kind != active_status;
+    context->status_kind = active_status;
     if (context->event != NULL && (had_output || status_changed))
-        context->event(context->event_data, context->pane_id, 2, 0,
+        context->event(context->event_data, context->pane_id,
+                       active_status == 4 ? 109 : 2, 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     if (status_changed) {
-        update_status_tooltip(context, "running");
+        update_status_tooltip(context, grid_status_name(active_status));
         update_compact_tab(context);
+    }
+    if (notification_requested) {
+        context->attention = !context->focused;
+        root_grid_context(context)->compact_attention_seen = 1;
+        context->status_kind = 4;
+        update_status_tooltip(
+            context,
+            context->pending_notification_action == 1
+                ? "agent action: focus pane"
+                : context->pending_notification_action == 2
+                    ? "agent action: open project"
+                    : "pending input");
+        update_compact_tab(context);
+        if (context->event != NULL)
+            context->event(context->event_data, context->pane_id,
+                           NOCTTY_EVENT_STATUS_NOTIFICATION, 0,
+                           (uint64_t)(now_us / 1000));
+        send_attention_notification(context, now_us);
+        status_changed = 1;
     }
     if (had_output) queue_grid_output_when_ready(context);
     if (status_changed) queue_grid_draw_when_mapped(context);
@@ -5949,6 +6097,7 @@ static void remove_output_present(NocttyGridContext *context) {
 static void stop_grid_io_sources(NocttyGridContext *context) {
     remove_grid_source(&context->tick_source);
     remove_grid_source(&context->pty_source);
+    remove_grid_source(&context->write_flush_source);
     remove_output_present(context);
     remove_grid_source(&context->synchronized_output_source);
     context->synchronized_output_pending = 0;
@@ -5991,7 +6140,9 @@ static gboolean on_pty_ready(gint fd, GIOCondition condition,
         return G_SOURCE_REMOVE;
     }
     int pumped = context->pump(context->userdata);
+    schedule_grid_write_flush(context);
     if (pumped > 0) {
+        mark_grid_output_activity(context);
         context->pty_output_dirty = 1;
         queue_grid_output_when_ready(context);
         schedule_output_present(context);
@@ -6065,7 +6216,10 @@ static gboolean on_cursor_blink(gpointer user_data) {
 
 static gboolean on_grid_maintenance(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    uint64_t now_ms = (uint64_t)(g_get_monotonic_time() / 1000);
+    gint64 now_us = g_get_monotonic_time();
+    uint64_t now_ms = (uint64_t)(now_us / 1000);
+    guint idle_history_steps = 0;
+    gboolean idle_history_released = FALSE;
     NocttyGridContext *active = NULL;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
@@ -6082,11 +6236,33 @@ static gboolean on_grid_maintenance(gpointer user_data) {
                 continue;
             }
         }
+        schedule_grid_write_flush(candidate);
+        if (!candidate->idle_history_compacted &&
+            idle_history_steps < NOCTTY_IDLE_HISTORY_STEPS_PER_TICK) {
+            gint64 idle_threshold_us = candidate->focused
+                ? NOCTTY_IDLE_HISTORY_FOCUSED_US
+                : NOCTTY_IDLE_HISTORY_BACKGROUND_US;
+            if (now_us - candidate->last_output_us >= idle_threshold_us) {
+                int compacted = noctty_grid_compact_idle_history(
+                    candidate->userdata);
+                idle_history_steps++;
+                if (compacted != 0) {
+                    candidate->idle_history_compacted = 1;
+                    if (compacted > 1) idle_history_released = TRUE;
+                    if (compacted > 1 && candidate->event != NULL)
+                        candidate->event(
+                            candidate->event_data, candidate->pane_id,
+                            NOCTTY_EVENT_IDLE_HISTORY_COMPACTED, 0, now_ms);
+                }
+            }
+        }
         if (active == NULL) active = candidate;
         if (candidate->event != NULL)
             candidate->event(candidate->event_data, candidate->pane_id, 4, 0,
                              now_ms);
     }
+    /* History slabs use libc; trim only after a bounded completion wave. */
+    if (idle_history_released) (void)malloc_trim(0);
     if (active != NULL && root->event != NULL)
         root->event(root->event_data, active->pane_id, 19, 0, now_ms);
     refresh_active_pane_info(root);
@@ -6097,6 +6273,8 @@ static void start_grid_context(NocttyGridContext *context) {
     if (context == NULL || context->userdata == NULL) return;
     context->retiring = 0;
     context->active = 1;
+    context->last_output_us = g_get_monotonic_time();
+    context->idle_history_compacted = 0;
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 1, 0, (uint64_t)(g_get_monotonic_time() / 1000));
     context->pty_fd = noctty_grid_pty_fd(context->userdata);
     if (context->pty_fd >= 0) {
@@ -6199,6 +6377,8 @@ static NocttyGridContext *create_grid_context_for_session(
     created->cursor_visible = 1;
     created->last_cursor_position = UINT32_MAX;
     created->last_bell_serial = noctty_grid_bell_serial(userdata);
+    created->last_notification_serial =
+        noctty_grid_notification_serial(userdata);
     created->pty_fd = -1;
     created->heap_allocated = 1;
 
@@ -7754,9 +7934,19 @@ static void activate_grid_context(NocttyGridContext *context) {
         if (candidate != context) deactivate_grid_context(candidate);
     }
     gboolean changed = !context->focused;
+    gboolean acknowledged_attention = context->attention ||
+        context->status_kind == 4;
     context->focused = 1;
     context->cursor_visible = 1;
     context->attention = 0;
+    if (acknowledged_attention) {
+        context->status_kind = 0;
+        update_status_tooltip(context, "idle");
+        if (context->event != NULL)
+            context->event(context->event_data, context->pane_id,
+                           NOCTTY_EVENT_STATUS_ACKNOWLEDGED, 0,
+                           (uint64_t)(g_get_monotonic_time() / 1000));
+    }
     if (changed) {
         if (context->im_context != NULL)
             gtk_im_context_focus_in(context->im_context);
@@ -7970,8 +8160,11 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if (plain_control &&
         (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
-        if (context->write(context->userdata, "\x03", 1) == 1)
+        acknowledge_grid_attention(context);
+        if (context->write(context->userdata, "\x03", 1) == 1) {
+            schedule_grid_write_flush(context);
             root->ctrl_c_local_interrupt = 1;
+        }
         return TRUE;
     }
     if (context->im_context != NULL &&
@@ -8142,7 +8335,9 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         return TRUE;
     }
     if (!terminal_mouse_mode) return TRUE;
+    acknowledge_grid_attention(context);
     (void)context->mouse(context->userdata, column, row, button, pressed);
+    schedule_grid_write_flush(context);
     return TRUE;
 }
 
@@ -9731,7 +9926,8 @@ static void on_project_editor_open(GtkButton *button, gpointer user_data) {
 }
 
 static gboolean spawn_workspace_window(NocttyGridContext *context,
-                                        const gchar *path) {
+                                        const gchar *path,
+                                        int restore_mode) {
     if (context == NULL || path == NULL || path[0] != '/') return FALSE;
     GError *error = NULL;
     gchar *executable = g_file_read_link("/proc/self/exe", &error);
@@ -9739,10 +9935,14 @@ static gboolean spawn_workspace_window(NocttyGridContext *context,
         g_clear_error(&error);
         return FALSE;
     }
+    gchar restore_mode_text[8];
+    g_snprintf(restore_mode_text, sizeof(restore_mode_text), "%d", restore_mode);
     gchar *arguments[] = {
         executable,
         (gchar *)"--open-workspace",
         (gchar *)path,
+        (gchar *)"--restore-mode",
+        restore_mode_text,
         NULL,
     };
     gboolean launched = g_spawn_async(
@@ -9751,7 +9951,7 @@ static gboolean spawn_workspace_window(NocttyGridContext *context,
         context->recent_workspace_child_launched = launched;
     if (launched && context->text_action != NULL)
         (void)context->text_action(
-            context->text_action_data, 19, path, strlen(path), "", 0, 0);
+            context->text_action_data, 19, path, strlen(path), "", 0, restore_mode);
     g_clear_error(&error);
     g_free(executable);
     return launched;
@@ -9764,8 +9964,37 @@ static void on_project_recent_open(GtkButton *button, gpointer user_data) {
     if (!GTK_IS_COMBO_BOX_TEXT(combo)) return;
     gchar *path = gtk_combo_box_text_get_active_text(
         GTK_COMBO_BOX_TEXT(combo));
-    if (path != NULL) (void)spawn_workspace_window(context, path);
+    if (path != NULL) (void)spawn_workspace_window(context, path, 0);
     g_free(path);
+}
+
+static int choose_restore_mode(NocttyGridContext *context) {
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(
+        "Restore Workspace", GTK_WINDOW(context->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "Cancel", GTK_RESPONSE_CANCEL, "Restore", GTK_RESPONSE_ACCEPT, NULL);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    GtkWidget *label = gtk_label_new(
+        "Choose what should survive restore. Agent resume uses only registered references.");
+    GtkWidget *combo = gtk_combo_box_text_new();
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
+                                   "Restart shells (layout and directories)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
+                                   "Attach persistent tmux/Zellij sessions");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
+                                   "Resume registered agents");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
+    gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), combo, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    prepare_action_button_tree(dialog);
+    int response = run_grid_modal_dialog(context, GTK_DIALOG(dialog));
+    int mode = response == GTK_RESPONSE_ACCEPT
+        ? gtk_combo_box_get_active(GTK_COMBO_BOX(combo)) : -1;
+    gtk_widget_destroy(dialog);
+    return mode;
 }
 
 static void choose_workspace_file(NocttyGridContext *context, int action) {
@@ -9781,8 +10010,11 @@ static void choose_workspace_file(NocttyGridContext *context, int action) {
                 (void)context->text_action(
                     context->text_action_data, action, path, strlen(path),
                     "", 0, 0);
-            else if (action == 3)
-                (void)spawn_workspace_window(context, path);
+            else if (action == 3) {
+                const int restore_mode = choose_restore_mode(context);
+                if (restore_mode >= 0)
+                    (void)spawn_workspace_window(context, path, restore_mode);
+            }
         }
         g_free(path);
     }
@@ -10357,6 +10589,101 @@ static gboolean save_grid_scrollback_to_path(NocttyGridContext *context,
     return saved;
 }
 
+static void save_grid_encrypted_history(NocttyGridContext *context) {
+    GtkWidget *chooser = gtk_file_chooser_dialog_new(
+        "Export Encrypted Screen History", GTK_WINDOW(context->window),
+        GTK_FILE_CHOOSER_ACTION_SAVE, "Cancel", GTK_RESPONSE_CANCEL,
+        "Export", GTK_RESPONSE_ACCEPT, NULL);
+    prepare_action_button_tree(chooser);
+    gtk_file_chooser_set_current_name(
+        GTK_FILE_CHOOSER(chooser), "noctty-history.nocttyhs");
+    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(chooser), TRUE);
+    if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+        gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+        GtkWidget *password_dialog = gtk_dialog_new_with_buttons(
+            "Protect Screen History", GTK_WINDOW(context->window),
+            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            "Cancel", GTK_RESPONSE_CANCEL, "Export", GTK_RESPONSE_ACCEPT, NULL);
+        GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        GtkWidget *label = gtk_label_new(
+            "Use at least 8 characters. The password is not stored by NOCTTY.");
+        GtkWidget *entry = gtk_entry_new();
+        gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+        gtk_entry_set_visibility(GTK_ENTRY(entry), FALSE);
+        gtk_entry_set_max_length(GTK_ENTRY(entry), 4096);
+        gtk_container_set_border_width(GTK_CONTAINER(box), 12);
+        gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(password_dialog))), box);
+        prepare_action_button_tree(password_dialog);
+        if (run_grid_modal_dialog(context, GTK_DIALOG(password_dialog)) == GTK_RESPONSE_ACCEPT) {
+            const char *password = gtk_entry_get_text(GTK_ENTRY(entry));
+            if (noctty_grid_save_encrypted_history(
+                    context->userdata, context->event_data, path, strlen(path),
+                    password, strlen(password)) != 0) {
+                GtkWidget *error_dialog = gtk_message_dialog_new(
+                    GTK_WINDOW(context->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                    GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+                    "Could not export encrypted screen history");
+                (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
+                gtk_widget_destroy(error_dialog);
+            }
+        }
+        gtk_widget_destroy(password_dialog);
+        g_free(path);
+    }
+    gtk_widget_destroy(chooser);
+}
+
+static void set_agent_resume_reference(NocttyGridContext *context) {
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(
+        "Register Agent Resume Reference", GTK_WINDOW(context->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "Cancel", GTK_RESPONSE_CANCEL, "Register", GTK_RESPONSE_ACCEPT, NULL);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    GtkWidget *provider = gtk_combo_box_text_new();
+    GtkWidget *session = gtk_entry_new();
+    GtkWidget *label = gtk_entry_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(provider), "Claude Code");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(provider), "Codex");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(provider), 0);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(session), "Opaque session ID");
+    gtk_entry_set_placeholder_text(GTK_ENTRY(label), "Optional label");
+    gtk_entry_set_max_length(GTK_ENTRY(session), 256);
+    gtk_entry_set_max_length(GTK_ENTRY(label), 64);
+    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Provider"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), provider, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Session reference"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), session, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Display label"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
+    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    prepare_action_button_tree(dialog);
+    if (run_grid_modal_dialog(context, GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        const char *session_id = gtk_entry_get_text(GTK_ENTRY(session));
+        const char *display_label = gtk_entry_get_text(GTK_ENTRY(label));
+        if (noctty_grid_set_agent_resume(
+                context->event_data, context->pane_id,
+                gtk_combo_box_get_active(GTK_COMBO_BOX(provider)),
+                session_id, strlen(session_id), display_label, strlen(display_label)) != 0) {
+            GtkWidget *error_dialog = gtk_message_dialog_new(
+                GTK_WINDOW(context->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+                "Invalid agent resume reference");
+            (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
+            gtk_widget_destroy(error_dialog);
+        }
+        refresh_active_pane_info(context);
+    }
+    gtk_widget_destroy(dialog);
+}
+
+static void clear_agent_resume_reference(NocttyGridContext *context) {
+    if (noctty_grid_clear_agent_resume(context->event_data, context->pane_id) == 0)
+        refresh_active_pane_info(context);
+}
+
 static void save_grid_scrollback(NocttyGridContext *context) {
     GtkWidget *chooser = gtk_file_chooser_dialog_new("Save Terminal Scrollback",
         GTK_WINDOW(context->window), GTK_FILE_CHOOSER_ACTION_SAVE,
@@ -10414,6 +10741,10 @@ static const NocttyCompactAction compact_actions[] = {
     {21, "Remove tag from selected panes", "selection group"},
     {22, "Lighten active tab color", "Ctrl+Alt+="},
     {23, "Darken active tab color", "Ctrl+Alt+-"},
+    {24, "Register agent resume reference", "provider + opaque session ID"},
+    {25, "Clear agent resume reference", "return to ordinary restore"},
+    {26, "Export encrypted screen history", "password-protected local file"},
+    {27, "Accept pending agent action", "explicitly run a safe focus/project action"},
 };
 
 static gboolean fuzzy_match_ascii(const char *haystack, const char *needle) {
@@ -10442,6 +10773,20 @@ static void on_palette_search_changed(GtkEditable *editable, gpointer user_data)
         gtk_list_box_select_row(GTK_LIST_BOX(root->palette_list), first_visible);
 }
 
+static void accept_pending_agent_action(NocttyGridContext *context) {
+    if (context->pending_notification_action == 1) {
+        context->pending_notification_action = 0;
+        acknowledge_grid_attention(context);
+        activate_grid_context(context);
+        return;
+    }
+    if (context->pending_notification_action == 2) {
+        context->pending_notification_action = 0;
+        acknowledge_grid_attention(context);
+        open_project_tools(context);
+    }
+}
+
 static void execute_palette_action(NocttyGridContext *context, int id) {
     if (id == 1) emit_grid_workspace_event(context, 20);
     else if (id == 2) emit_grid_workspace_event(context, 21);
@@ -10456,6 +10801,10 @@ static void execute_palette_action(NocttyGridContext *context, int id) {
     else if (id == 11) open_project_tools(context);
     else if (id == 18) open_editor_here(context);
     else if (id == 12) save_grid_scrollback(context);
+    else if (id == 24) set_agent_resume_reference(context);
+    else if (id == 25) clear_agent_resume_reference(context);
+    else if (id == 26) save_grid_encrypted_history(context);
+    else if (id == 27) accept_pending_agent_action(context);
     else if (id == 13) open_shortcuts_overlay(context);
     else if (id == 14) toggle_grid_window(context);
     else if (id == 15) {
@@ -12793,7 +13142,9 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     int button = event->direction == GDK_SCROLL_SMOOTH && event->delta_y < 0 ? 64 : 65;
     int column = MAX(0, (int)(event->x / grid_cell_width(context)));
     int row = MAX(0, (int)(event->y / grid_cell_height(context)));
+    acknowledge_grid_attention(context);
     (void)context->mouse(context->userdata, column, row, button, 1);
+    schedule_grid_write_flush(context);
     return TRUE;
 }
 
@@ -13500,6 +13851,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.columns = columns;
     context.rows = rows;
     context.last_bell_serial = noctty_grid_bell_serial(userdata);
+    context.last_notification_serial =
+        noctty_grid_notification_serial(userdata);
     context.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     context.area = gtk_drawing_area_new();
     context.im_context = gtk_im_multicontext_new();
@@ -13512,6 +13865,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
             context.font_family != NULL ? context.font_family : "monospace");
         secondary.userdata = secondary_userdata;
         secondary.last_bell_serial = noctty_grid_bell_serial(secondary_userdata);
+        secondary.last_notification_serial =
+            noctty_grid_notification_serial(secondary_userdata);
         secondary.pane_id = secondary_pane_id;
         secondary.profile_preset = -1;
         secondary.primary = 0;
@@ -13753,6 +14108,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         g_timeout_add(1200, check_attention_smoke, &context);
         g_timeout_add(1450, save_dirty_smoke, &context);
         g_timeout_add(1750, check_dirty_clear_smoke, &context);
+        g_timeout_add(2100, acknowledge_attention_smoke, &context);
         g_timeout_add(2400, finish_title_smoke, &context);
     } else if (workspace_smoke == 25) {
         g_timeout_add(300, emit_workspace_smoke_tab, &context);

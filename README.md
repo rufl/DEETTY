@@ -40,7 +40,7 @@ Not claimed yet:
 - signed/public packages
 
 See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md),
-and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
+the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
 
 ## Screenshots
 
@@ -62,7 +62,9 @@ NOCTTY provides:
 - bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
 - scrollback, search, copy/paste, mouse, resize, and Unicode/ANSI handling
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
-- hot-session workspace recovery with fresh shell restart semantics
+- hot-session workspace recovery with explicit shell-restart, tmux/Zellij-attach, or registered-agent-resume choices
+- continuity badges distinguishing restartable shells, live sessions, and agent resumes
+- opt-in password-protected encrypted screen-history export
 - native settings UI for common behavior and appearance choices
 - optional tray/status notifier integration
 - native themes and import paths for simple terminal color formats
@@ -198,8 +200,8 @@ Fast contributor gate:
 zig build check
 ```
 
-The current working tree and a fresh clean source copy pass
-`zig build check -j1 --summary all` with `19/19` steps and `316/316` tests.
+The current working tree passes `zig build check -j1 --summary all` with
+`19/19` steps and `343/343` tests; the single-job full verifier also passes.
 
 Bounded public-source-alpha gate:
 

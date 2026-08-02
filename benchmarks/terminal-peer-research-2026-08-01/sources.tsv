@@ -1,0 +1,15 @@
+project	revision	category	repository
+ghostty	46edeee407ff8fe153450098953ffc67e608c5f1	high-performance terminal	https://github.com/ghostty-org/ghostty
+wezterm	d69264df66fd96dd3323059715a06250806e01cd	terminal and multiplexer	https://github.com/wez/wezterm
+alacritty	852e971cddfad7f820f53532d4a4944be5ee8701	high-performance terminal	https://github.com/alacritty/alacritty
+kitty	999cde66dbd531612e293f47396a9931a49193f6	high-performance terminal	https://github.com/kovidgoyal/kitty
+foot	8db88cceb758de550cd1cc17a5840d5273e844d5	Wayland terminal	https://codeberg.org/dnkl/foot
+rio	497f97151beac5a318529ac81202942190068881	GPU terminal	https://github.com/raphamorim/rio
+cmux	2f4059bd32117a62495763ca0e5e9566159bedde	agent-focused terminal	https://github.com/manaflow-ai/cmux
+herdr	9a4ce5e13c1d156c944560124bac4879eb225d18	agent multiplexer	https://github.com/herdrdev/herdr
+agent-deck	69bba27fbfcd7b27f207d0de27abecdb611df912	agent session manager	https://github.com/asheshgoplani/agent-deck
+claude-squad	2dd388e98572b28c37579b6094b7bb90c90e13e5	agent worktree manager	https://github.com/smtg-ai/claude-squad
+waveterm	a4447c1563b28d8f16c7092a0b8f137de500f66f	AI-integrated terminal	https://github.com/wavetermdev/waveterm
+zellij	0e6e4404027ae9bd5f9edbc38b85a097bb986ba6	terminal multiplexer	https://github.com/zellij-org/zellij
+tmux	31dccb6bc952290e91dfbd631a5e55951b4cf94f	terminal multiplexer	https://github.com/tmux/tmux
+better-agent-terminal	72dc4baa10c8dd956da3491831480b41657440da	agent terminal aggregator	https://github.com/tony1223/better-agent-terminal

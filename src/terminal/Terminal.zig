@@ -1,6 +1,7 @@
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const Theme = @import("../theme/Theme.zig");
+const Continuity = @import("Continuity.zig");
 
 pub const PaneId = u64;
 
@@ -104,6 +105,7 @@ pub const Pane = struct {
     exit_code: ?u8 = null,
     selected: bool = false,
     tags: std.array_list.Managed([]u8),
+    agent_resume: Continuity.AgentResume = .{},
 
     pub fn init(allocator: std.mem.Allocator, id: PaneId, title: []const u8, cwd: []const u8) !Pane {
         if (!std.fs.path.isAbsolute(cwd)) return error.InvalidPaneWorkingDirectory;
@@ -126,6 +128,19 @@ pub const Pane = struct {
             try pane.addTag(tag);
         }
         return pane;
+    }
+
+    pub fn setAgentResume(self: *Pane, reference: Continuity.AgentResume) !void {
+        try reference.validate();
+        self.agent_resume = reference;
+    }
+
+    pub fn clearAgentResume(self: *Pane) void {
+        self.agent_resume.clear();
+    }
+
+    pub fn continuityLabel(self: Pane, launch_kind: @import("LaunchProfile.zig").Kind) []const u8 {
+        return self.agent_resume.labelText(launch_kind);
     }
 
     pub fn setCwd(self: *Pane, cwd: []const u8) !void {
