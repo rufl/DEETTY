@@ -2814,7 +2814,7 @@ const App = struct {
         const tab_label = c.gtk_label_new(owned_display_name.ptr) orelse unreachable;
         const close = iconButton("window-close-symbolic", "Close file");
         c.gtk_widget_set_name(close, "nocted-tab-close");
-        c.gtk_widget_set_size_request(close, 28, 28);
+        c.gtk_widget_set_size_request(close, 28, 26);
         c.gtk_box_pack_start(asBox(tab_box), tab_label, 1, 1, 0);
         c.gtk_box_pack_end(asBox(tab_box), close, 0, 0, 0);
 
@@ -6121,12 +6121,12 @@ fn installCss() void {
         \\#nocted-project-tree { background: #11151d; color: #c3cad6; }
         \\#nocted-project-tree:selected { background: #263249; color: #ffffff; }
         \\#nocted-project-tree:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
-        \\#nocted-tabs header { background: #11151d; border: 0; padding: 4px 5px 0 5px; }
-        \\#nocted-tabs tab { background: #1a202b; color: #aeb7c6; border: 0; border-radius: 9px 9px 0 0; margin: 0 4px 0 0; padding: 4px 9px 5px; }
+        \\#nocted-tabs header { background: #11151d; border: 0; padding: 2px 5px 0 5px; }
+        \\#nocted-tabs tab { background: #1a202b; color: #aeb7c6; border: 0; border-radius: 9px 9px 0 0; margin: 0 4px 0 0; padding: 2px 9px 3px; }
         \\#nocted-tabs tab:hover { background: #242c3a; color: #ffffff; }
         \\#nocted-tabs tab:checked { background: #0b0d12; color: #e5e9f0; box-shadow: inset 0 2px #8fb8ff; }
         \\#nocted-tabs tab:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
-        \\#nocted-tab-close { min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
+        \\#nocted-tab-close { min-width: 28px; min-height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
         \\#nocted-tab-close:hover { background: #242c3a; color: #ffffff; }
         \\#nocted-tab-close:active { background: #263249; }
         \\#nocted-tab-close:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }

@@ -103,7 +103,7 @@ grep -F 'setAccessibleName(self.window, "NoctEd editor window");' "$nocted" >/de
 grep -F 'setAccessibleName(self.tree, "Project files");' "$nocted" >/dev/null
 grep -F 'setAccessibleName(self.project_search_tree, "Project search results");' "$nocted" >/dev/null
 grep -F 'setAccessibleName(self.quick_open_tree, "Quick Open results");' "$nocted" >/dev/null
-grep -F 'c.gtk_widget_set_size_request(close, 28, 28);' "$nocted" >/dev/null
+grep -F 'c.gtk_widget_set_size_request(close, 28, 26);' "$nocted" >/dev/null
 grep -F 'c.gtk_widget_set_size_request(button, 28, 28);' "$nocted" >/dev/null
 grep -F 'render=widget nonblack_samples=%zu' "$nocted" >/dev/null
 grep -F 'total_phase_cycles=$((total_cycles * 4))' "$nocted_endurance" >/dev/null

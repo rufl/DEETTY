@@ -87,7 +87,7 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Leading accessible `+` New Tab action from the default row and after original-tab closure, with fresh-session routing and persistent one-tab availability
 - [x] Trailing system-theme Settings then Close controls in Yakuake order, with native Settings activation and clean all-session PTY shutdown independent of NoctEd
 - [x] Native action buttons use the standard arrow pointer, expose nonempty tooltips, and restore terminal/text/resize cursor semantics on leave
-- [x] Yakuake-density tab chrome keeps compact titles and `×N` pane counts while New Tab, Settings, application Close, and per-tab Close use native symbolic icons with 28-logical-pixel minimum targets plus explicit hover, active, and keyboard-focus states
+- [x] Yakuake-density tab chrome keeps compact titles and `×N` pane counts while New Tab, Settings, application Close, and per-tab Close use native symbolic icons with 28-logical-pixel width and 26-logical-pixel height targets plus explicit hover, active, and keyboard-focus states
 - [x] Configurable 18-pixel page-level active-pane information below top tabs with `short cwd : foreground process` text and a full pane/PID/process/directory tooltip; no per-split title bars
 - [x] Double-click no-popup inline tab rename with outside-click cancellation, Enter commit, focus restoration, Zig state, dirty marking, and workspace snapshot persistence
 - [x] Exact-tab native `Tab Color` presets with contrast-aware rendering, reversible active-tab lighten/darken shortcuts, dirty marking, and backward-compatible snapshot persistence

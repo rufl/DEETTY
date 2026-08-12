@@ -1401,6 +1401,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         gboolean row_ready = row_buffer_ready &&
             context->row(context->userdata, row, context->row_cells,
                          (size_t)context->columns) == context->columns;
+        if (row_ready && (size_t)end_column > context->row_cell_capacity)
+            row_ready = FALSE;
         if (row_ready) root_grid_context(context)->row_batches_drawn++;
         if (!row_ready) {
             for (int column = first_column; column < end_column; column++) {
@@ -6078,7 +6080,7 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
     gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close, FALSE);
 
-    gtk_widget_set_size_request(close, 28, 28);
+    gtk_widget_set_size_request(close, 28, 26);
     configure_action_button(close, "Close Tab");
     AtkObject *close_accessible = gtk_widget_get_accessible(close);
     if (close_accessible != NULL)
@@ -6157,7 +6159,7 @@ static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
 
     gtk_widget_set_can_focus(button, TRUE);
-    gint extent = MAX(28, root->compact_tab_height + 2);
+    gint extent = MAX(26, root->compact_tab_height + 2);
     gtk_widget_set_size_request(button, extent, extent);
     configure_action_button(button, "New Tab (Ctrl+Shift+T)");
     AtkObject *accessible = gtk_widget_get_accessible(button);
@@ -6197,7 +6199,7 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
     GtkWidget *buttons[] = { settings, close };
     const gchar *tooltips[] = { "Settings", "Close NOCTTY" };
     const gchar *accessible_names[] = { "Settings", "Close NOCTTY" };
-    gint extent = MAX(28, root->compact_tab_height + 2);
+    gint extent = MAX(26, root->compact_tab_height + 2);
     for (guint index = 0; index < G_N_ELEMENTS(buttons); index++) {
         gtk_button_set_relief(GTK_BUTTON(buttons[index]), GTK_RELIEF_NONE);
         gtk_widget_set_focus_on_click(buttons[index], FALSE);
@@ -6330,7 +6332,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         g_strcmp0(close_icon_name, "window-close-symbolic") == 0 &&
         root->compact_tab_close_extent >= 28 &&
         root->compact_tab_close_extent <= 30 &&
-        root->compact_tab_action_extent >= 28 &&
+        root->compact_tab_action_extent >= 26 &&
         root->compact_tab_action_extent <= strip_limit;
     return G_SOURCE_REMOVE;
 }
