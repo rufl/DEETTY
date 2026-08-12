@@ -83,7 +83,7 @@ Right-click a tab title and open `Tab Color` to choose Default, Red, Orange, Yel
 
 The persistent `+` New Tab button exposes `Ctrl+Shift+T` in its tooltip and accessibility name.
 
-Settings and Close occupy the tab row's far edge in Yakuake's order, with Settings immediately before Close. The compact strip keeps visible titles to 18 characters and uses `×N` instead of wider multi-pane text while tooltips retain full detail. New Tab, Settings, application Close, and per-tab Close use GTK symbolic icons with 28-logical-pixel width and 22-logical-pixel height targets; tab labels render at 90% of the surrounding UI font. The controls follow horizontal or vertical tab placement, expose accessible names and tooltips, and share explicit hover, active, and keyboard-focus states.
+Settings and Close occupy the tab row's far edge in Yakuake's order, with Settings immediately before Close. The compact strip keeps visible titles to 18 characters and uses `×N` instead of wider multi-pane text while tooltips retain full detail. New Tab, Settings, application Close, and per-tab Close use GTK symbolic icons with 28-logical-pixel width and 18-logical-pixel height targets; tab labels render at 90% of the surrounding UI font. The controls follow horizontal or vertical tab placement, expose accessible names and tooltips, and share explicit hover, active, and keyboard-focus states.
 
 Attention and unsaved-workspace markers appear beside the title without replacing it. Attention clears when the pane receives focus or its session exits; the unsaved marker follows workspace save state.
 

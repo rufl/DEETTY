@@ -103,7 +103,7 @@ guarantee the latest keystroke; users still need to save important files.
 
 ## Accessibility
 
-Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. NOCTTY and NoctEd tab/action controls retain 28-logical-pixel width and 22-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
+Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. NOCTTY and NoctEd tab/action controls retain 28-logical-pixel width and 18-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
 
 Not complete or claimed yet:
 

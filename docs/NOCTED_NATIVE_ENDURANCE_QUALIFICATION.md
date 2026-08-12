@@ -44,7 +44,7 @@ Maximum observed per-workflow p95 values are host-local observations, not releas
 
 The endurance tranche also hardened the native UI path:
 
-- NoctEd now uses its product-cased window title, explicit window accessibility name, descriptive search placeholders, 28-logical-pixel width and 22-logical-pixel height file-tab close targets, and visible focus rings for the project tree, file tabs, close controls, project results, and Quick Open results.
+- NoctEd now uses its product-cased window title, explicit window accessibility name, descriptive search placeholders, 28-logical-pixel width and 18-logical-pixel height file-tab close targets, and visible focus rings for the project tree, file tabs, close controls, project results, and Quick Open results.
 - The prior `gdk_pixbuf_get_from_window` smoke capture could return a nonempty all-black image on Wayland. Smoke capture now draws the mapped widget tree into a Cairo image surface, samples RGB content before accepting it, and requires `render=widget` with a positive `nonblack_samples` receipt.
 - All eight retained first/final images are 1220×760, contain visible project, editor, Quick Open, selection, focus, minimap, and status content, and were manually inspected after checksum verification.
 

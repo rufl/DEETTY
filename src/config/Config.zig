@@ -263,7 +263,7 @@ pub const DropdownConfig = struct {
 
 pub const TabConfig = struct {
     position: TabPosition = .bottom,
-    compact_height_px: u16 = 18,
+    compact_height_px: u16 = 16,
     show_status_counts: bool = true,
     tooltip_details: bool = true,
     focus_follows_pointer: bool = false,
@@ -406,7 +406,7 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u8, 55), cfg.dropdown.height_percent);
     try std.testing.expectEqual(@as(u16, 120), cfg.dropdown.animation_ms);
     try std.testing.expectEqual(TabPosition.bottom, cfg.tabs.position);
-    try std.testing.expectEqual(@as(u16, 18), cfg.tabs.compact_height_px);
+    try std.testing.expectEqual(@as(u16, 16), cfg.tabs.compact_height_px);
     try std.testing.expectEqual(StatusIndicator.background, cfg.status.indicator);
     try std.testing.expect(cfg.font.ligatures);
     try std.testing.expectEqual(FontAntialias.subpixel, cfg.font.antialias);
