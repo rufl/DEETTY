@@ -9,7 +9,7 @@ NoctEd is NOCTTY's standalone native project editor. It is built as the separate
 The current desktop surface follows the compact Sublime Text 2 editing model:
 
 - a persistent left project tree backed by a compact immutable arena index, with generated/vendor and bounded ignore rules applied, full scans and precise structural deltas processed on the background lane, and replacement snapshots published transactionally through bounded main-thread slices;
-- reorderable file tabs with dirty markers, 28-logical-pixel width and 26-logical-pixel height close targets plus hover/active/focus states, previous/next navigation, clean untitled buffers, native Save As, Save/Discard/Cancel-aware tab/close-other/close-all actions, and ordered active-tab restoration with dirty saved and untitled contents;
+- reorderable file tabs with dirty markers, 28-logical-pixel width and 22-logical-pixel height close targets plus hover/active/focus states, previous/next navigation, clean untitled buffers, native Save As, Save/Discard/Cancel-aware tab/close-other/close-all actions, and ordered active-tab restoration with dirty saved and untitled contents;
 - line numbers, current-line highlighting, bracket matching, auto-indent, undo/redo, UTF-8 editing, and bounded select-all-occurrences transactions with rendered secondary ranges;
 - bounded Sublime-style `Ctrl+wheel` editor zoom from 60% through 240% in 10% steps, shared across open documents while ordinary wheel scrolling and the minimap scale remain independent;
 - a right-side GtkSourceMap minimap constrained independently from editor font sizing, with a translucent viewport that leaves minimap glyphs visible;

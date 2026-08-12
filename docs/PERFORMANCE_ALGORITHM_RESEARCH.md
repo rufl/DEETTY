@@ -73,7 +73,7 @@ or third worker lane.
 
 The native compact row also replaced font-dependent `+`, gear, and multiplication
 glyph controls with GTK symbolic icons and raised New Tab, Settings, application
-Close controls use GTK symbolic icons and 28-logical-pixel width with 26-logical-pixel height targets, retaining explicit hover, active, and keyboard-focus states. This is a native accessibility correction, not a new toolbar or design system.
+Close controls use GTK symbolic icons and 28-logical-pixel width with 22-logical-pixel height targets, retaining explicit hover, active, and keyboard-focus states. This is a native accessibility correction, not a new toolbar or design system.
 
 A third measured pass targeted 20-30-agent process scale. `TerminalSession`
 embedded one 128 KiB PTY read array per pane even though native GTK pumps cannot

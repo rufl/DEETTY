@@ -6080,7 +6080,7 @@ static GtkWidget *create_compact_tab_widget(NocttyGridContext *context,
     gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close, FALSE);
 
-    gtk_widget_set_size_request(close, 28, 26);
+    gtk_widget_set_size_request(close, 28, 22);
     configure_action_button(close, "Close Tab");
     AtkObject *close_accessible = gtk_widget_get_accessible(close);
     if (close_accessible != NULL)
@@ -6159,7 +6159,7 @@ static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
 
     gtk_widget_set_can_focus(button, TRUE);
-    gint extent = MAX(26, root->compact_tab_height + 2);
+    gint extent = MAX(22, root->compact_tab_height + 2);
     gtk_widget_set_size_request(button, extent, extent);
     configure_action_button(button, "New Tab (Ctrl+Shift+T)");
     AtkObject *accessible = gtk_widget_get_accessible(button);
@@ -6199,7 +6199,7 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
     GtkWidget *buttons[] = { settings, close };
     const gchar *tooltips[] = { "Settings", "Close NOCTTY" };
     const gchar *accessible_names[] = { "Settings", "Close NOCTTY" };
-    gint extent = MAX(26, root->compact_tab_height + 2);
+    gint extent = MAX(22, root->compact_tab_height + 2);
     for (guint index = 0; index < G_N_ELEMENTS(buttons); index++) {
         gtk_button_set_relief(GTK_BUTTON(buttons[index]), GTK_RELIEF_NONE);
         gtk_widget_set_focus_on_click(buttons[index], FALSE);
@@ -6332,7 +6332,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         g_strcmp0(close_icon_name, "window-close-symbolic") == 0 &&
         root->compact_tab_close_extent >= 28 &&
         root->compact_tab_close_extent <= 30 &&
-        root->compact_tab_action_extent >= 26 &&
+        root->compact_tab_action_extent >= 22 &&
         root->compact_tab_action_extent <= strip_limit;
     return G_SOURCE_REMOVE;
 }
@@ -15170,7 +15170,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.hide_on_focus_loss = event_data != NULL ? noctty_grid_compact_setting(event_data, 3) : 1;
     context.focus_follows_pointer = event_data != NULL ? noctty_grid_compact_setting(event_data, 4) : 0;
     context.show_pane_info = event_data != NULL ? noctty_grid_compact_setting(event_data, 9) : 1;
-    context.compact_tab_height = event_data != NULL ? noctty_grid_compact_setting(event_data, 5) : 22;
+    context.compact_tab_height = event_data != NULL ? noctty_grid_compact_setting(event_data, 5) : 18;
     context.workspace_smoke = workspace_smoke;
     context.shortcut_transport = enable_shortcut;
     context.requested_shortcut_key = shortcut_key;
