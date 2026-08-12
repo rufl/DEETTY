@@ -24,7 +24,7 @@ pub fn main(init: std.process.Init) !void {
     var less_command_buffer: [1024]u8 = undefined;
     const less_command = try std.fmt.bufPrint(
         &less_command_buffer,
-        "exec \"{s}\" -R \"{s}/less-fixture.txt\"",
+        "LESS=R; export LESS; exec \"{s}\" -R \"{s}/less-fixture.txt\"",
         .{ less_path, scratch },
     );
     var dialog_command_buffer: [1024]u8 = undefined;
