@@ -6122,7 +6122,7 @@ fn installCss() void {
         \\#nocted-project-tree:selected { background: #263249; color: #ffffff; }
         \\#nocted-project-tree:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
         \\#nocted-tabs header { background: #11151d; border: 0; padding: 1px 5px 0 5px; }
-        \\#nocted-tabs tab { background: #1a202b; color: #aeb7c6; border: 0; border-radius: 9px 9px 0 0; margin: 0 4px 0 0; padding: 1px 9px 2px; }
+        \\#nocted-tabs tab { background: #1a202b; color: #aeb7c6; border: 0; border-radius: 9px 9px 0 0; margin: 0 4px 0 0; padding: 1px 9px 2px; font-size: 0.9em; }
         \\#nocted-tabs tab:hover { background: #242c3a; color: #ffffff; }
         \\#nocted-tabs tab:checked { background: #0b0d12; color: #e5e9f0; box-shadow: inset 0 2px #8fb8ff; }
         \\#nocted-tabs tab:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }

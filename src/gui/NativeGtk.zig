@@ -154,7 +154,7 @@ const tab_close_key = "noctty-tab-close-widget";
 const compact_tab_css =
     "notebook.noctty-tab-notebook > header { margin: 0; padding: 0 5px; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; background: @theme_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; }" ++
-    "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0 8px; border-width: 0; border-radius: 9px 9px 0 0; box-shadow: none; min-width: 0; min-height: 0; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
+    "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0 8px; border-width: 0; border-radius: 9px 9px 0 0; box-shadow: none; min-width: 0; min-height: 0; font-size: 0.9em; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
     "list.sidebar > row.noctty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
