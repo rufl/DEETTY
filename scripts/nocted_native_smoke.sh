@@ -127,6 +127,7 @@ done
 
 if output=$(env \
   XDG_CONFIG_HOME="$scratch/config" \
+  NOCTED_DISABLE_SINGLE_INSTANCE=1 \
   GDK_BACKEND="$backend" \
   NO_AT_BRIDGE=1 \
   G_DEBUG=fatal-warnings \

@@ -3934,6 +3934,11 @@ export fn noctty_grid_write(raw: ?*anyopaque, bytes: [*]const u8, length: usize)
     session.write(bytes[0..length]) catch return -1;
     return @intCast(length);
 }
+export fn noctty_grid_control(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    session.grid.feed(bytes[0..length]) catch return -1;
+    return @intCast(length);
+}
 
 export fn noctty_grid_write_pending(raw: ?*anyopaque) callconv(.c) c_int {
     const session: *const noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
@@ -4074,18 +4079,39 @@ export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize)
 export fn noctty_grid_copy(raw: ?*anyopaque, output: [*]u8, capacity: usize, start_column: c_int, start_row: c_int, end_column: c_int, end_row: c_int) callconv(.c) c_int {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
     const selected = start_column >= 0 and start_row >= 0 and end_column >= 0 and end_row >= 0;
-    const first_column: usize = if (selected) @intCast(@min(start_column, end_column)) else 0;
-    const last_column: usize = if (selected) @min(session.grid.columns - 1, @as(usize, @intCast(@max(start_column, end_column)))) else session.grid.columns - 1;
-    const first_row: usize = if (selected) @intCast(@min(start_row, end_row)) else 0;
-    const last_row: usize = if (selected) @min(session.grid.rows - 1, @as(usize, @intCast(@max(start_row, end_row)))) else session.grid.rows - 1;
+    const first_column: usize = if (selected)
+        @min(
+            session.grid.columns - 1,
+            @as(usize, @intCast(@min(start_column, end_column))),
+        )
+    else 0;
+    const last_column: usize = if (selected)
+        @min(
+            session.grid.columns - 1,
+            @as(usize, @intCast(@max(start_column, end_column))),
+        )
+    else session.grid.columns - 1;
+    const first_row: usize = if (selected)
+        @min(
+            session.grid.rows - 1,
+            @as(usize, @intCast(@min(start_row, end_row))),
+        )
+    else 0;
+    const last_row: usize = if (selected)
+        @min(
+            session.grid.rows - 1,
+            @as(usize, @intCast(@max(start_row, end_row))),
+        )
+    else session.grid.rows - 1;
     var used: usize = 0;
     for (first_row..last_row + 1) |row| {
         var last: usize = last_column + 1;
         while (last > 0 and session.grid.cell(last - 1, row).codepoint == ' ') last -= 1;
         const begin = if (selected) first_column else 0;
         for (begin..last) |column| {
-            if (used >= capacity) return -1;
             const codepoint = session.grid.cell(column, row).codepoint;
+            if (codepoint == 0) continue;
+            if (used >= capacity) return -1;
             if (codepoint < 0x80) {
                 output[used] = @intCast(codepoint);
                 used += 1;
@@ -4094,12 +4120,19 @@ export fn noctty_grid_copy(raw: ?*anyopaque, output: [*]u8, capacity: usize, sta
                 output[used] = @intCast(0xc0 | (codepoint >> 6));
                 output[used + 1] = @intCast(0x80 | (codepoint & 0x3f));
                 used += 2;
-            } else {
+            } else if (codepoint <= 0xffff) {
                 if (used + 3 > capacity) return -1;
                 output[used] = @intCast(0xe0 | (codepoint >> 12));
                 output[used + 1] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
                 output[used + 2] = @intCast(0x80 | (codepoint & 0x3f));
                 used += 3;
+            } else if (codepoint <= 0x10ffff) {
+                if (used + 4 > capacity) return -1;
+                output[used] = @intCast(0xf0 | (codepoint >> 18));
+                output[used + 1] = @intCast(0x80 | ((codepoint >> 12) & 0x3f));
+                output[used + 2] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
+                output[used + 3] = @intCast(0x80 | (codepoint & 0x3f));
+                used += 4;
             }
         }
         if (used >= capacity) return -1;

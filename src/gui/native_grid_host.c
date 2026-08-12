@@ -84,6 +84,7 @@ extern int noctty_grid_clear_agent_resume(void *, uint64_t);
 extern int noctty_grid_save_encrypted_history(void *, void *, const char *, size_t, const char *, size_t);
 extern int noctty_grid_pty_fd(void *);
 extern int noctty_grid_compact_idle_history(void *);
+extern int noctty_grid_control(void *, const char *, size_t);
 extern int noctty_grid_write_pending(void *);
 extern int noctty_grid_flush_write(void *);
 extern int noctty_grid_workspace_dirty(void *);
@@ -291,6 +292,7 @@ typedef struct NocttyGridContextTag {
     int active;
     int retiring;
     int clipboard_pasted;
+    int clipboard_copy_valid;
     int broadcast_confirmation_explicit;
     int broadcast_confirmation_cancel_default;
     int broadcast_disable_immediate;
@@ -1479,13 +1481,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         while (column < end_column) {
             uint64_t packed_cell = context->row_cells[column];
             uint32_t style = (uint32_t)(packed_cell >> 32);
-            uint32_t foreground = (style >> 8) & 0xfff;
-            uint32_t background = (style >> 20) & 0xfff;
-            if (style & 2) {
-                uint32_t swap = foreground;
-                foreground = background;
-                background = swap;
-            }
+            uint32_t background = (style & 2)
+                ? ((style >> 8) & 0xfff) : ((style >> 20) & 0xfff);
             if (background == 0xfff) {
                 column++;
                 continue;
@@ -1494,13 +1491,9 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
             while (background_end < end_column) {
                 uint32_t next_style = (uint32_t)(
                     context->row_cells[background_end] >> 32);
-                uint32_t next_foreground = (next_style >> 8) & 0xfff;
-                uint32_t next_background = (next_style >> 20) & 0xfff;
-                if (next_style & 2) {
-                    uint32_t swap = next_foreground;
-                    next_foreground = next_background;
-                    next_background = swap;
-                }
+                uint32_t next_background = (next_style & 2)
+                    ? ((next_style >> 8) & 0xfff)
+                    : ((next_style >> 20) & 0xfff);
                 if (next_background != background) break;
                 background_end++;
             }
@@ -1539,13 +1532,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
             uint64_t packed_cell = context->row_cells[column];
             uint32_t codepoint = (uint32_t)packed_cell;
             uint32_t style = (uint32_t)(packed_cell >> 32);
-            uint32_t foreground = (style >> 8) & 0xfff;
-            uint32_t background = (style >> 20) & 0xfff;
-            if (style & 2) {
-                uint32_t swap = foreground;
-                foreground = background;
-                background = swap;
-            }
+            uint32_t foreground = (style & 2)
+                ? ((style >> 20) & 0xfff) : ((style >> 8) & 0xfff);
             if ((style & (64 | 128)) == 0 &&
                 codepoint >= 0x20 && codepoint <= 0x7e) {
                 int face = ((style & 1) ? 1 : 0) |
@@ -1555,13 +1543,9 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                     uint64_t next_cell = context->row_cells[run_end];
                     uint32_t next_codepoint = (uint32_t)next_cell;
                     uint32_t next_style = (uint32_t)(next_cell >> 32);
-                    uint32_t next_foreground = (next_style >> 8) & 0xfff;
-                    uint32_t next_background = (next_style >> 20) & 0xfff;
-                    if (next_style & 2) {
-                        uint32_t swap = next_foreground;
-                        next_foreground = next_background;
-                        next_background = swap;
-                    }
+                    uint32_t next_foreground = (next_style & 2)
+                        ? ((next_style >> 20) & 0xfff)
+                        : ((next_style >> 8) & 0xfff);
                     if ((next_style & (64 | 128)) != 0 ||
                         next_codepoint < 0x20 || next_codepoint > 0x7e ||
                         (next_style & (1 | 4 | 32)) !=
@@ -1637,24 +1621,15 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                 column++;
                 continue;
             }
-            uint32_t foreground = (style >> 8) & 0xfff;
-            uint32_t background = (style >> 20) & 0xfff;
-            if (style & 2) {
-                uint32_t swap = foreground;
-                foreground = background;
-                background = swap;
-            }
+            uint32_t foreground = (style & 2)
+                ? ((style >> 20) & 0xfff) : ((style >> 8) & 0xfff);
             int decoration_end = column + 1;
             while (decoration_end < end_column) {
                 uint32_t next_style =
                     (uint32_t)(context->row_cells[decoration_end] >> 32);
-                uint32_t next_foreground = (next_style >> 8) & 0xfff;
-                uint32_t next_background = (next_style >> 20) & 0xfff;
-                if (next_style & 2) {
-                    uint32_t swap = next_foreground;
-                    next_foreground = next_background;
-                    next_background = swap;
-                }
+                uint32_t next_foreground = (next_style & 2)
+                    ? ((next_style >> 20) & 0xfff)
+                    : ((next_style >> 8) & 0xfff);
                 if ((next_style & (8 | 16 | 32)) !=
                         (style & (8 | 16 | 32)) ||
                     next_foreground != foreground)
@@ -2890,17 +2865,72 @@ static void request_grid_clipboard_text(NocttyGridContext *context) {
     gtk_clipboard_request_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
                                on_clipboard_text, context);
 }
+static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
+    if (!grid_context_session_available(context) || context->copy == NULL)
+        return;
+    char text[16384];
+    int copied_length = context->copy(
+        context->userdata, text, sizeof(text) - 1,
+        context->selecting ? context->selection_start_column : -1,
+        context->selecting ? context->selection_start_row : -1,
+        context->selecting ? context->selection_end_column : -1,
+        context->selecting ? context->selection_end_row : -1);
+    if (copied_length <= 0 || (size_t)copied_length >= sizeof(text))
+        return;
+    text[copied_length] = '\0';
+    gtk_clipboard_set_text(
+        gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, copied_length);
+}
+
+static void apply_terminal_control(NocttyGridContext *context,
+                                   const char *bytes, size_t length) {
+    if (!grid_context_session_available(context) ||
+        noctty_grid_control(context->userdata, bytes, length) != (int)length)
+        return;
+    gtk_widget_queue_draw(context->area);
+}
+
+static void clear_grid_screen(NocttyGridContext *context) {
+    apply_terminal_control(context, "\x1b[2J\x1b[H", 7);
+}
+
+static void clear_grid_scrollback(NocttyGridContext *context) {
+    apply_terminal_control(context, "\x1b[3J", 4);
+}
+
+static void reset_grid_terminal(NocttyGridContext *context) {
+    apply_terminal_control(context,
+                           "\x1b[3J\x1b[2J\x1b[H\x1b" "c", 13);
+}
+static gboolean verify_clipboard_copy_smoke(gpointer user_data) {
+    NocttyGridContext *context = user_data;
+    if (!grid_context_session_available(context) || context->copy == NULL)
+        return G_SOURCE_REMOVE;
+    char text[16384];
+    int copied_length = context->copy(
+        context->userdata, text, sizeof(text) - 1, -1, -1, -1, -1);
+    if (copied_length <= 1 || (size_t)copied_length >= sizeof(text))
+        return G_SOURCE_REMOVE;
+    text[copied_length] = '\0';
+    context->clipboard_copy_valid =
+        strstr(text, "NOCTTY_COPY_") != NULL &&
+        strstr(text, "_END") != NULL &&
+        memchr(text, '\0', (size_t)copied_length - 1) == NULL;
+    return G_SOURCE_REMOVE;
+}
 
 static gboolean read_clipboard_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
     request_grid_clipboard_text(context);
+    g_timeout_add(400, verify_clipboard_copy_smoke, context);
     return G_SOURCE_REMOVE;
 }
-
 static gboolean request_clipboard_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
     GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-    const gchar *command = "printf 'NOCTTY_CLIPBOARD_OK'; exit 0\n";
+    const gchar *command =
+        "printf 'NOCTTY_CLIPBOARD_OK NOCTTY_COPY_\xF0\x9F\x98\x80_END'; "
+        "sleep 1; exit 0\n";
     gtk_clipboard_set_text(clipboard, command, -1);
     g_timeout_add(200, read_clipboard_smoke, context);
     return G_SOURCE_REMOVE;
@@ -8996,18 +9026,7 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
-        char text[16384];
-        int copied_length = context->copy(
-            context->userdata, text, sizeof(text) - 1,
-            context->selecting ? context->selection_start_column : -1,
-            context->selecting ? context->selection_start_row : -1,
-            context->selecting ? context->selection_end_column : -1,
-            context->selecting ? context->selection_end_row : -1);
-        if (copied_length > 0) {
-            text[copied_length] = '\0';
-            gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
-                                   text, copied_length);
-        }
+        copy_grid_selection_to_clipboard(context);
         return TRUE;
     }
     gboolean plain_control = (event->state & GDK_CONTROL_MASK) &&
@@ -9140,8 +9159,10 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
     NocttyGridContext *context = user_data;
     if (!grid_context_session_available(context) || context->exited)
         return FALSE;
-    int column = MAX(0, (int)(event->x / grid_cell_width(context)));
-    int row = MAX(0, (int)(event->y / grid_cell_height(context)));
+    int column = CLAMP((int)(event->x / grid_cell_width(context)),
+                       0, MAX(0, context->columns - 1));
+    int row = CLAMP((int)(event->y / grid_cell_height(context)),
+                    0, MAX(0, context->rows - 1));
     int button = event->button >= 1 && event->button <= 3 ? (int)event->button - 1 : 0;
     int pressed = event->type == GDK_BUTTON_PRESS;
     int terminal_mouse_mode = context->mouse_mode(context->userdata);
@@ -10386,20 +10407,22 @@ static void open_grid_settings(NocttyGridContext *context) {
         GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-settings");
-    GdkRectangle settings_workarea = {0, 0, 760, 560};
+    GdkRectangle settings_workarea = {0, 0, 900, 680};
     GdkMonitor *settings_monitor = grid_monitor_for_window(context->window);
     if (settings_monitor != NULL)
         gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
-    int settings_width = MIN(760, MAX(1, settings_workarea.width - 64));
-    int settings_height = MIN(560, MAX(1, settings_workarea.height - 64));
+    int settings_width = MIN(980, MAX(720, settings_workarea.width - 96));
+    int settings_height = MIN(720, MAX(560, settings_workarea.height - 96));
+    settings_width = MIN(settings_width, MAX(1, settings_workarea.width - 32));
+    settings_height = MIN(settings_height, MAX(1, settings_workarea.height - 32));
     configure_overlay_window_geometry(
         context, dialog, &settings_workarea,
         settings_width, settings_height);
     GdkGeometry settings_geometry = {
-        .min_width = MIN(560, settings_width),
-        .min_height = MIN(420, settings_height),
-        .max_width = MAX(1, settings_workarea.width - 32),
-        .max_height = MAX(1, settings_workarea.height - 32),
+        .min_width = MIN(720, settings_width),
+        .min_height = MIN(560, settings_height),
+        .max_width = MAX(1, settings_workarea.width - 16),
+        .max_height = MAX(1, settings_workarea.height - 16),
     };
     gtk_window_set_geometry_hints(
         GTK_WINDOW(dialog), NULL, &settings_geometry,
@@ -10412,13 +10435,17 @@ static void open_grid_settings(NocttyGridContext *context) {
     gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
     GtkWidget *layout = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_hexpand(layout, TRUE);
+    gtk_widget_set_vexpand(layout, TRUE);
     GtkWidget *categories = gtk_list_box_new();
     gtk_list_box_set_selection_mode(GTK_LIST_BOX(categories),
                                     GTK_SELECTION_BROWSE);
-    gtk_widget_set_size_request(categories, 176, -1);
+    gtk_widget_set_size_request(categories, 216, -1);
+    gtk_widget_set_hexpand(categories, FALSE);
     gtk_widget_set_vexpand(categories, TRUE);
     gtk_style_context_add_class(gtk_widget_get_style_context(categories),
                                 "sidebar");
+    gtk_container_set_border_width(GTK_CONTAINER(categories), 8);
     gtk_container_add(GTK_CONTAINER(categories), settings_category_row_new(
         "preferences-system-windows", "Window", "window"));
     gtk_container_add(GTK_CONTAINER(categories), settings_category_row_new(
@@ -10615,7 +10642,8 @@ static void open_grid_settings(NocttyGridContext *context) {
                                  launch_ssh_entry, 7);
     settings_grid_attach_control(launch_grid, "New-session scrollback",
                                  launch_scrollback, 8);
-    GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(launch_buttons, GTK_ALIGN_END);
     gtk_box_pack_start(GTK_BOX(launch_buttons), launch_apply,
                        FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(launch_buttons), launch_save,
@@ -10705,13 +10733,15 @@ static void open_grid_settings(NocttyGridContext *context) {
     gtk_stack_add_named(GTK_STACK(stack), behavior_page, "behavior");
     gtk_stack_add_named(GTK_STACK(stack), appearance_page, "appearance");
     GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
-    gtk_box_pack_start(GTK_BOX(layout), categories, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(layout), separator, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(layout), stack, TRUE, TRUE, 0);
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     gtk_box_set_spacing(GTK_BOX(content), 0);
     gtk_container_set_border_width(GTK_CONTAINER(content), 0);
     gtk_container_add(GTK_CONTAINER(content), layout);
+    gtk_widget_set_hexpand(stack, TRUE);
+    gtk_widget_set_vexpand(stack, TRUE);
+    gtk_box_pack_start(GTK_BOX(layout), categories, FALSE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(layout), separator, FALSE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(layout), stack, TRUE, TRUE, 0);
 
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-mode", mode);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-width", dropdown_width);
@@ -12703,6 +12733,56 @@ static void append_workspace_menu_item(GtkWidget *menu, const gchar *label, int 
     g_signal_connect(item, "activate", G_CALLBACK(on_workspace_menu_activate), context);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
+static void on_terminal_menu_activate(GtkMenuItem *item,
+                                      gpointer user_data) {
+    NocttyGridContext *context = user_data;
+    int action = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(item), "noctty-terminal-action"));
+    switch (action) {
+    case 1:
+        copy_grid_selection_to_clipboard(context);
+        break;
+    case 2:
+        request_grid_clipboard_text(context);
+        break;
+    case 3:
+        context->selecting = 1;
+        context->selection_dragging = 0;
+        context->selection_start_column = 0;
+        context->selection_start_row = 0;
+        context->selection_end_column = MAX(0, context->columns - 1);
+        context->selection_end_row = MAX(0, context->rows - 1);
+        gtk_widget_queue_draw(context->area);
+        break;
+    case 4:
+        clear_grid_selection(context);
+        break;
+    case 5:
+        clear_grid_screen(context);
+        break;
+    case 6:
+        clear_grid_scrollback(context);
+        break;
+    case 7:
+        reset_grid_terminal(context);
+        break;
+    default:
+        break;
+    }
+}
+
+static void append_terminal_menu_item(GtkWidget *menu, const gchar *label,
+                                       int action, NocttyGridContext *context,
+                                       gboolean sensitive) {
+    GtkWidget *item = gtk_menu_item_new_with_label(label);
+    g_object_set_data(G_OBJECT(item), "noctty-terminal-action",
+                      GINT_TO_POINTER(action));
+    gtk_widget_set_sensitive(item, sensitive);
+    g_signal_connect(item, "activate",
+                     G_CALLBACK(on_terminal_menu_activate), context);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
+
 
 static int populate_tag_suggestions(NocttyGridContext *context,
                                     GtkComboBoxText *combo) {
@@ -13386,6 +13466,17 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), close_terminal);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu),
                           gtk_separator_menu_item_new());
+    append_terminal_menu_item(menu, "Copy", 1, context, context->selecting);
+    append_terminal_menu_item(menu, "Paste", 2, context, TRUE);
+    append_terminal_menu_item(menu, "Select All", 3, context, TRUE);
+    append_terminal_menu_item(menu, "Clear Selection", 4, context,
+                              context->selecting);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
+                          gtk_separator_menu_item_new());
+    append_terminal_menu_item(menu, "Clear Screen", 5, context, TRUE);
+    append_terminal_menu_item(menu, "Clear Scrollback", 6, context, TRUE);
+    append_terminal_menu_item(menu, "Clear Scrollback and Reset", 7,
+                              context, TRUE);
     append_compact_menu_item(menu, "Zoom / Restore Pane", 4, context);
     append_compact_menu_item(menu, "Find in Scrollback…", 5, context);
     append_compact_menu_item(menu, "Quick Note…", 6, context);
@@ -14085,7 +14176,7 @@ static void finish_layout_preset_smoke_sessions(NocttyGridContext *root) {
 
 static gboolean check_layout_preset_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    NocttyGridContext *remaining = active_grid_context(root);
+    NocttyGridContext *remaining;
     if (root->layout_preset_smoke_stage == 2) {
         gboolean rendered =
             root->layout_preset_2x2_applied &&
@@ -14283,10 +14374,12 @@ static gboolean on_mouse_motion(GtkWidget *widget, GdkEventMotion *event, gpoint
         context->selection_dragging = 0;
         return FALSE;
     }
-    context->selection_end_column = MAX(
-        0, (int)(event->x / grid_cell_width(context)));
-    context->selection_end_row = MAX(
-        0, (int)(event->y / grid_cell_height(context)));
+    context->selection_end_column = CLAMP(
+        (int)(event->x / grid_cell_width(context)),
+        0, MAX(0, context->columns - 1));
+    context->selection_end_row = CLAMP(
+        (int)(event->y / grid_cell_height(context)),
+        0, MAX(0, context->rows - 1));
     context->selecting =
         context->selection_start_column != context->selection_end_column ||
         context->selection_start_row != context->selection_end_row;
@@ -15607,7 +15700,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         context.layer_shell_library = NULL;
         context.layer_shell_active = 0;
     }
-    int clipboard_ok = workspace_smoke != 4 || context.clipboard_pasted;
+    int clipboard_ok = workspace_smoke != 4 ||
+        (context.clipboard_pasted && context.clipboard_copy_valid);
     int broadcast_safety_ok = workspace_smoke != 1 ||
         (context.broadcast_confirmation_explicit &&
          context.broadcast_confirmation_cancel_default &&

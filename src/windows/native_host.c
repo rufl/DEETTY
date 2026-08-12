@@ -811,7 +811,10 @@ static void noctty_copy_visible(NocttyWindowsHost *host) {
             used += (size_t)count;
         }
         while (used > row_start && utf8[used - 1] == ' ') used--;
-        if (row + 1 < host->rows) utf8[used++] = '\n';
+        if (row + 1 < host->rows) {
+            if (used >= NOCTTY_COPY_BYTES_MAX) goto done;
+            utf8[used++] = '\n';
+        }
     }
 
 done:
@@ -1002,6 +1005,8 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
 
 static void noctty_cleanup(NocttyWindowsHost *host) {
     InterlockedExchange(&host->stopping, 1);
+    if (host->reader_thread != NULL)
+        CancelSynchronousIo(host->reader_thread);
     noctty_close_handle(&host->input_write);
     noctty_close_handle(&host->output_read);
     if (host->pseudo_console != NULL) {
@@ -1009,7 +1014,7 @@ static void noctty_cleanup(NocttyWindowsHost *host) {
         host->pseudo_console = NULL;
     }
     if (host->reader_thread != NULL) {
-        WaitForSingleObject(host->reader_thread, 2000);
+        WaitForSingleObject(host->reader_thread, INFINITE);
         noctty_close_handle(&host->reader_thread);
     }
     if (host->process != NULL) {
