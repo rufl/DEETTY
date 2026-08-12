@@ -880,6 +880,7 @@ const App = struct {
     position_label: *c.GtkWidget = undefined,
     language_label: *c.GtkWidget = undefined,
     folding_item: *c.GtkWidget = undefined,
+    word_wrap_item: *c.GtkWidget = undefined,
     smoke: bool = false,
     resource_smoke: bool = false,
     smoke_passed: bool = false,
@@ -1471,6 +1472,13 @@ const App = struct {
         const view_menu = c.gtk_menu_new() orelse unreachable;
         appendMenuAction(view_menu, "Toggle Side Bar", &onToggleSidebar, self);
         appendMenuAction(view_menu, "Toggle Minimap", &onToggleMinimap, self);
+        self.word_wrap_item = appendCheckMenuAction(
+            view_menu,
+            "Word Wrap",
+            self.settings.word_wrap_enabled,
+            &onToggleWordWrap,
+            self,
+        );
         appendMenuSeparator(view_menu);
         self.folding_item = appendCheckMenuAction(
             view_menu,
@@ -2773,7 +2781,10 @@ const App = struct {
         c.gtk_source_view_set_tab_width(@ptrCast(view), 4);
         c.gtk_source_view_set_insert_spaces_instead_of_tabs(@ptrCast(view), 1);
         c.gtk_text_view_set_monospace(@ptrCast(view), 1);
-        c.gtk_text_view_set_wrap_mode(@ptrCast(view), c.GTK_WRAP_NONE);
+        c.gtk_text_view_set_wrap_mode(
+            @ptrCast(view),
+            if (self.settings.word_wrap_enabled) c.GTK_WRAP_WORD else c.GTK_WRAP_NONE,
+        );
         c.gtk_text_view_set_editable(
             @ptrCast(view),
             @intFromBool(editable),
@@ -3691,6 +3702,31 @@ const App = struct {
             }
         }
         self.persistSettings();
+    }
+
+    fn setWordWrapEnabled(self: *App, enabled: bool) void {
+        if (self.settings.word_wrap_enabled == enabled) return;
+        self.settings.word_wrap_enabled = enabled;
+        for (self.documents.items) |document|
+            c.gtk_text_view_set_wrap_mode(
+                @ptrCast(document.view),
+                if (enabled) c.GTK_WRAP_WORD else c.GTK_WRAP_NONE,
+            );
+        self.persistSettings();
+        self.updateStatus(if (enabled) "Word wrap enabled" else "Word wrap disabled");
+        c.gtk_check_menu_item_set_active(
+            @ptrCast(self.word_wrap_item),
+            @intFromBool(enabled),
+        );
+    }
+
+    fn toggleWordWrap(self: *App) void {
+        const enabled = !self.settings.word_wrap_enabled;
+        c.gtk_check_menu_item_set_active(
+            @ptrCast(self.word_wrap_item),
+            @intFromBool(enabled),
+        );
+        self.setWordWrapEnabled(enabled);
     }
 
     fn setCodeFoldingEnabled(self: *App, enabled: bool) void {
@@ -5098,6 +5134,7 @@ const App = struct {
         var folded_edit_restore_ok = false;
         var fold_undo_preserved_ok = false;
         var folding_config_ok = false;
+        var word_wrap_config_ok = false;
         var folded_regions: usize = 0;
         var find_in_files_ok = false;
         var search_snapshot_ok = false;
@@ -5211,6 +5248,17 @@ const App = struct {
             c.gtk_check_menu_item_set_active(@ptrCast(self.folding_item), 1);
             folding_config_ok = disabled and self.settings.code_folding_enabled and
                 c.gtk_check_menu_item_get_active(@ptrCast(self.folding_item)) != 0;
+            var wrap_key: c.GdkEventKey = std.mem.zeroes(c.GdkEventKey);
+            wrap_key.state = c.GDK_MOD1_MASK;
+            wrap_key.keyval = c.GDK_KEY_z;
+            const initial_word_wrap = self.settings.word_wrap_enabled;
+            const switched_word_wrap = onEditorKeyPress(value.view, &wrap_key, value) != 0 and
+                self.settings.word_wrap_enabled != initial_word_wrap;
+            const restored_word_wrap = onEditorKeyPress(value.view, &wrap_key, value) != 0 and
+                self.settings.word_wrap_enabled == initial_word_wrap;
+            word_wrap_config_ok = switched_word_wrap and restored_word_wrap and
+                c.gtk_check_menu_item_get_active(@ptrCast(self.word_wrap_item)) ==
+                    @intFromBool(initial_word_wrap);
             if (value.analyzeFolds()) |analysis_value| {
                 var analysis = analysis_value;
                 defer analysis.deinit();
@@ -5469,7 +5517,7 @@ const App = struct {
             multi_selection_rendered_ok and
             search_ok and fold_ok and unfold_ok and folded_save_ok and
             folded_edit_restore_ok and fold_undo_preserved_ok and
-            folding_config_ok and find_in_files_ok and search_snapshot_ok and
+            folding_config_ok and word_wrap_config_ok and find_in_files_ok and search_snapshot_ok and
             external_changes_ok and
             project_search_activation_ok and multi_file_tabs_ok and
             tab_navigation_ok and close_other_ok and close_all_ok and
@@ -5490,6 +5538,10 @@ const App = struct {
             self.project_index.retainedCount() == 1 and
             self.settings.minimap_visible and
             self.settings.sidebar_visible;
+        c.g_print(
+            "nocted_word_wrap_configurable=%d\n",
+            @as(c_int, @intFromBool(word_wrap_config_ok)),
+        );
         c.g_print(
             "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d editor_zoom=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
             @as(c_int, @intFromBool(pass)),
@@ -5775,7 +5827,6 @@ fn registerApplication(
         .lock = lock,
     };
 }
-
 
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
@@ -6665,11 +6716,16 @@ fn onEditorScroll(
 
 fn onEditorKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque) callconv(.c) c.gboolean {
     const document: *Document = @ptrCast(@alignCast(data.?));
-    if (document.secondary_selections.items.len == 0) return 0;
     const key = event orelse return 0;
+    const modifiers = key.state & c.gtk_accelerator_get_default_mod_mask();
+    const lowered = c.gdk_keyval_to_lower(key.keyval);
+    if (modifiers == c.GDK_MOD1_MASK and lowered == c.GDK_KEY_z) {
+        document.app.toggleWordWrap();
+        return 1;
+    }
+    if (document.secondary_selections.items.len == 0) return 0;
     if (key.keyval == c.GDK_KEY_BackSpace or key.keyval == c.GDK_KEY_Delete)
         return @intFromBool(document.replaceMultiSelections(""));
-    const modifiers = key.state & c.gtk_accelerator_get_default_mod_mask();
     if ((modifiers & (c.GDK_CONTROL_MASK | c.GDK_MOD1_MASK)) != 0 or
         key.length <= 0) return 0;
     const raw = key.string orelse return 0;
@@ -7067,6 +7123,11 @@ fn onFindPrevious(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 fn onToggleSidebar(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.toggleSidebar();
+}
+fn onToggleWordWrap(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const enabled = c.gtk_check_menu_item_get_active(@ptrCast(widget.?)) != 0;
+    app.setWordWrapEnabled(enabled);
 }
 
 fn onToggleMinimap(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {

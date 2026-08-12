@@ -9,6 +9,7 @@ pub const Settings = struct {
     sidebar_visible: bool = true,
     minimap_visible: bool = true,
     code_folding_enabled: bool = true,
+    word_wrap_enabled: bool = false,
     import_paths: std.array_list.Managed([]u8),
 
     pub fn init(allocator: std.mem.Allocator) Settings {
@@ -66,6 +67,7 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Settings {
     var sidebar_seen = false;
     var minimap_seen = false;
     var folding_seen = false;
+    var word_wrap_seen = false;
     var lines = std.mem.splitScalar(u8, bytes, '\n');
     while (lines.next()) |line_raw| {
         const line = std.mem.trim(u8, line_raw, " \t\r");
@@ -94,6 +96,10 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Settings {
             if (folding_seen) return error.DuplicateSettingsField;
             folding_seen = true;
             settings.code_folding_enabled = try parseBool(value);
+        } else if (std.mem.eql(u8, key, "word_wrap_enabled")) {
+            if (word_wrap_seen) return error.DuplicateSettingsField;
+            word_wrap_seen = true;
+            settings.word_wrap_enabled = try parseBool(value);
         } else if (std.mem.eql(u8, key, "syntax_path")) {
             if (!try settings.addImportPath(allocator, value))
                 return error.DuplicateSyntaxPath;
@@ -115,12 +121,13 @@ pub fn save(io: std.Io, path: []const u8, settings: *const Settings) !void {
     var output: std.Io.Writer.Allocating = .init(std.heap.page_allocator);
     defer output.deinit();
     try output.writer.print(
-        "version=1\nsyntax_prompt_done={}\nsidebar_visible={}\nminimap_visible={}\ncode_folding_enabled={}\n",
+        "version=1\nsyntax_prompt_done={}\nsidebar_visible={}\nminimap_visible={}\ncode_folding_enabled={}\nword_wrap_enabled={}\n",
         .{
             settings.syntax_prompt_done,
             settings.sidebar_visible,
             settings.minimap_visible,
             settings.code_folding_enabled,
+            settings.word_wrap_enabled,
         },
     );
     for (settings.import_paths.items) |import_path|
@@ -149,6 +156,7 @@ test "settings round trip GUI-owned syntax paths" {
     expected.syntax_prompt_done = true;
     expected.sidebar_visible = false;
     expected.code_folding_enabled = false;
+    expected.word_wrap_enabled = true;
     _ = try expected.addImportPath(allocator, "/opt/syntax/language-specs");
     try save(io, path, &expected);
 
@@ -158,6 +166,7 @@ test "settings round trip GUI-owned syntax paths" {
     try std.testing.expect(!actual.sidebar_visible);
     try std.testing.expect(actual.minimap_visible);
     try std.testing.expect(!actual.code_folding_enabled);
+    try std.testing.expect(actual.word_wrap_enabled);
     try std.testing.expectEqual(@as(usize, 1), actual.import_paths.items.len);
     try std.testing.expectEqualStrings(
         "/opt/syntax/language-specs",
@@ -182,6 +191,7 @@ test "malformed and oversized settings fall back to defaults" {
         "version=99\nsidebar_visible=false\n",
         "version=1\nsidebar_visible=maybe\n",
         "version=1\nsidebar_visible=false\nsidebar_visible=true\n",
+        "version=1\nword_wrap_enabled=true\nword_wrap_enabled=false\n",
         "version=1\nsyntax_path=/tmp/ok\nsyntax_path=/tmp/ok\n",
         "version=1\nunknown=value\n",
         "version=1\nsyntax_path=bad\x00path\n",
@@ -195,6 +205,7 @@ test "malformed and oversized settings fall back to defaults" {
         try std.testing.expect(settings.sidebar_visible);
         try std.testing.expect(settings.minimap_visible);
         try std.testing.expect(settings.code_folding_enabled);
+        try std.testing.expect(!settings.word_wrap_enabled);
         try std.testing.expectEqual(@as(usize, 0), settings.import_paths.items.len);
     }
 

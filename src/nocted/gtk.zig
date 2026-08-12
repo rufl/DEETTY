@@ -143,6 +143,7 @@ pub const GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER: c_int = 2;
 pub const GTK_ICON_SIZE_MENU: c_int = 1;
 pub const GTK_RELIEF_NONE: c_int = 2;
 pub const GTK_WRAP_NONE: c_int = 0;
+pub const GTK_WRAP_WORD: c_int = 1;
 pub const GTK_SOURCE_SMART_HOME_END_BEFORE: c_int = 1;
 pub const GTK_STYLE_PROVIDER_PRIORITY_APPLICATION: c_uint = 600;
 pub const PANGO_ELLIPSIZE_END: c_int = 3;
@@ -190,6 +191,7 @@ pub const GDK_KEY_o: c_uint = 'o';
 pub const GDK_KEY_p: c_uint = 'p';
 pub const GDK_KEY_s: c_uint = 's';
 pub const GDK_KEY_w: c_uint = 'w';
+pub const GDK_KEY_z: c_uint = 'z';
 
 pub extern fn gtk_init_check(argc: ?*c_int, argv: ?*anyopaque) gboolean;
 pub extern fn gtk_main() void;

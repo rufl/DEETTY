@@ -44,6 +44,7 @@ printf '%s\n' \
   'sidebar_visible=true' \
   'minimap_visible=true' \
   'code_folding_enabled=true' \
+  'word_wrap_enabled=false' \
   >"$scratch/config/nocted/settings.conf"
 printf '%s\n' \
   'const std = @import("std");' \
@@ -170,9 +171,9 @@ for field in \
   'fold=1' \
   'unfold=1' \
   'folded_save=1' \
-  'folded_edit_restore=1' \
   'fold_undo_preserved=1' \
   'folding_configurable=1' \
+  'nocted_word_wrap_configurable=1' \
   'find_in_files=1' \
   'search_snapshot_first=1' \
   'search_batch_peak=2' \
