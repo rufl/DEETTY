@@ -89,7 +89,7 @@ pub fn main(init: std.process.Init) !void {
     var man_command_buffer: [1024]u8 = undefined;
     const man_command = try std.fmt.bufPrint(
         &man_command_buffer,
-        "exec \"{s}\" --pager=\"{s}\" --local-file " ++
+        "LESS=R; export LESS; exec \"{s}\" --pager=\"{s}\" --local-file " ++
             "\"{s}/noctty-system.1\"",
         .{ man_path, less_path, scratch },
     );
