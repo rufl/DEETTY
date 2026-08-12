@@ -61,7 +61,7 @@ rpm_date=$(date -u -d "$release_date" '+%a %b %d %Y')
 grep -F "$debian_date" packaging/debian/changelog >/dev/null
 grep -F "* $rpm_date" packaging/rpm/noctty.spec >/dev/null
 
-grep -F 'NOCTTY is a native terminal workspace for Linux desktops' README.md >/dev/null
+grep -F 'NOCTTY is a native terminal workspace focused first on Linux desktops' README.md >/dev/null
 grep -F "## $version — $release_date product behavior complete; release hardening and publication pending" CHANGELOG.md >/dev/null
 grep -F "Product-behavior and local release-source baseline: $version, $verified_date." docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F "Canonical release contract: version $version, source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
