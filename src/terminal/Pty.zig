@@ -505,11 +505,18 @@ pub const Session = struct {
     pub fn deinit(self: *Session) void {
         if (self.closed) return;
         closePty(self.master_fd, self.child_pid, self.exit_code != null);
+        self.master_fd = -1;
         self.closed = true;
     }
 
+    pub fn closeDescriptor(self: *Session) void {
+        if (self.master_fd < 0) return;
+        _ = std.c.close(self.master_fd);
+        self.master_fd = -1;
+    }
+
     pub fn fileDescriptor(self: *const Session) c_int {
-        return if (self.closed) -1 else self.master_fd;
+        return if (self.closed or self.master_fd < 0) -1 else self.master_fd;
     }
 
     pub fn processId(self: *const Session) i32 {
@@ -517,14 +524,14 @@ pub const Session = struct {
     }
 
     pub fn hasForegroundProcess(self: *const Session) bool {
-        if (self.closed or self.child_pid <= 0) return false;
+        if (self.closed or self.child_pid <= 0 or self.master_fd < 0) return false;
         const foreground = tcgetpgrp(self.master_fd);
         return foreground > 0 and foreground != self.child_pid;
     }
 
     pub fn processInfo(self: *const Session, cwd: []u8, name: []u8) ?ProcessInfo {
         if (self.closed or cwd.len == 0 or name.len == 0) return null;
-        const foreground = tcgetpgrp(self.master_fd);
+        const foreground = if (self.master_fd >= 0) tcgetpgrp(self.master_fd) else -1;
         const process_id = if (foreground > 0) foreground else self.child_pid;
         const process_cwd = readProcLink(process_id, "cwd", cwd) orelse
             if (process_id != self.child_pid) readProcLink(self.child_pid, "cwd", cwd) else null;
@@ -539,7 +546,7 @@ pub const Session = struct {
     }
 
     pub fn read(self: *Session, buffer: []u8) !ReadResult {
-        if (self.closed) return error.PtyClosed;
+        if (self.closed or self.master_fd < 0) return error.PtyClosed;
         const count = std.posix.read(self.master_fd, buffer) catch |err| switch (err) {
             error.WouldBlock => return .would_block,
             error.InputOutput => return .eof,
@@ -549,7 +556,7 @@ pub const Session = struct {
     }
 
     pub fn write(self: *Session, bytes: []const u8) !usize {
-        if (self.closed) return error.PtyClosed;
+        if (self.closed or self.master_fd < 0) return error.PtyClosed;
         const result = std.c.write(self.master_fd, bytes.ptr, bytes.len);
         if (result < 0) return switch (std.posix.errno(result)) {
             .AGAIN => error.PtyWouldBlock,
@@ -573,7 +580,7 @@ pub const Session = struct {
     }
 
     pub fn resize(self: *Session, rows: u16, columns: u16, width_px: u32, height_px: u32) !void {
-        if (self.closed) return error.PtyClosed;
+        if (self.closed or self.master_fd < 0) return error.PtyClosed;
         var size = std.c.winsize{
             .row = rows,
             .col = columns,

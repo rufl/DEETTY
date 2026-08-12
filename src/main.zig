@@ -703,6 +703,12 @@ export fn noctty_grid_close_session(raw: ?*anyopaque, bridge_raw: ?*anyopaque) c
     return 1;
 }
 
+export fn noctty_grid_close_transport(raw: ?*anyopaque) callconv(.c) c_int {
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    session.closeTransport();
+    return 1;
+}
+
 export fn noctty_grid_has_foreground_process(raw: ?*anyopaque) callconv(.c) c_int {
     const session: *const noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
     return @intFromBool(session.hasForegroundProcess());

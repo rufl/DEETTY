@@ -163,6 +163,10 @@ pub const TerminalSession = struct {
         self.deinitialized = true;
     }
 
+    pub fn closeTransport(self: *TerminalSession) void {
+        self.pty.closeDescriptor();
+    }
+
     pub fn write(self: *TerminalSession, bytes: []const u8) !void {
         if (self.deinitialized) return error.TerminalSessionClosed;
         if (bytes.len == 0) return;
@@ -411,25 +415,38 @@ test "terminal session routes real PTY bytes into the Zig VT grid" {
 
     var saw_marker = false;
     var saw_exit = false;
+    var saw_eof = false;
     var attempts: usize = 0;
     while (attempts < 30_000 and !(saw_marker and saw_exit)) : (attempts += 1) {
-        switch (try session.pump()) {
-            .bytes => {},
-            .would_block => Pty.sleepBrief(2),
-            .eof => {},
+        if (!saw_eof) {
+            switch (try session.pump()) {
+                .bytes => {},
+                .would_block => Pty.sleepBrief(2),
+                .eof => {
+                    saw_eof = true;
+                    session.closeTransport();
+                },
+            }
+        } else {
+            Pty.sleepBrief(1);
         }
         if (std.mem.eql(u8, session.grid.titleSlice(), "session-title")) {
             for (0..session.grid.rows) |row| for (0..session.grid.columns) |column| {
                 if (session.grid.cell(column, row).codepoint == 'N') saw_marker = true;
             };
         }
-        if (try session.pollExit()) |code| {
-            try std.testing.expectEqual(@as(u8, 0), code);
-            saw_exit = true;
+        if (saw_eof) {
+            if (try session.pollExit()) |code| {
+                try std.testing.expectEqual(@as(u8, 0), code);
+                saw_exit = true;
+            }
         }
     }
+    try std.testing.expect(saw_eof);
     try std.testing.expect(saw_marker);
     try std.testing.expect(saw_exit);
+    try std.testing.expectEqual(@as(i32, -1), session.fileDescriptor());
+    try std.testing.expect(std.mem.eql(u8, session.grid.titleSlice(), "session-title"));
 }
 
 test "terminal session teardown is idempotent and closes its public boundary" {

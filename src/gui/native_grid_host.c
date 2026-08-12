@@ -64,6 +64,7 @@ extern int noctty_grid_tab_index_for_pane(void *, uint64_t);
 extern int noctty_grid_close_tab(void *, uint64_t);
 extern int noctty_grid_close_pane(void *, uint64_t, uint64_t *, int *);
 extern int noctty_grid_close_session(void *, void *);
+extern int noctty_grid_close_transport(void *);
 extern int noctty_grid_has_foreground_process(void *);
 extern int noctty_grid_apply_preset(void *, uint64_t, int, uint64_t *, size_t);
 extern int noctty_grid_current_directory(void *, void *, uint64_t, char *, size_t);
@@ -6709,6 +6710,10 @@ static int pump_grid_context(NocttyGridContext *context,
         ? context->pump(context->userdata)
         : -2;
     if (pumped != -2) schedule_grid_write_flush(context);
+    if (pumped == 0) {
+        (void)noctty_grid_close_transport(context->userdata);
+        context->pty_fd = -2;
+    }
     if (pumped > 0) mark_grid_output_activity(context);
     gboolean had_output = pumped > 0 || context->pty_output_dirty;
     gboolean notification_requested = FALSE;
@@ -6907,6 +6912,7 @@ static gboolean on_pty_ready(gint fd, GIOCondition condition,
         (condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL)) == 0)
         return G_SOURCE_CONTINUE;
     context->pty_source = 0;
+    (void)noctty_grid_close_transport(context->userdata);
     context->pty_fd = -2;
     context->last_exit_poll_us = 0;
     schedule_output_present(context);
