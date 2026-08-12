@@ -985,6 +985,11 @@ static gboolean ensure_ascii_glyph_cache(NocttyGridContext *context,
         for (int index = 0; index < ASCII_GLYPH_COUNT; index++)
             context->ascii_glyph_indices[weight_slot][index] =
                 glyphs[index].index;
+        if (context->ascii_scaled_fonts[weight_slot] != NULL)
+            cairo_scaled_font_destroy(
+                context->ascii_scaled_fonts[weight_slot]);
+        context->ascii_scaled_fonts[weight_slot] =
+            cairo_scaled_font_reference(scaled_font);
         context->ascii_glyph_cache_valid[weight_slot] = 1;
         context->glyph_cache_builds++;
     }
