@@ -1,0 +1,2 @@
+package_bundle_licenses backend=arch libraries=75 packages=54 license_files=58 all_copied_host_libraries_accounted=true redistribution_notices_complete=true fail_closed=true
+package_bundle path=dist/noctty-linux-x86_64.tar.gz architecture=x86_64 version=0.1.0 manifest=true installed_files=true library_inventory=true package_inventory=true license_payload=true bundled_libraries=75 dependency_packages=54 dependency_license_files=58 checksum=true archive_sha256=429fd65bcf6e4f24552706e9fa41ed41d19442bb1ace139cbc0f9aefe0e44536 redistribution_ready=true provenance=complete

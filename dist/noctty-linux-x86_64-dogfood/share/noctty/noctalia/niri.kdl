@@ -1,0 +1,10 @@
+// NOCTTY integration for Noctalia on Niri.
+spawn-at-startup "noctty" "--hidden"
+
+binds {
+    F10 { spawn "noctty" "--toggle"; }
+}
+
+layer-rule {
+    match namespace="^noctty-"
+}

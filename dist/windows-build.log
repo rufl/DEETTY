@@ -1,0 +1,5 @@
+NOCTTY Windows package build log
+command=PATH=/usr/bin:/bin:/usr/sbin:/sbin ./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
+result=passed
+package_windows path=dist/noctty-windows-x86_64-alpha.zip version=0.1.0 architecture=x86_64 optimize=ReleaseFast win32_native=true conpty=true zig_vt=true gtk_runtime=false nocted=false local_logging=true local_crash_dumps=true telemetry=false physical_windows_validation=false checksum=074aec5c74bdee213ff35ddf6e2781989616a46556a19efb4358c82a0bc16c5d bytes=167065
+local_paths_redacted=true

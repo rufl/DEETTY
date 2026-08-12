@@ -374,6 +374,10 @@ const NativeGridTerminalChordProbe = struct {
     secondary: ?*noctty.terminal_session.TerminalSession = null,
     primary_interrupts: usize = 0,
     secondary_interrupts: usize = 0,
+    primary_carriage_returns: usize = 0,
+    secondary_carriage_returns: usize = 0,
+    primary_line_feeds: usize = 0,
+    secondary_line_feeds: usize = 0,
     primary_eof: usize = 0,
     secondary_eof: usize = 0,
 };
@@ -1751,6 +1755,10 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             active.active_pane_id == pane_id and
             native_grid_terminal_chord_probe.primary_interrupts == 0 and
             native_grid_terminal_chord_probe.secondary_interrupts == 1 and
+            native_grid_terminal_chord_probe.primary_carriage_returns == 1 and
+            native_grid_terminal_chord_probe.secondary_carriage_returns == 1 and
+            native_grid_terminal_chord_probe.primary_line_feeds == 0 and
+            native_grid_terminal_chord_probe.secondary_line_feeds == 0 and
             native_grid_terminal_chord_probe.primary_eof == 0 and
             native_grid_terminal_chord_probe.secondary_eof == 0;
         return;
@@ -2254,6 +2262,28 @@ pub fn main(init: std.process.Init) !void {
             }
             if (std.mem.eql(u8, cmd, "--native-grid-smoke")) {
                 try nativeGridSmoke(stdout, 0);
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-presentation-qualification")) {
+                try nativeGridPresentationQualification(stdout);
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-full-stack-qualification")) {
+                try nativeGridFullStackQualification(stdout);
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-stability-qualification")) {
+                try nativeGridStabilityQualification();
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-authenticated-agent-qualification")) {
+                try nativeGridAuthenticatedAgentQualification(init.io, stdout);
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-installed-continuity-qualification")) {
+                if (args.len != 4)
+                    return error.InvalidInstalledContinuityQualificationArguments;
+                try nativeGridInstalledContinuityQualification(args[2], args[3], stdout);
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-windowed-smoke")) {
@@ -3930,6 +3960,14 @@ export fn noctty_grid_terminal_chord_write(raw: ?*anyopaque, bytes: [*]const u8,
                 if (is_primary) native_grid_terminal_chord_probe.primary_eof += 1;
                 if (is_secondary) native_grid_terminal_chord_probe.secondary_eof += 1;
             },
+            '\r' => {
+                if (is_primary) native_grid_terminal_chord_probe.primary_carriage_returns += 1;
+                if (is_secondary) native_grid_terminal_chord_probe.secondary_carriage_returns += 1;
+            },
+            '\n' => {
+                if (is_primary) native_grid_terminal_chord_probe.primary_line_feeds += 1;
+                if (is_secondary) native_grid_terminal_chord_probe.secondary_line_feeds += 1;
+            },
             else => {},
         };
     }
@@ -4330,6 +4368,170 @@ fn nativeGridSmoke(out: anytype, mode: c_int) !void {
     try out.print("native_grid_smoke gtk=true drawing_surface=true keyboard_abi=true pty=true vt=true exited=true\n", .{});
 }
 
+fn nativeGridPresentationQualification(out: anytype) !void {
+    var session = try noctty.terminal_session.TerminalSession.spawn(
+        std.heap.page_allocator,
+        "/tmp",
+        "/bin/sh",
+        96,
+        24,
+    );
+    defer session.deinit();
+    try session.write("exec cat\n");
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 1,
+        .workspace_smoke = 36,
+    });
+    if (status != 0) return error.NativeGridPresentationQualificationFailed;
+    try out.print(
+        "native_grid_presentation_host gtk=true mapped=true pty=true vt=true exited=true\n",
+        .{},
+    );
+}
+
+fn nativeGridFullStackQualification(out: anytype) !void {
+    _ = out;
+    var session = try noctty.terminal_session.TerminalSession.spawn(
+        std.heap.page_allocator,
+        "/tmp",
+        "/bin/sh",
+        96,
+        24,
+    );
+    defer session.deinit();
+    try session.write(
+        "stty -echo; printf '\\033[2J\\033[HNOCTTY mapped idle qualification\\r\\n" ++ "PTY · VT · GTK · Cairo · Plasma\\r\\n'; exec cat\n",
+    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 1,
+        .workspace_smoke = 37,
+    });
+    if (status != 0) return error.NativeGridFullStackQualificationFailed;
+}
+
+fn nativeGridStabilityQualification() !void {
+    const command = if (getenv("NOCTTY_STABILITY_COMMAND")) |value|
+        std.mem.span(value)
+    else
+        "stty -echo; printf '\\033]2;NOCTTY stability qualification\\007'" ++
+            "; printf '\\033[2J\\033[HNOCTTY stability qualification\\r\\n'" ++
+            "; (i=0; while :; do i=$((i + 1))" ++
+            "; printf 'NOCTTY stability heartbeat %08d\\r\\n' \"$i\"" ++
+            "; sleep \"${NOCTTY_STABILITY_HEARTBEAT_SECONDS:-1}\"; done) & worker=$!" ++
+            "; cat >/dev/null; kill \"$worker\" 2>/dev/null || true" ++
+            "; wait \"$worker\" 2>/dev/null || true; exit 0";
+    var profile = noctty.launch_profile.Profile{ .kind = .command };
+    try profile.command.set(command);
+    var session = try noctty.terminal_session.TerminalSession.spawnProfile(
+        std.heap.page_allocator,
+        &profile,
+        "/tmp",
+        "/bin/sh",
+        120,
+        36,
+    );
+    defer session.deinit();
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 1,
+        .workspace_smoke = 40,
+    });
+    if (status != 0) return error.NativeGridStabilityQualificationFailed;
+}
+
+fn nativeGridAuthenticatedAgentQualification(io: std.Io, out: anytype) !void {
+    const response_path_raw = getenv("NOCTTY_AUTH_AGENT_RESPONSE_PATH") orelse
+        return error.MissingAuthenticatedAgentResponsePath;
+    const response_path = std.mem.span(response_path_raw);
+    var profile = noctty.launch_profile.Profile{ .kind = .command };
+    try profile.command.set(
+        "printf '\\033]2;NOCTTY authenticated Codex qualification\\007'" ++
+            "; printf 'Authenticated Codex model request through NOCTTY\\r\\n'" ++
+            "; codex exec --ephemeral --skip-git-repo-check --sandbox read-only" ++
+            " --color never -C /tmp -o \"$NOCTTY_AUTH_AGENT_RESPONSE_PATH\"" ++
+            " 'Do not run commands or inspect files. Reply with exactly" ++
+            " NOCTTY_AUTHENTICATED_CODEX_OK.' </dev/null; status=$?" ++
+            "; printf '\\r\\nNOCTTY AUTHENTICATED CODEX EXIT=%d\\r\\n' \"$status\"" ++
+            "; count=0; while [ ! -e \"$NOCTTY_AUTH_AGENT_CAPTURED_PATH\" ]" ++
+            " && [ \"$count\" -lt 600 ]; do sleep 0.1; count=$((count + 1)); done" ++
+            "; [ -e \"$NOCTTY_AUTH_AGENT_CAPTURED_PATH\" ] || exit 124" ++
+            "; exit \"$status\"",
+    );
+    var session = try noctty.terminal_session.TerminalSession.spawnProfile(
+        std.heap.page_allocator,
+        &profile,
+        "/tmp",
+        "/bin/sh",
+        120,
+        36,
+    );
+    defer session.deinit();
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 1,
+        .workspace_smoke = 38,
+    });
+    if (status != 0) return error.NativeGridAuthenticatedAgentQualificationFailed;
+    const response = try std.Io.Dir.cwd().readFileAlloc(
+        io,
+        response_path,
+        std.heap.page_allocator,
+        .limited(1024),
+    );
+    defer std.heap.page_allocator.free(response);
+    if (!std.mem.eql(
+        u8,
+        std.mem.trim(u8, response, " \t\r\n"),
+        "NOCTTY_AUTHENTICATED_CODEX_OK",
+    )) return error.AuthenticatedAgentResponseMismatch;
+    try out.print(
+        "native_grid_authenticated_agent_qualification provider=codex " ++
+            "authenticated=true model_request=true ephemeral=true sandbox=read-only " ++
+            "production_pty=true production_vt=true production_gtk=true " ++
+            "production_cairo=true response_exact=true controlled_exit=true\n",
+        .{},
+    );
+}
+
+fn nativeGridInstalledContinuityQualification(
+    kind_name: []const u8,
+    session_name: []const u8,
+    out: anytype,
+) !void {
+    const kind: noctty.launch_profile.Kind = if (std.mem.eql(u8, kind_name, "tmux"))
+        .tmux
+    else if (std.mem.eql(u8, kind_name, "zellij"))
+        .zellij
+    else
+        return error.InvalidInstalledContinuityKind;
+    var profile = noctty.launch_profile.Profile{ .kind = kind };
+    try profile.ssh_target.set(session_name);
+    var session = try noctty.terminal_session.TerminalSession.spawnProfile(
+        std.heap.page_allocator,
+        &profile,
+        "/tmp",
+        "/bin/sh",
+        120,
+        36,
+    );
+    defer session.deinit();
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = 1,
+        .workspace_smoke = 39,
+    });
+    if (status != 0) return error.NativeGridInstalledContinuityQualificationFailed;
+    try out.print(
+        "native_grid_installed_continuity_qualification kind={s} " ++
+            "installed_tool=true create_or_attach=true production_pty=true " ++
+            "production_vt=true production_gtk=true production_cairo=true " ++
+            "controlled_detach=true exited=true\n",
+        .{kind_name},
+    );
+}
+
 fn terminalHistoryQualification(
     allocator: std.mem.Allocator,
     out: anytype,
@@ -4472,7 +4674,7 @@ fn nativeGridWorkspaceSmoke(out: anytype) !void {
     if (!app.workspace.findPane(3).?.selected) return error.NativeGridSelectionMissing;
     if (!app.workspace.findPane(3).?.hasTag("ci")) return error.NativeGridTagMissing;
     if (app.workspace.smart_filter_tag != null) return error.NativeGridFilterNotCleared;
-    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 dropdown_minimum=true visual_ready=true controlled_exit=true exited=true\n", .{});
+    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true broadcast_shortcut=true broadcast_confirm=true broadcast_cancel_default=true broadcast_disable_immediate=true broadcast_state_label=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 dropdown_minimum=true visual_ready=true controlled_exit=true exited=true\n", .{});
 }
 
 fn nativeGridTabNavigationSmoke(out: anytype) !void {
@@ -4718,7 +4920,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true resize_grip=true windowed_grip=12 pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {
@@ -4913,10 +5115,12 @@ fn nativeGridTerminalChordsSmoke(out: anytype) !void {
         app.workspace.findPane(secondary_pane_id) != null or
         native_grid_terminal_chord_probe.primary_interrupts != 0 or
         native_grid_terminal_chord_probe.secondary_interrupts != 1 or
+        native_grid_terminal_chord_probe.primary_carriage_returns != 1 or
+        native_grid_terminal_chord_probe.secondary_carriage_returns != 1 or
         native_grid_terminal_chord_probe.primary_eof != 0 or
         native_grid_terminal_chord_probe.secondary_eof != 0)
         return error.NativeGridTerminalChordsStateMismatch;
-    try out.print("native_grid_terminal_chords_smoke panes=2 broadcast=true ctrl_c=true interrupt_target=current_pane primary_interrupts=0 secondary_interrupts=1 ctrl_d=true exact_pane=true eof_forwarded=false final_pane_protected=true remaining_focused=true exited=true\n", .{});
+    try out.print("native_grid_terminal_chords_smoke panes=2 broadcast=true ctrl_c=true interrupt_target=current_pane primary_interrupts=0 secondary_interrupts=1 enter=carriage_return line_feed=false ctrl_d=true exact_pane=true eof_forwarded=false final_pane_protected=true remaining_focused=true exited=true\n", .{});
 }
 
 fn nativeGridLayoutPresetSmoke(
@@ -5514,7 +5718,7 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
         .workspace_smoke = 19,
     });
     if (status != 0) return error.NativeGridWindowTraySmokeFailed;
-    try out.print("native_grid_window_tray_smoke resize_handles=8 all_edges=true resized=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
+    try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=3 diagonal_cursors=false resized=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
 }
 
 fn nativeGridClipboardSmoke(out: anytype) !void {
@@ -5677,7 +5881,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
         }
     }
     if (!launch_marker) return error.NativeGridLaunchProfileOutputMismatch;
-    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true categories=3 page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true geometry=sane dialogs=above_terminal application_icon=true categories=3 category_navigation=true category_tooltips=true narrow_access=true page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !void {
@@ -5703,7 +5907,7 @@ fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !
     });
     if (status != 0 or bridge.callback_failed)
         return error.NativeGridSettingsStackingSmokeFailed;
-    try out.print("native_grid_settings_stacking_smoke visible=true transient_parent=true keep_above=true compositor_stack=true parent_restored=true exited=true\n", .{});
+    try out.print("native_grid_settings_stacking_smoke visible=true transient_parent=true keep_above=true compositor_stack=true geometry=sane parent_restored=true exited=true\n", .{});
 }
 
 fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
@@ -5784,7 +5988,7 @@ fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: a
         !std.mem.eql(u8, reloaded_app.config.recent_workspaces.at(0).?, workspace_path))
         return error.NativeGridRecentWorkspaceReloadMismatch;
 
-    try out.writeAll("native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true\n");
+    try out.writeAll("native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true summary_scroll=true project_accessible=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true\n");
 }
 
 fn nativeGridMaintenanceSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
@@ -5972,7 +6176,7 @@ fn nativeGridShortcutLiveSmoke(out: anytype) !void {
         .workspace_smoke = 9,
     });
     if (status != 0) return error.NativeGridShortcutLiveSmokeFailed;
-    try out.print("native_grid_shortcut_live_smoke registered=true hidden=true physical_key=true activated=true visible=true exited=true\n", .{});
+    try out.print("native_grid_shortcut_live_smoke registered=true hidden=true hidden_before_registration=true physical_key=true activated=true visible=true exited=true\n", .{});
 }
 
 fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
@@ -5986,7 +6190,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
         .workspace_smoke = 16,
     });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
-    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_grip=4 exited=true\n", .{});
+    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true\n", .{});
 }
 
 fn nativeGridWorkspaceActivationSmoke(

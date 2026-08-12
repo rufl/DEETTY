@@ -1,6 +1,6 @@
 # Native Grid Renderer Qualification
 
-Status: bounded NCT-119 synthetic production-Cairo draw, pixel-repeat, and renderer-owned allocation tranche passed on 2026-07-18. The complementary real-PTY pipeline tranche is now retained separately; GTK widget/frame-clock/compositor latency remains open.
+Status: bounded NCT-119 synthetic production-Cairo draw, pixel-repeat, and renderer-owned allocation tranche passed on 2026-07-18. The complementary real-PTY pipeline and mapped GTK presentation tranches are retained separately.
 
 ## Qualified Boundary
 
@@ -48,7 +48,7 @@ native_grid_renderer_qualification_matrix debug=true release_safe=true frames_pe
 
 This advances NCT-119's display-independent production renderer boundary. It proves deterministic repeated output for the three fixed fixtures, host-local process-CPU distributions, and bounded renderer-owned warm/resize allocations through the exact Cairo draw function.
 
-This synthetic lane does not initialize GTK, map a native surface, exercise a compositor or frame clock, measure Cairo/Pango/library allocations, archive release pixel artifacts, or measure PTY-read-to-draw, key-write-to-draw, frame intervals, idle wakeups, fullscreen-window behavior, GPU work, or real agent-TUI presentation. The complementary [terminal pipeline qualification](TERMINAL_PIPELINE_QUALIFICATION.md) now feeds the same draw function from a real shell/PTY/VT and retains display-independent input-write/PTY-read-start-to-Cairo distributions. NCT-119 remains partial for mapped GTK key/frame-clock/compositor evidence, full-stack allocations, idle wakeups, and archived compositor-backed pixels on Plasma Wayland and X11.
+This synthetic lane does not initialize GTK, map a native surface, exercise a compositor or frame clock, measure Cairo/Pango/library allocations, archive release pixel artifacts, or measure PTY-read-to-draw, key-write-to-draw, frame intervals, idle wakeups, fullscreen-window behavior, GPU work, or real agent-TUI presentation. The complementary [terminal pipeline qualification](TERMINAL_PIPELINE_QUALIFICATION.md) feeds the same draw function from a real shell/PTY/VT and retains display-independent input-write/PTY-read-start-to-Cairo distributions. The [mapped presentation qualification](NATIVE_GRID_PRESENTATION_QUALIFICATION.md) adds synthetic production key-handler-to-draw/after-paint distributions and Wayland GDK presentation feedback, while the [full-stack qualification](NATIVE_GRID_FULL_STACK_QUALIFICATION.md) retains live idle/fullscreen pixels, memory, and wakeups. Together these close NCT-119.
 
 ## Reproduce
 

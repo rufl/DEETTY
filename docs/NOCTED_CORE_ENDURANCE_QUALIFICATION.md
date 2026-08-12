@@ -44,7 +44,7 @@ Atomic-save percentiles include the managed filesystem's replacement and durabil
 
 ## Proof Boundary
 
-This retains 1,024 bounded headless core cycles and substantially extends deterministic ranking, allocator, and operation-distribution evidence for NCT-106/NCT-122. It does not initialize GTK, exercise the two GLib worker lanes, publish result batches to a widget, draw through a compositor, cover varied real projects, or constitute a multi-hour/multi-day native GUI soak. Native X11/Wayland search cancellation, first-result/UI-draw/open-save-under-load distributions, peak full-process-tree memory, and long-duration lifecycle evidence remain open.
+This retains 1,024 bounded headless core cycles and substantially extends deterministic ranking, allocator, and operation-distribution evidence for NCT-106/NCT-122. It does not initialize GTK, exercise the two GLib worker lanes, publish result batches to a widget, draw through a compositor, cover varied real projects, or constitute a multi-hour/multi-day native GUI soak. The later [native endurance qualification](NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md) closes the sustained one-host GTK/Wayland/X11 tranche without changing this core-only proof boundary.
 
 The later [GLib worker qualification](NOCTED_WORKER_QUALIFICATION.md) separately closes the shared production admission plus real headless two-pool worker/backpressure/foreground-save seam. It does not change this endurance receipt's core-only boundary or supply the still-open GTK/compositor/long-duration evidence.
 

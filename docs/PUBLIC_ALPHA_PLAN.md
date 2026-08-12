@@ -49,8 +49,8 @@ Fast contributor gate captured during this prep pass:
 zig build check -j1 --summary all
 ```
 
-Current result on 2026-07-31: passed, `19/19` build steps succeeded and
-`316/316` tests passed. The same prep pass includes the refreshed native GTK,
+Current result on 2026-08-04: passed, `19/19` build steps succeeded and
+`343/343` tests passed. The same pass includes the refreshed native GTK,
 PTY, Ghostty VT, and standalone NoctEd boundaries plus the NoctEd relative
 `--project . --open README.md` launch assertion.
 
@@ -60,15 +60,17 @@ The full maintainer gate is:
 ./scripts/verify.sh
 ```
 
-A fresh 2026-07-31 retry with:
+The retained 2026-08-04 run with:
 
 ```sh
-NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
+NOCTTY_VERIFY_PARENT=/dev/shm NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 completed successfully through the terminal, renderer, PTY, NoctEd
 core/worker/index, package/release, and source-truth lanes, ending with
 `verify_cleanup scratch=true cache=true install=true artifacts=true`.
+
+The opt-in live Plasma presentation lane retains 64 mapped synthetic production key-handler-to-draw/after-paint samples per mode on Wayland/X11 and completed Wayland GDK presentation feedback. The complementary full-stack lane closes NCT-119 with idle/fullscreen compositor pixels, external memory, and bounded wakeups on both backends. Neither is physical-input or final compositor-acceptance proof.
 
 The same dogfood-prep slice reproduces and closes the relative-cwd startup and
 collapsed-window blockers. The local Wayland install stages GTK Layer Shell,

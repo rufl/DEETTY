@@ -1,0 +1,9 @@
+date=2026-08-04
+revision=32396cc
+dirty=true
+rounds_per_lane=32
+total_cycles_per_phase=1024
+total_phase_cycles=4096
+elapsed_seconds=630
+wayland_display=wayland-0
+display=:0

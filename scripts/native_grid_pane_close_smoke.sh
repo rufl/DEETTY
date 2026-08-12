@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export LC_ALL=C
 
 output=$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-pane-close-smoke)
 printf '%s\n' "$output"

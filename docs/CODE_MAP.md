@@ -11,8 +11,9 @@ alpha source tree without reading the backlog first.
 - `src/nocted/main.zig` — standalone NoctEd GTK editor executable, including
   application wiring, project loading, tabs, search, save flows, callbacks, and
   NoctEd smoke/qualification flows.
-- `build.zig` — build graph for production binaries, optional VTE fallback,
-  smoke binaries, qualification runners, and `zig build check`.
+- `build.zig` — build graph for production binaries, the experimental Windows
+  host, optional VTE fallback, smoke binaries, qualification runners, and
+  `zig build check`.
 
 Start here when trying the app:
 
@@ -38,6 +39,10 @@ zig build run-nocted -- --project . --open README.md
   styling, and settings-page composition behind the narrow `native_gtk.h` ABI.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
+- `src/windows/main.zig` and `src/windows/native_host.c` — experimental Windows
+  boundary: shared Zig VT callbacks plus the Win32/GDI, ConPTY, input,
+  clipboard, local logging, and local minidump adapter. No GTK/POSIX host state
+  is compiled into the Windows executable.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
   structures.
@@ -83,10 +88,18 @@ read this as engineering evidence, not as extra product surface.
 - `scripts/verify.sh` — full maintainer gate. It is intentionally broad and may
   take a long time on contributor machines.
 - `scripts/native_release_smoke.sh` — display-backed native smoke gate.
+- `scripts/native_grid_presentation_qualification.sh`: opt-in live Plasma Wayland/X11 synthetic key-handler-to-draw/frame-clock and presentation-timing lane.
+- `scripts/native_grid_full_stack_qualification.sh`: opt-in live Wayland/X11 idle/fullscreen compositor-pixel, memory, and wakeup lane.
+- `scripts/native_grid_stability_qualification.sh`: NCT-112 hidden/visible phase runner. `--smoke` checks Debug/`ReleaseSafe` Wayland/X11 quickly; `--run` retains the default 48-hour authenticated `ReleaseSafe` matrix.
+- `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in authenticated Codex exact-response matrix through production PTY/VT/GTK/Cairo on live Wayland/X11.
+- `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, NOCTTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path.
+- `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.
 - `scripts/install_dogfood.sh` — atomic local `ReleaseFast` install, bounded
   logging launchers, desktop-entry rewrite, and pinned private GTK Layer Shell
   runtime staging for undecorated Wayland dropdowns.
+- `scripts/package_windows.sh` — experimental Windows `ReleaseFast` ZIP,
+  checksum, and manifest packaging with PE/ConPTY/no-GTK contract checks.
 - `scripts/terminal_*_qualification.sh` — terminal compatibility and PTY/TUI
   qualification lanes.
 - `src/*Qualification*.zig` — focused qualification runners built by `build.zig`.

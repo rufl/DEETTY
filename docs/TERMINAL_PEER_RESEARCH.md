@@ -200,8 +200,7 @@ Transfer to NOCTTY:
   full-grid clone for every frame.
 - PTY writes were the missing backpressure boundary: `Pty.writeAll` slept in a
   loop on `EAGAIN`, and native GTK input called it synchronously.
-- A flooding-pane versus marker-pane fairness benchmark remains necessary
-  before changing the successful 2 MiB read budget or adding a root scheduler.
+- The retained direct GLib lane now measures one flooding pane against 29 marker panes before any change to the successful 2 MiB read budget or source priority. `ReleaseSafe` delivered every marker below 2.5 ms on the retained host, so no scheduler rewrite is justified.
 
 ## Agent-Focused Findings
 
@@ -355,6 +354,12 @@ The accepted implementation:
 No thread, custom epoll loop, dependency, or user-facing queue setting was
 added.
 
+**Retained agent fairness and large-paste boundary.** The follow-up `terminal_agent_fairness_matrix` uses thirty production PTY/session/VT instances behind equal-priority GLib Unix-FD sources and one shared guarded pump scratch. One unbounded flood remains active while twenty-nine exact marker panes are timed. Debug retained a 2,420.079 ms marker p95 under checked-parser load; `ReleaseSafe` retained 2.377 ms p95 and 2.409 ms max. Both modes delivered every marker and exited with zero allocator/process residue.
+
+The same runner sends an 8 MiB raw paste through the ordered queue, waits for an exact child-drained marker, and separately tears down a session while an 8 MiB paste remains queued behind a foreground sleeper. Both paths close the PTY/session and process group without retaining queue state. This direct lane does not exercise GTK widgets, the mapped 4 ms flush source, frame-clock paint, or compositor presentation; [the focused receipt](TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md) owns those limits.
+
+**Retained mapped presentation boundary.** The later `native_grid_presentation_matrix` adds 64 synthetic production key-handler-to-draw/after-paint samples per mode on live Plasma Wayland/X11. It retains frame intervals and predictions; Wayland also supplied completed GDK presentation feedback, while X11 supplied none. The start bypasses the GDK event queue and physical HID, so it is mapped handler/presentation timing rather than keyboard-device latency.
+
 ## Accepted Herdr-Inspired Workspace Features
 
 The follow-up implementation retains Herdr's useful continuity semantics while
@@ -406,21 +411,14 @@ still requires the provider CLI and a valid provider-owned session reference.
 
 ## Next Measurements
 
-1. Add a flooding-pane versus 29 marker-pane lane and optimize marker p95 before
-   changing the successful 2 MiB read ceiling.
-2. Retain Wayland presentation-feedback or equivalent compositor-frame
-   distributions, following foot's zero/one/multiple-frame boundary.
-3. Add a native large-paste smoke that proves the GTK pending-write source
-   drains and is removed during close.
-4. Measure cold-history random access and full viewport restoration separately
-   from resume-output latency, following Ghostty's benchmark split.
-5. Consider structured OSC 99 title/body/action support only if generic,
-   privacy-preserving attention proves insufficient in real agent dogfood.
+1. Extend the 8 MiB paste lane through the mapped GTK 4 ms flush source only if direct-session and real dogfood evidence diverge.
+2. Measure cold-history random access and full viewport restoration separately from resume-output latency, following Ghostty's benchmark split.
+3. Consider structured OSC 99 title/body/action support only if generic, privacy-preserving attention proves insufficient in real agent dogfood.
 
 ## Evidence
 
 ```text
-terminal_peer_research=true pinned_repositories=14 reflow_blank_tail_fixed=true osc_agent_attention=true pty_write_queue=true write_queue_cap_mib=64 write_queue_retained_kib=256 native_write_flush_ms=4 dependencies_added=0 gpu_rewrite=false custom_epoll=false agent_auto_hibernation=false
+terminal_peer_research=true pinned_repositories=14 reflow_blank_tail_fixed=true osc_agent_attention=true pty_write_queue=true write_queue_cap_mib=64 write_queue_retained_kib=256 native_write_flush_ms=4 mapped_presentation=true wayland_presentation_feedback=true dependencies_added=0 gpu_rewrite=false custom_epoll=false agent_auto_hibernation=false
 ```
 
 Focused receipts and checksums are retained under

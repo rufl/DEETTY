@@ -164,7 +164,7 @@ active output and bounds each maintenance step.
 with the retained 2 MiB ceiling. Some short runs favored smaller budgets, but a
 seven-pair 2 MiB versus 1 MiB confirmation favored 2 MiB at both scales:
 112.231 versus 103.427 MiB/s at eight panes and 128.074 versus 120.125 MiB/s at
-32 panes. The established 2 MiB bounded drain remains.
+32 panes. The established 2 MiB bounded drain remains. A later direct GLib qualification kept one production PTY continuously flooding while 29 peer PTYs emitted exact markers. `ReleaseSafe` retained 2.377 ms marker p95 and 2.409 ms max with all markers delivered, so the measured fairness lane does not justify reopening the ceiling or source-priority decision. See [`TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md`](TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md).
 
 ### Page-Backed History Slabs
 

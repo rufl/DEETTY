@@ -1,0 +1,7 @@
+[MIME Cache]
+application/json=com.noctty.NoctEd.desktop;
+text/plain=com.noctty.NoctEd.desktop;
+text/x-c=com.noctty.NoctEd.desktop;
+text/x-c++=com.noctty.NoctEd.desktop;
+text/x-python=com.noctty.NoctEd.desktop;
+x-scheme-handler/noctty=com.noctty.NOCTTY.desktop;

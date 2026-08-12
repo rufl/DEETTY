@@ -1,6 +1,6 @@
 # Daily-driver terminal audit
 
-Audit refreshed: 2026-07-31.
+Audit refreshed: 2026-08-05.
 
 ## Verdict
 
@@ -9,12 +9,7 @@ measured terminal-only footprint is small. It is suitable for ordinary shell
 work and supervised agent sessions, but it is not yet an unconditional Yakuake
 replacement for all-day Codex, Claude Code, and Antigravity CLI use.
 
-The two remaining daily-driver acceptance categories are authenticated/broader
-modern-TUI compatibility in mapped windows and survival of live processes
-across a NOCTTY crash/restart. A bounded installed Codex login/Vim/btop
-headless tranche is now retained, but hot-session recovery still restores tabs,
-split geometry, profile state, and working directories by starting new shells;
-it does not resurrect a running agent process.
+The remaining daily-driver acceptance categories are counted real-work sessions and the elapsed 48-hour hidden/visible stability run. Authenticated Codex 0.144.6 and installed tmux/Zellij mapped acceptance are retained at one-host boundaries, and the stability harness passes its short Debug/`ReleaseSafe` Wayland/X11 shakedown without claiming multi-day completion. Hot-session recovery still restores tabs, split geometry, profile state, and working directories by starting new shells; arbitrary agent processes are not resurrected unless the user deliberately runs them inside a persistent tmux/Zellij session.
 
 The 2026-07-16 hardening slice closes the immediate lifecycle and idle-cost
 defects. Current dogfood startup additionally rejects legacy relative pane cwd
@@ -66,41 +61,28 @@ fallback:
 - local `noctty:` and `file:` workspace activation validates a bounded absolute
   snapshot path before PTY creation. Settings version 9 retains the version-8
   eight-entry recent-path library, and Project Workspace exposes it without manual config editing.
-  Activation uses a separate native process. The maintained installed lane now
-  validates the real desktop/MIME contract in a disposable tree and is ready
-  to dispatch `gio` plus click the real Recent Workspaces control; retained
-  Wayland/X11 mapped-child receipts remain open because this sandbox cannot
-  reach its advertised compositor sockets.
+  Activation uses a separate native process. The maintained installed lane validates the real desktop/MIME contract in a disposable tree, dispatches `gio`, and clicks the real Recent Workspaces control. Live Plasma Wayland/X11 mapped two-tab child receipts now pass with controlled zero exit. Project Workspace keeps its summary scroll-accessible within the monitor work area and exposes assistive names.
 - installed Codex 0.144.5's unauthenticated welcome/login surface, Vim 9.2,
   and btop 1.4.7 now pass through the production PTY, terminal session, and VT
   model in Debug and `ReleaseSafe`, including synchronized output,
   alternate-screen/focus/mouse modes, truecolor/Unicode, routed exit input,
   foreground identity, allocator/process teardown, and separate root/tree
-  memory. This does not authenticate Codex or submit a model request.
+  memory. This headless case does not authenticate Codex or submit a model request; the separate mapped companion does so with an exact ephemeral read-only response in every Debug/`ReleaseSafe` Wayland/X11 lane.
+- installed tmux 3.7b and Zellij 0.44.3 now pass first attach, native detach, NOCTTY process exit/relaunch, reattach, preserved rendered content, and controlled cleanup across both modes and desktop backends.
 
 Production `noctty` also excludes VTE, Tree-sitter, and smoke commands. The
 optional fallback and smoke hosts are separate non-default binaries, reducing
 production code and dependency surface without weakening the verification matrix.
 
-The source-backed [performance and algorithm research](PERFORMANCE_ALGORITHM_RESEARCH.md)
-keeps GTK/Cairo and event-driven descriptor reads. Its frame-clock, glyph-cache,
-resize-coalescing, ABI-v2 dirty-span, bounded parser, DECSET 2026 synchronized
-output, and grapheme-aware logical-line designs are implemented. NCT-120's
-100000-line compact-history/reflow qualification is complete; NCT-110 and
-NCT-119 remain partial. NCT-110 now retains pinned Debug/`ReleaseSafe`
-protocol/state, malformed-input, Unicode, and allocator-accounting evidence
-(`terminal_compatibility_matrix debug=true release_safe=true protocol_cases=23 schedules=6 malformed_cases=128 unicode_mutations=256 grapheme_cases=766 allocator_leak_free=true scratch_clean=true`), but does not supply real-agent cross-backend protocol/visual/interaction/exit receipts. NCT-119 now retains a display-independent exact production-Cairo matrix: 128 idle, full-screen, and rich-style measured frames per mode, repeated and cross-mode-identical pixels, process-CPU percentiles, zero renderer-owned warm-frame allocations, and bounded resize scratch (`native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`). It still lacks archived compositor-backed pixels, mapped idle/fullscreen and full-stack allocation evidence, plus PTY/key/frame-clock latency. GPU
-The real installed-application lane additionally reports `terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`. It advances actual application compatibility beyond fixtures while remaining headless, unauthenticated, and non-rendered. NCT-119 now retains a display-independent exact production-Cairo matrix: 128 idle, full-screen, and rich-style measured frames per mode, repeated and cross-mode-identical pixels, process-CPU percentiles, zero renderer-owned warm-frame allocations, and bounded resize scratch (`native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`). It still lacks archived compositor-backed pixels, mapped idle/fullscreen and full-stack allocation evidence, plus PTY/key/frame-clock latency. GPU
-The second installed-application lane reports `terminal_ncurses_matrix debug=true release_safe=true applications=nano,less,dialog nano_editor=true nano_mouse=true less_pager=true dialog_widget=true editor_pager_alternate_screen=true dialog_primary_screen=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true installed_tools=true scratch_clean=true`. It broadens the retained headless daily-tool surface with an editor, pager, and dialog widget while leaving authenticated-agent, mapped-pixel, and long-soak acceptance open.
-The third installed-application lane reports `terminal_system_tui_matrix debug=true release_safe=true applications=top,watch,info,whiptail,fzf,sqlite3,glances,bash,man,sftp top_monitor=true watch_refresh=true watch_plain_surface=true info_browser=true whiptail_widget=true fzf_filter=true sqlite_repl=true glances_monitor=true bash_shell=true bash_readline=true man_pager=true pager_chain=true sftp_client=true sftp_local_server=true network_bind=false rich_style=true plain_repl=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true installed_tools=true scratch_clean=true`. It broadens the retained headless surface with monitor, refresh, help-browser, newt-widget, fuzzy-filter, plaintext-REPL, styled-monitor, interactive Readline shell, nested man/less pager, and direct local SFTP client/server behavior while leaving authenticated-agent, mapped-pixel, remote-network, and long-soak acceptance open.
-rendering and dedicated thread sets per pane remain deferred
-(`performance_algorithm_research=true`).
+The source-backed [performance and algorithm research](PERFORMANCE_ALGORITHM_RESEARCH.md) keeps GTK/Cairo and event-driven descriptor reads. Its frame-clock, glyph-cache, resize-coalescing, ABI-v2 dirty-span, bounded parser, synchronized-output, and grapheme-aware logical-line designs are implemented. NCT-120's compact-history/reflow qualification is complete. NCT-110 now combines pinned protocol/state, malformed-input, Unicode, installed Codex/Vim/btop, ncurses/system-TUI, and authenticated mapped Codex 0.144.6 evidence at the accepted one-host boundary.
 
-The newer [terminal pipeline qualification](TERMINAL_PIPELINE_QUALIFICATION.md) supersedes the earlier statement that all PTY/input-to-draw evidence was absent. Two 64-sample runs per mode now feed the exact Cairo draw from a real shell, production PTY/`TerminalSession`/VT, and ABI-v2 packed rows, retaining input-write/PTY-read-start-to-Cairo p50/p95/p99, repeat/cross-mode-identical pixels, zero warm-frame renderer allocations, and separate root/tree memory (`native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`). Mapped GTK key-event, frame-clock/compositor presentation, idle-wakeup, full-stack allocation, authenticated agent, and multi-day evidence remain open.
+NCT-119 is complete through four complementary boundaries: exact display-independent Cairo fixtures, real-shell PTY/VT-to-Cairo distributions, a live mapped Plasma presentation matrix, and live Wayland/X11 idle/fullscreen compositor-pixel plus memory/wakeup receipts. The presentation lane records 64 synthetic production key-handler-to-draw/after-paint samples per mode, frame intervals, predictions, and completed Wayland GDK presentation feedback; the full-stack lane records zero fallback PTY timer ticks and bounded idle callbacks. Neither claims physical input, X11 completed presentation timing, or multi-day evidence. GPU rendering and dedicated thread sets per pane remain deferred (`performance_algorithm_research=true`).
 
 NoctEd's opt-in [core endurance qualification](NOCTED_CORE_ENDURANCE_QUALIFICATION.md) retains 512 cycles per mode through atomic save/load, edit/fold, project scan/search, Quick Open ranking, grammar conversion, allocator baselines, and root memory: `nocted_core_endurance_matrix debug=true release_safe=true cycles_per_mode=512 total_cycles=1024 fixture_files=128 document_round_trip=true edit_fold=true project_scan=true project_search=true quick_open=true deterministic_ranking=true ranking_queries=3 ranking_evaluations=3072 grammar_conversion=true allocator_leak_free=true latency_percentiles=true process_memory=true duration_recorded=true scratch_clean=true`. This is bounded headless core repetition, not a daily-driver GTK worker/compositor or multi-day project soak.
 
 The maintained [GLib worker qualification](NOCTED_WORKER_QUALIFICATION.md) adds real headless admission/concurrency: production `App` calls the qualified generation-supersession, 64 shared/32 per-lane cap, cancelled-lane exclusion, kind-cancellation, pending-lookup, lazy-pool, transactional-enqueue, rollback, and ordered-retirement functions before the runner drives both real pools: `nocted_worker_matrix debug=true release_safe=true shared_admission_policy=true generation_supersession=true shared_queue_cap=64 lane_queue_cap=32 cancelled_lane_excluded=true kind_cancel=true pending_lookup=true lazy_pool_creation=true transactional_enqueue=true append_failure_safe=true push_failure_rollback=true ordered_retirement=true glib_thread_pools=true worker_lanes=2 project_scan=true search_streaming=true snapshot_first=true cooperative_cancellation=true search_batch_size=24 search_batch_cap=2 backpressure_exercised=true foreground_save_under_backpressure=true worker_drained=true allocator_leak_free=true process_memory=true scratch_clean=true`. It proves foreground save remains usable while scan is blocked at its exact batch cap and cancellation/replacement/drain return allocator ownership to zero. It is not a mapped daily-driver UI or long-duration acceptance receipt.
+
+The [native endurance qualification](NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md) crosses that boundary with 32 complete Debug/`ReleaseSafe` workflows in every live Wayland/X11 lane. It retains 4,096 combined resource/search/monitor/lifecycle phase cycles, 3,072 deterministic ranking evaluations, rendered first/final UI, process-tree memory, warning-fatal GTK, and clean teardown over 630 seconds. This closes the sustained one-host NoctEd alpha boundary, not multi-day or varied-project daily-driver proof.
 
 For eight idle descriptor-backed panes, the static periodic timer schedule falls
 from the original 56 callbacks per second (eight 250 ms exit timers, eight
@@ -127,9 +109,7 @@ The controlled installed-application lane adds
 `terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`.
 The display-independent renderer lane additionally reports
 `native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`.
-These are short one-host engineering probes, not the multi-day agent-TUI soak,
-mapped GTK/compositor behavior, full-stack allocation, rendered keystroke/frame
-latency, or cross-terminal ranking still required.
+These are short one-host engineering probes, not the multi-day agent-TUI soak, physical-input latency, final compositor acceptance, or universal cross-terminal ranking.
 
 ## Compatibility gaps
 
@@ -146,19 +126,15 @@ latency, or cross-terminal ranking still required.
 | Link handling | OSC 8 state reaches native rich cells | Retain hover/copy/explicit-open rendered interaction evidence |
 | Scrollback | GUI-configurable 0-to-100000-line ring, 1000 default, live global application plus independent per-profile choices in an eight-entry named library | Retain |
 | Shell profiles | One atomic active profile plus up to eight GUI names cover interactive shell, one-line command, SSH, Persistent tmux, Persistent Zellij, absolute/inherited cwd, 16 bounded environment overrides, validated targets, persistence, save/select/delete, real selected local command launch, and disposable Ed25519 OpenSSH authentication (`credentialed_ssh=true`) | Retain remote-network and any password/agent/hardware-key expansion only if those claims are needed; the current bounded credential case is complete |
-| Workspace activation | Bounded local `noctty:`/`file:` admission, pre-PTY snapshot restore, settings-version-9 retention of the version-8 eight-entry MRU, native recent chooser, and a passing disposable installed-desktop/MIME contract (`native_grid_installed_activation_contract installed_desktop=true mime_registered=true exec_open_uri=true fixture_tabs=2 production_binary=true smoke_isolated=true scratch_scoped=true`) | Run and retain the maintained installed `gio` dispatch plus rendered Recent Workspaces child-window matrix on accessible Plasma Wayland/X11 |
-| Process continuity | Layout/cwd hot restore plus first-class tmux/Zellij create-or-attach profile dispatch (`launch_continuity_matrix debug=true release_safe=true kinds=tmux,zellij direct_argv=true create_or_attach=true production_pty=true cwd=true environment=true controlled_exit=true allocator_leak_free=true tool_shims=true installed_tools=false live_reattach=false scratch_clean=true`) | Retain installed detach/relaunch/reattach and mapped Wayland/X11 receipts |
-| Qualification | Debug/`ReleaseSafe` 32-session native-grid churn, 64 ordinary plus eight forced production real-PTY lifecycles per mode, one installed Codex login/Vim/btop sequence, 100000-line reflow/grow-shrink, 384 synthetic exact-Cairo frames, and two 64-sample real-shell PTY/VT-to-Cairo runs per mode with input/read-to-draw percentiles, repeat pixels, zero warm-frame renderer allocations, and separate root/tree memory; pinned protocol/malformed/Unicode/grapheme matrix; X11/Wayland focused native grids; machine-local benchmark | Multi-day pane churn, authenticated/broader mapped real agent-TUI corpus, archived compositor-backed pixels, mapped idle/fullscreen and full-stack allocation evidence, GTK key/frame-clock/compositor-presentation latency |
+| Workspace activation | Bounded local `noctty:`/`file:` admission, pre-PTY snapshot restore, settings-version-9 retention of the version-8 eight-entry MRU, adaptive accessible Project Workspace dialog, and live installed `gio` plus rendered Recent Workspaces child activation on Plasma Wayland/X11 (`native_grid_installed_activation_matrix backends=wayland,x11 installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true`) | Retain |
+| Process continuity | Layout/cwd hot restore plus first-class tmux/Zellij create-or-attach profile dispatch and installed tmux 3.7b/Zellij 0.44.3 mapped detach/relaunch/reattach with preserved content | Multi-day and remote/cross-host continuity remain outside the current receipt |
+| Qualification | Debug/`ReleaseSafe` 32-session native-grid churn, repeated production PTY lifecycles, installed TUI tranches, authenticated Codex, installed tmux/Zellij relaunch/reattach, 100000-line reflow/grow-shrink, exact-Cairo frames, mapped key-to-frame runs, and archived Wayland/X11 pixels plus memory/wakeups | Multi-day pane churn, broader agent-product parity, final compositor acceptance, and physical-input latency |
 
 The implementation selects `TERM=xterm-256color`, and the bounded Codex
 login/Vim/btop lane now proves several advertised capabilities under real TUIs.
-Completion still requires authenticated and broader application traces plus
-mapped visual/interaction receipts on both desktop backends.
+Completion still requires counted real-work dogfood and multi-day evidence. Broader application traces are needed only before making broader product-compatibility claims.
 
-For process continuity, install tmux or Zellij and select the matching persistent
-launch type with a session name. The direct create-or-attach adapter is qualified,
-but installed server survival and later reattachment have not yet been retained;
-NOCTTY does not claim to own a persistent terminal daemon.
+For process continuity, select the matching persistent tmux or Zellij launch type with a session name. Installed server survival and later reattachment are retained on this host; NOCTTY still does not own a persistent terminal daemon or claim arbitrary-process resurrection.
 
 ## Memory accounting
 

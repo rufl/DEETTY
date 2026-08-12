@@ -23,6 +23,9 @@ Reason: source/docs/gates are ready enough for a bounded public-source alpha, bu
 - bounded public-alpha gate
 - no-surprise network source scan
 - current screenshots
+- authenticated Codex 0.144.6 mapped Wayland/X11 exact-response receipts
+- installed tmux 3.7b/Zellij 0.44.3 detach/relaunch/reattach receipts
+- Debug/`ReleaseSafe` Wayland/X11 hidden/visible stability-harness shakedown; the 48-hour run remains open
 
 Current bounded gate:
 
@@ -68,6 +71,8 @@ A stronger daily-driver alpha needs:
 - foreground-job close confirmation
 - NoctEd used for real edits in at least three sessions
 - no open P0/P1 dogfood blockers
+
+The retained stability harness is ready and its short matrix passes. The default 48-hour authenticated run remains the stronger release-evidence boundary and may run in parallel with counted dogfood.
 
 ## Decision rule
 

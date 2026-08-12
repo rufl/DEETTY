@@ -236,6 +236,9 @@ grep -F 'name="Task Notes"' \
 ! grep -F 'Stale Task Notes' \
   "$scratch/config/nocted/imported-language-specs/task-note.lang" >/dev/null
 test -s "$scratch/quick-open.png"
+printf '%s\n' "$output" | grep -E \
+  'nocted_smoke_screenshot saved=1 .* render=widget nonblack_samples=[1-9][0-9]* ' \
+  >/dev/null
 if [ -n "${NOCTED_CAPTURE_OUTPUT:-}" ]; then
   cp "$scratch/quick-open.png" "$NOCTED_CAPTURE_OUTPUT"
 fi

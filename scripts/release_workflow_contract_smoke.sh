@@ -52,4 +52,15 @@ grep -F 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$wor
 grep -F 'noctty-linux-${{ matrix.arch }}.tar.gz.sha256' "$workflow" >/dev/null
 grep -F 'noctty-linux-${{ matrix.arch }}.tar.gz.manifest' "$workflow" >/dev/null
 
-echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true gtksourceview=true nocted=true arch_assert=true verify=true bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true"
+grep -F 'windows:' "$workflow" >/dev/null
+grep -F 'zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe' "$workflow" >/dev/null
+grep -F './scripts/package_windows.sh noctty-windows-x86_64-alpha.zip' "$workflow" >/dev/null
+grep -F "grep -F 'conpty=true' noctty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
+grep -F "grep -F 'gtk_runtime=false' noctty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
+grep -F 'noctty-windows-x86_64-alpha.zip.sha256' "$workflow" >/dev/null
+grep -F 'noctty-windows-x86_64-alpha.zip.manifest' "$workflow" >/dev/null
+grep -F 'windows-runtime:' "$workflow" >/dev/null
+grep -F 'runs-on: windows-latest' "$workflow" >/dev/null
+grep -F 'WINDOWS-SMOKE.ps1 -AutomatedHost' "$workflow" >/dev/null
+
+echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true gtksourceview=true nocted=true arch_assert=true verify=true bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"

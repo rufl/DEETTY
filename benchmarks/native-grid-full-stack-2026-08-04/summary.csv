@@ -1,0 +1,9 @@
+mode,backend,phase,root_pss_kib,root_rss_kib,tree_pss_kib,tree_rss_kib,cpu_ticks,voluntary_switches,nonvoluntary_switches,image_width,image_height
+Debug,wayland,idle,47019,85704,55277,111456,13,104,3,1545,849
+Debug,wayland,fullscreen,62170,95756,70427,121508,26,137,22,1920,1080
+Debug,x11,idle,39006,71668,47153,97100,14,236,4,1536,780
+Debug,x11,fullscreen,39986,72832,48133,98264,16,263,4,1920,1080
+ReleaseSafe,wayland,idle,39841,78568,48140,104320,15,85,6,1545,849
+ReleaseSafe,wayland,fullscreen,75043,109304,53990,114320,28,123,16,1920,1080
+ReleaseSafe,x11,idle,33028,65784,41287,91440,11,237,4,1536,780
+ReleaseSafe,x11,fullscreen,33962,66888,42220,92544,13,271,4,1920,1080

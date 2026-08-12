@@ -1,6 +1,6 @@
 # Ncurses Application Qualification
 
-Status: bounded NCT-110/NCT-112 installed nano/less/dialog PTY/VT tranche passed on 2026-07-18. Authenticated-agent and compositor-backed acceptance remain open.
+Status: bounded NCT-110/NCT-112 installed nano/less/dialog PTY/VT tranche passed on 2026-07-18. Authenticated mapped Codex acceptance is covered by the 2026-08-04 companion matrix.
 
 ## Qualified Boundary
 
@@ -33,7 +33,7 @@ terminal_ncurses_matrix debug=true release_safe=true applications=nano,less,dial
 
 This is real installed-application, headless production PTY/VT model evidence. It proves that these exact installed versions generated and consumed compatible terminal streams through NOCTTY's production session model. It does not initialize GTK, map a native surface, exercise Cairo or a compositor, compare pixels, or measure key-to-frame latency.
 
-Three applications are not universal ncurses compatibility. The lane does not prove authenticated Codex, Claude Code, Antigravity, tmux, Zellij, other terminal applications, compositor-backed pixels, Plasma Wayland/X11 interaction, or multi-day stability. NCT-110 therefore remains partial for authenticated/broader agent and mapped cross-backend protocol, visual, interaction, and exit receipts. NCT-112 remains partial for sustained output, hidden/visible multi-day soaks, and rendered latency/resource distributions.
+Three applications are not universal ncurses compatibility. This lane does not prove Claude Code, Antigravity, other terminal applications, compositor-backed pixels, Plasma interaction, or multi-day stability. The separate authenticated Codex and installed tmux/Zellij mapped matrices close NCT-110/NCT-111 at their accepted one-host boundaries. NCT-112's hidden/visible harness shakedown passes; the retained 48-hour run remains open.
 
 The complementary [system TUI qualification](TERMINAL_SYSTEM_TUI_QUALIFICATION.md) broadens the headless installed-tool evidence to top, watch, info, whiptail, fzf, SQLite, Glances, Bash, man, and SFTP without expanding that proof boundary: `terminal_system_tui_matrix debug=true release_safe=true applications=top,watch,info,whiptail,fzf,sqlite3,glances,bash,man,sftp top_monitor=true watch_refresh=true watch_plain_surface=true info_browser=true whiptail_widget=true fzf_filter=true sqlite_repl=true glances_monitor=true bash_shell=true bash_readline=true man_pager=true pager_chain=true sftp_client=true sftp_local_server=true network_bind=false rich_style=true plain_repl=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true installed_tools=true scratch_clean=true`.
 

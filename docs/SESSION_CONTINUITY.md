@@ -1,6 +1,6 @@
 # Session continuity profiles
 
-Last refreshed: 2026-07-18.
+Last refreshed: 2026-08-03.
 
 NOCTTY exposes **Persistent tmux** and **Persistent Zellij** as first-class native launch-profile types. They use the same GUI-owned named-profile library, absolute/inherited working directory, bounded environment overrides, and new-session scrollback controls as shell, command, and SSH profiles. Users do not edit a configuration file.
 
@@ -27,4 +27,4 @@ The self-cleaning qualification builds Debug and `ReleaseSafe`, puts exact-argv 
 launch_continuity_matrix debug=true release_safe=true kinds=tmux,zellij direct_argv=true create_or_attach=true production_pty=true cwd=true environment=true controlled_exit=true allocator_leak_free=true tool_shims=true installed_tools=false live_reattach=false scratch_clean=true
 ```
 
-This proves native configuration semantics, settings persistence/migration, exact direct dispatch, and the production PTY boundary. It does not prove that an installed tmux or Zellij server survives a NOCTTY close/crash, that a later NOCTTY process reattaches to its live session, or that the flow renders correctly on Plasma Wayland/X11. NCT-111 remains open for those installed-tool and compositor receipts.
+This proves native configuration semantics, settings persistence/migration, exact direct dispatch, and the production PTY boundary. The separate installed-activation matrix proves mapped desktop/MIME and Recent Workspaces child launch. The later [installed continuity qualification](INSTALLED_CONTINUITY_QUALIFICATION.md) closes NCT-111 on this host with tmux 3.7b and Zellij 0.44.3 first attach, native detach, NOCTTY process exit/relaunch, reattach, preserved rendered content, and controlled cleanup in every Debug/`ReleaseSafe` Wayland/X11 lane. It does not prove arbitrary-process resurrection, remote transports, multi-day survival, or cross-host portability.

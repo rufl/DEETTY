@@ -1,0 +1,1 @@
+native_grid_authenticated_agent_qualification provider=codex authenticated=true model_request=true ephemeral=true sandbox=read-only production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true controlled_exit=true

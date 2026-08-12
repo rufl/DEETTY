@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "backlog.nct-112",
+      "title": "Complete the retained 48-hour ReleaseSafe Wayland/X11 hidden/visible matrix. The mode-40 runner,...",
+      "group": "Backlog · NCT-112 Terminal stability and agent-resource qualification - partial",
+      "description": "Complete the retained 48-hour ReleaseSafe Wayland/X11 hidden/visible matrix. The mode-40 runner, exact phase/resource receipts, 64 MiB root-growth guard, compositor capture, and four-lane Debug/ReleaseSafe shakedown pass; elapsed authenticated execution remains open. Source: BACKLOG.md § NCT-112 Terminal stability and agent-resource qualification - partial:20",
+      "command": "pi --name 'NOCTTY NCT-112' 'Work on NOCTTY task NCT-112 from BACKLOG.md § NCT-112 Terminal stability and agent-resource qualification - partial:20: Complete the retained 48-hour ReleaseSafe Wayland/X11 hidden/visible matrix. The mode-40 runner, exact phase/resource receipts, 64 MiB root-growth guard, compositor capture, and four-lane Debug/ReleaseSafe shakedown pass; elapsed authenticated execution remains open. Read project instructions and linked proof docs first. Advance only the documented boundary, preserve concurrent worktree edits, run the smallest correct gates, and update source-of-truth docs only when evidence is real. Do not fabricate external evidence or commit or push unless requested.'",
+      "confirm": true
+    },
+    {
+      "id": "backlog.retain-both-architecture-artifacts-signatures-public-cad30b25",
+      "title": "Retain both architecture artifacts/signatures, publication, independent dependency-bundle...",
+      "group": "Backlog · Release Operations",
+      "description": "Retain both architecture artifacts/signatures, publication, independent dependency-bundle redistribution review and receipts, final compositor acceptance, and consented Wayland HID capture. The NCT-077 follow-through is locally closed; external evidence remains operator-owned. Source: BACKLOG.md § Release Operations:27",
+      "command": "pi --name 'NOCTTY RETAIN-BOTH-ARCHITECTURE-ARTIFACTS-SIGNATURES-PUBLIC-CAD30B25' 'Work on NOCTTY task RETAIN-BOTH-ARCHITECTURE-ARTIFACTS-SIGNATURES-PUBLIC-CAD30B25 from BACKLOG.md § Release Operations:27: Retain both architecture artifacts/signatures, publication, independent dependency-bundle redistribution review and receipts, final compositor acceptance, and consented Wayland HID capture. The NCT-077 follow-through is locally closed; external evidence remains operator-owned. Read project instructions and linked proof docs first. Advance only the documented boundary, preserve concurrent worktree edits, run the smallest correct gates, and update source-of-truth docs only when evidence is real. Do not fabricate external evidence or commit or push unless requested.'",
+      "confirm": true
+    }
+  ]
+}

@@ -1,119 +1,72 @@
 # NOCTTY Memory
 
-This file is the short, human-maintained project memory for public-readiness
-work. Detailed historical evidence lives in `docs/TECHNICAL_STATUS.md` and the
-active engineering finish list lives in `BACKLOG.md`.
+This is the short project memory. Detailed evidence lives in `docs/TECHNICAL_STATUS.md`; active unfinished work lives in `BACKLOG.md`.
 
-## Project identity
+## Identity
 
-NOCTTY is a native Linux terminal workspace with a small companion editor,
-NoctEd. It exists to reduce the need for many heavy Electron/editor windows when
-working with shells, coding agents, logs, and quick project edits.
-
-Primary public positioning:
-
-> A native terminal workspace with a compact companion editor for terminal-heavy
-> Linux development on KDE Plasma, Wayland, and X11.
-
-Do not position NOCTTY as a VS Code, Zed, Sublime, Ghostty, or Yakuake clone.
-Those projects can inspire specific ergonomics, but NOCTTY should keep smaller,
-proof-bounded claims.
+NOCTTY is a native Linux-first terminal workspace with a small companion
+editor, NoctEd, for terminal-heavy development on KDE Plasma, Wayland, and X11.
+An experimental single-window Win32/ConPTY terminal reuses the Zig VT but is not
+Windows workspace parity. NOCTTY is not a VS Code, Zed, Sublime, Ghostty, or
+Yakuake replacement.
 
 ## Non-negotiables
 
-- Keep the runtime native: Zig plus C ABI bindings are acceptable.
-- Do not add Electron, Node.js, Bun, React, or browser-runtime UI to NOCTTY.
-- Do not add telemetry, analytics, update pings, crash uploaders, or remote
-  feature flags.
-- Keep KDE Plasma, Wayland, and X11 compatibility first-class.
-- Prefer GUI-configurable state over required manual config editing.
-- Keep Ghostty/libghostty experiments isolated behind an adapter boundary.
-- Use WIZP only as idea/reference material; do not import its WebView/Bun/VS
-  Code parity stack.
+- Keep Zig/C native; no Electron, browser runtime, telemetry, update pings, crash uploaders, or remote flags.
+- Keep Plasma, Wayland, and X11 first-class.
+- Prefer GUI-owned state and atomic persistence; manual config editing must not be required.
+- Keep Ghostty/libghostty behind the isolated adapter boundary.
+- Keep claims bounded to retained evidence; do not promote headless or synthetic proof to compositor, authenticated-agent, or universal compatibility claims.
 
-## Current public-readiness state
+## Current state
 
-- README has been rewritten for humans and public alpha expectations.
-- The former receipt-heavy README is preserved as `docs/TECHNICAL_STATUS.md`.
-- `docs/KNOWN_LIMITATIONS.md` records the honest non-claims.
-- `docs/PUBLIC_ALPHA_PLAN.md` records the small path to alpha.
-- `docs/NO_SURPRISE_NETWORK.md` records the retained static source scan for no telemetry/update/crash-upload/remote-flag surprises.
-- `.github/ISSUE_TEMPLATE/` and `.github/pull_request_template.md` now provide public-alpha bug, dogfood, and review prompts.
-- The formerly empty `.git` marker has been replaced with a real local Git boundary and first public source baseline commit.
-- `docs/PUBLIC_ALPHA_RELEASE_NOTES.md` is the current bounded draft for first public source-alpha wording.
-- Dogfood preflight found and fixed a flaky native-grid synchronized-output smoke window; X11 and Wayland native-grid smoke pass again.
-- `./scripts/public_alpha_verify.sh` is the bounded public-source-alpha gate; it intentionally does not replace the full maintainer `./scripts/verify.sh` matrix.
-- `docs/PUBLIC_ALPHA_CODE_REVIEW.md` and `docs/PUBLIC_ALPHA_GO_NO_GO.md` agree on the current state: source-alpha prep is ready except counted dogfood, and public announcement remains no-go while counted dogfood is zero.
-- `docs/DOGFOOD_RUNBOOK.md` defines what may count as real dogfood; smoke/script-only sessions do not count.
-- `./scripts/dogfood_status.sh` reports counted dogfood progress from `docs/DOGFOOD_LOG.md` without counting preflight/smoke entries.
-- `./scripts/install_dogfood.sh` installs unstripped `ReleaseFast` binaries behind bounded local logging launchers by default, stages the pinned GTK Layer Shell runtime in the launcher-owned tree, and can select another Zig optimization mode through `NOCTTY_DOGFOOD_OPTIMIZE`. Logs stay under `~/.local/state/noctty/logs/` and are never uploaded.
-- The latest dogfood blockers are closed locally: legacy relative pane cwd snapshots fall back before PTY startup; collapsed 32 px geometry recovers to a 480×240-minimum percentage size; windowed startup uses a bounded 80%×75% work-area size; and Wayland dogfood dropdowns enter the undecorated, horizontally centered `noctty-dropdown` layer surface even without a system GTK Layer Shell install.
-- NoctEd handles discrete and smooth `Ctrl+wheel` as bounded 60%–240% shared editor zoom while leaving ordinary scrolling and the minimap scale unchanged.
-- A pinned review of Jeremy Huang's `1jehuang` projects found applicable bounded-work fixes rather than justifying a new architecture. Quick Open now swaps active slice headers and normalizes the query once, improving broad-match ReleaseFast p50 by at least 56x with identical ranking. The follow-up applies `jofi`/`jtop`-style early rejection and retained fallback: direct Tree-sitter work is 100 ms-coalesced, limited to 32 KiB and 4,096 complete captures on GTK's main thread, and falls back visibly instead of partially highlighting or accepting the former measured 43.5 ms p50 256 KiB path.
-- A detached-worktree 20/30-agent scale pass tested 16/32/64/96/128 KiB reads, early history compression, Pango/Cairo object reuse, shared pump storage, terminal-cell alignment, pump ceilings, and history allocators. The accepted native design shares one guarded 128 KiB PTY scratch across GTK-serialized sessions, reducing `TerminalSession` from 141,344 to 10,352 bytes and structurally saving about 3.88 MiB at 32 sessions without the eight-pane regression of a universally smaller read buffer. Lowering the natural alignment of the unchanged-width codepoint field also reduces each hot terminal cell from 16 to 14 bytes. Unfocused panes now cold-pack history after 30 idle seconds, the focused pane after five minutes, in sixteen process-wide 64-row batches per second; libc-backed slabs and bounded trimming reduced a 30-grid 120×40 history probe by 40.72 MiB and delayed native 32-pane USS by 7,084 KiB while active throughput stayed intact. `docs/TERMINAL_AGENT_SCALE_RESEARCH.md` records the bounded results and GPU decision.
-- A pinned fourteen-repository terminal/agent-workspace review retained three smaller transfers: blank rows below the cursor no longer become fake scrollback during width-changing shrink; OSC 9/99/777 can mark a pane pending without retaining notification text; and PTY writes use a per-session ordered 64 MiB-capped queue rather than sleeping on GTK's thread. Queue storage above 256 KiB is released after drain. The focused 8 MiB sleeping-child probe changed caller blocking from 921.618 to 1.450 ms; `docs/TERMINAL_PEER_RESEARCH.md` owns the evidence and deferred architecture decisions.
-- Herdr-inspired continuity is now explicit rather than inferred: pane badges distinguish restartable shells/live tmux/Zellij/agent resume; bounded Claude Code/Codex references persist in workspace snapshot version 7; the GUI restore chooser selects restart/attach/resume; OSC 99/777 focus-project actions remain user-confirmed; and command-palette screen-history export uses password-derived XChaCha20-Poly1305, atomic mode-0600 `.nocttyhs` files, and no stored password.
-- Pi 0.83.0 redraw corruption was standard VT behavior, not a Pi workaround. The follow-up Pi/Codex audit added delayed autowrap, private-CSI collision isolation, origin/scroll-margin semantics, immediate-only repeat, DEC G0/G1 box drawing and save/restore, independent alternate-screen cursor/wrap/margin state, ED 3, and physical clearing of vacated rows. A direct Pi production PTY/grid probe changed cursor row 18 to clean row 9 with zero history; 32 curated VTE streams produced 31 exact and one equivalent pending-wrap result, while 50 deterministic no-tab streams produced 48 exact and two equivalent results with zero material mismatches.
-- Qualification-only process waits now sleep on PTY EOF, use bounded 60-second loaded-host ceilings, and run Debug/`ReleaseSafe` session and installed-agent matrices sequentially; this avoids false waitpid/Codex SQLite failures without changing production timeout or teardown behavior.
-- Compact New Tab, per-tab Close, Settings, and application Close controls use native GTK symbolic icons with 24-logical-pixel minimum targets while preserving the single-row Yakuake-style chrome.
-- The active-pane bar is bottom-anchored below the terminal layout and shows cached one-second CPU/RSS for the full NOCTTY process tree and selected terminal tree; this is local `/proc` observation, not telemetry.
-- `BACKLOG.md` remains the detailed active technical finish list.
-- `CHANGELOG.md` remains detailed and evidence-heavy.
+- Public-readiness docs, source baseline, package contracts, no-surprise-network checks, and dogfood installation are present.
+- The experimental x86_64 Windows host now cross-compiles without GTK, uses Win32/GDI plus ConPTY and the shared Zig VT, retains local logs/minidumps without upload, passes a Wine-hosted no-window VT self-test, and emits a checksummed `ReleaseFast` ZIP. Physical Windows behavior and feature parity remain open.
+- Native Linux terminal VT, PTY, grid, renderer, history, session lifecycle, continuity, settings, tab/chrome, NoctEd, and package gates are implemented for the current 0.1.0 slice.
+- Settings navigation now has ATK names, 48-logical-pixel focusable category rows, destination-specific tooltips, theme-aware selected/focus contrast, a Window keyboard entry point, and narrow-work-area scrolling. Native settings, HiDPI/theme, compact UX, and X11 stacking receipts include `category_navigation=true`.
+- NoctEd file-tab close controls retain 28-logical-pixel targets; transient icon controls retain 28-logical-pixel targets; project, tab, close, and result navigation has visible focus; and search surfaces expose descriptive placeholders. The sustained native endurance matrix repeats 32 complete workflows in Debug/`ReleaseSafe` on live Wayland/X11, retaining 4,096 combined search/resource/monitor/lifecycle phase cycles, 3,072 deterministic ranking evaluations, rendered widget captures, process-tree memory, and clean teardown.
+- Live installed desktop/MIME activation and Recent Workspaces child launch pass on Wayland and X11. The smoke now fails closed on actual child exit while allowing the hidden restored tab to remain unpainted. The Project Workspace dialog uses a bounded scrollable summary, adaptive work-area sizing, and assistive names.
+- Pi 0.83.0 duplication was fixed at the shared VT layer with delayed autowrap and related standards corrections. The direct PTY/grid probe retains typed editing, resize, cursor row 9, zero history, and no duplicate rows; 32 curated and 50 deterministic no-tab VTE streams have zero material mismatches.
+- Debug and `ReleaseSafe` `zig build check -j1 --summary all` pass 19/19 steps and 343/343 tests. The full verifier passed with tmpfs-scoped scratch and final cleanup.
+- ReleaseFast guards retain 111.649 MiB/s at eight output panes and 134.808 MiB/s at 32 panes.
+- The direct GLib fairness lane retains one continuously flooding PTY plus 29 marker PTYs in Debug/`ReleaseSafe`; the production-relevant lane delivered all markers below 2.5 ms. An 8 MiB paste drains through the queue, while pending-paste teardown releases the session and process group. A separate mapped Plasma lane now retains 64 synthetic production key-handler-to-draw/after-paint samples per mode/backend and actual Wayland GDK presentation feedback; X11 exposes no completed presentation timestamp on this host.
+- NCT-119 is complete: Debug and `ReleaseSafe` now also retain live Wayland/X11 idle and fullscreen compositor pixels, external root/process-tree memory, zero fallback PTY timer ticks, and bounded cursor/maintenance wakeups. Command palette, terminal search, and Quick Note controls expose explicit assistive names covered by the compact UX smoke.
+- NCT-110 is complete at the accepted one-host boundary: authenticated Codex 0.144.6 returned one exact ephemeral read-only model response in each Debug/`ReleaseSafe` Wayland/X11 lane through the production command profile, PTY, VT, GTK, and Cairo path. No credential was retained.
+- NCT-111 is complete at the accepted one-host boundary: locally installed tmux 3.7b and Zellij 0.44.3 passed first attach, native detach, NOCTTY process exit/relaunch, reattach, preserved rendered content, and controlled cleanup in every Debug/`ReleaseSafe` Wayland/X11 lane.
+- Compact NOCTTY and NoctEd tab/action controls now share 28-logical-pixel targets with explicit hover, active, and keyboard-focus states.
+- NCT-112 now has a fail-closed hidden/visible stability runner. Its Debug/`ReleaseSafe` Wayland/X11 harness shakedown and a separate short authenticated `ReleaseSafe` matrix passed with exact Codex responses, zero hidden draws, zero fallback PTY ticks, phase-specific output/wakeup counts, compositor captures, external root/tree memory, and clean exit. Both remain `multi_day=false`; the default acceptance run is still 24 hours per backend, 48 hours total.
+- A fresh NoctEd launch with no restored/open document now opens one clean Untitled buffer and names the immediate save action in the status line instead of leaving an empty editor surface.
 
-## Alpha strategy
+## Open boundaries
 
-Ship NOCTTY/NoctEd first as a Linux-native alpha. Keep WIZP separate and
-experimental.
+The backlog remains partial for:
 
-Public alpha should prove:
+- NCT-112: the elapsed 48-hour authenticated mapped agent/resource run;
+- NCT-123: physical Windows qualification and Windows workspace/NoctEd parity;
+- release operations: retained architecture artifacts/signatures, publication, independent redistribution review, compositor acceptance, and consented Wayland HID.
 
-1. A stranger can understand the repo in a few minutes.
-2. The source build/run path is documented and realistic.
-3. NOCTTY can be dogfooded for real Lichforge work.
-4. NoctEd is useful enough for quick project edits.
-5. Known limitations are explicit and not hidden behind marketing.
+These are evidence/operator boundaries, not reasons to invent local claims.
 
 ## Immediate priorities
 
-1. Run daily-driver dogfood sessions and record blockers.
-2. Fix only P0/P1 blockers found by dogfooding.
-3. Replace/refresh screenshots when UI presentation changes materially.
-4. Keep `./scripts/check_no_surprise_network.sh` green when touching launch/network-adjacent code.
-5. Keep the fresh full `./scripts/verify.sh` receipt green when changing shared
-   runtime, package, or proof surfaces.
-6. Keep release/package claims below the retained signing/publication evidence.
+1. Record counted daily-driver dogfood sessions in `docs/DOGFOOD_LOG.md`.
+2. Run the checksummed Windows alpha on physical Windows 10/11 and retain launch, input, resize, shell-exit, log, and crash-dump receipts before expanding claims.
+3. Fix only P0/P1 dogfood blockers.
+4. Run `./scripts/native_grid_stability_qualification.sh --run` when 48 hours of uninterrupted compositor access are available.
+5. Keep `./scripts/check_docs_truth.sh`, `./scripts/check_no_surprise_network.sh`, and the full verifier green.
+6. Keep release wording below signing/publication evidence.
 
-## Verification notes
+## Verification
 
 Main gate:
 
 ```sh
-./scripts/verify.sh
+NOCTTY_VERIFY_PARENT=/dev/shm NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
-On constrained hosts, use:
-
-```sh
-NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
-```
-
-Current local pass note: Debug and `ReleaseSafe` `zig build check -j1 --summary all`
-pass 19/19 steps and 343/343 tests. A current-source single-job full verifier
-completed terminal compatibility/session/continuity/TUI, production-Cairo
-renderer and PTY/VT pipeline, NoctEd core/worker/index, package/release, source
-truth, and final cleanup with
-`verify_cleanup scratch=true cache=true install=true artifacts=true`. A direct
-Pi 0.83.0 PTY/grid run also covered typed editing and width-changing resize; no
-broad compositor or HID claim was added.
+The gate is local proof only. It does not close the external release-operation rows above.
 
 ## Public claim rule
 
-A feature may be mentioned publicly only at the level its evidence supports:
-
-- source exists = implementation exists, not release-ready
-- local focused proof = bounded local proof
-- display-backed proof = compositor/session-specific proof
-- dogfood proof = useful in the author's workflow, not universal support
-- release proof = retained artifact/signature/publication evidence exists
-
-When unsure, claim less.
+Source exists means implemented. Focused local proof means bounded local proof.
+Display-backed proof is compositor/session-specific. Dogfood proof is workflow evidence, not universal support. Release proof requires retained artifact, signature, and publication evidence.

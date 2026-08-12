@@ -21,6 +21,9 @@ export NOCTTY_ZIG_GLOBAL_CACHE_DIR="$verify_root/zig-global"
 export NOCTTY_INSTALL_PREFIX="$verify_root/install"
 export NOCTTY_BUNDLE_PARENT="$verify_root/tmp"
 export NOCTTY_HISTORY_PARENT="$verify_root/tmp"
+export NOCTTY_FAIRNESS_PARENT="$verify_root/tmp"
+export NOCTTY_NCURSES_QUALIFICATION_PARENT="$verify_root/tmp"
+export NOCTTY_SYSTEM_TUI_QUALIFICATION_PARENT="$verify_root/tmp"
 
 run_zig_build() {
   if [ "${NOCTTY_ZIG_SINGLE_JOB:-0}" = 1 ]; then
@@ -33,6 +36,7 @@ run_zig_build() {
 ./scripts/check_terminal_unicode.sh
 ./scripts/terminal_compatibility_qualification.sh
 ./scripts/terminal_session_qualification.sh
+./scripts/terminal_agent_fairness_qualification.sh
 ./scripts/launch_continuity_qualification.sh
 ./scripts/terminal_ncurses_qualification.sh
 ./scripts/terminal_system_tui_qualification.sh
@@ -47,6 +51,11 @@ run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZI
 ./scripts/nocted_core_stability_qualification.sh
 ./scripts/nocted_worker_qualification.sh
 ./scripts/nocted_project_index_qualification.sh
+bash -n ./scripts/nocted_native_endurance_qualification.sh
+bash -n ./scripts/native_grid_authenticated_agent_qualification.sh
+bash -n ./scripts/native_grid_installed_continuity_qualification.sh
+bash -n ./scripts/native_grid_stability_qualification.sh
+sh -n ./scripts/native_grid_shortcut_live_smoke.sh
 bash -n ./scripts/terminal_benchmark.sh
 sh -n ./scripts/terminal_benchmark_workload.sh
 ./scripts/package_smoke.sh

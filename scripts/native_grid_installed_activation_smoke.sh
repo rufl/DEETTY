@@ -97,6 +97,7 @@ for backend in "${backends[@]}"; do
     desktop_receipt="$scratch/desktop-$backend.receipt"
     desktop_expected="native_grid_activation_child source=desktop backend=$backend mapped=true rendered=true tabs=2 controlled_exit=true"
     env PATH="$shim:$PATH" \
+        LANG=C LC_ALL=C \
         XDG_DATA_HOME="$data_home" \
         XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
         XDG_CONFIG_HOME="$config_home" \
@@ -111,6 +112,7 @@ for backend in "${backends[@]}"; do
     recent_receipt="$scratch/recent-$backend.receipt"
     recent_expected="native_grid_activation_child source=recent backend=$backend mapped=true rendered=true tabs=2 controlled_exit=true"
     recent_output=$(env PATH="$shim:$PATH" \
+        LANG=C LC_ALL=C \
         XDG_DATA_HOME="$data_home" \
         XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
         XDG_CONFIG_HOME="$config_home" \

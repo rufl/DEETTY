@@ -72,3 +72,54 @@ jobs:
             noctty-linux-${{ matrix.arch }}.tar.gz
             noctty-linux-${{ matrix.arch }}.tar.gz.sha256
             noctty-linux-${{ matrix.arch }}.tar.gz.manifest
+
+  windows:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Compile Windows host
+        run: zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --summary all
+      - name: Package Windows alpha
+        run: ./scripts/package_windows.sh noctty-windows-x86_64-alpha.zip
+      - name: Validate Windows archive
+        run: |
+          sha256sum -c noctty-windows-x86_64-alpha.zip.sha256
+          grep -F 'win32_native=true' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'conpty=true' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'gtk_runtime=false' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'physical_windows_validation=false' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
+          unzip -l noctty-windows-x86_64-alpha.zip | grep -F 'noctty-windows-x86_64/noctty.exe' >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: noctty-windows-x86_64-alpha
+          path: |
+            noctty-windows-x86_64-alpha.zip
+            noctty-windows-x86_64-alpha.zip.sha256
+            noctty-windows-x86_64-alpha.zip.manifest
+
+  windows-runtime:
+    timeout-minutes: 15
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Build on Windows
+        shell: pwsh
+        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --prefix windows-smoke
+      - name: Run native ConPTY/VT/GDI smoke
+        shell: pwsh
+        run: |
+          Copy-Item scripts/windows_smoke.ps1 windows-smoke/bin/WINDOWS-SMOKE.ps1
+          pwsh -NoProfile -ExecutionPolicy Bypass -File windows-smoke/bin/WINDOWS-SMOKE.ps1 -AutomatedHost

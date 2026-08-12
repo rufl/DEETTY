@@ -1,0 +1,1 @@
+native_grid_installed_continuity_qualification kind=zellij installed_tool=true create_or_attach=true production_pty=true production_vt=true production_gtk=true production_cairo=true controlled_detach=true exited=true

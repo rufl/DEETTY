@@ -738,7 +738,7 @@ test "zig-owned pty distinguishes the shell from a foreground job" {
     defer session.deinit();
 
     var shell_ready = false;
-    for (0..1000) |_| {
+    for (0..test_poll_limit) |_| {
         if (!session.hasForegroundProcess()) {
             shell_ready = true;
             break;
@@ -749,7 +749,7 @@ test "zig-owned pty distinguishes the shell from a foreground job" {
 
     try session.writeAll("sleep 5\n");
     var foreground_seen = false;
-    for (0..1000) |_| {
+    for (0..test_poll_limit) |_| {
         if (session.hasForegroundProcess()) {
             foreground_seen = true;
             break;
@@ -766,7 +766,7 @@ test "zig-owned pty exposes bounded foreground process metadata" {
     var cwd: [4096]u8 = undefined;
     var name: [256]u8 = undefined;
     var shell_ready = false;
-    for (0..1000) |_| {
+    for (0..test_poll_limit) |_| {
         const shell = session.processInfo(&cwd, &name) orelse {
             sleepBrief(1);
             continue;
@@ -781,7 +781,7 @@ test "zig-owned pty exposes bounded foreground process metadata" {
 
     try session.writeAll("sleep 5\n");
     var saw_sleep = false;
-    for (0..1000) |_| {
+    for (0..test_poll_limit) |_| {
         const foreground = session.processInfo(&cwd, &name) orelse {
             sleepBrief(1);
             continue;

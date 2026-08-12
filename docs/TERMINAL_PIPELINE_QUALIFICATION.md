@@ -1,6 +1,6 @@
 # Terminal Pipeline Qualification
 
-Status: bounded NCT-112/NCT-119 real-PTY-to-production-Cairo tranche passed on 2026-07-18. GTK input, mapped frame-clock presentation, and compositor latency remain open.
+Status: bounded NCT-112/NCT-119 real-PTY-to-production-Cairo tranche passed on 2026-07-18. A separate live mapped GTK presentation tranche is now retained.
 
 ## Qualified Boundary
 
@@ -39,7 +39,7 @@ native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs
 
 This closes the display-independent PTY/input-to-production-Cairo measurement gap. Unlike the synthetic renderer qualification, it feeds the renderer from real shell output transported through the production PTY, `TerminalSession`, VT model, packed-row ABI, and Cairo draw implementation. It also keeps terminal root memory separate from the live shell process tree.
 
-The input is programmatically written at the terminal-session boundary; it is not a GTK key event. `PTY-read start` begins immediately before the first bounded pump attempt, not at kernel byte arrival. The final timestamp is completion of a Cairo image-surface draw, not a mapped GTK widget, frame-clock callback, compositor presentation, or visible photon. Renderer-owned counters still exclude Cairo, Pango, fontconfig, GLib, and allocator-internal allocations. Therefore NCT-112/NCT-119 remain partial for mapped key-event-to-frame, frame intervals, idle wakeups, full-stack allocation, archived compositor-backed pixels, authenticated agent output, and multi-day Wayland/X11 evidence.
+The input is programmatically written at the terminal-session boundary; it is not a GTK key event. `PTY-read start` begins immediately before the first bounded pump attempt, not at kernel byte arrival. The final timestamp is completion of a Cairo image-surface draw, not a mapped GTK widget, frame-clock callback, compositor presentation, or visible photon. Renderer-owned counters still exclude Cairo, Pango, fontconfig, GLib, and allocator-internal allocations. The later [mapped presentation qualification](NATIVE_GRID_PRESENTATION_QUALIFICATION.md) adds direct synthetic production key-handler-to-draw/after-paint distributions and completed Wayland GDK presentation timestamps; the [full-stack qualification](NATIVE_GRID_FULL_STACK_QUALIFICATION.md) adds live idle/fullscreen pixels, memory, and wakeups and closes NCT-119. The authenticated Codex mapped companion now covers one exact model response per mode/backend. The [stability qualification](NATIVE_GRID_STABILITY_QUALIFICATION.md) passes its short hidden/visible matrix; NCT-112 remains partial for the elapsed 48-hour Wayland/X11 evidence.
 
 ## Reproduce
 

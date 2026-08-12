@@ -1,0 +1,6 @@
+<!-- Merge this fragment under <labwc_config>. -->
+<keyboard>
+  <keybind key="F10">
+    <action name="Execute"><command>noctty --toggle</command></action>
+  </keybind>
+</keyboard>

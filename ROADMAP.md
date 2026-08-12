@@ -20,8 +20,9 @@ Public alpha means:
 - NoctEd can safely handle quick project edits
 - no telemetry or surprise network behavior exists
 
-Public alpha does **not** mean mature IDE, VS Code parity, Windows/macOS support,
-or universal terminal compatibility.
+Public alpha does **not** mean mature IDE, VS Code parity, Windows feature
+parity or physical qualification, macOS support, or universal terminal
+compatibility.
 
 ## Phase 0 — Public-readiness docs
 
@@ -119,13 +120,39 @@ Required before tagging alpha:
 
 Post-alpha work:
 
+- [x] Retained Debug/`ReleaseSafe` Wayland/X11 mapped idle/fullscreen memory,
+  bounded wakeup, and compositor-pixel qualification
 - signed release artifacts
 - retained architecture artifacts/signatures
 - independent dependency-bundle redistribution review
-- installed desktop activation receipts on accessible Plasma Wayland/X11
-- longer native GUI soaks
-- authenticated coding-agent receipts
-- tmux/Zellij installed live reattach proof
+- [x] installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, preserved-content, and mapped Wayland/X11 receipts
+- [x] sustained native GUI and project-lifecycle qualification: 32 complete workflows per Debug/`ReleaseSafe` Wayland/X11 lane with rendered captures and process-tree memory
+- [x] authenticated Codex 0.144.6 model-request receipts through production PTY/VT/GTK/Cairo on mapped Wayland/X11
+- [x] fail-closed Debug/`ReleaseSafe` Wayland/X11 hidden/visible stability shakedown with phase resource receipts and compositor pixels
+- 48-hour authenticated mapped agent/resource run (24 hours per backend)
+
+## Phase 5 — Experimental Windows host
+
+Goal: port the terminal deliberately through native platform boundaries without
+pulling Linux GTK/POSIX details into product or VT state.
+
+Current first tranche:
+
+- [x] x86_64 Windows cross-build without GTK target libraries
+- [x] Win32/GDI native window and ConPTY shell transport
+- [x] reuse the existing renderer-neutral Zig VT/parser
+- [x] keyboard, Unicode, resize, color, scrollback, and clipboard basics
+- [x] bounded local logs and local crash minidumps with no upload path
+- [x] checksummed ZIP/manifest packaging
+- [ ] physical Windows 10/11 launch, input, resize, shell-exit, and crash-log proof
+- [ ] tabs and recursive splits
+- [ ] settings, themes, workspace restore, and launch-profile UI
+- [ ] selection and mouse-reporting applications
+- [ ] Windows NoctEd
+- [ ] signing and installer packaging
+
+The Windows host remains an experimental single-window terminal until those
+boundaries have receipts. Linux KDE/Wayland/X11 support remains first-class.
 
 ## WIZP relationship
 

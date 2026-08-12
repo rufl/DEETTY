@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.noctty.NOCTTY</id>
+  <name>NOCTTY</name>
+  <summary>Native terminal workspace for Plasma and Noctalia Wayland</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>A native Zig terminal workspace targeting KDE Plasma, Noctalia Shell, Wayland, and X11, with validated local workspace links and GUI-managed recent workspaces.</p>
+  </description>
+  <launchable type="desktop-id">com.noctty.NOCTTY.desktop</launchable>
+  <categories>
+    <category>System</category>
+    <category>TerminalEmulator</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-07-14">
+      <description>
+        <p>Initial source-complete native Plasma and Noctalia-compatible release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

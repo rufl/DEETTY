@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+export LC_ALL=C
 
 zig build --global-cache-dir .zig-cache/global install smoke-binaries
 if output="$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
@@ -11,4 +12,4 @@ else
   exit "$status"
 fi
 printf '%s\n' "$output"
-printf '%s\n' "$output" | grep -q '^native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true$'
+printf '%s\n' "$output" | grep -q '^native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true summary_scroll=true project_accessible=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true$'

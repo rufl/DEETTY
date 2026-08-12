@@ -25,3 +25,4 @@ Allowed explicit network-adjacent behavior remains user-owned and documented:
   an SSH profile
 - qualification fixtures may use isolated local test transports where their
   docs say so
+- the opt-in authenticated-agent qualification invokes the already-installed, already-authenticated Codex CLI for an explicit ephemeral model request; it is not part of production startup, default verification, or installed runtime behavior

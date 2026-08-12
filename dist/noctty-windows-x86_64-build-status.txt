@@ -1,0 +1,15 @@
+NOCTTY Windows build status
+status=packaged
+target=x86_64-windows-gnu
+optimization=ReleaseFast
+compiler=zig 0.16.0
+source_commit=32396cc4e687
+attempted_command=PATH=/usr/bin:/bin:/usr/sbin:/sbin ./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
+
+The experimental native Windows package was produced by scripts/package_windows.sh from the Win32/GDI host, ConPTY transport, and shared Zig VT/parser. The retained archive sidecar remains a cross-build/package receipt; physical Windows validation, signing, installer packaging, ARM64, tabs/splits, settings/restore, and NoctEd remain outside this artifact.
+
+telemetry=false
+network_uploads=false
+local_logging=true
+local_crash_dumps=true
+See noctty-windows-x86_64-build.log for the package summary.

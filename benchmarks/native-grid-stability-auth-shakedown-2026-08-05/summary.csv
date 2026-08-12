@@ -1,0 +1,7 @@
+mode,backend,cycle,phase,elapsed_seconds,root_pss_kib,root_rss_kib,tree_pss_kib,tree_rss_kib,cpu_ticks,voluntary_switches,nonvoluntary_switches
+ReleaseSafe,wayland,0,visible,6,39439,79612,46549,113508,31,172,29
+ReleaseSafe,wayland,1,hidden,8,27271,67188,34383,101068,36,196,35
+ReleaseSafe,wayland,1,visible,12,39467,79640,46586,113540,38,218,37
+ReleaseSafe,x11,0,visible,5,25885,65492,33034,99460,14,270,13
+ReleaseSafe,x11,1,hidden,7,25885,65492,33033,99456,14,292,13
+ReleaseSafe,x11,1,visible,10,25913,65520,33070,99492,14,324,13

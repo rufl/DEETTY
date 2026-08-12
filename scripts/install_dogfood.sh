@@ -75,6 +75,8 @@ for desktop in "$prefix/share/applications/com.noctty.NOCTTY.desktop" "$prefix/s
 done
 
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$prefix/share/applications" || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 &&
+  gtk-update-icon-cache -q -f -t "$prefix/share/icons/hicolor" || true
 
 "$runtime_dir/noctty-bin" --version
 "$runtime_dir/nocted-bin" --version

@@ -1,0 +1,8 @@
+Gtk-Message: 14:34:30.530: Failed to load module "appmenu-gtk-module"
+native_grid_stability_phase phase=visible_ready cycle=0 pid=2220406
+native_grid_stability_phase phase=hidden_ready cycle=1 pid=2220406
+native_grid_stability_phase phase=visible_ready cycle=1 pid=2220406
+native_grid_stability_phase phase=hidden_ready cycle=2 pid=2220406
+native_grid_stability_phase phase=visible_ready cycle=2 pid=2220406
+native_grid_stability_phase phase=complete cycle=2 pid=2220406
+native_grid_stability_qualification backend=x11 cycles=2 phase_seconds=2 duration_seconds=16 visible_draws=29 hidden_draws=0 visible_presents=9 hidden_presents=6 visible_ticks=0 hidden_ticks=0 visible_cursor_blinks=20 hidden_cursor_blinks=10 visible_maintenance=11 hidden_maintenance=6 mapped_visible=true unmapped_hidden=true production_pty=true production_vt=true production_gtk=true production_cairo=true workload_output=true hid=false passed=true

@@ -5,7 +5,7 @@ export LC_ALL=C
 run_smoke() {
   attempts=1
   case "$1" in
-    ./scripts/native_grid_tab_reorder_smoke.sh|./scripts/native_grid_tab_navigation_smoke.sh|./scripts/native_grid_shortcut_live_smoke.sh)
+    ./scripts/native_grid_smoke.sh|./scripts/native_grid_modes_smoke.sh|./scripts/native_grid_layout_tui_matrix.sh|./scripts/native_grid_tab_reorder_smoke.sh|./scripts/native_grid_tab_navigation_smoke.sh|./scripts/native_grid_resize_overlay_smoke.sh|./scripts/native_grid_shortcut_live_smoke.sh)
       attempts=2
       ;;
   esac

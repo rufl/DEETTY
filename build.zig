@@ -19,6 +19,14 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const strip = b.option(bool, "strip", "Strip debug and symbol sections from packaged binaries") orelse false;
 
+    if (target.result.os.tag == .windows) {
+        addWindowsBuild(b, target, optimize, strip);
+        return;
+    }
+    if (target.result.os.tag != .linux) {
+        std.debug.panic("NOCTTY currently supports Linux and experimental Windows targets.", .{});
+    }
+
     const root_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -299,6 +307,33 @@ pub fn build(b: *std.Build) void {
         &install_terminal_session_qualification.step,
     );
 
+    const terminal_agent_fairness_mod = b.createModule(.{
+        .root_source_file = b.path("src/terminal/AgentFairnessQualification.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
+    });
+    terminal_agent_fairness_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_agent_fairness_mod.linkSystemLibrary("glib-2.0", .{
+        .use_pkg_config = .force,
+    });
+    const terminal_agent_fairness_exe = b.addExecutable(.{
+        .name = "noctty-terminal-agent-fairness",
+        .root_module = terminal_agent_fairness_mod,
+    });
+    const install_terminal_agent_fairness = b.addInstallArtifact(
+        terminal_agent_fairness_exe,
+        .{},
+    );
+    const terminal_agent_fairness_binary_step = b.step(
+        "terminal-agent-fairness-binary",
+        "Build the GLib PTY fairness and large-paste qualification runner",
+    );
+    terminal_agent_fairness_binary_step.dependOn(
+        &install_terminal_agent_fairness.step,
+    );
+
     const launch_continuity_qualification_mod = b.createModule(.{
         .root_source_file = b.path("src/terminal/ContinuityQualification.zig"),
         .target = target,
@@ -476,6 +511,84 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_nocted_tests.step);
     check_step.dependOn(&run_ghostty_vt_public_tests.step);
     check_step.dependOn(&run_vte_host_tests.step);
+}
+
+fn addWindowsBuild(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    strip: bool,
+) void {
+    const ghostty_vt_public_mod = b.createModule(.{
+        .root_source_file = b.path("src/ghostty/VtPublic.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const vt_mod = b.createModule(.{
+        .root_source_file = b.path("src/terminal/Vt.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
+    vt_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+
+    const release_mod = b.createModule(.{
+        .root_source_file = b.path("src/release.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const windows_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
+    });
+    windows_mod.addImport("noctty_vt", vt_mod);
+    windows_mod.addImport("noctty_release", release_mod);
+    windows_mod.addCSourceFile(.{
+        .file = b.path("src/windows/native_host.c"),
+        .flags = &.{
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat",
+            "-Werror",
+        },
+    });
+    windows_mod.linkSystemLibrary("kernel32", .{});
+    windows_mod.linkSystemLibrary("user32", .{});
+    windows_mod.linkSystemLibrary("gdi32", .{});
+    windows_mod.linkSystemLibrary("shell32", .{});
+    windows_mod.linkSystemLibrary("dbghelp", .{});
+
+    const executable = b.addExecutable(.{
+        .name = "noctty",
+        .root_module = windows_mod,
+    });
+    executable.subsystem = .windows;
+    executable.mingw_unicode_entry_point = true;
+    b.installArtifact(executable);
+    b.installFile("LICENSE", "share/licenses/noctty/LICENSE");
+    b.installFile(
+        "THIRD_PARTY_NOTICES.md",
+        "share/licenses/noctty/THIRD_PARTY_NOTICES.md",
+    );
+
+    const check_step = b.step(
+        "check",
+        "Compile the experimental native Windows NOCTTY host",
+    );
+    check_step.dependOn(&executable.step);
+
+    const windows_step = b.step(
+        "windows",
+        "Build the experimental native Windows NOCTTY host",
+    );
+    windows_step.dependOn(b.getInstallStep());
 }
 
 fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {

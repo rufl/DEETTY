@@ -1,0 +1,5 @@
+backend,mode,rounds,cycles,ranking_evaluations,elapsed_ms,peak_tree_pss_kib,peak_tree_rss_kib,memory_samples,screenshots
+wayland,Debug,32,256,768,175260,87502,156640,781,2
+wayland,ReleaseSafe,32,256,768,159702,75201,147020,685,2
+x11,Debug,32,256,768,154096,54574,124876,657,2
+x11,ReleaseSafe,32,256,768,140998,44366,113860,575,2

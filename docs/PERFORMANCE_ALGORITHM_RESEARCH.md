@@ -1,6 +1,6 @@
 # Performance and Algorithm Research
 
-Research date: 2026-07-16. Implementation status refreshed: 2026-08-01.
+Research date: 2026-07-16. Implementation status refreshed: 2026-08-03.
 
 Status: architecture decision, implemented design record, and remaining
 measurement contract. The accepted lower-complexity changes are present in the
@@ -73,8 +73,7 @@ or third worker lane.
 
 The native compact row also replaced font-dependent `+`, gear, and multiplication
 glyph controls with GTK symbolic icons and raised New Tab, Settings, application
-Close, and per-tab Close to 24-logical-pixel minimum targets. This is a native
-accessibility correction, not a new toolbar or design system.
+Close, and per-tab Close to 28-logical-pixel minimum targets with explicit hover, active, and keyboard-focus states. This is a native accessibility correction, not a new toolbar or design system.
 
 A third measured pass targeted 20-30-agent process scale. `TerminalSession`
 embedded one 128 KiB PTY read array per pane even though native GTK pumps cannot
@@ -118,8 +117,7 @@ of importing a peer stack:
   capped ordered queue and temporary 4 ms flush source reduced an 8 MiB
   sleeping-child caller probe from 921.618 to 1.450 ms.
 
-The complete source links, decisions, privacy boundary, and deferred fair-pump,
-compositor-feedback, agent-resume, and hibernation work are in
+The complete source links, decisions, privacy boundary, retained GLib fair-pump and large-paste qualification, and deferred compositor-feedback, agent-resume, and hibernation work are in
 [`TERMINAL_PEER_RESEARCH.md`](TERMINAL_PEER_RESEARCH.md).
 
 ### Local profiling gate
@@ -129,6 +127,8 @@ Use the existing exact renderer and real PTY pipeline directly:
 ```sh
 ./scripts/native_grid_renderer_qualification.sh
 ./scripts/native_grid_pipeline_qualification.sh
+./scripts/native_grid_presentation_qualification.sh
+./scripts/native_grid_full_stack_qualification.sh
 ```
 
 They retain Debug/ReleaseSafe timing, allocation, memory, and pixel evidence
@@ -136,21 +136,19 @@ without a separate profiling wrapper or runtime metrics.
 
 The implementation order and current acceptance state are:
 
-1. NCT-119: frame-clock presentation, allocation-bounded Cairo glyph delivery,
-   and resize coalescing — implemented; exact synthetic renderer plus real-shell
-   PTY/VT-to-Cairo tranches qualified, mapped compositor acceptance partial.
+1. NCT-119: complete. Exact synthetic renderer, real-shell PTY/VT-to-Cairo, one-flood/29-marker fairness, 8 MiB paste, live mapped synthetic key-handler-to-draw/after-paint, completed Wayland GDK presentation feedback, and live Wayland/X11 idle/fullscreen compositor-pixel plus memory/wakeup tranches are retained.
 2. NCT-122: latency-prioritized NoctEd filesystem work, streaming Find in Files,
-   and scalable top-K quick open — implemented, acceptance partial.
-3. NCT-121: a compact shared worktree index, ignore semantics, and coalesced
-   filesystem/file-change monitoring — implemented, acceptance partial.
+   scalable top-K Quick Open, and sustained cross-backend ranking; implemented and qualified.
+3. NCT-121: a compact shared worktree index, ignore semantics, coalesced
+   filesystem/file-change monitoring, and sustained native lifecycle; implemented and qualified.
 4. NCT-110: a bounded table-driven VT parser, rich cell semantics, terminal
-   replies, synchronized output, and a real installed Codex login/Vim/btop
-   headless tranche — implemented, authenticated/cross-backend acceptance partial.
+   replies, synchronized output, installed Codex/Vim/btop headless coverage,
+   and authenticated mapped Codex 0.144.6 acceptance; implemented and qualified.
 5. NCT-120: stable logical lines, true reflow, compact style storage, and a
-   two-tier hot/cold scrollback representation — implemented and qualified.
+   two-tier hot/cold scrollback representation; implemented and qualified.
 6. NCT-112: allocator-accounted production-session repetition, stubborn
-   foreground-group teardown, and a controlled installed-application sequence —
-   bounded tranches qualified; native long-run acceptance partial.
+   foreground-group teardown, and a controlled installed-application sequence;
+   bounded tranches qualified, with native long-run acceptance partial.
 
 Machine-readable decision receipt:
 
@@ -188,15 +186,10 @@ derived from peer architecture alone.
   rich-style draws per mode with exact repeat/cross-mode pixels, renderer-owned
   warm/resize allocation counts, process-CPU percentiles, and root memory:
   `native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`.
-  The complementary real-shell pipeline retains two 64-sample runs per mode
-  through production PTY/`TerminalSession`/VT/ABI-v2/Cairo with input-write and
-  PTY-read-start-to-draw percentiles, repeat/cross-mode pixels, zero warm-frame
-  renderer allocations, and separate root/tree memory:
-  `native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`.
-  NCT-110/NCT-112/NCT-119 still require authenticated/broader real-agent
-  cross-backend, multi-day hidden/visible, archived compositor pixels,
-  full-stack allocation/idle-wakeup, and mapped end-to-end
-  latency-distribution evidence.
+  The complementary real-shell pipeline retains two 64-sample runs per mode through production PTY/`TerminalSession`/VT/ABI-v2/Cairo with input-write and PTY-read-start-to-draw percentiles, repeat/cross-mode pixels, zero warm-frame renderer allocations, and separate root/tree memory: `native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`.
+  The direct GLib lane additionally retains thirty real PTY/session/VT instances behind equal-priority Unix-FD sources, with one continuous flood, twenty-nine exact markers, one shared guarded pump scratch, an 8 MiB drained paste, and pending-paste teardown: `terminal_agent_fairness_matrix debug=true release_safe=true panes=30 flood_panes=1 marker_panes=29 all_markers=true shared_pump_scratch=true glib_fd_sources=true large_paste_bytes=8388608 paste_queue_exercised=true paste_drained=true paste_pending_teardown=true allocator_leak_free=true process_residual=0 scratch_clean=true`.
+  The live mapped companion retains 64 synthetic production key-handler-to-draw/after-paint samples per mode on Plasma Wayland/X11, frame intervals, predictions, and completed Wayland GDK presentation feedback: `native_grid_presentation_matrix debug=true release_safe=true wayland=true x11=true samples_per_run=64 production_pty=true production_vt=true production_gtk=true mapped_surface=true key_to_draw=true key_to_frame=true frame_intervals=true wayland_presentation_feedback=true x11_presentation_feedback_optional=true synthetic_gtk_keys=true gdk_event_queue=false hid=false scratch_clean=true`.
+  The final NCT-119 lane retains live Debug/`ReleaseSafe` Wayland/X11 idle and fullscreen compositor pixels, external root/tree memory, zero fallback PTY ticks, and bounded cursor/maintenance wakeups. The authenticated Codex companion closes NCT-110 at the accepted one-host boundary. NCT-112's mode-40 hidden/visible runner now passes a short four-lane matrix with phase resources and compositor pixels; the retained 48-hour execution still requires elapsed time, and physical input remains a release operation.
 
 ### NoctEd implementation baseline
 
@@ -214,11 +207,7 @@ derived from peer architecture alone.
   deliberately request the full scanner.
 - Production editing is a GtkSourceView over a `GtkSourceBuffer`. The loaded
   Zig byte slice is copied into GTK and then released with the worker job.
-- Two retained eight-cycle Debug runs now cross the live Wayland GTK result
-  tree for first-result/completion/cancellation, first draw, open/save under
-  load, coalesced Quick Open, the exact two-batch cap, deterministic ranking,
-  and worker/project drain. Matching `ReleaseSafe`, X11, peak process-tree
-  memory, and long-duration cross-backend distributions remain NCT-122 work.
+- Retained eight-cycle X11 and live Wayland Debug/`ReleaseSafe` baseline runs cross the GTK result tree for first-result/completion/cancellation, first draw, open/save under load, coalesced Quick Open, the exact two-batch cap, deterministic ranking, worker/project drain, and process-tree memory. The later native endurance matrix repeats 32 complete workflows per lane and closes the sustained one-host NCT-121/NCT-122 boundary.
 
 ## Terminal Algorithms
 
@@ -690,8 +679,7 @@ screen markers and terminal modes; route controlled exit input; assert
 foreground identity and zero process/allocator residue; and sample root/tree
 memory:
 `terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`.
-The Codex case is explicitly unauthenticated and never submits a model request;
-all three cases remain headless, short, and non-compositor evidence.
+The Codex case in that baseline is explicitly unauthenticated and never submits a model request; all three cases remain headless, short, and non-compositor evidence. The separate mapped companion submits four ephemeral read-only Codex 0.144.6 requests, requires exact responses, and retains live Wayland/X11 screenshots plus controlled exits without changing the headless receipt.
 
 The bounded terminal-session baseline separately runs production spawn, resize,
 VT output/title ingestion, exit polling, and teardown for 64 ordinary plus
@@ -714,8 +702,7 @@ scratch, process-CPU percentiles, root memory samples, and scratch cleanup:
 This synthetic lane is display-independent one-host draw evidence. The
 complementary real-shell pipeline is also retained:
 `native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`.
-Neither lane is mapped GTK, compositor/frame-clock, library allocator, GPU,
-authenticated-agent, or visible-presentation proof.
+Neither display-independent lane is mapped GTK, compositor/frame-clock, library allocator, GPU, authenticated-agent, or visible-presentation proof. The separate live mapped lane retains synthetic production key-handler-to-draw/after-paint distributions and completed Wayland GDK presentation feedback without changing those two receipts.
 
 Every implementation slice needs a before/after artifact from identical inputs.
 Median-only claims are insufficient.
@@ -736,16 +723,16 @@ Median-only claims are insufficient.
   input-write/PTY-read-start-to-draw p50/p95/p99, repeat/cross-mode pixels,
   zero warm-frame renderer allocations, separate root/tree memory, and clean scratch;
 - startup and root-only/process-tree PSS at 1/2/4/8 panes;
-- mapped GTK key-event-to-frame and compositor-presentation p50/p95/p99;
-- frame intervals, missed deadlines, and presentations per output burst;
+- retained: mapped synthetic production key-handler-to-draw/after-paint p50/p95/p99, frame intervals, predicted presentation, and completed Wayland GDK presentation feedback across Debug/`ReleaseSafe` and Wayland/X11;
+- remaining: physical-input/HID-to-visible-presentation evidence and X11 completed presentation feedback where the backend can expose it;
 - idle wakeups and hidden-pane wakeups;
 - mapped cells/rows submitted, Cairo fallback conversions, full-stack draw
   allocations, and draw CPU beyond the retained fixed-fixture renderer counts;
 - mapped interactive resize allocations, peak memory, and final PTY geometry;
 - parser corpus throughput, retained malformed-sequence fuzz duration, peak
   parser storage, and regression diffs when advertised capabilities change;
-- authenticated Codex plus Claude Code, Antigravity, broader ncurses, tmux, and
-  zellij visual/interaction/exit receipts on Plasma Wayland and X11.
+- retained: authenticated Codex 0.144.6 plus installed tmux 3.7b/Zellij 0.44.3 visual/interaction/exit receipts on Plasma Wayland and X11;
+- remaining only for broader claims: Claude Code, Antigravity, and additional terminal products.
 
 The benchmark stops Yakuake before and after its isolated comparison run; it
 no longer preserves active Yakuake sessions.
@@ -755,19 +742,18 @@ no longer preserves active Yakuake sessions.
 - retained: synthetic 4K/25K/100K scan/delta time, compact index/two-snapshot
   model bytes, allocator cleanup, directory rename, replacement conflict, and
   ignore/overflow fallback;
-- retained: eight current-NOCTTY project model/tree-draw distributions per
-  backend, actual GIO monitor-burst publication delay, deterministic overflow
-  recovery, and a post-widget late-callback guard;
-- retained: 128 Debug and `ReleaseSafe` allocator-accounted core cycles with a
-  three-query full-order Quick Open fingerprint stable across every cycle;
-- still required: sustained long-duration Wayland/X11 project lifecycle and
-  varied-real-project evidence;
-- still required from a compositor-capable retained native run: Find in Files
-  first-result p50/p95/p99, total time, peak memory, cancellation latency,
-  queued GTK batches, UI frame delay, open/save p95 while search and refresh are
-  active, and coalesced Quick Open key-to-results p50/p95/p99;
-- still required: long native open/edit/fold/search/save/close and varied
-  project-switch allocator/leak qualification beyond the bounded core cycles.
+- retained: 32 complete mapped workflows in every Debug/`ReleaseSafe`
+  Wayland/X11 lane, including 256 project model/tree-draw and monitor cycles per
+  lane, actual GIO publication, deterministic overflow recovery, post-widget
+  callback safety, and process-tree memory;
+- retained: 128 Debug and `ReleaseSafe` allocator-accounted core cycles plus
+  512-cycle-per-mode headless endurance, with stable three-query full-order
+  Quick Open fingerprints;
+- retained: sustained Find in Files first-result/completion/cancellation/draw,
+  open/save-under-load, two-batch publication, and coalesced Quick Open
+  distributions across 128 independent native workflows;
+- still required only for broader claims: multi-hour/multi-day runs and a varied
+  real-project corpus beyond the current one-host alpha boundary.
 
 ## Deferred or Rejected Shortcuts
 

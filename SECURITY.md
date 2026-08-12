@@ -45,6 +45,7 @@ NOCTTY should maintain these boundaries:
 - agent resume references are opaque, bounded, provider-limited, and never
   inferred from terminal output; restore actions require explicit user choice
 - dependency bundles must keep ownership/license payload checks fail-closed
+- the opt-in authenticated Codex qualification uses the installed CLI's existing login, retains only the exact response/log/screenshot, and never copies provider credentials into repository evidence
 
 ## Out of scope for alpha
 

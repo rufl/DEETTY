@@ -1,0 +1,17 @@
+kind,mode,backend,phase,image_width,image_height
+tmux,Debug,wayland,first,1545,849
+tmux,Debug,wayland,reattach,1545,849
+zellij,Debug,wayland,first,1545,849
+zellij,Debug,wayland,reattach,1545,849
+tmux,Debug,x11,first,1536,780
+tmux,Debug,x11,reattach,1536,780
+zellij,Debug,x11,first,1536,780
+zellij,Debug,x11,reattach,1536,780
+tmux,ReleaseSafe,wayland,first,1545,849
+tmux,ReleaseSafe,wayland,reattach,1545,849
+zellij,ReleaseSafe,wayland,first,1545,849
+zellij,ReleaseSafe,wayland,reattach,1545,849
+tmux,ReleaseSafe,x11,first,1536,780
+tmux,ReleaseSafe,x11,reattach,1536,780
+zellij,ReleaseSafe,x11,first,1536,780
+zellij,ReleaseSafe,x11,reattach,1536,780

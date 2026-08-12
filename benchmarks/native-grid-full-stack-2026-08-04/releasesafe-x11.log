@@ -1,0 +1,5 @@
+Gtk-Message: 14:01:11.976: Failed to load module "appmenu-gtk-module"
+native_grid_full_stack_phase phase=idle_ready pid=3490094
+native_grid_full_stack_phase phase=fullscreen_ready pid=3490094
+native_grid_full_stack_phase phase=complete pid=3490094
+native_grid_full_stack_qualification backend=x11 idle_draws=5 idle_output_frames=0 idle_ticks=0 idle_cursor_blinks=5 idle_maintenance=2 fullscreen_draws=11 fullscreen_output_frames=1 fullscreen_ticks=0 fullscreen_cursor_blinks=7 fullscreen_maintenance=3 mapped_surface=true fullscreen=true production_pty=true production_vt=true production_gtk=true production_cairo=true external_memory=true external_compositor_pixels=true hid=false passed=true

@@ -1,0 +1,5 @@
+mode,backend,root_pss_kib,root_rss_kib,tree_pss_kib,tree_rss_kib,response_bytes,image_width,image_height
+Debug,wayland,51261,85528,58795,112996,29,1545,849
+Debug,x11,38609,72632,46077,100148,29,1536,780
+ReleaseSafe,wayland,45111,79568,52481,106808,29,1545,849
+ReleaseSafe,x11,31047,65204,38435,92628,29,1536,780

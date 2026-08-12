@@ -75,6 +75,7 @@ extern fn gtk_container_get_children(*GtkContainer) ?*GList;
 extern fn gtk_widget_set_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_widget_set_size_request(*GtkWidget, c_int, c_int) void;
 extern fn gtk_widget_set_hexpand(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_can_focus(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
@@ -150,9 +151,14 @@ const compact_tab_css =
     "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0 8px; border-width: 0; border-radius: 9px 9px 0 0; box-shadow: none; min-width: 0; min-height: 0; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
+    "list.sidebar > row.noctty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
+    "list.sidebar > row.noctty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; }" ++
+    "list.sidebar > row.noctty-settings-category:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     ".noctty-tab-content, .noctty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
-    "button.noctty-tab-close { margin: 0; padding: 0; border-width: 0; border-radius: 8px; box-shadow: none; min-width: 24px; min-height: 24px; }" ++
-    "button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 24px; min-height: 24px; }" ++
+    "button.noctty-tab-close, button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; border-radius: 8px; box-shadow: none; min-width: 28px; min-height: 28px; color: alpha(@theme_fg_color, 0.72); background: transparent; }" ++
+    "button.noctty-tab-close:hover, button.noctty-tab-action:hover { color: @theme_fg_color; background: alpha(@theme_fg_color, 0.10); }" ++
+    "button.noctty-tab-close:active, button.noctty-tab-action:active { background: alpha(@theme_selected_bg_color, 0.24); }" ++
+    "button.noctty-tab-close:focus, button.noctty-tab-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     "entry.noctty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
     ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }";
 
@@ -452,7 +458,7 @@ pub export fn noctty_settings_page_new(
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
-        GTK_POLICY_NEVER,
+        GTK_POLICY_AUTOMATIC,
         GTK_POLICY_AUTOMATIC,
     );
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
@@ -470,13 +476,27 @@ pub export fn noctty_settings_category_row_new(
     label_text: ?[*:0]const u8,
     page_name: ?[*:0]const u8,
 ) ?*GtkWidget {
+    const label_value = label_text orelse return null;
     const row = gtk_list_box_row_new() orelse return null;
+    gtk_widget_set_name(row, "noctty-settings-category");
+    gtk_widget_set_can_focus(row, TRUE);
+    gtk_widget_set_size_request(row, -1, 48);
+    var tooltip_buffer: [96]u8 = undefined;
+    const tooltip = std.fmt.bufPrintZ(
+        &tooltip_buffer,
+        "Open {s} settings",
+        .{std.mem.span(label_value)},
+    ) catch "Open settings category";
+    gtk_widget_set_tooltip_text(row, tooltip.ptr);
+    gtk_style_context_add_class(gtk_widget_get_style_context(row), "noctty-settings-category");
+    const accessible = gtk_widget_get_accessible(row);
+    atk_object_set_name(accessible, label_value);
     const box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12) orelse return null;
     const icon = gtk_image_new_from_icon_name(
         icon_name orelse return null,
         GTK_ICON_SIZE_LARGE_TOOLBAR,
     ) orelse return null;
-    const label = gtk_label_new(label_text orelse return null) orelse return null;
+    const label = gtk_label_new(label_value) orelse return null;
     gtk_image_set_pixel_size(@ptrCast(icon), 24);
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_widget_set_hexpand(label, TRUE);

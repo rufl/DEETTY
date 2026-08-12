@@ -1,6 +1,6 @@
 # NoctEd Search and Load Qualification
 
-Last refreshed: 2026-07-18.
+Last refreshed: 2026-08-04.
 
 This receipt retains the completed deterministic-ranking and allocator tranche of
 NCT-122 and defines the native GTK search/load lane now implemented by
@@ -83,7 +83,7 @@ trap-cleaned project-local root, and samples process-tree PSS/RSS.
 `scripts/nocted_native_matrix.sh` drives the lane on X11 and Wayland with fatal
 GTK warnings.
 
-Expected cross-backend matrix contract, not yet retained:
+Cross-backend matrix contract:
 
 ```text
 nocted_search_load_native_matrix x11=true wayland=true cycles=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true gtk_batch_bounded=true worker_drained=true warning_fatal=true scratch_clean=true
@@ -95,7 +95,7 @@ Two consecutive direct Debug runs reached the live Wayland compositor on
 2026-07-18 and completed all eight native cycles with fatal GTK warnings,
 bounded two-batch publication, deterministic ranking, foreground/scan lane
 separation, worker drain, rendered screenshot validation, and clean scratch.
-These are host-local observations, not release thresholds.
+On 2026-08-02, an Xvfb-backed X11 resource run and a later live Plasma Wayland run completed the same eight-cycle search/load, monitor, and real-project lifecycle paths in both Debug and `ReleaseSafe`, including process-tree memory sampling. These are host-local observations, not release thresholds.
 
 | Run | Entries | First result p50 / p95 / p99 | Completion p50 / p95 / p99 | Cancellation p50 / p95 / p99 |
 |---|---:|---:|---:|---:|
@@ -111,25 +111,31 @@ These are host-local observations, not release thresholds.
 nocted_search_load_wayland_evidence backend=wayland optimize=Debug runs=2 cycles_per_run=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true gtk_batch_peak=2 gtk_batch_cap=2 worker_drained=true warning_fatal=true rendered=true scratch_clean=true
 ```
 
-Later attempts from the managed command boundary, including `wayland-info`,
-lost compositor access and returned `Operation not permitted`; X11 also remains
-unavailable there. The isolated KWin 6.7.3 virtual-framebuffer probe remains
-environment blocked. That later access failure does not erase the two completed
-Wayland runs, but it prevented a matching `ReleaseSafe` run, the X11 half of the
-matrix, and the process-tree sampler from producing retained values. Run these
-commands from a session that can create native windows:
+The retained X11 resource run produced:
+
+| Mode | First result p50 / p95 | Completion p50 / p95 | First draw p50 / p95 | Quick Open p50 / p95 / p99 | Peak tree PSS / RSS |
+|---|---:|---:|---:|---:|---:|
+| Debug | 7,028,545 / 9,265,213 ns | 73,085,734 / 80,709,392 ns | 11,547,255 / 17,955,840 ns | 33,657,424 / 37,043,811 / 188,475,639 ns | 91,779 / 234,360 KiB |
+| ReleaseSafe | 4,220,732 / 7,134,150 ns | 24,751,136 / 31,453,702 ns | 11,464,369 / 18,775,491 ns | 32,895,975 / 35,759,468 / 38,017,126 ns | 84,714 / 224,696 KiB |
+
+The retained live Wayland resource run produced:
+
+| Mode | First result p50 / p95 | Completion p50 / p95 | First draw p50 / p95 | Quick Open p50 / p95 / p99 | Peak tree PSS / RSS |
+|---|---:|---:|---:|---:|---:|
+| Debug | 12,035,188 / 47,965,268 ns | 97,390,233 / 233,643,796 ns | 16,029,406 / 34,227,770 ns | 40,102,132 / 57,655,969 / 95,937,306 ns | 85,947 / 138,220 KiB |
+| ReleaseSafe | 2,215,896 / 5,274,196 ns | 24,174,252 / 37,149,464 ns | 8,289,271 / 17,818,837 ns | 34,354,477 / 36,105,932 / 36,441,522 ns | 75,844 / 127,936 KiB |
+
+Both backends and modes retained deterministic three-query ranking across eight cycles, the exact two-batch GTK cap, foreground/scan lane separation, worker drain, eight 12-file GIO monitor bursts, one bounded overflow recovery, and eight current NOCTTY project model/tree-draw cycles:
 
 ```text
-./scripts/nocted_resource_qualification.sh
-./scripts/nocted_native_matrix.sh
+nocted_search_load_resource_matrix debug=true release_safe=true cycles=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true process_memory=true worker_drained=true scratch_clean=true
+nocted_resource_backend backend=x11 debug=true release_safe=true native_search_load=true native_project_lifecycle=true process_tree_memory=true scratch_clean=true
+nocted_resource_backend backend=wayland debug=true release_safe=true native_search_load=true native_project_lifecycle=true process_tree_memory=true scratch_clean=true
 ```
 
-NCT-122 stays partial until `ReleaseSafe`, X11, peak process-tree memory, and
-long-duration cross-backend ranking are retained. The new Wayland Debug values
-do prove this bounded native GTK publication/UI-draw and open/save-under-load
-lane on one host. The retained core/endurance/worker lanes separately prove
-cross-mode deterministic ranking, bounded core latency, shared
+NCT-122 retains X11 and live Wayland Debug/`ReleaseSafe` baseline evidence. The later [native endurance qualification](NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md) repeats 32 complete workflows per lane, closes the sustained one-host cross-backend ranking/search boundary, and retains rendered first/final UI plus process-tree memory. The retained core/endurance/worker lanes
+separately prove cross-mode deterministic ranking, bounded core latency, shared
 generation/cap/cancellation admission, real headless worker/backpressure and
 foreground independence, allocator cleanup, and root-process memory. None of
-these receipts proves universal thresholds, multi-hour stability, or Sublime
+these receipts proves universal thresholds, multi-hour or multi-day stability, a varied-project corpus, or Sublime
 Text 2/Zed parity.

@@ -1319,10 +1319,11 @@ const App = struct {
         installCss();
         self.window = c.gtk_window_new(c.GTK_WINDOW_TOPLEVEL) orelse
             return error.WindowCreationFailed;
-        c.gtk_window_set_title(asWindow(self.window), "NOCTED");
+        c.gtk_window_set_title(asWindow(self.window), "NoctEd");
         c.gtk_window_set_default_size(asWindow(self.window), 1220, 760);
         c.gtk_window_set_icon_name(asWindow(self.window), "com.noctty.NoctEd");
         c.gtk_widget_set_name(self.window, "nocted-window");
+        setAccessibleName(self.window, "NoctEd editor window");
         connect(self.window, "delete-event", @ptrCast(&onWindowDelete), self);
         connect(self.window, "destroy", @ptrCast(&onWindowDestroy), self);
         connect(self.window, "key-press-event", @ptrCast(&onWindowKeyPress), self);
@@ -1757,6 +1758,10 @@ const App = struct {
         self.search_entry = c.gtk_search_entry_new() orelse unreachable;
         c.gtk_widget_set_hexpand(self.search_entry, 1);
         setAccessibleName(self.search_entry, "Find in current file");
+        c.gtk_entry_set_placeholder_text(
+            @ptrCast(self.search_entry),
+            "Find in current file",
+        );
         const previous = iconButton("go-up-symbolic", "Find previous");
         const next = iconButton("go-down-symbolic", "Find next");
         const close = iconButton("window-close-symbolic", "Close find");
@@ -1784,6 +1789,10 @@ const App = struct {
         self.project_search_entry = c.gtk_search_entry_new() orelse unreachable;
         c.gtk_widget_set_hexpand(self.project_search_entry, 1);
         setAccessibleName(self.project_search_entry, "Find in project files");
+        c.gtk_entry_set_placeholder_text(
+            @ptrCast(self.project_search_entry),
+            "Find in project files",
+        );
         c.gtk_widget_set_tooltip_text(
             self.project_search_entry,
             "Find matching lines in project files",
@@ -1860,7 +1869,10 @@ const App = struct {
         self.quick_open_entry = c.gtk_search_entry_new() orelse unreachable;
         c.gtk_widget_set_hexpand(self.quick_open_entry, 1);
         setAccessibleName(self.quick_open_entry, "Quick Open file");
-        c.gtk_entry_set_placeholder_text(@ptrCast(self.quick_open_entry), "Quick Open");
+        c.gtk_entry_set_placeholder_text(
+            @ptrCast(self.quick_open_entry),
+            "Quick Open project files",
+        );
         self.quick_open_status = c.gtk_label_new("") orelse unreachable;
         c.gtk_label_set_xalign(asLabel(self.quick_open_status), 0.0);
         c.gtk_label_set_ellipsize(
@@ -2630,7 +2642,7 @@ const App = struct {
             );
         defer self.allocator.free(name);
         _ = try self.createDocument(null, name, "", true, null);
-        self.updateStatus("New file");
+        self.updateStatus("New file. Press Ctrl+S to save");
     }
 
     fn createDocument(
@@ -2754,6 +2766,7 @@ const App = struct {
         const tab_label = c.gtk_label_new(owned_display_name.ptr) orelse unreachable;
         const close = iconButton("window-close-symbolic", "Close file");
         c.gtk_widget_set_name(close, "nocted-tab-close");
+        c.gtk_widget_set_size_request(close, 28, 28);
         c.gtk_box_pack_start(asBox(tab_box), tab_label, 1, 1, 0);
         c.gtk_box_pack_end(asBox(tab_box), close, 0, 0, 0);
 
@@ -3083,7 +3096,7 @@ const App = struct {
         if (self.currentDocument()) |current| self.updateDocumentStatus(current) else {
             c.gtk_label_set_text(asLabel(self.language_label), "Plain Text");
             c.gtk_label_set_text(asLabel(self.position_label), "Line 1, Column 1");
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
         }
         _ = self.persistSessionReported();
         return true;
@@ -3659,7 +3672,7 @@ const App = struct {
             return;
         }
         const document = self.currentDocument() orelse {
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
             return;
         };
         if (document.hasFoldAt(document.cursorLine())) {
@@ -3697,7 +3710,7 @@ const App = struct {
 
     fn unfoldCurrent(self: *App) void {
         const document = self.currentDocument() orelse {
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
             return;
         };
         if (document.unfoldAtCursor())
@@ -3712,7 +3725,7 @@ const App = struct {
             return;
         }
         const document = self.currentDocument() orelse {
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
             return;
         };
         _ = document.clearFolds();
@@ -3746,7 +3759,7 @@ const App = struct {
 
     fn unfoldAll(self: *App) void {
         const document = self.currentDocument() orelse {
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
             return;
         };
         const count = document.clearFolds();
@@ -3822,7 +3835,7 @@ const App = struct {
         new_name: ?[]const u8,
     ) void {
         const document = self.currentDocument() orelse {
-            self.updateStatus("No file open");
+            self.updateStatus("No file open; use File > New File or Open File");
             return;
         };
         const path = document.path orelse {
@@ -5713,6 +5726,10 @@ pub fn main(init: std.process.Init) !void {
             app.updateStatus(status.ptr);
         };
     }
+    if (files.items.len == 0 and
+        !app.hasWorkerJob(.document_load) and
+        c.gtk_notebook_get_n_pages(asNotebook(app.notebook)) == 0)
+        app.newDocument() catch |err| app.showWorkerError("New file unavailable", err);
     app.promptLegacySyntax();
     if (build_options.enable_smoke and app.project_lifecycle_smoke) {
         app.project_lifecycle_mutate = std.mem.eql(
@@ -5813,20 +5830,27 @@ fn installCss() void {
         \\#nocted-sidebar-title { color: #7f8a9c; font-size: 0.9em; font-weight: bold; padding: 7px 9px 5px; }
         \\#nocted-project-tree { background: #11151d; color: #c3cad6; }
         \\#nocted-project-tree:selected { background: #263249; color: #ffffff; }
+        \\#nocted-project-tree:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
         \\#nocted-tabs header { background: #11151d; border: 0; padding: 4px 5px 0 5px; }
         \\#nocted-tabs tab { background: #1a202b; color: #aeb7c6; border: 0; border-radius: 9px 9px 0 0; margin: 0 4px 0 0; padding: 4px 9px 5px; }
         \\#nocted-tabs tab:hover { background: #242c3a; color: #ffffff; }
         \\#nocted-tabs tab:checked { background: #0b0d12; color: #e5e9f0; box-shadow: inset 0 2px #8fb8ff; }
-        \\#nocted-tab-close { min-width: 16px; min-height: 16px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
+        \\#nocted-tabs tab:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
+        \\#nocted-tab-close { min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
+        \\#nocted-tab-close:hover { background: #242c3a; color: #ffffff; }
+        \\#nocted-tab-close:active { background: #263249; }
+        \\#nocted-tab-close:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
         \\#nocted-search { background: #11151d; border-top: 1px solid #222a38; padding: 5px; }
         \\#nocted-project-search { background: #11151d; border-top: 1px solid #222a38; }
         \\#nocted-project-search > box { padding: 5px; }
         \\#nocted-project-search-results { background: #0b0d12; color: #c3cad6; }
         \\#nocted-project-search-results:selected { background: #263249; color: #ffffff; }
+        \\#nocted-project-search-results:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
         \\#nocted-quick-open { background: #11151d; border-top: 1px solid #222a38; }
         \\#nocted-quick-open > box { padding: 5px; }
         \\#nocted-quick-open-results { background: #0b0d12; color: #c3cad6; }
         \\#nocted-quick-open-results:selected { background: #263249; color: #ffffff; }
+        \\#nocted-quick-open-results:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
         \\#nocted-status { background: #151923; color: #c3cad6; border-top: 1px solid #222a38; min-height: 22px; }
         \\#nocted-minimap { background: #11151d; border-left: 1px solid #222a38; }
         \\#nocted-minimap.scrubber { background-color: rgba(143, 184, 255, 0.18); }
@@ -5932,6 +5956,7 @@ fn appendMenuSeparator(menu: *c.GtkWidget) void {
 fn iconButton(icon: [*:0]const u8, tooltip: [*:0]const u8) *c.GtkWidget {
     const button = c.gtk_button_new_from_icon_name(icon, c.GTK_ICON_SIZE_MENU) orelse unreachable;
     c.gtk_button_set_relief(@ptrCast(button), c.GTK_RELIEF_NONE);
+    c.gtk_widget_set_size_request(button, 28, 28);
     c.gtk_widget_set_tooltip_text(button, tooltip);
     setAccessibleName(button, tooltip);
     return button;
@@ -7029,25 +7054,42 @@ fn onSmokeCapture(data: ?*anyopaque) callconv(.c) c.gboolean {
     const width = c.gdk_window_get_width(window);
     const height = c.gdk_window_get_height(window);
     if (width <= 0 or height <= 0) return c.G_SOURCE_REMOVE;
-    const pixbuf = c.gdk_pixbuf_get_from_window(window, 0, 0, width, height) orelse
+    const surface = c.cairo_image_surface_create(c.CAIRO_FORMAT_ARGB32, width, height);
+    defer c.cairo_surface_destroy(surface);
+    if (c.cairo_surface_status(surface) != c.CAIRO_STATUS_SUCCESS)
         return c.G_SOURCE_REMOVE;
-    defer c.g_object_unref(@ptrCast(pixbuf));
+    const context = c.cairo_create(surface);
+    defer c.cairo_destroy(context);
+    if (c.cairo_status(context) != c.CAIRO_STATUS_SUCCESS)
+        return c.G_SOURCE_REMOVE;
+    c.gtk_widget_draw(app.window, context);
+    c.cairo_surface_flush(surface);
+    const pixels = c.cairo_image_surface_get_data(surface) orelse
+        return c.G_SOURCE_REMOVE;
+    const stride: usize = @intCast(c.cairo_image_surface_get_stride(surface));
+    var nonblack_samples: usize = 0;
+    var sample_y: usize = 0;
+    while (sample_y < @as(usize, @intCast(height))) : (sample_y += 8) {
+        var sample_x: usize = 0;
+        while (sample_x < @as(usize, @intCast(width))) : (sample_x += 8) {
+            const offset = sample_y * stride + sample_x * 4;
+            if (pixels[offset] != 0 or pixels[offset + 1] != 0 or
+                pixels[offset + 2] != 0)
+                nonblack_samples += 1;
+        }
+    }
+    if (nonblack_samples < 64) return c.G_SOURCE_REMOVE;
     const path_z = app.allocator.dupeZ(u8, path) catch return c.G_SOURCE_REMOVE;
     defer app.allocator.free(path_z);
-    var error_ptr: ?*c.GError = null;
-    const saved = c.gdk_pixbuf_save(
-        pixbuf,
-        path_z.ptr,
-        "png",
-        &error_ptr,
-        @as(?*anyopaque, null),
-    );
-    if (error_ptr) |err| c.g_error_free(err);
+    const saved = c.cairo_surface_write_to_png(surface, path_z.ptr) ==
+        c.CAIRO_STATUS_SUCCESS;
     c.g_print(
-        "nocted_smoke_screenshot saved=%d width=%d height=%d path=%s\n",
-        saved,
+        "nocted_smoke_screenshot saved=%d width=%d height=%d " ++
+            "render=widget nonblack_samples=%zu path=%s\n",
+        @as(c_int, @intFromBool(saved)),
         width,
         height,
+        nonblack_samples,
         path_z.ptr,
     );
     return c.G_SOURCE_REMOVE;

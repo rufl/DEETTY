@@ -1,10 +1,39 @@
 # NOCTTY Backlog Archive
 
-Last refreshed: 2026-07-18.
+Last refreshed: 2026-08-04.
 
 This archive records completed implementation slices that changed the verified project boundary. The 0.1.0 product-behavior epics, follow-through safety slices, release-source/evidence work through NCT-085 plus the NCT-077 dependency-license payload follow-through, native performance and memory work through NCT-102 plus NCT-109 and NCT-116 through NCT-120, tab-drag hardening through NCT-113, NoctEd work through NCT-118 including NCT-104 daily-editing workflows and NCT-105 syntax compatibility, and active-pane information through NCT-115 are closed. Granular “still open” clauses below are preserved as point-in-time history and are superseded by the current product boundary.
 
 NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening, NCT-101 native output throughput hardening, and NCT-102 event-driven PTY scheduling plus benchmark isolation are also closed.
+
+## 2026-08-04 <!-- craft-ignore: chronological archive navigation -->
+
+### NCT-110 authenticated mapped Codex compatibility: done
+
+- Added `scripts/native_grid_authenticated_agent_qualification.sh` and a smoke-only production command-profile path for one exact authenticated Codex request in Debug/`ReleaseSafe` on live Plasma Wayland/X11.
+- Every request was ephemeral, read-only, rooted at `/tmp`, and prohibited from running commands or inspecting files. Codex returned the exact 29-byte `NOCTTY_AUTHENTICATED_CODEX_OK` response in all four lanes.
+- Retained response files, mapped compositor screenshots, root/process-tree memory, controlled zero exits, and checksums under `benchmarks/authenticated-agent-2026-08-04/`.
+- Acceptance met: `native_grid_authenticated_agent_matrix provider=codex version=0.144.6 authenticated=true model_requests=4 debug=true release_safe=true wayland=true x11=true production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true compositor_pixels=true root_memory=true process_tree_memory=true controlled_exit=true ephemeral=true sandbox=read-only hid=false checksums=true scratch_clean=true`.
+- Honest boundary: this closes the accepted one-host authenticated Codex boundary, not Claude Code, Antigravity, universal agent compatibility, HID, or multi-day stability.
+
+### NCT-111 installed tmux/Zellij detach and reattach: done
+
+- Installed tmux 3.7b and Zellij 0.44.3 into the user prefix from signature-verified Arch packages; neither tool became a NOCTTY runtime dependency.
+- Added `scripts/native_grid_installed_continuity_qualification.sh`, which runs the product's Persistent tmux and Persistent Zellij profiles in Debug/`ReleaseSafe` on live Plasma Wayland/X11.
+- Each lane retained first-attach and reattach screenshots, routed the native detach chord through NOCTTY's PTY write path, exited the first NOCTTY process while preserving the session, launched a second process, and required the prior marker to remain visible.
+- Retained 16 compositor screenshots, 16 controlled process logs, summary data, and checksums under `benchmarks/installed-continuity-2026-08-04/`.
+- Acceptance met: `native_grid_installed_continuity_matrix tmux_version=3.7b zellij_version=0.44.3 debug=true release_safe=true wayland=true x11=true first_attach=true detached=true noctty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true scratch_clean=true`.
+- Honest boundary: this closes installed one-host continuity, not remote multiplexer transport, HID, cross-host portability, or multi-day survival.
+
+### NCT-106/NCT-121/NCT-122 sustained native NoctEd endurance: done
+
+- Added `scripts/nocted_native_endurance_qualification.sh`, which builds isolated Debug and `ReleaseSafe` smoke binaries and repeats 32 complete mapped workflows on live Plasma Wayland and X11 for every mode/backend lane.
+- Retained 256 cycles per phase per lane, 1,024 cycles for each resource/search/lifecycle/monitor phase across the matrix, 4,096 combined phase cycles, and 3,072 deterministic full-order Quick Open ranking evaluations over 630 seconds.
+- Every one of the 128 independent workflows passed warning-fatal GTK execution, bounded two-batch publication, cancellation, foreground open/save under scan load, actual GIO monitor bursts, overflow recovery, current-project model/tree draw, worker/project drain, hot-exit teardown, and post-widget callback safety.
+- Replaced Wayland's potentially black `gdk_pixbuf_get_from_window` smoke output with bounded Cairo widget rendering plus sampled nonblack RGB validation. The first and final 1220×760 render from each lane were manually inspected and retained with raw receipts, process-tree memory, metadata, summary, and checksums under `benchmarks/nocted-native-endurance-2026-08-04/`.
+- Polished the same native path with a product-cased NoctEd title, explicit window accessibility name, descriptive search placeholders, 28-logical-pixel transient icon controls, and visible focus rings across project, tab, close, search-result, and Quick Open navigation.
+- Acceptance met: `nocted_native_endurance_matrix wayland=true x11=true debug=true release_safe=true rounds_per_lane=32 cycles_per_phase_per_lane=256 total_cycles_per_phase=1024 total_phase_cycles=4096 ranking_evaluations=3072 search_load=true deterministic_ranking=true gtk_batch_bounded=true project_lifecycle=true monitor_bursts=true overflow_recovery=true worker_drained=true process_tree_memory=true screenshots=true warning_fatal=true duration_recorded=true scratch_clean=true`.
+- Honest boundary: this closes the sustained one-host native-GUI, project-lifecycle, and search/load acceptance tranches. It is not multi-hour/multi-day stability, a varied-project corpus, authenticated-agent proof, physical-input proof, universal latency ranking, or final compositor acceptance.
 
 ## 2026-07-18
 
@@ -45,8 +74,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Kept visible rows and a bounded hot window as direct cells while encoding cold logical lines as UTF-8 graphemes plus compact style runs. Decoding reuses bounded scratch storage, alternate-screen resize remains non-reflowing, and cold history stays memory-only.
 - Fixed explicit history-limit shrink to force cold-arena compaction even below the routine one-mebibyte dead-storage threshold, so repeated grow/shrink cycles release dead backing bytes immediately.
 - Added deterministic Debug and `ReleaseSafe` qualification for 100000 logical lines, narrow/wide primary-screen reflow, compact-memory bounds, four grow/shrink cycles, and scratch cleanup. Acceptance receipt: `terminal_history_matrix debug=true release_safe=true lines=100000 compact=true reflow=true grow_shrink=true scratch_clean=true`.
-- Current superseding presentation boundary: NCT-119's implemented slice uses `render_abi=packed_rows render_abi_version=2 damage_tracking=dirty_spans glyph_batching=true glyph_cache=true frame_clock_present=true`; its exact display-independent production-Cairo matrix now retains repeat/cross-mode pixels, process-CPU percentiles, renderer-owned warm/resize allocation counts, and root memory, while compositor/end-to-end acceptance remains partial (`native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`).
-- Current superseding terminal compatibility boundary: NCT-110 now retains deterministic protocol/Unicode plus installed Codex login/Vim/btop headless production-PTY/VT proof, while authenticated/broader mapped cross-backend agent acceptance remains partial (`terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`). NCT-119 remains partial for archived compositor-backed pixels, mapped idle/fullscreen, full-stack allocation/idle-wakeup, and PTY/input/frame-clock latency evidence; NCT-112 retains its bounded allocator/forced-group plus real installed-TUI tranches and remains partial for multi-day native-GUI/authenticated-agent qualification.
+- Current superseding presentation boundary: NCT-119 is complete through complementary exact Cairo, real PTY/VT-to-Cairo, mapped key-to-frame, and live Wayland/X11 idle/fullscreen compositor-pixel plus memory/wakeup qualifications. Physical HID and final compositor acceptance remain release operations.
+- Current superseding terminal compatibility boundary: NCT-110 now retains deterministic protocol/Unicode plus installed Codex login/Vim/btop headless production-PTY/VT proof, while authenticated/broader mapped cross-backend agent acceptance remains partial (`terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`). NCT-119 is complete; NCT-112 retains its bounded allocator/forced-group plus real installed-TUI tranches and remains partial for multi-day native-GUI/authenticated-agent qualification.
 
 ## 2026-07-16
 

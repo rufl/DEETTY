@@ -1,6 +1,6 @@
 # NoctEd Project Lifecycle Qualification
 
-Last refreshed: 2026-07-18.
+Last refreshed: 2026-08-04.
 
 This receipt retains the bounded native-GUI NCT-121 tranche exercised by `./scripts/nocted_native_matrix.sh`. The maintained smoke runs the normal standalone editor workflow first, then exercises the same production GIO admission, background scan worker, immutable-index replacement, bounded GTK population, and project-tree draw path on X11 and Wayland.
 
@@ -46,6 +46,21 @@ overflow fallback, 36 monitors, exact final indexes, real GIO bursts, worker and
 project drain, fatal-warning enforcement, rendered GTK tree draws, and clean
 scratch.
 
+## 2026-08-02 Live Wayland Resource Run
+
+The matching live Plasma Wayland resource run retained both modes, process-tree memory, the current 571-entry NOCTTY checkout, 41 monitors, eight model/tree-draw cycles, eight actual 12-file GIO bursts, and one overflow recovery.
+
+| Mode | Model p50 / p95 | Tree draw p50 / p95 | GIO burst-to-draw p50 / p95 | Overflow recovery | Peak tree PSS / RSS |
+|---|---:|---:|---:|---:|---:|
+| Debug | 34,732,754 / 36,308,933 ns | 39,767,082 / 47,203,587 ns | 97,898,508 / 106,499,112 ns | 96,123,161 ns | 85,947 / 138,220 KiB |
+| ReleaseSafe | 6,362,136 / 6,461,687 ns | 12,834,771 / 21,683,892 ns | 91,983,927 / 94,429,120 ns | 91,677,029 ns | 75,844 / 127,936 KiB |
+
+Stable backend receipt:
+
+```text
+nocted_resource_backend backend=wayland debug=true release_safe=true native_search_load=true native_project_lifecycle=true process_tree_memory=true scratch_clean=true
+```
+
 ## Proof Boundary
 
-This closes the bounded real-project open-to-model/open-to-tree-draw distribution, actual monitor-burst publication-latency, deterministic overflow recovery, and post-widget-teardown callback tranche on the current host. It does not establish universal performance thresholds, a varied multi-repository corpus, multi-hour or multi-day native-GUI stability, or NCT-122 search/cancellation/open-save-under-load distributions. NCT-121 remains partial only for sustained long-duration cross-backend lifecycle evidence.
+This closes the bounded real-project open-to-model/open-to-tree-draw distribution, actual monitor-burst publication-latency, deterministic overflow recovery, post-widget-teardown callback, and matching live Wayland Debug/`ReleaseSafe` resource tranche on the current host. The later [native endurance qualification](NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md) repeats this path 32 times per mode/backend and closes NCT-121's sustained one-host cross-backend lifecycle boundary. Neither receipt establishes universal thresholds, a varied multi-repository corpus, or multi-hour/multi-day native-GUI stability.

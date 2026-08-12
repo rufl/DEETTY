@@ -75,8 +75,9 @@ GLib itself was forced to fail on this host. The headless runner does not
 initialize GTK or exercise widget publication, `GtkTreeStore` drawing,
 compositor presentation, key-to-pixel latency, varied projects, or a sustained
 GUI soak. The native Debug/`ReleaseSafe` resource lane and X11/Wayland search
-matrix in [the search/load receipt](NOCTED_SEARCH_LOAD_QUALIFICATION.md) remain
-the closure boundary for NCT-122.
+matrix in [the search/load receipt](NOCTED_SEARCH_LOAD_QUALIFICATION.md) cross
+that GTK boundary; the later [native endurance receipt](NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md)
+closes NCT-122's sustained one-host acceptance tranche.
 
 ## Reproduce
 
