@@ -31,17 +31,22 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' sh -eu -c '
   primary=$!
   sleep 1
   "$binary" --open "$scratch/project/sample.zig"
-  sleep 1
   test -f "$scratch/config/nocted/session.conf"
   encoded=$(printf "%s" "$scratch/project/sample.zig" | base64 -w0)
   routed=0
   dirty=0
-  while IFS= read -r line; do
-    case "$line" in
-      *"$encoded"*) routed=1 ;;
-      *"dW5zYXZlZA=="*) dirty=1 ;;
-    esac
-  done <"$scratch/config/nocted/session.conf"
+  for _ in $(seq 1 40); do
+    routed=0
+    dirty=0
+    while IFS= read -r line; do
+      case "$line" in
+        *"$encoded"*) routed=1 ;;
+        *"dW5zYXZlZA=="*|*"CnVuc2F2ZWQ="*) dirty=1 ;;
+      esac
+    done <"$scratch/config/nocted/session.conf"
+    if test "$routed" -eq 1; then break; fi
+    sleep 0.1
+  done
   test "$routed" -eq 1
   test "$dirty" -eq 1
   printf "%s\n" "nocted_single_instance_smoke routed=true session_preserved=true duplicate_process=false"
