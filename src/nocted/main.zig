@@ -17,6 +17,43 @@ const editor_zoom_percent_default: i16 = 100;
 const editor_zoom_percent_min: i16 = 60;
 const editor_zoom_percent_max: i16 = 240;
 const WorkerJob = worker.Job;
+const instance_lock_exclusive: c_int = 2;
+const instance_lock_nonblocking: c_int = 4;
+
+extern fn flock(fd: c_int, operation: c_int) c_int;
+
+const InstanceLock = struct {
+    fd: c_int,
+
+    fn acquire(allocator: std.mem.Allocator, io: std.Io, config_directory: []const u8) !InstanceLock {
+        try std.Io.Dir.cwd().createDirPath(io, config_directory);
+        const path = try std.fs.path.join(allocator, &.{ config_directory, "instance.lock" });
+        defer allocator.free(path);
+        const path_z = try allocator.dupeZ(u8, path);
+        defer allocator.free(path_z);
+        const fd = std.posix.openatZ(
+            std.posix.AT.FDCWD,
+            path_z,
+            .{ .ACCMODE = .RDWR, .CREAT = true, .CLOEXEC = true },
+            0o600,
+        ) catch return error.InstanceLockUnavailable;
+        if (flock(fd, instance_lock_exclusive | instance_lock_nonblocking) != 0) {
+            _ = std.c.close(fd);
+            return error.InstanceAlreadyRunning;
+        }
+        return .{ .fd = fd };
+    }
+
+    fn deinit(self: *InstanceLock) void {
+        _ = flock(self.fd, 8);
+        _ = std.c.close(self.fd);
+        self.* = undefined;
+    }
+};
+const InstanceRegistration = struct {
+    application: ?*c.GApplication = null,
+    lock: ?InstanceLock = null,
+};
 const WorkerJobKind = worker.Kind;
 
 const Fold = struct {
@@ -5553,6 +5590,193 @@ fn onSmokeDialogResponse(data: ?*anyopaque) callconv(.c) c.gboolean {
     return c.G_SOURCE_REMOVE;
 }
 
+fn pathIsDirectory(io: std.Io, path: []const u8) bool {
+    const directory = if (std.fs.path.isAbsolute(path))
+        std.Io.Dir.openDirAbsolute(io, path, .{})
+    else
+        std.Io.Dir.cwd().openDir(io, path, .{});
+    if (directory) |dir| {
+        dir.close(io);
+        return true;
+    } else |_| return false;
+}
+
+fn openApplicationPath(app: *App, path: []const u8) void {
+    if (app.project_root) |root| {
+        if (std.mem.eql(u8, root, path) or
+            (std.mem.startsWith(u8, path, root) and
+                path.len > root.len and path[root.len] == std.fs.path.sep))
+        {
+            app.openDocument(path) catch {};
+            return;
+        }
+    }
+    if (pathIsDirectory(app.io, path)) {
+        app.openProject(path) catch {};
+        return;
+    }
+    const project = std.fs.path.dirname(path) orelse ".";
+    app.openProject(project) catch {};
+    app.openDocument(path) catch {};
+}
+
+fn onApplicationActivate(
+    _: *c.GApplication,
+    data: ?*anyopaque,
+) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    if (app.shutting_down) return;
+    c.gtk_widget_show(app.window);
+    c.gtk_window_present(asWindow(app.window));
+    if (app.currentDocument()) |document| c.gtk_widget_grab_focus(document.view);
+}
+
+fn onApplicationOpen(
+    _: *c.GApplication,
+    files: [*]*c.GFile,
+    file_count: c_int,
+    hint: [*:0]const u8,
+    data: ?*anyopaque,
+) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    if (app.shutting_down or file_count <= 0) return;
+    const project_hint = std.mem.span(hint);
+    if (project_hint.len > 0) app.openProject(project_hint) catch {};
+    for (0..@intCast(file_count)) |index| {
+        const path_z = c.g_file_get_path(files[index]) orelse continue;
+        defer c.g_free(path_z);
+        const path = std.mem.span(path_z);
+        if (project_hint.len > 0 and std.mem.eql(u8, path, project_hint)) continue;
+        if (project_hint.len > 0)
+            app.openDocument(path) catch {}
+        else
+            openApplicationPath(app, path);
+    }
+    _ = app.persistSessionReported();
+}
+
+fn appendApplicationFile(
+    allocator: std.mem.Allocator,
+    files: *std.array_list.Managed(*c.GFile),
+    path: []const u8,
+) !void {
+    const path_z = try allocator.dupeZ(u8, path);
+    defer allocator.free(path_z);
+    try files.append(c.g_file_new_for_path(path_z) orelse
+        return error.ApplicationFileUnavailable);
+}
+
+fn forwardApplicationOpen(
+    application: *c.GApplication,
+    allocator: std.mem.Allocator,
+    args: []const []const u8,
+) !void {
+    var files = std.array_list.Managed(*c.GFile).init(allocator);
+    defer {
+        for (files.items) |file| c.g_object_unref(@ptrCast(file));
+        files.deinit();
+    }
+    var project: ?[]const u8 = null;
+    var index: usize = 1;
+    while (index < args.len) : (index += 1) {
+        const arg = args[index];
+        if (std.mem.eql(u8, arg, "--project")) {
+            index += 1;
+            if (index >= args.len) return error.MissingApplicationPath;
+            project = args[index];
+        } else if (std.mem.eql(u8, arg, "--open")) {
+            index += 1;
+            if (index >= args.len) return error.MissingApplicationPath;
+            try appendApplicationFile(allocator, &files, args[index]);
+        } else if (!std.mem.startsWith(u8, arg, "--")) {
+            try appendApplicationFile(allocator, &files, arg);
+        }
+    }
+    if (project) |path| {
+        if (files.items.len == 0) try appendApplicationFile(allocator, &files, path);
+    }
+    if (files.items.len == 0) {
+        c.g_application_activate(application);
+        return;
+    }
+    var hint_buffer: [std.fs.max_path_bytes:0]u8 = undefined;
+    const hint = if (project) |path| blk: {
+        const copied = std.fmt.bufPrintZ(&hint_buffer, "{s}", .{path}) catch
+            return error.ApplicationPathTooLong;
+        break :blk copied.ptr;
+    } else "";
+    c.g_application_open(application, files.items.ptr, @intCast(files.items.len), hint);
+}
+
+fn applicationConfigDirectoryAlloc(
+    allocator: std.mem.Allocator,
+    home: []const u8,
+    config_home: ?[]const u8,
+) ![]u8 {
+    return if (config_home) |root|
+        std.fs.path.join(allocator, &.{ root, "nocted" })
+    else
+        std.fs.path.join(allocator, &.{ home, ".config/nocted" });
+}
+
+fn shouldUseSingleInstance(env: *const std.process.Environ.Map) bool {
+    return !std.mem.eql(
+        u8,
+        env.get("NOCTED_DISABLE_SINGLE_INSTANCE") orelse "0",
+        "1",
+    );
+}
+
+fn applicationIdForDirectory(directory: []const u8, buffer: *[64:0]u8) [*:0]const u8 {
+    var hash: u64 = 14695981039346656037;
+    for (directory) |byte| {
+        hash ^= byte;
+        hash *%= 1099511628211;
+    }
+    const formatted = std.fmt.bufPrintZ(
+        buffer,
+        "com.noctty.NoctEd.n{x}",
+        .{hash},
+    ) catch unreachable;
+    return formatted.ptr;
+}
+
+fn registerApplication(
+    allocator: std.mem.Allocator,
+    init: std.process.Init,
+    args: []const []const u8,
+    home: []const u8,
+    config_home: ?[]const u8,
+) !InstanceRegistration {
+    if (!shouldUseSingleInstance(init.environ_map)) return .{};
+    const directory = try applicationConfigDirectoryAlloc(allocator, home, config_home);
+    defer allocator.free(directory);
+    var application_id: [64:0]u8 = undefined;
+    const application = c.g_application_new(
+        applicationIdForDirectory(directory, &application_id),
+        c.G_APPLICATION_HANDLES_OPEN,
+    ) orelse return error.ApplicationUnavailable;
+    var error_ptr: ?*c.GError = null;
+    if (c.g_application_register(application, null, &error_ptr) != 0) {
+        if (c.g_application_get_is_remote(application) != 0) {
+            defer c.g_object_unref(@ptrCast(application));
+            try forwardApplicationOpen(application, allocator, args);
+            return error.ApplicationForwarded;
+        }
+    } else if (error_ptr) |err| {
+        c.g_error_free(err);
+    }
+    const lock = InstanceLock.acquire(allocator, init.io, directory) catch |err| {
+        c.g_object_unref(@ptrCast(application));
+        return err;
+    };
+    return .{
+        .application = application,
+        .lock = lock,
+    };
+}
+
+
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const args = try init.minimal.args.toSlice(init.arena.allocator());
@@ -5657,6 +5881,19 @@ pub fn main(init: std.process.Init) !void {
     }
     if (c.gtk_init_check(null, null) == 0) return error.GtkUnavailable;
     const home = init.environ_map.get("HOME") orelse ".";
+    var registration = registerApplication(
+        allocator,
+        init,
+        args,
+        home,
+        init.environ_map.get("XDG_CONFIG_HOME"),
+    ) catch |err| switch (err) {
+        error.ApplicationForwarded => return,
+        else => return err,
+    };
+    defer if (registration.lock) |*lock| lock.deinit();
+    defer if (registration.application) |application|
+        c.g_object_unref(@ptrCast(application));
     var app = try App.init(
         allocator,
         init.io,
@@ -5672,6 +5909,10 @@ pub fn main(init: std.process.Init) !void {
         ))
         app.resource_smoke = true;
     try app.buildUi();
+    if (registration.application) |application| {
+        connect(application, "open", @ptrCast(&onApplicationOpen), &app);
+        connect(application, "activate", @ptrCast(&onApplicationActivate), &app);
+    }
 
     var project: ?[]const u8 = null;
     var files = std.array_list.Managed([]const u8).init(allocator);
@@ -5697,15 +5938,13 @@ pub fn main(init: std.process.Init) !void {
             try files.append(arg);
         }
     }
-    const explicit_session = project != null or files.items.len > 0;
-    const restored_session = !explicit_session and app.restoreSession();
-    if (!restored_session) {
-        const default_project = project orelse if (files.items.len > 0)
-            (std.fs.path.dirname(files.items[0]) orelse ".")
-        else
-            ".";
-        app.openProject(default_project) catch |err| {
-            if (!std.mem.eql(u8, default_project, ".")) try app.openProject(".");
+    const restore_requested = !app.smoke and !app.project_lifecycle_smoke;
+    const restored_session = restore_requested and app.restoreSession();
+    if (!restored_session and project == null and files.items.len == 0) {
+        app.openProject(".") catch {};
+    }
+    if (project) |project_path| {
+        app.openProject(project_path) catch |err| {
             const status = try std.fmt.allocPrintSentinel(
                 allocator,
                 "Project open failed: {s}",
@@ -5715,17 +5954,17 @@ pub fn main(init: std.process.Init) !void {
             defer allocator.free(status);
             app.updateStatus(status.ptr);
         };
-        for (files.items) |path| app.openDocument(path) catch |err| {
-            const status = try std.fmt.allocPrintSentinel(
-                allocator,
-                "Open failed: {s}",
-                .{@errorName(err)},
-                0,
-            );
-            defer allocator.free(status);
-            app.updateStatus(status.ptr);
-        };
     }
+    for (files.items) |path| app.openDocument(path) catch |err| {
+        const status = try std.fmt.allocPrintSentinel(
+            allocator,
+            "Open failed: {s}",
+            .{@errorName(err)},
+            0,
+        );
+        defer allocator.free(status);
+        app.updateStatus(status.ptr);
+    };
     if (files.items.len == 0 and
         !app.hasWorkerJob(.document_load) and
         c.gtk_notebook_get_n_pages(asNotebook(app.notebook)) == 0)

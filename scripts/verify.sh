@@ -51,6 +51,7 @@ run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZI
 ./scripts/nocted_core_stability_qualification.sh
 ./scripts/nocted_worker_qualification.sh
 ./scripts/nocted_project_index_qualification.sh
+./scripts/nocted_single_instance_smoke.sh "$PWD/zig-out/bin/nocted"
 bash -n ./scripts/nocted_native_endurance_qualification.sh
 bash -n ./scripts/native_grid_authenticated_agent_qualification.sh
 bash -n ./scripts/native_grid_installed_continuity_qualification.sh

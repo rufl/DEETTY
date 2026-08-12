@@ -6,6 +6,7 @@ pub const GType = usize;
 pub const GCallback = ?*const fn () callconv(.c) void;
 
 pub const GtkWidget = opaque {};
+pub const GApplication = opaque {};
 pub const GtkWindow = opaque {};
 pub const GtkContainer = opaque {};
 pub const GtkBox = opaque {};
@@ -121,7 +122,7 @@ pub const GdkEventScroll = extern struct {
     delta_y: f64,
     is_stop: c_uint,
 };
-
+pub const G_APPLICATION_HANDLES_OPEN: c_uint = 1 << 2;
 pub const GTK_WINDOW_TOPLEVEL: c_int = 0;
 pub const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
 pub const GTK_ORIENTATION_VERTICAL: c_int = 1;
@@ -194,6 +195,7 @@ pub extern fn gtk_init_check(argc: ?*c_int, argv: ?*anyopaque) gboolean;
 pub extern fn gtk_main() void;
 pub extern fn gtk_main_quit() void;
 pub extern fn gtk_window_new(window_type: c_int) ?*GtkWidget;
+pub extern fn gtk_window_present(window: *GtkWindow) void;
 pub extern fn gtk_window_set_title(window: *GtkWindow, title: [*:0]const u8) void;
 pub extern fn gtk_window_set_default_size(window: *GtkWindow, width: c_int, height: c_int) void;
 pub extern fn gtk_window_set_icon_name(window: *GtkWindow, name: [*:0]const u8) void;
@@ -413,6 +415,20 @@ pub extern fn gtk_about_dialog_set_program_name(about: *anyopaque, name: [*:0]co
 pub extern fn gtk_about_dialog_set_version(about: *anyopaque, version: [*:0]const u8) void;
 pub extern fn gtk_about_dialog_set_comments(about: *anyopaque, comments: [*:0]const u8) void;
 pub extern fn g_signal_connect_data(instance: ?*anyopaque, detailed_signal: [*:0]const u8, c_handler: GCallback, data: ?*anyopaque, destroy_data: ?*anyopaque, connect_flags: c_uint) c_ulong;
+pub extern fn g_application_new(application_id: [*:0]const u8, flags: c_uint) ?*GApplication;
+pub extern fn g_application_register(
+    application: *GApplication,
+    cancellable: ?*GCancellable,
+    error_ptr: *?*GError,
+) gboolean;
+pub extern fn g_application_get_is_remote(application: *GApplication) gboolean;
+pub extern fn g_application_open(
+    application: *GApplication,
+    files: [*]*GFile,
+    n_files: c_int,
+    hint: [*:0]const u8,
+) void;
+pub extern fn g_application_activate(application: *GApplication) void;
 pub extern fn g_timeout_add(interval: c_uint, function: *const fn (?*anyopaque) callconv(.c) gboolean, data: ?*anyopaque) c_uint;
 pub extern fn g_idle_add(function: *const fn (?*anyopaque) callconv(.c) gboolean, data: ?*anyopaque) c_uint;
 pub extern fn g_main_context_iteration(context: ?*anyopaque, may_block: gboolean) gboolean;
