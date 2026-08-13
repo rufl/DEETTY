@@ -194,10 +194,11 @@ pub const Receiver = struct {
     permission: Protocol.PermissionState = .{},
     snapshot_active: bool = false,
     snapshot_rows: [Protocol.max_rows]bool = [_]bool{false} ** Protocol.max_rows,
+    awaiting_resync: bool = false,
     grid: Grid,
 
     pub fn init(allocator: std.mem.Allocator, stream_id: u32) !Receiver {
-        if (stream_id == 0 or stream_id > Protocol.max_streams) return error.InvalidShareStream;
+        if (stream_id == 0) return error.InvalidShareStream;
         return .{ .stream_id = stream_id, .grid = Grid.init(allocator) };
     }
 
@@ -205,8 +206,22 @@ pub const Receiver = struct {
         self.grid.deinit();
     }
 
+    pub fn beginResync(self: *Receiver) void {
+        self.awaiting_resync = true;
+        self.permission.revoke();
+        self.snapshot_active = false;
+        @memset(&self.snapshot_rows, false);
+    }
+
     pub fn apply(self: *Receiver, frame: Protocol.Frame) !void {
         if (frame.header.stream_id != self.stream_id) return error.InvalidShareStream;
+        if (self.awaiting_resync) {
+            if (frame.header.message_type != .snapshot_begin or frame.header.sequence != 0)
+                return error.MirrorResyncPending;
+            self.sequence = .{};
+            self.grid.clearRows();
+            self.awaiting_resync = false;
+        }
         try self.sequence.receive(frame.header.sequence);
         switch (frame.header.message_type) {
             .snapshot_begin => {

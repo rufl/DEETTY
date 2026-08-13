@@ -27,9 +27,11 @@ Allowed explicit network-adjacent behavior remains user-owned and documented:
   docs say so
 - the opt-in authenticated-agent qualification invokes the already-installed, already-authenticated Codex CLI for an explicit ephemeral model request; it is not part of production startup, default verification, or installed runtime behavior
 - paired session sharing opens its documented TCP listener/client only after the
-  user explicitly starts pairing, sharing, or receiving
+  user explicitly starts pairing, sharing, or receiving; authenticated
+  keepalives and bounded resynchronization traffic remain on that connection
 - pairing listeners emit bounded IPv4 LAN multicast/broadcast announcements
   only while that explicit listener is active; discovery receives them only
   while the user explicitly requests it
-- announcements contain no identity key or terminal content, and direct
-  endpoints remain required where routed VPNs do not carry LAN discovery
+- announcements contain no identity key, terminal content, pane lifecycle,
+  keepalive, or control data, and direct endpoints remain required where routed
+  VPNs do not carry LAN discovery

@@ -125,6 +125,7 @@ extern int noctty_grid_share_view_cursor_mode(void *);
 extern int noctty_grid_share_view_title(void *, uint8_t *, size_t);
 extern int noctty_grid_share_view_stream(void *, int, uint8_t *, size_t,
                                          uint64_t *, int *);
+extern uint64_t noctty_grid_share_view_revision(void *);
 extern int noctty_grid_share_view_select(void *, int);
 extern int noctty_grid_share_view_input(void *, const uint8_t *, size_t);
 extern int noctty_qt_shortcut_from_gdk(guint keyval, guint state);
@@ -170,6 +171,7 @@ typedef struct NocttyGridContextTag {
     GtkWidget *settings_launch_save;
     GtkWidget *settings_launch_delete;
     GtkWidget *sharing_dialog;
+    uint64_t sharing_stream_revision;
     GtkWidget *shortcut_recorder_dialog;
     GtkWidget *shortcut_recorder_feedback;
     GtkWidget *palette_dialog;
@@ -12836,12 +12838,11 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
     GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(g_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-streams"));
     if (combo == NULL) return;
+    uint64_t revision = noctty_grid_share_view_revision(root->event_data);
+    if (revision == root->sharing_stream_revision) return;
     uint8_t ignored_title = 0;
     int count = noctty_grid_share_view_stream(
         root->event_data, -1, &ignored_title, 0, &(uint64_t){0}, &(int){0});
-    int known = GPOINTER_TO_INT(g_object_get_data(
-        G_OBJECT(dialog), "noctty-sharing-stream-count"));
-    if (count == known) return;
     g_object_set_data(G_OBJECT(combo), "noctty-sharing-stream-refreshing",
                       GINT_TO_POINTER(1));
     gtk_combo_box_text_remove_all(combo);
@@ -12868,8 +12869,7 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
                                  selected >= 0 ? selected : 0);
     g_object_set_data(G_OBJECT(combo), "noctty-sharing-stream-refreshing",
                       GINT_TO_POINTER(0));
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stream-count",
-                      GINT_TO_POINTER(count));
+    root->sharing_stream_revision = revision;
 }
 
 static gboolean refresh_sharing_status(gpointer user_data) {
@@ -13034,6 +13034,7 @@ static GtkWidget *sharing_action_button(const char *label, int action,
 static void on_sharing_dialog_destroy(GtkWidget *dialog, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     (void)noctty_grid_share_action(root->event_data, 14, -1, "", 0, "", 0, 0);
+    root->sharing_stream_revision = 0;
     if (root->sharing_dialog == dialog) root->sharing_dialog = NULL;
 }
 

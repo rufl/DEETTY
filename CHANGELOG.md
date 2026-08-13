@@ -8,23 +8,29 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   Devices establish and pin X25519 identities through a Noise XX
   ChaCha20-Poly1305/BLAKE2s handshake, require the same six-digit confirmation
   on both sides, and then exchange bounded, versioned, authenticated terminal
-  presentation frames over direct TCP. Linux active-tab shares multiplex every
-  pane into an independently sequenced remote grid; receivers choose the pane
-  they view, and Windows receivers can cycle Linux panes with
-  `Ctrl+Shift+Tab`. The active shells remain on the host; receivers start
+  presentation frames over direct TCP. Linux active-tab shares dynamically
+  multiplex panes into independently sequenced remote grids as panes open,
+  close, or move; receivers choose the pane they view, and Windows receivers
+  can cycle the current Linux pane set with `Ctrl+Shift+Tab`. Both sides require
+  matching workspace, dynamic-pane, resynchronization, keepalive, and
+  per-pane-control capabilities before accepting presentation state. Sequence
+  gaps trigger a fresh bounded structured checkpoint, idle host links require
+  authenticated keepalive replies, and explicit stop paths send a bounded
+  disconnect reason. The active shells remain on the host; receivers start
   view-only, remote input requires a separate host grant for the selected pane
-  and current connection, replay/gaps trigger a checkpoint or rejection, and
-  device revocation closes matching live links. Linux provides a native Session
-  Sharing dialog, opt-in LAN listener discovery, a shared-pane selector, and
-  remote grid preview; the experimental Windows host provides DPAPI-protected
-  identity storage, command-line LAN discovery and pair/share/receive modes,
-  shared-pane cycling, and rendering through its existing GDI surface. Manual
-  hostname, IPv4/IPv6, LAN, tailnet, and
-  routed-VPN endpoints remain supported without a relay, account service, NAT
-  traversal, subnet scan, telemetry, or background discovery. Focused
-  protocol/security/loopback tests pass; the Windows host cross-build passes,
-  while physical cross-machine Windows/Linux and VPN
-  qualification remain open.
+  and current connection, and pane closure, resynchronization, revoke,
+  disconnect, or reconnect ends that grant. Device revocation closes matching
+  live links. Linux provides
+  a native Session Sharing dialog, opt-in LAN listener discovery, a
+  revision-aware shared-pane selector, and remote grid preview; the experimental
+  Windows host provides DPAPI-protected identity storage, command-line LAN
+  discovery and pair/share/receive modes, dynamic shared-pane cycling, and
+  rendering through its existing GDI surface. Manual hostname, IPv4/IPv6, LAN,
+  tailnet, and routed-VPN endpoints remain supported without a relay, account
+  service, NAT traversal, subnet scan, telemetry, or background discovery.
+  Focused protocol/security/loopback tests pass; the Windows host cross-build
+  passes, while physical cross-machine Windows/Linux and VPN qualification
+  remain open.
 
 - Added the first experimental native Windows terminal tranche: an x86_64 Win32/GDI GUI, ConPTY shell transport, shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true-color rendering, scrollback, visible-surface copy, clipboard paste, bounded local lifecycle/error logs, and local crash minidumps with no upload path. Windows builds no longer require GTK target libraries; `scripts/package_windows.sh` emits a checksummed `ReleaseFast` ZIP and manifest. The cross-build passes Debug/`ReleaseSafe`/`ReleaseFast` compilation and a Wine-hosted no-window VT fixture; physical Windows behavior, tabs/splits, settings/restore, selection/mouse reporting, NoctEd, ARM64, signing, and installer packaging remain open.
 - Added lightweight NoctEd word wrap: `Alt+Z` toggles word wrapping across open documents, the View menu exposes the same checkable setting, and the choice persists in the GUI-owned settings file.

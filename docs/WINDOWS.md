@@ -20,8 +20,8 @@ Included:
 - local lifecycle/error logs and local crash minidumps
 - explicit command-line LAN discovery, pairing, and encrypted terminal
   sharing/receiving with a native GDI remote view and host-approved,
-  connection-scoped input; `Ctrl+Shift+Tab` cycles shared panes sent by a Linux
-  host
+  connection-scoped input; `Ctrl+Shift+Tab` cycles the current pane set from a
+  Linux host as panes open, close, or move
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
@@ -102,11 +102,15 @@ receive it on Device B:
 
 The receiver starts view-only. Typing requests control; Device A shows a native
 approval prompt before any input is delivered. Approval applies only to the
-selected shared pane and that connection, and ends on disconnect. When a Linux
-workspace shares multiple panes, `Ctrl+Shift+Tab` cycles them in the Windows
-receiver. A Windows host currently publishes its one ConPTY terminal. The
-shell, process, and scrollback remain owned by Device A; this is presentation
-mirroring, not PTY migration.
+selected shared pane and that connection, and ends on pane closure,
+resynchronization, revoke, or disconnect. When a Linux workspace shares
+multiple panes,
+`Ctrl+Shift+Tab` cycles its current pane set; newly opened panes join and closed
+or moved panes leave without reconnecting. A Windows host currently publishes
+its one ConPTY terminal. The shell, process, and scrollback remain owned by
+Device A; this is presentation mirroring, not PTY migration. Capability
+negotiation rejects incompatible peers, sequence gaps request a fresh bounded
+pane checkpoint, and idle host links require authenticated keepalive replies.
 
 ## Build from Linux or Windows
 

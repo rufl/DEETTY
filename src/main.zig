@@ -286,6 +286,7 @@ const ShareState = struct {
     live_viewer: ?*noctty.share.live_viewer.LiveViewer = null,
     shared_pane_ids: [noctty.share.protocol.max_streams]u64 = [_]u64{0} ** noctty.share.protocol.max_streams,
     shared_pane_count: usize = 0,
+    shared_tab_id: ?u64 = null,
     discovery: ?noctty.share.transport.Discovery = null,
     announcement: ?noctty.share.transport.Discovery = null,
     announcement_instance: [16]u8 = [_]u8{0} ** 16,
@@ -677,6 +678,7 @@ export fn noctty_grid_share_action(
                 port,
                 specs[0..active_tab.panes.items.len],
             ) catch return -1;
+            state.shared_tab_id = active_tab.id;
             for (active_tab.panes.items, 0..) |pane, pane_index|
                 state.shared_pane_ids[pane_index] = pane.id;
             state.shared_pane_count = active_tab.panes.items.len;
@@ -687,6 +689,7 @@ export fn noctty_grid_share_action(
             host.destroy();
             state.live_host = null;
             state.shared_pane_count = 0;
+            state.shared_tab_id = null;
         },
         7 => (state.live_host orelse return -1).grantControl(),
         8 => (state.live_host orelse return -1).revokeControl(),
@@ -700,6 +703,7 @@ export fn noctty_grid_share_action(
                     host.destroy();
                     state.live_host = null;
                     state.shared_pane_count = 0;
+                    state.shared_tab_id = null;
                 }
             }
             if (state.live_viewer) |viewer| {
@@ -749,6 +753,10 @@ export fn noctty_grid_share_status(
     const state = bridge.share_state orelse return 0;
     state.updateDiscovery();
     state.finishPairing() catch {
+        bridge.callback_failed = true;
+        return -1;
+    };
+    syncSharedWorkspace(bridge) catch {
         bridge.callback_failed = true;
         return -1;
     };
@@ -807,6 +815,12 @@ export fn noctty_grid_share_view_stream(
     pane_id_output.* = info.pane_id;
     selected_output.* = @intFromBool(info.selected);
     return std.math.cast(c_int, info.title_length) orelse -1;
+}
+
+export fn noctty_grid_share_view_revision(raw: ?*anyopaque) callconv(.c) u64 {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return viewer.streamRevision();
 }
 
 export fn noctty_grid_share_view_select(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
@@ -1161,6 +1175,9 @@ export fn noctty_grid_close_tab(raw: ?*anyopaque, pane_id: u64) callconv(.c) c_i
     const closed = (bridge.app.dispatch(.{ .close_tab = tab_id orelse return -1 }) catch {
         return -1;
     }).tab_closed;
+    syncSharedWorkspace(bridge) catch {
+        bridge.callback_failed = true;
+    };
     bridge.saw_tab_close_command = true;
     bridge.closed_tab_pane_count = closed.pane_count;
     if (closed.pane_count == 0 or closed.pane_count > std.math.maxInt(c_int)) return -1;
@@ -1181,6 +1198,9 @@ export fn noctty_grid_close_pane(
     bridge.pane_close_tab_closed = closed.tab_closed;
     active_pane_id_out.* = closed.active_pane_id;
     tab_closed_out.* = @intFromBool(closed.tab_closed);
+    syncSharedWorkspace(bridge) catch {
+        bridge.callback_failed = true;
+    };
     persistNativeGridHotSession(bridge);
     return 1;
 }
@@ -1801,9 +1821,47 @@ fn nativeGridSessionForPane(bridge: *NativeGridBridge, pane_id: u64) ?*noctty.te
     return pool.findByPaneId(pane_id);
 }
 
+fn syncSharedWorkspace(bridge: *NativeGridBridge) !void {
+    const state = bridge.share_state orelse return;
+    const host = state.live_host orelse return;
+    const tab_id = state.shared_tab_id orelse return;
+    const tab = bridge.app.workspace.findTab(tab_id) orelse {
+        host.destroy();
+        state.live_host = null;
+        state.shared_tab_id = null;
+        state.shared_pane_count = 0;
+        @memset(&state.shared_pane_ids, 0);
+        return;
+    };
+
+    for (state.shared_pane_ids[0..state.shared_pane_count]) |pane_id| {
+        if (tab.findPane(pane_id) == null) _ = try host.removePane(pane_id);
+    }
+    for (tab.panes.items) |pane| {
+        const session = nativeGridSessionForPane(bridge, pane.id) orelse continue;
+        if (host.hasPane(pane.id)) {
+            if (host.needsCheckpoint(pane.id)) try host.capture(pane.id, session);
+            continue;
+        }
+        try host.addPane(.{ .pane_id = pane.id, .title = pane.title });
+        try host.capture(pane.id, session);
+    }
+
+    state.shared_pane_count = 0;
+    @memset(&state.shared_pane_ids, 0);
+    for (tab.panes.items) |pane| {
+        if (!host.hasPane(pane.id)) continue;
+        state.shared_pane_ids[state.shared_pane_count] = pane.id;
+        state.shared_pane_count += 1;
+    }
+}
+
 export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_code: c_int, at_ms: u64) callconv(.c) void {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return));
     defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);
+    defer syncSharedWorkspace(bridge) catch {
+        bridge.callback_failed = true;
+    };
     const is_secondary = pane_id != bridge.pane_id;
     if (event == 2 or event == 4) {
         if (bridge.share_state) |state| {

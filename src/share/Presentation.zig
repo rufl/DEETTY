@@ -150,9 +150,15 @@ pub const Publisher = struct {
     last_title_digest: [32]u8 = [_]u8{0} ** 32,
 
     pub fn init(stream_id: u32) !Publisher {
-        if (stream_id == 0 or stream_id > Protocol.max_streams)
-            return error.InvalidShareStream;
+        if (stream_id == 0) return error.InvalidShareStream;
         return .{ .stream_id = stream_id };
+    }
+
+    pub fn prepareResync(self: *Publisher) void {
+        self.sequence = .{};
+        self.damage_generation = 0;
+        self.cursor_initialized = false;
+        self.title_initialized = false;
     }
 
     pub fn snapshotBegin(self: *Publisher, grid: *const Vt.Grid, scrollback_rows: u32) !struct { frame: Protocol.Frame, payload: [snapshot_begin_length]u8 } {

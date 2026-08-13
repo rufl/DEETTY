@@ -130,6 +130,15 @@ pub fn sleepMilliseconds(io: Crypto.RandomContext, milliseconds: u64) void {
         std.Thread.sleep(milliseconds * std.time.ns_per_ms);
     }
 }
+pub fn monotonicMilliseconds(io: Crypto.RandomContext) u64 {
+    if (comptime builtin.zig_version.minor >= 16) {
+        const timestamp = std.Io.Clock.awake.now(io);
+        return @intCast(@divFloor(@max(timestamp.nanoseconds, 0), std.time.ns_per_ms));
+    } else {
+        return @intCast(@divFloor(std.time.nanoTimestamp(), std.time.ns_per_ms));
+    }
+}
+
 pub fn unixTimestamp(io: Crypto.RandomContext) i64 {
     if (comptime builtin.zig_version.minor >= 16) {
         return std.Io.Timestamp.now(io, .real).toSeconds();

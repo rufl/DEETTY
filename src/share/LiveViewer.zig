@@ -32,8 +32,11 @@ pub const LiveViewer = struct {
     mutex: ShareMutex = .{},
     connection: ?Transport.SecureConnection = null,
     streams: std.array_list.Managed(Stream),
-    workspace_sequence: Protocol.Sequence = .{},
+    workspace_receive_sequence: Protocol.Sequence = .{},
+    workspace_send_sequence: Protocol.Sequence = .{},
     selected_index: usize = 0,
+    hello_received: bool = false,
+    stream_revision: u64 = 1,
     manifest_received: bool = false,
     status: Status = .connecting,
     generation: u64 = 1,
@@ -89,6 +92,18 @@ pub const LiveViewer = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
         return self.streams.items.len;
+    }
+
+    pub fn selectedIndex(self: *LiveViewer) usize {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        return self.selected_index;
+    }
+
+    pub fn streamRevision(self: *LiveViewer) u64 {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        return self.stream_revision;
     }
 
     pub fn streamInfo(self: *LiveViewer, index: usize, title_output: []u8) ?struct {
@@ -242,31 +257,91 @@ pub const LiveViewer = struct {
         });
     }
 
+    fn sendWorkspace(
+        self: *LiveViewer,
+        message_type: Protocol.MessageType,
+        payload: []const u8,
+        final: bool,
+    ) !void {
+        var connection = &(self.connection orelse return error.ShareViewerNotConnected);
+        try connection.sendFrame(self.allocator, .{
+            .header = .{
+                .message_type = message_type,
+                .flags = .{ .final = final },
+                .stream_id = 0,
+                .sequence = try self.workspace_send_sequence.sending(),
+                .payload_length = @intCast(payload.len),
+            },
+            .payload = payload,
+        });
+    }
+
     fn applyManifest(self: *LiveViewer, frame: Protocol.Frame) !void {
-        if (self.manifest_received or frame.header.stream_id != 0)
+        if (!self.hello_received or self.manifest_received or frame.header.stream_id != 0)
             return error.InvalidShareWorkspace;
-        try self.workspace_sequence.receive(frame.header.sequence);
         var decoder = try Session.ManifestDecoder.init(frame.payload);
-        while (try decoder.next()) |pane| {
-            for (self.streams.items) |stream| {
-                if (stream.receiver.stream_id == pane.stream_id or stream.pane_id == pane.pane_id)
-                    return error.InvalidShareWorkspace;
-            }
-            const owned_title = try self.allocator.dupe(u8, pane.title);
-            errdefer self.allocator.free(owned_title);
-            var receiver = try Mirror.Receiver.init(self.allocator, pane.stream_id);
-            errdefer receiver.deinit();
-            try self.streams.append(.{
-                .pane_id = pane.pane_id,
-                .title = owned_title,
-                .receiver = receiver,
-            });
-        }
+        while (try decoder.next()) |pane| try self.appendPane(pane);
         if (self.streams.items.len == 0) return error.InvalidShareWorkspace;
         self.selected_index = 0;
         self.manifest_received = true;
         self.status = .connected;
+        self.bumpStreamRevision();
         self.bumpGeneration();
+    }
+
+    fn applyPaneOpen(self: *LiveViewer, frame: Protocol.Frame) !void {
+        if (!self.manifest_received or frame.header.stream_id != 0)
+            return error.InvalidShareWorkspace;
+        var decoder = try Session.ManifestDecoder.init(frame.payload);
+        const pane = (try decoder.next()) orelse return error.InvalidShareWorkspace;
+        if ((try decoder.next()) != null) return error.InvalidShareWorkspace;
+        try self.appendPane(pane);
+        self.bumpStreamRevision();
+        self.bumpGeneration();
+    }
+
+    fn appendPane(self: *LiveViewer, pane: Session.PaneManifest) !void {
+        for (self.streams.items) |stream| {
+            if (stream.receiver.stream_id == pane.stream_id or stream.pane_id == pane.pane_id)
+                return error.InvalidShareWorkspace;
+        }
+        const owned_title = try self.allocator.dupe(u8, pane.title);
+        errdefer self.allocator.free(owned_title);
+        var receiver = try Mirror.Receiver.init(self.allocator, pane.stream_id);
+        errdefer receiver.deinit();
+        try self.streams.append(.{
+            .pane_id = pane.pane_id,
+            .title = owned_title,
+            .receiver = receiver,
+        });
+    }
+
+    fn applyPaneClose(self: *LiveViewer, frame: Protocol.Frame) !void {
+        if (!self.manifest_received or frame.header.stream_id != 0)
+            return error.InvalidShareWorkspace;
+        const closed = try Session.decodePaneClose(frame.payload);
+        var index: usize = 0;
+        while (index < self.streams.items.len and
+            (self.streams.items[index].receiver.stream_id != closed.stream_id or
+                self.streams.items[index].pane_id != closed.pane_id)) : (index += 1)
+        {}
+        if (index == self.streams.items.len) return error.InvalidSharePaneClose;
+        var removed = self.streams.orderedRemove(index);
+        removed.receiver.deinit();
+        self.allocator.free(removed.title);
+        if (self.streams.items.len == 0) {
+            self.selected_index = 0;
+        } else if (index < self.selected_index or self.selected_index >= self.streams.items.len) {
+            self.selected_index -= 1;
+        }
+        self.bumpStreamRevision();
+        self.bumpGeneration();
+        self.updateStatusFromSelected();
+    }
+
+    fn bumpStreamRevision(self: *LiveViewer) void {
+        self.stream_revision +%= 1;
+        if (self.stream_revision == 0) self.stream_revision = 1;
     }
 
     fn bumpGeneration(self: *LiveViewer) void {
@@ -277,7 +352,7 @@ pub const LiveViewer = struct {
     fn updateStatusFromSelected(self: *LiveViewer) void {
         const stream = self.selectedStream() orelse {
             if (self.status != .failed and self.status != .stopped)
-                self.status = .connecting;
+                self.status = if (self.manifest_received) .connected else .connecting;
             return;
         };
         self.status = switch (stream.receiver.permission.value) {
@@ -286,6 +361,68 @@ pub const LiveViewer = struct {
             .control_granted => .control_granted,
             .revoked => .connected,
         };
+    }
+
+    fn applyWorkspaceFrame(self: *LiveViewer, frame: Protocol.Frame) !bool {
+        if (frame.header.stream_id != 0) return error.InvalidShareWorkspace;
+        const final_expected = frame.header.message_type == .disconnect_reason;
+        if (frame.header.flags.final != final_expected)
+            return error.InvalidShareWorkspaceFlags;
+        try self.workspace_receive_sequence.receive(frame.header.sequence);
+        switch (frame.header.message_type) {
+            .hello => {
+                if (self.hello_received or self.manifest_received) return error.InvalidShareHello;
+                _ = try Session.decodeHello(frame.payload);
+                var hello_payload: [Session.hello_payload_length]u8 = undefined;
+                try Session.encodeHello(&hello_payload, .{
+                    .capabilities = Session.required_capabilities,
+                    .max_stream_count = Protocol.max_streams,
+                });
+                try self.sendWorkspace(.hello, &hello_payload, false);
+                self.hello_received = true;
+            },
+            .workspace_manifest => try self.applyManifest(frame),
+            .pane_open => try self.applyPaneOpen(frame),
+            .pane_close => try self.applyPaneClose(frame),
+            .ping => {
+                if (!self.manifest_received or frame.payload.len != 0)
+                    return error.InvalidShareKeepalive;
+                try self.sendWorkspace(.pong, "", false);
+            },
+            .disconnect_reason => {
+                if (!frame.header.flags.final) return error.InvalidShareDisconnectReason;
+                try Session.validateDisconnectReason(frame.payload);
+                self.status = .stopped;
+                return true;
+            },
+            else => return error.InvalidShareWorkspaceMessage,
+        }
+        return false;
+    }
+
+    fn applyStreamFrame(
+        self: *LiveViewer,
+        stream: *Stream,
+        frame: Protocol.Frame,
+    ) !void {
+        stream.receiver.apply(frame) catch |err| switch (err) {
+            error.MirrorResyncPending => return,
+            error.InvalidShareSequence,
+            error.MirrorSnapshotRequired,
+            error.InvalidMirrorSnapshotState,
+            error.DuplicateMirrorSnapshotRow,
+            error.IncompleteMirrorSnapshot,
+            => {
+                stream.receiver.beginResync();
+                self.bumpGeneration();
+                self.updateStatusFromSelected();
+                try self.send(stream, .resync, "");
+                return;
+            },
+            else => return err,
+        };
+        self.bumpGeneration();
+        self.updateStatusFromSelected();
     }
 
     fn worker(self: *LiveViewer) void {
@@ -310,9 +447,13 @@ pub const LiveViewer = struct {
 
         while (true) {
             self.mutex.lock();
-            const stop = self.stop_requested;
+            const should_stop = self.stop_requested;
+            if (should_stop) {
+                self.sendWorkspace(.disconnect_reason, "viewer stopped receiving", true) catch {};
+                self.status = .stopped;
+            }
             self.mutex.unlock();
-            if (stop) break;
+            if (should_stop) break;
             var active = &(self.connection.?);
             const readable = active.readable(50) catch {
                 self.setStatus(.failed);
@@ -329,29 +470,33 @@ pub const LiveViewer = struct {
                 return self.finishConnection();
             };
             self.mutex.lock();
-            if (frame.header.message_type == .workspace_manifest) {
-                self.applyManifest(frame) catch {
+            if (frame.header.stream_id == 0) {
+                const remote_stopped = self.applyWorkspaceFrame(frame) catch {
                     self.status = .failed;
                     self.mutex.unlock();
                     return self.finishConnection();
                 };
-            } else {
-                const stream = self.streamForId(frame.header.stream_id) orelse {
-                    self.status = .failed;
-                    self.mutex.unlock();
-                    return self.finishConnection();
-                };
-                stream.receiver.apply(frame) catch {
-                    self.status = .failed;
-                    self.mutex.unlock();
-                    return self.finishConnection();
-                };
-                self.bumpGeneration();
-                self.updateStatusFromSelected();
+                self.mutex.unlock();
+                if (remote_stopped) return self.finishConnection();
+                continue;
             }
+            if (!self.manifest_received) {
+                self.status = .failed;
+                self.mutex.unlock();
+                return self.finishConnection();
+            }
+            const stream = self.streamForId(frame.header.stream_id) orelse {
+                self.status = .failed;
+                self.mutex.unlock();
+                return self.finishConnection();
+            };
+            self.applyStreamFrame(stream, frame) catch {
+                self.status = .failed;
+                self.mutex.unlock();
+                return self.finishConnection();
+            };
             self.mutex.unlock();
         }
-        self.setStatus(.stopped);
         self.finishConnection();
     }
 
@@ -402,6 +547,9 @@ test "live viewer multiplexes panes and gates control per selected stream" {
     defer logs.grid.deinit();
     try shell.grid.feed("shell pane");
     try logs.grid.feed("logs pane");
+    var metrics = FakeSession{ .grid = try Vt.Grid.init(std.testing.allocator, 12, 2) };
+    defer metrics.grid.deinit();
+    try metrics.grid.feed("metrics pane");
 
     for (0..5000) |_| {
         if (host.currentStatus() == .connected and viewer.streamCount() == 2) break;
@@ -425,6 +573,46 @@ test "live viewer multiplexes panes and gates control per selected stream" {
     const info = viewer.streamInfo(1, &title).?;
     try std.testing.expectEqual(@as(u64, 42), info.pane_id);
     try std.testing.expectEqualStrings("Logs", title[0..info.title_length]);
+    const initial_revision = viewer.streamRevision();
+    try host.addPane(.{ .pane_id = 43, .title = "Metrics" });
+    try host.capture(43, &metrics);
+    for (0..5000) |_| {
+        if (viewer.streamCount() == 3) break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expectEqual(@as(usize, 3), viewer.streamCount());
+    try std.testing.expect(viewer.streamRevision() != initial_revision);
+    try viewer.selectStream(2);
+    for (0..5000) |_| {
+        if ((viewer.packedCell(0, 0) & 0x1fffff) == 'm') break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expectEqual(@as(u21, 'm'), viewer.packedCell(0, 0) & 0x1fffff);
+    try std.testing.expect(try host.removePane(43));
+    for (0..5000) |_| {
+        if (viewer.streamCount() == 2) break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expectEqual(@as(usize, 2), viewer.streamCount());
+
+    viewer.mutex.lock();
+    viewer.streams.items[0].receiver.sequence.next_receive += 1;
+    viewer.mutex.unlock();
+    try shell.grid.feed("\rresynced");
+    try host.capture(41, &shell);
+    for (0..5000) |_| {
+        if (host.needsCheckpoint(41)) break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expect(host.needsCheckpoint(41));
+    try host.capture(41, &shell);
+    try viewer.selectStream(0);
+    for (0..5000) |_| {
+        if ((viewer.packedCell(0, 0) & 0x1fffff) == 'r') break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expectEqual(@as(u21, 'r'), viewer.packedCell(0, 0) & 0x1fffff);
+    try viewer.selectStream(1);
     try std.testing.expectError(error.ShareInputNotGranted, viewer.sendInput("id\n"));
     try viewer.requestControl();
     for (0..5000) |_| {

@@ -663,7 +663,7 @@ fn nextStream(raw: ?*anyopaque) callconv(.c) c_int {
     const viewer = state.live_viewer orelse return 0;
     const count = viewer.streamCount();
     if (count < 2) return 0;
-    const next = (viewer.selected_index + 1) % count;
+    const next = (viewer.selectedIndex() + 1) % count;
     viewer.selectStream(next) catch return -1;
     return std.math.cast(c_int, next + 1) orelse -1;
 }

@@ -146,9 +146,9 @@ Current first tranche:
 - [x] checksummed ZIP/manifest packaging
 - [x] paired-device identity, matching-code confirmation, direct TCP endpoints,
   and encrypted structured terminal presentation shared with Linux
-- [x] native Windows share/receive rendering, Linux active-tab pane
-  multiplexing, receiver pane selection, and connection-scoped, per-pane host
-  approval for remote input
+- [x] native Windows share/receive rendering, dynamic Linux active-tab pane
+  multiplexing, receiver pane selection, bounded resynchronization, negotiated
+  liveness, and connection-scoped, per-pane host approval for remote input
 - [x] bounded, user-initiated LAN pairing-listener announcements and discovery
   on Linux and Windows, with direct endpoints retained for routed VPNs
 - [ ] physical Windows-to-Linux pairing, viewing, control, disconnect, and

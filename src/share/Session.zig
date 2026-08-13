@@ -16,6 +16,13 @@ pub const HostPeer = struct {
         return .{ .stream_id = stream_id, .publisher = try Presentation.Publisher.init(stream_id) };
     }
 
+    pub fn prepareResync(self: *HostPeer) void {
+        self.publisher.prepareResync();
+        self.checkpoint_required = true;
+        self.permission.revoke();
+        @memset(&self.changed_rows, false);
+    }
+
     // UI-thread observation only records bounded damage. Encoding and socket
     // writes happen later on the network worker via flush().
     pub fn observe(self: *HostPeer, session: anytype) void {
@@ -90,7 +97,10 @@ pub const HostPeer = struct {
                     return error.ShareInputTooLarge;
                 return frame.payload;
             },
-            .ping => return null,
+            .resync => {
+                if (frame.payload.len != 0) return error.InvalidShareControl;
+                return null;
+            },
             else => return error.InvalidShareControl,
         }
     }
@@ -132,6 +142,77 @@ pub const HostPeer = struct {
     }
 };
 
+pub const capability_workspace_multiplex: u32 = 1 << 0;
+pub const capability_dynamic_panes: u32 = 1 << 1;
+pub const capability_resync: u32 = 1 << 2;
+pub const capability_keepalive: u32 = 1 << 3;
+pub const capability_per_pane_control: u32 = 1 << 4;
+pub const required_capabilities: u32 =
+    capability_workspace_multiplex |
+    capability_dynamic_panes |
+    capability_resync |
+    capability_keepalive |
+    capability_per_pane_control;
+pub const hello_payload_length: usize = 8;
+pub const pane_close_payload_length: usize = 12;
+pub const max_disconnect_reason_bytes: usize = 256;
+
+pub const Hello = struct {
+    capabilities: u32,
+    max_stream_count: u16,
+
+    pub fn validate(self: Hello) !void {
+        if (self.capabilities != required_capabilities or
+            self.max_stream_count != Protocol.max_streams)
+            return error.UnsupportedShareCapabilities;
+    }
+};
+
+pub fn encodeHello(output: *[hello_payload_length]u8, hello: Hello) !void {
+    try hello.validate();
+    std.mem.writeInt(u32, output[0..4], hello.capabilities, .big);
+    std.mem.writeInt(u16, output[4..6], hello.max_stream_count, .big);
+    @memset(output[6..8], 0);
+}
+
+pub fn decodeHello(payload: []const u8) !Hello {
+    if (payload.len != hello_payload_length or payload[6] != 0 or payload[7] != 0)
+        return error.InvalidShareHello;
+    const hello = Hello{
+        .capabilities = std.mem.readInt(u32, payload[0..4], .big),
+        .max_stream_count = std.mem.readInt(u16, payload[4..6], .big),
+    };
+    try hello.validate();
+    return hello;
+}
+
+pub const PaneClose = struct {
+    stream_id: u32,
+    pane_id: u64,
+};
+
+pub fn encodePaneClose(output: *[pane_close_payload_length]u8, closed: PaneClose) !void {
+    if (closed.stream_id == 0 or closed.pane_id == 0) return error.InvalidSharePaneClose;
+    std.mem.writeInt(u32, output[0..4], closed.stream_id, .big);
+    std.mem.writeInt(u64, output[4..12], closed.pane_id, .big);
+}
+
+pub fn decodePaneClose(payload: []const u8) !PaneClose {
+    if (payload.len != pane_close_payload_length) return error.InvalidSharePaneClose;
+    const closed = PaneClose{
+        .stream_id = std.mem.readInt(u32, payload[0..4], .big),
+        .pane_id = std.mem.readInt(u64, payload[4..12], .big),
+    };
+    if (closed.stream_id == 0 or closed.pane_id == 0) return error.InvalidSharePaneClose;
+    return closed;
+}
+
+pub fn validateDisconnectReason(payload: []const u8) !void {
+    if (payload.len == 0 or payload.len > max_disconnect_reason_bytes or
+        !std.unicode.utf8ValidateSlice(payload))
+        return error.InvalidShareDisconnectReason;
+}
+
 pub const PaneManifest = struct {
     stream_id: u32,
     pane_id: u64,
@@ -146,8 +227,8 @@ pub fn encodeWorkspaceManifestAlloc(allocator: std.mem.Allocator, panes: []const
     std.mem.writeInt(u16, &count_bytes, @intCast(panes.len), .big);
     try bytes.appendSlice(&count_bytes);
     for (panes, 0..) |pane, index| {
-        if (pane.stream_id == 0 or pane.stream_id > Protocol.max_streams or
-            pane.pane_id == 0 or pane.title.len > Protocol.max_title_bytes or
+        if (pane.stream_id == 0 or pane.pane_id == 0 or
+            pane.title.len > Protocol.max_title_bytes or
             !std.unicode.utf8ValidateSlice(pane.title))
             return error.InvalidShareWorkspace;
         for (panes[0..index]) |previous| {
@@ -190,8 +271,7 @@ pub const ManifestDecoder = struct {
         const pane_id = std.mem.readInt(u64, fixed[4..12], .big);
         const title_length: usize = std.mem.readInt(u16, fixed[12..14], .big);
         self.offset += 14;
-        if (stream_id == 0 or stream_id > Protocol.max_streams or pane_id == 0 or
-            title_length > Protocol.max_title_bytes or
+        if (stream_id == 0 or pane_id == 0 or title_length > Protocol.max_title_bytes or
             title_length > self.bytes.len - self.offset)
             return error.InvalidShareWorkspace;
         const title = self.bytes[self.offset .. self.offset + title_length];
@@ -203,6 +283,31 @@ pub const ManifestDecoder = struct {
         return .{ .stream_id = stream_id, .pane_id = pane_id, .title = title };
     }
 };
+
+test "session metadata codecs reject unsupported capabilities and malformed pane closes" {
+    var hello_bytes: [hello_payload_length]u8 = undefined;
+    try encodeHello(&hello_bytes, .{
+        .capabilities = required_capabilities,
+        .max_stream_count = Protocol.max_streams,
+    });
+    const hello = try decodeHello(&hello_bytes);
+    try std.testing.expectEqual(required_capabilities, hello.capabilities);
+    var unsupported = hello_bytes;
+    unsupported[3] |= 0x80;
+    try std.testing.expectError(error.UnsupportedShareCapabilities, decodeHello(&unsupported));
+
+    var wrong_limit = hello_bytes;
+    std.mem.writeInt(u16, wrong_limit[4..6], Protocol.max_streams - 1, .big);
+    try std.testing.expectError(error.UnsupportedShareCapabilities, decodeHello(&wrong_limit));
+    var close_bytes: [pane_close_payload_length]u8 = undefined;
+    try encodePaneClose(&close_bytes, .{ .stream_id = 2, .pane_id = 42 });
+    const closed = try decodePaneClose(&close_bytes);
+    try std.testing.expectEqual(@as(u32, 2), closed.stream_id);
+    try std.testing.expectEqual(@as(u64, 42), closed.pane_id);
+    try std.testing.expectError(error.InvalidSharePaneClose, decodePaneClose(close_bytes[0..11]));
+    try validateDisconnectReason("host stopped sharing");
+    try std.testing.expectError(error.InvalidShareDisconnectReason, validateDisconnectReason(""));
+}
 
 test "host peer coalesces independent row damage and gates input" {
     const Vt = @import("../terminal/Vt.zig");

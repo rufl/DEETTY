@@ -51,7 +51,11 @@ pub const Header = struct {
 
     pub fn validate(self: Header) !void {
         if (self.payload_length > max_payload_bytes) return error.SharePayloadTooLarge;
-        if (self.stream_id > max_streams) return error.InvalidShareStream;
+        const workspace_message = switch (self.message_type) {
+            .hello, .workspace_manifest, .pane_open, .pane_close, .ping, .pong, .disconnect_reason => true,
+            else => false,
+        };
+        if ((self.stream_id == 0) != workspace_message) return error.InvalidShareStream;
         if (self.message_type == .input and self.payload_length > max_input_bytes)
             return error.ShareInputTooLarge;
     }
@@ -185,7 +189,7 @@ test "share frames round trip with fixed endian encoding" {
     const encoded = try encodeFrameAlloc(std.testing.allocator, .{
         .header = .{
             .message_type = .damage,
-            .stream_id = 7,
+            .stream_id = std.math.maxInt(u32),
             .sequence = 42,
             .payload_length = payload.len,
         },
@@ -194,14 +198,14 @@ test "share frames round trip with fixed endian encoding" {
     defer std.testing.allocator.free(encoded);
     const decoded = try decodeFrame(encoded);
     try std.testing.expectEqual(MessageType.damage, decoded.header.message_type);
-    try std.testing.expectEqual(@as(u32, 7), decoded.header.stream_id);
+    try std.testing.expectEqual(std.math.maxInt(u32), decoded.header.stream_id);
     try std.testing.expectEqual(@as(u64, 42), decoded.header.sequence);
     try std.testing.expectEqualStrings(payload, decoded.payload);
 }
 
 test "share frames reject allocations implied by hostile lengths" {
     var bytes: [header_length]u8 = undefined;
-    try encodeHeader(&bytes, .{ .message_type = .damage, .payload_length = 0 });
+    try encodeHeader(&bytes, .{ .message_type = .damage, .stream_id = 1, .payload_length = 0 });
     std.mem.writeInt(u32, bytes[20..24], max_payload_bytes + 1, .big);
     try std.testing.expectError(error.SharePayloadTooLarge, decodeHeader(&bytes));
     try std.testing.expectError(error.TruncatedShareFrame, decodeFrame(bytes[0..12]));

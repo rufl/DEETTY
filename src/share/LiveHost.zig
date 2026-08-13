@@ -7,6 +7,9 @@ const Protocol = @import("Protocol.zig");
 const Session = @import("Session.zig");
 const Transport = @import("Transport.zig");
 
+const keepalive_interval_ms: u64 = 15_000;
+const keepalive_timeout_ms: u64 = 45_000;
+
 pub const Status = enum(c_int) {
     listening = 1,
     connected = 2,
@@ -36,9 +39,15 @@ pub const LiveHost = struct {
     thread: ?std.Thread = null,
     mutex: ShareMutex = .{},
     streams: std.array_list.Managed(Stream),
-    workspace_sequence: Protocol.Sequence = .{},
+    workspace_send_sequence: Protocol.Sequence = .{},
+    workspace_receive_sequence: Protocol.Sequence = .{},
+    next_stream_id: u32 = 1,
     queue: std.array_list.Managed([]u8),
     pending_bytes: usize = 0,
+    peer_hello_received: bool = false,
+    last_peer_activity_ms: u64 = 0,
+    last_ping_ms: u64 = 0,
+    awaiting_pong: bool = false,
     status: Status = .listening,
     stop_requested: bool = false,
     grant_requested: bool = false,
@@ -70,6 +79,7 @@ pub const LiveHost = struct {
             .listener = try Transport.Listener.listen(host, listen_port),
             .streams = std.array_list.Managed(Stream).init(allocator),
             .queue = std.array_list.Managed([]u8).init(allocator),
+            .next_stream_id = @intCast(specs.len + 1),
         };
         errdefer self.listener.close();
         errdefer self.deinitStreams();
@@ -92,12 +102,16 @@ pub const LiveHost = struct {
         return self;
     }
 
-    pub fn destroy(self: *LiveHost) void {
+    pub fn stop(self: *LiveHost) void {
         self.mutex.lock();
         self.stop_requested = true;
         self.wipeInput();
         self.mutex.unlock();
         self.listener.close();
+    }
+
+    pub fn destroy(self: *LiveHost) void {
+        self.stop();
         if (self.thread) |thread| thread.join();
         self.clearQueue();
         self.queue.deinit();
@@ -107,7 +121,10 @@ pub const LiveHost = struct {
     }
 
     fn deinitStreams(self: *LiveHost) void {
-        for (self.streams.items) |stream| self.allocator.free(stream.title);
+        for (self.streams.items) |*stream| {
+            stream.peer.stop();
+            self.allocator.free(stream.title);
+        }
         self.streams.deinit();
     }
 
@@ -121,6 +138,96 @@ pub const LiveHost = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
         return self.streams.items.len;
+    }
+
+    pub fn hasPane(self: *LiveHost, pane_id: u64) bool {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        return self.streamForPane(pane_id) != null;
+    }
+
+    pub fn needsCheckpoint(self: *LiveHost, pane_id: u64) bool {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        const stream = self.streamForPane(pane_id) orelse return false;
+        return self.isConnected() and stream.peer.checkpoint_required;
+    }
+
+    pub fn addPane(self: *LiveHost, spec: StreamSpec) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        try self.validateNewSpec(spec);
+        const stream_id = self.availableStreamId() orelse return error.ShareStreamLimitReached;
+        const owned_title = try self.allocator.dupe(u8, spec.title);
+        var appended = false;
+        errdefer if (appended) {
+            const removed = self.streams.pop().?;
+            self.allocator.free(removed.title);
+        } else {
+            self.allocator.free(owned_title);
+        };
+        try self.streams.append(.{
+            .pane_id = spec.pane_id,
+            .title = owned_title,
+            .peer = try Session.HostPeer.init(stream_id),
+        });
+        appended = true;
+        if (self.isConnected()) {
+            const payload = try Session.encodeWorkspaceManifestAlloc(self.allocator, &.{
+                .{ .stream_id = stream_id, .pane_id = spec.pane_id, .title = owned_title },
+            });
+            defer self.allocator.free(payload);
+            try self.enqueueWorkspace(.pane_open, payload, false);
+        }
+    }
+
+    pub fn removePane(self: *LiveHost, pane_id: u64) !bool {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        var index: usize = 0;
+        while (index < self.streams.items.len and self.streams.items[index].pane_id != pane_id) : (index += 1) {}
+        if (index == self.streams.items.len) return false;
+        const stream = &self.streams.items[index];
+        if (self.isConnected()) {
+            var payload: [Session.pane_close_payload_length]u8 = undefined;
+            try Session.encodePaneClose(&payload, .{
+                .stream_id = stream.peer.stream_id,
+                .pane_id = stream.pane_id,
+            });
+            try self.enqueueWorkspace(.pane_close, &payload, false);
+        }
+        if (self.control_stream_id == stream.peer.stream_id) {
+            self.control_stream_id = 0;
+            self.grant_requested = false;
+            self.revoke_requested = false;
+            self.status = if (self.isConnected()) .connected else self.status;
+        }
+        if (self.input_stream_id == stream.peer.stream_id) self.wipeInput();
+        var removed = self.streams.orderedRemove(index);
+        removed.peer.stop();
+        self.allocator.free(removed.title);
+        return true;
+    }
+
+    fn validateNewSpec(self: *LiveHost, spec: StreamSpec) !void {
+        if (spec.pane_id == 0 or spec.title.len > Protocol.max_title_bytes or
+            !std.unicode.utf8ValidateSlice(spec.title))
+            return error.InvalidShareWorkspace;
+        if (self.streams.items.len >= Protocol.max_streams)
+            return error.ShareStreamLimitReached;
+        if (self.streamForPane(spec.pane_id) != null) return error.SharePaneAlreadyPublished;
+    }
+
+    fn availableStreamId(self: *LiveHost) ?u32 {
+        if (self.next_stream_id == 0) return null;
+        const stream_id = self.next_stream_id;
+        self.next_stream_id +%= 1;
+        return stream_id;
+    }
+
+    fn isConnected(self: *LiveHost) bool {
+        return self.status == .connected or self.status == .control_requested or
+            self.status == .control_granted;
     }
 
     pub fn currentStatus(self: *LiveHost) Status {
@@ -229,6 +336,45 @@ pub const LiveHost = struct {
         self.pending_bytes += bytes.len;
     }
 
+    fn enqueueWorkspace(
+        self: *LiveHost,
+        message_type: Protocol.MessageType,
+        payload: []const u8,
+        final: bool,
+    ) !void {
+        if (message_type != .pane_open and message_type != .pane_close and
+            message_type != .ping and message_type != .disconnect_reason)
+            return error.InvalidShareWorkspaceMessage;
+        try self.enqueue(.{
+            .header = .{
+                .message_type = message_type,
+                .flags = .{ .final = final },
+                .stream_id = 0,
+                .sequence = try self.workspace_send_sequence.sending(),
+                .payload_length = @intCast(payload.len),
+            },
+            .payload = payload,
+        });
+    }
+
+    fn dropQueuedStream(self: *LiveHost, stream_id: u32) void {
+        var index: usize = 0;
+        while (index < self.queue.items.len) {
+            const bytes = self.queue.items[index];
+            const frame = Protocol.decodeFrame(bytes) catch {
+                index += 1;
+                continue;
+            };
+            if (frame.header.stream_id != stream_id) {
+                index += 1;
+                continue;
+            }
+            const removed = self.queue.orderedRemove(index);
+            self.pending_bytes -= removed.len;
+            self.allocator.free(removed);
+        }
+    }
+
     fn clearQueue(self: *LiveHost) void {
         for (self.queue.items) |bytes| self.allocator.free(bytes);
         self.queue.clearRetainingCapacity();
@@ -241,7 +387,42 @@ pub const LiveHost = struct {
         self.input_stream_id = 0;
     }
 
-    fn sendManifest(self: *LiveHost, connection: *Transport.SecureConnection) !void {
+    fn sendInitial(self: *LiveHost, connection: *Transport.SecureConnection) !void {
+        var hello_payload: [Session.hello_payload_length]u8 = undefined;
+        try Session.encodeHello(&hello_payload, .{
+            .capabilities = Session.required_capabilities,
+            .max_stream_count = Protocol.max_streams,
+        });
+        self.mutex.lock();
+        const hello_sequence = self.workspace_send_sequence.sending() catch |err| {
+            self.mutex.unlock();
+            return err;
+        };
+        self.mutex.unlock();
+        try connection.sendFrame(self.allocator, .{
+            .header = .{
+                .message_type = .hello,
+                .stream_id = 0,
+                .sequence = hello_sequence,
+                .payload_length = hello_payload.len,
+            },
+            .payload = &hello_payload,
+        });
+
+        if (!try connection.readable(5_000)) return error.ShareHelloTimedOut;
+        const response_bytes = try connection.receiveFrameAlloc(self.allocator);
+        defer self.allocator.free(response_bytes);
+        const response = try Protocol.decodeFrame(response_bytes);
+        if (response.header.message_type != .hello or response.header.stream_id != 0 or
+            response.header.flags.final)
+            return error.InvalidShareHello;
+
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        try self.workspace_receive_sequence.receive(response.header.sequence);
+        if (self.peer_hello_received) return error.InvalidShareHello;
+        _ = try Session.decodeHello(response.payload);
+        self.peer_hello_received = true;
         var panes: [Protocol.max_streams]Session.PaneManifest = undefined;
         for (self.streams.items, 0..) |stream, index| {
             panes[index] = .{
@@ -259,10 +440,34 @@ pub const LiveHost = struct {
             .header = .{
                 .message_type = .workspace_manifest,
                 .stream_id = 0,
-                .sequence = try self.workspace_sequence.sending(),
+                .sequence = try self.workspace_send_sequence.sending(),
                 .payload_length = @intCast(payload.len),
             },
             .payload = payload,
+        });
+    }
+
+    fn sendDisconnect(
+        self: *LiveHost,
+        connection: *Transport.SecureConnection,
+        reason: []const u8,
+    ) !void {
+        try Session.validateDisconnectReason(reason);
+        self.mutex.lock();
+        const sequence = self.workspace_send_sequence.sending() catch |err| {
+            self.mutex.unlock();
+            return err;
+        };
+        self.mutex.unlock();
+        try connection.sendFrame(self.allocator, .{
+            .header = .{
+                .message_type = .disconnect_reason,
+                .flags = .{ .final = true },
+                .stream_id = 0,
+                .sequence = sequence,
+                .payload_length = @intCast(reason.len),
+            },
+            .payload = reason,
         });
     }
 
@@ -276,28 +481,53 @@ pub const LiveHost = struct {
             return;
         };
         defer connection.close();
-        self.sendManifest(connection) catch {
+        self.sendInitial(connection) catch {
             self.setTerminalStatus(.failed);
             return;
         };
-        self.setTerminalStatus(.connected);
+        const connected_at = Transport.monotonicMilliseconds(self.io);
+        self.mutex.lock();
+        self.status = .connected;
+        self.last_peer_activity_ms = connected_at;
+        self.last_ping_ms = connected_at;
+        self.mutex.unlock();
         while (true) {
             self.mutex.lock();
-            if (self.stop_requested) {
-                self.status = .stopped;
-                self.wipeInput();
-                self.mutex.unlock();
-                return;
-            }
-            const queued = if (self.queue.items.len == 0) null else self.queue.orderedRemove(0);
-            if (queued) |bytes| self.pending_bytes -= bytes.len;
-            const grant = self.grant_requested;
-            self.grant_requested = false;
+            const should_stop = self.stop_requested;
             const revoke = self.revoke_requested;
+            const grant = self.grant_requested and !revoke;
+            self.grant_requested = false;
             self.revoke_requested = false;
             const control_stream_id = self.control_stream_id;
+            const now = Transport.monotonicMilliseconds(self.io);
+            const pong_expired = self.awaiting_pong and now -| self.last_ping_ms >= keepalive_timeout_ms;
+            if (!should_stop and !pong_expired and !self.awaiting_pong and
+                now -| self.last_peer_activity_ms >= keepalive_interval_ms)
+            {
+                self.enqueueWorkspace(.ping, "", false) catch {
+                    self.status = .failed;
+                    self.mutex.unlock();
+                    return;
+                };
+                self.awaiting_pong = true;
+                self.last_ping_ms = now;
+            }
+            const queued = if (should_stop or pong_expired or self.queue.items.len == 0)
+                null
+            else
+                self.queue.orderedRemove(0);
+            if (queued) |bytes| self.pending_bytes -= bytes.len;
             self.mutex.unlock();
 
+            if (should_stop) {
+                self.sendDisconnect(connection, "host stopped sharing") catch {};
+                self.setTerminalStatus(.stopped);
+                return;
+            }
+            if (pong_expired) {
+                self.setTerminalStatus(.failed);
+                return;
+            }
             if (queued) |bytes| {
                 defer self.allocator.free(bytes);
                 const frame = Protocol.decodeFrame(bytes) catch {
@@ -308,7 +538,6 @@ pub const LiveHost = struct {
                     self.setTerminalStatus(.failed);
                     return;
                 };
-                continue;
             }
             if (grant) {
                 self.mutex.lock();
@@ -343,7 +572,7 @@ pub const LiveHost = struct {
                 self.mutex.unlock();
                 continue;
             }
-            const readable = connection.readable(20) catch {
+            const readable = connection.readable(if (queued == null) 20 else 0) catch {
                 self.setTerminalStatus(.failed);
                 return;
             };
@@ -358,6 +587,53 @@ pub const LiveHost = struct {
                 return;
             };
             self.mutex.lock();
+            self.last_peer_activity_ms = Transport.monotonicMilliseconds(self.io);
+            if (frame.header.stream_id == 0) {
+                const final_expected = frame.header.message_type == .disconnect_reason;
+                if (frame.header.flags.final != final_expected) {
+                    self.status = .failed;
+                    self.mutex.unlock();
+                    return;
+                }
+                self.workspace_receive_sequence.receive(frame.header.sequence) catch {
+                    self.status = .failed;
+                    self.mutex.unlock();
+                    return;
+                };
+                switch (frame.header.message_type) {
+                    .pong => {
+                        if (frame.payload.len != 0 or !self.awaiting_pong) {
+                            self.status = .failed;
+                            self.mutex.unlock();
+                            return;
+                        }
+                        self.awaiting_pong = false;
+                    },
+                    .disconnect_reason => {
+                        Session.validateDisconnectReason(frame.payload) catch {
+                            self.status = .failed;
+                            self.mutex.unlock();
+                            return;
+                        };
+                        self.status = .stopped;
+                        self.wipeInput();
+                        self.mutex.unlock();
+                        return;
+                    },
+                    else => {
+                        self.status = .failed;
+                        self.mutex.unlock();
+                        return;
+                    },
+                }
+                self.mutex.unlock();
+                continue;
+            }
+            if (frame.header.flags.final or !self.peer_hello_received) {
+                self.status = .failed;
+                self.mutex.unlock();
+                return;
+            }
             const stream = self.streamForId(frame.header.stream_id) orelse {
                 self.status = .failed;
                 self.mutex.unlock();
@@ -368,7 +644,17 @@ pub const LiveHost = struct {
                 self.mutex.unlock();
                 return;
             };
-            if (input) |bytes| {
+            if (frame.header.message_type == .resync) {
+                self.dropQueuedStream(frame.header.stream_id);
+                stream.peer.prepareResync();
+                if (self.control_stream_id == frame.header.stream_id) {
+                    self.control_stream_id = 0;
+                    self.grant_requested = false;
+                    self.revoke_requested = false;
+                    self.wipeInput();
+                    self.status = .connected;
+                }
+            } else if (input) |bytes| {
                 if ((self.input_length != 0 and self.input_stream_id != frame.header.stream_id) or
                     self.input_length + bytes.len > self.input.len)
                 {
@@ -426,6 +712,25 @@ test "live host publishes damage and dispatches only granted input" {
     const viewer_peer = try Identity.Peer.init(host_identity.public_key, "host", "127.0.0.1", live.port(), 1);
     var viewer = try Link.Viewer.connect(std.testing.allocator, io, "127.0.0.1", live.port(), viewer_identity, &viewer_peer, 1);
     defer viewer.close();
+    const hello_bytes = try viewer.connection.receiveFrameAlloc(std.testing.allocator);
+    defer std.testing.allocator.free(hello_bytes);
+    const hello = try Protocol.decodeFrame(hello_bytes);
+    try std.testing.expectEqual(Protocol.MessageType.hello, hello.header.message_type);
+    _ = try Session.decodeHello(hello.payload);
+    var hello_response: [Session.hello_payload_length]u8 = undefined;
+    try Session.encodeHello(&hello_response, .{
+        .capabilities = Session.required_capabilities,
+        .max_stream_count = Protocol.max_streams,
+    });
+    try viewer.connection.sendFrame(std.testing.allocator, .{
+        .header = .{
+            .message_type = .hello,
+            .stream_id = 0,
+            .sequence = 0,
+            .payload_length = hello_response.len,
+        },
+        .payload = &hello_response,
+    });
     const manifest_bytes = try viewer.connection.receiveFrameAlloc(std.testing.allocator);
     defer std.testing.allocator.free(manifest_bytes);
     const manifest = try Protocol.decodeFrame(manifest_bytes);

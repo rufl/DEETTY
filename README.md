@@ -128,13 +128,15 @@ a LAN address, IPv4/IPv6 address, DNS name, or a
 Tailscale/WireGuard/ZeroTier-style VPN name or address.
 
 Select the saved peer and use **Share current tab** on the host and
-**Receive selected device** on the viewer. The share captures every pane that
-belongs to the active tab when sharing starts; the receiver's **Shared pane**
-selector switches between their independent remote grids. Keep the same TCP
+**Receive selected device** on the viewer. The share follows every pane in the
+tab that was active when sharing started: newly opened panes appear in the
+receiver's **Shared pane** selector, and closed or moved panes disappear. Each
+pane keeps an independent bounded remote grid and sequence. Keep the same TCP
 port used during pairing reachable on the host. Viewing is the default. A
 control request and host grant apply only to the selected pane and current
-connection; the grant ends on revoke, disconnect, or reconnect. **Revoke paired
-device** persists locally and closes a matching active share.
+connection; the grant ends on revoke, disconnect, pane closure,
+resynchronization, or reconnect. **Revoke paired device** persists locally and
+closes a matching active share.
 
 There is no relay, account service, NAT traversal, port forwarding, or subnet
 scan. Pairing listeners send bounded, opt-in LAN multicast/broadcast
@@ -144,6 +146,13 @@ trust begins only after both devices confirm the same pairing code. Discovery
 runs only while the user asks for it in the Session Sharing dialog; closing the
 dialog stops discovery. Direct endpoints remain the reliable path across
 routed VPNs.
+
+After the encrypted transport starts, both sides require the same workspace,
+dynamic-pane, resynchronization, keepalive, and per-pane-control capabilities.
+Sequence gaps discard the affected pane's partial snapshot and request a fresh
+bounded checkpoint; they are not repaired by replaying an unbounded PTY byte
+stream. The host also probes an otherwise idle viewer and closes a link that
+does not answer.
 
 ## What NOCTTY is not
 
