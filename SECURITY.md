@@ -53,7 +53,8 @@ NOCTTY should maintain these boundaries:
   for first pairing and Noise transport encryption, and requires matching
   six-digit confirmation on both devices
 - remote terminal access is view-only by default; input requires a fresh host
-  grant for the current connection, and revocation closes matching live links
+  grant for the selected pane on the current connection, grants do not cross
+  pane streams, and revocation closes matching live links
 - discovery announcements are unauthenticated hints; users must treat the
   endpoint and alias as untrusted until both devices show the same pairing code
 - paired-device state uses private atomic storage on Linux and

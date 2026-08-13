@@ -284,7 +284,8 @@ const ShareState = struct {
     pairing: ?*noctty.share.pair_controller.Controller = null,
     live_host: ?*noctty.share.live_host.LiveHost = null,
     live_viewer: ?*noctty.share.live_viewer.LiveViewer = null,
-    shared_pane_id: ?u64 = null,
+    shared_pane_ids: [noctty.share.protocol.max_streams]u64 = [_]u64{0} ** noctty.share.protocol.max_streams,
+    shared_pane_count: usize = 0,
     discovery: ?noctty.share.transport.Discovery = null,
     announcement: ?noctty.share.transport.Discovery = null,
     announcement_instance: [16]u8 = [_]u8{0} ** 16,
@@ -659,8 +660,14 @@ export fn noctty_grid_share_action(
             if (index >= state.store.peer_count) return -1;
             const peer = state.store.peerSliceConst()[index];
             const active_tab = bridge.app.workspace.activeTab() orelse return -1;
-            const pane_id = active_tab.active_pane_id;
-            _ = nativeGridSessionForPane(bridge, pane_id) orelse return -1;
+            if (active_tab.panes.items.len == 0 or
+                active_tab.panes.items.len > noctty.share.protocol.max_streams)
+                return -1;
+            var specs: [noctty.share.protocol.max_streams]noctty.share.live_host.StreamSpec = undefined;
+            for (active_tab.panes.items, 0..) |pane, pane_index| {
+                _ = nativeGridSessionForPane(bridge, pane.id) orelse return -1;
+                specs[pane_index] = .{ .pane_id = pane.id, .title = pane.title };
+            }
             const host = noctty.share.live_host.LiveHost.create(
                 state.allocator,
                 noctty.share.crypto.fromIo(state.io),
@@ -668,16 +675,18 @@ export fn noctty_grid_share_action(
                 peer,
                 null,
                 port,
-                1,
+                specs[0..active_tab.panes.items.len],
             ) catch return -1;
-            state.shared_pane_id = pane_id;
+            for (active_tab.panes.items, 0..) |pane, pane_index|
+                state.shared_pane_ids[pane_index] = pane.id;
+            state.shared_pane_count = active_tab.panes.items.len;
             state.live_host = host;
         },
         6 => {
             const host = state.live_host orelse return -1;
             host.destroy();
             state.live_host = null;
-            state.shared_pane_id = null;
+            state.shared_pane_count = 0;
         },
         7 => (state.live_host orelse return -1).grantControl(),
         8 => (state.live_host orelse return -1).revokeControl(),
@@ -690,7 +699,7 @@ export fn noctty_grid_share_action(
                 if (std.crypto.timing_safe.eql([32]u8, host.paired_peer.public_key, public_key)) {
                     host.destroy();
                     state.live_host = null;
-                    state.shared_pane_id = null;
+                    state.shared_pane_count = 0;
                 }
             }
             if (state.live_viewer) |viewer| {
@@ -712,7 +721,6 @@ export fn noctty_grid_share_action(
                 noctty.share.crypto.fromIo(state.io),
                 state.store.identity,
                 peer,
-                1,
             ) catch return -1;
         },
         11 => {
@@ -781,6 +789,32 @@ export fn noctty_grid_share_view_dimensions(raw: ?*anyopaque, columns: *u16, row
     columns.* = dimensions.columns;
     rows.* = dimensions.rows;
     return @intFromBool(dimensions.columns != 0 and dimensions.rows != 0);
+}
+
+export fn noctty_grid_share_view_stream(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    title_output: [*]u8,
+    title_capacity: usize,
+    pane_id_output: *u64,
+    selected_output: *c_int,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return 0;
+    if (index_raw < 0) return std.math.cast(c_int, viewer.streamCount()) orelse -1;
+    const index: usize = @intCast(index_raw);
+    const info = viewer.streamInfo(index, title_output[0..title_capacity]) orelse return -1;
+    pane_id_output.* = info.pane_id;
+    selected_output.* = @intFromBool(info.selected);
+    return std.math.cast(c_int, info.title_length) orelse -1;
+}
+
+export fn noctty_grid_share_view_select(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return -1;
+    if (index_raw < 0) return -1;
+    viewer.selectStream(@intCast(index_raw)) catch return -1;
+    return 0;
 }
 
 export fn noctty_grid_share_view_cell(raw: ?*anyopaque, column: c_int, row: c_int) callconv(.c) u64 {
@@ -1778,21 +1812,26 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
                 return;
             };
             if (state.live_host) |host| {
-                if (state.shared_pane_id) |shared_pane_id| {
+                var shared = false;
+                for (state.shared_pane_ids[0..state.shared_pane_count]) |shared_pane_id| {
                     if (pane_id == shared_pane_id) {
-                        const session = nativeGridSessionForPane(bridge, shared_pane_id) orelse {
-                            bridge.callback_failed = true;
-                            return;
-                        };
-                        host.capture(session) catch {
-                            bridge.callback_failed = true;
-                            return;
-                        };
-                        _ = host.drainInput(session) catch {
-                            bridge.callback_failed = true;
-                            return;
-                        };
+                        shared = true;
+                        break;
                     }
+                }
+                if (shared) {
+                    const session = nativeGridSessionForPane(bridge, pane_id) orelse {
+                        bridge.callback_failed = true;
+                        return;
+                    };
+                    host.capture(pane_id, session) catch {
+                        bridge.callback_failed = true;
+                        return;
+                    };
+                    _ = host.drainInput(pane_id, session) catch {
+                        bridge.callback_failed = true;
+                        return;
+                    };
                 }
             }
         }

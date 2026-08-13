@@ -18,9 +18,10 @@ Included:
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
 - `Ctrl+Shift+C` copy of the visible terminal surface
 - local lifecycle/error logs and local crash minidumps
-- explicit command-line LAN discovery, pairing, and encrypted single-terminal
+- explicit command-line LAN discovery, pairing, and encrypted terminal
   sharing/receiving with a native GDI remote view and host-approved,
-  connection-scoped input
+  connection-scoped input; `Ctrl+Shift+Tab` cycles shared panes sent by a Linux
+  host
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
@@ -100,9 +101,12 @@ receive it on Device B:
 ```
 
 The receiver starts view-only. Typing requests control; Device A shows a native
-approval prompt before any input is delivered. Approval applies only to that
-connection and ends on disconnect. The shell, process, and scrollback remain
-owned by Device A; this is presentation mirroring, not PTY migration.
+approval prompt before any input is delivered. Approval applies only to the
+selected shared pane and that connection, and ends on disconnect. When a Linux
+workspace shares multiple panes, `Ctrl+Shift+Tab` cycles them in the Windows
+receiver. A Windows host currently publishes its one ConPTY terminal. The
+shell, process, and scrollback remain owned by Device A; this is presentation
+mirroring, not PTY migration.
 
 ## Build from Linux or Windows
 

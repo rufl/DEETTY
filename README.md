@@ -127,12 +127,14 @@ and explicitly confirm the six-digit code on both devices. The endpoint may be
 a LAN address, IPv4/IPv6 address, DNS name, or a
 Tailscale/WireGuard/ZeroTier-style VPN name or address.
 
-Select the saved peer and use **Share current terminal** on the host and
-**Receive selected device** on the viewer. Keep the same TCP port used during
-pairing reachable on the host. Viewing is the default. Input is accepted only
-after the viewer requests control and the host grants it; the grant ends on
-revoke, disconnect, or reconnect. **Revoke paired device** persists locally and
-closes a matching active share.
+Select the saved peer and use **Share current tab** on the host and
+**Receive selected device** on the viewer. The share captures every pane that
+belongs to the active tab when sharing starts; the receiver's **Shared pane**
+selector switches between their independent remote grids. Keep the same TCP
+port used during pairing reachable on the host. Viewing is the default. A
+control request and host grant apply only to the selected pane and current
+connection; the grant ends on revoke, disconnect, or reconnect. **Revoke paired
+device** persists locally and closes a matching active share.
 
 There is no relay, account service, NAT traversal, port forwarding, or subnet
 scan. Pairing listeners send bounded, opt-in LAN multicast/broadcast

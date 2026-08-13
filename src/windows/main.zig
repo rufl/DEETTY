@@ -5,7 +5,7 @@ const Vt = Share.vt;
 const Crypto = Share.crypto;
 const Release = @import("noctty_release");
 
-const host_abi_version: u32 = 3;
+const host_abi_version: u32 = 4;
 const columns_initial: usize = 120;
 const rows_initial: usize = 36;
 
@@ -38,6 +38,7 @@ const SmokeReady = *const fn (?*anyopaque) callconv(.c) c_int;
 const Start = *const fn (?*anyopaque) callconv(.c) c_int;
 const Stop = *const fn (?*anyopaque) callconv(.c) c_int;
 
+const NextStream = *const fn (?*anyopaque) callconv(.c) c_int;
 const Callbacks = extern struct {
     abi_version: u32 = host_abi_version,
     struct_size: u32 = @sizeOf(Callbacks),
@@ -57,6 +58,7 @@ const Callbacks = extern struct {
     smoke_ready: SmokeReady,
     start: Start,
     stop: Stop,
+    next_stream: NextStream,
 };
 
 extern fn noctty_windows_host_run(
@@ -169,7 +171,7 @@ pub export fn wWinMain(
             state.store.peerSliceConst()[mode.index],
             null,
             mode.port,
-            1,
+            &.{.{ .pane_id = 1, .title = "ConPTY" }},
         ) catch return 1;
     } else if (mode.kind == .receive) {
         if (mode.index >= state.store.peer_count) return 1;
@@ -178,7 +180,6 @@ pub export fn wWinMain(
             random,
             state.store.identity,
             state.store.peerSliceConst()[mode.index],
-            1,
         ) catch return 1;
     }
 
@@ -199,6 +200,7 @@ pub export fn wWinMain(
         .smoke_ready = smokeReady,
         .start = localStart,
         .stop = localStop,
+        .next_stream = nextStream,
     };
     return noctty_windows_host_run(instance, show_command, &callbacks);
 }
@@ -500,7 +502,7 @@ fn confirmWindowsControl() bool {
     return MessageBoxW(
         null,
         std.unicode.utf8ToUtf16LeStringLiteral(
-            "The paired viewer requests terminal control for this connection. Grant it?",
+            "The paired viewer requests terminal control for one shared pane on this connection. Grant it?",
         ),
         std.unicode.utf8ToUtf16LeStringLiteral("NOCTTY Remote Control"),
         0x34,
@@ -545,7 +547,7 @@ fn feed(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int 
     const state = stateFromRaw(raw) orelse return -1;
     if (length > 2 * 1024 * 1024) return -1;
     state.grid.feed(bytes[0..length]) catch return -1;
-    if (state.live_host) |host| host.capture(state) catch return -1;
+    if (state.live_host) |host| host.capture(1, state) catch return -1;
     return std.math.cast(c_int, length) orelse -1;
 }
 
@@ -563,7 +565,7 @@ fn takeReply(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_in
 fn takeRemote(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
     const host = state.live_host orelse return 0;
-    host.capture(state) catch return -1;
+    host.capture(1, state) catch return -1;
     if (host.currentStatus() == .control_requested) {
         if (confirmWindowsControl())
             host.grantControl()
@@ -571,7 +573,7 @@ fn takeRemote(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_i
             host.revokeControl();
     }
     var sink = RemoteInputSink{ .output = output[0..capacity] };
-    _ = host.drainInput(&sink) catch return -1;
+    _ = host.drainInput(1, &sink) catch return -1;
     return std.math.cast(c_int, sink.length) orelse -1;
 }
 
@@ -654,6 +656,16 @@ fn cursorMode(raw: ?*anyopaque) callconv(.c) c_int {
     if (state.live_viewer) |viewer|
         return @intFromBool(viewer.applicationCursorKeys());
     return @intFromBool(state.grid.application_cursor_keys);
+}
+
+fn nextStream(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    const viewer = state.live_viewer orelse return 0;
+    const count = viewer.streamCount();
+    if (count < 2) return 0;
+    const next = (viewer.selected_index + 1) % count;
+    viewer.selectStream(next) catch return -1;
+    return std.math.cast(c_int, next + 1) orelse -1;
 }
 
 fn smokeReady(raw: ?*anyopaque) callconv(.c) c_int {

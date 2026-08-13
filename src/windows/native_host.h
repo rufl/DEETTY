@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <windows.h>
 
-#define NOCTTY_WINDOWS_HOST_ABI_VERSION 3u
+#define NOCTTY_WINDOWS_HOST_ABI_VERSION 4u
 
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
@@ -22,6 +22,7 @@ typedef int (*NocttyWindowsCursorMode)(void *);
 typedef int (*NocttyWindowsSmokeReady)(void *);
 typedef int (*NocttyWindowsStart)(void *);
 typedef int (*NocttyWindowsStop)(void *);
+typedef int (*NocttyWindowsNextStream)(void *);
 
 typedef struct {
     uint32_t abi_version;
@@ -42,6 +43,7 @@ typedef struct {
     NocttyWindowsSmokeReady smoke_ready;
     NocttyWindowsStart start;
     NocttyWindowsStop stop;
+    NocttyWindowsNextStream next_stream;
 } NocttyWindowsCallbacks;
 
 int noctty_windows_host_run(HINSTANCE instance, int show_command,

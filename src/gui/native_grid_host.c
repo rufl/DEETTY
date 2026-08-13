@@ -123,6 +123,9 @@ extern uint32_t noctty_grid_share_view_color(void *, uint32_t);
 extern uint32_t noctty_grid_share_view_cursor(void *);
 extern int noctty_grid_share_view_cursor_mode(void *);
 extern int noctty_grid_share_view_title(void *, uint8_t *, size_t);
+extern int noctty_grid_share_view_stream(void *, int, uint8_t *, size_t,
+                                         uint64_t *, int *);
+extern int noctty_grid_share_view_select(void *, int);
 extern int noctty_grid_share_view_input(void *, const uint8_t *, size_t);
 extern int noctty_qt_shortcut_from_gdk(guint keyval, guint state);
 
@@ -12811,6 +12814,64 @@ static void refresh_sharing_peers(NocttyGridContext *context) {
                                  previous >= 0 && previous < count ? previous : 0);
 }
 
+static void on_sharing_stream_changed(GtkComboBox *combo, gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    if (GPOINTER_TO_INT(g_object_get_data(
+            G_OBJECT(combo), "noctty-sharing-stream-refreshing")) != 0)
+        return;
+    int index = gtk_combo_box_get_active(combo);
+    if (index < 0) return;
+    if (noctty_grid_share_view_select(root->event_data, index) == 0 &&
+        root->sharing_dialog != NULL) {
+        GtkWidget *preview = g_object_get_data(
+            G_OBJECT(root->sharing_dialog), "noctty-sharing-preview");
+        if (preview != NULL) gtk_widget_queue_draw(preview);
+    }
+}
+
+static void refresh_sharing_streams(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    GtkWidget *dialog = root->sharing_dialog;
+    if (dialog == NULL) return;
+    GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-streams"));
+    if (combo == NULL) return;
+    uint8_t ignored_title = 0;
+    int count = noctty_grid_share_view_stream(
+        root->event_data, -1, &ignored_title, 0, &(uint64_t){0}, &(int){0});
+    int known = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-stream-count"));
+    if (count == known) return;
+    g_object_set_data(G_OBJECT(combo), "noctty-sharing-stream-refreshing",
+                      GINT_TO_POINTER(1));
+    gtk_combo_box_text_remove_all(combo);
+    int selected = -1;
+    for (int index = 0; index < count; index++) {
+        uint8_t title[4097] = {0};
+        uint64_t pane_id = 0;
+        int is_selected = 0;
+        int title_length = noctty_grid_share_view_stream(
+            root->event_data, index, title, sizeof(title) - 1u, &pane_id,
+            &is_selected);
+        if (title_length < 0) continue;
+        title[(size_t)title_length] = '\0';
+        char *label = g_strdup_printf(
+            "%s%s%llu", title_length == 0 ? "Pane " : (char *)title,
+            title_length == 0 ? "" : " — pane ",
+            (unsigned long long)pane_id);
+        gtk_combo_box_text_append_text(combo, label);
+        g_free(label);
+        if (is_selected) selected = index;
+    }
+    if (count > 0)
+        gtk_combo_box_set_active(GTK_COMBO_BOX(combo),
+                                 selected >= 0 ? selected : 0);
+    g_object_set_data(G_OBJECT(combo), "noctty-sharing-stream-refreshing",
+                      GINT_TO_POINTER(0));
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stream-count",
+                      GINT_TO_POINTER(count));
+}
+
 static gboolean refresh_sharing_status(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *dialog = root->sharing_dialog;
@@ -12913,6 +12974,7 @@ static gboolean refresh_sharing_status(gpointer user_data) {
     gtk_widget_set_sensitive(stop_receive, status >= 301 && status <= 304);
     gtk_widget_set_sensitive(request_control, status == 302);
     gtk_widget_queue_draw(preview);
+    refresh_sharing_streams(root);
     int known_count = GPOINTER_TO_INT(g_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-peer-count"));
     int current_count = noctty_grid_share_peer(root->event_data, -1, NULL, 0,
@@ -13007,7 +13069,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     GtkWidget *confirm = sharing_action_button("Confirm matching code", 3, root);
     GtkWidget *cancel_pairing = sharing_action_button("Cancel pairing", 4, root);
     GtkWidget *discover = sharing_action_button("Discover on LAN", 13, root);
-    GtkWidget *share = sharing_action_button("Share current terminal", 5, root);
+    GtkWidget *share = sharing_action_button("Share current tab", 5, root);
     GtkWidget *stop = sharing_action_button("Stop sharing", 6, root);
     GtkWidget *grant = sharing_action_button("Grant control", 7, root);
     GtkWidget *revoke = sharing_action_button("Deny / revoke control", 8, root);
@@ -13015,6 +13077,10 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     GtkWidget *receive = sharing_action_button("Receive selected device", 10, root);
     GtkWidget *stop_receive = sharing_action_button("Stop receiving", 11, root);
     GtkWidget *request_control = sharing_action_button("Request control", 12, root);
+    GtkWidget *streams = gtk_combo_box_text_new();
+    gtk_widget_set_hexpand(streams, TRUE);
+    g_signal_connect(streams, "changed",
+                     G_CALLBACK(on_sharing_stream_changed), root);
     GtkWidget *preview = gtk_drawing_area_new();
     gtk_widget_set_size_request(preview, 800, 360);
     gtk_widget_set_hexpand(preview, TRUE);
@@ -13022,10 +13088,11 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     gtk_widget_set_can_focus(preview, TRUE);
     AtkObject *preview_accessible = gtk_widget_get_accessible(preview);
     if (preview_accessible != NULL) {
-        atk_object_set_name(preview_accessible, "Remote terminal preview");
+        atk_object_set_name(preview_accessible, "Selected remote terminal pane");
         atk_object_set_description(
             preview_accessible,
-            "Focus to send input after the host grants temporary control.");
+            "Choose a shared pane above. Focus here to send input after the "
+            "host grants temporary control for that pane.");
     }
     gtk_widget_add_events(preview, GDK_KEY_PRESS_MASK);
     g_signal_connect(preview, "draw", G_CALLBACK(draw_sharing_preview), root);
@@ -13061,13 +13128,18 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     gtk_grid_attach(GTK_GRID(grid), receive, 1, 6, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), stop_receive, 2, 6, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), request_control, 3, 6, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), preview, 0, 7, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), status, 0, 8, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), security, 0, 9, 4, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Shared pane"), 0, 7, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), streams, 1, 7, 3, 1);
+    gtk_grid_attach(GTK_GRID(grid), preview, 0, 8, 4, 1);
+    gtk_grid_attach(GTK_GRID(grid), status, 0, 9, 4, 1);
+    gtk_grid_attach(GTK_GRID(grid), security, 0, 10, 4, 1);
 
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peers", peers);
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-alias", alias);
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-endpoint", endpoint);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-streams", streams);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stream-count",
+                      GINT_TO_POINTER(-1));
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-port", port);
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-status", status);
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-confirm", confirm);

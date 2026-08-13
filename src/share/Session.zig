@@ -145,10 +145,15 @@ pub fn encodeWorkspaceManifestAlloc(allocator: std.mem.Allocator, panes: []const
     var count_bytes: [2]u8 = undefined;
     std.mem.writeInt(u16, &count_bytes, @intCast(panes.len), .big);
     try bytes.appendSlice(&count_bytes);
-    for (panes) |pane| {
+    for (panes, 0..) |pane, index| {
         if (pane.stream_id == 0 or pane.stream_id > Protocol.max_streams or
-            pane.title.len > Protocol.max_title_bytes or !std.unicode.utf8ValidateSlice(pane.title))
+            pane.pane_id == 0 or pane.title.len > Protocol.max_title_bytes or
+            !std.unicode.utf8ValidateSlice(pane.title))
             return error.InvalidShareWorkspace;
+        for (panes[0..index]) |previous| {
+            if (previous.stream_id == pane.stream_id or previous.pane_id == pane.pane_id)
+                return error.InvalidShareWorkspace;
+        }
         var fixed: [14]u8 = undefined;
         std.mem.writeInt(u32, fixed[0..4], pane.stream_id, .big);
         std.mem.writeInt(u64, fixed[4..12], pane.pane_id, .big);
@@ -159,6 +164,45 @@ pub fn encodeWorkspaceManifestAlloc(allocator: std.mem.Allocator, panes: []const
     }
     return bytes.toOwnedSlice();
 }
+
+pub const ManifestDecoder = struct {
+    bytes: []const u8,
+    offset: usize = 2,
+    remaining: u16,
+
+    pub fn init(bytes: []const u8) !ManifestDecoder {
+        if (bytes.len < 2 or bytes.len > Protocol.max_payload_bytes)
+            return error.InvalidShareWorkspace;
+        const count = std.mem.readInt(u16, bytes[0..2], .big);
+        if (count == 0 or count > Protocol.max_streams)
+            return error.InvalidShareWorkspace;
+        return .{ .bytes = bytes, .remaining = count };
+    }
+
+    pub fn next(self: *ManifestDecoder) !?PaneManifest {
+        if (self.remaining == 0) {
+            if (self.offset != self.bytes.len) return error.InvalidShareWorkspace;
+            return null;
+        }
+        if (self.bytes.len - self.offset < 14) return error.InvalidShareWorkspace;
+        const fixed = self.bytes[self.offset .. self.offset + 14];
+        const stream_id = std.mem.readInt(u32, fixed[0..4], .big);
+        const pane_id = std.mem.readInt(u64, fixed[4..12], .big);
+        const title_length: usize = std.mem.readInt(u16, fixed[12..14], .big);
+        self.offset += 14;
+        if (stream_id == 0 or stream_id > Protocol.max_streams or pane_id == 0 or
+            title_length > Protocol.max_title_bytes or
+            title_length > self.bytes.len - self.offset)
+            return error.InvalidShareWorkspace;
+        const title = self.bytes[self.offset .. self.offset + title_length];
+        if (!std.unicode.utf8ValidateSlice(title)) return error.InvalidShareWorkspace;
+        self.offset += title_length;
+        self.remaining -= 1;
+        if (self.remaining == 0 and self.offset != self.bytes.len)
+            return error.InvalidShareWorkspace;
+        return .{ .stream_id = stream_id, .pane_id = pane_id, .title = title };
+    }
+};
 
 test "host peer coalesces independent row damage and gates input" {
     const Vt = @import("../terminal/Vt.zig");
@@ -186,4 +230,35 @@ test "workspace manifest is bounded and omits process identifiers" {
     defer std.testing.allocator.free(bytes);
     try std.testing.expect(bytes.len < 128);
     try std.testing.expect(std.mem.indexOf(u8, bytes, "/tmp") == null);
+}
+
+test "workspace manifest decoder rejects duplicates and trailing bytes" {
+    const panes = [_]PaneManifest{
+        .{ .stream_id = 1, .pane_id = 41, .title = "Shell" },
+        .{ .stream_id = 2, .pane_id = 42, .title = "Logs" },
+    };
+    const bytes = try encodeWorkspaceManifestAlloc(std.testing.allocator, &panes);
+    defer std.testing.allocator.free(bytes);
+    var decoder = try ManifestDecoder.init(bytes);
+    for (panes) |expected| {
+        const decoded = (try decoder.next()).?;
+        try std.testing.expectEqual(expected.stream_id, decoded.stream_id);
+        try std.testing.expectEqual(expected.pane_id, decoded.pane_id);
+        try std.testing.expectEqualStrings(expected.title, decoded.title);
+    }
+    try std.testing.expect((try decoder.next()) == null);
+    try std.testing.expectError(error.InvalidShareWorkspace, encodeWorkspaceManifestAlloc(
+        std.testing.allocator,
+        &.{
+            .{ .stream_id = 1, .pane_id = 41, .title = "Shell" },
+            .{ .stream_id = 1, .pane_id = 42, .title = "Duplicate" },
+        },
+    ));
+    const malformed = try std.testing.allocator.alloc(u8, bytes.len + 1);
+    defer std.testing.allocator.free(malformed);
+    @memcpy(malformed[0..bytes.len], bytes);
+    malformed[bytes.len] = 0;
+    var malformed_decoder = try ManifestDecoder.init(malformed);
+    _ = try malformed_decoder.next();
+    try std.testing.expectError(error.InvalidShareWorkspace, malformed_decoder.next());
 }

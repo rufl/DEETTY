@@ -919,6 +919,14 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                 noctty_paste_clipboard(host);
                 return 0;
             }
+            if (control && shift && word == VK_TAB) {
+                host->suppress_character = 1;
+                if (host->callbacks->next_stream(host->callbacks->userdata) > 0) {
+                    noctty_update_title(host);
+                    InvalidateRect(window, NULL, FALSE);
+                }
+                return 0;
+            }
             if (shift && word == VK_INSERT) {
                 noctty_paste_clipboard(host);
                 return 0;
