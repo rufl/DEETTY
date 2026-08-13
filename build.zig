@@ -70,6 +70,7 @@ pub fn build(b: *std.Build) void {
     });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    addShareSources(b, root_mod);
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -524,13 +525,6 @@ fn addWindowsBuild(
         .target = target,
         .optimize = optimize,
     });
-    const vt_mod = b.createModule(.{
-        .root_source_file = b.path("src/terminal/Vt.zig"),
-        .target = target,
-        .optimize = optimize,
-        .strip = strip,
-    });
-    vt_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
 
     const release_mod = b.createModule(.{
         .root_source_file = b.path("src/release.zig"),
@@ -544,10 +538,31 @@ fn addWindowsBuild(
         .link_libc = true,
         .strip = strip,
     });
-    windows_mod.addImport("noctty_vt", vt_mod);
+    const share_mod = b.createModule(.{
+        .root_source_file = b.path("src/share_module.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
+    share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    windows_mod.addImport("noctty_share", share_mod);
     windows_mod.addImport("noctty_release", release_mod);
+    addShareSources(b, windows_mod);
     windows_mod.addCSourceFile(.{
         .file = b.path("src/windows/native_host.c"),
+        .flags = &.{
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat",
+            "-Werror",
+        },
+    });
+    windows_mod.addCSourceFile(.{
+        .file = b.path("src/windows/dpapi.c"),
         .flags = &.{
             "-std=c11",
             "-Wall",
@@ -563,7 +578,10 @@ fn addWindowsBuild(
     windows_mod.linkSystemLibrary("user32", .{});
     windows_mod.linkSystemLibrary("gdi32", .{});
     windows_mod.linkSystemLibrary("shell32", .{});
+    windows_mod.linkSystemLibrary("ws2_32", .{});
     windows_mod.linkSystemLibrary("dbghelp", .{});
+    windows_mod.linkSystemLibrary("crypt32", .{});
+    windows_mod.linkSystemLibrary("bcrypt", .{});
 
     const executable = b.addExecutable(.{
         .name = "noctty",
@@ -610,6 +628,23 @@ fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
         "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c",
         "vendor/tree-sitter-zig/src/parser.c",
     }) |file| module.addCSourceFile(.{ .file = b.path(file), .flags = &.{"-std=c11"} });
+}
+
+fn addShareSources(b: *std.Build, module: *std.Build.Module) void {
+    module.addIncludePath(b.path("src/share"));
+    module.addCSourceFile(.{
+        .file = b.path("src/share/net.c"),
+        .flags = &.{
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat",
+            "-Werror",
+        },
+    });
 }
 
 fn addNativeGridSources(

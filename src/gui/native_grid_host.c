@@ -109,6 +109,19 @@ extern int noctty_grid_restore_layout_node(void *, int, int, int *, uint64_t *, 
 extern int noctty_grid_set_layout_ratio(void *, int, int, int);
 extern int noctty_grid_flush_hot_session(void *);
 extern int noctty_grid_smart_filter_tag(void *, char *, size_t);
+extern int noctty_grid_share_peer(void *, int, char *, size_t, char *, size_t,
+                                  uint16_t *, int *);
+extern int noctty_grid_share_action(void *, int, int, const char *, size_t,
+                                    const char *, size_t, uint16_t);
+extern int noctty_grid_share_status(void *, uint32_t *, uint16_t *);
+extern int noctty_grid_share_view_dimensions(void *, uint16_t *, uint16_t *);
+extern uint64_t noctty_grid_share_view_cell(void *, int, int);
+extern int noctty_grid_share_view_cell_text(void *, int, int, uint8_t *, size_t);
+extern uint32_t noctty_grid_share_view_color(void *, uint32_t);
+extern uint32_t noctty_grid_share_view_cursor(void *);
+extern int noctty_grid_share_view_cursor_mode(void *);
+extern int noctty_grid_share_view_title(void *, uint8_t *, size_t);
+extern int noctty_grid_share_view_input(void *, const uint8_t *, size_t);
 extern int noctty_qt_shortcut_from_gdk(guint keyval, guint state);
 
 typedef struct NocttyGridContextTag {
@@ -151,6 +164,7 @@ typedef struct NocttyGridContextTag {
     GtkWidget *settings_launch_apply;
     GtkWidget *settings_launch_save;
     GtkWidget *settings_launch_delete;
+    GtkWidget *sharing_dialog;
     GtkWidget *shortcut_recorder_dialog;
     GtkWidget *shortcut_recorder_feedback;
     GtkWidget *palette_dialog;
@@ -7932,6 +7946,7 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     remove_grid_source(&context->cursor_blink_source);
     remove_grid_source(&context->maintenance_source);
     if (context->settings_dialog != NULL) gtk_widget_destroy(context->settings_dialog);
+    if (context->sharing_dialog != NULL) gtk_widget_destroy(context->sharing_dialog);
     if (context->palette_dialog != NULL) gtk_widget_destroy(context->palette_dialog);
     if (context->find_dialog != NULL) gtk_widget_destroy(context->find_dialog);
     if (context->note_dialog != NULL) gtk_widget_destroy(context->note_dialog);
@@ -12639,6 +12654,422 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+static void sharing_set_rgb(cairo_t *cr, uint32_t rgb) {
+    cairo_set_source_rgb(cr, (double)((rgb >> 16) & 0xffu) / 255.0,
+                         (double)((rgb >> 8) & 0xffu) / 255.0,
+                         (double)(rgb & 0xffu) / 255.0);
+}
+
+static gboolean draw_sharing_preview(GtkWidget *widget, cairo_t *cr,
+                                     gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    uint16_t columns = 0;
+    uint16_t rows = 0;
+    int width = gtk_widget_get_allocated_width(widget);
+    int height = gtk_widget_get_allocated_height(widget);
+    sharing_set_rgb(cr, 0x111318u);
+    cairo_paint(cr);
+    if (noctty_grid_share_view_dimensions(root->event_data, &columns, &rows) <= 0 ||
+        columns == 0 || rows == 0)
+        return FALSE;
+    double cell_width = (double)width / (double)columns;
+    double cell_height = (double)height / (double)rows;
+    double font_size = cell_height * 0.78;
+    if (font_size > cell_width * 1.55) font_size = cell_width * 1.55;
+    if (font_size < 5.0) font_size = 5.0;
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
+                           CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, font_size);
+    for (uint16_t row = 0; row < rows; row++) {
+        for (uint16_t column = 0; column < columns; column++) {
+            uint64_t raw = noctty_grid_share_view_cell(
+                root->event_data, (int)column, (int)row);
+            uint32_t style = (uint32_t)(raw >> 32);
+            uint32_t foreground_id = (style >> 8) & 0xfffu;
+            uint32_t background_id = (style >> 20) & 0xfffu;
+            uint32_t foreground = noctty_grid_share_view_color(
+                root->event_data, foreground_id);
+            uint32_t background = noctty_grid_share_view_color(
+                root->event_data, background_id);
+            if ((style & 2u) != 0u) {
+                uint32_t swap = foreground;
+                foreground = background;
+                background = swap;
+            }
+            double x = (double)column * cell_width;
+            double y = (double)row * cell_height;
+            sharing_set_rgb(cr, background);
+            cairo_rectangle(cr, x, y, cell_width + 0.5, cell_height + 0.5);
+            cairo_fill(cr);
+            uint8_t text[65] = {0};
+            int count = noctty_grid_share_view_cell_text(
+                root->event_data, (int)column, (int)row, text,
+                sizeof(text) - 1u);
+            if (count <= 0) continue;
+            text[(size_t)count] = '\0';
+            sharing_set_rgb(cr, foreground);
+            cairo_move_to(cr, x, y + cell_height * 0.82);
+            cairo_show_text(cr, (const char *)text);
+        }
+    }
+    uint32_t cursor = noctty_grid_share_view_cursor(root->event_data);
+    if (cursor != 0xffffffffu) {
+        uint16_t column = (uint16_t)(cursor & 0xffffu);
+        uint16_t row = (uint16_t)(cursor >> 16);
+        sharing_set_rgb(cr, 0xffffffu);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, (double)column * cell_width,
+                        (double)row * cell_height, cell_width, cell_height);
+        cairo_stroke(cr);
+    }
+    return FALSE;
+}
+
+static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
+                                       gpointer user_data) {
+    (void)widget;
+    NocttyGridContext *root = root_grid_context(user_data);
+    const uint8_t *bytes = NULL;
+    size_t length = 0;
+    static const uint8_t enter[] = {'\r'};
+    static const uint8_t backspace[] = {0x7f};
+    static const uint8_t tab[] = {'\t'};
+    static const uint8_t escape[] = {'\x1b'};
+    static const uint8_t up_normal[] = {'\x1b', '[', 'A'};
+    static const uint8_t down_normal[] = {'\x1b', '[', 'B'};
+    static const uint8_t right_normal[] = {'\x1b', '[', 'C'};
+    static const uint8_t left_normal[] = {'\x1b', '[', 'D'};
+    static const uint8_t up_application[] = {'\x1b', 'O', 'A'};
+    static const uint8_t down_application[] = {'\x1b', 'O', 'B'};
+    static const uint8_t right_application[] = {'\x1b', 'O', 'C'};
+    static const uint8_t left_application[] = {'\x1b', 'O', 'D'};
+    gboolean application_cursor =
+        noctty_grid_share_view_cursor_mode(root->event_data) != 0;
+    if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
+        bytes = enter;
+        length = sizeof(enter);
+    } else if (event->keyval == GDK_KEY_BackSpace) {
+        bytes = backspace;
+        length = sizeof(backspace);
+    } else if (event->keyval == GDK_KEY_Tab) {
+        bytes = tab;
+        length = sizeof(tab);
+    } else if (event->keyval == GDK_KEY_Escape) {
+        bytes = escape;
+        length = sizeof(escape);
+    } else if (event->keyval == GDK_KEY_Up) {
+        bytes = application_cursor ? up_application : up_normal;
+        length = sizeof(up_normal);
+    } else if (event->keyval == GDK_KEY_Down) {
+        bytes = application_cursor ? down_application : down_normal;
+        length = sizeof(down_normal);
+    } else if (event->keyval == GDK_KEY_Right) {
+        bytes = application_cursor ? right_application : right_normal;
+        length = sizeof(right_normal);
+    } else if (event->keyval == GDK_KEY_Left) {
+        bytes = application_cursor ? left_application : left_normal;
+        length = sizeof(left_normal);
+    } else if (event->string != NULL && event->length > 0) {
+        bytes = (const uint8_t *)event->string;
+        length = (size_t)event->length;
+    }
+    if (bytes == NULL || length == 0) return FALSE;
+    return noctty_grid_share_view_input(root->event_data, bytes, length) ==
+           (int)length;
+}
+
+static void refresh_sharing_peers(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    GtkWidget *dialog = root->sharing_dialog;
+    if (dialog == NULL) return;
+    GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-peers"));
+    if (combo == NULL) return;
+    int previous = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
+    gtk_combo_box_text_remove_all(combo);
+    int count = noctty_grid_share_peer(root->event_data, -1, NULL, 0, NULL, 0,
+                                       &(uint16_t){0}, &(int){0});
+    for (int index = 0; index < count; index++) {
+        char alias[129] = {0};
+        char endpoint[254] = {0};
+        uint16_t port = 0;
+        int revoked = 0;
+        if (noctty_grid_share_peer(root->event_data, index, alias,
+                                   sizeof(alias), endpoint, sizeof(endpoint),
+                                   &port, &revoked) < 0)
+            continue;
+        char *label = g_strdup_printf(
+            "%s — %s:%u%s", alias, endpoint, (unsigned)port,
+            revoked ? " (revoked)" : "");
+        gtk_combo_box_text_append_text(combo, label);
+        g_free(label);
+    }
+    if (count > 0)
+        gtk_combo_box_set_active(GTK_COMBO_BOX(combo),
+                                 previous >= 0 && previous < count ? previous : 0);
+}
+
+static gboolean refresh_sharing_status(gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    GtkWidget *dialog = root->sharing_dialog;
+    if (dialog == NULL) return G_SOURCE_REMOVE;
+    GtkWidget *status_label = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-status");
+    GtkWidget *confirm = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-confirm");
+    GtkWidget *cancel_pairing = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-cancel-pairing");
+    GtkWidget *stop = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-stop");
+    GtkWidget *grant = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-grant");
+    GtkWidget *revoke = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-revoke");
+    GtkWidget *stop_receive = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-stop-receive");
+    GtkWidget *request_control = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-request-control");
+    GtkWidget *preview = g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-preview");
+    uint32_t sas = 0;
+    uint16_t port = 0;
+    int status = noctty_grid_share_status(root->event_data, &sas, &port);
+    char text[256];
+    if (status == 101)
+        g_snprintf(text, sizeof(text), "Pairing connection in progress…");
+    else if (status == 102)
+        g_snprintf(text, sizeof(text),
+                   "Compare on both devices: %06u. Confirm only if identical.",
+                   (unsigned)sas);
+    else if (status == 104)
+        g_snprintf(text, sizeof(text), "Pairing rejected.");
+    else if (status == 105)
+        g_snprintf(text, sizeof(text), "Pairing failed.");
+    else if (status == 201)
+        g_snprintf(text, sizeof(text),
+                   "Sharing listener ready on TCP port %u.", (unsigned)port);
+    else if (status == 202)
+        g_snprintf(text, sizeof(text),
+                   "Paired viewer connected. View-only.");
+    else if (status == 203)
+        g_snprintf(text, sizeof(text),
+                   "Viewer requests control. Grant only if expected.");
+    else if (status == 204)
+        g_snprintf(text, sizeof(text),
+                   "Remote control granted for this share only.");
+    else if (status == 205)
+        g_snprintf(text, sizeof(text), "Sharing stopped.");
+    else if (status == 206 || status < 0)
+        g_snprintf(text, sizeof(text), "Sharing failed and was closed.");
+    else if (status == 301)
+        g_snprintf(text, sizeof(text), "Connecting to paired terminal…");
+    else if (status == 302)
+        g_snprintf(text, sizeof(text), "Receiving paired terminal. View-only.");
+    else if (status == 303)
+        g_snprintf(text, sizeof(text), "Control requested. Waiting for host approval.");
+    else if (status == 304)
+        g_snprintf(text, sizeof(text), "Remote control granted for this connection.");
+    else if (status == 305)
+        g_snprintf(text, sizeof(text), "Remote terminal closed.");
+    else if (status == 306)
+        g_snprintf(text, sizeof(text), "Remote terminal connection failed.");
+    else
+        g_snprintf(text, sizeof(text),
+                   "Idle. Pair a device or share with a paired device.");
+    gtk_label_set_text(GTK_LABEL(status_label), text);
+    gtk_widget_set_sensitive(confirm, status == 102);
+    gtk_widget_set_sensitive(stop, status >= 201 && status <= 204);
+    gtk_widget_set_sensitive(cancel_pairing, status == 101 || status == 102);
+    gtk_widget_set_sensitive(grant, status == 203);
+    gtk_widget_set_sensitive(revoke, status == 203 || status == 204);
+    gtk_widget_set_sensitive(stop_receive, status >= 301 && status <= 304);
+    gtk_widget_set_sensitive(request_control, status == 302);
+    gtk_widget_queue_draw(preview);
+    int known_count = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-peer-count"));
+    int current_count = noctty_grid_share_peer(root->event_data, -1, NULL, 0,
+                                               NULL, 0, &(uint16_t){0},
+                                               &(int){0});
+    if (current_count != known_count) {
+        refresh_sharing_peers(root);
+        g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peer-count",
+                          GINT_TO_POINTER(current_count));
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+static void on_sharing_action(GtkButton *button, gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    GtkWidget *dialog = root->sharing_dialog;
+    if (dialog == NULL) return;
+    int action = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(button), "noctty-sharing-action"));
+    GtkComboBox *peers = GTK_COMBO_BOX(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-peers"));
+    GtkEntry *alias_entry = GTK_ENTRY(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-alias"));
+    GtkEntry *endpoint_entry = GTK_ENTRY(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-endpoint"));
+    GtkSpinButton *port_spin = GTK_SPIN_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-port"));
+    const char *alias = gtk_entry_get_text(alias_entry);
+    const char *endpoint = gtk_entry_get_text(endpoint_entry);
+    int peer_index = gtk_combo_box_get_active(peers);
+    uint16_t port = (uint16_t)gtk_spin_button_get_value_as_int(port_spin);
+    if (noctty_grid_share_action(
+            root->event_data, action, peer_index, alias, strlen(alias),
+            endpoint, strlen(endpoint), port) < 0) {
+        GtkWidget *status_label = g_object_get_data(
+            G_OBJECT(dialog), "noctty-sharing-status");
+        gtk_label_set_text(GTK_LABEL(status_label),
+                           "Action rejected. Check endpoint, device, and state.");
+    }
+    else if (action == 10) {
+        GtkWidget *preview = g_object_get_data(
+            G_OBJECT(dialog), "noctty-sharing-preview");
+        gtk_widget_grab_focus(preview);
+    }
+    (void)refresh_sharing_status(root);
+}
+
+static GtkWidget *sharing_action_button(const char *label, int action,
+                                        NocttyGridContext *context) {
+    GtkWidget *button = gtk_button_new_with_label(label);
+    g_object_set_data(G_OBJECT(button), "noctty-sharing-action",
+                      GINT_TO_POINTER(action));
+    g_signal_connect(button, "clicked", G_CALLBACK(on_sharing_action), context);
+    return button;
+}
+
+static void on_sharing_dialog_destroy(GtkWidget *dialog, gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    if (root->sharing_dialog == dialog) root->sharing_dialog = NULL;
+}
+
+static void show_session_sharing_dialog(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (root->sharing_dialog != NULL) {
+        gtk_window_present(GTK_WINDOW(root->sharing_dialog));
+        return;
+    }
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(
+        "Session Sharing", GTK_WINDOW(root->window),
+        GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
+    root->sharing_dialog = dialog;
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 860, 700);
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 16);
+    gtk_container_add(GTK_CONTAINER(content), grid);
+
+    GtkWidget *peers = gtk_combo_box_text_new();
+    GtkWidget *alias = gtk_entry_new();
+    GtkWidget *endpoint = gtk_entry_new();
+    GtkWidget *port = gtk_spin_button_new_with_range(1, 65535, 1);
+    gtk_entry_set_text(GTK_ENTRY(alias), "Remote NOCTTY");
+    gtk_entry_set_text(GTK_ENTRY(endpoint), "127.0.0.1");
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(port), 49331);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(endpoint),
+                                   "hostname, tailnet IP, or VPN DNS name");
+    GtkWidget *pair_listen = sharing_action_button("Pair: Listen", 1, root);
+    GtkWidget *pair_connect = sharing_action_button("Pair: Connect", 2, root);
+    GtkWidget *confirm = sharing_action_button("Confirm matching code", 3, root);
+    GtkWidget *cancel_pairing = sharing_action_button("Cancel pairing", 4, root);
+    GtkWidget *share = sharing_action_button("Share current terminal", 5, root);
+    GtkWidget *stop = sharing_action_button("Stop sharing", 6, root);
+    GtkWidget *grant = sharing_action_button("Grant control", 7, root);
+    GtkWidget *revoke = sharing_action_button("Deny / revoke control", 8, root);
+    GtkWidget *revoke_device = sharing_action_button("Revoke paired device", 9, root);
+    GtkWidget *receive = sharing_action_button("Receive selected device", 10, root);
+    GtkWidget *stop_receive = sharing_action_button("Stop receiving", 11, root);
+    GtkWidget *request_control = sharing_action_button("Request control", 12, root);
+    GtkWidget *preview = gtk_drawing_area_new();
+    gtk_widget_set_size_request(preview, 800, 360);
+    gtk_widget_set_hexpand(preview, TRUE);
+    gtk_widget_set_vexpand(preview, TRUE);
+    gtk_widget_set_can_focus(preview, TRUE);
+    AtkObject *preview_accessible = gtk_widget_get_accessible(preview);
+    if (preview_accessible != NULL) {
+        atk_object_set_name(preview_accessible, "Remote terminal preview");
+        atk_object_set_description(
+            preview_accessible,
+            "Focus to send input after the host grants temporary control.");
+    }
+    gtk_widget_add_events(preview, GDK_KEY_PRESS_MASK);
+    g_signal_connect(preview, "draw", G_CALLBACK(draw_sharing_preview), root);
+    g_signal_connect(preview, "key-press-event",
+                     G_CALLBACK(on_sharing_preview_key), root);
+    GtkWidget *status = gtk_label_new(
+        "Idle. Pair a device or share with a paired device.");
+    gtk_label_set_xalign(GTK_LABEL(status), 0.0f);
+    gtk_label_set_line_wrap(GTK_LABEL(status), TRUE);
+    GtkWidget *security = gtk_label_new(
+        "View-only is the default. Pairing uses a six-digit code derived from "
+        "the encrypted handshake. Control is temporary and never survives a reconnect.");
+    gtk_label_set_xalign(GTK_LABEL(security), 0.0f);
+    gtk_label_set_line_wrap(GTK_LABEL(security), TRUE);
+
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Paired device"), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), peers, 1, 0, 3, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Remote alias"), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), alias, 1, 1, 3, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Endpoint"), 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), endpoint, 1, 2, 2, 1);
+    gtk_grid_attach(GTK_GRID(grid), port, 3, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), pair_listen, 1, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), pair_connect, 2, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), confirm, 3, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), cancel_pairing, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), share, 1, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), stop, 2, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), revoke_device, 3, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), grant, 1, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), revoke, 2, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), receive, 1, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), stop_receive, 2, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), request_control, 3, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), preview, 0, 7, 4, 1);
+    gtk_grid_attach(GTK_GRID(grid), status, 0, 8, 4, 1);
+    gtk_grid_attach(GTK_GRID(grid), security, 0, 9, 4, 1);
+
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peers", peers);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-alias", alias);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-endpoint", endpoint);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-port", port);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-status", status);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-confirm", confirm);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-cancel-pairing",
+                      cancel_pairing);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stop", stop);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-grant", grant);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-revoke", revoke);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stop-receive",
+                      stop_receive);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-request-control",
+                      request_control);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-preview", preview);
+    g_signal_connect_swapped(dialog, "response",
+                             G_CALLBACK(gtk_widget_destroy), dialog);
+    g_signal_connect(dialog, "destroy",
+                     G_CALLBACK(on_sharing_dialog_destroy), root);
+    refresh_sharing_peers(root);
+    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peer-count",
+                      GINT_TO_POINTER(noctty_grid_share_peer(
+                          root->event_data, -1, NULL, 0, NULL, 0,
+                          &(uint16_t){0}, &(int){0})));
+    (void)refresh_sharing_status(root);
+    g_timeout_add(200, refresh_sharing_status, root);
+    gtk_widget_show_all(dialog);
+}
+
+static void on_session_sharing_menu_activate(GtkMenuItem *item,
+                                             gpointer user_data) {
+    (void)item;
+    show_session_sharing_dialog(user_data);
+}
+
 static gboolean request_window_close_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     if (root->window_close_button != NULL)
@@ -13458,6 +13889,10 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     append_workspace_menu_item(menu, "New Tab", 20, context);
     append_workspace_menu_item(menu, "Split Down", 21, context);
     append_workspace_menu_item(menu, "Split Left", 22, context);
+    GtkWidget *sharing = gtk_menu_item_new_with_label("Session Sharing…");
+    g_signal_connect(sharing, "activate",
+                     G_CALLBACK(on_session_sharing_menu_activate), context);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sharing);
     GtkWidget *close_terminal =
         gtk_menu_item_new_with_label("Close Terminal");
     root->pane_close_menu_opened = 1;

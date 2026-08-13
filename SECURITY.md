@@ -46,14 +46,22 @@ NOCTTY should maintain these boundaries:
   inferred from terminal output; restore actions require explicit user choice
 - dependency bundles must keep ownership/license payload checks fail-closed
 - the opt-in authenticated Codex qualification uses the installed CLI's existing login, retains only the exact response/log/screenshot, and never copies provider credentials into repository evidence
+- session sharing opens network sockets only after an explicit pair, share, or
+  receive action; the protocol pins per-device X25519 identity keys, uses a
+  Noise XX handshake for first pairing and Noise transport encryption, and
+  requires matching six-digit confirmation on both devices
+- remote terminal access is view-only by default; input requires a fresh host
+  grant for the current connection, and revocation closes matching live links
+- paired-device state uses private atomic storage on Linux and
+  `%LOCALAPPDATA%` DPAPI protection on Windows; identity keys, terminal content,
+  and control grants are never placed in discovery announcements
 
 ## Out of scope for alpha
 
 The alpha source tree does not yet claim:
 
 - hardened sandboxing against a malicious local shell command
-- secure remote-terminal product features
-- formal audit
+- independent security or cryptographic audit
 - signed release artifact trust
 - universal terminal escape security
 - provider-owned agent resume correctness beyond validated Claude Code/Codex

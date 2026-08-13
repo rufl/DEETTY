@@ -174,6 +174,7 @@ const NativeGridSessionPool = struct {
     // Every native session is pumped serially by the GTK main loop.
     pump_scratch: noctty.terminal_session.TerminalSession.PumpScratch = .{},
     sessions: std.array_list.Managed(*noctty.terminal_session.TerminalSession),
+    pane_ids: std.array_list.Managed(u64),
 
     fn init(allocator: std.mem.Allocator, shell: [:0]const u8, smoke_command: ?[]const u8) NativeGridSessionPool {
         return .{
@@ -181,6 +182,7 @@ const NativeGridSessionPool = struct {
             .shell = shell,
             .smoke_command = smoke_command,
             .sessions = std.array_list.Managed(*noctty.terminal_session.TerminalSession).init(allocator),
+            .pane_ids = std.array_list.Managed(u64).init(allocator),
         };
     }
 
@@ -201,17 +203,21 @@ const NativeGridSessionPool = struct {
             self.allocator.destroy(session);
         }
         self.sessions.deinit();
+        self.pane_ids.deinit();
         self.* = undefined;
     }
 
     fn spawn(
         self: *NativeGridSessionPool,
+        pane_id: u64,
         cwd: []const u8,
         columns: u16,
         rows: u16,
         use_profile: bool,
         profile_override: ?*const noctty.launch_profile.Profile,
     ) !*noctty.terminal_session.TerminalSession {
+        try self.sessions.ensureUnusedCapacity(1);
+        try self.pane_ids.ensureUnusedCapacity(1);
         const session = try self.allocator.create(noctty.terminal_session.TerminalSession);
         errdefer self.allocator.destroy(session);
         const profile = profile_override orelse if (use_profile) self.profile else null;
@@ -240,7 +246,8 @@ const NativeGridSessionPool = struct {
         }
         errdefer session.deinit();
         if (self.smoke_command) |command| try session.write(command);
-        try self.sessions.append(session);
+        self.sessions.appendAssumeCapacity(session);
+        self.pane_ids.appendAssumeCapacity(pane_id);
         return session;
     }
 
@@ -254,10 +261,106 @@ const NativeGridSessionPool = struct {
             if (session != target) continue;
             session.deinit();
             _ = self.sessions.orderedRemove(index);
+            _ = self.pane_ids.orderedRemove(index);
             self.allocator.destroy(session);
             return true;
         }
         return false;
+    }
+
+    fn findByPaneId(self: *NativeGridSessionPool, pane_id: u64) ?*noctty.terminal_session.TerminalSession {
+        for (self.pane_ids.items, self.sessions.items) |candidate, session| {
+            if (candidate == pane_id) return session;
+        }
+        return null;
+    }
+};
+
+const ShareState = struct {
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    store_path: []u8,
+    store: noctty.share.identity.Store,
+    pairing: ?*noctty.share.pair_controller.Controller = null,
+    live_host: ?*noctty.share.live_host.LiveHost = null,
+    live_viewer: ?*noctty.share.live_viewer.LiveViewer = null,
+    shared_pane_id: ?u64 = null,
+
+    fn init(allocator: std.mem.Allocator, io: std.Io, store_path: []const u8) !ShareState {
+        const owned_path = try allocator.dupe(u8, store_path);
+        errdefer allocator.free(owned_path);
+        const bytes = std.Io.Dir.cwd().readFileAlloc(
+            io,
+            store_path,
+            allocator,
+            .limited(noctty.share.identity.max_file_bytes),
+        ) catch |err| switch (err) {
+            error.FileNotFound => null,
+            else => return err,
+        };
+        if (bytes) |contents| {
+            defer {
+                std.crypto.secureZero(u8, contents);
+                allocator.free(contents);
+            }
+            return .{
+                .allocator = allocator,
+                .io = io,
+                .store_path = owned_path,
+                .store = try noctty.share.identity.import(contents),
+            };
+        }
+        return .{
+            .allocator = allocator,
+            .io = io,
+            .store_path = owned_path,
+            .store = noctty.share.identity.Store.init(noctty.share.crypto.Identity.generate(noctty.share.crypto.fromIo(io))),
+        };
+    }
+
+    fn deinit(self: *ShareState) void {
+        if (self.live_host) |host| host.destroy();
+        if (self.live_viewer) |viewer| viewer.destroy();
+        if (self.pairing) |pairing| pairing.destroy();
+        self.store.deinit();
+        self.allocator.free(self.store_path);
+    }
+
+    fn save(self: *ShareState) !void {
+        const bytes = try noctty.share.identity.exportAlloc(self.allocator, &self.store);
+        defer {
+            std.crypto.secureZero(u8, bytes);
+            self.allocator.free(bytes);
+        }
+        var atomic = try std.Io.Dir.cwd().createFileAtomic(self.io, self.store_path, .{
+            .permissions = std.Io.File.Permissions.fromMode(0o600),
+            .make_path = true,
+            .replace = true,
+        });
+        defer atomic.deinit(self.io);
+        try atomic.file.writeStreamingAll(self.io, bytes);
+        try atomic.replace(self.io);
+    }
+
+    fn finishPairing(self: *ShareState) !void {
+        const controller = self.pairing orelse return;
+        if (controller.statusSnapshot() != .paired) return;
+        const peer = controller.takePeer() orelse return;
+        try self.store.addOrUpdate(peer);
+        controller.destroy();
+        self.pairing = null;
+        try self.save();
+    }
+
+    fn discardFinishedPairing(self: *ShareState) void {
+        const controller = self.pairing orelse return;
+        switch (controller.statusSnapshot()) {
+            .failed, .rejected => {
+                controller.destroy();
+                self.pairing = null;
+            },
+            else => {},
+        }
     }
 };
 
@@ -346,6 +449,7 @@ const NativeGridBridge = struct {
     restore_mode: noctty.continuity.RestoreMode = .restart_shells,
     session_pool: ?*NativeGridSessionPool = null,
     primary_session: ?*noctty.terminal_session.TerminalSession = null,
+    share_state: ?*ShareState = null,
     created_session_count: usize = 0,
     idle_history_compactions: usize = 0,
     saw_split_down_vertical: bool = false,
@@ -368,6 +472,233 @@ const NativeGridBridge = struct {
     launch_profile_library_selected: bool = false,
     launch_profile_library_removed: bool = false,
 };
+
+export fn noctty_grid_share_peer(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    alias_output: [*]u8,
+    alias_capacity: usize,
+    endpoint_output: [*]u8,
+    endpoint_capacity: usize,
+    port_output: *u16,
+    revoked_output: *c_int,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const state = bridge.share_state orelse return 0;
+    if (index_raw < 0) return state.store.peer_count;
+    const index: usize = @intCast(index_raw);
+    if (index >= state.store.peer_count) return -1;
+    const peer = &state.store.peerSliceConst()[index];
+    if (peer.alias().len >= alias_capacity or peer.endpoint().len >= endpoint_capacity) return -1;
+    @memcpy(alias_output[0..peer.alias().len], peer.alias());
+    alias_output[peer.alias().len] = 0;
+    @memcpy(endpoint_output[0..peer.endpoint().len], peer.endpoint());
+    endpoint_output[peer.endpoint().len] = 0;
+    port_output.* = peer.port;
+    revoked_output.* = @intFromBool(peer.revoked);
+    return @intCast(peer.alias().len);
+}
+
+export fn noctty_grid_share_action(
+    raw: ?*anyopaque,
+    action: c_int,
+    peer_index_raw: c_int,
+    alias_ptr: [*]const u8,
+    alias_len: usize,
+    endpoint_ptr: [*]const u8,
+    endpoint_len: usize,
+    port: u16,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const state = bridge.share_state orelse return -1;
+    const alias = alias_ptr[0..alias_len];
+    const endpoint = endpoint_ptr[0..endpoint_len];
+    if (action == 1 or action == 2) state.discardFinishedPairing();
+    switch (action) {
+        1 => {
+            if (state.pairing != null or port == 0) return -1;
+            state.pairing = noctty.share.pair_controller.Controller.listen(
+                state.allocator,
+                noctty.share.crypto.fromIo(state.io),
+                state.store.identity,
+                null,
+                port,
+                alias,
+                endpoint,
+                port,
+            ) catch return -1;
+        },
+        2 => {
+            if (state.pairing != null or port == 0) return -1;
+            state.pairing = noctty.share.pair_controller.Controller.connect(
+                state.allocator,
+                noctty.share.crypto.fromIo(state.io),
+                state.store.identity,
+                endpoint,
+                port,
+                alias,
+            ) catch return -1;
+        },
+        3 => (state.pairing orelse return -1).confirm(),
+        4 => (state.pairing orelse return -1).reject(),
+        5 => {
+            if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0) return -1;
+            const index: usize = @intCast(peer_index_raw);
+            if (index >= state.store.peer_count) return -1;
+            const peer = state.store.peerSliceConst()[index];
+            const active_tab = bridge.app.workspace.activeTab() orelse return -1;
+            const pane_id = active_tab.active_pane_id;
+            _ = nativeGridSessionForPane(bridge, pane_id) orelse return -1;
+            const host = noctty.share.live_host.LiveHost.create(
+                state.allocator,
+                noctty.share.crypto.fromIo(state.io),
+                state.store.identity,
+                peer,
+                null,
+                port,
+                1,
+            ) catch return -1;
+            state.shared_pane_id = pane_id;
+            state.live_host = host;
+        },
+        6 => {
+            const host = state.live_host orelse return -1;
+            host.destroy();
+            state.live_host = null;
+            state.shared_pane_id = null;
+        },
+        7 => (state.live_host orelse return -1).grantControl(),
+        8 => (state.live_host orelse return -1).revokeControl(),
+        9 => {
+            if (peer_index_raw < 0) return -1;
+            const index: usize = @intCast(peer_index_raw);
+            if (index >= state.store.peer_count) return -1;
+            const public_key = state.store.peerSliceConst()[index].public_key;
+            if (state.live_host) |host| {
+                if (std.crypto.timing_safe.eql([32]u8, host.paired_peer.public_key, public_key)) {
+                    host.destroy();
+                    state.live_host = null;
+                    state.shared_pane_id = null;
+                }
+            }
+            if (state.live_viewer) |viewer| {
+                if (std.crypto.timing_safe.eql([32]u8, viewer.paired_peer.public_key, public_key)) {
+                    viewer.destroy();
+                    state.live_viewer = null;
+                }
+            }
+            state.store.peerSlice()[index].revoked = true;
+            state.save() catch return -1;
+        },
+        10 => {
+            if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0) return -1;
+            const index: usize = @intCast(peer_index_raw);
+            if (index >= state.store.peer_count) return -1;
+            const peer = state.store.peerSliceConst()[index];
+            state.live_viewer = noctty.share.live_viewer.LiveViewer.create(
+                state.allocator,
+                noctty.share.crypto.fromIo(state.io),
+                state.store.identity,
+                peer,
+                1,
+            ) catch return -1;
+        },
+        11 => {
+            const viewer = state.live_viewer orelse return -1;
+            viewer.destroy();
+            state.live_viewer = null;
+        },
+        12 => (state.live_viewer orelse return -1).requestControl() catch return -1,
+        else => return -1,
+    }
+    return 0;
+}
+
+export fn noctty_grid_share_status(
+    raw: ?*anyopaque,
+    sas_output: *u32,
+    port_output: *u16,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const state = bridge.share_state orelse return 0;
+    state.finishPairing() catch {
+        bridge.callback_failed = true;
+        return -1;
+    };
+    if (state.pairing) |pairing| {
+        sas_output.* = pairing.sas();
+        port_output.* = pairing.listeningPort();
+        return 100 + @intFromEnum(pairing.statusSnapshot());
+    }
+    if (state.live_host) |host| {
+        sas_output.* = 0;
+        port_output.* = host.port();
+        return 200 + @intFromEnum(host.currentStatus());
+    }
+    if (state.live_viewer) |viewer| {
+        sas_output.* = 0;
+        port_output.* = 0;
+        return 300 + @intFromEnum(viewer.currentStatus());
+    }
+    sas_output.* = 0;
+    port_output.* = 0;
+    return 0;
+}
+
+export fn noctty_grid_share_view_dimensions(raw: ?*anyopaque, columns: *u16, rows: *u16) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return 0;
+    const dimensions = viewer.dimensions();
+    columns.* = dimensions.columns;
+    rows.* = dimensions.rows;
+    return @intFromBool(dimensions.columns != 0 and dimensions.rows != 0);
+}
+
+export fn noctty_grid_share_view_cell(raw: ?*anyopaque, column: c_int, row: c_int) callconv(.c) u64 {
+    if (column < 0 or row < 0) return ' ';
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return ' '));
+    const viewer = (bridge.share_state orelse return ' ').live_viewer orelse return ' ';
+    return viewer.packedCell(@intCast(column), @intCast(row));
+}
+
+export fn noctty_grid_share_view_cell_text(raw: ?*anyopaque, column: c_int, row: c_int, output: [*]u8, capacity: usize) callconv(.c) c_int {
+    if (column < 0 or row < 0 or capacity == 0) return 0;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return @intCast(viewer.cellText(@intCast(column), @intCast(row), output[0..capacity]));
+}
+
+export fn noctty_grid_share_view_color(raw: ?*anyopaque, color_id: u32) callconv(.c) u32 {
+    if (color_id > std.math.maxInt(u16)) return 0;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return viewer.colorRgb(@intCast(color_id));
+}
+
+export fn noctty_grid_share_view_cursor(raw: ?*anyopaque) callconv(.c) u32 {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0xffffffff));
+    const viewer = (bridge.share_state orelse return 0xffffffff).live_viewer orelse return 0xffffffff;
+    return viewer.cursor();
+}
+
+export fn noctty_grid_share_view_cursor_mode(raw: ?*anyopaque) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return @intFromBool(viewer.applicationCursorKeys());
+}
+
+export fn noctty_grid_share_view_title(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return @intCast(viewer.title(output[0..capacity]));
+}
+
+export fn noctty_grid_share_view_input(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return -1;
+    viewer.sendInput(bytes[0..length]) catch return -1;
+    return @intCast(length);
+}
 
 const NativeGridTerminalChordProbe = struct {
     primary: ?*noctty.terminal_session.TerminalSession = null,
@@ -1000,6 +1331,7 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
         },
     };
     const session = pool.spawn(
+        pane_id,
         pane.cwd,
         columns,
         rows,
@@ -1300,10 +1632,42 @@ const native_event_idle_history_compacted: c_int = 112;
 const native_event_status_notification: c_int = 113;
 const native_event_status_acknowledged: c_int = 114;
 
+fn nativeGridSessionForPane(bridge: *NativeGridBridge, pane_id: u64) ?*noctty.terminal_session.TerminalSession {
+    if (pane_id == bridge.pane_id) return bridge.primary_session;
+    const pool = bridge.session_pool orelse return null;
+    return pool.findByPaneId(pane_id);
+}
+
 export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_code: c_int, at_ms: u64) callconv(.c) void {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return));
     defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);
     const is_secondary = pane_id != bridge.pane_id;
+    if (event == 2 or event == 4) {
+        if (bridge.share_state) |state| {
+            state.finishPairing() catch {
+                bridge.callback_failed = true;
+                return;
+            };
+            if (state.live_host) |host| {
+                if (state.shared_pane_id) |shared_pane_id| {
+                    if (pane_id == shared_pane_id) {
+                        const session = nativeGridSessionForPane(bridge, shared_pane_id) orelse {
+                            bridge.callback_failed = true;
+                            return;
+                        };
+                        host.capture(session) catch {
+                            bridge.callback_failed = true;
+                            return;
+                        };
+                        _ = host.drainInput(session) catch {
+                            bridge.callback_failed = true;
+                            return;
+                        };
+                    }
+                }
+            }
+        }
+    }
     if (pane_id != bridge.pane_id and bridge.app.workspace.findPane(pane_id) == null) {
         bridge.callback_failed = true;
         return;
@@ -4084,25 +4448,29 @@ export fn noctty_grid_copy(raw: ?*anyopaque, output: [*]u8, capacity: usize, sta
             session.grid.columns - 1,
             @as(usize, @intCast(@min(start_column, end_column))),
         )
-    else 0;
+    else
+        0;
     const last_column: usize = if (selected)
         @min(
             session.grid.columns - 1,
             @as(usize, @intCast(@max(start_column, end_column))),
         )
-    else session.grid.columns - 1;
+    else
+        session.grid.columns - 1;
     const first_row: usize = if (selected)
         @min(
             session.grid.rows - 1,
             @as(usize, @intCast(@min(start_row, end_row))),
         )
-    else 0;
+    else
+        0;
     const last_row: usize = if (selected)
         @min(
             session.grid.rows - 1,
             @as(usize, @intCast(@max(start_row, end_row))),
         )
-    else session.grid.rows - 1;
+    else
+        session.grid.rows - 1;
     var used: usize = 0;
     for (first_row..last_row + 1) |row| {
         var last: usize = last_column + 1;
@@ -6700,7 +7068,28 @@ fn runNativeGridActivated(
         );
     };
     defer session.deinit();
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .hot_session_loaded = hot_session_load == .restored, .restore_mode = restore_mode, .session_pool = &session_pool, .primary_session = &session };
+    const sharing_base = if (environ_map.get("XDG_CONFIG_HOME")) |value|
+        try allocator.dupe(u8, value)
+    else
+        try std.fs.path.join(allocator, &.{ home_dir, ".config" });
+    defer allocator.free(sharing_base);
+    const sharing_path = try noctty.share.identity.defaultPathAlloc(allocator, sharing_base);
+    defer allocator.free(sharing_path);
+    var share_state = try ShareState.init(allocator, io, sharing_path);
+    defer share_state.deinit();
+    var bridge = NativeGridBridge{
+        .app = &app,
+        .pane_id = tab.active_pane_id,
+        .io = io,
+        .config_path = config_path,
+        .theme_path = theme_path,
+        .autosave_path = autosave_path,
+        .hot_session_loaded = hot_session_load == .restored,
+        .restore_mode = restore_mode,
+        .session_pool = &session_pool,
+        .primary_session = &session,
+        .share_state = &share_state,
+    };
     persistNativeGridHotSession(&bridge);
     const effective_mode: c_int = if (mode >= 0)
         mode

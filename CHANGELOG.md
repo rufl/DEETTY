@@ -4,6 +4,23 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added explicit paired session sharing between Linux and Windows NOCTTY hosts.
+  Devices establish and pin X25519 identities through a Noise XX
+  ChaCha20-Poly1305/BLAKE2s handshake, require the same six-digit confirmation
+  on both sides, and then exchange bounded, versioned, authenticated terminal
+  presentation frames over direct TCP. The active shell remains on the host;
+  receivers start view-only, remote input requires a separate host grant for
+  each connection, replay/gaps trigger a checkpoint or rejection, and device
+  revocation closes matching live links. Linux provides a native Session
+  Sharing dialog and remote grid preview; the experimental Windows host
+  provides DPAPI-protected identity storage plus command-line pair, share, and
+  receive modes rendered through its existing GDI surface. Manual hostname,
+  IPv4/IPv6, LAN, tailnet, and routed-VPN endpoints are supported without a
+  relay, account service, NAT traversal, subnet scan, telemetry, or automatic
+  network activity. Focused protocol/security/loopback tests pass; the Windows
+  host cross-build passes, while physical cross-machine Windows/Linux and VPN
+  qualification remain open.
+
 - Added the first experimental native Windows terminal tranche: an x86_64 Win32/GDI GUI, ConPTY shell transport, shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true-color rendering, scrollback, visible-surface copy, clipboard paste, bounded local lifecycle/error logs, and local crash minidumps with no upload path. Windows builds no longer require GTK target libraries; `scripts/package_windows.sh` emits a checksummed `ReleaseFast` ZIP and manifest. The cross-build passes Debug/`ReleaseSafe`/`ReleaseFast` compilation and a Wine-hosted no-window VT fixture; physical Windows behavior, tabs/splits, settings/restore, selection/mouse reporting, NoctEd, ARM64, signing, and installer packaging remain open.
 - Added lightweight NoctEd word wrap: `Alt+Z` toggles word wrapping across open documents, the View menu exposes the same checkable setting, and the choice persists in the GUI-owned settings file.
 - Reduced native NOCTTY and NoctEd tab/action chrome height again: controls now target 18 logical pixels while preserving 28-pixel horizontal hit widths; tab labels retain 90% typography and compact padding.

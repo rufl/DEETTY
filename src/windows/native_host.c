@@ -67,6 +67,7 @@ static void noctty_log(const char *format, ...);
 static void noctty_update_title(NocttyWindowsHost *host);
 static void noctty_resize_terminal(NocttyWindowsHost *host, int width, int height);
 static void noctty_drain_output(NocttyWindowsHost *host);
+static void noctty_drain_remote_input(NocttyWindowsHost *host);
 static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                                            WPARAM word, LPARAM long_value);
 
@@ -376,7 +377,12 @@ static void noctty_paint(NocttyWindowsHost *host) {
 static int noctty_write_terminal(NocttyWindowsHost *host,
                                  const uint8_t *bytes, size_t length) {
     size_t offset = 0;
-    if (host->input_write == NULL || host->process_exited) return 0;
+    if (host->input_write == NULL) {
+        int written = host->callbacks->write(host->callbacks->userdata, bytes,
+                                             length);
+        return written == (int)length;
+    }
+    if (host->process_exited) return 0;
     while (offset < length) {
         DWORD written = 0;
         DWORD request = (DWORD)((length - offset) > 65536u
@@ -953,6 +959,11 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
             return 0;
         case WM_TIMER:
             noctty_drain_output(host);
+            noctty_drain_remote_input(host);
+            if (host->process == NULL) {
+                noctty_update_title(host);
+                InvalidateRect(window, NULL, FALSE);
+            }
             host->smoke_ticks++;
             if (!host->process_exited && host->process != NULL &&
                 WaitForSingleObject(host->process, 0) == WAIT_OBJECT_0) {
@@ -1033,6 +1044,17 @@ static void noctty_cleanup(NocttyWindowsHost *host) {
     noctty_close_handle(&noctty_log_file);
 }
 
+static void noctty_drain_remote_input(NocttyWindowsHost *host) {
+    uint8_t input[4096];
+    if (host->input_write == NULL) return;
+    for (int attempt = 0; attempt < 16; attempt++) {
+        int count = host->callbacks->take_remote(
+            host->callbacks->userdata, input, sizeof(input));
+        if (count <= 0) break;
+        if (!noctty_write_terminal(host, input, (size_t)count)) break;
+    }
+}
+
 int noctty_windows_host_run(HINSTANCE instance, int show_command,
                             const NocttyWindowsCallbacks *callbacks) {
     static const WCHAR class_name[] = L"NOCTTY.Windows.NativeHost";
@@ -1043,6 +1065,7 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
     WCHAR smoke_value[8];
     UINT dpi = 96;
     int exit_code = 1;
+    int session_started = 0;
 
     if (callbacks == NULL ||
         callbacks->abi_version != NOCTTY_WINDOWS_HOST_ABI_VERSION ||
@@ -1093,6 +1116,16 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
     if (!noctty_create_fonts(host, dpi)) goto finished;
     GetClientRect(host->window, &client);
     noctty_resize_terminal(host, client.right, client.bottom);
+    {
+        int start_mode = host->callbacks->start(host->callbacks->userdata);
+        if (start_mode < 0) {
+            MessageBoxW(host->window, L"NOCTTY could not start this session.",
+                        L"NOCTTY Windows alpha", MB_OK | MB_ICONERROR);
+            goto finished;
+        }
+        session_started = 1;
+        if (start_mode > 0) goto renderer_started;
+    }
     if (!noctty_create_pseudo_console(host)) {
         MessageBoxW(host->window,
                     L"NOCTTY could not start Windows ConPTY. Windows 10 "
@@ -1106,6 +1139,7 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
         noctty_log("reader_thread_failed error=%lu\r\n", GetLastError());
         goto finished;
     }
+renderer_started:
     SetTimer(host->window, NOCTTY_TIMER_ID, NOCTTY_TIMER_INTERVAL_MS, NULL);
     ShowWindow(host->window, show_command == 0 ? SW_SHOW : show_command);
     UpdateWindow(host->window);
@@ -1118,6 +1152,8 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
     exit_code = (int)message.wParam;
 
 finished:
+    if (session_started)
+        host->callbacks->stop(host->callbacks->userdata);
     if (host->window != NULL && IsWindow(host->window))
         DestroyWindow(host->window);
     noctty_cleanup(host);

@@ -228,6 +228,10 @@ pub const Grid = struct {
     row_meta: []RowMeta,
     dirty_rows: []bool,
     dirty_spans: []DirtySpan,
+    // Non-destructive row generations let the renderer and any number of
+    // remote presentation consumers observe the same damage independently.
+    row_damage_generation: []u64,
+    damage_generation: u64 = 1,
     all_rows_dirty: bool = true,
     screen_origin: usize = 0,
     tab_stops: []bool,
@@ -405,6 +409,8 @@ pub const Grid = struct {
         errdefer allocator.free(dirty_rows);
         const dirty_spans = try allocator.alloc(DirtySpan, rows);
         errdefer allocator.free(dirty_spans);
+        const row_damage_generation = try allocator.alloc(u64, rows);
+        errdefer allocator.free(row_damage_generation);
         const tab_stops = try allocator.alloc(bool, columns);
         errdefer allocator.free(tab_stops);
         const initial_lines = @min(
@@ -437,6 +443,7 @@ pub const Grid = struct {
         };
         @memset(dirty_rows, true);
         @memset(dirty_spans, .{ .first = 0, .end = @intCast(columns) });
+        @memset(row_damage_generation, 1);
         @memset(tab_stops, false);
         @memset(history_hot_owners, no_history_owner);
         @memset(history_scratch, .{});
@@ -453,6 +460,7 @@ pub const Grid = struct {
             .row_meta = row_meta,
             .dirty_rows = dirty_rows,
             .dirty_spans = dirty_spans,
+            .row_damage_generation = row_damage_generation,
             .tab_stops = tab_stops,
             .history = history,
             .history_meta = history_meta,
@@ -489,6 +497,7 @@ pub const Grid = struct {
         self.allocator.free(self.tab_stops);
         self.allocator.free(self.dirty_rows);
         self.allocator.free(self.dirty_spans);
+        self.allocator.free(self.row_damage_generation);
         self.title.deinit();
         self.true_colors.deinit();
         self.graphemes.deinit();
@@ -557,6 +566,10 @@ pub const Grid = struct {
         const dirty_spans = try self.allocator.alloc(DirtySpan, rows);
         errdefer self.allocator.free(dirty_spans);
         @memset(dirty_spans, .{ .first = 0, .end = @intCast(columns) });
+        const row_damage_generation = try self.allocator.alloc(u64, rows);
+        errdefer self.allocator.free(row_damage_generation);
+        const next_damage_generation = self.damage_generation +% 1;
+        @memset(row_damage_generation, if (next_damage_generation == 0) 1 else next_damage_generation);
         const tab_stops = if (columns_changed) blk: {
             const next = try self.allocator.alloc(bool, columns);
             @memset(next, false);
@@ -597,6 +610,7 @@ pub const Grid = struct {
         if (self.alternate_row_meta) |primary| self.allocator.free(primary);
         self.allocator.free(self.dirty_rows);
         self.allocator.free(self.dirty_spans);
+        self.allocator.free(self.row_damage_generation);
         if (columns_changed) {
             self.allocator.free(self.tab_stops);
             self.history_allocator.free(self.history_cells);
@@ -610,6 +624,8 @@ pub const Grid = struct {
         self.row_meta = row_meta;
         self.dirty_rows = dirty_rows;
         self.dirty_spans = dirty_spans;
+        self.row_damage_generation = row_damage_generation;
+        self.damage_generation = if (next_damage_generation == 0) 1 else next_damage_generation;
         self.all_rows_dirty = true;
         self.screen_origin = 0;
         self.alternate_cells = alternate_cells;
@@ -808,6 +824,7 @@ pub const Grid = struct {
         self.allocator.free(self.row_meta);
         self.allocator.free(self.dirty_rows);
         self.allocator.free(self.dirty_spans);
+        self.allocator.free(self.row_damage_generation);
         self.allocator.free(self.tab_stops);
         self.history.deinit();
         self.history_meta.deinit();
@@ -823,6 +840,8 @@ pub const Grid = struct {
         self.row_meta = target.row_meta;
         self.dirty_rows = target.dirty_rows;
         self.dirty_spans = target.dirty_spans;
+        self.row_damage_generation = target.row_damage_generation;
+        self.damage_generation = target.damage_generation;
         self.all_rows_dirty = target.all_rows_dirty;
         self.screen_origin = target.screen_origin;
         self.tab_stops = target.tab_stops;
@@ -1598,13 +1617,41 @@ pub const Grid = struct {
         return count;
     }
 
+    pub const DamageSnapshot = struct {
+        generation: u64,
+        row_count: usize,
+    };
+
+    pub fn damageRowsSince(self: Grid, since: u64, output: []u8) DamageSnapshot {
+        const count = @min(output.len, self.rows);
+        const reset = since == 0 or since > self.damage_generation;
+        for (output[0..count], self.row_damage_generation[0..count]) |*changed, generation| {
+            changed.* = @intFromBool(reset or generation > since);
+        }
+        return .{ .generation = self.damage_generation, .row_count = count };
+    }
+
     pub fn markAllDirty(self: *Grid) void {
         self.all_rows_dirty = true;
+        const generation = self.beginDamage();
+        @memset(self.row_damage_generation, generation);
+    }
+
+    fn beginDamage(self: *Grid) u64 {
+        if (self.damage_generation == std.math.maxInt(u64)) {
+            self.damage_generation = 1;
+            @memset(self.row_damage_generation, 0);
+        } else {
+            self.damage_generation += 1;
+        }
+        return self.damage_generation;
     }
 
     fn markDirtyRange(self: *Grid, first: usize, last_inclusive: usize) void {
         if (first >= self.rows) return;
         const end = @min(last_inclusive + 1, self.rows);
+        const generation = self.beginDamage();
+        @memset(self.row_damage_generation[first..end], generation);
         if (first == 0 and end == self.rows) {
             self.all_rows_dirty = true;
             return;
@@ -1621,6 +1668,7 @@ pub const Grid = struct {
         const bounded_end = @min(end, self.columns);
         const meta = self.rowMeta(row);
         meta.used_columns = @max(meta.used_columns, @as(u16, @intCast(bounded_end)));
+        self.row_damage_generation[row] = self.beginDamage();
         if (self.all_rows_dirty) return;
         self.dirty_rows[row] = true;
         const span = &self.dirty_spans[row];
@@ -3918,6 +3966,29 @@ test "terminal grid reports and clears terminal-owned dirty rows" {
     var resized_dirty: [4]u8 = undefined;
     _ = grid.takeDirtyRows(&resized_dirty);
     try std.testing.expectEqualSlices(u8, &.{ 1, 1, 1, 1 }, &resized_dirty);
+}
+
+test "terminal grid damage generations support independent consumers" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+    var first_rows: [3]u8 = undefined;
+    var second_rows: [3]u8 = undefined;
+    const first_initial = grid.damageRowsSince(0, &first_rows);
+    const second_initial = grid.damageRowsSince(0, &second_rows);
+    try std.testing.expectEqualSlices(u8, &.{ 1, 1, 1 }, &first_rows);
+    try std.testing.expectEqualSlices(u8, &.{ 1, 1, 1 }, &second_rows);
+
+    // The local renderer consumes its legacy dirty spans. Generation-based
+    // remote consumers must still observe the same subsequent row damage.
+    var spans: [3]DirtySpan = undefined;
+    _ = grid.takeDirtySpans(&spans);
+    try grid.feed("\x1b[2;1HX");
+    _ = grid.takeDirtySpans(&spans);
+    const first_next = grid.damageRowsSince(first_initial.generation, &first_rows);
+    const second_next = grid.damageRowsSince(second_initial.generation, &second_rows);
+    try std.testing.expectEqualSlices(u8, &.{ 0, 1, 0 }, &first_rows);
+    try std.testing.expectEqualSlices(u8, &.{ 0, 1, 0 }, &second_rows);
+    try std.testing.expectEqual(first_next.generation, second_next.generation);
 }
 
 test "terminal grid merges and clears bounded dirty column spans" {

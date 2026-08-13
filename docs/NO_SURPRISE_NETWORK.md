@@ -9,10 +9,10 @@ Maintained local check:
 ./scripts/check_no_surprise_network.sh
 ```
 
-Current retained result, 2026-07-19:
+Current retained result, 2026-08-13:
 
 ```text
-no_surprise_network_check telemetry=false update_pings=false crash_uploaders=false remote_flags=false hidden_network_api=false proof_boundary=static_source_scan
+no_surprise_network_check telemetry=false update_pings=false crash_uploaders=false remote_flags=false hidden_network_api=false sharing_network_api=explicit proof_boundary=static_source_scan
 ```
 
 Proof boundary: this is a deterministic source/build-resource scan. It is not a
@@ -26,3 +26,7 @@ Allowed explicit network-adjacent behavior remains user-owned and documented:
 - qualification fixtures may use isolated local test transports where their
   docs say so
 - the opt-in authenticated-agent qualification invokes the already-installed, already-authenticated Codex CLI for an explicit ephemeral model request; it is not part of production startup, default verification, or installed runtime behavior
+- paired session sharing opens its documented TCP listener/client only after the
+  user explicitly starts pairing, sharing, or receiving; the transport's
+  bounded LAN-announcement API contains no identity key or terminal content and
+  is not invoked by background startup or required for routed VPNs

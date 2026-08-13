@@ -144,6 +144,12 @@ Current first tranche:
 - [x] keyboard, Unicode, resize, color, scrollback, and clipboard basics
 - [x] bounded local logs and local crash minidumps with no upload path
 - [x] checksummed ZIP/manifest packaging
+- [x] paired-device identity, matching-code confirmation, direct TCP endpoints,
+  and encrypted structured terminal presentation shared with Linux
+- [x] native Windows share/receive rendering and connection-scoped host approval
+  for remote input
+- [ ] physical Windows-to-Linux pairing, viewing, control, disconnect, and
+  tailnet/VPN qualification
 - [ ] physical Windows 10/11 launch, input, resize, shell-exit, and crash-log proof
 - [ ] tabs and recursive splits
 - [ ] settings, themes, workspace restore, and launch-profile UI

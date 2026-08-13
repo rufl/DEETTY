@@ -86,12 +86,15 @@ The qualified Linux NOCTTY host provides:
 - native settings, command palette, terminal search, Quick Note, and Project Workspace surfaces with keyboard-accessible controls, assistive names, and narrow-window scrolling
 - optional tray/status notifier integration
 - native themes and import paths for simple terminal color formats
+- opt-in end-to-end encrypted sharing of the active terminal to one paired
+  NOCTTY device, with a native remote preview and separately approved,
+  connection-scoped input control
 
 The experimental Windows host provides a native Win32/GDI window, ConPTY,
 the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
-color, scrollback, clipboard paste/visible-surface copy, local logs, and local
-crash dumps. It does not yet provide Linux workspace parity. See
-[Windows alpha](docs/WINDOWS.md).
+color, scrollback, clipboard paste/visible-surface copy, local logs, local crash
+dumps, and command-line paired session sharing/receiving. It does not yet
+provide Linux workspace parity. See [Windows alpha](docs/WINDOWS.md).
 
 NoctEd provides on Linux:
 
@@ -110,6 +113,29 @@ NoctEd provides on Linux:
 - Save/Discard/Cancel protection when closing individual dirty tabs
 - visible keyboard focus, descriptive search placeholders, and bounded 28-logical-pixel transient controls
 - sustained Debug/`ReleaseSafe` Wayland/X11 search, ranking, monitor, project-lifecycle, render, memory, and teardown qualification
+
+## Paired session sharing
+
+Session sharing mirrors presentation state, not a PTY or process. The machine
+running the shell remains authoritative; closing it ends the remote view.
+Open **Session Sharing…** from the Linux workspace menu. On one device choose
+**Pair: Listen**; on the other enter its reachable hostname or IP and choose
+**Pair: Connect**. Compare and explicitly confirm the six-digit code on both
+devices. The endpoint may be a LAN address, IPv4/IPv6 address, DNS name, or a
+Tailscale/WireGuard/ZeroTier-style VPN name or address.
+
+Select the saved peer and use **Share current terminal** on the host and
+**Receive selected device** on the viewer. Keep the same TCP port used during
+pairing reachable on the host. Viewing is the default. Input is accepted only
+after the viewer requests control and the host grants it; the grant ends on
+revoke, disconnect, or reconnect. **Revoke paired device** persists locally and
+closes a matching active share.
+
+There is no relay, account service, NAT traversal, port forwarding, or subnet
+scan. The current UI uses direct endpoint entry. The transport defines bounded
+opt-in LAN announcements containing only a temporary instance identifier,
+alias, port, protocol version, and capability bits; no background discovery
+runs, and direct endpoints remain the reliable path across routed VPNs.
 
 ## What NOCTTY is not
 

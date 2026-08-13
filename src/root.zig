@@ -12,6 +12,7 @@ pub const launch_profile = @import("terminal/LaunchProfile.zig");
 pub const continuity = @import("terminal/Continuity.zig");
 pub const history_snapshot = @import("terminal/HistorySnapshot.zig");
 pub const pane_info = @import("terminal/PaneInfo.zig");
+pub const share = @import("share/root.zig");
 pub const theme = @import("theme/Theme.zig");
 pub const theme_storage = @import("theme/Storage.zig");
 pub const project_scan = @import("workspace/ProjectScan.zig");
@@ -36,6 +37,7 @@ test {
     _ = continuity;
     _ = history_snapshot;
     _ = pane_info;
+    _ = share;
     _ = theme;
     _ = theme_storage;
     _ = project_scan;

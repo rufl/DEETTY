@@ -18,6 +18,8 @@ Included:
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
 - `Ctrl+Shift+C` copy of the visible terminal surface
 - local lifecycle/error logs and local crash minidumps
+- explicit command-line pairing and encrypted single-terminal sharing/receiving
+  with a native GDI remote view and host-approved, connection-scoped input
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
@@ -29,6 +31,7 @@ Not included or claimed yet:
 - mouse-reporting applications or text selection
 - Windows NoctEd
 - code signing, installer/MSIX packaging, ARM64, or automatic updates
+- graphical paired-device/session-sharing controls
 - physical Windows dogfood or compatibility qualification
 
 This should be treated as a testable Windows terminal alpha, not as Windows
@@ -41,6 +44,52 @@ parity with the current Linux workspace.
 - PowerShell or `cmd.exe`
 
 ConPTY is part of Windows and no GTK/MSYS/Cygwin runtime is required.
+Session sharing additionally requires direct TCP reachability between devices;
+the Windows firewall may prompt when listening. LAN, tailnet, and other routed
+VPN addresses work without protocol-specific integration. NOCTTY does not
+provide a relay or NAT traversal.
+
+## Pair and share a terminal
+
+Pairing is explicit on both devices. The first command listens on `PORT` and
+records the other device under `ALIAS` and its reachable `HOST`; the second
+connects to that listener:
+
+```powershell
+# Device A
+.\noctty.exe --pair-listen 49331 "Device B" "device-b.tailnet.example"
+
+# Device B
+.\noctty.exe --pair-connect "device-a.tailnet.example" 49331 "Device A"
+```
+
+Compare the six-digit code shown on both devices and accept only if it matches.
+The private identity is saved as
+`%LOCALAPPDATA%\NOCTTY\sharing-identity.dpapi`; the paired-device list is saved
+beside it as `sharing-peers.dpapi`. Both use current-user DPAPI protection.
+Inspect saved indexes or revoke a device without editing the protected files:
+
+```powershell
+.\noctty.exe --list-pairs
+.\noctty.exe --revoke 0
+```
+
+
+To share Device A's current ConPTY terminal on the same reachable port and
+receive it on Device B:
+
+```powershell
+# Device A
+.\noctty.exe --share 0 49331
+
+# Device B
+.\noctty.exe --receive 0
+```
+
+The receiver starts view-only. Typing requests control; Device A shows a native
+approval prompt before any input is delivered. Approval applies only to that
+connection and ends on disconnect. The shell, process, and scrollback remain
+owned by Device A; this is presentation mirroring, not PTY migration.
 
 ## Build from Linux or Windows
 
