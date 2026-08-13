@@ -93,8 +93,9 @@ The qualified Linux NOCTTY host provides:
 The experimental Windows host provides a native Win32/GDI window, ConPTY,
 the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
 color, scrollback, clipboard paste/visible-surface copy, local logs, local crash
-dumps, and command-line paired session sharing/receiving. It does not yet
-provide Linux workspace parity. See [Windows alpha](docs/WINDOWS.md).
+dumps, and command-line LAN discovery plus paired session sharing/receiving.
+It does not yet provide Linux workspace parity. See
+[Windows alpha](docs/WINDOWS.md).
 
 NoctEd provides on Linux:
 
@@ -119,9 +120,11 @@ NoctEd provides on Linux:
 Session sharing mirrors presentation state, not a PTY or process. The machine
 running the shell remains authoritative; closing it ends the remote view.
 Open **Session Sharing…** from the Linux workspace menu. On one device choose
-**Pair: Listen**; on the other enter its reachable hostname or IP and choose
-**Pair: Connect**. Compare and explicitly confirm the six-digit code on both
-devices. The endpoint may be a LAN address, IPv4/IPv6 address, DNS name, or a
+**Pair: Listen**. On the other, choose **Discover on LAN** to fill the announced
+endpoint, review it, and choose **Pair: Connect**. If LAN discovery is
+unavailable, enter the listener's reachable hostname or IP directly. Compare
+and explicitly confirm the six-digit code on both devices. The endpoint may be
+a LAN address, IPv4/IPv6 address, DNS name, or a
 Tailscale/WireGuard/ZeroTier-style VPN name or address.
 
 Select the saved peer and use **Share current terminal** on the host and
@@ -132,10 +135,13 @@ revoke, disconnect, or reconnect. **Revoke paired device** persists locally and
 closes a matching active share.
 
 There is no relay, account service, NAT traversal, port forwarding, or subnet
-scan. The current UI uses direct endpoint entry. The transport defines bounded
-opt-in LAN announcements containing only a temporary instance identifier,
-alias, port, protocol version, and capability bits; no background discovery
-runs, and direct endpoints remain the reliable path across routed VPNs.
+scan. Pairing listeners send bounded, opt-in LAN multicast/broadcast
+announcements containing only a temporary instance identifier, alias, port,
+protocol version, and capability bits. Announcements are unauthenticated hints;
+trust begins only after both devices confirm the same pairing code. Discovery
+runs only while the user asks for it in the Session Sharing dialog; closing the
+dialog stops discovery. Direct endpoints remain the reliable path across
+routed VPNs.
 
 ## What NOCTTY is not
 

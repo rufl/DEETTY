@@ -12,12 +12,13 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   receivers start view-only, remote input requires a separate host grant for
   each connection, replay/gaps trigger a checkpoint or rejection, and device
   revocation closes matching live links. Linux provides a native Session
-  Sharing dialog and remote grid preview; the experimental Windows host
-  provides DPAPI-protected identity storage plus command-line pair, share, and
-  receive modes rendered through its existing GDI surface. Manual hostname,
-  IPv4/IPv6, LAN, tailnet, and routed-VPN endpoints are supported without a
-  relay, account service, NAT traversal, subnet scan, telemetry, or automatic
-  network activity. Focused protocol/security/loopback tests pass; the Windows
+  Sharing dialog, opt-in LAN listener discovery, and remote grid preview; the
+  experimental Windows host provides DPAPI-protected identity storage,
+  command-line LAN discovery, and pair/share/receive modes rendered through
+  its existing GDI surface. Manual hostname, IPv4/IPv6, LAN, tailnet, and
+  routed-VPN endpoints remain supported without a relay, account service, NAT
+  traversal, subnet scan, telemetry, or background discovery. Focused
+  protocol/security/loopback tests pass; the Windows
   host cross-build passes, while physical cross-machine Windows/Linux and VPN
   qualification remain open.
 

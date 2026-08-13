@@ -18,8 +18,9 @@ Included:
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
 - `Ctrl+Shift+C` copy of the visible terminal surface
 - local lifecycle/error logs and local crash minidumps
-- explicit command-line pairing and encrypted single-terminal sharing/receiving
-  with a native GDI remote view and host-approved, connection-scoped input
+- explicit command-line LAN discovery, pairing, and encrypted single-terminal
+  sharing/receiving with a native GDI remote view and host-approved,
+  connection-scoped input
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
@@ -62,6 +63,18 @@ connects to that listener:
 # Device B
 .\noctty.exe --pair-connect "device-a.tailnet.example" 49331 "Device A"
 ```
+
+For devices on the same LAN, the listener advertises only while the explicit
+`--pair-listen` command is active. The other device can discover one listener
+before connecting:
+
+```powershell
+.\noctty.exe --discover
+```
+
+The result shows the direct `--pair-connect` command parameters. Tailnets and
+routed VPNs commonly do not carry LAN multicast or broadcast; use the direct
+hostname/IP form above there.
 
 Compare the six-digit code shown on both devices and accept only if it matches.
 The private identity is saved as

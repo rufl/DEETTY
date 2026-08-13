@@ -285,6 +285,16 @@ const ShareState = struct {
     live_host: ?*noctty.share.live_host.LiveHost = null,
     live_viewer: ?*noctty.share.live_viewer.LiveViewer = null,
     shared_pane_id: ?u64 = null,
+    discovery: ?noctty.share.transport.Discovery = null,
+    announcement: ?noctty.share.transport.Discovery = null,
+    announcement_instance: [16]u8 = [_]u8{0} ** 16,
+    announcement_last_second: i64 = std.math.minInt(i64),
+    discovered_alias: [noctty.share.protocol.max_alias_bytes]u8 = [_]u8{0} ** noctty.share.protocol.max_alias_bytes,
+    discovered_alias_length: u8 = 0,
+    discovered_endpoint: [noctty.share.identity.max_endpoint_bytes]u8 = [_]u8{0} ** noctty.share.identity.max_endpoint_bytes,
+    discovered_endpoint_length: u8 = 0,
+    discovered_port: u16 = 0,
+    discovered_ready: bool = false,
 
     fn init(allocator: std.mem.Allocator, io: std.Io, store_path: []const u8) !ShareState {
         const owned_path = try allocator.dupe(u8, store_path);
@@ -322,6 +332,8 @@ const ShareState = struct {
         if (self.live_host) |host| host.destroy();
         if (self.live_viewer) |viewer| viewer.destroy();
         if (self.pairing) |pairing| pairing.destroy();
+        if (self.discovery) |*discovery| discovery.close();
+        if (self.announcement) |*announcement| announcement.close();
         self.store.deinit();
         self.allocator.free(self.store_path);
     }
@@ -361,6 +373,73 @@ const ShareState = struct {
             },
             else => {},
         }
+    }
+
+    fn startDiscovery(self: *ShareState) !void {
+        if (self.discovery != null) return error.ShareDiscoveryAlreadyActive;
+        self.discovered_ready = false;
+        self.discovery = try noctty.share.transport.Discovery.open();
+    }
+
+    fn stopDiscovery(self: *ShareState) void {
+        if (self.discovery) |*discovery| discovery.close();
+        self.discovery = null;
+    }
+
+    fn startAnnouncement(self: *ShareState) !void {
+        if (self.announcement) |*announcement| announcement.close();
+        self.announcement = try noctty.share.transport.Discovery.open();
+        var ephemeral = noctty.share.crypto.Identity.generate(noctty.share.crypto.fromIo(self.io));
+        defer ephemeral.deinit();
+        self.announcement_instance = ephemeral.public_key[0..16].*;
+        self.announcement_last_second = std.math.minInt(i64);
+    }
+
+    fn stopAnnouncement(self: *ShareState) void {
+        if (self.announcement) |*announcement| announcement.close();
+        self.announcement = null;
+    }
+
+    fn updateDiscovery(self: *ShareState) void {
+        if (self.announcement) |*announcement| {
+            const pairing = self.pairing orelse {
+                self.stopAnnouncement();
+                return;
+            };
+            if (pairing.statusSnapshot() != .connecting) {
+                self.stopAnnouncement();
+            } else {
+                const now = noctty.share.transport.unixTimestamp(noctty.share.crypto.fromIo(self.io));
+                if (now -| self.announcement_last_second >= 2) {
+                    announcement.announce(.{
+                        .instance_id = self.announcement_instance,
+                        .tcp_port = pairing.listeningPort(),
+                        .accepts_sessions = true,
+                        .alias = "NOCTTY pairing listener",
+                    }) catch {
+                        self.stopAnnouncement();
+                        return;
+                    };
+                    self.announcement_last_second = now;
+                }
+            }
+        }
+        const discovery = if (self.discovery) |*value| value else return;
+        if (!(discovery.readable(0) catch false)) return;
+        var packet: [noctty.share.transport.max_discovery_bytes]u8 = undefined;
+        var source: [64]u8 = undefined;
+        const found = discovery.receive(&packet, &source) catch return;
+        if (!found.announcement.accepts_sessions or
+            found.source.len == 0 or
+            found.source.len > self.discovered_endpoint.len)
+            return;
+        @memcpy(self.discovered_alias[0..found.announcement.alias.len], found.announcement.alias);
+        self.discovered_alias_length = @intCast(found.announcement.alias.len);
+        @memcpy(self.discovered_endpoint[0..found.source.len], found.source);
+        self.discovered_endpoint_length = @intCast(found.source.len);
+        self.discovered_port = found.announcement.tcp_port;
+        self.discovered_ready = true;
+        self.stopDiscovery();
     }
 };
 
@@ -498,6 +577,28 @@ export fn noctty_grid_share_peer(
     revoked_output.* = @intFromBool(peer.revoked);
     return @intCast(peer.alias().len);
 }
+export fn noctty_grid_share_discovered(
+    raw: ?*anyopaque,
+    alias_output: [*]u8,
+    alias_capacity: usize,
+    endpoint_output: [*]u8,
+    endpoint_capacity: usize,
+    port_output: *u16,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const state = bridge.share_state orelse return 0;
+    if (!state.discovered_ready) return 0;
+    const alias_length: usize = state.discovered_alias_length;
+    const endpoint_length: usize = state.discovered_endpoint_length;
+    if (alias_length >= alias_capacity or endpoint_length >= endpoint_capacity) return -1;
+    @memcpy(alias_output[0..alias_length], state.discovered_alias[0..alias_length]);
+    alias_output[alias_length] = 0;
+    @memcpy(endpoint_output[0..endpoint_length], state.discovered_endpoint[0..endpoint_length]);
+    endpoint_output[endpoint_length] = 0;
+    port_output.* = state.discovered_port;
+    state.discovered_ready = false;
+    return @intCast(alias_length);
+}
 
 export fn noctty_grid_share_action(
     raw: ?*anyopaque,
@@ -517,6 +618,7 @@ export fn noctty_grid_share_action(
     switch (action) {
         1 => {
             if (state.pairing != null or port == 0) return -1;
+            state.stopDiscovery();
             state.pairing = noctty.share.pair_controller.Controller.listen(
                 state.allocator,
                 noctty.share.crypto.fromIo(state.io),
@@ -527,9 +629,12 @@ export fn noctty_grid_share_action(
                 endpoint,
                 port,
             ) catch return -1;
+            state.startAnnouncement() catch {};
         },
         2 => {
             if (state.pairing != null or port == 0) return -1;
+            state.stopDiscovery();
+            state.stopAnnouncement();
             state.pairing = noctty.share.pair_controller.Controller.connect(
                 state.allocator,
                 noctty.share.crypto.fromIo(state.io),
@@ -540,7 +645,14 @@ export fn noctty_grid_share_action(
             ) catch return -1;
         },
         3 => (state.pairing orelse return -1).confirm(),
-        4 => (state.pairing orelse return -1).reject(),
+        4 => {
+            if (state.pairing) |pairing| {
+                pairing.reject();
+            } else if (state.discovery != null) {
+                state.stopDiscovery();
+            } else return -1;
+            state.stopAnnouncement();
+        },
         5 => {
             if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0) return -1;
             const index: usize = @intCast(peer_index_raw);
@@ -609,6 +721,12 @@ export fn noctty_grid_share_action(
             state.live_viewer = null;
         },
         12 => (state.live_viewer orelse return -1).requestControl() catch return -1,
+        13 => {
+            if (state.pairing != null or state.live_host != null or state.live_viewer != null)
+                return -1;
+            state.startDiscovery() catch return -1;
+        },
+        14 => state.stopDiscovery(),
         else => return -1,
     }
     return 0;
@@ -621,6 +739,7 @@ export fn noctty_grid_share_status(
 ) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
     const state = bridge.share_state orelse return 0;
+    state.updateDiscovery();
     state.finishPairing() catch {
         bridge.callback_failed = true;
         return -1;
@@ -639,6 +758,16 @@ export fn noctty_grid_share_status(
         sas_output.* = 0;
         port_output.* = 0;
         return 300 + @intFromEnum(viewer.currentStatus());
+    }
+    if (state.discovery != null) {
+        sas_output.* = 0;
+        port_output.* = 0;
+        return 400;
+    }
+    if (state.discovered_ready) {
+        sas_output.* = 0;
+        port_output.* = state.discovered_port;
+        return 401;
     }
     sas_output.* = 0;
     port_output.* = 0;

@@ -46,12 +46,16 @@ NOCTTY should maintain these boundaries:
   inferred from terminal output; restore actions require explicit user choice
 - dependency bundles must keep ownership/license payload checks fail-closed
 - the opt-in authenticated Codex qualification uses the installed CLI's existing login, retains only the exact response/log/screenshot, and never copies provider credentials into repository evidence
-- session sharing opens network sockets only after an explicit pair, share, or
-  receive action; the protocol pins per-device X25519 identity keys, uses a
-  Noise XX handshake for first pairing and Noise transport encryption, and
-  requires matching six-digit confirmation on both devices
+- session sharing opens network sockets only after an explicit pair, discover,
+  share, or receive action; pairing-listener announcements are bounded to the
+  LAN and stop with the listener, and discovery stops when its UI closes
+- the protocol pins per-device X25519 identity keys, uses a Noise XX handshake
+  for first pairing and Noise transport encryption, and requires matching
+  six-digit confirmation on both devices
 - remote terminal access is view-only by default; input requires a fresh host
   grant for the current connection, and revocation closes matching live links
+- discovery announcements are unauthenticated hints; users must treat the
+  endpoint and alias as untrusted until both devices show the same pairing code
 - paired-device state uses private atomic storage on Linux and
   `%LOCALAPPDATA%` DPAPI protection on Windows; identity keys, terminal content,
   and control grants are never placed in discovery announcements

@@ -103,13 +103,18 @@ pub export fn wWinMain(
     var store = loadOrCreateStore() catch return 1;
     const mode = parseShareMode(command) catch {
         showWindowsMessage(
-            "Usage: --pair-listen PORT ALIAS REMOTE_HOST, " ++ "--pair-connect HOST PORT ALIAS, --list-pairs, " ++ "--revoke INDEX, --share INDEX PORT, or --receive INDEX",
+            "Usage: --pair-listen PORT ALIAS REMOTE_HOST, " ++ "--pair-connect HOST PORT ALIAS, --discover, --list-pairs, " ++ "--revoke INDEX, --share INDEX PORT, or --receive INDEX",
         );
         store.deinit();
         return 1;
     };
     if (mode.kind == .pair_listen or mode.kind == .pair_connect) {
         const result = runPairing(&store, random, mode);
+        store.deinit();
+        return result;
+    }
+    if (mode.kind == .discover) {
+        const result = runDiscovery();
         store.deinit();
         return result;
     }
@@ -237,7 +242,7 @@ fn saveStore(store: *const Share.identity.Store) !void {
 }
 
 const ShareMode = struct {
-    const Kind = enum { local, pair_listen, pair_connect, list_pairs, revoke, share, receive };
+    const Kind = enum { local, pair_listen, pair_connect, discover, list_pairs, revoke, share, receive };
     kind: Kind = .local,
     index: usize = 0,
     port: u16 = 0,
@@ -310,6 +315,8 @@ fn parseShareMode(command: []const u16) !ShareMode {
         if (alias.len > mode.alias.len) return error.InvalidWindowsShareArgument;
         @memcpy(mode.alias[0..alias.len], alias);
         mode.alias_length = alias.len;
+    } else if (std.mem.eql(u8, first, "--discover")) {
+        mode.kind = .discover;
     } else if (std.mem.eql(u8, first, "--list-pairs")) {
         mode.kind = .list_pairs;
     } else if (std.mem.eql(u8, first, "--revoke")) {
@@ -381,6 +388,36 @@ fn confirmWindowsSas(sas: u32) bool {
         0x34,
     ) == 6;
 }
+fn runDiscovery() c_int {
+    var discovery = Share.transport.Discovery.open() catch {
+        showWindowsMessage("Could not start LAN discovery.");
+        return 1;
+    };
+    defer discovery.close();
+    var packet: [Share.transport.max_discovery_bytes]u8 = undefined;
+    var source: [64]u8 = undefined;
+    for (0..750) |_| {
+        if (!(discovery.readable(20) catch false)) continue;
+        const found = discovery.receive(&packet, &source) catch continue;
+        if (!found.announcement.accepts_sessions) continue;
+        var message: [512]u8 = undefined;
+        const text = std.fmt.bufPrint(
+            &message,
+            "Untrusted LAN hint: {s} at {s}:{d}.\r\nUse --pair-connect {s} {d} ALIAS, then trust only if the six-digit code matches.",
+            .{
+                found.announcement.alias,
+                found.source,
+                found.announcement.tcp_port,
+                found.source,
+                found.announcement.tcp_port,
+            },
+        ) catch return 1;
+        showWindowsMessage(text);
+        return 0;
+    }
+    showWindowsMessage("No pairing listener was discovered on this LAN. Use a direct endpoint for tailnets and routed VPNs.");
+    return 1;
+}
 
 fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: ShareMode) c_int {
     const controller = switch (mode.kind) {
@@ -408,9 +445,31 @@ fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: 
         return 1;
     };
     defer controller.destroy();
-    for (0..3000) |_| {
+    var announcement: ?Share.transport.Discovery = if (mode.kind == .pair_listen)
+        Share.transport.Discovery.open() catch null
+    else
+        null;
+    defer if (announcement) |*active| active.close();
+    var announcement_instance: [16]u8 = undefined;
+    if (announcement != null) {
+        var ephemeral = Crypto.Identity.generate(random);
+        defer ephemeral.deinit();
+        announcement_instance = ephemeral.public_key[0..16].*;
+    }
+    for (0..3000) |attempt| {
         const status = controller.statusSnapshot();
         if (status == .sas_ready or status == .failed or status == .rejected) break;
+        if (announcement) |*active| {
+            if (attempt % 100 == 0) active.announce(.{
+                .instance_id = announcement_instance,
+                .tcp_port = controller.listeningPort(),
+                .accepts_sessions = true,
+                .alias = "NOCTTY Windows pairing listener",
+            }) catch {
+                active.close();
+                announcement = null;
+            };
+        }
         Share.transport.sleepMilliseconds(random, 20);
     }
     if (controller.statusSnapshot() != .sas_ready) {

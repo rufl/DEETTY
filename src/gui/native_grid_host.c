@@ -111,6 +111,8 @@ extern int noctty_grid_flush_hot_session(void *);
 extern int noctty_grid_smart_filter_tag(void *, char *, size_t);
 extern int noctty_grid_share_peer(void *, int, char *, size_t, char *, size_t,
                                   uint16_t *, int *);
+extern int noctty_grid_share_discovered(void *, char *, size_t, char *, size_t,
+                                        uint16_t *);
 extern int noctty_grid_share_action(void *, int, int, const char *, size_t,
                                     const char *, size_t, uint16_t);
 extern int noctty_grid_share_status(void *, uint32_t *, uint16_t *);
@@ -12831,6 +12833,12 @@ static gboolean refresh_sharing_status(gpointer user_data) {
         G_OBJECT(dialog), "noctty-sharing-request-control");
     GtkWidget *preview = g_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-preview");
+    GtkEntry *alias_entry = GTK_ENTRY(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-alias"));
+    GtkEntry *endpoint_entry = GTK_ENTRY(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-endpoint"));
+    GtkSpinButton *port_spin = GTK_SPIN_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-sharing-port"));
     uint32_t sas = 0;
     uint16_t port = 0;
     int status = noctty_grid_share_status(root->event_data, &sas, &port);
@@ -12873,13 +12881,33 @@ static gboolean refresh_sharing_status(gpointer user_data) {
         g_snprintf(text, sizeof(text), "Remote terminal closed.");
     else if (status == 306)
         g_snprintf(text, sizeof(text), "Remote terminal connection failed.");
-    else
+    else if (status == 400)
+        g_snprintf(text, sizeof(text), "Discovering pairing listeners on this LAN…");
+    else if (status == 401) {
+        char alias[129] = {0};
+        char endpoint[254] = {0};
+        uint16_t discovered_port = 0;
+        if (noctty_grid_share_discovered(
+                root->event_data, alias, sizeof(alias), endpoint,
+                sizeof(endpoint), &discovered_port) > 0) {
+            gtk_entry_set_text(alias_entry, alias);
+            gtk_entry_set_text(endpoint_entry, endpoint);
+            gtk_spin_button_set_value(port_spin, discovered_port);
+            g_snprintf(
+                text, sizeof(text),
+                "Untrusted LAN hint: %s at %s:%u. Review it, connect, and trust "
+                "only after the six-digit code matches.",
+                alias, endpoint, (unsigned)discovered_port);
+        } else
+            g_snprintf(text, sizeof(text), "LAN listener discovery completed.");
+    } else
         g_snprintf(text, sizeof(text),
                    "Idle. Pair a device or share with a paired device.");
     gtk_label_set_text(GTK_LABEL(status_label), text);
     gtk_widget_set_sensitive(confirm, status == 102);
     gtk_widget_set_sensitive(stop, status >= 201 && status <= 204);
-    gtk_widget_set_sensitive(cancel_pairing, status == 101 || status == 102);
+    gtk_widget_set_sensitive(cancel_pairing,
+                             status == 101 || status == 102 || status == 400);
     gtk_widget_set_sensitive(grant, status == 203);
     gtk_widget_set_sensitive(revoke, status == 203 || status == 204);
     gtk_widget_set_sensitive(stop_receive, status >= 301 && status <= 304);
@@ -12943,6 +12971,7 @@ static GtkWidget *sharing_action_button(const char *label, int action,
 
 static void on_sharing_dialog_destroy(GtkWidget *dialog, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
+    (void)noctty_grid_share_action(root->event_data, 14, -1, "", 0, "", 0, 0);
     if (root->sharing_dialog == dialog) root->sharing_dialog = NULL;
 }
 
@@ -12977,6 +13006,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     GtkWidget *pair_connect = sharing_action_button("Pair: Connect", 2, root);
     GtkWidget *confirm = sharing_action_button("Confirm matching code", 3, root);
     GtkWidget *cancel_pairing = sharing_action_button("Cancel pairing", 4, root);
+    GtkWidget *discover = sharing_action_button("Discover on LAN", 13, root);
     GtkWidget *share = sharing_action_button("Share current terminal", 5, root);
     GtkWidget *stop = sharing_action_button("Stop sharing", 6, root);
     GtkWidget *grant = sharing_action_button("Grant control", 7, root);
@@ -13018,10 +13048,11 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     gtk_grid_attach(GTK_GRID(grid), gtk_label_new("Endpoint"), 0, 2, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), endpoint, 1, 2, 2, 1);
     gtk_grid_attach(GTK_GRID(grid), port, 3, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), discover, 0, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), pair_listen, 1, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), pair_connect, 2, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), confirm, 3, 3, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), cancel_pairing, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), cancel_pairing, 0, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), share, 1, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), stop, 2, 4, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), revoke_device, 3, 4, 1, 1);

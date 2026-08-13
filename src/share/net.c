@@ -293,12 +293,21 @@ NocttyShareSocket noctty_share_discovery_open(uint16_t port) {
     struct sockaddr_in bind_address;
     struct ip_mreq membership;
     int yes = 1;
+    int multicast_hops = 1;
     if (!noctty_share_net_startup()) return NOCTTY_SHARE_INVALID_SOCKET;
     socket_value = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (socket_value == NOCTTY_NATIVE_INVALID)
         return NOCTTY_SHARE_INVALID_SOCKET;
     (void)setsockopt(socket_value, SOL_SOCKET, SO_REUSEADDR,
                      (const char *)&yes, (socklen_t)sizeof(yes));
+    (void)setsockopt(socket_value, SOL_SOCKET, SO_BROADCAST,
+                     (const char *)&yes, (socklen_t)sizeof(yes));
+    (void)setsockopt(socket_value, IPPROTO_IP, IP_MULTICAST_TTL,
+                     (const char *)&multicast_hops,
+                     (socklen_t)sizeof(multicast_hops));
+    (void)setsockopt(socket_value, IPPROTO_IP, IP_MULTICAST_LOOP,
+                     (const char *)&multicast_hops,
+                     (socklen_t)sizeof(multicast_hops));
     memset(&bind_address, 0, sizeof(bind_address));
     bind_address.sin_family = AF_INET;
     bind_address.sin_port = htons(port);
@@ -323,22 +332,58 @@ NocttyShareSocket noctty_share_discovery_open(uint16_t port) {
 int noctty_share_discovery_announce(NocttyShareSocket socket, uint16_t port,
                                     const uint8_t *bytes, size_t length) {
     struct sockaddr_in target;
-    if (bytes == NULL || length == 0 || length > NOCTTY_DISCOVERY_MAX_BYTES)
+    int multicast_count;
+    int broadcast_count;
+    int loopback_count;
+    if (bytes == NULL || length == 0 || length > NOCTTY_DISCOVERY_MAX_BYTES ||
+        length > INT32_MAX)
         return -1;
     memset(&target, 0, sizeof(target));
     target.sin_family = AF_INET;
     target.sin_port = htons(port);
     target.sin_addr.s_addr = inet_addr(NOCTTY_DISCOVERY_GROUP);
 #ifdef _WIN32
-    return sendto(noctty_native_socket(socket), (const char *)bytes,
-                  (int)length, 0, (struct sockaddr *)&target,
-                  (int)sizeof(target));
+    multicast_count =
+        sendto(noctty_native_socket(socket), (const char *)bytes, (int)length,
+               0, (struct sockaddr *)&target, (int)sizeof(target));
 #else
-    ssize_t count = sendto(noctty_native_socket(socket), bytes, length, 0,
-                           (struct sockaddr *)&target,
-                           (socklen_t)sizeof(target));
-    return count > INT32_MAX ? -1 : (int)count;
+    {
+        ssize_t count =
+            sendto(noctty_native_socket(socket), bytes, length, 0,
+                   (struct sockaddr *)&target, (socklen_t)sizeof(target));
+        multicast_count = count > INT32_MAX ? -1 : (int)count;
+    }
 #endif
+    target.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+#ifdef _WIN32
+    broadcast_count =
+        sendto(noctty_native_socket(socket), (const char *)bytes, (int)length,
+               0, (struct sockaddr *)&target, (int)sizeof(target));
+#else
+    {
+        ssize_t count =
+            sendto(noctty_native_socket(socket), bytes, length, 0,
+                   (struct sockaddr *)&target, (socklen_t)sizeof(target));
+        broadcast_count = count > INT32_MAX ? -1 : (int)count;
+    }
+#endif
+    target.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#ifdef _WIN32
+    loopback_count =
+        sendto(noctty_native_socket(socket), (const char *)bytes, (int)length,
+               0, (struct sockaddr *)&target, (int)sizeof(target));
+#else
+    {
+        ssize_t count =
+            sendto(noctty_native_socket(socket), bytes, length, 0,
+                   (struct sockaddr *)&target, (socklen_t)sizeof(target));
+        loopback_count = count > INT32_MAX ? -1 : (int)count;
+    }
+#endif
+    if (multicast_count == (int)length || broadcast_count == (int)length ||
+        loopback_count == (int)length)
+        return (int)length;
+    return -1;
 }
 
 int noctty_share_discovery_receive(NocttyShareSocket socket, uint8_t *output,

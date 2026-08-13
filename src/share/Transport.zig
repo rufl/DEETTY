@@ -106,6 +106,11 @@ pub const Discovery = struct {
         if (noctty_share_discovery_announce(self.socket, discovery_port, bytes[0..count].ptr, count) != @as(c_int, @intCast(count)))
             return error.ShareDiscoverySendFailed;
     }
+    pub fn readable(self: *Discovery, timeout_milliseconds: u32) !bool {
+        const result = noctty_share_socket_readable(self.socket, timeout_milliseconds);
+        if (result < 0) return error.ShareDiscoveryPollFailed;
+        return result == 1;
+    }
 
     pub fn receive(self: *Discovery, packet: *[max_discovery_bytes]u8, source: *[64]u8) !struct { announcement: ParsedAnnouncement, source: []const u8 } {
         const count = noctty_share_discovery_receive(self.socket, packet, packet.len, source, source.len);
@@ -322,6 +327,29 @@ test "discovery rejects malformed aliases and lengths" {
         .alias = "bad\nname",
     }));
     try std.testing.expectError(error.InvalidShareDiscoveryPacket, decodeAnnouncement("NCTD"));
+}
+test "opt-in LAN discovery receives a bounded announcement" {
+    var discovery = Discovery.open() catch return error.SkipZigTest;
+    defer discovery.close();
+    const expected = Announcement{
+        .instance_id = [_]u8{9} ** 16,
+        .tcp_port = 49331,
+        .accepts_sessions = true,
+        .alias = "NOCTTY discovery smoke",
+    };
+    try discovery.announce(expected);
+    for (0..50) |_| {
+        if (!try discovery.readable(10)) continue;
+        var packet: [max_discovery_bytes]u8 = undefined;
+        var source: [64]u8 = undefined;
+        const found = try discovery.receive(&packet, &source);
+        try std.testing.expectEqual(expected.instance_id, found.announcement.instance_id);
+        try std.testing.expectEqual(expected.tcp_port, found.announcement.tcp_port);
+        try std.testing.expectEqualStrings(expected.alias, found.announcement.alias);
+        try std.testing.expect(found.source.len != 0);
+        return;
+    }
+    return error.ShareDiscoveryReceiveTimedOut;
 }
 
 test "loopback pairing carries authenticated framed terminal data" {
