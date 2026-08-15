@@ -531,6 +531,40 @@ fn addWindowsBuild(
         .target = target,
         .optimize = optimize,
     });
+    const nocted_core_mod = b.createModule(.{
+        .root_source_file = b.path("src/nocted/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
+    const nocted_windows_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/nocted_main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
+    });
+    nocted_windows_mod.addImport("nocted_core", nocted_core_mod);
+    nocted_windows_mod.addCSourceFile(.{
+        .file = b.path("src/windows/nocted_host.c"),
+        .flags = &.{
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wsign-conversion",
+            "-Wshadow",
+            "-Wformat",
+            "-Werror",
+        },
+    });
+    nocted_windows_mod.linkSystemLibrary("kernel32", .{});
+    nocted_windows_mod.linkSystemLibrary("user32", .{});
+    nocted_windows_mod.linkSystemLibrary("gdi32", .{});
+    nocted_windows_mod.linkSystemLibrary("comctl32", .{});
+    nocted_windows_mod.linkSystemLibrary("comdlg32", .{});
+    nocted_windows_mod.linkSystemLibrary("shell32", .{});
+    nocted_windows_mod.linkSystemLibrary("ole32", .{});
     const windows_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/main.zig"),
         .target = target,
@@ -590,6 +624,14 @@ fn addWindowsBuild(
     executable.subsystem = .windows;
     executable.mingw_unicode_entry_point = true;
     b.installArtifact(executable);
+
+    const nocted_executable = b.addExecutable(.{
+        .name = "nocted",
+        .root_module = nocted_windows_mod,
+    });
+    nocted_executable.subsystem = .windows;
+    nocted_executable.mingw_unicode_entry_point = true;
+    b.installArtifact(nocted_executable);
     b.installFile("LICENSE", "share/licenses/noctty/LICENSE");
     b.installFile(
         "THIRD_PARTY_NOTICES.md",
@@ -598,9 +640,10 @@ fn addWindowsBuild(
 
     const check_step = b.step(
         "check",
-        "Compile the experimental native Windows NOCTTY host",
+        "Compile the native Windows NOCTTY and NoctEd hosts",
     );
     check_step.dependOn(&executable.step);
+    check_step.dependOn(&nocted_executable.step);
 
     const windows_step = b.step(
         "windows",

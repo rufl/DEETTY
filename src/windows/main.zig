@@ -5,7 +5,7 @@ const Vt = Share.vt;
 const Crypto = Share.crypto;
 const Release = @import("noctty_release");
 
-const host_abi_version: u32 = 8;
+const host_abi_version: u32 = 9;
 const columns_initial: usize = 120;
 const rows_initial: usize = 36;
 const max_tabs: usize = 16;
@@ -787,6 +787,28 @@ const PaneResize = *const fn (
     c_int,
     c_int,
 ) callconv(.c) c_int;
+const PaneMouseMode = *const fn (?*anyopaque, c_int) callconv(.c) u32;
+const PaneMouseEncode = *const fn (
+    ?*anyopaque,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    [*]u8,
+    usize,
+) callconv(.c) c_int;
+const PaneCopy = *const fn (
+    ?*anyopaque,
+    c_int,
+    [*]u8,
+    usize,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+) callconv(.c) c_int;
 const WorkspaceAction = *const fn (
     ?*anyopaque,
     c_int,
@@ -842,6 +864,9 @@ const Callbacks = extern struct {
     preference_get: PreferenceGet,
     preference_set: PreferenceSet,
     workspace_persistence: WorkspacePersistence,
+    pane_mouse_mode: PaneMouseMode,
+    pane_mouse_encode: PaneMouseEncode,
+    pane_copy: PaneCopy,
 };
 
 extern fn noctty_windows_host_run(
@@ -911,14 +936,14 @@ pub export fn wWinMain(
     _ = previous_instance;
 
     const command = std.mem.span(command_line);
-    if (wideContainsAscii(command, "--version")) {
+    if (firstAsciiTokenIs(command, "--version")) {
         const version_text = std.unicode.utf8ToUtf16LeStringLiteral(
             "NOCTTY " ++ Release.version ++ " Windows alpha",
         );
         noctty_windows_show_version(instance, version_text);
         return 0;
     }
-    const self_test_requested = wideContainsAscii(command, "--self-test");
+    const self_test_requested = firstAsciiTokenIs(command, "--self-test");
 
     var threaded: std.Io.Threaded = .init(std.heap.page_allocator, .{});
     defer threaded.deinit();
@@ -1056,6 +1081,9 @@ pub export fn wWinMain(
         .preference_get = preferenceGet,
         .preference_set = preferenceSet,
         .workspace_persistence = workspacePersistence,
+        .pane_mouse_mode = paneMouseMode,
+        .pane_mouse_encode = paneMouseEncode,
+        .pane_copy = paneCopy,
     };
     return noctty_windows_host_run(instance, show_command, &callbacks);
 }
@@ -1499,6 +1527,8 @@ fn workspaceAction(
 
 fn activePane(raw: ?*anyopaque) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer) |viewer|
+        return std.math.cast(c_int, viewer.selectedIndex()) orelse -1;
     const pane_index = state.workspace.activePaneIndex() orelse return -1;
     return std.math.cast(c_int, pane_index) orelse -1;
 }
@@ -1888,6 +1918,86 @@ fn paneCursor(raw: ?*anyopaque, index_raw: c_int) callconv(.c) u32 {
     return (@as(u32, @intCast(grid.cursor_row)) << 16) |
         @as(u32, @intCast(grid.cursor_column));
 }
+
+fn paneMouseMode(raw: ?*anyopaque, index_raw: c_int) callconv(.c) u32 {
+    if (index_raw < 0) return 0;
+    const state = stateFromRaw(raw) orelse return 0;
+    if (state.live_viewer != null) return 0;
+    const grid = state.workspace.paneGrid(@intCast(index_raw)) orelse return 0;
+    return grid.mouseModeBits();
+}
+
+fn paneMouseEncode(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    column: c_int,
+    row: c_int,
+    button: c_int,
+    kind_raw: c_int,
+    modifiers: c_int,
+    output: [*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    if (index_raw < 0 or column < 0 or row < 0 or button < 0 or
+        button > std.math.maxInt(u8)) return -1;
+    const kind: Vt.MouseEventKind = switch (kind_raw) {
+        0 => .press,
+        1 => .release,
+        2 => .motion,
+        3 => .wheel,
+        else => return -1,
+    };
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null) return 0;
+    const grid = state.workspace.paneGrid(@intCast(index_raw)) orelse return -1;
+    const length = grid.encodeMouse(.{
+        .column = @intCast(column),
+        .row = @intCast(row),
+        .button = @intCast(button),
+        .kind = kind,
+        .modifiers = .{
+            .shift = modifiers & 1 != 0,
+            .alt = modifiers & 2 != 0,
+            .control = modifiers & 4 != 0,
+        },
+    }, output[0..capacity]) orelse return 0;
+    return std.math.cast(c_int, length) orelse -1;
+}
+
+fn paneCopy(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    output: [*]u8,
+    capacity: usize,
+    start_column: c_int,
+    start_row: c_int,
+    end_column: c_int,
+    end_row: c_int,
+) callconv(.c) c_int {
+    if (index_raw < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const selected = start_column >= 0 and start_row >= 0 and
+        end_column >= 0 and end_row >= 0;
+    const range: ?Vt.SelectionRange = if (selected) .{
+        .start_column = @intCast(start_column),
+        .start_row = @intCast(start_row),
+        .end_column = @intCast(end_column),
+        .end_row = @intCast(end_row),
+    } else null;
+    const length = if (state.live_viewer) |viewer|
+        viewer.copyStreamSelection(
+            @intCast(index_raw),
+            output[0..capacity],
+            range,
+        ) orelse return -1
+    else blk: {
+        const grid = state.workspace.paneGrid(@intCast(index_raw)) orelse
+            return -1;
+        break :blk grid.copySelection(output[0..capacity], range) orelse
+            return -1;
+    };
+    return std.math.cast(c_int, length) orelse -1;
+}
 fn paneSelect(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
     if (index_raw < 0) return -1;
     const state = stateFromRaw(raw) orelse return -1;
@@ -1946,22 +2056,26 @@ fn smokeReady(raw: ?*anyopaque) callconv(.c) c_int {
     return @intFromBool(marker != null);
 }
 
-fn wideContainsAscii(haystack: []const u16, needle: []const u8) bool {
-    if (needle.len == 0 or haystack.len < needle.len) return false;
-    for (0..haystack.len - needle.len + 1) |start| {
-        var matches = true;
-        for (needle, 0..) |byte, index| {
-            if (haystack[start + index] != byte) {
-                matches = false;
-                break;
-            }
-        }
-        if (matches) return true;
-    }
-    return false;
+fn firstAsciiTokenIs(command: []const u16, expected: []const u8) bool {
+    var cursor_index: usize = 0;
+    var token_buffer: [256]u8 = undefined;
+    const token = nextAsciiToken(
+        command,
+        &cursor_index,
+        &token_buffer,
+    ) catch return false;
+    return std.mem.eql(u8, token, expected);
 }
 
 fn selfTest(state: *State) bool {
+    if (!firstAsciiTokenIs(
+        std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
+        "--self-test",
+    )) return false;
+    if (firstAsciiTokenIs(
+        std.unicode.utf8ToUtf16LeStringLiteral("device--self-test-backup"),
+        "--self-test",
+    )) return false;
     const grid = state.workspace.activeGrid() orelse return false;
     grid.feed("\x1b[2J\x1b[3;4H\x1b[1;38;2;143;184;255mWIN_OK") catch
         return false;
@@ -1998,6 +2112,56 @@ fn selfTest(state: *State) bool {
         left_rect.width != 500_000 or left_rect.height != 500_000) return false;
     if (right_rect.x != 500_000 or right_rect.y != 500_000 or
         right_rect.width != 500_000 or right_rect.height != 500_000) return false;
+
+    const input_grid = state.workspace.paneGrid(0) orelse return false;
+    input_grid.feed(
+        "\x1b[?1002h\x1b[?1006h\x1b[2J\x1b[HAe\u{301}  \r\n中Z  ",
+    ) catch return false;
+    if (paneMouseMode(state, 0) != 0x102) return false;
+    var mouse_buffer: [64]u8 = undefined;
+    const mouse_length = paneMouseEncode(
+        state,
+        0,
+        1,
+        1,
+        0,
+        2,
+        4,
+        &mouse_buffer,
+        mouse_buffer.len,
+    );
+    if (mouse_length <= 0 or !std.mem.eql(
+        u8,
+        mouse_buffer[0..@intCast(mouse_length)],
+        "\x1b[<48;2;2M",
+    )) return false;
+    if (paneMouseEncode(
+        state,
+        0,
+        1,
+        1,
+        3,
+        2,
+        0,
+        &mouse_buffer,
+        mouse_buffer.len,
+    ) != 0) return false;
+    var copy_buffer: [64]u8 = undefined;
+    const copied = paneCopy(
+        state,
+        0,
+        &copy_buffer,
+        copy_buffer.len,
+        7,
+        1,
+        0,
+        0,
+    );
+    if (copied <= 0 or !std.mem.eql(
+        u8,
+        copy_buffer[0..@intCast(copied)],
+        "Ae\u{301}\n中Z",
+    )) return false;
 
     const second_tab = state.workspace.newTab(
         columns_initial,

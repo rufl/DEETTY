@@ -16,7 +16,9 @@ Included:
 - selectable PowerShell or Command Prompt launch profile for new shells
 - arrow, navigation, function, control, and Unicode keyboard input
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
-- `Ctrl+Shift+C` copy of the visible terminal surface
+- Unicode-aware drag selection with `Ctrl+Shift+C` copying the selected range
+- DEC 1000/1002/1003 mouse reporting with legacy and SGR encodings; `Shift`+
+  left drag always selects locally when an application has mouse capture
 - local lifecycle/error logs and local crash minidumps
 - bounded local tabs and recursive split-down/split-left layouts, with one
   independent ConPTY process, Zig VT grid, output ring, reply path, resize
@@ -30,6 +32,11 @@ Included:
   connection-scoped input; while receiving a Linux workspace, `Ctrl+Tab`
   cycles shared tabs and `Ctrl+Shift+Tab` cycles panes in the selected tab as
   its hierarchy changes
+- a separate native `nocted.exe` editor with tabs, project tree, UTF-8 editing,
+  find, clipboard commands, atomic save, and bounded session restore
+- a reproducible per-user NSIS installer with Start Menu shortcuts, optional
+  desktop shortcuts, reversible NoctEd Open-With registration, silent lifecycle
+  support, and a fail-closed operator-provided signing hook
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
@@ -38,9 +45,8 @@ Not included or claimed yet:
   split ratios, or a reusable launch-profile library
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
-- mouse-reporting applications or text selection
-- Windows NoctEd
-- code signing, installer/MSIX packaging, ARM64, or automatic updates
+- real release Authenticode signatures, MSIX packaging, ARM64, or automatic
+  updates
 - graphical paired-device/session-sharing controls
 - physical Windows dogfood or compatibility qualification
 
@@ -81,6 +87,20 @@ These controls are intentionally smaller than the Linux workspace surface.
 There is no Windows tab strip, drag reordering, reusable profile library,
 Smart Tab, or broadcast-input claim yet.
 
+## Selection and terminal mouse input
+
+Left-drag selects terminal cells in the focused pane. `Ctrl+Shift+C` copies the
+selected range with trailing row padding removed; with no selection it copies
+the visible grid. Selection extraction preserves UTF-8 grapheme text and does
+not emit duplicate bytes for wide-cell continuations. A resize, pane change, or
+new selection clears the prior highlight.
+
+When a terminal enables DEC 1000, 1002, or 1003 mouse tracking, unmodified
+button, drag/motion, and wheel events go to the application. Both legacy and
+SGR 1006 encodings are supported. Hold `Shift` while left-dragging to bypass
+application capture and make a local selection. Losing focus or capture sends
+bounded release reports before NOCTTY clears pressed-button state.
+
 ## Native settings and saved layouts
 
 The window's **Settings** menu applies user-owned, local preferences:
@@ -103,6 +123,31 @@ contents are not serialized.
 Preferences and the saved layout use an atomic, versioned, checksummed local
 file at `%LOCALAPPDATA%\NOCTTY\windows-state-v1.bin`. Invalid or truncated state
 is ignored; startup falls back to the default single-pane workspace.
+
+## Native Windows NoctEd
+
+`nocted.exe` is a separate native Win32 editor process; it does not run inside
+the terminal host and does not require GTK, Node.js, Electron, or a browser
+runtime. It provides bounded document tabs, a project tree, UTF-8 Rich Edit
+editing, undo/redo, cut/copy/paste, find, New/Open/Open Folder, Save/Save As,
+dirty-close prompts, and DPI-aware native controls.
+
+Start it directly, open one file, or index a project folder:
+
+```powershell
+.\nocted.exe
+.\nocted.exe --open C:\work\project\main.zig
+.\nocted.exe --project C:\work\project
+```
+
+NoctEd atomically saves files and rejects a save when the loaded file identity
+changed on disk. Restored dirty file buffers remain deliberately conflicted
+because the prior identity is not persisted; save them to a different path
+after reviewing the on-disk file. Its bounded session state restores ordered
+tabs, dirty recovery buffers, the active tab, and the project root under
+`%LOCALAPPDATA%\NOCTTY`. Choosing **No** in a dirty-exit prompt removes that
+buffer from recovery instead of reopening the file; failure to persist the
+remaining recovery state blocks shutdown.
 
 ## Pair and share a terminal
 
@@ -197,6 +242,31 @@ Create the dogfood ZIP and SHA-256/manifest sidecars:
 The package intentionally keeps symbols in the optimized executable so early
 crash reports remain useful.
 
+Build the reproducible per-user NSIS installer from that portable ZIP:
+
+```sh
+./scripts/package_windows_installer.sh \
+  dist/noctty-windows-x86_64-setup-unsigned.exe \
+  dist/noctty-windows-x86_64-alpha.zip
+```
+
+The installer targets `%LOCALAPPDATA%\Programs\NOCTTY`, requires no
+administrator elevation, creates Start Menu shortcuts, offers optional desktop
+shortcuts, and registers NoctEd only as an **Open with** option for supported
+text/code extensions. `/S` provides silent install and uninstall. Uninstall
+removes only installer-owned files and registrations; it preserves
+`%LOCALAPPDATA%\NOCTTY` user state and unrelated files in the install directory.
+
+Release signing is deliberately operator-owned. Set
+`NOCTTY_WINDOWS_SIGN_HOOK` to an absolute executable path. The hook receives
+`sign KIND INPUT OUTPUT` for `noctty-exe`, `nocted-exe`, and `installer`, then
+`verify KIND ARTIFACT`; verification must report signer identity, certificate
+thumbprint, timestamp presence, and signing tool. Packaging fails closed if the
+hook does not change and verify every artifact, preserves the canonical unsigned
+installer, and emits a separate signed installer plus a verification receipt.
+NOCTTY contains no credentials and makes no signed-release claim without that
+operator receipt.
+
 ## Run and choose a shell
 
 Double-click `noctty.exe` or start it from PowerShell. NOCTTY attempts
@@ -239,10 +309,19 @@ may be sensitive.
 
 ## Self-test and physical smoke
 
-The executable contains a no-window VT/parser and bounded-workspace contract test:
+`noctty.exe` contains a no-window VT/parser, selection/mouse, and
+bounded-workspace contract test:
 
 ```powershell
 .\noctty.exe --self-test
+$LASTEXITCODE
+```
+
+The separate editor has a document bridge, atomic-save, and external-change
+rejection self-test:
+
+```powershell
+.\nocted.exe --self-test
 $LASTEXITCODE
 ```
 
@@ -263,9 +342,12 @@ workspace restore, input, resize, clipboard, and scroll checklist. It does not
 infer whether the visual checklist passed; record those operator observations
 separately.
 
-An exit code of `0` from `--self-test` proves the embedded Zig VT processed the
-pinned color/cursor fixture; nested split layout, tab/pane cycling, collapse,
-and final-session protection matched the bounded model; and a multi-tab layout
-survived the versioned/checksummed persistence codec and reconstruction. It
-does not prove ConPTY, GDI presentation, input, or physical Windows
-compatibility; those require a Windows session.
+An exit code of `0` from `noctty.exe --self-test` proves the embedded Zig VT
+processed the pinned color/cursor fixture; selection preserved Unicode
+graphemes; DEC mouse mode and SGR encoding matched their bounded contracts;
+nested split layout, tab/pane cycling, collapse, and final-session protection
+matched the workspace model; and a multi-tab layout survived the
+versioned/checksummed persistence codec. `nocted.exe --self-test` proves its
+UTF-8 load/save bridge and external-change guard. Neither proves ConPTY, GDI
+presentation, installer behavior, input, or physical Windows compatibility;
+those require a supported Windows session.

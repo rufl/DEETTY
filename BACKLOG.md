@@ -25,15 +25,15 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
 
 ### NCT-123 Experimental Windows host — partial
 
-- [ ] [status:yellow] Promote the x86_64 Win32/GDI + ConPTY terminal tranche
-  through physical Windows 10/11 qualification, then add selection/mouse
-  reporting, Windows NoctEd, signing, and installer packaging. The current
-  source cross-compiles without GTK, owns bounded tabs and recursive splits
-  with one independent ConPTY/VT grid per pane, provides native theme/font/
-  launch-profile controls and checksummed saved-layout restore, passes its
-  Wine-hosted no-window parser/workspace/persistence self-test, and emits a
-  checksummed ReleaseFast ZIP with local logs/minidumps and no upload path.
-  Wine does not prove ConPTY/GDI/input behavior on Windows. `[truth:build,test,docs]`
+- [ ] [status:yellow] Physically qualify the x86_64 Win32/GDI + ConPTY host on
+  Windows 10/11. The source tranche now cross-compiles without GTK, owns bounded
+  tabs/splits and per-pane ConPTY/VT state, supports native selection and DEC
+  mouse reporting, ships the separate native NoctEd editor, and produces a
+  reproducible per-user NSIS installer with reversible shortcuts/Open-With
+  registration and an operator-owned signing hook. Wine-hosted self-tests and
+  installer lifecycle smoke pass, but Wine does not prove physical ConPTY/GDI,
+  input, installer, or editor behavior on supported Windows releases.
+  `[truth:build,test,docs]`
 
 ## Release Operations
 

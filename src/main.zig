@@ -4947,18 +4947,23 @@ export fn noctty_grid_resize(raw: ?*anyopaque, columns: c_int, rows: c_int, widt
 }
 
 export fn noctty_grid_mouse(raw: ?*anyopaque, column: c_int, row: c_int, button: c_int, pressed: c_int) callconv(.c) c_int {
+    if (raw == null or column < 0 or row < 0 or button < 0 or
+        button > std.math.maxInt(u8)) return -1;
     var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
     var sequence: [64]u8 = undefined;
-    if (!session.grid.sgr_mouse) {
-        const legacy_button: c_int = if (button >= 64) button else if (pressed != 0) button else 3;
-        const legacy = [_]u8{ 0x1b, '[', 'M', @intCast(@min(255, 32 + legacy_button)), @intCast(@min(255, 33 + column)), @intCast(@min(255, 33 + row)) };
-        session.write(&legacy) catch return -1;
-        return @intCast(legacy.len);
-    }
-    const final: u8 = if (pressed != 0) 'M' else 'm';
-    const length = std.fmt.bufPrint(&sequence, "\x1b[<{d};{d};{d}{c}", .{ button, column + 1, row + 1, final }) catch return -1;
-    session.write(length) catch return -1;
-    return @intCast(length.len);
+    const length = session.grid.encodeMouse(.{
+        .column = @intCast(column),
+        .row = @intCast(row),
+        .button = @intCast(button),
+        .kind = if (button >= 64)
+            .wheel
+        else if (pressed != 0)
+            .press
+        else
+            .release,
+    }, &sequence) orelse return 0;
+    session.write(sequence[0..length]) catch return -1;
+    return std.math.cast(c_int, length) orelse -1;
 }
 
 export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
@@ -4972,73 +4977,18 @@ export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize)
 }
 
 export fn noctty_grid_copy(raw: ?*anyopaque, output: [*]u8, capacity: usize, start_column: c_int, start_row: c_int, end_column: c_int, end_row: c_int) callconv(.c) c_int {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    const selected = start_column >= 0 and start_row >= 0 and end_column >= 0 and end_row >= 0;
-    const first_column: usize = if (selected)
-        @min(
-            session.grid.columns - 1,
-            @as(usize, @intCast(@min(start_column, end_column))),
-        )
-    else
-        0;
-    const last_column: usize = if (selected)
-        @min(
-            session.grid.columns - 1,
-            @as(usize, @intCast(@max(start_column, end_column))),
-        )
-    else
-        session.grid.columns - 1;
-    const first_row: usize = if (selected)
-        @min(
-            session.grid.rows - 1,
-            @as(usize, @intCast(@min(start_row, end_row))),
-        )
-    else
-        0;
-    const last_row: usize = if (selected)
-        @min(
-            session.grid.rows - 1,
-            @as(usize, @intCast(@max(start_row, end_row))),
-        )
-    else
-        session.grid.rows - 1;
-    var used: usize = 0;
-    for (first_row..last_row + 1) |row| {
-        var last: usize = last_column + 1;
-        while (last > 0 and session.grid.cell(last - 1, row).codepoint == ' ') last -= 1;
-        const begin = if (selected) first_column else 0;
-        for (begin..last) |column| {
-            const codepoint = session.grid.cell(column, row).codepoint;
-            if (codepoint == 0) continue;
-            if (used >= capacity) return -1;
-            if (codepoint < 0x80) {
-                output[used] = @intCast(codepoint);
-                used += 1;
-            } else if (codepoint <= 0x7ff) {
-                if (used + 2 > capacity) return -1;
-                output[used] = @intCast(0xc0 | (codepoint >> 6));
-                output[used + 1] = @intCast(0x80 | (codepoint & 0x3f));
-                used += 2;
-            } else if (codepoint <= 0xffff) {
-                if (used + 3 > capacity) return -1;
-                output[used] = @intCast(0xe0 | (codepoint >> 12));
-                output[used + 1] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
-                output[used + 2] = @intCast(0x80 | (codepoint & 0x3f));
-                used += 3;
-            } else if (codepoint <= 0x10ffff) {
-                if (used + 4 > capacity) return -1;
-                output[used] = @intCast(0xf0 | (codepoint >> 18));
-                output[used + 1] = @intCast(0x80 | ((codepoint >> 12) & 0x3f));
-                output[used + 2] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
-                output[used + 3] = @intCast(0x80 | (codepoint & 0x3f));
-                used += 4;
-            }
-        }
-        if (used >= capacity) return -1;
-        output[used] = if (row < last_row) '\n' else 0;
-        used += 1;
-    }
-    return @intCast(used);
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    const selected = start_column >= 0 and start_row >= 0 and
+        end_column >= 0 and end_row >= 0;
+    const range: ?noctty.vt.SelectionRange = if (selected) .{
+        .start_column = @intCast(start_column),
+        .start_row = @intCast(start_row),
+        .end_column = @intCast(end_column),
+        .end_row = @intCast(end_row),
+    } else null;
+    const count = session.grid.copySelection(output[0..capacity], range) orelse
+        return -1;
+    return std.math.cast(c_int, count) orelse -1;
 }
 
 export fn noctty_grid_find(raw: ?*anyopaque, query: [*]const u8, length: usize, reverse: c_int, ordinal: usize, column_out: *c_int, row_out: *c_int, length_out: *c_int, matches_out: *c_int) callconv(.c) c_int {
@@ -5294,7 +5244,7 @@ export fn noctty_grid_cursor_mode(raw: ?*anyopaque) callconv(.c) c_int {
 
 export fn noctty_grid_mouse_mode(raw: ?*anyopaque) callconv(.c) c_int {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    return if (session.grid.mouse_reporting) 1 else 0;
+    return @intFromBool(session.grid.mouse_tracking != .none);
 }
 
 export fn noctty_grid_focus(raw: ?*anyopaque, focused: c_int) callconv(.c) c_int {

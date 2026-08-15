@@ -33,6 +33,126 @@ pub const NotificationAction = enum(u8) {
     open_project,
 };
 pub const first_truecolor_id: u16 = 256;
+
+pub const MouseTracking = enum(u2) {
+    none = 0,
+    normal = 1,
+    button_event = 2,
+    any_event = 3,
+};
+
+pub const MouseEncoding = enum(u1) {
+    legacy = 0,
+    sgr = 1,
+};
+
+pub const MouseEventKind = enum(u2) {
+    press = 0,
+    release = 1,
+    motion = 2,
+    wheel = 3,
+};
+
+pub const MouseModifiers = packed struct(u3) {
+    shift: bool = false,
+    alt: bool = false,
+    control: bool = false,
+};
+
+pub const MouseEvent = struct {
+    column: usize,
+    row: usize,
+    button: u8,
+    kind: MouseEventKind,
+    modifiers: MouseModifiers = .{},
+};
+
+pub const SelectionRange = struct {
+    start_column: usize,
+    start_row: usize,
+    end_column: usize,
+    end_row: usize,
+};
+
+pub fn copySelectionFromGrid(
+    grid: anytype,
+    output: []u8,
+    selection: ?SelectionRange,
+) ?usize {
+    const columns: usize = @intCast(grid.columns);
+    const rows: usize = @intCast(grid.rows);
+    if (columns == 0 or rows == 0) return 0;
+    const first_column = if (selection) |range|
+        @min(@min(range.start_column, range.end_column), columns - 1)
+    else
+        0;
+    const last_column = if (selection) |range|
+        @min(@max(range.start_column, range.end_column), columns - 1)
+    else
+        columns - 1;
+    const first_row = if (selection) |range|
+        @min(@min(range.start_row, range.end_row), rows - 1)
+    else
+        0;
+    const last_row = if (selection) |range|
+        @min(@max(range.start_row, range.end_row), rows - 1)
+    else
+        rows - 1;
+
+    var required: usize = 0;
+    var text: [128]u8 = undefined;
+    for (first_row..last_row + 1) |row| {
+        var start = first_column;
+        while (start > 0 and
+            (@as(u32, @truncate(grid.packedCell(start, row) >> 32)) & 128) != 0)
+            start -= 1;
+        var end = last_column + 1;
+        while (end > start) {
+            const packed_cell = grid.packedCell(end - 1, row);
+            const codepoint: u32 = @truncate(packed_cell);
+            const style: u32 = @truncate(packed_cell >> 32);
+            if (codepoint != ' ' or (style & (64 | 128)) != 0) break;
+            end -= 1;
+        }
+        for (start..end) |column| {
+            const style: u32 = @truncate(grid.packedCell(column, row) >> 32);
+            if ((style & 128) != 0) continue;
+            const length = grid.cellText(column, row, &text);
+            required = std.math.add(usize, required, length) catch return null;
+        }
+        if (row != last_row)
+            required = std.math.add(usize, required, 1) catch return null;
+    }
+    if (required > output.len) return null;
+
+    var used: usize = 0;
+    for (first_row..last_row + 1) |row| {
+        var start = first_column;
+        while (start > 0 and
+            (@as(u32, @truncate(grid.packedCell(start, row) >> 32)) & 128) != 0)
+            start -= 1;
+        var end = last_column + 1;
+        while (end > start) {
+            const packed_cell = grid.packedCell(end - 1, row);
+            const codepoint: u32 = @truncate(packed_cell);
+            const style: u32 = @truncate(packed_cell >> 32);
+            if (codepoint != ' ' or (style & (64 | 128)) != 0) break;
+            end -= 1;
+        }
+        for (start..end) |column| {
+            const style: u32 = @truncate(grid.packedCell(column, row) >> 32);
+            if ((style & 128) != 0) continue;
+            const length = grid.cellText(column, row, &text);
+            @memcpy(output[used..][0..length], text[0..length]);
+            used += length;
+        }
+        if (row != last_row) {
+            output[used] = '\n';
+            used += 1;
+        }
+    }
+    return used;
+}
 pub const max_truecolor_count: usize = default_color_id - first_truecolor_id;
 
 test "terminal cells remain compact" {
@@ -267,8 +387,8 @@ pub const Grid = struct {
     charset_g0_dec_special: bool = false,
     charset_g1_dec_special: bool = false,
     charset_use_g1: bool = false,
-    mouse_reporting: bool = false,
-    sgr_mouse: bool = false,
+    mouse_tracking: MouseTracking = .none,
+    mouse_encoding: MouseEncoding = .legacy,
     focus_reporting: bool = false,
     synchronized_output: bool = false,
     synchronized_output_begins: u64 = 0,
@@ -1749,6 +1869,69 @@ pub const Grid = struct {
         return self.writeCellText(self.cell(column, row), output);
     }
 
+    pub fn mouseModeBits(self: Grid) u32 {
+        return @as(u32, @intFromEnum(self.mouse_tracking)) |
+            (if (self.mouse_encoding == .sgr) @as(u32, 0x100) else 0);
+    }
+
+    pub fn encodeMouse(
+        self: Grid,
+        event: MouseEvent,
+        output: []u8,
+    ) ?usize {
+        const allowed = switch (self.mouse_tracking) {
+            .none => false,
+            .normal => event.kind != .motion,
+            .button_event => event.kind != .motion or event.button <= 2,
+            .any_event => true,
+        };
+        if (!allowed) return null;
+        if (event.kind == .wheel and event.button != 64 and event.button != 65)
+            return null;
+        if (event.kind != .wheel and event.button > 3) return null;
+
+        const modifier_code: u8 =
+            (if (event.modifiers.shift) @as(u8, 4) else 0) |
+            (if (event.modifiers.alt) @as(u8, 8) else 0) |
+            (if (event.modifiers.control) @as(u8, 16) else 0);
+        var button_code: u8 = event.button | modifier_code;
+        if (event.kind == .motion) button_code |= 32;
+
+        if (self.mouse_encoding == .sgr) {
+            if (event.column == std.math.maxInt(usize) or
+                event.row == std.math.maxInt(usize)) return null;
+            const final: u8 = if (event.kind == .release) 'm' else 'M';
+            const sequence = std.fmt.bufPrint(
+                output,
+                "\x1b[<{d};{d};{d}{c}",
+                .{ button_code, event.column + 1, event.row + 1, final },
+            ) catch return null;
+            return sequence.len;
+        }
+
+        if (event.column > 222 or event.row > 222) return null;
+        if (event.kind == .release)
+            button_code = 3 | modifier_code;
+        if (button_code > 223 or output.len < 6) return null;
+        output[0..6].* = .{
+            0x1b,
+            '[',
+            'M',
+            32 + button_code,
+            @intCast(33 + event.column),
+            @intCast(33 + event.row),
+        };
+        return 6;
+    }
+
+    pub fn copySelection(
+        self: Grid,
+        output: []u8,
+        selection: ?SelectionRange,
+    ) ?usize {
+        return copySelectionFromGrid(&self, output, selection);
+    }
+
     pub fn cellHyperlink(self: Grid, column: usize, row: usize, output: []u8) usize {
         const uri = self.hyperlinks.uri(self.cell(column, row).hyperlink_id);
         const count = @min(uri.len, output.len);
@@ -2877,9 +3060,11 @@ pub const Grid = struct {
             7 => self.auto_wrap,
             25 => self.cursor_visible,
             47, 1047, 1049 => self.alternate_cells != null,
-            1000, 1002, 1003 => self.mouse_reporting,
+            1000 => self.mouse_tracking == .normal,
+            1002 => self.mouse_tracking == .button_event,
+            1003 => self.mouse_tracking == .any_event,
             1004 => self.focus_reporting,
-            1006 => self.sgr_mouse,
+            1006 => self.mouse_encoding == .sgr,
             2004 => self.bracketed_paste,
             2026 => self.synchronized_output,
             else => null,
@@ -2902,9 +3087,21 @@ pub const Grid = struct {
             7 => self.auto_wrap = enabled,
             25 => self.cursor_visible = enabled,
             47, 1047, 1049 => if (enabled) self.enterAlternate() else self.leaveAlternate(),
-            1000, 1002, 1003 => self.mouse_reporting = enabled,
+            1000, 1002, 1003 => {
+                const requested: MouseTracking = switch (mode) {
+                    1000 => .normal,
+                    1002 => .button_event,
+                    1003 => .any_event,
+                    else => unreachable,
+                };
+                if (enabled) {
+                    self.mouse_tracking = requested;
+                } else if (self.mouse_tracking == requested) {
+                    self.mouse_tracking = .none;
+                }
+            },
             1004 => self.focus_reporting = enabled,
-            1006 => self.sgr_mouse = enabled,
+            1006 => self.mouse_encoding = if (enabled) .sgr else .legacy,
             2004 => self.bracketed_paste = enabled,
             2026 => {
                 if (enabled and !self.synchronized_output)
@@ -4500,17 +4697,77 @@ test "terminal grid tracks application cursor key mode" {
     try std.testing.expect(!grid.application_cursor_keys);
 }
 
-test "terminal grid tracks mouse and focus reporting modes" {
+test "terminal grid distinguishes and encodes mouse reporting modes" {
     var grid = try Grid.init(std.testing.allocator, 8, 2);
     defer grid.deinit();
-    try grid.feed("\x1b[?1000h\x1b[?1006h\x1b[?1004h");
-    try std.testing.expect(grid.mouse_reporting);
-    try std.testing.expect(grid.sgr_mouse);
+
+    try grid.feed("\x1b[?1000h\x1b[?1002h");
+    try std.testing.expectEqual(MouseTracking.button_event, grid.mouse_tracking);
+    try grid.feed("\x1b[?1000l");
+    try std.testing.expectEqual(MouseTracking.button_event, grid.mouse_tracking);
+    try grid.feed("\x1b[?1003h\x1b[?1002l\x1b[?1006h\x1b[?1004h");
+    try std.testing.expectEqual(MouseTracking.any_event, grid.mouse_tracking);
+    try std.testing.expectEqual(MouseEncoding.sgr, grid.mouse_encoding);
+    try std.testing.expect(grid.mouse_tracking != .none);
     try std.testing.expect(grid.focus_reporting);
-    try grid.feed("\x1b[?1000l\x1b[?1006l\x1b[?1004l");
-    try std.testing.expect(!grid.mouse_reporting);
-    try std.testing.expect(!grid.sgr_mouse);
-    try std.testing.expect(!grid.focus_reporting);
+
+    var output: [64]u8 = undefined;
+    const sgr_length = grid.encodeMouse(.{
+        .column = 2,
+        .row = 3,
+        .button = 0,
+        .kind = .motion,
+        .modifiers = .{ .shift = true, .control = true },
+    }, &output) orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("\x1b[<52;3;4M", output[0..sgr_length]);
+
+    try grid.feed("\x1b[?1003l\x1b[?1000h\x1b[?1006l");
+    try std.testing.expectEqual(MouseTracking.normal, grid.mouse_tracking);
+    try std.testing.expectEqual(MouseEncoding.legacy, grid.mouse_encoding);
+    try std.testing.expect(grid.encodeMouse(.{
+        .column = 0,
+        .row = 0,
+        .button = 0,
+        .kind = .motion,
+    }, &output) == null);
+    const legacy_length = grid.encodeMouse(.{
+        .column = 0,
+        .row = 0,
+        .button = 0,
+        .kind = .release,
+    }, &output) orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("\x1b[M#!!", output[0..legacy_length]);
+    try std.testing.expect(grid.encodeMouse(.{
+        .column = 223,
+        .row = 0,
+        .button = 0,
+        .kind = .press,
+    }, &output) == null);
+}
+
+test "terminal grid extracts bounded normalized Unicode selection" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+    try grid.feed("\x1b[2J\x1b[HAe\u{301}  \r\n中Z  ");
+
+    var output: [64]u8 = undefined;
+    const selection = SelectionRange{
+        .start_column = 7,
+        .start_row = 1,
+        .end_column = 0,
+        .end_row = 0,
+    };
+    const length = grid.copySelection(&output, selection) orelse
+        return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("Ae\u{301}\n中Z", output[0..length]);
+    try std.testing.expect(grid.copySelection(output[0 .. length - 1], selection) == null);
+    const wide_length = grid.copySelection(&output, .{
+        .start_column = 1,
+        .start_row = 1,
+        .end_column = 1,
+        .end_row = 1,
+    }) orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("中", output[0..wide_length]);
 }
 
 test "terminal grid counts synchronized output begin transitions" {

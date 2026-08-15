@@ -157,9 +157,11 @@ Current first tranche:
 - [x] bounded tabs and recursive splits with independent ConPTY sessions
 - [x] native settings and themes, checksummed saved-layout restore, startup
   restore control, and launch-profile selection
-- [ ] selection and mouse-reporting applications
-- [ ] Windows NoctEd
-- [ ] signing and installer packaging
+- [x] native text selection and DEC mouse-reporting application support
+- [x] separate native Windows NoctEd executable with tabs, project tree, editing,
+  atomic save, and bounded session restore
+- [x] reproducible per-user NSIS installer, reversible shortcuts/Open-With
+  registration, and fail-closed operator signing hook
 
 The Windows host remains an experimental native terminal workspace until the
 remaining boundaries have receipts. Linux KDE/Wayland/X11 support remains first-class.

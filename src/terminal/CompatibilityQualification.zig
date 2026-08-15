@@ -375,8 +375,8 @@ fn compareGridState(expected: *const Vt.Grid, actual: *const Vt.Grid) !void {
         expected.charset_g1_dec_special != actual.charset_g1_dec_special or
         expected.charset_use_g1 != actual.charset_use_g1 or
         expected.last_printed_codepoint != actual.last_printed_codepoint or
-        expected.mouse_reporting != actual.mouse_reporting or
-        expected.sgr_mouse != actual.sgr_mouse or
+        expected.mouse_tracking != actual.mouse_tracking or
+        expected.mouse_encoding != actual.mouse_encoding or
         expected.focus_reporting != actual.focus_reporting or
         expected.synchronized_output != actual.synchronized_output or
         expected.blocked_osc52 != actual.blocked_osc52 or

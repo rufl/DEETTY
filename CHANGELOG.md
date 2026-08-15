@@ -11,6 +11,16 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   captured, and layer-shell dialogs are initialized on the overlay layer above
   the dropdown.
 
+- Completed the next native Windows source tranche. The Win32 terminal now has
+  Unicode-aware drag selection, bounded clipboard extraction, and DEC
+  1000/1002/1003 mouse reporting with legacy and SGR encoding. The package now
+  includes the separate native `nocted.exe` editor, a reproducible per-user
+  NSIS installer with reversible shortcuts and Open-With registration, and a
+  fail-closed operator signing-hook contract with per-artifact verification
+  receipts. Cross-build, Wine-hosted self-tests, and installer lifecycle smoke
+  pass; physical Windows 10/11 qualification and real release signatures remain
+  external release boundaries.
+
 - Improved native GTK usability after a full dogfood audit: windowed mode now
   uses native movable/resizable decorations, the active pane has a persistent
   focus ring, sharing and settings surfaces stay above the dropdown and remain

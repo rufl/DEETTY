@@ -6,6 +6,7 @@ const Protocol = @import("Protocol.zig");
 const Session = @import("Session.zig");
 const ShareMutex = @import("Mutex.zig").Mutex;
 const Transport = @import("Transport.zig");
+const Vt = @import("../terminal/Vt.zig");
 
 pub const Status = enum(c_int) {
     connecting = 1,
@@ -140,7 +141,6 @@ pub const LiveViewer = struct {
         };
     }
 
-
     pub fn streamCount(self: *LiveViewer) usize {
         self.mutex.lock();
         defer self.mutex.unlock();
@@ -255,7 +255,7 @@ pub const LiveViewer = struct {
         for (self.streams.items, 0..) |*other, index| {
             if (index == self.selected_index or
                 (other.receiver.permission.value != .control_requested and
-                other.receiver.permission.value != .control_granted))
+                    other.receiver.permission.value != .control_granted))
                 continue;
             try self.send(other, .control_release, "");
             other.receiver.permission.revoke();
@@ -429,6 +429,22 @@ pub const LiveViewer = struct {
         defer self.mutex.unlock();
         if (index >= self.streams.items.len) return 0;
         return self.streams.items[index].receiver.grid.cellText(column, row, output);
+    }
+
+    pub fn copyStreamSelection(
+        self: *LiveViewer,
+        index: usize,
+        output: []u8,
+        selection: ?Vt.SelectionRange,
+    ) ?usize {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        if (index >= self.streams.items.len) return null;
+        return Vt.copySelectionFromGrid(
+            &self.streams.items[index].receiver.grid,
+            output,
+            selection,
+        );
     }
 
     pub fn streamColorRgb(self: *LiveViewer, index: usize, color_id: u16) u32 {
@@ -642,8 +658,7 @@ pub const LiveViewer = struct {
             var existing_index: usize = 0;
             while (existing_index < self.streams.items.len and
                 (self.streams.items[existing_index].pane_id != pane.pane_id or
-                    self.streams.items[existing_index].receiver.stream_id != pane.stream_id)) :
-                (existing_index += 1)
+                    self.streams.items[existing_index].receiver.stream_id != pane.stream_id)) : (existing_index += 1)
             {}
             if (existing_index < self.streams.items.len) {
                 var stream = self.streams.orderedRemove(existing_index);
@@ -903,7 +918,6 @@ pub const LiveViewer = struct {
 
 test "live viewer multiplexes panes and gates control per selected stream" {
     const LiveHost = @import("LiveHost.zig").LiveHost;
-    const Vt = @import("../terminal/Vt.zig");
     const FakeSession = struct {
         grid: Vt.Grid,
         written: [16]u8 = undefined,

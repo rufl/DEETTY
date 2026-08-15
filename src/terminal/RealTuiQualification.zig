@@ -347,8 +347,8 @@ pub fn runCase(
     const alternate_screen = session.grid.alternate_cells != null;
     const bracketed_paste = session.grid.bracketed_paste;
     const focus_reporting = session.grid.focus_reporting;
-    const mouse_reporting = session.grid.mouse_reporting;
-    const sgr_mouse = session.grid.sgr_mouse;
+    const mouse_reporting = session.grid.mouse_tracking != .none;
+    const sgr_mouse = session.grid.mouse_encoding == .sgr;
 
     const exit_started = std.Io.Clock.awake.now(io);
     try session.write(case.input);

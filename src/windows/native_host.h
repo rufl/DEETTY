@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <windows.h>
 
-#define NOCTTY_WINDOWS_HOST_ABI_VERSION 8u
+#define NOCTTY_WINDOWS_HOST_ABI_VERSION 9u
 
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
@@ -41,6 +41,21 @@ typedef int (*NocttyWindowsWorkspaceAction)(void *, int, int, int);
 typedef int (*NocttyWindowsActivePane)(void *);
 typedef uint32_t (*NocttyWindowsWorkspaceClose)(void *, int);
 
+typedef uint32_t (*NocttyWindowsPaneMouseMode)(void *, int);
+typedef int (*NocttyWindowsPaneMouseEncode)(void *, int, int, int, int, int,
+                                            int, uint8_t *, size_t);
+typedef int (*NocttyWindowsPaneCopy)(void *, int, uint8_t *, size_t, int, int,
+                                    int, int);
+
+#define NOCTTY_WINDOWS_MOUSE_TRACKING_MASK 0x3u
+#define NOCTTY_WINDOWS_MOUSE_ENCODING_SGR 0x100u
+#define NOCTTY_WINDOWS_MOUSE_PRESS 0
+#define NOCTTY_WINDOWS_MOUSE_RELEASE 1
+#define NOCTTY_WINDOWS_MOUSE_MOTION 2
+#define NOCTTY_WINDOWS_MOUSE_WHEEL 3
+#define NOCTTY_WINDOWS_MOUSE_MOD_SHIFT 1
+#define NOCTTY_WINDOWS_MOUSE_MOD_ALT 2
+#define NOCTTY_WINDOWS_MOUSE_MOD_CONTROL 4
 #define NOCTTY_WINDOWS_ACTION_NEW_TAB 1
 typedef int (*NocttyWindowsPreferenceGet)(void *, int);
 typedef int (*NocttyWindowsPreferenceSet)(void *, int, int);
@@ -91,6 +106,9 @@ typedef struct {
     NocttyWindowsPreferenceGet preference_get;
     NocttyWindowsPreferenceSet preference_set;
     NocttyWindowsWorkspacePersistence workspace_persistence;
+    NocttyWindowsPaneMouseMode pane_mouse_mode;
+    NocttyWindowsPaneMouseEncode pane_mouse_encode;
+    NocttyWindowsPaneCopy pane_copy;
 } NocttyWindowsCallbacks;
 
 int noctty_windows_host_run(HINSTANCE instance, int show_command,

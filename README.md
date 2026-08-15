@@ -93,11 +93,14 @@ The qualified Linux NOCTTY host provides:
 
 The experimental Windows host provides a native Win32/GDI window, ConPTY,
 the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
-color, scrollback, clipboard paste/visible-surface copy, bounded tabs and
-recursive splits, a native settings menu, saved-layout restore, launch-profile
-selection, local logs, local crash dumps, and command-line LAN discovery plus
-paired session sharing/receiving. It does not yet provide full Linux workspace
-parity. See [Windows alpha](docs/WINDOWS.md).
+color, scrollback, clipboard paste, text selection, DEC mouse reporting,
+bounded tabs and recursive splits, native settings, saved-layout restore,
+launch profiles, local logs/minidumps, and paired session sharing/receiving.
+The Windows package also contains a separate native NoctEd editor and a
+reproducible per-user NSIS installer with reversible shortcuts/Open-With
+registration and an operator-owned signing hook. Physical Windows 10/11
+qualification and full Linux workspace parity remain open. See
+[Windows alpha](docs/WINDOWS.md).
 
 NoctEd provides on Linux:
 

@@ -157,7 +157,7 @@ pub fn identityForPath(io: std.Io, path: [:0]const u8) !FileIdentity {
     const stat = try std.Io.Dir.cwd().statFile(io, path, .{});
     return .{
         .device = 0,
-        .inode = stat.inode,
+        .inode = @bitCast(stat.inode),
         .size = stat.size,
         .mtime_ns = stat.mtime.nanoseconds,
     };

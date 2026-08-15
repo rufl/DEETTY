@@ -5,6 +5,8 @@
 
 #include <dbghelp.h>
 #include <shellapi.h>
+#include <windowsx.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +46,7 @@
 #define NOCTTY_MENU_RESTORE_STARTUP 40031
 #define NOCTTY_MENU_WORKSPACE_SAVE 40041
 #define NOCTTY_MENU_WORKSPACE_RESTORE 40042
+#define NOCTTY_MENU_OPEN_NOCTED 40051
 
 typedef struct NocttyWindowsHost NocttyWindowsHost;
 
@@ -65,6 +68,19 @@ typedef struct {
     int process_exited;
     DWORD process_exit_code;
 } NocttyWindowsSession;
+
+typedef struct {
+    int pane_index;
+    int column;
+    int selected;
+    int host_active;
+    int row;
+    int inside_content;
+    RECT pane;
+    RECT content;
+    int columns;
+    int rows;
+} NocttyPaneHit;
 
 struct NocttyWindowsHost {
     const NocttyWindowsCallbacks *callbacks;
@@ -99,6 +115,22 @@ struct NocttyWindowsHost {
     unsigned smoke_marker_paint_count;
     int smoke_marker_seen;
     WCHAR pending_high_surrogate;
+    int selection_active;
+    int selection_dragging;
+    int selection_pane;
+    int selection_anchor_column;
+    int selection_anchor_row;
+    int selection_extent_column;
+    int selection_extent_row;
+    unsigned pressed_buttons;
+    int application_capture;
+    int capture_pane;
+    int capture_last_column;
+    int capture_last_row;
+    int smoke_mouse_input;
+    int smoke_coordinates;
+    int smoke_selection;
+    int smoke_clipboard;
 };
 
 static HANDLE noctty_log_file = INVALID_HANDLE_VALUE;
@@ -390,6 +422,8 @@ static int noctty_create_menu(NocttyWindowsHost *host) {
                      L"&Restore saved layout...") &&
          AppendMenuW(menu, MF_POPUP, (UINT_PTR)settings, L"&Settings") &&
          AppendMenuW(menu, MF_POPUP, (UINT_PTR)workspace, L"&Workspace") &&
+         AppendMenuW(menu, MF_STRING, NOCTTY_MENU_OPEN_NOCTED,
+                     L"Open &NoctEd") &&
          SetMenu(host->window, menu);
     if (!ok) {
         DestroyMenu(menu);
@@ -406,6 +440,140 @@ static int noctty_create_menu(NocttyWindowsHost *host) {
     return 1;
 }
 
+static int noctty_pane_geometry(NocttyWindowsHost *host, int pane_index,
+                                const RECT *client, NocttyPaneHit *result) {
+    uint32_t x = 0;
+    uint32_t y = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    int selected = 0;
+    int host_active = 0;
+    uint16_t columns = 0;
+    uint16_t rows = 0;
+    const int inset = 3;
+    int client_width = client->right - client->left;
+    int client_height = client->bottom - client->top;
+    if (host->callbacks->pane_layout(
+            host->callbacks->userdata, pane_index, &x, &y, &width, &height,
+            &selected, &host_active) <= 0 ||
+        host->callbacks->pane_dimensions(
+            host->callbacks->userdata, pane_index, &columns, &rows) <= 0 ||
+        columns == 0 || rows == 0)
+        return 0;
+    result->pane_index = pane_index;
+    result->pane.left =
+        client->left + (int)((int64_t)client_width * x / 1000000);
+    result->pane.top =
+        client->top + (int)((int64_t)client_height * y / 1000000);
+    result->pane.right =
+        client->left +
+        (int)((int64_t)client_width * (x + width) / 1000000);
+    result->pane.bottom =
+        client->top +
+        (int)((int64_t)client_height * (y + height) / 1000000);
+    if (result->pane.right - result->pane.left <= inset * 2 ||
+        result->pane.bottom - result->pane.top <= inset * 2)
+        return 0;
+    result->content = result->pane;
+    InflateRect(&result->content, -inset, -inset);
+    result->columns = (int)columns;
+    result->rows = (int)rows;
+    result->column = 0;
+    result->row = 0;
+    result->inside_content = 0;
+    result->selected = selected;
+    result->host_active = host_active;
+    return 1;
+}
+
+static int noctty_cell_for_pane(NocttyWindowsHost *host, int pane_index,
+                                int pointer_x, int pointer_y, int clamp,
+                                NocttyPaneHit *result) {
+    RECT client;
+    int x;
+    int y;
+    int width;
+    int height;
+    GetClientRect(host->window, &client);
+    if (!noctty_pane_geometry(host, pane_index, &client, result)) return 0;
+    result->inside_content =
+        pointer_x >= result->content.left && pointer_x < result->content.right &&
+        pointer_y >= result->content.top && pointer_y < result->content.bottom;
+    if (!result->inside_content && !clamp) return 1;
+    x = pointer_x;
+    y = pointer_y;
+    if (x < result->content.left) x = result->content.left;
+    if (x >= result->content.right) x = result->content.right - 1;
+    if (y < result->content.top) y = result->content.top;
+    if (y >= result->content.bottom) y = result->content.bottom - 1;
+    width = result->content.right - result->content.left;
+    height = result->content.bottom - result->content.top;
+    result->column = (int)((int64_t)(x - result->content.left) *
+                           result->columns / width);
+    result->row = (int)((int64_t)(y - result->content.top) *
+                        result->rows / height);
+    return 1;
+}
+
+static int noctty_hit_test_pane_cell(NocttyWindowsHost *host, int pointer_x,
+                                     int pointer_y, NocttyPaneHit *result) {
+    RECT client;
+    int pane_count =
+        host->callbacks->pane_count(host->callbacks->userdata);
+    GetClientRect(host->window, &client);
+    for (int pane_index = 0; pane_index < pane_count; pane_index++) {
+        NocttyPaneHit candidate;
+        if (!noctty_pane_geometry(host, pane_index, &client, &candidate))
+            continue;
+        if (pointer_x < candidate.pane.left ||
+            pointer_x >= candidate.pane.right ||
+            pointer_y < candidate.pane.top ||
+            pointer_y >= candidate.pane.bottom)
+            continue;
+        noctty_cell_for_pane(host, pane_index, pointer_x, pointer_y, 0,
+                             &candidate);
+        *result = candidate;
+        return 1;
+    }
+    return 0;
+}
+
+static void noctty_clear_selection(NocttyWindowsHost *host) {
+    int release_capture =
+        host->selection_dragging && GetCapture() == host->window;
+    if (!host->selection_active && !host->selection_dragging) return;
+    host->selection_active = 0;
+    host->selection_dragging = 0;
+    host->selection_pane = -1;
+    if (release_capture) ReleaseCapture();
+    InvalidateRect(host->window, NULL, FALSE);
+}
+
+static int noctty_cell_selected(const NocttyWindowsHost *host, int pane_index,
+                                int column, int row) {
+    int first_column;
+    int last_column;
+    int first_row;
+    int last_row;
+    if (!host->selection_active || host->selection_pane != pane_index)
+        return 0;
+    first_column =
+        host->selection_anchor_column < host->selection_extent_column
+            ? host->selection_anchor_column
+            : host->selection_extent_column;
+    last_column =
+        host->selection_anchor_column > host->selection_extent_column
+            ? host->selection_anchor_column
+            : host->selection_extent_column;
+    first_row = host->selection_anchor_row < host->selection_extent_row
+                    ? host->selection_anchor_row
+                    : host->selection_extent_row;
+    last_row = host->selection_anchor_row > host->selection_extent_row
+                   ? host->selection_anchor_row
+                   : host->selection_extent_row;
+    return column >= first_column && column <= last_column &&
+           row >= first_row && row <= last_row;
+}
 static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
                              int pane_index, int origin_x, int origin_y,
                              int content_width, int content_height,
@@ -437,6 +605,11 @@ static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
     }
     if ((style & 32u) != 0u)
         foreground = noctty_blend(foreground, background, 150u);
+    if (pane_index >= 0 &&
+        noctty_cell_selected(host, pane_index, column, row)) {
+        foreground = noctty_rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHTTEXT));
+        background = noctty_rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHT));
+    }
 
     rectangle.left = origin_x + column * content_width / columns;
     rectangle.top = origin_y + row * content_height / rows;
@@ -514,77 +687,58 @@ static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
 
 static void noctty_draw_shared_pane(NocttyWindowsHost *host, HDC device,
                                     const RECT *client, int pane_index) {
-    uint32_t x = 0;
-    uint32_t y = 0;
-    uint32_t width = 0;
-    uint32_t height = 0;
-    int selected = 0;
-    int host_active = 0;
-    uint16_t columns = 0;
-    uint16_t rows = 0;
-    RECT pane;
-    const int inset = 3;
-    if (host->callbacks->pane_layout(
-            host->callbacks->userdata, pane_index, &x, &y, &width, &height,
-            &selected, &host_active) <= 0 ||
-        host->callbacks->pane_dimensions(
-            host->callbacks->userdata, pane_index, &columns, &rows) <= 0 ||
-        columns == 0 || rows == 0)
-        return;
-    pane.left = (int)((int64_t)client->right * x / 1000000);
-    pane.top = (int)((int64_t)client->bottom * y / 1000000);
-    pane.right = (int)((int64_t)client->right * (x + width) / 1000000);
-    pane.bottom = (int)((int64_t)client->bottom * (y + height) / 1000000);
-    if (pane.right - pane.left <= inset * 2 ||
-        pane.bottom - pane.top <= inset * 2)
-        return;
-    int content_width = pane.right - pane.left - inset * 2;
-    int content_height = pane.bottom - pane.top - inset * 2;
-    for (int row = 0; row < (int)rows; row++) {
-        for (int column = 0; column < (int)columns; column++) {
-            noctty_draw_cell(host, device, pane_index, pane.left + inset,
-                             pane.top + inset, content_width, content_height,
-                             (int)columns, (int)rows, column, row);
+    NocttyPaneHit geometry;
+    if (!noctty_pane_geometry(host, pane_index, client, &geometry)) return;
+    int content_width = geometry.content.right - geometry.content.left;
+    int content_height = geometry.content.bottom - geometry.content.top;
+    for (int row = 0; row < geometry.rows; row++) {
+        for (int column = 0; column < geometry.columns; column++) {
+            noctty_draw_cell(host, device, pane_index, geometry.content.left,
+                             geometry.content.top, content_width,
+                             content_height, geometry.columns, geometry.rows,
+                             column, row);
         }
     }
-    if (host_active) {
+    if (geometry.host_active) {
         uint32_t cursor = host->callbacks->pane_cursor(
             host->callbacks->userdata, pane_index);
         int cursor_column = (int)(cursor & 0xffffu);
         int cursor_row = (int)(cursor >> 16u);
-        if (cursor != 0xffffffffu && cursor_column < (int)columns &&
-            cursor_row < (int)rows) {
+        if (cursor != 0xffffffffu && cursor_column < geometry.columns &&
+            cursor_row < geometry.rows) {
             RECT cursor_rectangle;
             cursor_rectangle.left =
-                pane.left + inset + cursor_column * content_width / columns;
+                geometry.content.left +
+                cursor_column * content_width / geometry.columns;
             cursor_rectangle.top =
-                pane.top + inset + cursor_row * content_height / rows;
+                geometry.content.top +
+                cursor_row * content_height / geometry.rows;
             cursor_rectangle.right =
-                pane.left + inset +
-                (cursor_column + 1) * content_width / columns;
+                geometry.content.left +
+                (cursor_column + 1) * content_width / geometry.columns;
             cursor_rectangle.bottom =
-                pane.top + inset +
-                (cursor_row + 1) * content_height / rows;
+                geometry.content.top +
+                (cursor_row + 1) * content_height / geometry.rows;
             InvertRect(device, &cursor_rectangle);
         }
     }
-    HPEN border = CreatePen(PS_SOLID, selected ? 3 : 1,
-                            noctty_color_ref(selected ? 0x94e2d5u
-                                                      : 0x45475au));
+    HPEN border = CreatePen(PS_SOLID, geometry.selected ? 3 : 1,
+                            noctty_color_ref(geometry.selected ? 0x94e2d5u
+                                                              : 0x45475au));
     HPEN previous_pen = SelectObject(device, border);
     HGDIOBJ previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
-    Rectangle(device, pane.left + 1, pane.top + 1,
-              pane.right - 1, pane.bottom - 1);
+    Rectangle(device, geometry.pane.left + 1, geometry.pane.top + 1,
+              geometry.pane.right - 1, geometry.pane.bottom - 1);
     SelectObject(device, previous_brush);
     SelectObject(device, previous_pen);
     DeleteObject(border);
-    if (host_active) {
+    if (geometry.host_active) {
         HPEN active_border =
             CreatePen(PS_SOLID, 1, noctty_color_ref(0xf9e2afu));
         previous_pen = SelectObject(device, active_border);
         previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
-        Rectangle(device, pane.left + 3, pane.top + 3,
-                  pane.right - 3, pane.bottom - 3);
+        Rectangle(device, geometry.pane.left + 3, geometry.pane.top + 3,
+                  geometry.pane.right - 3, geometry.pane.bottom - 3);
         SelectObject(device, previous_brush);
         SelectObject(device, previous_pen);
         DeleteObject(active_border);
@@ -1208,59 +1362,68 @@ static void noctty_paste_clipboard(NocttyWindowsHost *host) {
     CloseClipboard();
 }
 
-static void noctty_copy_visible(NocttyWindowsHost *host) {
-    uint8_t *utf8;
-    size_t used = 0;
+static int noctty_set_clipboard_utf8(NocttyWindowsHost *host,
+                                     const uint8_t *utf8, size_t length) {
     int wide_count;
     HGLOBAL memory;
     WCHAR *wide;
-
-    utf8 = HeapAlloc(GetProcessHeap(), 0, NOCTTY_COPY_BYTES_MAX);
-    if (utf8 == NULL) return;
-    for (int row = 0; row < host->rows; row++) {
-        size_t row_start = used;
-        for (int column = 0; column < host->columns; column++) {
-            uint8_t text[128];
-            int count = host->callbacks->cell_text(
-                host->callbacks->userdata, column, row, text, sizeof(text));
-            if (count <= 0) continue;
-            if (used + (size_t)count + 2u > NOCTTY_COPY_BYTES_MAX) goto done;
-            memcpy(utf8 + used, text, (size_t)count);
-            used += (size_t)count;
-        }
-        while (used > row_start && utf8[used - 1] == ' ') used--;
-        if (row + 1 < host->rows) {
-            if (used >= NOCTTY_COPY_BYTES_MAX) goto done;
-            utf8[used++] = '\n';
-        }
-    }
-
-done:
-    wide_count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-                                     (const char *)utf8, (int)used, NULL, 0);
-    if (wide_count <= 0) {
-        HeapFree(GetProcessHeap(), 0, utf8);
-        return;
-    }
+    int success = 0;
+    if (length > INT_MAX) return 0;
+    wide_count =
+        length == 0
+            ? 0
+            : MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                                  (const char *)utf8, (int)length, NULL, 0);
+    if (length != 0 && wide_count <= 0) return 0;
     memory = GlobalAlloc(GMEM_MOVEABLE,
                          ((size_t)wide_count + 1u) * sizeof(WCHAR));
-    if (memory == NULL) {
-        HeapFree(GetProcessHeap(), 0, utf8);
-        return;
-    }
+    if (memory == NULL) return 0;
     wide = GlobalLock(memory);
-    if (wide != NULL) {
+    if (wide == NULL) {
+        GlobalFree(memory);
+        return 0;
+    }
+    if (wide_count > 0 &&
         MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-                            (const char *)utf8, (int)used, wide, wide_count);
-        wide[wide_count] = L'\0';
+                            (const char *)utf8, (int)length, wide,
+                            wide_count) != wide_count) {
         GlobalUnlock(memory);
-        if (OpenClipboard(host->window)) {
-            EmptyClipboard();
-            if (SetClipboardData(CF_UNICODETEXT, memory) != NULL) memory = NULL;
-            CloseClipboard();
+        GlobalFree(memory);
+        return 0;
+    }
+    wide[wide_count] = L'\0';
+    GlobalUnlock(memory);
+    if (OpenClipboard(host->window)) {
+        if (EmptyClipboard() &&
+            SetClipboardData(CF_UNICODETEXT, memory) != NULL) {
+            memory = NULL;
+            success = 1;
         }
+        CloseClipboard();
     }
     if (memory != NULL) GlobalFree(memory);
+    return success;
+}
+
+static void noctty_copy_terminal(NocttyWindowsHost *host) {
+    int pane_index =
+        host->callbacks->active_pane(host->callbacks->userdata);
+    uint8_t *utf8;
+    int copied;
+    int selected;
+    if (pane_index < 0) return;
+    utf8 = HeapAlloc(GetProcessHeap(), 0, NOCTTY_COPY_BYTES_MAX);
+    if (utf8 == NULL) return;
+    selected =
+        host->selection_active && host->selection_pane == pane_index;
+    copied = host->callbacks->pane_copy(
+        host->callbacks->userdata, pane_index, utf8, NOCTTY_COPY_BYTES_MAX,
+        selected ? host->selection_anchor_column : -1,
+        selected ? host->selection_anchor_row : -1,
+        selected ? host->selection_extent_column : -1,
+        selected ? host->selection_extent_row : -1);
+    if (copied >= 0 && (size_t)copied <= NOCTTY_COPY_BYTES_MAX)
+        (void)noctty_set_clipboard_utf8(host, utf8, (size_t)copied);
     HeapFree(GetProcessHeap(), 0, utf8);
 }
 
@@ -1272,6 +1435,7 @@ static int noctty_workspace_action(NocttyWindowsHost *host, int action) {
     result = host->callbacks->workspace_action(
         host->callbacks->userdata, action, host->columns, host->rows);
     if (result <= 0) return 0;
+    noctty_clear_selection(host);
     session_index = result - 1;
     GetClientRect(host->window, &client);
     noctty_resize_terminal(host, client.right, client.bottom);
@@ -1299,6 +1463,7 @@ static int noctty_workspace_close(NocttyWindowsHost *host, int close_action,
     mask = host->callbacks->workspace_close(host->callbacks->userdata,
                                              query_action);
     if (mask == 0) return 0;
+    noctty_clear_selection(host);
     for (int index = 0; index < NOCTTY_MAX_SESSIONS; index++) {
         if ((mask & ((uint32_t)1u << (unsigned int)index)) != 0)
             noctty_cleanup_session(&host->sessions[index]);
@@ -1363,6 +1528,7 @@ static void noctty_set_preference(NocttyWindowsHost *host, int field,
                         L"NOCTTY Windows alpha", MB_OK | MB_ICONERROR);
             return;
         }
+        noctty_clear_selection(host);
         GetClientRect(host->window, &client);
         noctty_resize_terminal(host, client.right, client.bottom);
     }
@@ -1406,6 +1572,7 @@ static void noctty_workspace_persistence(NocttyWindowsHost *host,
         SetFocus(host->window);
         return;
     }
+    noctty_clear_selection(host);
     noctty_cleanup_all_sessions(host);
     if (!noctty_start_workspace_sessions(host)) {
         MessageBoxW(host->window,
@@ -1418,6 +1585,119 @@ static void noctty_workspace_persistence(NocttyWindowsHost *host,
     noctty_update_title(host);
     InvalidateRect(host->window, NULL, FALSE);
     SetFocus(host->window);
+}
+
+static int noctty_write_pane(NocttyWindowsHost *host, int pane_index,
+                             const uint8_t *bytes, size_t length) {
+    if (host->remote_mode) {
+        int written = host->callbacks->write(host->callbacks->userdata, bytes,
+                                             length);
+        return written == (int)length;
+    }
+    if (pane_index < 0 || pane_index >= NOCTTY_MAX_SESSIONS) return 0;
+    return noctty_write_session(&host->sessions[pane_index], bytes, length);
+}
+
+static int noctty_mouse_modifiers(void) {
+    int modifiers = 0;
+    if ((GetKeyState(VK_SHIFT) & 0x8000) != 0)
+        modifiers |= NOCTTY_WINDOWS_MOUSE_MOD_SHIFT;
+    if ((GetKeyState(VK_MENU) & 0x8000) != 0)
+        modifiers |= NOCTTY_WINDOWS_MOUSE_MOD_ALT;
+    if ((GetKeyState(VK_CONTROL) & 0x8000) != 0)
+        modifiers |= NOCTTY_WINDOWS_MOUSE_MOD_CONTROL;
+    return modifiers;
+}
+
+static int noctty_select_pane(NocttyWindowsHost *host, int pane_index) {
+    int previous =
+        host->callbacks->active_pane(host->callbacks->userdata);
+    if (host->callbacks->pane_select(host->callbacks->userdata, pane_index) !=
+        0)
+        return 0;
+    if (previous != pane_index) noctty_clear_selection(host);
+    SetFocus(host->window);
+    noctty_update_title(host);
+    return 1;
+}
+
+static int noctty_report_mouse(NocttyWindowsHost *host,
+                               const NocttyPaneHit *hit, int button, int kind,
+                               int modifiers) {
+    uint8_t encoded[64];
+    int count = host->callbacks->pane_mouse_encode(
+        host->callbacks->userdata, hit->pane_index, hit->column, hit->row,
+        button, kind, modifiers, encoded, sizeof(encoded));
+    if (count <= 0 || (size_t)count > sizeof(encoded)) return 0;
+    return noctty_write_pane(host, hit->pane_index, encoded, (size_t)count);
+}
+
+static void noctty_release_mouse_capture(NocttyWindowsHost *host) {
+    if (host->application_capture && host->pressed_buttons != 0 &&
+        host->capture_pane >= 0) {
+        RECT client;
+        NocttyPaneHit hit;
+        GetClientRect(host->window, &client);
+        if (noctty_pane_geometry(host, host->capture_pane, &client, &hit)) {
+            hit.column = host->capture_last_column;
+            hit.row = host->capture_last_row;
+            for (int button = 0; button < 3; button++) {
+                if ((host->pressed_buttons &
+                     (1u << (unsigned int)button)) == 0)
+                    continue;
+                (void)noctty_report_mouse(
+                    host, &hit, button, NOCTTY_WINDOWS_MOUSE_RELEASE,
+                    noctty_mouse_modifiers());
+            }
+        }
+    }
+    host->selection_dragging = 0;
+    host->application_capture = 0;
+    host->pressed_buttons = 0;
+    host->capture_pane = -1;
+    if (GetCapture() == host->window) ReleaseCapture();
+}
+
+static void noctty_launch_nocted(NocttyWindowsHost *host) {
+    WCHAR executable[MAX_PATH * 2];
+    WCHAR command[MAX_PATH * 2 + 3];
+    DWORD length =
+        GetModuleFileNameW(NULL, executable,
+                           (DWORD)(sizeof(executable) / sizeof(executable[0])));
+    WCHAR *separator;
+    static const WCHAR editor_name[] = L"nocted.exe";
+    STARTUPINFOW startup;
+    PROCESS_INFORMATION process;
+    size_t directory_length;
+    size_t editor_length = ARRAYSIZE(editor_name) - 1u;
+    if (length == 0 || length >= ARRAYSIZE(executable)) goto failed;
+    separator = wcsrchr(executable, L'\\');
+    if (separator == NULL) goto failed;
+    directory_length = (size_t)(separator + 1 - executable);
+    if (directory_length + editor_length >= ARRAYSIZE(executable) ||
+        directory_length + editor_length + 3u > ARRAYSIZE(command))
+        goto failed;
+    memcpy(executable + directory_length, editor_name,
+           (editor_length + 1u) * sizeof(WCHAR));
+    command[0] = L'"';
+    memcpy(command + 1, executable,
+           (directory_length + editor_length) * sizeof(WCHAR));
+    command[directory_length + editor_length + 1u] = L'"';
+    command[directory_length + editor_length + 2u] = L'\0';
+    ZeroMemory(&startup, sizeof(startup));
+    ZeroMemory(&process, sizeof(process));
+    startup.cb = sizeof(startup);
+    if (!CreateProcessW(executable, command, NULL, NULL, FALSE, 0, NULL, NULL,
+                        &startup, &process))
+        goto failed;
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return;
+
+failed:
+    MessageBoxW(host->window,
+                L"NOCTTY could not launch the sibling nocted.exe.",
+                L"NOCTTY Windows alpha", MB_OK | MB_ICONERROR);
 }
 
 static int noctty_handle_menu_command(NocttyWindowsHost *host, UINT command) {
@@ -1450,6 +1730,9 @@ static int noctty_handle_menu_command(NocttyWindowsHost *host, UINT command) {
             return 1;
         case NOCTTY_MENU_WORKSPACE_RESTORE:
             noctty_workspace_persistence(host, NOCTTY_WORKSPACE_RESTORE);
+            return 1;
+        case NOCTTY_MENU_OPEN_NOCTED:
+            noctty_launch_nocted(host);
             return 1;
         default:
             return 0;
@@ -1485,9 +1768,11 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
             }
             return 0;
         case WM_SIZE:
-            if (word != SIZE_MINIMIZED)
+            if (word != SIZE_MINIMIZED) {
+                noctty_clear_selection(host);
                 noctty_resize_terminal(host, LOWORD(long_value),
                                        HIWORD(long_value));
+            }
             return 0;
         case WM_GETMINMAXINFO: {
             MINMAXINFO *limits = (MINMAXINFO *)long_value;
@@ -1497,6 +1782,7 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
         }
         case WM_DPICHANGED: {
             RECT *suggested = (RECT *)long_value;
+            noctty_clear_selection(host);
             noctty_create_fonts(host, HIWORD(word));
             SetWindowPos(window, NULL, suggested->left, suggested->top,
                          suggested->right - suggested->left,
@@ -1505,56 +1791,169 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
             return 0;
         }
         case WM_SETFOCUS:
-        case WM_KILLFOCUS:
             InvalidateRect(window, NULL, FALSE);
             return 0;
-        case WM_LBUTTONDOWN: {
-            int pane_count =
-                host->callbacks->pane_count(host->callbacks->userdata);
-            if (pane_count <= 0)
-                return DefWindowProcW(window, message, word, long_value);
-            RECT client;
-            GetClientRect(window, &client);
-            int pointer_x = (int)(short)LOWORD(long_value);
-            int pointer_y = (int)(short)HIWORD(long_value);
-            for (int pane_index = 0; pane_index < pane_count; pane_index++) {
-                uint32_t x = 0;
-                uint32_t y = 0;
-                uint32_t width = 0;
-                uint32_t height = 0;
-                int selected = 0;
-                int host_active = 0;
-                if (host->callbacks->pane_layout(
-                        host->callbacks->userdata, pane_index, &x, &y, &width,
-                        &height, &selected, &host_active) <= 0)
-                    continue;
-                int left = (int)((int64_t)client.right * x / 1000000);
-                int top = (int)((int64_t)client.bottom * y / 1000000);
-                int right =
-                    (int)((int64_t)client.right * (x + width) / 1000000);
-                int bottom =
-                    (int)((int64_t)client.bottom * (y + height) / 1000000);
-                if (pointer_x < left || pointer_x >= right ||
-                    pointer_y < top || pointer_y >= bottom)
-                    continue;
-                if (host->callbacks->pane_select(
-                        host->callbacks->userdata, pane_index) == 0) {
-                    SetFocus(window);
-                    noctty_update_title(host);
-                    InvalidateRect(window, NULL, FALSE);
-                    return 0;
+        case WM_KILLFOCUS:
+            if (host->selection_dragging || host->application_capture)
+                noctty_release_mouse_capture(host);
+            InvalidateRect(window, NULL, FALSE);
+            return 0;
+        case WM_LBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_RBUTTONDOWN: {
+            NocttyPaneHit hit;
+            int pointer_x = GET_X_LPARAM(long_value);
+            int pointer_y = GET_Y_LPARAM(long_value);
+            int button = message == WM_LBUTTONDOWN
+                             ? 0
+                             : message == WM_MBUTTONDOWN ? 1 : 2;
+            int shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+            uint32_t mode;
+            if (!noctty_hit_test_pane_cell(host, pointer_x, pointer_y, &hit))
+                return 0;
+            if (!noctty_select_pane(host, hit.pane_index)) return 0;
+            InvalidateRect(window, NULL, FALSE);
+            if (!hit.inside_content) return 0;
+            mode = host->callbacks->pane_mouse_mode(
+                       host->callbacks->userdata, hit.pane_index) &
+                   NOCTTY_WINDOWS_MOUSE_TRACKING_MASK;
+            /* Shift+left is the local selection escape hatch. Without Shift,
+               application tracking wins; otherwise left drag selects. */
+            if (button == 0 && (shift || mode == 0)) {
+                noctty_release_mouse_capture(host);
+                host->selection_active = 1;
+                host->selection_dragging = 1;
+                host->selection_pane = hit.pane_index;
+                host->selection_anchor_column = hit.column;
+                host->selection_anchor_row = hit.row;
+                host->selection_extent_column = hit.column;
+                host->selection_extent_row = hit.row;
+                host->capture_pane = hit.pane_index;
+                SetCapture(window);
+                InvalidateRect(window, NULL, FALSE);
+                return 0;
+            }
+            if (mode != 0) {
+                host->pressed_buttons |= 1u << (unsigned)button;
+                host->application_capture = 1;
+                host->capture_pane = hit.pane_index;
+                host->capture_last_column = hit.column;
+                host->capture_last_row = hit.row;
+                SetCapture(window);
+                (void)noctty_report_mouse(host, &hit, button,
+                                          NOCTTY_WINDOWS_MOUSE_PRESS,
+                                          noctty_mouse_modifiers());
+            }
+            return 0;
+        }
+        case WM_LBUTTONUP:
+        case WM_MBUTTONUP:
+        case WM_RBUTTONUP: {
+            NocttyPaneHit hit;
+            int pointer_x = GET_X_LPARAM(long_value);
+            int pointer_y = GET_Y_LPARAM(long_value);
+            int button = message == WM_LBUTTONUP
+                             ? 0
+                             : message == WM_MBUTTONUP ? 1 : 2;
+            if (button == 0 && host->selection_dragging) {
+                if (noctty_cell_for_pane(host, host->selection_pane, pointer_x,
+                                         pointer_y, 1, &hit)) {
+                    host->selection_extent_column = hit.column;
+                    host->selection_extent_row = hit.row;
                 }
+                noctty_release_mouse_capture(host);
+                InvalidateRect(window, NULL, FALSE);
+                return 0;
+            }
+            if ((host->pressed_buttons & (1u << (unsigned)button)) != 0 &&
+                noctty_cell_for_pane(host, host->capture_pane, pointer_x,
+                                     pointer_y, 1, &hit)) {
+                (void)noctty_report_mouse(host, &hit, button,
+                                          NOCTTY_WINDOWS_MOUSE_RELEASE,
+                                          noctty_mouse_modifiers());
+                host->pressed_buttons &= ~(1u << (unsigned)button);
+            }
+            if (host->pressed_buttons == 0)
+                noctty_release_mouse_capture(host);
+            return 0;
+        }
+        case WM_MOUSEMOVE: {
+            NocttyPaneHit hit;
+            int pointer_x = GET_X_LPARAM(long_value);
+            int pointer_y = GET_Y_LPARAM(long_value);
+            if (host->selection_dragging) {
+                if (noctty_cell_for_pane(host, host->selection_pane, pointer_x,
+                                         pointer_y, 1, &hit) &&
+                    (hit.column != host->selection_extent_column ||
+                     hit.row != host->selection_extent_row)) {
+                    host->selection_extent_column = hit.column;
+                    host->selection_extent_row = hit.row;
+                    InvalidateRect(window, NULL, FALSE);
+                }
+                return 0;
+            }
+            if (host->application_capture && host->pressed_buttons != 0) {
+                int button = (host->pressed_buttons & 1u) != 0
+                                 ? 0
+                                 : (host->pressed_buttons & 2u) != 0 ? 1 : 2;
+                if (noctty_cell_for_pane(host, host->capture_pane, pointer_x,
+                                         pointer_y, 1, &hit) &&
+                    (hit.column != host->capture_last_column ||
+                     hit.row != host->capture_last_row)) {
+                    host->capture_last_column = hit.column;
+                    host->capture_last_row = hit.row;
+                    (void)noctty_report_mouse(host, &hit, button,
+                                              NOCTTY_WINDOWS_MOUSE_MOTION,
+                                              noctty_mouse_modifiers());
+                }
+                return 0;
+            }
+            if (noctty_hit_test_pane_cell(host, pointer_x, pointer_y, &hit) &&
+                hit.inside_content &&
+                (host->callbacks->pane_mouse_mode(
+                     host->callbacks->userdata, hit.pane_index) &
+                 NOCTTY_WINDOWS_MOUSE_TRACKING_MASK) == 3u) {
+                if (noctty_select_pane(host, hit.pane_index))
+                    (void)noctty_report_mouse(
+                        host, &hit, 3, NOCTTY_WINDOWS_MOUSE_MOTION,
+                        noctty_mouse_modifiers());
             }
             return 0;
         }
         case WM_MOUSEWHEEL: {
+            POINT pointer = {GET_X_LPARAM(long_value),
+                             GET_Y_LPARAM(long_value)};
+            NocttyPaneHit hit;
             int steps = GET_WHEEL_DELTA_WPARAM(word) / WHEEL_DELTA;
-            if (steps != 0) {
+            if (steps == 0) return 0;
+            ScreenToClient(window, &pointer);
+            if (!noctty_hit_test_pane_cell(host, pointer.x, pointer.y, &hit) ||
+                !noctty_select_pane(host, hit.pane_index))
+                return 0;
+            if (hit.inside_content &&
+                (host->callbacks->pane_mouse_mode(
+                     host->callbacks->userdata, hit.pane_index) &
+                 NOCTTY_WINDOWS_MOUSE_TRACKING_MASK) != 0u) {
+                int count = steps < 0 ? -steps : steps;
+                int button = steps > 0 ? 64 : 65;
+                for (int index = 0; index < count; index++)
+                    (void)noctty_report_mouse(
+                        host, &hit, button, NOCTTY_WINDOWS_MOUSE_WHEEL,
+                        noctty_mouse_modifiers());
+            } else {
                 host->callbacks->scroll(host->callbacks->userdata, steps * 3);
                 InvalidateRect(window, NULL, FALSE);
             }
             return 0;
         }
+        case WM_CAPTURECHANGED:
+            noctty_release_mouse_capture(host);
+            InvalidateRect(window, NULL, FALSE);
+            return 0;
+        case WM_CANCELMODE:
+            noctty_release_mouse_capture(host);
+            InvalidateRect(window, NULL, FALSE);
+            return 0;
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
             int control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -1564,7 +1963,7 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                 return DefWindowProcW(window, message, word, long_value);
             if (control && shift && word == 'C') {
                 host->suppress_character = 1;
-                noctty_copy_visible(host);
+                noctty_copy_terminal(host);
                 return 0;
             }
             if (control && shift && word == 'V') {
@@ -1618,6 +2017,7 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                               host->callbacks->userdata);
                 }
                 if (changed > 0) {
+                    noctty_clear_selection(host);
                     if (!host->remote_mode) {
                         RECT client;
                         GetClientRect(window, &client);
@@ -1707,18 +2107,28 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                 if (marker && host->smoke_marker_seen &&
                     host->paint_count > host->smoke_marker_paint_count &&
                     smoke_session->process_exit_code == 0 &&
-                    host->settings_menu_ready && host->preferences_ready) {
+                    host->settings_menu_ready && host->preferences_ready &&
+                    host->smoke_mouse_input && host->smoke_coordinates &&
+                    host->smoke_selection && host->smoke_clipboard) {
                     noctty_log("windows_host_smoke conpty=true vt=true "
                                "gdi=true settings_menu=true preferences=true "
+                               "mouse_input=true coordinates=true "
+                               "selection=true clipboard=true "
                                "clean_exit=true\r\n");
                     host->exit_code = 0;
                     DestroyWindow(window);
                 } else if (host->smoke_ticks > 625u) {
-                    noctty_log("windows_host_smoke conpty=true vt=%s "
-                               "gdi=%s process_exit=%lu clean_exit=false\r\n",
-                               marker ? "true" : "false",
-                               host->paint_count > 0 ? "true" : "false",
-                               smoke_session->process_exit_code);
+                    noctty_log(
+                        "windows_host_smoke conpty=true vt=%s gdi=%s "
+                        "mouse_input=%s coordinates=%s selection=%s "
+                        "clipboard=%s process_exit=%lu clean_exit=false\r\n",
+                        marker ? "true" : "false",
+                        host->paint_count > 0 ? "true" : "false",
+                        host->smoke_mouse_input ? "true" : "false",
+                        host->smoke_coordinates ? "true" : "false",
+                        host->smoke_selection ? "true" : "false",
+                        host->smoke_clipboard ? "true" : "false",
+                        smoke_session->process_exit_code);
                     host->exit_code = 2;
                     DestroyWindow(window);
                 }
@@ -1761,6 +2171,85 @@ static void noctty_drain_remote_input(NocttyWindowsHost *host) {
     }
 }
 
+static void noctty_input_smoke_observables(NocttyWindowsHost *host) {
+    NocttyPaneHit geometry;
+    NocttyPaneHit first;
+    NocttyPaneHit last;
+    RECT client;
+    int pane_index =
+        host->callbacks->active_pane(host->callbacks->userdata);
+    static const uint8_t clipboard_probe[] = {
+        'N', 'C', 'T', '-', 0xe4, 0xb8, 0xad,
+    };
+    WCHAR wide_probe[16];
+    int wide_count = MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, (const char *)clipboard_probe,
+        (int)sizeof(clipboard_probe), wide_probe, ARRAYSIZE(wide_probe));
+    host->smoke_clipboard =
+        wide_count == 5 && wide_probe[4] == (WCHAR)0x4e2d;
+    host->smoke_mouse_input = 0;
+    host->smoke_coordinates = 0;
+    host->smoke_selection = 0;
+    if (pane_index < 0) return;
+    {
+        uint32_t mode = host->callbacks->pane_mouse_mode(
+            host->callbacks->userdata, pane_index);
+        host->smoke_mouse_input =
+            (mode & ~(NOCTTY_WINDOWS_MOUSE_TRACKING_MASK |
+                      NOCTTY_WINDOWS_MOUSE_ENCODING_SGR)) == 0;
+        if (host->smoke_mode && !host->remote_mode) {
+            static const uint8_t enable_mouse[] =
+                "\x1b[?1003h\x1b[?1006h";
+            static const uint8_t disable_mouse[] =
+                "\x1b[?1003l\x1b[?1006l";
+            static const uint8_t expected[] = "\x1b[<48;3;4M";
+            uint8_t encoded[64];
+            int encoded_length = -1;
+            if (host->callbacks->pane_feed(
+                    host->callbacks->userdata, pane_index, enable_mouse,
+                    sizeof(enable_mouse) - 1u) >= 0 &&
+                host->callbacks->pane_mouse_mode(
+                    host->callbacks->userdata, pane_index) ==
+                    (3u | NOCTTY_WINDOWS_MOUSE_ENCODING_SGR)) {
+                encoded_length = host->callbacks->pane_mouse_encode(
+                    host->callbacks->userdata, pane_index, 2, 3, 0,
+                    NOCTTY_WINDOWS_MOUSE_MOTION,
+                    NOCTTY_WINDOWS_MOUSE_MOD_CONTROL, encoded,
+                    sizeof(encoded));
+            }
+            host->smoke_mouse_input =
+                encoded_length == (int)(sizeof(expected) - 1u) &&
+                memcmp(encoded, expected, sizeof(expected) - 1u) == 0;
+            (void)host->callbacks->pane_feed(
+                host->callbacks->userdata, pane_index, disable_mouse,
+                sizeof(disable_mouse) - 1u);
+        }
+    }
+    GetClientRect(host->window, &client);
+    if (!noctty_pane_geometry(host, pane_index, &client, &geometry)) return;
+    if (noctty_cell_for_pane(host, pane_index, geometry.content.left,
+                             geometry.content.top, 0, &first) &&
+        first.inside_content && first.column == 0 && first.row == 0 &&
+        noctty_cell_for_pane(host, pane_index, geometry.content.right - 1,
+                             geometry.content.bottom - 1, 0, &last) &&
+        last.inside_content && last.column == geometry.columns - 1 &&
+        last.row == geometry.rows - 1)
+        host->smoke_coordinates = 1;
+
+    host->selection_active = 1;
+    host->selection_pane = pane_index;
+    host->selection_anchor_column = 4;
+    host->selection_anchor_row = 3;
+    host->selection_extent_column = 1;
+    host->selection_extent_row = 1;
+    host->smoke_selection =
+        noctty_cell_selected(host, pane_index, 1, 1) &&
+        noctty_cell_selected(host, pane_index, 4, 3) &&
+        !noctty_cell_selected(host, pane_index, 0, 0);
+    host->selection_active = 0;
+    host->selection_pane = -1;
+}
+
 int noctty_windows_host_run(HINSTANCE instance, int show_command,
                             const NocttyWindowsCallbacks *callbacks) {
     static const WCHAR class_name[] = L"NOCTTY.Windows.NativeHost";
@@ -1788,6 +2277,8 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
         smoke_value[0] != L'0';
     host->columns = NOCTTY_DEFAULT_COLUMNS;
     host->rows = NOCTTY_DEFAULT_ROWS;
+    host->selection_pane = -1;
+    host->capture_pane = -1;
 
 
     ZeroMemory(&window_class, sizeof(window_class));
@@ -1840,6 +2331,7 @@ int noctty_windows_host_run(HINSTANCE instance, int show_command,
                     L"NOCTTY Windows alpha", MB_OK | MB_ICONERROR);
         goto finished;
     }
+    noctty_input_smoke_observables(host);
     SetTimer(host->window, NOCTTY_TIMER_ID, NOCTTY_TIMER_INTERVAL_MS, NULL);
     ShowWindow(host->window, show_command == 0 ? SW_SHOW : show_command);
     UpdateWindow(host->window);
