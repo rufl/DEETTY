@@ -41,7 +41,7 @@ Supported first:
 
 Experimental:
 
-- x86_64 Windows 10 1809+/Windows 11 single-window Win32/ConPTY terminal
+- x86_64 Windows 10 1809+/Windows 11 Win32/ConPTY terminal workspace with bounded native tabs and recursive splits
 
 Not claimed yet:
 
@@ -71,12 +71,13 @@ with `./scripts/capture_alpha_screenshots.sh` when the UI changes materially.
 The qualified Linux NOCTTY host provides:
 
 - undecorated, horizontally centered dropdown mode with live percentage sizing,
-  plus borderless windowed and zen/fullscreen modes
+  native decorated windowed mode, and zen/fullscreen mode
 - native terminal tabs and recursive splits
 - guarded broadcast input across selected panes or the active tab, with explicit enable confirmation and immediate disable
 - compact tab chrome inspired by Yakuake/Konsole workflows
 - bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
-- scrollback, search, copy/paste, mouse, resize, and Unicode/ANSI handling
+- per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation, plus scrollback search, copy/paste, mouse, resize, and Unicode/ANSI handling
+- terminal content exposed through native ATK text semantics for Linux screen readers
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
 - retained installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11
 - retained authenticated Codex 0.144.6 exact-response proof through the production PTY/VT/GTK/Cairo path on Plasma Wayland/X11
@@ -92,10 +93,11 @@ The qualified Linux NOCTTY host provides:
 
 The experimental Windows host provides a native Win32/GDI window, ConPTY,
 the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
-color, scrollback, clipboard paste/visible-surface copy, local logs, local crash
-dumps, and command-line LAN discovery plus paired session sharing/receiving.
-It does not yet provide Linux workspace parity. See
-[Windows alpha](docs/WINDOWS.md).
+color, scrollback, clipboard paste/visible-surface copy, bounded tabs and
+recursive splits, a native settings menu, saved-layout restore, launch-profile
+selection, local logs, local crash dumps, and command-line LAN discovery plus
+paired session sharing/receiving. It does not yet provide full Linux workspace
+parity. See [Windows alpha](docs/WINDOWS.md).
 
 NoctEd provides on Linux:
 
@@ -127,16 +129,28 @@ and explicitly confirm the six-digit code on both devices. The endpoint may be
 a LAN address, IPv4/IPv6 address, DNS name, or a
 Tailscale/WireGuard/ZeroTier-style VPN name or address.
 
-Select the saved peer and use **Share current tab** on the host and
-**Receive selected device** on the viewer. The share follows every pane in the
-tab that was active when sharing started: newly opened panes appear in the
-receiver's **Shared pane** selector, and closed or moved panes disappear. Each
-pane keeps an independent bounded remote grid and sequence. Keep the same TCP
-port used during pairing reachable on the host. Viewing is the default. A
-control request and host grant apply only to the selected pane and current
-connection; the grant ends on revoke, disconnect, pane closure,
-resynchronization, or reconnect. **Revoke paired device** persists locally and
-closes a matching active share.
+Select the saved peer and choose **Share current pane**, **Share current tab**,
+or **Share entire session** on the host, then **Receive selected device** on the
+viewer. A pane share stays pinned to that pane and ends when it closes. A tab
+share follows every pane in the tab that was active when sharing started. An
+entire-session share follows every tab and pane in workspace order, including
+tabs and panes opened, closed, reordered, renamed, or moved while connected.
+The receiver's **Shared tab** selector chooses the reconstructed remote tab;
+the preview renders all of that tab's panes from the host split tree and ratio
+state. **Shared pane** changes keyboard focus within the layout, and clicking a
+pane does the same. Selected and host-active panes remain visibly distinct.
+Each pane keeps an independent bounded sequence and checkpoint. Receivers also
+retain the latest 64 host scrollback rows per pane; the preview's mouse wheel
+navigates that bounded history while new rows preserve the scrolled view.
+`Ctrl+Shift+V` and `Shift+Insert` paste only after an explicit user action,
+including bracketed-paste framing when the remote application requests it.
+Keep the same TCP port used during pairing reachable on the host. Viewing is
+the default. A control request and host grant apply only to the selected pane
+and current connection; changing panes requires a separate grant. Grants end
+on revoke, disconnect, pane closure, resynchronization, or reconnect. After a
+link closes or fails, **Reconnect securely** performs a new authenticated
+handshake with the saved paired key and starts view-only.
+**Revoke paired device** persists locally and closes a matching active share.
 
 There is no relay, account service, NAT traversal, port forwarding, or subnet
 scan. Pairing listeners send bounded, opt-in LAN multicast/broadcast
@@ -147,12 +161,13 @@ runs only while the user asks for it in the Session Sharing dialog; closing the
 dialog stops discovery. Direct endpoints remain the reliable path across
 routed VPNs.
 
-After the encrypted transport starts, both sides require the same workspace,
-dynamic-pane, resynchronization, keepalive, and per-pane-control capabilities.
-Sequence gaps discard the affected pane's partial snapshot and request a fresh
-bounded checkpoint; they are not repaired by replaying an unbounded PTY byte
-stream. The host also probes an otherwise idle viewer and closes a link that
-does not answer.
+After the encrypted transport starts, both sides require matching workspace,
+dynamic-pane, tab-hierarchy, split-layout, share-scope, resynchronization,
+keepalive, and per-pane-control capabilities. Sequence gaps discard an affected
+pane's partial snapshot and request a fresh bounded checkpoint; they are not
+repaired by replaying an unbounded PTY byte stream.
+The host also probes an otherwise idle viewer and closes a link that does not
+answer.
 
 ## What NOCTTY is not
 
@@ -237,7 +252,7 @@ license/redistribution review and release receipts are complete.
 ## Common controls
 
 ```text
-F10                    show / hide
+Configured global shortcut (F10 default) show / hide
 Ctrl+Shift+P           command palette
 Ctrl+Shift+F           find in scrollback
 Ctrl+Shift+N           quick note
@@ -251,6 +266,8 @@ Alt+Arrow              directional pane focus
 Alt+wheel              previous / next pane
 Ctrl+Alt+wheel         previous / next tab
 Ctrl+wheel             pane font up / down
+Shift+PageUp/PageDown terminal history page up / down
+Shift+Home/End        oldest / live terminal output
 Ctrl+C                 interrupt active pane
 Ctrl+D                 close active pane
 Right-click pane       terminal actions / Open NoctEd Here
@@ -293,11 +310,14 @@ Bounded public-source-alpha gate:
 ./scripts/public_alpha_verify.sh
 ```
 
-Dogfood `ReleaseFast` install with local crash/debug logs and the private GTK
-Layer Shell runtime needed for an undecorated Wayland dropdown:
+Dogfood `ReleaseFast` install with private crash/debug logs, atomic duration
+receipts, and the private GTK Layer Shell runtime needed for an undecorated
+Wayland dropdown:
 
 ```sh
 ./scripts/install_dogfood.sh
+./scripts/dogfood_status.sh
+./scripts/dogfood_runtime_status.sh --list-candidates
 ```
 
 See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).

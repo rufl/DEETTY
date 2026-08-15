@@ -13,23 +13,31 @@ Included:
 - Windows ConPTY shell transport
 - the same renderer-neutral Zig VT/parser used by Linux NOCTTY
 - ANSI color, true color, Unicode text, cursor, title, scrollback, and live resize
-- PowerShell with `cmd.exe` fallback
+- selectable PowerShell or Command Prompt launch profile for new shells
 - arrow, navigation, function, control, and Unicode keyboard input
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
 - `Ctrl+Shift+C` copy of the visible terminal surface
 - local lifecycle/error logs and local crash minidumps
+- bounded local tabs and recursive split-down/split-left layouts, with one
+  independent ConPTY process, Zig VT grid, output ring, reply path, resize
+  state, and lifecycle per pane
+- a native Win32 menu for dark/system-high-contrast themes, 11/13/16/18-point
+  terminal fonts, launch profile, and startup workspace restoration
+- explicit, checksummed save/restore of the bounded tab and split layout;
+  restoring launches replacement shells rather than serializing shell contents
 - explicit command-line LAN discovery, pairing, and encrypted terminal
   sharing/receiving with a native GDI remote view and host-approved,
-  connection-scoped input; `Ctrl+Shift+Tab` cycles the current pane set from a
-  Linux host as panes open, close, or move
+  connection-scoped input; while receiving a Linux workspace, `Ctrl+Tab`
+  cycles shared tabs and `Ctrl+Shift+Tab` cycles panes in the selected tab as
+  its hierarchy changes
 - no telemetry, analytics, update checks, crash uploads, or remote flags
 
 Not included or claimed yet:
 
-- tabs, recursive splits, Smart Tabs, broadcast input, or launch-profile UI
+- Smart Tabs, broadcast input, mouse/tab-strip workspace controls, adjustable
+  split ratios, or a reusable launch-profile library
 - dropdown/global-hotkey behavior
-- workspace recovery and continuity UX
-- native settings/theme dialogs
+- shell-content recovery or Linux workspace continuity parity
 - mouse-reporting applications or text selection
 - Windows NoctEd
 - code signing, installer/MSIX packaging, ARM64, or automatic updates
@@ -50,6 +58,51 @@ Session sharing additionally requires direct TCP reachability between devices;
 the Windows firewall may prompt when listening. LAN, tailnet, and other routed
 VPN addresses work without protocol-specific integration. NOCTTY does not
 provide a relay or NAT traversal.
+
+## Local tabs and splits
+
+The local Windows workspace admits up to 16 tabs and 32 panes. Every pane owns
+an independent ConPTY process and Zig VT grid; resize, output, terminal replies,
+input, process exit, and teardown remain indexed to that pane. Split trees are
+recursive and divide each branch evenly. The window title reports the current
+tab and pane counts, and clicking a rendered pane focuses its exact session.
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+T` | Open and focus a new tab |
+| `Ctrl+Shift+S` | Split the focused pane down |
+| `Ctrl+Shift+L` | Split the focused pane left |
+| `Ctrl+Tab` | Cycle panes in the current tab |
+| `Ctrl+Shift+Tab` | Cycle tabs |
+| `Ctrl+D` | Close the focused pane; the final session is protected |
+| `Ctrl+Shift+W` | Close the current tab; the final tab is protected |
+
+These controls are intentionally smaller than the Linux workspace surface.
+There is no Windows tab strip, drag reordering, reusable profile library,
+Smart Tab, or broadcast-input claim yet.
+
+## Native settings and saved layouts
+
+The window's **Settings** menu applies user-owned, local preferences:
+
+- **Theme** selects the built-in dark palette or Windows' current
+  high-contrast window colors.
+- **Font size** selects 11, 13, 16, or 18 points.
+- **Launch profile** selects PowerShell or Command Prompt for newly created
+  ConPTY sessions. `NOCTTY_WINDOWS_SHELL` remains the explicit test/operator
+  override and takes precedence.
+- **Restore saved workspace on startup** controls whether a saved layout is
+  reconstructed before the native host opens.
+
+The **Workspace** menu saves the current bounded tab/split model or restores the
+last saved model. Restore is intentionally destructive: NOCTTY confirms first,
+closes the current shells, reconstructs the validated layout, and starts
+replacement shells. Scrollback, process state, working directories, and shell
+contents are not serialized.
+
+Preferences and the saved layout use an atomic, versioned, checksummed local
+file at `%LOCALAPPDATA%\NOCTTY\windows-state-v1.bin`. Invalid or truncated state
+is ignored; startup falls back to the default single-pane workspace.
 
 ## Pair and share a terminal
 
@@ -103,14 +156,24 @@ receive it on Device B:
 The receiver starts view-only. Typing requests control; Device A shows a native
 approval prompt before any input is delivered. Approval applies only to the
 selected shared pane and that connection, and ends on pane closure,
-resynchronization, revoke, or disconnect. When a Linux workspace shares
-multiple panes,
-`Ctrl+Shift+Tab` cycles its current pane set; newly opened panes join and closed
-or moved panes leave without reconnecting. A Windows host currently publishes
-its one ConPTY terminal. The shell, process, and scrollback remain owned by
-Device A; this is presentation mirroring, not PTY migration. Capability
-negotiation rejects incompatible peers, sequence gaps request a fresh bounded
-pane checkpoint, and idle host links require authenticated keepalive replies.
+resynchronization, revoke, or disconnect. A Linux host can publish one pane,
+one dynamic tab, or its entire workspace. The Windows receiver reconstructs
+every pane in the selected tab from the host's split tree and ratios; its title
+identifies the received scope, shared tab, and focused terminal. `Ctrl+Tab`
+cycles shared tabs; `Ctrl+Shift+Tab` cycles focus between panes in the selected
+layout, and clicking a pane focuses it directly. Tabs and panes join, leave,
+reorder, rename, split, zoom, or move without reconnecting. The mouse wheel
+navigates the latest 64 mirrored host scrollback rows per pane, and explicit
+`Ctrl+Shift+V` or `Shift+Insert` clipboard paste uses the existing bounded
+input path. A Windows host publishes the ConPTY pane selected when sharing
+starts; later local tab/pane focus changes cannot migrate that stream or an
+existing remote-control grant to another shell. The shell, process, and full
+scrollback remain owned by Device A; this is presentation mirroring with
+bounded receiver history, not PTY migration.
+Capability negotiation rejects incompatible peers, sequence gaps request a
+fresh bounded pane checkpoint, and idle host links require authenticated
+keepalive replies. Reconnecting performs a new paired-key handshake and never
+restores a prior control grant.
 
 ## Build from Linux or Windows
 
@@ -176,7 +239,7 @@ may be sensitive.
 
 ## Self-test and physical smoke
 
-The executable contains a no-window VT/parser contract test:
+The executable contains a no-window VT/parser and bounded-workspace contract test:
 
 ```powershell
 .\noctty.exe --self-test
@@ -193,13 +256,16 @@ The package also includes a PowerShell wrapper:
 
 The default wrapper checks the embedded fixture. `-AutomatedHost` starts a real
 `cmd.exe` through ConPTY, requires the marker to reach the shared Zig VT and a
-Win32/GDI paint, and requires clean process/host exit. `-Interactive` launches
-the normal host, prints the prompt/input/resize/clipboard/scroll checklist, and
-then requires a ConPTY shell marker and clean shutdown marker in the new local
-log. It does not infer whether the visual checklist passed; record those
-operator observations separately.
+Win32/GDI paint, verifies that the native settings menu/preferences bridge was
+created, and requires clean process/host exit. `-Interactive` launches the
+normal host and prints the prompt, settings persistence, launch-profile,
+workspace restore, input, resize, clipboard, and scroll checklist. It does not
+infer whether the visual checklist passed; record those operator observations
+separately.
 
-An exit code of `0` from `--self-test` proves the embedded Zig VT initialized
-and processed the pinned color/cursor fixture. It does not prove ConPTY, GDI
-presentation, input, or physical Windows compatibility; those require a
-Windows session.
+An exit code of `0` from `--self-test` proves the embedded Zig VT processed the
+pinned color/cursor fixture; nested split layout, tab/pane cycling, collapse,
+and final-session protection matched the bounded model; and a multi-tab layout
+survived the versioned/checksummed persistence codec and reconstruction. It
+does not prove ConPTY, GDI presentation, input, or physical Windows
+compatibility; those require a Windows session.

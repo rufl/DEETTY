@@ -1,14 +1,16 @@
 const std = @import("std");
 
 pub const magic = "NCTS";
-pub const version: u8 = 1;
+pub const version: u8 = 4;
 pub const header_length: usize = 24;
 pub const max_payload_bytes: usize = 60 * 1024;
 pub const max_wire_bytes: usize = header_length + max_payload_bytes;
 pub const max_streams: usize = 64;
+pub const max_tabs: usize = 64;
+pub const max_layout_nodes: usize = 2 * max_streams - 1;
 pub const max_columns: u16 = 1000;
 pub const max_rows: u16 = 500;
-pub const max_scrollback_rows: u32 = 10_000;
+pub const max_scrollback_rows: u32 = 64;
 pub const max_title_bytes: usize = 4096;
 pub const max_alias_bytes: usize = 128;
 pub const max_input_bytes: usize = 16 * 1024;
@@ -33,6 +35,10 @@ pub const MessageType = enum(u8) {
     ping = 16,
     pong = 17,
     disconnect_reason = 18,
+    workspace_update = 19,
+    control_release = 20,
+    history_row = 21,
+    history_push = 22,
 };
 
 pub const Flags = packed struct(u16) {
@@ -52,7 +58,7 @@ pub const Header = struct {
     pub fn validate(self: Header) !void {
         if (self.payload_length > max_payload_bytes) return error.SharePayloadTooLarge;
         const workspace_message = switch (self.message_type) {
-            .hello, .workspace_manifest, .pane_open, .pane_close, .ping, .pong, .disconnect_reason => true,
+            .hello, .workspace_manifest, .workspace_update, .pane_open, .pane_close, .ping, .pong, .disconnect_reason => true,
             else => false,
         };
         if ((self.stream_id == 0) != workspace_message) return error.InvalidShareStream;
@@ -99,6 +105,10 @@ pub fn decodeHeader(input: *const [header_length]u8) !Header {
         16 => .ping,
         17 => .pong,
         18 => .disconnect_reason,
+        19 => .workspace_update,
+        20 => .control_release,
+        21 => .history_row,
+        22 => .history_push,
         else => return error.UnknownShareMessage,
     };
     if (std.mem.readInt(u16, input[6..8], .big) & 0xfff8 != 0)
@@ -136,7 +146,6 @@ pub const Permission = enum(u8) {
     view_only,
     control_requested,
     control_granted,
-    revoked,
 };
 
 pub const PermissionState = struct {
@@ -158,7 +167,7 @@ pub const PermissionState = struct {
     }
 
     pub fn revoke(self: *PermissionState) void {
-        self.value = .revoked;
+        self.value = .view_only;
     }
 
     pub fn permitsInput(self: PermissionState) bool {

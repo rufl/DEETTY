@@ -55,7 +55,7 @@ Bounded public-source-alpha gate:
 Current result:
 
 ```text
-public_alpha_verify passed=true build_check=true no_surprise_network=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
+public_alpha_verify passed=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
 ```
 
 Additional public-alpha guards currently pass individually:
@@ -85,8 +85,14 @@ A fresh 2026-08-05 tmpfs-scoped single-job run completed successfully through te
 Current dogfood status:
 
 ```text
-dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
+dogfood_status counted_sessions=0 documented_sessions=0 unverified_sessions=0 not_counted_sessions=3 counted_seconds=0 counted_hours=0.000 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
+dogfood_omp_status observed_sessions=0 qualified_sessions=0 qualified_version=none max_concurrent=0 separate_worktrees=false concurrent_streaming=false independent_input=false independent_paste=false resize_during_output=false focus_isolation=false hide_show=false close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=false output_integrity=false logs_clean=false compatible=false
 ```
+
+Retained installed-launcher logs contain 8.777 NOCTTY process-hours and 3.056
+NoctEd process-hours on this host. The values can overlap, and the one
+4.466-hour NOCTTY candidate has no recorded real-work context, so none of those
+runtime-only hours is promoted into the counted-session quota.
 
 - counted real dogfood sessions are still needed
 - signing/publication/artifact signatures are not complete

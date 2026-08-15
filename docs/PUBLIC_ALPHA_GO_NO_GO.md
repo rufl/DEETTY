@@ -36,7 +36,7 @@ Current bounded gate:
 Current retained result:
 
 ```text
-public_alpha_verify passed=true build_check=true no_surprise_network=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
+public_alpha_verify passed=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
 ```
 
 ## Red now
@@ -44,8 +44,13 @@ public_alpha_verify passed=true build_check=true no_surprise_network=true docs_t
 Current dogfood status:
 
 ```text
-dogfood_status counted_sessions=0 not_counted_sessions=2 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
+dogfood_status counted_sessions=0 documented_sessions=0 unverified_sessions=0 not_counted_sessions=3 counted_seconds=0 counted_hours=0.000 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
+dogfood_omp_status observed_sessions=0 qualified_sessions=0 qualified_version=none max_concurrent=0 separate_worktrees=false concurrent_streaming=false independent_input=false independent_paste=false resize_during_output=false focus_isolation=false hide_show=false close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=false output_integrity=false logs_clean=false compatible=false
 ```
+
+Retained launcher logs separately prove 8.777 NOCTTY process-hours and 3.056
+NoctEd process-hours on this host. Those values may overlap. The only two-hour
+NOCTTY candidate lacks recorded real-work context, so it remains uncounted.
 
 Do not publish broad daily-driver claims until this changes.
 

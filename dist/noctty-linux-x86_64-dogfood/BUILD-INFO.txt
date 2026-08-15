@@ -6,19 +6,18 @@ optimization=ReleaseFast
 symbols=unstripped
 compiler=zig 0.16.0
 target=x86_64-linux-gnu
-source_commit=32396cc4e6875ee6d58c4d89d386d15c7a77f396
-source_commit_short=32396cc4e687
+source_commit=2614d2e8f1d513fadd8f2549bd9eb6eca996d1dc
+source_commit_short=2614d2e8f1d5
 working_tree_dirty=true
 working_tree_untracked=true
-tracked_diff_sha256=e218e6567431a00dbfbdeef51565ab49fe8f27a83c80b44d6fedf065a8ef0cb1
-releasefast_gate=zig build check -Doptimize=ReleaseFast -j1: 19/19 steps, 343/343 tests
-package_bundle_gate=passed
+tracked_diff_sha256=a5401c43f84aec609cd4eec60be9d2c0bf1001cccc08245d06aebbf2233ce16b
+releasefast_gate=zig build check -Doptimize=ReleaseFast -j1: 19/19 steps, 373/373 tests
+package_bundle_gate=passed; archive_sha256=74adcfa73aaf3c081860513f5592a2e2ffbc6bde4b44b2fbefd3599cd843ff2a
 telemetry=false
 network_uploads=false
 local_logging=true
 log_location=${XDG_STATE_HOME:-$HOME/.local/state}/noctty/logs
 log_retention=20 per app
 
-This is a local dogfood install generated from the current working tree.
-Use bin/noctty and bin/nocted. The launchers capture stdout/stderr and GLib/GTK
-messages locally; they do not upload logs or emit telemetry.
+This is a local dogfood install generated from commit 2614d2e8f1d5 with tracked sharing changes.
+Use bin/noctty and bin/nocted. The launchers capture stdout/stderr and GLib/GTK messages locally; they do not upload logs or emit telemetry.

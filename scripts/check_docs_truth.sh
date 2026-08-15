@@ -31,6 +31,10 @@ docs/PUBLIC_ALPHA_RELEASE_NOTES.md
 docs/RELEASE_CHECKLIST.md
 docs/RELEASE_OPERATIONS.md
 docs/TECHNICAL_STATUS.md
+scripts/dogfood_launch.sh
+scripts/dogfood_logging_smoke.sh
+scripts/dogfood_runtime_status.sh
+scripts/dogfood_status.sh
 scripts/install_dogfood.sh
 scripts/public_alpha_verify.sh
 scripts/verify.sh
@@ -125,5 +129,7 @@ test ! -e scripts/native_grid_editor_shutdown_smoke.sh
 dogfood_status=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status" | grep -F 'dogfood_status counted_sessions=' >/dev/null
 printf '%s\n' "$dogfood_status" | grep -F 'five_sessions=' >/dev/null
+printf '%s\n' "$dogfood_status" | grep -F 'dogfood_omp_status observed_sessions=' >/dev/null
+printf '%s\n' "$dogfood_status" | grep -F 'compatible=' >/dev/null
 
-echo 'docs_truth required_docs=true links=true backlog_partition=true task_ids_unique=true claims_bounded=true stale_surfaces=false dogfood_status=true'
+echo 'docs_truth required_docs=true links=true backlog_partition=true task_ids_unique=true claims_bounded=true stale_surfaces=false dogfood_status=true omp_status=true'

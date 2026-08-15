@@ -13,10 +13,10 @@ Supported first:
 
 Experimental, not parity or daily-driver qualified:
 
-- x86_64 Windows 10 1809+/Windows 11 single-window Win32/ConPTY terminal; tabs,
-  splits, settings, recovery, global shortcuts, mouse reporting/selection,
-  NoctEd, ARM64, signing, installer packaging, and physical Windows receipts
-  remain open
+- x86_64 Windows 10 1809+/Windows 11 Win32/ConPTY terminal workspace; bounded
+  tabs and recursive splits exist, while settings, recovery, global shortcuts,
+  mouse reporting/selection, Windows NoctEd, ARM64, signing, installer
+  packaging, and physical Windows receipts remain open
 
 Not supported or not claimed yet:
 

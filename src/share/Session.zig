@@ -19,9 +19,18 @@ pub const HostPeer = struct {
     pub fn prepareResync(self: *HostPeer) void {
         self.publisher.prepareResync();
         self.checkpoint_required = true;
-        self.permission.revoke();
+        self.permission.value = .view_only;
         @memset(&self.changed_rows, false);
     }
+    pub fn prepareReconnect(self: *HostPeer) void {
+        const stream_id = self.stream_id;
+        self.* = .{
+            .stream_id = stream_id,
+            .publisher = Presentation.Publisher.init(stream_id) catch
+                unreachable,
+        };
+    }
+
 
     // UI-thread observation only records bounded damage. Encoding and socket
     // writes happen later on the network worker via flush().
@@ -51,6 +60,29 @@ pub const HostPeer = struct {
             self.publisher.checkpointComplete(&session.grid);
             return;
         }
+        switch (self.publisher.historyDelta(&session.grid)) {
+            .unchanged => {},
+            .reset => {
+                try self.sendCheckpoint(allocator, session, connection);
+                @memset(&self.changed_rows, false);
+                self.publisher.checkpointComplete(&session.grid);
+                return;
+            },
+            .append_from => |first| {
+                for (first..session.grid.historyCount()) |row| {
+                    const owned = try self.publisher.historyRowFrameAlloc(
+                        allocator,
+                        &session.grid,
+                        row,
+                        0,
+                        .history_push,
+                    );
+                    defer owned.deinit(allocator);
+                    try connection.sendFrame(allocator, owned.frame);
+                }
+                self.publisher.historyComplete(&session.grid);
+            },
+        }
         for (self.changed_rows[0..session.grid.rows], 0..) |*changed, row| {
             if (!changed.*) continue;
             const owned = try self.publisher.rowFrameAlloc(allocator, &session.grid, row, .damage);
@@ -68,11 +100,38 @@ pub const HostPeer = struct {
     }
 
     fn sendCheckpoint(self: *HostPeer, allocator: std.mem.Allocator, session: anytype, connection: *Transport.SecureConnection) !void {
-        var begin = try self.publisher.snapshotBegin(&session.grid, 0);
+        const history_count = @min(
+            session.grid.historyCount(),
+            @as(usize, Protocol.max_scrollback_rows),
+        );
+        var begin = try self.publisher.snapshotBegin(
+            &session.grid,
+            @intCast(history_count),
+        );
         begin.frame.payload = &begin.payload;
         try connection.sendFrame(allocator, begin.frame);
+        const first_history = session.grid.historyCount() - history_count;
+        for (
+            first_history..session.grid.historyCount(),
+            0..,
+        ) |source_row, wire_row| {
+            const owned = try self.publisher.historyRowFrameAlloc(
+                allocator,
+                &session.grid,
+                source_row,
+                wire_row,
+                .history_row,
+            );
+            defer owned.deinit(allocator);
+            try connection.sendFrame(allocator, owned.frame);
+        }
         for (0..session.grid.rows) |row| {
-            const owned = try self.publisher.rowFrameAlloc(allocator, &session.grid, row, .row_chunk);
+            const owned = try self.publisher.rowFrameAlloc(
+                allocator,
+                &session.grid,
+                row,
+                .row_chunk,
+            );
             defer owned.deinit(allocator);
             try connection.sendFrame(allocator, owned.frame);
         }
@@ -99,6 +158,11 @@ pub const HostPeer = struct {
             },
             .resync => {
                 if (frame.payload.len != 0) return error.InvalidShareControl;
+                return null;
+            },
+            .control_release => {
+                if (frame.payload.len != 0) return error.InvalidShareControl;
+                self.permission.revoke();
                 return null;
             },
             else => return error.InvalidShareControl,
@@ -147,15 +211,31 @@ pub const capability_dynamic_panes: u32 = 1 << 1;
 pub const capability_resync: u32 = 1 << 2;
 pub const capability_keepalive: u32 = 1 << 3;
 pub const capability_per_pane_control: u32 = 1 << 4;
+pub const capability_tab_hierarchy: u32 = 1 << 5;
+pub const capability_share_scopes: u32 = 1 << 6;
+pub const capability_split_layout: u32 = 1 << 7;
 pub const required_capabilities: u32 =
     capability_workspace_multiplex |
     capability_dynamic_panes |
     capability_resync |
     capability_keepalive |
-    capability_per_pane_control;
+    capability_per_pane_control |
+    capability_tab_hierarchy |
+    capability_share_scopes |
+    capability_split_layout;
 pub const hello_payload_length: usize = 8;
 pub const pane_close_payload_length: usize = 12;
 pub const max_disconnect_reason_bytes: usize = 256;
+const manifest_header_length: usize = 8;
+const tab_manifest_fixed_length: usize = 31;
+const pane_manifest_fixed_length: usize = 22;
+const layout_manifest_fixed_length: usize = 24;
+
+pub const ShareScope = enum(u8) {
+    pane = 1,
+    tab = 2,
+    session = 3,
+};
 
 pub const Hello = struct {
     capabilities: u32,
@@ -213,74 +293,341 @@ pub fn validateDisconnectReason(payload: []const u8) !void {
         return error.InvalidShareDisconnectReason;
 }
 
+pub const LayoutKind = enum(u8) {
+    leaf = 0,
+    split = 1,
+};
+
+pub const LayoutAxis = enum(u8) {
+    horizontal = 0,
+    vertical = 1,
+};
+
+pub const LayoutNodeManifest = struct {
+    tab_id: u64,
+    kind: LayoutKind,
+    pane_id: u64 = 0,
+    axis: LayoutAxis = .horizontal,
+    first: u16 = 0,
+    second: u16 = 0,
+    ratio_permille: u16 = 500,
+};
+
+pub const TabManifest = struct {
+    tab_id: u64,
+    title: []const u8,
+    active: bool = false,
+    active_pane_id: u64,
+    zoomed_pane_id: u64 = 0,
+    root_node: u16,
+    node_count: u16,
+};
+
 pub const PaneManifest = struct {
     stream_id: u32,
     pane_id: u64,
+    tab_id: u64,
     title: []const u8,
 };
 
-pub fn encodeWorkspaceManifestAlloc(allocator: std.mem.Allocator, panes: []const PaneManifest) ![]u8 {
-    if (panes.len == 0 or panes.len > Protocol.max_streams) return error.InvalidShareWorkspace;
+pub const WorkspaceManifest = struct {
+    scope: ShareScope,
+    tabs: []const TabManifest,
+    panes: []const PaneManifest,
+    nodes: []const LayoutNodeManifest,
+};
+
+pub fn validateWorkspaceManifest(manifest: WorkspaceManifest) !void {
+    if (manifest.tabs.len == 0 or manifest.tabs.len > Protocol.max_tabs or
+        manifest.panes.len == 0 or manifest.panes.len > Protocol.max_streams or
+        manifest.nodes.len == 0 or manifest.nodes.len > Protocol.max_layout_nodes)
+        return error.InvalidShareWorkspace;
+    if ((manifest.scope == .pane and
+        (manifest.tabs.len != 1 or manifest.panes.len != 1)) or
+        (manifest.scope == .tab and manifest.tabs.len != 1))
+        return error.InvalidShareWorkspace;
+
+    var active_tabs: usize = 0;
+    var node_offset: usize = 0;
+    for (manifest.tabs, 0..) |tab, tab_index| {
+        if (tab.tab_id == 0 or tab.active_pane_id == 0 or
+            tab.title.len > Protocol.max_title_bytes or
+            !std.unicode.utf8ValidateSlice(tab.title))
+            return error.InvalidShareWorkspace;
+        for (manifest.tabs[0..tab_index]) |previous|
+            if (previous.tab_id == tab.tab_id) return error.InvalidShareWorkspace;
+        active_tabs += @intFromBool(tab.active);
+
+        var tab_pane_count: usize = 0;
+        var active_found = false;
+        var zoomed_found = tab.zoomed_pane_id == 0;
+        for (manifest.panes, 0..) |pane, pane_index| {
+            if (pane.stream_id == 0 or pane.pane_id == 0 or pane.tab_id == 0 or
+                pane.title.len > Protocol.max_title_bytes or
+                !std.unicode.utf8ValidateSlice(pane.title))
+                return error.InvalidShareWorkspace;
+            for (manifest.panes[0..pane_index]) |previous| {
+                if (previous.stream_id == pane.stream_id or
+                    previous.pane_id == pane.pane_id)
+                    return error.InvalidShareWorkspace;
+            }
+            var pane_tab_found = false;
+            for (manifest.tabs) |candidate| {
+                if (candidate.tab_id == pane.tab_id) {
+                    pane_tab_found = true;
+                    break;
+                }
+            }
+            if (!pane_tab_found) return error.InvalidShareWorkspace;
+            if (pane.tab_id != tab.tab_id) continue;
+            tab_pane_count += 1;
+            active_found = active_found or pane.pane_id == tab.active_pane_id;
+            zoomed_found = zoomed_found or pane.pane_id == tab.zoomed_pane_id;
+        }
+        if (tab_pane_count == 0 or !active_found or !zoomed_found or
+            tab.node_count != 2 * tab_pane_count - 1 or
+            tab.root_node >= tab.node_count or
+            node_offset + tab.node_count > manifest.nodes.len)
+            return error.InvalidShareWorkspace;
+
+        const nodes = manifest.nodes[node_offset .. node_offset + tab.node_count];
+        var visited = [_]bool{false} ** Protocol.max_layout_nodes;
+        var stack: [Protocol.max_layout_nodes]u16 = undefined;
+        var stack_len: usize = 1;
+        stack[0] = tab.root_node;
+        var leaf_count: usize = 0;
+        while (stack_len != 0) {
+            stack_len -= 1;
+            const index = stack[stack_len];
+            if (index >= nodes.len or visited[index])
+                return error.InvalidShareWorkspace;
+            visited[index] = true;
+            const node = nodes[index];
+            if (node.tab_id != tab.tab_id) return error.InvalidShareWorkspace;
+            switch (node.kind) {
+                .leaf => {
+                    if (node.pane_id == 0 or node.first != 0 or node.second != 0 or
+                        node.ratio_permille != 0)
+                        return error.InvalidShareWorkspace;
+                    var pane_found = false;
+                    for (manifest.panes) |pane| {
+                        if (pane.tab_id == tab.tab_id and pane.pane_id == node.pane_id) {
+                            pane_found = true;
+                            break;
+                        }
+                    }
+                    if (!pane_found) return error.InvalidShareWorkspace;
+                    for (nodes[0..index]) |previous|
+                        if (previous.kind == .leaf and previous.pane_id == node.pane_id)
+                            return error.InvalidShareWorkspace;
+                    leaf_count += 1;
+                },
+                .split => {
+                    if (node.pane_id != 0 or node.first >= nodes.len or
+                        node.second >= nodes.len or node.first == node.second or
+                        node.ratio_permille == 0 or node.ratio_permille >= 1000)
+                        return error.InvalidShareWorkspace;
+                    stack[stack_len] = node.first;
+                    stack_len += 1;
+                    stack[stack_len] = node.second;
+                    stack_len += 1;
+                },
+            }
+        }
+        if (leaf_count != tab_pane_count) return error.InvalidShareWorkspace;
+        for (visited[0..nodes.len]) |seen|
+            if (!seen) return error.InvalidShareWorkspace;
+        node_offset += tab.node_count;
+    }
+    if (active_tabs != 1 or node_offset != manifest.nodes.len)
+        return error.InvalidShareWorkspace;
+}
+
+pub fn encodeWorkspaceManifestAlloc(
+    allocator: std.mem.Allocator,
+    manifest: WorkspaceManifest,
+) ![]u8 {
+    try validateWorkspaceManifest(manifest);
     var bytes = std.array_list.Managed(u8).init(allocator);
     errdefer bytes.deinit();
-    var count_bytes: [2]u8 = undefined;
-    std.mem.writeInt(u16, &count_bytes, @intCast(panes.len), .big);
-    try bytes.appendSlice(&count_bytes);
-    for (panes, 0..) |pane, index| {
-        if (pane.stream_id == 0 or pane.pane_id == 0 or
-            pane.title.len > Protocol.max_title_bytes or
-            !std.unicode.utf8ValidateSlice(pane.title))
-            return error.InvalidShareWorkspace;
-        for (panes[0..index]) |previous| {
-            if (previous.stream_id == pane.stream_id or previous.pane_id == pane.pane_id)
-                return error.InvalidShareWorkspace;
-        }
-        var fixed: [14]u8 = undefined;
+    var header: [manifest_header_length]u8 = undefined;
+    header[0] = @intFromEnum(manifest.scope);
+    header[1] = 0;
+    std.mem.writeInt(u16, header[2..4], @intCast(manifest.tabs.len), .big);
+    std.mem.writeInt(u16, header[4..6], @intCast(manifest.panes.len), .big);
+    std.mem.writeInt(u16, header[6..8], @intCast(manifest.nodes.len), .big);
+    try bytes.appendSlice(&header);
+
+    for (manifest.tabs) |tab| {
+        var fixed: [tab_manifest_fixed_length]u8 = undefined;
+        std.mem.writeInt(u64, fixed[0..8], tab.tab_id, .big);
+        fixed[8] = @intFromBool(tab.active);
+        std.mem.writeInt(u16, fixed[9..11], @intCast(tab.title.len), .big);
+        std.mem.writeInt(u64, fixed[11..19], tab.active_pane_id, .big);
+        std.mem.writeInt(u64, fixed[19..27], tab.zoomed_pane_id, .big);
+        std.mem.writeInt(u16, fixed[27..29], tab.root_node, .big);
+        std.mem.writeInt(u16, fixed[29..31], tab.node_count, .big);
+        try bytes.appendSlice(&fixed);
+        try bytes.appendSlice(tab.title);
+    }
+    for (manifest.panes) |pane| {
+        var fixed: [pane_manifest_fixed_length]u8 = undefined;
         std.mem.writeInt(u32, fixed[0..4], pane.stream_id, .big);
         std.mem.writeInt(u64, fixed[4..12], pane.pane_id, .big);
-        std.mem.writeInt(u16, fixed[12..14], @intCast(pane.title.len), .big);
+        std.mem.writeInt(u64, fixed[12..20], pane.tab_id, .big);
+        std.mem.writeInt(u16, fixed[20..22], @intCast(pane.title.len), .big);
         try bytes.appendSlice(&fixed);
         try bytes.appendSlice(pane.title);
-        if (bytes.items.len > Protocol.max_payload_bytes) return error.InvalidShareWorkspace;
+    }
+    for (manifest.nodes) |node| {
+        var fixed: [layout_manifest_fixed_length]u8 = undefined;
+        std.mem.writeInt(u64, fixed[0..8], node.tab_id, .big);
+        fixed[8] = @intFromEnum(node.kind);
+        fixed[9] = @intFromEnum(node.axis);
+        std.mem.writeInt(u16, fixed[10..12], node.ratio_permille, .big);
+        std.mem.writeInt(u64, fixed[12..20], node.pane_id, .big);
+        std.mem.writeInt(u16, fixed[20..22], node.first, .big);
+        std.mem.writeInt(u16, fixed[22..24], node.second, .big);
+        try bytes.appendSlice(&fixed);
+        if (bytes.items.len > Protocol.max_payload_bytes)
+            return error.InvalidShareWorkspace;
     }
     return bytes.toOwnedSlice();
 }
 
 pub const ManifestDecoder = struct {
     bytes: []const u8,
-    offset: usize = 2,
-    remaining: u16,
+    scope: ShareScope,
+    offset: usize = manifest_header_length,
+    remaining_tabs: u16,
+    remaining_panes: u16,
+    remaining_nodes: u16,
+    initial_tab_count: u16,
+    initial_pane_count: u16,
+    initial_node_count: u16,
 
     pub fn init(bytes: []const u8) !ManifestDecoder {
-        if (bytes.len < 2 or bytes.len > Protocol.max_payload_bytes)
+        if (bytes.len < manifest_header_length or
+            bytes.len > Protocol.max_payload_bytes or bytes[1] != 0)
             return error.InvalidShareWorkspace;
-        const count = std.mem.readInt(u16, bytes[0..2], .big);
-        if (count == 0 or count > Protocol.max_streams)
+        const scope: ShareScope = switch (bytes[0]) {
+            1 => .pane,
+            2 => .tab,
+            3 => .session,
+            else => return error.InvalidShareWorkspace,
+        };
+        const tab_count = std.mem.readInt(u16, bytes[2..4], .big);
+        const pane_count = std.mem.readInt(u16, bytes[4..6], .big);
+        const node_count = std.mem.readInt(u16, bytes[6..8], .big);
+        if (tab_count == 0 or tab_count > Protocol.max_tabs or
+            pane_count == 0 or pane_count > Protocol.max_streams or
+            node_count == 0 or node_count > Protocol.max_layout_nodes or
+            (scope == .pane and (tab_count != 1 or pane_count != 1)) or
+            (scope == .tab and tab_count != 1))
             return error.InvalidShareWorkspace;
-        return .{ .bytes = bytes, .remaining = count };
+        return .{
+            .bytes = bytes,
+            .scope = scope,
+            .remaining_tabs = tab_count,
+            .remaining_panes = pane_count,
+            .remaining_nodes = node_count,
+            .initial_tab_count = tab_count,
+            .initial_pane_count = pane_count,
+            .initial_node_count = node_count,
+        };
     }
 
-    pub fn next(self: *ManifestDecoder) !?PaneManifest {
-        if (self.remaining == 0) {
-            if (self.offset != self.bytes.len) return error.InvalidShareWorkspace;
-            return null;
-        }
-        if (self.bytes.len - self.offset < 14) return error.InvalidShareWorkspace;
-        const fixed = self.bytes[self.offset .. self.offset + 14];
-        const stream_id = std.mem.readInt(u32, fixed[0..4], .big);
-        const pane_id = std.mem.readInt(u64, fixed[4..12], .big);
-        const title_length: usize = std.mem.readInt(u16, fixed[12..14], .big);
-        self.offset += 14;
-        if (stream_id == 0 or pane_id == 0 or title_length > Protocol.max_title_bytes or
+    pub fn tabCount(self: ManifestDecoder) usize {
+        return self.initial_tab_count;
+    }
+
+    pub fn paneCount(self: ManifestDecoder) usize {
+        return self.initial_pane_count;
+    }
+
+    pub fn nodeCount(self: ManifestDecoder) usize {
+        return self.initial_node_count;
+    }
+
+    pub fn nextTab(self: *ManifestDecoder) !?TabManifest {
+        if (self.remaining_tabs == 0) return null;
+        if (self.bytes.len - self.offset < tab_manifest_fixed_length)
+            return error.InvalidShareWorkspace;
+        const fixed = self.bytes[self.offset .. self.offset + tab_manifest_fixed_length];
+        const title_length: usize = std.mem.readInt(u16, fixed[9..11], .big);
+        self.offset += tab_manifest_fixed_length;
+        if (title_length > Protocol.max_title_bytes or
             title_length > self.bytes.len - self.offset)
             return error.InvalidShareWorkspace;
         const title = self.bytes[self.offset .. self.offset + title_length];
         if (!std.unicode.utf8ValidateSlice(title)) return error.InvalidShareWorkspace;
         self.offset += title_length;
-        self.remaining -= 1;
-        if (self.remaining == 0 and self.offset != self.bytes.len)
+        self.remaining_tabs -= 1;
+        return .{
+            .tab_id = std.mem.readInt(u64, fixed[0..8], .big),
+            .title = title,
+            .active = fixed[8] == 1,
+            .active_pane_id = std.mem.readInt(u64, fixed[11..19], .big),
+            .zoomed_pane_id = std.mem.readInt(u64, fixed[19..27], .big),
+            .root_node = std.mem.readInt(u16, fixed[27..29], .big),
+            .node_count = std.mem.readInt(u16, fixed[29..31], .big),
+        };
+    }
+
+    pub fn nextPane(self: *ManifestDecoder) !?PaneManifest {
+        if (self.remaining_tabs != 0) return error.InvalidShareWorkspace;
+        if (self.remaining_panes == 0) return null;
+        if (self.bytes.len - self.offset < pane_manifest_fixed_length)
             return error.InvalidShareWorkspace;
-        return .{ .stream_id = stream_id, .pane_id = pane_id, .title = title };
+        const fixed = self.bytes[self.offset .. self.offset + pane_manifest_fixed_length];
+        const title_length: usize = std.mem.readInt(u16, fixed[20..22], .big);
+        self.offset += pane_manifest_fixed_length;
+        if (title_length > Protocol.max_title_bytes or
+            title_length > self.bytes.len - self.offset)
+            return error.InvalidShareWorkspace;
+        const title = self.bytes[self.offset .. self.offset + title_length];
+        if (!std.unicode.utf8ValidateSlice(title)) return error.InvalidShareWorkspace;
+        self.offset += title_length;
+        self.remaining_panes -= 1;
+        return .{
+            .stream_id = std.mem.readInt(u32, fixed[0..4], .big),
+            .pane_id = std.mem.readInt(u64, fixed[4..12], .big),
+            .tab_id = std.mem.readInt(u64, fixed[12..20], .big),
+            .title = title,
+        };
+    }
+
+    pub fn nextNode(self: *ManifestDecoder) !?LayoutNodeManifest {
+        if (self.remaining_tabs != 0 or self.remaining_panes != 0)
+            return error.InvalidShareWorkspace;
+        if (self.remaining_nodes == 0) {
+            if (self.offset != self.bytes.len) return error.InvalidShareWorkspace;
+            return null;
+        }
+        if (self.bytes.len - self.offset < layout_manifest_fixed_length)
+            return error.InvalidShareWorkspace;
+        const fixed = self.bytes[self.offset .. self.offset + layout_manifest_fixed_length];
+        self.offset += layout_manifest_fixed_length;
+        self.remaining_nodes -= 1;
+        const kind: LayoutKind = switch (fixed[8]) {
+            0 => .leaf,
+            1 => .split,
+            else => return error.InvalidShareWorkspace,
+        };
+        const axis: LayoutAxis = switch (fixed[9]) {
+            0 => .horizontal,
+            1 => .vertical,
+            else => return error.InvalidShareWorkspace,
+        };
+        return .{
+            .tab_id = std.mem.readInt(u64, fixed[0..8], .big),
+            .kind = kind,
+            .axis = axis,
+            .ratio_permille = std.mem.readInt(u16, fixed[10..12], .big),
+            .pane_id = std.mem.readInt(u64, fixed[12..20], .big),
+            .first = std.mem.readInt(u16, fixed[20..22], .big),
+            .second = std.mem.readInt(u16, fixed[22..24], .big),
+        };
     }
 };
 
@@ -293,7 +640,7 @@ test "session metadata codecs reject unsupported capabilities and malformed pane
     const hello = try decodeHello(&hello_bytes);
     try std.testing.expectEqual(required_capabilities, hello.capabilities);
     var unsupported = hello_bytes;
-    unsupported[3] |= 0x80;
+    unsupported[2] |= 0x01;
     try std.testing.expectError(error.UnsupportedShareCapabilities, decodeHello(&unsupported));
 
     var wrong_limit = hello_bytes;
@@ -327,36 +674,103 @@ test "host peer coalesces independent row damage and gates input" {
     try peer.receive_sequence.receive(1);
 }
 
-test "workspace manifest is bounded and omits process identifiers" {
-    const bytes = try encodeWorkspaceManifestAlloc(std.testing.allocator, &.{
-        .{ .stream_id = 1, .pane_id = 41, .title = "Shell" },
-        .{ .stream_id = 2, .pane_id = 42, .title = "Logs" },
+test "workspace manifest preserves share scope, tab hierarchy, and layouts" {
+    const tabs = [_]TabManifest{
+        .{
+            .tab_id = 7,
+            .title = "Shells",
+            .active = true,
+            .active_pane_id = 41,
+            .root_node = 0,
+            .node_count = 1,
+        },
+        .{
+            .tab_id = 8,
+            .title = "Logs",
+            .active_pane_id = 42,
+            .zoomed_pane_id = 42,
+            .root_node = 0,
+            .node_count = 1,
+        },
+    };
+    const panes = [_]PaneManifest{
+        .{ .stream_id = 1, .pane_id = 41, .tab_id = 7, .title = "Shell" },
+        .{ .stream_id = 2, .pane_id = 42, .tab_id = 8, .title = "Logs" },
+    };
+    const nodes = [_]LayoutNodeManifest{
+        .{ .tab_id = 7, .kind = .leaf, .pane_id = 41, .ratio_permille = 0 },
+        .{ .tab_id = 8, .kind = .leaf, .pane_id = 42, .ratio_permille = 0 },
+    };
+    const bytes = try encodeWorkspaceManifestAlloc(std.testing.allocator, .{
+        .scope = .session,
+        .tabs = &tabs,
+        .panes = &panes,
+        .nodes = &nodes,
     });
     defer std.testing.allocator.free(bytes);
-    try std.testing.expect(bytes.len < 128);
+    try std.testing.expect(bytes.len < 256);
     try std.testing.expect(std.mem.indexOf(u8, bytes, "/tmp") == null);
+    var decoder = try ManifestDecoder.init(bytes);
+    try std.testing.expectEqual(ShareScope.session, decoder.scope);
+    for (tabs) |expected| {
+        const decoded = (try decoder.nextTab()).?;
+        try std.testing.expectEqual(expected.tab_id, decoded.tab_id);
+        try std.testing.expectEqual(expected.active, decoded.active);
+        try std.testing.expectEqual(expected.active_pane_id, decoded.active_pane_id);
+        try std.testing.expectEqual(expected.zoomed_pane_id, decoded.zoomed_pane_id);
+        try std.testing.expectEqualStrings(expected.title, decoded.title);
+    }
+    try std.testing.expect((try decoder.nextTab()) == null);
+    for (panes) |expected| {
+        const decoded = (try decoder.nextPane()).?;
+        try std.testing.expectEqual(expected.stream_id, decoded.stream_id);
+        try std.testing.expectEqual(expected.pane_id, decoded.pane_id);
+        try std.testing.expectEqual(expected.tab_id, decoded.tab_id);
+        try std.testing.expectEqualStrings(expected.title, decoded.title);
+    }
+    try std.testing.expect((try decoder.nextPane()) == null);
+    for (nodes) |expected|
+        try std.testing.expect(std.meta.eql(expected, (try decoder.nextNode()).?));
+    try std.testing.expect((try decoder.nextNode()) == null);
 }
 
 test "workspace manifest decoder rejects duplicates and trailing bytes" {
-    const panes = [_]PaneManifest{
-        .{ .stream_id = 1, .pane_id = 41, .title = "Shell" },
-        .{ .stream_id = 2, .pane_id = 42, .title = "Logs" },
+    const tabs = [_]TabManifest{
+        .{
+            .tab_id = 7,
+            .title = "Shells",
+            .active = true,
+            .active_pane_id = 41,
+            .root_node = 0,
+            .node_count = 3,
+        },
     };
-    const bytes = try encodeWorkspaceManifestAlloc(std.testing.allocator, &panes);
+    const panes = [_]PaneManifest{
+        .{ .stream_id = 1, .pane_id = 41, .tab_id = 7, .title = "Shell" },
+        .{ .stream_id = 2, .pane_id = 42, .tab_id = 7, .title = "Logs" },
+    };
+    const nodes = [_]LayoutNodeManifest{
+        .{ .tab_id = 7, .kind = .split, .first = 1, .second = 2, .ratio_permille = 400 },
+        .{ .tab_id = 7, .kind = .leaf, .pane_id = 41, .ratio_permille = 0 },
+        .{ .tab_id = 7, .kind = .leaf, .pane_id = 42, .ratio_permille = 0 },
+    };
+    const bytes = try encodeWorkspaceManifestAlloc(std.testing.allocator, .{
+        .scope = .tab,
+        .tabs = &tabs,
+        .panes = &panes,
+        .nodes = &nodes,
+    });
     defer std.testing.allocator.free(bytes);
-    var decoder = try ManifestDecoder.init(bytes);
-    for (panes) |expected| {
-        const decoded = (try decoder.next()).?;
-        try std.testing.expectEqual(expected.stream_id, decoded.stream_id);
-        try std.testing.expectEqual(expected.pane_id, decoded.pane_id);
-        try std.testing.expectEqualStrings(expected.title, decoded.title);
-    }
-    try std.testing.expect((try decoder.next()) == null);
     try std.testing.expectError(error.InvalidShareWorkspace, encodeWorkspaceManifestAlloc(
         std.testing.allocator,
-        &.{
-            .{ .stream_id = 1, .pane_id = 41, .title = "Shell" },
-            .{ .stream_id = 1, .pane_id = 42, .title = "Duplicate" },
+        .{
+            .scope = .tab,
+            .tabs = &tabs,
+            .panes = &.{
+                .{ .stream_id = 1, .pane_id = 41, .tab_id = 7, .title = "Shell" },
+                .{ .stream_id = 1, .pane_id = 42, .tab_id = 7, .title = "Duplicate" },
+            },
+            .nodes = &nodes,
         },
     ));
     const malformed = try std.testing.allocator.alloc(u8, bytes.len + 1);
@@ -364,6 +778,11 @@ test "workspace manifest decoder rejects duplicates and trailing bytes" {
     @memcpy(malformed[0..bytes.len], bytes);
     malformed[bytes.len] = 0;
     var malformed_decoder = try ManifestDecoder.init(malformed);
-    _ = try malformed_decoder.next();
-    try std.testing.expectError(error.InvalidShareWorkspace, malformed_decoder.next());
+    _ = try malformed_decoder.nextTab();
+    _ = try malformed_decoder.nextPane();
+    _ = try malformed_decoder.nextPane();
+    _ = try malformed_decoder.nextNode();
+    _ = try malformed_decoder.nextNode();
+    _ = try malformed_decoder.nextNode();
+    try std.testing.expectError(error.InvalidShareWorkspace, malformed_decoder.nextNode());
 }

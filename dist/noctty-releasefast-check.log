@@ -1,21 +1,21 @@
-Build Summary: 19/19 steps succeeded; 343/343 tests passed
+Build Summary: 19/19 steps succeeded; 372/372 tests passed
 check success
-+- compile exe noctty ReleaseFast native-native success 20s MaxRSS:455M
-|  +- options success
-+- compile exe nocted ReleaseFast native-native success 23s MaxRSS:445M
-|  +- options success
-+- compile exe noctty-vte ReleaseFast native-native success 21s MaxRSS:449M
-|  +- options success
-+- compile exe noctty-smoke ReleaseFast native-native success 23s MaxRSS:495M
-|  +- options success
-+- compile exe nocted-smoke ReleaseFast native-native success 22s MaxRSS:465M
-|  +- options success
-+- run test 282 pass (282 total) 1s MaxRSS:31M
-|  +- compile test ReleaseFast native-native success 28s MaxRSS:594M
-+- run test 59 pass (59 total) 521ms MaxRSS:105M
-|  +- compile test ReleaseFast native-native success 18s MaxRSS:467M
-+- run test 1 pass (1 total) 2ms MaxRSS:6M
-|  +- compile test ReleaseFast native-native success 9s MaxRSS:296M
++- compile exe noctty ReleaseFast native-native cached 33ms MaxRSS:57M
+|  +- options cached
++- compile exe nocted ReleaseFast native-native cached 28ms MaxRSS:57M
+|  +- options cached
++- compile exe noctty-vte ReleaseFast native-native cached 33ms MaxRSS:57M
+|  +- options cached
++- compile exe noctty-smoke ReleaseFast native-native cached 30ms MaxRSS:57M
+|  +- options cached
++- compile exe nocted-smoke ReleaseFast native-native cached 31ms MaxRSS:57M
+|  +- options cached
++- run test 311 pass (311 total) 5s MaxRSS:28M
+|  +- compile test ReleaseFast native-native cached 27ms MaxRSS:57M
++- run test 59 pass (59 total) 4s MaxRSS:103M
+|  +- compile test ReleaseFast native-native cached 18ms MaxRSS:57M
 +- run test 1 pass (1 total) 2ms MaxRSS:5M
-   +- compile test ReleaseFast native-native success 10s MaxRSS:362M
+|  +- compile test ReleaseFast native-native cached 28ms MaxRSS:53M
++- run test 1 pass (1 total) 2ms MaxRSS:5M
+   +- compile test ReleaseFast native-native cached 27ms MaxRSS:53M
 

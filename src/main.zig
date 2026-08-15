@@ -287,6 +287,8 @@ const ShareState = struct {
     shared_pane_ids: [noctty.share.protocol.max_streams]u64 = [_]u64{0} ** noctty.share.protocol.max_streams,
     shared_pane_count: usize = 0,
     shared_tab_id: ?u64 = null,
+    shared_scope: ?noctty.share.session.ShareScope = null,
+    shared_pane_id: ?u64 = null,
     discovery: ?noctty.share.transport.Discovery = null,
     announcement: ?noctty.share.transport.Discovery = null,
     announcement_instance: [16]u8 = [_]u8{0} ** 16,
@@ -602,6 +604,109 @@ export fn noctty_grid_share_discovered(
     return @intCast(alias_length);
 }
 
+const SharedWorkspaceSpecs = struct {
+    tabs: [noctty.share.protocol.max_tabs]noctty.share.live_host.TabSpec = undefined,
+    tab_count: usize = 0,
+    panes: [noctty.share.protocol.max_streams]noctty.share.live_host.StreamSpec = undefined,
+    pane_count: usize = 0,
+    nodes: [noctty.share.protocol.max_layout_nodes]noctty.share.live_host.LayoutSpec = undefined,
+    node_count: usize = 0,
+};
+
+fn collectSharedWorkspaceSpecs(
+    bridge: *NativeGridBridge,
+    scope: noctty.share.session.ShareScope,
+    anchor_tab_id: ?u64,
+    anchor_pane_id: ?u64,
+) !SharedWorkspaceSpecs {
+    var result = SharedWorkspaceSpecs{};
+    for (bridge.app.workspace.tabs.items, 0..) |*tab, tab_index| {
+        const include_tab = switch (scope) {
+            .pane => anchor_pane_id != null and tab.findPane(anchor_pane_id.?) != null,
+            .tab => anchor_tab_id != null and tab.id == anchor_tab_id.?,
+            .session => true,
+        };
+        if (!include_tab) continue;
+        if (result.tab_count == result.tabs.len) return error.ShareTabLimitReached;
+        const pane_start = result.pane_count;
+        for (tab.panes.items) |pane| {
+            if (scope == .pane and
+                (anchor_pane_id == null or pane.id != anchor_pane_id.?))
+                continue;
+            if (result.pane_count == result.panes.len)
+                return error.ShareStreamLimitReached;
+            _ = nativeGridSessionForPane(bridge, pane.id) orelse
+                return error.SharePaneSessionUnavailable;
+            result.panes[result.pane_count] = .{
+                .pane_id = pane.id,
+                .tab_id = tab.id,
+                .title = pane.title,
+            };
+            result.pane_count += 1;
+        }
+        if (result.pane_count == pane_start) continue;
+        const root_node: u16 = if (scope == .pane) 0 else std.math.cast(u16, tab.layout.root orelse return error.InvalidSplitLayout) orelse
+            return error.ShareLayoutLimitReached;
+        const node_start = result.node_count;
+        if (scope == .pane) {
+            if (result.node_count == result.nodes.len)
+                return error.ShareLayoutLimitReached;
+            result.nodes[result.node_count] = .{
+                .tab_id = tab.id,
+                .kind = .leaf,
+                .pane_id = anchor_pane_id.?,
+                .ratio_permille = 0,
+            };
+            result.node_count += 1;
+        } else {
+            if (tab.layout.nodes.items.len > result.nodes.len - result.node_count)
+                return error.ShareLayoutLimitReached;
+            for (tab.layout.nodes.items) |node| {
+                result.nodes[result.node_count] = switch (node.kind) {
+                    .leaf => .{
+                        .tab_id = tab.id,
+                        .kind = .leaf,
+                        .pane_id = node.pane_id,
+                        .ratio_permille = 0,
+                    },
+                    .split => .{
+                        .tab_id = tab.id,
+                        .kind = .split,
+                        .axis = switch (node.axis) {
+                            .horizontal => .horizontal,
+                            .vertical => .vertical,
+                        },
+                        .first = std.math.cast(u16, node.first orelse
+                            return error.InvalidSplitLayout) orelse
+                            return error.ShareLayoutLimitReached,
+                        .second = std.math.cast(u16, node.second orelse
+                            return error.InvalidSplitLayout) orelse
+                            return error.ShareLayoutLimitReached,
+                        .ratio_permille = node.ratio_permille,
+                    },
+                };
+                result.node_count += 1;
+            }
+        }
+        result.tabs[result.tab_count] = .{
+            .tab_id = tab.id,
+            .title = tab.title,
+            .active = if (scope == .session)
+                bridge.app.workspace.active_tab == tab_index
+            else
+                true,
+            .active_pane_id = if (scope == .pane) anchor_pane_id.? else tab.active_pane_id,
+            .zoomed_pane_id = if (scope == .pane) 0 else tab.zoomed_pane_id orelse 0,
+            .root_node = root_node,
+            .node_count = @intCast(result.node_count - node_start),
+        };
+        result.tab_count += 1;
+    }
+    if (result.tab_count == 0 or result.pane_count == 0)
+        return error.ShareAnchorClosed;
+    return result;
+}
+
 export fn noctty_grid_share_action(
     raw: ?*anyopaque,
     action: c_int,
@@ -655,33 +760,48 @@ export fn noctty_grid_share_action(
             } else return -1;
             state.stopAnnouncement();
         },
-        5 => {
-            if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0) return -1;
+        5, 15, 16 => {
+            if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0)
+                return -1;
             const index: usize = @intCast(peer_index_raw);
             if (index >= state.store.peer_count) return -1;
-            const peer = state.store.peerSliceConst()[index];
             const active_tab = bridge.app.workspace.activeTab() orelse return -1;
-            if (active_tab.panes.items.len == 0 or
-                active_tab.panes.items.len > noctty.share.protocol.max_streams)
-                return -1;
-            var specs: [noctty.share.protocol.max_streams]noctty.share.live_host.StreamSpec = undefined;
-            for (active_tab.panes.items, 0..) |pane, pane_index| {
-                _ = nativeGridSessionForPane(bridge, pane.id) orelse return -1;
-                specs[pane_index] = .{ .pane_id = pane.id, .title = pane.title };
-            }
+            const scope: noctty.share.session.ShareScope = switch (action) {
+                15 => .pane,
+                5 => .tab,
+                16 => .session,
+                else => unreachable,
+            };
+            const anchor_tab_id: ?u64 = if (scope == .session) null else active_tab.id;
+            const anchor_pane_id: ?u64 = if (scope == .pane)
+                active_tab.active_pane_id
+            else
+                null;
+            const specs = collectSharedWorkspaceSpecs(
+                bridge,
+                scope,
+                anchor_tab_id,
+                anchor_pane_id,
+            ) catch return -1;
             const host = noctty.share.live_host.LiveHost.create(
                 state.allocator,
                 noctty.share.crypto.fromIo(state.io),
                 state.store.identity,
-                peer,
+                state.store.peerSliceConst()[index],
                 null,
                 port,
-                specs[0..active_tab.panes.items.len],
+                scope,
+                specs.tabs[0..specs.tab_count],
+                specs.panes[0..specs.pane_count],
+                specs.nodes[0..specs.node_count],
             ) catch return -1;
-            state.shared_tab_id = active_tab.id;
-            for (active_tab.panes.items, 0..) |pane, pane_index|
-                state.shared_pane_ids[pane_index] = pane.id;
-            state.shared_pane_count = active_tab.panes.items.len;
+            state.shared_scope = scope;
+            state.shared_tab_id = anchor_tab_id;
+            state.shared_pane_id = anchor_pane_id;
+            @memset(&state.shared_pane_ids, 0);
+            for (specs.panes[0..specs.pane_count], 0..) |pane, pane_index|
+                state.shared_pane_ids[pane_index] = pane.pane_id;
+            state.shared_pane_count = specs.pane_count;
             state.live_host = host;
         },
         6 => {
@@ -690,6 +810,9 @@ export fn noctty_grid_share_action(
             state.live_host = null;
             state.shared_pane_count = 0;
             state.shared_tab_id = null;
+            state.shared_pane_id = null;
+            state.shared_scope = null;
+            @memset(&state.shared_pane_ids, 0);
         },
         7 => (state.live_host orelse return -1).grantControl(),
         8 => (state.live_host orelse return -1).revokeControl(),
@@ -704,6 +827,9 @@ export fn noctty_grid_share_action(
                     state.live_host = null;
                     state.shared_pane_count = 0;
                     state.shared_tab_id = null;
+                    state.shared_pane_id = null;
+                    state.shared_scope = null;
+                    @memset(&state.shared_pane_ids, 0);
                 }
             }
             if (state.live_viewer) |viewer| {
@@ -733,6 +859,7 @@ export fn noctty_grid_share_action(
             state.live_viewer = null;
         },
         12 => (state.live_viewer orelse return -1).requestControl() catch return -1,
+        17 => (state.live_viewer orelse return -1).reconnect() catch return -1,
         13 => {
             if (state.pairing != null or state.live_host != null or state.live_viewer != null)
                 return -1;
@@ -799,12 +926,41 @@ export fn noctty_grid_share_view_dimensions(raw: ?*anyopaque, columns: *u16, row
     return @intFromBool(dimensions.columns != 0 and dimensions.rows != 0);
 }
 
+export fn noctty_grid_share_view_tab(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    title_output: [*]u8,
+    title_capacity: usize,
+    tab_id_output: *u64,
+    selected_output: *c_int,
+    active_output: *c_int,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return 0;
+    if (index_raw < 0) return std.math.cast(c_int, viewer.tabCount()) orelse -1;
+    const info = viewer.tabInfo(@intCast(index_raw), title_output[0..title_capacity]) orelse
+        return -1;
+    tab_id_output.* = info.tab_id;
+    selected_output.* = @intFromBool(info.selected);
+    active_output.* = @intFromBool(info.active);
+    return std.math.cast(c_int, info.title_length) orelse -1;
+}
+
+export fn noctty_grid_share_view_select_tab(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return -1;
+    if (index_raw < 0) return -1;
+    viewer.selectTab(@intCast(index_raw)) catch return -1;
+    return 0;
+}
+
 export fn noctty_grid_share_view_stream(
     raw: ?*anyopaque,
     index_raw: c_int,
     title_output: [*]u8,
     title_capacity: usize,
     pane_id_output: *u64,
+    tab_id_output: *u64,
     selected_output: *c_int,
 ) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
@@ -813,6 +969,7 @@ export fn noctty_grid_share_view_stream(
     const index: usize = @intCast(index_raw);
     const info = viewer.streamInfo(index, title_output[0..title_capacity]) orelse return -1;
     pane_id_output.* = info.pane_id;
+    tab_id_output.* = info.tab_id;
     selected_output.* = @intFromBool(info.selected);
     return std.math.cast(c_int, info.title_length) orelse -1;
 }
@@ -829,6 +986,108 @@ export fn noctty_grid_share_view_select(raw: ?*anyopaque, index_raw: c_int) call
     if (index_raw < 0) return -1;
     viewer.selectStream(@intCast(index_raw)) catch return -1;
     return 0;
+}
+export fn noctty_grid_share_view_scroll(
+    raw: ?*anyopaque,
+    lines: c_int,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge =
+        @ptrCast(@alignCast(raw orelse return -1));
+    const viewer =
+        (bridge.share_state orelse return -1).live_viewer orelse return -1;
+    viewer.scrollViewport(lines) catch return -1;
+    return 0;
+}
+
+export fn noctty_grid_share_view_pane_layout(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    x_output: *u32,
+    y_output: *u32,
+    width_output: *u32,
+    height_output: *u32,
+    selected_output: *c_int,
+    host_active_output: *c_int,
+) callconv(.c) c_int {
+    if (index_raw < 0) return -1;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return 0;
+    const layout = viewer.paneLayout(@intCast(index_raw)) orelse return -1;
+    x_output.* = layout.x;
+    y_output.* = layout.y;
+    width_output.* = layout.width;
+    height_output.* = layout.height;
+    selected_output.* = @intFromBool(layout.selected);
+    host_active_output.* = @intFromBool(layout.host_active);
+    return @intFromBool(layout.visible);
+}
+
+export fn noctty_grid_share_view_pane_dimensions(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    columns: *u16,
+    rows: *u16,
+) callconv(.c) c_int {
+    if (index_raw < 0) return -1;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    const viewer = (bridge.share_state orelse return -1).live_viewer orelse return 0;
+    const dimensions = viewer.streamDimensions(@intCast(index_raw));
+    columns.* = dimensions.columns;
+    rows.* = dimensions.rows;
+    return @intFromBool(dimensions.columns != 0 and dimensions.rows != 0);
+}
+
+export fn noctty_grid_share_view_pane_cell(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    column: c_int,
+    row: c_int,
+) callconv(.c) u64 {
+    if (index_raw < 0 or column < 0 or row < 0) return ' ';
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return ' '));
+    const viewer = (bridge.share_state orelse return ' ').live_viewer orelse return ' ';
+    return viewer.streamPackedCell(@intCast(index_raw), @intCast(column), @intCast(row));
+}
+
+export fn noctty_grid_share_view_pane_cell_text(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    column: c_int,
+    row: c_int,
+    output: [*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    if (index_raw < 0 or column < 0 or row < 0 or capacity == 0) return 0;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return @intCast(viewer.streamCellText(
+        @intCast(index_raw),
+        @intCast(column),
+        @intCast(row),
+        output[0..capacity],
+    ));
+}
+
+export fn noctty_grid_share_view_pane_color(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    color_id: u32,
+) callconv(.c) u32 {
+    if (index_raw < 0 or color_id > std.math.maxInt(u16)) return 0;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
+    const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return viewer.streamColorRgb(@intCast(index_raw), @intCast(color_id));
+}
+
+export fn noctty_grid_share_view_pane_cursor(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+) callconv(.c) u32 {
+    if (index_raw < 0) return 0xffffffff;
+    const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0xffffffff));
+    const viewer = (bridge.share_state orelse return 0xffffffff).live_viewer orelse
+        return 0xffffffff;
+    return viewer.streamCursor(@intCast(index_raw));
 }
 
 export fn noctty_grid_share_view_cell(raw: ?*anyopaque, column: c_int, row: c_int) callconv(.c) u64 {
@@ -862,6 +1121,15 @@ export fn noctty_grid_share_view_cursor_mode(raw: ?*anyopaque) callconv(.c) c_in
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
     const viewer = (bridge.share_state orelse return 0).live_viewer orelse return 0;
     return @intFromBool(viewer.applicationCursorKeys());
+}
+export fn noctty_grid_share_view_bracketed_paste(
+    raw: ?*anyopaque,
+) callconv(.c) c_int {
+    const bridge: *NativeGridBridge =
+        @ptrCast(@alignCast(raw orelse return 0));
+    const viewer =
+        (bridge.share_state orelse return 0).live_viewer orelse return 0;
+    return @intFromBool(viewer.bracketedPaste());
 }
 
 export fn noctty_grid_share_view_title(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
@@ -1129,6 +1397,9 @@ export fn noctty_grid_rename_tab(raw: ?*anyopaque, pane_id: u64, title: [*]const
     };
     bridge.saw_tab_rename = true;
     persistNativeGridHotSession(bridge);
+    syncSharedWorkspace(bridge) catch {
+        bridge.callback_failed = true;
+    };
     return 0;
 }
 
@@ -1148,6 +1419,9 @@ export fn noctty_grid_reorder_tab(raw: ?*anyopaque, pane_id: u64, destination_in
     } }) catch {
         bridge.callback_failed = true;
         return -1;
+    };
+    syncSharedWorkspace(bridge) catch {
+        bridge.callback_failed = true;
     };
     return 0;
 }
@@ -1269,6 +1543,25 @@ fn writeNativePaneMetadata(
         metadata.process_name_length = "shell".len;
     }
     return metadata;
+}
+
+export fn noctty_grid_process_name(
+    session_raw: ?*anyopaque,
+    output: [*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    if (capacity == 0) return -1;
+    var cwd: [4096]u8 = undefined;
+    const metadata = writeNativePaneMetadata(
+        session_raw,
+        null,
+        0,
+        &cwd,
+        output[0..capacity],
+    );
+    if (metadata.process_name_length == 0 or
+        metadata.process_name_length > std.math.maxInt(c_int)) return -1;
+    return @intCast(metadata.process_name_length);
 }
 
 export fn noctty_grid_current_directory(
@@ -1824,35 +2117,39 @@ fn nativeGridSessionForPane(bridge: *NativeGridBridge, pane_id: u64) ?*noctty.te
 fn syncSharedWorkspace(bridge: *NativeGridBridge) !void {
     const state = bridge.share_state orelse return;
     const host = state.live_host orelse return;
-    const tab_id = state.shared_tab_id orelse return;
-    const tab = bridge.app.workspace.findTab(tab_id) orelse {
-        host.destroy();
-        state.live_host = null;
-        state.shared_tab_id = null;
-        state.shared_pane_count = 0;
-        @memset(&state.shared_pane_ids, 0);
-        return;
+    const scope = state.shared_scope orelse return;
+    const specs = collectSharedWorkspaceSpecs(
+        bridge,
+        scope,
+        state.shared_tab_id,
+        state.shared_pane_id,
+    ) catch |err| switch (err) {
+        error.ShareAnchorClosed => {
+            host.destroy();
+            state.live_host = null;
+            state.shared_scope = null;
+            state.shared_tab_id = null;
+            state.shared_pane_id = null;
+            state.shared_pane_count = 0;
+            @memset(&state.shared_pane_ids, 0);
+            return;
+        },
+        else => return err,
     };
-
-    for (state.shared_pane_ids[0..state.shared_pane_count]) |pane_id| {
-        if (tab.findPane(pane_id) == null) _ = try host.removePane(pane_id);
-    }
-    for (tab.panes.items) |pane| {
-        const session = nativeGridSessionForPane(bridge, pane.id) orelse continue;
-        if (host.hasPane(pane.id)) {
-            if (host.needsCheckpoint(pane.id)) try host.capture(pane.id, session);
-            continue;
-        }
-        try host.addPane(.{ .pane_id = pane.id, .title = pane.title });
-        try host.capture(pane.id, session);
-    }
-
-    state.shared_pane_count = 0;
+    _ = try host.syncWorkspace(
+        scope,
+        specs.tabs[0..specs.tab_count],
+        specs.panes[0..specs.pane_count],
+        specs.nodes[0..specs.node_count],
+    );
+    if (scope == .pane) state.shared_tab_id = specs.tabs[0].tab_id;
+    state.shared_pane_count = specs.pane_count;
     @memset(&state.shared_pane_ids, 0);
-    for (tab.panes.items) |pane| {
-        if (!host.hasPane(pane.id)) continue;
-        state.shared_pane_ids[state.shared_pane_count] = pane.id;
-        state.shared_pane_count += 1;
+    for (specs.panes[0..specs.pane_count], 0..) |pane, index| {
+        state.shared_pane_ids[index] = pane.pane_id;
+        if (!host.needsCheckpoint(pane.pane_id)) continue;
+        const session = nativeGridSessionForPane(bridge, pane.pane_id) orelse continue;
+        try host.capture(pane.pane_id, session);
     }
 }
 
@@ -2898,6 +3195,10 @@ pub fn main(init: std.process.Init) !void {
                 try nativeGridTabNavigationSmoke(stdout);
                 return;
             }
+            if (std.mem.eql(u8, cmd, "--native-grid-sharing-scope-smoke")) {
+                try nativeGridSharingScopeSmoke(init.io, stdout);
+                return;
+            }
             if (std.mem.eql(u8, cmd, "--native-grid-tab-title-smoke")) {
                 try nativeGridTabTitleSmoke(stdout);
                 return;
@@ -2916,6 +3217,10 @@ pub fn main(init: std.process.Init) !void {
             }
             if (std.mem.eql(u8, cmd, "--native-grid-pane-move-smoke")) {
                 try nativeGridPaneMoveSmoke(stdout);
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-pane-scrollbar-smoke")) {
+                try nativeGridPaneScrollbarSmoke(stdout);
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-compact-ux-smoke")) {
@@ -4955,6 +5260,18 @@ export fn noctty_grid_scroll(raw: ?*anyopaque, lines: c_int) callconv(.c) c_int 
     session.grid.scrollViewport(lines);
     return 0;
 }
+export fn noctty_grid_scroll_state(
+    raw: ?*anyopaque,
+    history_lines: *u64,
+    viewport_offset: *u64,
+    visible_rows: *u32,
+) callconv(.c) c_int {
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    history_lines.* = @intCast(session.grid.historyCount());
+    viewport_offset.* = @intCast(session.grid.viewport_offset);
+    visible_rows.* = @intCast(session.grid.rows);
+    return 0;
+}
 
 export fn noctty_grid_cursor(raw: ?*anyopaque) callconv(.c) u32 {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
@@ -5341,6 +5658,133 @@ fn nativeGridTabNavigationSmoke(out: anytype) !void {
     try out.print("native_grid_tab_navigation_smoke pane_ctrl_tab=true alt_scroll=true alt_scroll_up=true alt_scroll_down=true current_tab=true visible_panes_only=true hidden_skipped=true visual_feedback=true ctrl_alt_scroll=true tab_scroll_up=true tab_scroll_down=true tab_wraparound=true tab_visual_feedback=true tab_ctrl_shift_tab=true smart_filter_preserved=true cycle_next=true cycle_previous=true shortcut_close=true shortcut_reopen=true focus_restored=true tabs=2 exited=true\n", .{});
 }
 
+fn nativeGridSharingScopeSmoke(io: std.Io, out: anytype) !void {
+    const allocator = std.heap.page_allocator;
+    const store_path = "/tmp/noctty-sharing-layout-smoke-pairs";
+    std.Io.Dir.cwd().deleteFile(io, store_path) catch {};
+    defer std.Io.Dir.cwd().deleteFile(io, store_path) catch {};
+    var app = try noctty.app.App.init(allocator);
+    defer app.deinit();
+    const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
+    var session = try noctty.terminal_session.TerminalSession.spawn(
+        allocator,
+        "/tmp",
+        "/bin/sh",
+        96,
+        24,
+    );
+    defer session.deinit();
+    try session.write("printf 'NOCTTY_SHARING_SCOPE_READY'; IFS= read -r _; exit 0\n");
+    const FakeSession = struct { grid: noctty.vt.Grid };
+    var secondary = FakeSession{
+        .grid = try noctty.vt.Grid.init(allocator, 96, 24),
+    };
+    defer secondary.grid.deinit();
+    try secondary.grid.feed("NOCTTY_SECOND_SHARED_PANE");
+
+    var share_state = try ShareState.init(allocator, io, store_path);
+    defer share_state.deinit();
+    const random = noctty.share.crypto.fromIo(io);
+    const host_identity = noctty.share.crypto.Identity.generate(random);
+    const viewer_identity = noctty.share.crypto.Identity.generate(random);
+    const host_peer = try noctty.share.identity.Peer.init(
+        viewer_identity.public_key,
+        "viewer",
+        "127.0.0.1",
+        1,
+        1,
+    );
+    const host = try noctty.share.live_host.LiveHost.create(
+        allocator,
+        random,
+        host_identity,
+        host_peer,
+        "127.0.0.1",
+        0,
+        .tab,
+        &.{.{
+            .tab_id = tab.id,
+            .title = "Shared split",
+            .active = true,
+            .active_pane_id = tab.active_pane_id,
+            .root_node = 0,
+            .node_count = 3,
+        }},
+        &.{
+            .{ .pane_id = tab.active_pane_id, .tab_id = tab.id, .title = "Primary" },
+            .{ .pane_id = tab.active_pane_id + 1, .tab_id = tab.id, .title = "Secondary" },
+        },
+        &.{
+            .{
+                .tab_id = tab.id,
+                .kind = .split,
+                .first = 1,
+                .second = 2,
+                .ratio_permille = 500,
+            },
+            .{
+                .tab_id = tab.id,
+                .kind = .leaf,
+                .pane_id = tab.active_pane_id,
+                .ratio_permille = 0,
+            },
+            .{
+                .tab_id = tab.id,
+                .kind = .leaf,
+                .pane_id = tab.active_pane_id + 1,
+                .ratio_permille = 0,
+            },
+        },
+    );
+    defer host.destroy();
+    const viewer_peer = try noctty.share.identity.Peer.init(
+        host_identity.public_key,
+        "host",
+        "127.0.0.1",
+        host.port(),
+        1,
+    );
+    share_state.live_viewer = try noctty.share.live_viewer.LiveViewer.create(
+        allocator,
+        random,
+        viewer_identity,
+        viewer_peer,
+    );
+    const viewer = share_state.live_viewer.?;
+    for (0..5000) |_| {
+        if (host.currentStatus() == .connected and viewer.streamCount() == 2) break;
+        noctty.share.transport.sleepMilliseconds(random, 1);
+    }
+    if (viewer.streamCount() != 2) return error.NativeGridSharingScopeSmokeFailed;
+    try host.capture(tab.active_pane_id, &session);
+    try host.capture(tab.active_pane_id + 1, &secondary);
+    for (0..5000) |_| {
+        if ((viewer.streamPackedCell(1, 0, 0) & 0x1fffff) == 'N') break;
+        noctty.share.transport.sleepMilliseconds(random, 1);
+    }
+    if ((viewer.streamPackedCell(1, 0, 0) & 0x1fffff) != 'N')
+        return error.NativeGridSharingScopeSmokeFailed;
+
+    var bridge = NativeGridBridge{
+        .app = &app,
+        .pane_id = tab.active_pane_id,
+        .primary_session = &session,
+        .share_state = &share_state,
+    };
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .workspace_smoke = 41,
+    });
+    if (status != 0 or bridge.callback_failed)
+        return error.NativeGridSharingScopeSmokeFailed;
+    try out.print(
+        "native_grid_sharing_scope_host gtk=true scopes=3 hierarchy_selectors=true preview=true scrollable=true grouped_actions=true dialog_above=true split_layout=true panes=2 focus=true exited=true\n",
+        .{},
+    );
+}
+
 fn nativeGridTabTitleSmoke(out: anytype) !void {
     const allocator = std.heap.page_allocator;
     var app = try noctty.app.App.init(allocator);
@@ -5481,6 +5925,36 @@ fn nativeGridPaneMoveSmoke(out: anytype) !void {
     try out.print("native_grid_pane_move_smoke menu_action=true live_reparent=true source_tab_closed=true tabs=1 panes=2 focused=true exited=true\n", .{});
 }
 
+fn nativeGridPaneScrollbarSmoke(out: anytype) !void {
+    const allocator = std.heap.page_allocator;
+    var app = try noctty.app.App.init(allocator);
+    defer app.deinit();
+    const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
+    const pane = tab.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
+    const cwd = try allocator.dupeZ(u8, pane.cwd);
+    defer allocator.free(cwd);
+    var session = try noctty.terminal_session.TerminalSession.spawn(allocator, cwd, "/bin/sh", 80, 28);
+    defer session.deinit();
+    try session.write("i=0; while [ \"$i\" -lt 120 ]; do printf 'NOCTTY_SCROLLBAR_%03d\\n' \"$i\"; i=$((i + 1)); done; sleep 5; exit 0\n");
+    var bridge = NativeGridBridge{
+        .app = &app,
+        .pane_id = tab.active_pane_id,
+    };
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .bridge = &bridge,
+        .pane_id = tab.active_pane_id,
+        .columns = 80,
+        .rows = 28,
+        .workspace_smoke = 42,
+    });
+    if (status != 0 or bridge.callback_failed)
+        return error.NativeGridPaneScrollbarHostFailed;
+    try out.print(
+        "native_grid_pane_scrollbar_smoke visible=true per_pane=true track_click=true thumb_drag=true keyboard=true exited=true\n",
+        .{},
+    );
+}
 fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
     const scrollback_path = "/tmp/noctty-native-grid-compact-scrollback.txt";
     const workspace_path = "/tmp/noctty-native-grid-font-wheel.nocttyws";
@@ -5553,7 +6027,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true zoom=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true find=true scrollback=true pane_scrollbar=true zoom=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true terminal_accessible=true dynamic_shortcut=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {
@@ -6351,7 +6825,7 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
         .workspace_smoke = 19,
     });
     if (status != 0) return error.NativeGridWindowTraySmokeFailed;
-    try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=3 diagonal_cursors=false resized=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
+    try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=3 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
 }
 
 fn nativeGridClipboardSmoke(out: anytype) !void {
@@ -6443,7 +6917,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
         .workspace_smoke = 6,
     });
     if (status != 0 or bridge.callback_failed or !bridge.config_persisted or !bridge.launch_profile_applied or !bridge.launch_tmux_profile_applied or !bridge.launch_zellij_profile_applied or !bridge.launch_profile_library_saved or !bridge.launch_profile_library_selected or !bridge.launch_profile_library_removed) return error.NativeGridSettingsSmokeFailed;
-    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
+    if (app.config.default_mode != .windowed or app.config.font.size_pt != 16 or app.config.status.desktop_notifications or app.config.tabs.position != .bottom or app.config.status.indicator != .background or app.config.panels.padding_px != 8 or app.config.panels.spacing_px != 4 or app.config.dropdown.width_percent != 90 or app.config.dropdown.height_percent != 40 or app.config.dropdown.animation_ms != 120 or !app.config.dropdown.hide_on_focus_loss or !app.config.tabs.focus_follows_pointer or !app.config.tabs.show_pane_info or app.config.terminal.scrollback_lines != 256 or session.grid.history_limit != 256 or app.config.dropdown.shortcut.key != .f10 or !std.mem.eql(u8, app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, app.config.font.family, "Monospace") or app.config.font.antialias != .grayscale or app.config.font.hinting != .full) return error.NativeGridSettingsStateMismatch;
     if (app.workspace.findPane(tab.active_pane_id).?.profile.font_size_pt != 14) return error.NativeGridSettingsProfileMismatch;
     const launch_profile = &app.config.terminal.launch_profile;
     if (launch_profile.kind != .command or
@@ -6465,7 +6939,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     defer verify_app.deinit();
     const receipt = try verify_app.loadConfigFile(io, std.Io.Dir.cwd(), path, .settings);
     receipt.deinit(allocator);
-    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_percent != 90 or verify_app.config.dropdown.height_percent != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f11 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace") or verify_app.config.font.antialias != .grayscale or verify_app.config.font.hinting != .full) return error.NativeGridSettingsReloadMismatch;
+    if (verify_app.config.default_mode != .windowed or verify_app.config.font.size_pt != 16 or verify_app.config.status.desktop_notifications or verify_app.config.tabs.position != .bottom or verify_app.config.status.indicator != .background or verify_app.config.panels.padding_px != 8 or verify_app.config.panels.spacing_px != 4 or verify_app.config.dropdown.width_percent != 90 or verify_app.config.dropdown.height_percent != 40 or verify_app.config.dropdown.animation_ms != 120 or !verify_app.config.dropdown.hide_on_focus_loss or !verify_app.config.tabs.focus_follows_pointer or !verify_app.config.tabs.show_pane_info or verify_app.config.terminal.scrollback_lines != 256 or verify_app.config.dropdown.shortcut.key != .f10 or !std.mem.eql(u8, verify_app.config.default_theme, "noctty-high-contrast") or !std.mem.eql(u8, verify_app.config.font.family, "Monospace") or verify_app.config.font.antialias != .grayscale or verify_app.config.font.hinting != .full) return error.NativeGridSettingsReloadMismatch;
     const reloaded_launch_profile = &verify_app.config.terminal.launch_profile;
     if (reloaded_launch_profile.kind != .command or
         !std.mem.eql(u8, reloaded_launch_profile.command.slice(), "printf 'NOCTTY_LAUNCH_PROFILE_OK:%s:%s' \"$PWD\" \"$NOCTTY_PROFILE\"") or
@@ -6514,7 +6988,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
         }
     }
     if (!launch_marker) return error.NativeGridLaunchProfileOutputMismatch;
-    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true geometry=sane dialogs=above_terminal application_icon=true categories=3 category_navigation=true category_tooltips=true narrow_access=true page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true geometry=sane dialogs=above_terminal application_icon=true categories=3 category_navigation=true category_tooltips=true narrow_access=true page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true launch_profile=true launch_feedback=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F10 font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast status=background padding=8 spacing=4 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !void {
@@ -6809,7 +7283,7 @@ fn nativeGridShortcutLiveSmoke(out: anytype) !void {
         .workspace_smoke = 9,
     });
     if (status != 0) return error.NativeGridShortcutLiveSmokeFailed;
-    try out.print("native_grid_shortcut_live_smoke registered=true hidden=true hidden_before_registration=true physical_key=true activated=true visible=true exited=true\n", .{});
+    try out.print("native_grid_shortcut_live_smoke registered=true hidden=true hidden_before_registration=true physical_key=true activated=true visible=true recorder=true recaptured=F10 exited=true\n", .{});
 }
 
 fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {

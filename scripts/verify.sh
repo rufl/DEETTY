@@ -80,6 +80,7 @@ sh ./scripts/pty_smoke.sh
 sh ./scripts/vt_smoke.sh
 sh ./scripts/terminal_session_smoke.sh
 ./scripts/terminal_history_qualification.sh
+./scripts/dogfood_logging_smoke.sh
 ./scripts/check_docs_truth.sh
 ./scripts/check_native_layout.sh
 

@@ -29,6 +29,8 @@ pub const Grid = struct {
     columns: u16 = 0,
     rows: u16 = 0,
     row_data: []Row = &.{},
+    history_rows: u16 = 0,
+    viewport_offset: u16 = 0,
     palette: [max_palette_colors]u32 = undefined,
     palette_count: u16 = 0,
     cursor_column: u16 = 0,
@@ -54,18 +56,24 @@ pub const Grid = struct {
         self.row_data = &.{};
         self.columns = 0;
         self.rows = 0;
+        self.history_rows = 0;
+        self.viewport_offset = 0;
         self.palette_count = 0;
     }
 
     pub fn reset(self: *Grid, info: Presentation.SnapshotInfo) !void {
         try info.validate();
         self.clearRows();
-        const rows = try self.allocator.alloc(Row, info.rows);
+        const capacity =
+            @as(usize, Protocol.max_scrollback_rows) + info.rows;
+        const rows = try self.allocator.alloc(Row, capacity);
         errdefer self.allocator.free(rows);
         @memset(rows, .{});
         self.row_data = rows;
         self.columns = info.columns;
         self.rows = info.rows;
+        self.history_rows = @intCast(info.scrollback_rows);
+        self.viewport_offset = 0;
         self.cursor_column = info.cursor_column;
         self.cursor_row = info.cursor_row;
         self.cursor_visible = info.cursor_visible;
@@ -88,16 +96,21 @@ pub const Grid = struct {
         self.bracketed_paste = info.bracketed_paste;
     }
 
-    pub fn applyRow(self: *Grid, payload: []const u8) !u16 {
+    fn decodeRow(
+        self: *Grid,
+        payload: []const u8,
+    ) !struct { row: u16, value: Row } {
         if (self.rows == 0) return error.MirrorSnapshotRequired;
         var decoder = try Presentation.RowDecoder.init(payload);
-        if (decoder.row >= self.rows or decoder.first_column != 0 or decoder.cell_count != self.columns)
+        if (decoder.first_column != 0 or decoder.cell_count != self.columns)
             return error.InvalidMirrorRow;
         const cells = try self.allocator.alloc(Cell, self.columns);
         errdefer self.allocator.free(cells);
         var text = std.array_list.Managed(u8).init(self.allocator);
         errdefer text.deinit();
-        try text.ensureTotalCapacity(@min(payload.len, @as(usize, self.columns) * 4));
+        try text.ensureTotalCapacity(
+            @min(payload.len, @as(usize, self.columns) * 4),
+        );
         var column: usize = 0;
         while (try decoder.next()) |wire_cell| : (column += 1) {
             const text_offset = text.items.len;
@@ -105,11 +118,14 @@ pub const Grid = struct {
             const codepoint = if (wire_cell.text.len == 0)
                 @as(u21, 0)
             else codepoint: {
-                const sequence_length = std.unicode.utf8ByteSequenceLength(wire_cell.text[0]) catch
+                const sequence_length =
+                    std.unicode.utf8ByteSequenceLength(wire_cell.text[0]) catch
+                        return error.InvalidPresentationUtf8;
+                if (sequence_length > wire_cell.text.len)
                     return error.InvalidPresentationUtf8;
-                if (sequence_length > wire_cell.text.len) return error.InvalidPresentationUtf8;
-                break :codepoint std.unicode.utf8Decode(wire_cell.text[0..sequence_length]) catch
-                    return error.InvalidPresentationUtf8;
+                break :codepoint std.unicode.utf8Decode(
+                    wire_cell.text[0..sequence_length],
+                ) catch return error.InvalidPresentationUtf8;
             };
             cells[column] = .{
                 .codepoint = codepoint,
@@ -121,12 +137,62 @@ pub const Grid = struct {
             };
         }
         if (column != self.columns) return error.InvalidMirrorRow;
-        const owned_text = try text.toOwnedSlice();
-        var replacement = Row{ .cells = cells, .text = owned_text };
-        self.row_data[decoder.row].deinit(self.allocator);
-        self.row_data[decoder.row] = replacement;
-        replacement = .{};
-        return decoder.row;
+        return .{
+            .row = decoder.row,
+            .value = .{
+                .cells = cells,
+                .text = try text.toOwnedSlice(),
+            },
+        };
+    }
+
+    pub fn applyRow(self: *Grid, payload: []const u8) !u16 {
+        var decoded = try self.decodeRow(payload);
+        errdefer decoded.value.deinit(self.allocator);
+        if (decoded.row >= self.rows) return error.InvalidMirrorRow;
+        const target = @as(usize, Protocol.max_scrollback_rows) + decoded.row;
+        self.row_data[target].deinit(self.allocator);
+        self.row_data[target] = decoded.value;
+        decoded.value = .{};
+        return decoded.row;
+    }
+
+    pub fn applyHistoryRow(
+        self: *Grid,
+        payload: []const u8,
+        push: bool,
+    ) !u16 {
+        var decoded = try self.decodeRow(payload);
+        errdefer decoded.value.deinit(self.allocator);
+        if (!push) {
+            if (decoded.row >= self.history_rows)
+                return error.InvalidMirrorHistoryRow;
+            self.row_data[decoded.row].deinit(self.allocator);
+            self.row_data[decoded.row] = decoded.value;
+            decoded.value = .{};
+            return decoded.row;
+        }
+        if (decoded.row != 0) return error.InvalidMirrorHistoryRow;
+        const maximum: usize = Protocol.max_scrollback_rows;
+        const target = if (self.history_rows < maximum) target: {
+            const index = self.history_rows;
+            self.history_rows += 1;
+            break :target index;
+        } else target: {
+            self.row_data[0].deinit(self.allocator);
+            std.mem.copyForwards(
+                Row,
+                self.row_data[0 .. maximum - 1],
+                self.row_data[1..maximum],
+            );
+            break :target maximum - 1;
+        };
+        self.row_data[target] = decoded.value;
+        decoded.value = .{};
+        if (self.viewport_offset != 0)
+            self.viewport_offset =
+                @min(self.history_rows, self.viewport_offset + 1);
+        return @intCast(target);
     }
 
     fn internColor(self: *Grid, rgb: u32) !u16 {
@@ -139,10 +205,41 @@ pub const Grid = struct {
         self.palette_count += 1;
         return index;
     }
+    fn displayedRowIndex(self: *const Grid, row: usize) ?usize {
+        if (row >= self.rows) return null;
+        const visible_offset: usize = Protocol.max_scrollback_rows;
+        if (self.viewport_offset == 0) return visible_offset + row;
+        const first = @as(usize, self.history_rows) -
+            @as(usize, self.viewport_offset);
+        const logical = first + row;
+        return if (logical < self.history_rows)
+            logical
+        else
+            visible_offset + logical - self.history_rows;
+    }
+
+    pub fn scrollViewport(self: *Grid, lines: isize) void {
+        if (lines > 0) {
+            self.viewport_offset = @intCast(@min(
+                @as(usize, self.history_rows),
+                @as(usize, self.viewport_offset) +
+                    @as(usize, @intCast(lines)),
+            ));
+        } else {
+            self.viewport_offset -|=
+                @intCast(@as(usize, @intCast(-lines)));
+        }
+    }
+
+    pub fn historyCount(self: *const Grid) usize {
+        return self.history_rows;
+    }
+
 
     pub fn packedCell(self: *const Grid, column: usize, row: usize) u64 {
-        if (row >= self.rows or column >= self.columns) return ' ';
-        const source = &self.row_data[row];
+        if (column >= self.columns) return ' ';
+        const source = &self.row_data[self.displayedRowIndex(row) orelse
+            return ' '];
         if (source.cells.len != self.columns) return ' ';
         const cell = source.cells[column];
         const style = @as(u32, if (cell.flags.bold) 1 else 0) |
@@ -159,8 +256,9 @@ pub const Grid = struct {
     }
 
     pub fn cellText(self: *const Grid, column: usize, row: usize, output: []u8) usize {
-        if (row >= self.rows or column >= self.columns) return 0;
-        const source = &self.row_data[row];
+        if (column >= self.columns) return 0;
+        const source = &self.row_data[self.displayedRowIndex(row) orelse
+            return 0];
         if (source.cells.len != self.columns) return 0;
         const cell = source.cells[column];
         if (cell.flags.continuation or cell.text_length > output.len) return 0;
@@ -194,6 +292,8 @@ pub const Receiver = struct {
     permission: Protocol.PermissionState = .{},
     snapshot_active: bool = false,
     snapshot_rows: [Protocol.max_rows]bool = [_]bool{false} ** Protocol.max_rows,
+    snapshot_history: [Protocol.max_scrollback_rows]bool =
+        [_]bool{false} ** Protocol.max_scrollback_rows,
     awaiting_resync: bool = false,
     grid: Grid,
 
@@ -208,9 +308,10 @@ pub const Receiver = struct {
 
     pub fn beginResync(self: *Receiver) void {
         self.awaiting_resync = true;
-        self.permission.revoke();
+        self.permission.value = .view_only;
         self.snapshot_active = false;
         @memset(&self.snapshot_rows, false);
+        @memset(&self.snapshot_history, false);
     }
 
     pub fn apply(self: *Receiver, frame: Protocol.Frame) !void {
@@ -230,6 +331,7 @@ pub const Receiver = struct {
                 const payload: *const [Presentation.snapshot_begin_length]u8 = @ptrCast(frame.payload.ptr);
                 try self.grid.reset(try Presentation.decodeSnapshotInfo(payload));
                 @memset(&self.snapshot_rows, false);
+                @memset(&self.snapshot_history, false);
                 self.snapshot_active = true;
             },
             .row_chunk => {
@@ -238,10 +340,21 @@ pub const Receiver = struct {
                 if (self.snapshot_rows[row]) return error.DuplicateMirrorSnapshotRow;
                 self.snapshot_rows[row] = true;
             },
+            .history_row => {
+                if (!self.snapshot_active)
+                    return error.InvalidMirrorSnapshotState;
+                const row = try self.grid.applyHistoryRow(frame.payload, false);
+                if (self.snapshot_history[row])
+                    return error.DuplicateMirrorSnapshotRow;
+                self.snapshot_history[row] = true;
+            },
             .snapshot_end => {
                 if (!self.snapshot_active or frame.payload.len != 0)
                     return error.InvalidMirrorSnapshotState;
                 for (self.snapshot_rows[0..self.grid.rows]) |present| {
+                    if (!present) return error.IncompleteMirrorSnapshot;
+                }
+                for (self.snapshot_history[0..self.grid.history_rows]) |present| {
                     if (!present) return error.IncompleteMirrorSnapshot;
                 }
                 self.snapshot_active = false;
@@ -250,13 +363,18 @@ pub const Receiver = struct {
                 if (self.snapshot_active) return error.InvalidMirrorSnapshotState;
                 _ = try self.grid.applyRow(frame.payload);
             },
+            .history_push => {
+                if (self.snapshot_active)
+                    return error.InvalidMirrorSnapshotState;
+                _ = try self.grid.applyHistoryRow(frame.payload, true);
+            },
             .title => try self.grid.setTitle(frame.payload),
             .control_request => try self.permission.requestControl(),
             .control_grant => try self.permission.grantControl(),
             .control_revoke => self.permission.revoke(),
             .cursor => try self.grid.applyCursor(frame.payload),
-            .hello, .ping, .pong, .pane_open, .pane_close, .workspace_manifest, .resync, .disconnect_reason => {},
-            .input => return error.UnexpectedRemoteInput,
+            .hello, .ping, .pong, .pane_open, .pane_close, .workspace_manifest, .workspace_update, .resync, .disconnect_reason => {},
+            .input, .control_release => return error.UnexpectedRemoteInput,
         }
     }
 };
@@ -282,6 +400,78 @@ test "remote mirror applies a complete structured checkpoint" {
     try std.testing.expectEqualStrings("M", text[0..receiver.grid.cellText(0, 0, &text)]);
     try std.testing.expectEqual(@as(u32, 0x8fb8ff), receiver.grid.colorRgb(@intCast((receiver.grid.packedCell(0, 0) >> 40) & 0x0fff)));
 }
+test "remote mirror retains bounded history and preserves scrolled view" {
+    const Vt = @import("../terminal/Vt.zig");
+    var source = try Vt.Grid.init(std.testing.allocator, 8, 2);
+    defer source.deinit();
+    try source.feed("one\r\ntwo\r\ntri");
+    try std.testing.expectEqual(@as(usize, 1), source.historyCount());
+
+    var publisher = try Presentation.Publisher.init(1);
+    var receiver = try Receiver.init(std.testing.allocator, 1);
+    defer receiver.deinit();
+    var begin = try publisher.snapshotBegin(&source, 1);
+    begin.frame.payload = &begin.payload;
+    try receiver.apply(begin.frame);
+    const history = try publisher.historyRowFrameAlloc(
+        std.testing.allocator,
+        &source,
+        0,
+        0,
+        .history_row,
+    );
+    defer history.deinit(std.testing.allocator);
+    try receiver.apply(history.frame);
+    for (0..source.rows) |row| {
+        const owned = try publisher.rowFrameAlloc(
+            std.testing.allocator,
+            &source,
+            row,
+            .row_chunk,
+        );
+        defer owned.deinit(std.testing.allocator);
+        try receiver.apply(owned.frame);
+    }
+    try receiver.apply(try publisher.snapshotEnd());
+    publisher.checkpointComplete(&source);
+
+    var text: [8]u8 = undefined;
+    receiver.grid.scrollViewport(1);
+    try std.testing.expectEqualStrings(
+        "o",
+        text[0..receiver.grid.cellText(0, 0, &text)],
+    );
+
+    try source.feed("\r\nnew");
+    const delta = publisher.historyDelta(&source);
+    const first = switch (delta) {
+        .append_from => |value| value,
+        else => return error.ExpectedHistoryAppend,
+    };
+    for (first..source.historyCount()) |row| {
+        const pushed = try publisher.historyRowFrameAlloc(
+            std.testing.allocator,
+            &source,
+            row,
+            0,
+            .history_push,
+        );
+        defer pushed.deinit(std.testing.allocator);
+        try receiver.apply(pushed.frame);
+    }
+    publisher.historyComplete(&source);
+    try std.testing.expectEqual(@as(usize, 2), receiver.grid.historyCount());
+    try std.testing.expectEqualStrings(
+        "o",
+        text[0..receiver.grid.cellText(0, 0, &text)],
+    );
+    receiver.grid.scrollViewport(-100);
+    try std.testing.expectEqualStrings(
+        "t",
+        text[0..receiver.grid.cellText(0, 0, &text)],
+    );
+}
+
 
 test "remote mirror rejects incomplete snapshots and input" {
     var receiver = try Receiver.init(std.testing.allocator, 1);

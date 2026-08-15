@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <windows.h>
 
-#define NOCTTY_WINDOWS_HOST_ABI_VERSION 4u
+#define NOCTTY_WINDOWS_HOST_ABI_VERSION 8u
 
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
@@ -23,6 +23,34 @@ typedef int (*NocttyWindowsSmokeReady)(void *);
 typedef int (*NocttyWindowsStart)(void *);
 typedef int (*NocttyWindowsStop)(void *);
 typedef int (*NocttyWindowsNextStream)(void *);
+typedef int (*NocttyWindowsNextTab)(void *);
+typedef int (*NocttyWindowsPaneCount)(void *);
+typedef int (*NocttyWindowsPaneLayout)(void *, int, uint32_t *, uint32_t *,
+                                       uint32_t *, uint32_t *, int *, int *);
+typedef int (*NocttyWindowsPaneDimensions)(void *, int, uint16_t *, uint16_t *);
+typedef uint64_t (*NocttyWindowsPaneCell)(void *, int, int, int);
+typedef int (*NocttyWindowsPaneCellText)(void *, int, int, int, uint8_t *,
+                                         size_t);
+typedef uint32_t (*NocttyWindowsPaneColorRgb)(void *, int, uint32_t);
+typedef uint32_t (*NocttyWindowsPaneCursor)(void *, int);
+typedef int (*NocttyWindowsPaneSelect)(void *, int);
+typedef int (*NocttyWindowsPaneFeed)(void *, int, const uint8_t *, size_t);
+typedef int (*NocttyWindowsPaneTakeReply)(void *, int, uint8_t *, size_t);
+typedef int (*NocttyWindowsPaneResize)(void *, int, int, int);
+typedef int (*NocttyWindowsWorkspaceAction)(void *, int, int, int);
+typedef int (*NocttyWindowsActivePane)(void *);
+typedef uint32_t (*NocttyWindowsWorkspaceClose)(void *, int);
+
+#define NOCTTY_WINDOWS_ACTION_NEW_TAB 1
+typedef int (*NocttyWindowsPreferenceGet)(void *, int);
+typedef int (*NocttyWindowsPreferenceSet)(void *, int, int);
+typedef int (*NocttyWindowsWorkspacePersistence)(void *, int, int, int);
+#define NOCTTY_WINDOWS_ACTION_SPLIT_DOWN 2
+#define NOCTTY_WINDOWS_ACTION_SPLIT_LEFT 3
+#define NOCTTY_WINDOWS_CLOSE_PANE 1
+#define NOCTTY_WINDOWS_CLOSE_TAB 2
+#define NOCTTY_WINDOWS_QUERY_CLOSE_PANE 3
+#define NOCTTY_WINDOWS_QUERY_CLOSE_TAB 4
 
 typedef struct {
     uint32_t abi_version;
@@ -44,6 +72,25 @@ typedef struct {
     NocttyWindowsStart start;
     NocttyWindowsStop stop;
     NocttyWindowsNextStream next_stream;
+    NocttyWindowsNextTab next_tab;
+    NocttyWindowsPaneCount pane_count;
+    NocttyWindowsPaneLayout pane_layout;
+    NocttyWindowsPaneDimensions pane_dimensions;
+    NocttyWindowsPaneCell pane_cell;
+    NocttyWindowsPaneCellText pane_cell_text;
+    NocttyWindowsPaneColorRgb pane_color_rgb;
+    NocttyWindowsPaneCursor pane_cursor;
+    NocttyWindowsPaneSelect pane_select;
+    NocttyWindowsPaneFeed pane_feed;
+    NocttyWindowsPaneTakeReply pane_take_reply;
+    NocttyWindowsPaneResize pane_resize;
+    NocttyWindowsWorkspaceAction workspace_action;
+    NocttyWindowsActivePane active_pane;
+    NocttyWindowsWorkspaceClose workspace_close;
+    NocttyWindowsActivePane remote_pane;
+    NocttyWindowsPreferenceGet preference_get;
+    NocttyWindowsPreferenceSet preference_set;
+    NocttyWindowsWorkspacePersistence workspace_persistence;
 } NocttyWindowsCallbacks;
 
 int noctty_windows_host_run(HINSTANCE instance, int show_command,

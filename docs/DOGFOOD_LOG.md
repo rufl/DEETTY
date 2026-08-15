@@ -10,12 +10,14 @@ honest: failures and annoyances are useful. Session rules live in
 ## YYYY-MM-DD — session title
 
 - Duration:
+- Dogfood receipt: `noctty-YYYYMMDD-HHMMSS-PID`
 - Desktop/session: Plasma Wayland / Plasma X11 / other
 - NOCTTY command:
 - Work performed:
 - Panes/tabs used:
 - Agent/TUI apps used:
 - NoctEd used: yes/no; for what files?
+
 
 ### What worked
 
@@ -35,6 +37,12 @@ honest: failures and annoyances are useful. Session rules live in
 -
 ```
 
+Multi-OMP evidence is not entered as manual `pass`/`fail` fields. The installed
+launcher and native host write local `dogfood_event` records while the actions
+occur; `./scripts/dogfood_status.sh` extracts and fail-closes the qualification
+from those process logs. See `docs/DOGFOOD_LOGGING.md` for the event contract
+and `docs/DOGFOOD_RUNBOOK.md` for the exact preflight.
+
 ## Alpha dogfood checklist
 
 - [ ] Five sessions of at least two hours each
@@ -45,8 +53,57 @@ honest: failures and annoyances are useful. Session rules live in
 - [ ] hot-session restore tested after normal exit
 - [ ] copy/paste/search/scrollback used during real work
 - [ ] NoctEd used for real project edits in at least three sessions
+- [ ] One complete current-version four-session OMP compatibility preflight
+
+## Host runtime evidence snapshot — 2026-08-14
+
+`./scripts/dogfood_runtime_status.sh --list-candidates` inspected retained
+installed-launcher receipts and legacy logs on host `chopper`:
+
+- NOCTTY: 21 finished launches, one incomplete launch, 31,598 observed seconds
+  (8.777 hours), including one 16,077-second (4.466-hour) two-hour candidate
+- NoctEd: 22 finished launches, 11,003 observed seconds (3.056 hours), with no
+  two-hour candidate
+- NOCTTY and NoctEd hours may overlap and are not summed
+- these totals prove retained process runtime only; they do not prove primary
+  terminal use, pane count, agent use, editor actions, or other dogfood quota
+  criteria
 
 ## Sessions
+
+## 2026-08-05 — retained 4.466-hour runtime candidate (not counted pending work-context confirmation)
+
+- Duration: 16,077 seconds / 4.466 hours from launcher timestamps
+- Dogfood receipt: `noctty-20260805-124514-2056382` (legacy log import)
+- Desktop/session: Plasma Wayland
+- NOCTTY command: installed launcher with `--open-uri`
+- Work performed: not recoverable from process logging; primary-terminal use is unconfirmed
+- Panes/tabs used: not recorded
+- Agent/TUI apps used: not recorded
+- NoctEd used: not linked to this runtime
+
+### What worked
+
+- The installed native host remained alive for more than the two-hour duration boundary.
+- The launcher retained start/end timestamps, exit status, backend, and the terminal failure.
+
+### Problems
+
+- [ ] P1 candidate: after 4.466 hours the process logged `Too many open files`,
+  failed a Wayland shared-memory pool request, and exited with status 1. Recheck
+  on the current build before promoting this historical observation to an
+  active blocker.
+
+### Resource notes
+
+- CPU/memory observation if measured: not measured.
+- Any visible jank/hangs: not recorded before the final display failure.
+
+### Follow-up
+
+- Do not count this session unless the operator can confirm real work and the
+  missing pane/agent/workflow fields.
+- Use version-1 duration receipts for future sessions.
 
 ## 2026-07-19 — public-alpha repository prep (not counted toward dogfood quota)
 

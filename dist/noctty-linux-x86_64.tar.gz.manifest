@@ -4,10 +4,10 @@ version=0.1.0
 release_date=2026-07-14
 architecture=x86_64
 compiler=zig 0.16.0
-source_revision=32396cc4e687
+source_revision=2614d2e8f1d5
 archive=noctty-linux-x86_64.tar.gz
-archive_sha256=429fd65bcf6e4f24552706e9fa41ed41d19442bb1ace139cbc0f9aefe0e44536
-archive_bytes=33614910
+archive_sha256=74adcfa73aaf3c081860513f5592a2e2ffbc6bde4b44b2fbefd3599cd843ff2a
+archive_bytes=33704892
 checksum=noctty-linux-x86_64.tar.gz.sha256
 redistribution_ready=true
 redistribution_blocker=none
@@ -38,8 +38,8 @@ libexec/noctty/lib/libdatrie.so.1.4.1
 libexec/noctty/lib/libdbus-1.so.3.38.3
 libexec/noctty/lib/libdl.so.2
 libexec/noctty/lib/libepoxy.so.0.0.0
-libexec/noctty/lib/libexpat.so.1.12.2
-libexec/noctty/lib/libffi.so.8.4.1
+libexec/noctty/lib/libexpat.so.1.12.3
+libexec/noctty/lib/libffi.so.8.5.0
 libexec/noctty/lib/libfontconfig.so.1.17.0
 libexec/noctty/lib/libfreetype.so.6.20.6
 libexec/noctty/lib/libfribidi.so.0.4.0
@@ -76,9 +76,9 @@ libexec/noctty/lib/libstdc++.so.6.0.36
 libexec/noctty/lib/libsystemd.so.0.44.0
 libexec/noctty/lib/libthai.so.0.3.2
 libexec/noctty/lib/libtinysparql-3.0.so.0.1101.0
-libexec/noctty/lib/libwayland-client.so.0.25.0
-libexec/noctty/lib/libwayland-cursor.so.0.25.0
-libexec/noctty/lib/libwayland-egl.so.1.25.0
+libexec/noctty/lib/libwayland-client.so.0.26.0
+libexec/noctty/lib/libwayland-cursor.so.0.26.0
+libexec/noctty/lib/libwayland-egl.so.1.26.0
 libexec/noctty/lib/libX11.so.6.4.0
 libexec/noctty/lib/libXau.so.6.0.0
 libexec/noctty/lib/libxcb-render.so.0.0.0
@@ -198,8 +198,8 @@ libdatrie.so.1.4.1
 libdbus-1.so.3.38.3
 libdl.so.2
 libepoxy.so.0.0.0
-libexpat.so.1.12.2
-libffi.so.8.4.1
+libexpat.so.1.12.3
+libffi.so.8.5.0
 libfontconfig.so.1.17.0
 libfreetype.so.6.20.6
 libfribidi.so.0.4.0
@@ -236,9 +236,9 @@ libstdc++.so.6.0.36
 libsystemd.so.0.44.0
 libthai.so.0.3.2
 libtinysparql-3.0.so.0.1101.0
-libwayland-client.so.0.25.0
-libwayland-cursor.so.0.25.0
-libwayland-egl.so.1.25.0
+libwayland-client.so.0.26.0
+libwayland-cursor.so.0.26.0
+libwayland-egl.so.1.26.0
 libX11.so.6.4.0
 libXau.so.6.0.0
 libxcb-render.so.0.0.0
@@ -259,7 +259,7 @@ libXrender.so.1.3.0
 libz.so.1.3.2
 bundled_libraries_end
 library_inventory_begin
-ld-linux-x86-64.so.2 source=system path=/usr/lib/ld-linux-x86-64.so.2 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+ld-linux-x86-64.so.2 source=system path=/usr/lib/ld-linux-x86-64.so.2 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libX11.so.6.4.0 source=system path=/usr/lib/libX11.so.6.4.0 package=libx11 package_version=1.8.13-1 license="MIT AND X11" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libXau.so.6.0.0 source=system path=/usr/lib/libXau.so.6.0.0 package=libxau package_version=1.0.12-1 license="MIT-open-group" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libXcomposite.so.1.0.0 source=system path=/usr/lib/libXcomposite.so.1.0.0 package=libxcomposite package_version=0.4.7-1 license="MIT  HPND-sell-variant" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
@@ -279,20 +279,20 @@ libblkid.so.1.1.0 source=system path=/usr/lib/libblkid.so.1.1.0 package=util-lin
 libbrotlicommon.so.1.2.0 source=system path=/usr/lib/libbrotlicommon.so.1.2.0 package=brotli package_version=1.2.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libbrotlidec.so.1.2.0 source=system path=/usr/lib/libbrotlidec.so.1.2.0 package=brotli package_version=1.2.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libbz2.so.1.0.8 source=system path=/usr/lib/libbz2.so.1.0.8 package=bzip2 package_version=1.0.8-6 license="BSD" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libc.so.6 source=system path=/usr/lib/libc.so.6 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libc.so.6 source=system path=/usr/lib/libc.so.6 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libcairo-gobject.so.2.11804.4 source=system path=/usr/lib/libcairo-gobject.so.2.11804.4 package=cairo package_version=1.18.4-1 license="LGPL-2.1-only OR MPL-1.1" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libcairo.so.2.11804.4 source=system path=/usr/lib/libcairo.so.2.11804.4 package=cairo package_version=1.18.4-1 license="LGPL-2.1-only OR MPL-1.1" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libcloudproviders.so.0.4.0 source=system path=/usr/lib/libcloudproviders.so.0.4.0 package=libcloudproviders package_version=0.4.0-1 license="LGPL-3.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libdatrie.so.1.4.1 source=system path=/usr/lib/libdatrie.so.1.4.1 package=libdatrie package_version=0.2.14-1 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libdbus-1.so.3.38.3 source=system path=/usr/lib/libdbus-1.so.3.38.3 package=dbus package_version=1.16.2-1 license="AFL-2.1 OR GPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libdl.so.2 source=system path=/usr/lib/libdl.so.2 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libdl.so.2 source=system path=/usr/lib/libdl.so.2 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libepoxy.so.0.0.0 source=system path=/usr/lib/libepoxy.so.0.0.0 package=libepoxy package_version=1.5.10-3 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libexpat.so.1.12.2 source=system path=/usr/lib/libexpat.so.1.12.2 package=expat package_version=2.8.2-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libffi.so.8.4.1 source=system path=/usr/lib/libffi.so.8.4.1 package=libffi package_version=3.7.1-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libfontconfig.so.1.17.0 source=system path=/usr/lib/libfontconfig.so.1.17.0 package=fontconfig package_version=2:2.18.2-1 license="HPND AND Unicode-DFS-2016" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libexpat.so.1.12.3 source=system path=/usr/lib/libexpat.so.1.12.3 package=expat package_version=2.8.3-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libffi.so.8.5.0 source=system path=/usr/lib/libffi.so.8.5.0 package=libffi package_version=3.8.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libfontconfig.so.1.17.0 source=system path=/usr/lib/libfontconfig.so.1.17.0 package=fontconfig package_version=2:2.18.3-1 license="HPND AND Unicode-DFS-2016" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libfreetype.so.6.20.6 source=system path=/usr/lib/libfreetype.so.6.20.6 package=freetype2 package_version=2.14.3-1 license="FTL OR GPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libfribidi.so.0.4.0 source=system path=/usr/lib/libfribidi.so.0.4.0 package=fribidi package_version=1.0.16-2 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libgcc_s.so.1 source=system path=/usr/lib/libgcc_s.so.1 package=libgcc package_version=16.1.1+r595+g171d15ac6959-1 license="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libgcc_s.so.1 source=system path=/usr/lib/libgcc_s.so.1 package=libgcc package_version=16.2.1+r23+gd564253eb6c8-1 license="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libgdk-3.so.0.2420.32 source=system path=/usr/lib/libgdk-3.so.0.2420.32 package=gtk3 package_version=1:3.24.52-1 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libgdk_pixbuf-2.0.so.0.4400.7 source=system path=/usr/lib/libgdk_pixbuf-2.0.so.0.4400.7 package=gdk-pixbuf2 package_version=2.44.7-1 license="LGPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libgio-2.0.so.0.8800.3 source=system path=/usr/lib/libgio-2.0.so.0.8800.3 package=glib2 package_version=2.88.3-1 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
@@ -309,7 +309,7 @@ libicudata.so.78.3 source=system path=/usr/lib/libicudata.so.78.3 package=icu pa
 libicuuc.so.78.3 source=system path=/usr/lib/libicuuc.so.78.3 package=icu package_version=78.3-1 license="LicenseRef-Unicode-3.0  BSD-2-Clause  BSD-3-Clause  NAIST-2003" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libjson-glib-1.0.so.0.1000.8 source=system path=/usr/lib/libjson-glib-1.0.so.0.1000.8 package=json-glib package_version=1.10.8-1 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 liblcms2.so.2.0.19 source=system path=/usr/lib/liblcms2.so.2.0.19 package=lcms2 package_version=2.19.1-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libm.so.6 source=system path=/usr/lib/libm.so.6 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libm.so.6 source=system path=/usr/lib/libm.so.6 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libmount.so.1.1.0 source=system path=/usr/lib/libmount.so.1.1.0 package=util-linux-libs package_version=2.42.2-1 license="BSD-2-Clause  BSD-3-Clause  BSD-4-Clause-UC  GPL-2.0-only  GPL-2.0-or-later  GPL-3.0-or-later  ISC  LGPL-2.1-or-later  LicenseRef-PublicDomain" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libpango-1.0.so.0.5800.2 source=system path=/usr/lib/libpango-1.0.so.0.5800.2 package=pango package_version=1:1.58.2-1 license="LGPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libpangocairo-1.0.so.0.5800.2 source=system path=/usr/lib/libpangocairo-1.0.so.0.5800.2 package=pango package_version=1:1.58.2-1 license="LGPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
@@ -317,17 +317,17 @@ libpangoft2-1.0.so.0.5800.2 source=system path=/usr/lib/libpangoft2-1.0.so.0.580
 libpcre2-8.so.0.15.0 source=system path=/usr/lib/libpcre2-8.so.0.15.0 package=pcre2 package_version=10.47-1 license="BSD-2-Clause  BSD-3-Clause WITH PCRE2-exception" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libpixman-1.so.0.46.4 source=system path=/usr/lib/libpixman-1.so.0.46.4 package=pixman package_version=0.46.4-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libpng16.so.16.58.0 source=system path=/usr/lib/libpng16.so.16.58.0 package=libpng package_version=1.6.58-2 license="libpng-2.0" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libpthread.so.0 source=system path=/usr/lib/libpthread.so.0 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-librt.so.1 source=system path=/usr/lib/librt.so.1 package=glibc package_version=2.44+r5+g7cba77790f32-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libpthread.so.0 source=system path=/usr/lib/libpthread.so.0 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+librt.so.1 source=system path=/usr/lib/librt.so.1 package=glibc package_version=2.44+r24+g16be1518495f-1 license="GPL-2.0-or-later  LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libseccomp.so.2.6.0 source=system path=/usr/lib/libseccomp.so.2.6.0 package=libseccomp package_version=2.6.0-1 license="LGPL-2.1-only" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libsqlite3.so.3.53.4 source=system path=/usr/lib/libsqlite3.so.3.53.4 package=sqlite package_version=3.53.4-1 license="LicenseRef-Sqlite" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libstdc++.so.6.0.36 source=system path=/usr/lib/libstdc++.so.6.0.36 package=libstdc++ package_version=16.1.1+r595+g171d15ac6959-1 license="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libstdc++.so.6.0.36 source=system path=/usr/lib/libstdc++.so.6.0.36 package=libstdc++ package_version=16.2.1+r23+gd564253eb6c8-1 license="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libsystemd.so.0.44.0 source=system path=/usr/lib/libsystemd.so.0.44.0 package=systemd-libs package_version=261.2-1 license="LGPL-2.1-or-later  CC0-1.0  GPL-2.0-or-later WITH Linux-syscall-note" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libthai.so.0.3.2 source=system path=/usr/lib/libthai.so.0.3.2 package=libthai package_version=0.1.30-1 license="LGPL-2.1-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libtinysparql-3.0.so.0.1101.0 source=system path=/usr/lib/libtinysparql-3.0.so.0.1101.0 package=tinysparql package_version=3.11.1-1 license="GPL-2.0-or-later" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libwayland-client.so.0.25.0 source=system path=/usr/lib/libwayland-client.so.0.25.0 package=wayland package_version=1.25.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libwayland-cursor.so.0.25.0 source=system path=/usr/lib/libwayland-cursor.so.0.25.0 package=wayland package_version=1.25.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
-libwayland-egl.so.1.25.0 source=system path=/usr/lib/libwayland-egl.so.1.25.0 package=wayland package_version=1.25.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libwayland-client.so.0.26.0 source=system path=/usr/lib/libwayland-client.so.0.26.0 package=wayland package_version=1.26.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libwayland-cursor.so.0.26.0 source=system path=/usr/lib/libwayland-cursor.so.0.26.0 package=wayland package_version=1.26.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
+libwayland-egl.so.1.26.0 source=system path=/usr/lib/libwayland-egl.so.1.26.0 package=wayland package_version=1.26.0-1 license="MIT" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libxcb-render.so.0.0.0 source=system path=/usr/lib/libxcb-render.so.0.0.0 package=libxcb package_version=1.17.0-1 license="X11" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libxcb-shm.so.0.0.0 source=system path=/usr/lib/libxcb-shm.so.0.0.0 package=libxcb package_version=1.17.0-1 license="X11" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
 libxcb.so.1.1.0 source=system path=/usr/lib/libxcb.so.1.1.0 package=libxcb package_version=1.17.0-1 license="X11" license_source=arch_package_metadata notice_root=share/licenses/noctty/dependencies
@@ -341,13 +341,13 @@ brotli version=1.2.0-1 license_expression="MIT" package_license_files=1 canonica
 bzip2 version=1.0.8-6 license_expression="BSD" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 cairo version=1.18.4-1 license_expression="LGPL-2.1-only OR MPL-1.1" package_license_files=0 canonical_spdx_files=2 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 dbus version=1.16.2-1 license_expression="AFL-2.1 OR GPL-2.0-or-later" package_license_files=2 canonical_spdx_files=1 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
-expat version=2.8.2-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
-fontconfig version=2:2.18.2-1 license_expression="HPND AND Unicode-DFS-2016" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=2 license_source=arch_package_metadata
+expat version=2.8.3-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
+fontconfig version=2:2.18.3-1 license_expression="HPND AND Unicode-DFS-2016" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=2 license_source=arch_package_metadata
 freetype2 version=2.14.3-1 license_expression="FTL OR GPL-2.0-or-later" package_license_files=1 canonical_spdx_files=1 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 fribidi version=1.0.16-2 license_expression="LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 gdk-pixbuf2 version=2.44.7-1 license_expression="LGPL-2.0-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 glib2 version=2.88.3-1 license_expression="LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
-glibc version=2.44+r5+g7cba77790f32-1 license_expression="GPL-2.0-or-later  LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=2 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
+glibc version=2.44+r24+g16be1518495f-1 license_expression="GPL-2.0-or-later  LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=2 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 glycin version=2.1.5-2 license_expression="MPL-2.0 OR LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=2 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 graphite version=1:1.3.15-1 license_expression="LGPL-2.1-or-later OR MPL-2.0 OR GPL-2.0-or-later" package_license_files=1 canonical_spdx_files=3 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 gtk-layer-shell-vendored version=0.10.1-1 license_expression="LGPL-3.0-or-later" package_license_files=3 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_pkginfo_upstream_readme_and_vendored_provenance
@@ -360,11 +360,11 @@ lcms2 version=2.19.1-1 license_expression="MIT" package_license_files=1 canonica
 libcloudproviders version=0.4.0-1 license_expression="LGPL-3.0-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 libdatrie version=0.2.14-1 license_expression="LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 libepoxy version=1.5.10-3 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
-libffi version=3.7.1-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
-libgcc version=16.1.1+r595+g171d15ac6959-1 license_expression="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" package_license_files=1 canonical_spdx_files=2 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
+libffi version=3.8.0-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
+libgcc version=16.2.1+r23+gd564253eb6c8-1 license_expression="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" package_license_files=1 canonical_spdx_files=2 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 libpng version=1.6.58-2 license_expression="libpng-2.0" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 libseccomp version=2.6.0-1 license_expression="LGPL-2.1-only" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
-libstdc++ version=16.1.1+r595+g171d15ac6959-1 license_expression="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" package_license_files=1 canonical_spdx_files=2 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
+libstdc++ version=16.2.1+r23+gd564253eb6c8-1 license_expression="GPL-3.0-or-later WITH GCC-exception-3.1  GFDL-1.3-or-later" package_license_files=1 canonical_spdx_files=2 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 libthai version=0.1.30-1 license_expression="LGPL-2.1-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 libx11 version=1.8.13-1 license_expression="MIT AND X11" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=2 license_source=arch_package_metadata
 libxau version=1.0.12-1 license_expression="MIT-open-group" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
@@ -388,7 +388,7 @@ sqlite version=3.53.4-1 license_expression="LicenseRef-Sqlite" package_license_f
 systemd-libs version=261.2-1 license_expression="LGPL-2.1-or-later  CC0-1.0  GPL-2.0-or-later WITH Linux-syscall-note" package_license_files=0 canonical_spdx_files=4 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 tinysparql version=3.11.1-1 license_expression="GPL-2.0-or-later" package_license_files=0 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_package_metadata
 util-linux-libs version=2.42.2-1 license_expression="BSD-2-Clause  BSD-3-Clause  BSD-4-Clause-UC  GPL-2.0-only  GPL-2.0-or-later  GPL-3.0-or-later  ISC  LGPL-2.1-or-later  LicenseRef-PublicDomain" package_license_files=5 canonical_spdx_files=4 custom_tokens_covered_by_package_files=5 license_source=arch_package_metadata
-wayland version=1.25.0-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
+wayland version=1.26.0-1 license_expression="MIT" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 zlib version=1:1.3.2-3 license_expression="Zlib" package_license_files=1 canonical_spdx_files=0 custom_tokens_covered_by_package_files=1 license_source=arch_package_metadata
 package_inventory_end
 license_files_begin

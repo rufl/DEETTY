@@ -64,6 +64,12 @@ pub const ResolvedAnchor = struct {
     column: usize,
 };
 
+pub const HistoryIdentity = struct {
+    line_id: u64,
+    generation: u32,
+    grapheme_start: u32,
+};
+
 const RowMeta = struct {
     line_id: u64,
     generation: u32,
@@ -1579,6 +1585,34 @@ pub const Grid = struct {
         if (column >= self.columns or row >= self.rows) return .{};
         const line = self.visibleRowSlice(row);
         return if (column < line.len) line[column] else .{};
+    }
+    pub fn historyCount(self: Grid) usize {
+        return self.history.items.len;
+    }
+
+    pub fn historyRowIdentity(self: Grid, row: usize) ?HistoryIdentity {
+        if (row >= self.history.items.len) return null;
+        const meta = self.historyMeta(row);
+        return .{
+            .line_id = meta.line_id,
+            .generation = meta.generation,
+            .grapheme_start = meta.grapheme_start,
+        };
+    }
+
+    pub fn historyCell(self: Grid, column: usize, row: usize) Cell {
+        if (row >= self.history.items.len or column >= self.columns) return .{};
+        const line = self.historyLine(row);
+        return if (column < line.len) line[column] else .{};
+    }
+
+    pub fn historyCellText(
+        self: Grid,
+        column: usize,
+        row: usize,
+        output: []u8,
+    ) usize {
+        return self.writeCellText(self.historyCell(column, row), output);
     }
 
     pub fn scrollViewport(self: *Grid, lines: isize) void {

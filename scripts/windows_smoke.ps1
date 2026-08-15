@@ -42,13 +42,13 @@ if ($AutomatedHost) {
         throw "The automated host smoke created no log under $logDirectory."
     }
     $automatedText = Get-Content -LiteralPath $automatedLog.FullName -Raw
-    if ($automatedText -notmatch 'windows_host_smoke conpty=true vt=true gdi=true clean_exit=true') {
-        throw 'The automated host log is missing its ConPTY/VT/GDI acceptance marker.'
+    if ($automatedText -notmatch 'windows_host_smoke conpty=true vt=true gdi=true settings_menu=true preferences=true clean_exit=true') {
+        throw 'The automated host log is missing its ConPTY/VT/GDI/settings acceptance marker.'
     }
     if ($automatedText -notmatch 'windows_exit clean=true') {
         throw 'The automated host log is missing clean native-host teardown.'
     }
-    Write-Host "windows_smoke self_test=true automated_host=true conpty=true vt=true gdi=true clean_exit=true log='$($automatedLog.FullName)' physical_input=false"
+    Write-Host "windows_smoke self_test=true automated_host=true conpty=true vt=true gdi=true settings_menu=true preferences=true clean_exit=true log='$($automatedLog.FullName)' physical_input=false"
 }
 
 if (-not $Interactive) {
@@ -62,11 +62,14 @@ $process = Start-Process -FilePath $exe -PassThru
 Write-Host ''
 Write-Host 'Physical checklist:'
 Write-Host '  1. Confirm PowerShell or cmd renders a prompt.'
-Write-Host '  2. Type: Write-Output "NOCTTY_WINDOWS_OK" (PowerShell) or echo NOCTTY_WINDOWS_OK (cmd).'
-Write-Host '  3. Resize the window narrower and wider; confirm retained text reflows/redraws.'
-Write-Host '  4. Test arrow keys, Unicode input, Ctrl+Shift+C, and Ctrl+Shift+V.'
-Write-Host '  5. Scroll output with the mouse wheel.'
-Write-Host '  6. Close the NOCTTY window normally.'
+Write-Host '  2. Open Settings; switch theme and font size, restart, and confirm both persist.'
+Write-Host '  3. Select Command Prompt as the launch profile, open a tab, and confirm cmd starts.'
+Write-Host '  4. Create tabs/splits, save the workspace, alter it, restore it, and confirm the saved layout returns with replacement shells.'
+Write-Host '  5. Type: Write-Output "NOCTTY_WINDOWS_OK" (PowerShell) or echo NOCTTY_WINDOWS_OK (cmd).'
+Write-Host '  6. Resize the window narrower and wider; confirm retained text reflows/redraws.'
+Write-Host '  7. Test arrow keys, Unicode input, Ctrl+Shift+C, and Ctrl+Shift+V.'
+Write-Host '  8. Scroll output with the mouse wheel.'
+Write-Host '  9. Close the NOCTTY window normally.'
 Write-Host ''
 Read-Host 'Press Enter here after closing the NOCTTY window'
 

@@ -19,13 +19,37 @@ pub const Status = enum(c_int) {
     failed = 6,
 };
 
+pub const TabSpec = struct {
+    tab_id: u64,
+    title: []const u8,
+    active: bool = false,
+    active_pane_id: u64,
+    zoomed_pane_id: u64 = 0,
+    root_node: u16,
+    node_count: u16,
+};
+
 pub const StreamSpec = struct {
     pane_id: u64,
+    tab_id: u64,
     title: []const u8,
+};
+
+pub const LayoutSpec = Session.LayoutNodeManifest;
+
+const Tab = struct {
+    tab_id: u64,
+    title: []u8,
+    active: bool,
+    active_pane_id: u64,
+    zoomed_pane_id: u64,
+    root_node: u16,
+    node_count: u16,
 };
 
 const Stream = struct {
     pane_id: u64,
+    tab_id: u64,
     title: []u8,
     peer: Session.HostPeer,
 };
@@ -39,6 +63,9 @@ pub const LiveHost = struct {
     thread: ?std.Thread = null,
     mutex: ShareMutex = .{},
     streams: std.array_list.Managed(Stream),
+    scope: Session.ShareScope,
+    tabs: std.array_list.Managed(Tab),
+    nodes: std.array_list.Managed(LayoutSpec),
     workspace_send_sequence: Protocol.Sequence = .{},
     workspace_receive_sequence: Protocol.Sequence = .{},
     next_stream_id: u32 = 1,
@@ -64,11 +91,13 @@ pub const LiveHost = struct {
         paired_peer: Identity.Peer,
         host: ?[]const u8,
         listen_port: u16,
-        specs: []const StreamSpec,
+        scope: Session.ShareScope,
+        tab_specs: []const TabSpec,
+        stream_specs: []const StreamSpec,
+        layout_specs: []const LayoutSpec,
     ) !*LiveHost {
         if (paired_peer.revoked) return error.PairedDeviceRevoked;
-        if (specs.len == 0 or specs.len > Protocol.max_streams)
-            return error.InvalidShareWorkspace;
+        try validateWorkspaceSpec(scope, tab_specs, stream_specs, layout_specs);
         const self = try allocator.create(LiveHost);
         errdefer allocator.destroy(self);
         self.* = .{
@@ -77,27 +106,38 @@ pub const LiveHost = struct {
             .identity = identity,
             .paired_peer = paired_peer,
             .listener = try Transport.Listener.listen(host, listen_port),
+            .scope = scope,
+            .tabs = std.array_list.Managed(Tab).init(allocator),
             .streams = std.array_list.Managed(Stream).init(allocator),
+            .nodes = std.array_list.Managed(LayoutSpec).init(allocator),
             .queue = std.array_list.Managed([]u8).init(allocator),
-            .next_stream_id = @intCast(specs.len + 1),
+            .next_stream_id = @intCast(stream_specs.len + 1),
         };
         errdefer self.listener.close();
-        errdefer self.deinitStreams();
-        for (specs, 0..) |spec, index| {
-            if (spec.pane_id == 0 or spec.title.len > Protocol.max_title_bytes or
-                !std.unicode.utf8ValidateSlice(spec.title))
-                return error.InvalidShareWorkspace;
-            for (specs[0..index]) |previous| {
-                if (previous.pane_id == spec.pane_id) return error.InvalidShareWorkspace;
-            }
-            const title = try allocator.dupe(u8, spec.title);
-            errdefer allocator.free(title);
-            try self.streams.append(.{
+        errdefer self.deinitWorkspace();
+        try self.tabs.ensureTotalCapacity(tab_specs.len);
+        try self.streams.ensureTotalCapacity(stream_specs.len);
+        try self.nodes.ensureTotalCapacity(layout_specs.len);
+        for (tab_specs) |spec| {
+            self.tabs.appendAssumeCapacity(.{
+                .tab_id = spec.tab_id,
+                .title = try allocator.dupe(u8, spec.title),
+                .active = spec.active,
+                .active_pane_id = spec.active_pane_id,
+                .zoomed_pane_id = spec.zoomed_pane_id,
+                .root_node = spec.root_node,
+                .node_count = spec.node_count,
+            });
+        }
+        for (stream_specs, 0..) |spec, index| {
+            self.streams.appendAssumeCapacity(.{
                 .pane_id = spec.pane_id,
-                .title = title,
+                .tab_id = spec.tab_id,
+                .title = try allocator.dupe(u8, spec.title),
                 .peer = try Session.HostPeer.init(@intCast(index + 1)),
             });
         }
+        self.nodes.appendSliceAssumeCapacity(layout_specs);
         self.thread = try std.Thread.spawn(.{}, worker, .{self});
         return self;
     }
@@ -115,17 +155,20 @@ pub const LiveHost = struct {
         if (self.thread) |thread| thread.join();
         self.clearQueue();
         self.queue.deinit();
-        self.deinitStreams();
+        self.deinitWorkspace();
         self.identity.deinit();
         self.allocator.destroy(self);
     }
 
-    fn deinitStreams(self: *LiveHost) void {
+    fn deinitWorkspace(self: *LiveHost) void {
         for (self.streams.items) |*stream| {
             stream.peer.stop();
             self.allocator.free(stream.title);
         }
         self.streams.deinit();
+        for (self.tabs.items) |tab| self.allocator.free(tab.title);
+        self.tabs.deinit();
+        self.nodes.deinit();
     }
 
     pub fn port(self: *LiveHost) u16 {
@@ -153,49 +196,126 @@ pub const LiveHost = struct {
         return self.isConnected() and stream.peer.checkpoint_required;
     }
 
-    pub fn addPane(self: *LiveHost, spec: StreamSpec) !void {
+    pub fn syncWorkspace(
+        self: *LiveHost,
+        scope: Session.ShareScope,
+        tab_specs: []const TabSpec,
+        stream_specs: []const StreamSpec,
+        layout_specs: []const LayoutSpec,
+    ) !bool {
         self.mutex.lock();
         defer self.mutex.unlock();
-        try self.validateNewSpec(spec);
-        const stream_id = self.availableStreamId() orelse return error.ShareStreamLimitReached;
-        const owned_title = try self.allocator.dupe(u8, spec.title);
-        var appended = false;
-        errdefer if (appended) {
-            const removed = self.streams.pop().?;
-            self.allocator.free(removed.title);
-        } else {
-            self.allocator.free(owned_title);
-        };
-        try self.streams.append(.{
-            .pane_id = spec.pane_id,
-            .title = owned_title,
-            .peer = try Session.HostPeer.init(stream_id),
-        });
-        appended = true;
-        if (self.isConnected()) {
-            const payload = try Session.encodeWorkspaceManifestAlloc(self.allocator, &.{
-                .{ .stream_id = stream_id, .pane_id = spec.pane_id, .title = owned_title },
-            });
-            defer self.allocator.free(payload);
-            try self.enqueueWorkspace(.pane_open, payload, false);
+        try validateWorkspaceSpec(scope, tab_specs, stream_specs, layout_specs);
+        if (self.workspaceMatches(scope, tab_specs, stream_specs, layout_specs)) return false;
+
+        var new_stream_count: usize = 0;
+        for (stream_specs) |spec| {
+            if (self.streamForPane(spec.pane_id) == null) new_stream_count += 1;
         }
+        if (new_stream_count != 0 and
+            (self.next_stream_id == 0 or
+                @as(u64, self.next_stream_id) + new_stream_count > std.math.maxInt(u32)))
+            return error.ShareStreamLimitReached;
+
+        var new_tabs = std.array_list.Managed(Tab).init(self.allocator);
+        errdefer {
+            for (new_tabs.items) |tab| self.allocator.free(tab.title);
+            new_tabs.deinit();
+        }
+        try new_tabs.ensureTotalCapacity(tab_specs.len);
+        for (tab_specs) |spec| {
+            new_tabs.appendAssumeCapacity(.{
+                .tab_id = spec.tab_id,
+                .title = try self.allocator.dupe(u8, spec.title),
+                .active = spec.active,
+                .active_pane_id = spec.active_pane_id,
+                .zoomed_pane_id = spec.zoomed_pane_id,
+                .root_node = spec.root_node,
+                .node_count = spec.node_count,
+            });
+        }
+        var new_nodes = std.array_list.Managed(LayoutSpec).init(self.allocator);
+        errdefer new_nodes.deinit();
+        try new_nodes.appendSlice(layout_specs);
+
+        var owned_titles: [Protocol.max_streams]?[]u8 = [_]?[]u8{null} ** Protocol.max_streams;
+        errdefer for (owned_titles) |owned| if (owned) |title| self.allocator.free(title);
+        for (stream_specs, 0..) |spec, index|
+            owned_titles[index] = try self.allocator.dupe(u8, spec.title);
+
+        var reordered = std.array_list.Managed(Stream).init(self.allocator);
+        errdefer reordered.deinit();
+        try reordered.ensureTotalCapacity(stream_specs.len);
+        for (stream_specs, 0..) |spec, desired_index| {
+            var existing_index: usize = 0;
+            while (existing_index < self.streams.items.len and
+                self.streams.items[existing_index].pane_id != spec.pane_id) : (existing_index += 1)
+            {}
+            if (existing_index < self.streams.items.len) {
+                var stream = self.streams.orderedRemove(existing_index);
+                self.allocator.free(stream.title);
+                stream.title = owned_titles[desired_index].?;
+                owned_titles[desired_index] = null;
+                stream.tab_id = spec.tab_id;
+                reordered.appendAssumeCapacity(stream);
+            } else {
+                const stream_id = self.availableStreamId().?;
+                reordered.appendAssumeCapacity(.{
+                    .pane_id = spec.pane_id,
+                    .tab_id = spec.tab_id,
+                    .title = owned_titles[desired_index].?,
+                    .peer = Session.HostPeer.init(stream_id) catch unreachable,
+                });
+                owned_titles[desired_index] = null;
+            }
+        }
+
+        for (self.streams.items) |*removed| self.retireStream(removed);
+        self.streams.deinit();
+        self.streams = reordered;
+        for (self.tabs.items) |tab| self.allocator.free(tab.title);
+        self.tabs.deinit();
+        self.tabs = new_tabs;
+        self.nodes.deinit();
+        self.nodes = new_nodes;
+        self.scope = scope;
+        if (self.isConnected()) self.enqueueManifest(.workspace_update) catch {
+            self.status = .failed;
+            self.stop_requested = true;
+        };
+        return true;
     }
 
-    pub fn removePane(self: *LiveHost, pane_id: u64) !bool {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        var index: usize = 0;
-        while (index < self.streams.items.len and self.streams.items[index].pane_id != pane_id) : (index += 1) {}
-        if (index == self.streams.items.len) return false;
-        const stream = &self.streams.items[index];
-        if (self.isConnected()) {
-            var payload: [Session.pane_close_payload_length]u8 = undefined;
-            try Session.encodePaneClose(&payload, .{
-                .stream_id = stream.peer.stream_id,
-                .pane_id = stream.pane_id,
-            });
-            try self.enqueueWorkspace(.pane_close, &payload, false);
+    fn workspaceMatches(
+        self: *LiveHost,
+        scope: Session.ShareScope,
+        tab_specs: []const TabSpec,
+        stream_specs: []const StreamSpec,
+        layout_specs: []const LayoutSpec,
+    ) bool {
+        if (self.scope != scope or self.tabs.items.len != tab_specs.len or
+            self.streams.items.len != stream_specs.len or
+            self.nodes.items.len != layout_specs.len)
+            return false;
+        for (self.tabs.items, tab_specs) |tab, spec| {
+            if (tab.tab_id != spec.tab_id or tab.active != spec.active or
+                tab.active_pane_id != spec.active_pane_id or
+                tab.zoomed_pane_id != spec.zoomed_pane_id or
+                tab.root_node != spec.root_node or tab.node_count != spec.node_count or
+                !std.mem.eql(u8, tab.title, spec.title))
+                return false;
         }
+        for (self.streams.items, stream_specs) |stream, spec| {
+            if (stream.pane_id != spec.pane_id or stream.tab_id != spec.tab_id or
+                !std.mem.eql(u8, stream.title, spec.title))
+                return false;
+        }
+        for (self.nodes.items, layout_specs) |node, spec|
+            if (!std.meta.eql(node, spec)) return false;
+        return true;
+    }
+
+    fn retireStream(self: *LiveHost, stream: *Stream) void {
         if (self.control_stream_id == stream.peer.stream_id) {
             self.control_stream_id = 0;
             self.grant_requested = false;
@@ -203,19 +323,47 @@ pub const LiveHost = struct {
             self.status = if (self.isConnected()) .connected else self.status;
         }
         if (self.input_stream_id == stream.peer.stream_id) self.wipeInput();
-        var removed = self.streams.orderedRemove(index);
-        removed.peer.stop();
-        self.allocator.free(removed.title);
-        return true;
+        self.dropQueuedStream(stream.peer.stream_id);
+        stream.peer.stop();
+        self.allocator.free(stream.title);
     }
 
-    fn validateNewSpec(self: *LiveHost, spec: StreamSpec) !void {
-        if (spec.pane_id == 0 or spec.title.len > Protocol.max_title_bytes or
-            !std.unicode.utf8ValidateSlice(spec.title))
+    fn validateWorkspaceSpec(
+        scope: Session.ShareScope,
+        tab_specs: []const TabSpec,
+        stream_specs: []const StreamSpec,
+        layout_specs: []const LayoutSpec,
+    ) !void {
+        if (tab_specs.len > Protocol.max_tabs or
+            stream_specs.len > Protocol.max_streams)
             return error.InvalidShareWorkspace;
-        if (self.streams.items.len >= Protocol.max_streams)
-            return error.ShareStreamLimitReached;
-        if (self.streamForPane(spec.pane_id) != null) return error.SharePaneAlreadyPublished;
+        var tabs: [Protocol.max_tabs]Session.TabManifest = undefined;
+        for (tab_specs, 0..) |tab, index| {
+            tabs[index] = .{
+                .tab_id = tab.tab_id,
+                .title = tab.title,
+                .active = tab.active,
+                .active_pane_id = tab.active_pane_id,
+                .zoomed_pane_id = tab.zoomed_pane_id,
+                .root_node = tab.root_node,
+                .node_count = tab.node_count,
+            };
+        }
+        var panes: [Protocol.max_streams]Session.PaneManifest = undefined;
+        for (stream_specs, 0..) |stream, index| {
+            panes[index] = .{
+                .stream_id = @intCast(index + 1),
+                .pane_id = stream.pane_id,
+                .tab_id = stream.tab_id,
+                .title = stream.title,
+            };
+        }
+        try Session.validateWorkspaceManifest(.{
+            .scope = scope,
+            .tabs = tabs[0..tab_specs.len],
+            .panes = panes[0..stream_specs.len],
+            .nodes = layout_specs,
+        });
     }
 
     fn availableStreamId(self: *LiveHost) ?u32 {
@@ -237,31 +385,57 @@ pub const LiveHost = struct {
     }
 
     pub fn capture(self: *LiveHost, pane_id: u64, terminal_session: anytype) !void {
+        return self.captureGrid(pane_id, &terminal_session.grid);
+    }
+
+    pub fn captureGrid(self: *LiveHost, pane_id: u64, grid: anytype) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
         if (self.status != .connected and self.status != .control_requested and self.status != .control_granted)
             return;
         const stream = self.streamForPane(pane_id) orelse return error.SharePaneNotPublished;
         if (stream.peer.checkpoint_required) {
-            try self.enqueueCheckpoint(stream, &terminal_session.grid);
+            try self.enqueueCheckpoint(stream, grid);
             stream.peer.checkpoint_required = false;
-            stream.peer.publisher.checkpointComplete(&terminal_session.grid);
+            stream.peer.publisher.checkpointComplete(grid);
             return;
         }
+        switch (stream.peer.publisher.historyDelta(grid)) {
+            .unchanged => {},
+            .reset => {
+                try self.enqueueCheckpoint(stream, grid);
+                stream.peer.publisher.checkpointComplete(grid);
+                return;
+            },
+            .append_from => |first| {
+                for (first..grid.historyCount()) |row| {
+                    const owned = try stream.peer.publisher.historyRowFrameAlloc(
+                        self.allocator,
+                        grid,
+                        row,
+                        0,
+                        .history_push,
+                    );
+                    defer owned.deinit(self.allocator);
+                    try self.enqueue(owned.frame);
+                }
+                stream.peer.publisher.historyComplete(grid);
+            },
+        }
         var rows: [Protocol.max_rows]u8 = undefined;
-        _ = stream.peer.publisher.changedRows(&terminal_session.grid, rows[0..terminal_session.grid.rows]);
-        for (rows[0..terminal_session.grid.rows], 0..) |changed, row| {
+        _ = stream.peer.publisher.changedRows(grid, rows[0..grid.rows]);
+        for (rows[0..grid.rows], 0..) |changed, row| {
             if (changed == 0) continue;
-            const owned = try stream.peer.publisher.rowFrameAlloc(self.allocator, &terminal_session.grid, row, .damage);
+            const owned = try stream.peer.publisher.rowFrameAlloc(self.allocator, grid, row, .damage);
             defer owned.deinit(self.allocator);
             try self.enqueue(owned.frame);
         }
-        if (try stream.peer.publisher.cursorFrame(&terminal_session.grid)) |cursor_value| {
+        if (try stream.peer.publisher.cursorFrame(grid)) |cursor_value| {
             var cursor = cursor_value;
             cursor.frame.payload = &cursor.payload;
             try self.enqueue(cursor.frame);
         }
-        if (try stream.peer.publisher.titleFrame(&terminal_session.grid, false)) |title|
+        if (try stream.peer.publisher.titleFrame(grid, false)) |title|
             try self.enqueue(title);
     }
 
@@ -310,11 +484,35 @@ pub const LiveHost = struct {
     }
 
     fn enqueueCheckpoint(self: *LiveHost, stream: *Stream, grid: anytype) !void {
-        var begin = try stream.peer.publisher.snapshotBegin(grid, 0);
+        const history_count = @min(
+            grid.historyCount(),
+            @as(usize, Protocol.max_scrollback_rows),
+        );
+        var begin = try stream.peer.publisher.snapshotBegin(
+            grid,
+            @intCast(history_count),
+        );
         begin.frame.payload = &begin.payload;
         try self.enqueue(begin.frame);
+        const first_history = grid.historyCount() - history_count;
+        for (first_history..grid.historyCount(), 0..) |source_row, wire_row| {
+            const owned = try stream.peer.publisher.historyRowFrameAlloc(
+                self.allocator,
+                grid,
+                source_row,
+                wire_row,
+                .history_row,
+            );
+            defer owned.deinit(self.allocator);
+            try self.enqueue(owned.frame);
+        }
         for (0..grid.rows) |row| {
-            const owned = try stream.peer.publisher.rowFrameAlloc(self.allocator, grid, row, .row_chunk);
+            const owned = try stream.peer.publisher.rowFrameAlloc(
+                self.allocator,
+                grid,
+                row,
+                .row_chunk,
+            );
             defer owned.deinit(self.allocator);
             try self.enqueue(owned.frame);
         }
@@ -342,8 +540,8 @@ pub const LiveHost = struct {
         payload: []const u8,
         final: bool,
     ) !void {
-        if (message_type != .pane_open and message_type != .pane_close and
-            message_type != .ping and message_type != .disconnect_reason)
+        if (message_type != .workspace_update and message_type != .ping and
+            message_type != .disconnect_reason)
             return error.InvalidShareWorkspaceMessage;
         try self.enqueue(.{
             .header = .{
@@ -355,6 +553,43 @@ pub const LiveHost = struct {
             },
             .payload = payload,
         });
+    }
+
+    fn manifestPayloadAlloc(self: *LiveHost) ![]u8 {
+        var tabs: [Protocol.max_tabs]Session.TabManifest = undefined;
+        for (self.tabs.items, 0..) |tab, index| {
+            tabs[index] = .{
+                .tab_id = tab.tab_id,
+                .title = tab.title,
+                .active = tab.active,
+                .active_pane_id = tab.active_pane_id,
+                .zoomed_pane_id = tab.zoomed_pane_id,
+                .root_node = tab.root_node,
+                .node_count = tab.node_count,
+            };
+        }
+        var panes: [Protocol.max_streams]Session.PaneManifest = undefined;
+        for (self.streams.items, 0..) |stream, index| {
+            panes[index] = .{
+                .stream_id = stream.peer.stream_id,
+                .pane_id = stream.pane_id,
+                .tab_id = stream.tab_id,
+                .title = stream.title,
+            };
+        }
+        return Session.encodeWorkspaceManifestAlloc(self.allocator, .{
+            .scope = self.scope,
+            .tabs = tabs[0..self.tabs.items.len],
+            .panes = panes[0..self.streams.items.len],
+            .nodes = self.nodes.items,
+        });
+    }
+
+    fn enqueueManifest(self: *LiveHost, message_type: Protocol.MessageType) !void {
+        if (message_type != .workspace_update) return error.InvalidShareWorkspaceMessage;
+        const payload = try self.manifestPayloadAlloc();
+        defer self.allocator.free(payload);
+        try self.enqueueWorkspace(message_type, payload, false);
     }
 
     fn dropQueuedStream(self: *LiveHost, stream_id: u32) void {
@@ -423,18 +658,7 @@ pub const LiveHost = struct {
         if (self.peer_hello_received) return error.InvalidShareHello;
         _ = try Session.decodeHello(response.payload);
         self.peer_hello_received = true;
-        var panes: [Protocol.max_streams]Session.PaneManifest = undefined;
-        for (self.streams.items, 0..) |stream, index| {
-            panes[index] = .{
-                .stream_id = stream.peer.stream_id,
-                .pane_id = stream.pane_id,
-                .title = stream.title,
-            };
-        }
-        const payload = try Session.encodeWorkspaceManifestAlloc(
-            self.allocator,
-            panes[0..self.streams.items.len],
-        );
+        const payload = try self.manifestPayloadAlloc();
         defer self.allocator.free(payload);
         try connection.sendFrame(self.allocator, .{
             .header = .{
@@ -471,7 +695,37 @@ pub const LiveHost = struct {
         });
     }
 
+    fn prepareReconnect(self: *LiveHost) void {
+        self.clearQueue();
+        self.workspace_receive_sequence = .{};
+        self.workspace_send_sequence = .{};
+        self.peer_hello_received = false;
+        self.awaiting_pong = false;
+        self.last_peer_activity_ms = 0;
+        self.last_ping_ms = 0;
+        self.control_stream_id = 0;
+        self.grant_requested = false;
+        self.revoke_requested = false;
+        self.wipeInput();
+        for (self.streams.items) |*stream| stream.peer.prepareReconnect();
+    }
+
     fn worker(self: *LiveHost) void {
+        while (true) {
+            self.serveConnection();
+            self.mutex.lock();
+            if (self.stop_requested) {
+                self.status = .stopped;
+                self.mutex.unlock();
+                return;
+            }
+            self.prepareReconnect();
+            self.status = .listening;
+            self.mutex.unlock();
+        }
+    }
+
+    fn serveConnection(self: *LiveHost) void {
         var pending = self.listener.accept(self.io, self.identity, self.paired_peer.public_key) catch {
             self.setTerminalStatus(.failed);
             return;
@@ -538,6 +792,13 @@ pub const LiveHost = struct {
                     self.setTerminalStatus(.failed);
                     return;
                 };
+                if (grant or revoke) {
+                    self.mutex.lock();
+                    self.grant_requested = self.grant_requested or grant;
+                    self.revoke_requested = self.revoke_requested or revoke;
+                    self.mutex.unlock();
+                }
+                continue;
             }
             if (grant) {
                 self.mutex.lock();
@@ -654,6 +915,17 @@ pub const LiveHost = struct {
                     self.wipeInput();
                     self.status = .connected;
                 }
+            } else if (frame.header.message_type == .control_release) {
+                if (self.control_stream_id != frame.header.stream_id) {
+                    self.status = .failed;
+                    self.mutex.unlock();
+                    return;
+                }
+                self.control_stream_id = 0;
+                self.grant_requested = false;
+                self.revoke_requested = false;
+                self.wipeInput();
+                self.status = .connected;
             } else if (input) |bytes| {
                 if ((self.input_length != 0 and self.input_stream_id != frame.header.stream_id) or
                     self.input_length + bytes.len > self.input.len)
@@ -705,9 +977,25 @@ test "live host publishes damage and dispatches only granted input" {
     const host_identity = Crypto.Identity.generate(io);
     const viewer_identity = Crypto.Identity.generate(io);
     const host_peer = try Identity.Peer.init(viewer_identity.public_key, "viewer", "127.0.0.1", 1, 1);
-    const live = try LiveHost.create(std.testing.allocator, io, host_identity, host_peer, "127.0.0.1", 0, &.{
-        .{ .pane_id = 41, .title = "Shell" },
-    });
+    const live = try LiveHost.create(
+        std.testing.allocator,
+        io,
+        host_identity,
+        host_peer,
+        "127.0.0.1",
+        0,
+        .pane,
+        &.{.{
+            .tab_id = 7,
+            .title = "Shells",
+            .active = true,
+            .active_pane_id = 41,
+            .root_node = 0,
+            .node_count = 1,
+        }},
+        &.{.{ .pane_id = 41, .tab_id = 7, .title = "Shell" }},
+        &.{.{ .tab_id = 7, .kind = .leaf, .pane_id = 41, .ratio_permille = 0 }},
+    );
     defer live.destroy();
     const viewer_peer = try Identity.Peer.init(host_identity.public_key, "host", "127.0.0.1", live.port(), 1);
     var viewer = try Link.Viewer.connect(std.testing.allocator, io, "127.0.0.1", live.port(), viewer_identity, &viewer_peer, 1);

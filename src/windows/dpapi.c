@@ -219,3 +219,79 @@ save_done:
     }
     return result;
 }
+
+static int noctty_state_path(WCHAR *path, size_t capacity) {
+    static const WCHAR suffix[] = L"\\NOCTTY";
+    static const WCHAR filename[] = L"\\windows-state-v1.bin";
+    DWORD count;
+    size_t length;
+    if (path == NULL || capacity < 64u) return 0;
+    count = GetEnvironmentVariableW(L"LOCALAPPDATA", path, (DWORD)capacity);
+    if (count == 0 || count >= capacity) return 0;
+    length = (size_t)count;
+    if (length + (sizeof(suffix) / sizeof(suffix[0])) >= capacity) return 0;
+    memcpy(path + length, suffix, sizeof(suffix));
+    if (!CreateDirectoryW(path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
+        return 0;
+    length += (sizeof(suffix) / sizeof(suffix[0])) - 1u;
+    if (length + (sizeof(filename) / sizeof(filename[0])) >= capacity) return 0;
+    memcpy(path + length, filename, sizeof(filename));
+    return 1;
+}
+
+int noctty_windows_state_load(uint8_t *bytes, size_t capacity, size_t *length) {
+    WCHAR path[MAX_PATH * 2];
+    HANDLE file;
+    DWORD size;
+    DWORD read_count = 0;
+    int result = -1;
+    if (bytes == NULL || capacity == 0 || length == NULL ||
+        !noctty_state_path(path, sizeof(path) / sizeof(path[0])))
+        return -1;
+    *length = 0;
+    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return GetLastError() == ERROR_FILE_NOT_FOUND ? 0 : -1;
+    size = GetFileSize(file, NULL);
+    if (size == INVALID_FILE_SIZE || size == 0 || size > capacity) goto done;
+    if (!ReadFile(file, bytes, size, &read_count, NULL) || read_count != size)
+        goto done;
+    *length = size;
+    result = 1;
+done:
+    CloseHandle(file);
+    return result;
+}
+
+int noctty_windows_state_save(const uint8_t *bytes, size_t length) {
+    WCHAR path[MAX_PATH * 2];
+    WCHAR temporary[MAX_PATH * 2];
+    HANDLE file = INVALID_HANDLE_VALUE;
+    DWORD written = 0;
+    int result = -1;
+    size_t path_length;
+    if (bytes == NULL || length == 0 || length > MAXDWORD ||
+        !noctty_state_path(path, sizeof(path) / sizeof(path[0])))
+        return -1;
+    path_length = wcslen(path);
+    if (path_length + 5u >= sizeof(temporary) / sizeof(temporary[0])) return -1;
+    memcpy(temporary, path, path_length * sizeof(WCHAR));
+    memcpy(temporary + path_length, L".tmp", 5u * sizeof(WCHAR));
+    file = CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                       FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY, NULL);
+    if (file == INVALID_HANDLE_VALUE) goto save_done;
+    if (!WriteFile(file, bytes, (DWORD)length, &written, NULL) ||
+        written != (DWORD)length || !FlushFileBuffers(file))
+        goto save_done;
+    CloseHandle(file);
+    file = INVALID_HANDLE_VALUE;
+    if (!MoveFileExW(temporary, path,
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        goto save_done;
+    result = 0;
+save_done:
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (result != 0) DeleteFileW(temporary);
+    return result;
+}

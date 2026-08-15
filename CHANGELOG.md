@@ -4,35 +4,113 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Fixed native GTK dogfood window lifecycle regressions: presentation-mode
+  changes now recreate the toplevel without losing Settings, tray Show recovers
+  a hidden surface even if cached presentation state drifted, shortcut recording
+  temporarily releases the active Plasma accelerator so keys such as F10 can be
+  captured, and layer-shell dialogs are initialized on the overlay layer above
+  the dropdown.
+
+- Improved native GTK usability after a full dogfood audit: windowed mode now
+  uses native movable/resizable decorations, the active pane has a persistent
+  focus ring, sharing and settings surfaces stay above the dropdown and remain
+  scrollable, terminal history supports keyboard navigation, and terminal
+  content is exposed through ATK text semantics. Launch-profile actions now
+  report validation and save status, shortcut help reflects the configured
+  accelerator, and compact tab controls use reliable 24-pixel targets.
+
+- Added native Windows settings and workspace continuity controls. The Win32
+  menu now selects dark or system high-contrast colors, terminal font size,
+  and the launch profile used by new ConPTY sessions. Users can explicitly
+  save and restore bounded tab/split layouts and choose startup restoration;
+  state is atomically persisted with version and checksum validation under
+  `%LOCALAPPDATA%\NOCTTY`. Restoring starts replacement shells and deliberately
+  does not claim to preserve shell contents.
+
+- Added Konsole-style per-pane scrollbars to the native terminal surface. Each
+  visible pane now renders its own bounded scrollback thumb; wheel scrolling,
+  track clicks, and thumb dragging navigate the Zig-owned viewport without
+  taking keyboard focus from another pane.
+
+- Added telemetry-free automatic multi-OMP dogfood extraction. Installed
+  launchers pin the local `omp/X.Y.Z` version and a private log path; the native
+  host recognizes foreground `omp` processes and records bounded local events
+  for hashed worktrees/workspaces, concurrency, concurrent output, isolated
+  input/paste/focus, resize, hide/show, protected close paths, normal exit,
+  restored-layout relaunch, and PTY delivery. The launcher appends a fail-closed
+  clean-log result after exit. `dogfood_status.sh` correlates only matching
+  restored workspace identities, requires every event and clean contributing
+  log, and cannot qualify independently keyed complementary partial runs.
+
+- Hardened installed-host dogfood evidence. Every `noctty` and `nocted`
+  launcher writes a private atomic running receipt before process start, then
+  replaces it with host/boot identity, wall and monotonic timestamps, elapsed
+  seconds, backend/session context, log path, and zero or nonzero exit status.
+  Abruptly killed launchers leave an explicitly incomplete receipt rather than
+  inventing elapsed acceptance. The runtime counter imports both version-1
+  receipts and retained legacy logs, reports NOCTTY and NoctEd hours separately
+  to avoid overlapping-time inflation, and identifies two-hour runtime
+  candidates. `dogfood_status.sh` now counts only unique two-hour NOCTTY
+  receipts linked from real-work log entries; missing, duplicate, incomplete,
+  short, or runtime-only evidence stays uncounted. On this host the retained
+  legacy logs contain 8.777 NOCTTY process-hours and 3.056 NoctEd process-hours;
+  one 4.466-hour NOCTTY candidate remains uncounted because its work context was
+  not recorded and it ended with a retained file-descriptor/display failure.
+
 - Added explicit paired session sharing between Linux and Windows NOCTTY hosts.
   Devices establish and pin X25519 identities through a Noise XX
   ChaCha20-Poly1305/BLAKE2s handshake, require the same six-digit confirmation
   on both sides, and then exchange bounded, versioned, authenticated terminal
-  presentation frames over direct TCP. Linux active-tab shares dynamically
-  multiplex panes into independently sequenced remote grids as panes open,
-  close, or move; receivers choose the pane they view, and Windows receivers
-  can cycle the current Linux pane set with `Ctrl+Shift+Tab`. Both sides require
-  matching workspace, dynamic-pane, resynchronization, keepalive, and
-  per-pane-control capabilities before accepting presentation state. Sequence
-  gaps trigger a fresh bounded structured checkpoint, idle host links require
-  authenticated keepalive replies, and explicit stop paths send a bounded
-  disconnect reason. The active shells remain on the host; receivers start
-  view-only, remote input requires a separate host grant for the selected pane
-  and current connection, and pane closure, resynchronization, revoke,
-  disconnect, or reconnect ends that grant. Device revocation closes matching
-  live links. Linux provides
-  a native Session Sharing dialog, opt-in LAN listener discovery, a
-  revision-aware shared-pane selector, and remote grid preview; the experimental
-  Windows host provides DPAPI-protected identity storage, command-line LAN
-  discovery and pair/share/receive modes, dynamic shared-pane cycling, and
-  rendering through its existing GDI surface. Manual hostname, IPv4/IPv6, LAN,
-  tailnet, and routed-VPN endpoints remain supported without a relay, account
-  service, NAT traversal, subnet scan, telemetry, or background discovery.
+  presentation frames over direct TCP. Linux hosts can pin a share to one pane,
+  follow one tab, or follow the entire workspace. Tab order, active state,
+  titles, pane membership, and pane lifecycle synchronize without reconnecting;
+  independently sequenced remote grids preserve unaffected panes during
+  resynchronization. Linux receivers expose shared-tab and shared-pane
+  selectors. Windows receivers identify the share scope and selected hierarchy
+  in the native title, use `Ctrl+Tab` to cycle shared tabs, and use
+  `Ctrl+Shift+Tab` to cycle panes inside the selected tab. Both sides require
+  matching workspace, dynamic-pane, tab-hierarchy, share-scope,
+  resynchronization, keepalive, and per-pane-control capabilities before
+  accepting presentation state. Sequence gaps trigger a fresh bounded
+  structured checkpoint, idle host links require authenticated keepalive
+  replies, and explicit stop paths send a bounded disconnect reason. The
+  active shells remain on the host; receivers start view-only, remote input
+  requires a separate host grant for the selected pane and current connection,
+  and pane closure, pane selection, resynchronization, revoke, disconnect, or
+  reconnect ends that grant. Receivers retain and navigate the latest 64
+  scrollback rows per pane, accept explicit bracketed clipboard paste and
+  comprehensive terminal special-key routing, and preserve a scrolled view as
+  new history arrives. A reconnect action repeats paired-key authentication,
+  rebuilds the bounded workspace checkpoint, and always returns to view-only.
+  Device revocation closes matching live links.
+  Linux provides a native Session Sharing dialog, opt-in LAN listener
+  discovery, scope controls, revision-aware hierarchy selectors, and a Cairo
+  receiver that reconstructs every pane in the selected tab from the host
+  split tree and ratios; the experimental Windows host provides DPAPI-protected
+  identity storage, command-line LAN discovery and pair/share/receive modes,
+  hierarchy cycling, split-layout reconstruction, direct pane selection, and
+  rendering through its existing GDI surface.
+  Manual hostname, IPv4/IPv6, LAN, tailnet, and routed-VPN endpoints remain
+  supported without a relay, account service, NAT traversal, subnet scan,
+  telemetry, or background discovery.
   Focused protocol/security/loopback tests pass; the Windows host cross-build
   passes, while physical cross-machine Windows/Linux and VPN qualification
   remain open.
 
-- Added the first experimental native Windows terminal tranche: an x86_64 Win32/GDI GUI, ConPTY shell transport, shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true-color rendering, scrollback, visible-surface copy, clipboard paste, bounded local lifecycle/error logs, and local crash minidumps with no upload path. Windows builds no longer require GTK target libraries; `scripts/package_windows.sh` emits a checksummed `ReleaseFast` ZIP and manifest. The cross-build passes Debug/`ReleaseSafe`/`ReleaseFast` compilation and a Wine-hosted no-window VT fixture; physical Windows behavior, tabs/splits, settings/restore, selection/mouse reporting, NoctEd, ARM64, signing, and installer packaging remain open.
+- Added bounded local tabs and recursive splits to the experimental Windows
+  host. Up to 16 tabs and 32 panes own independent ConPTY processes, output
+  rings, Zig VT grids, replies, resize state, lifecycle, and clean teardown.
+  `Ctrl+Shift+T` opens a tab, `Ctrl+Shift+S` splits down, `Ctrl+Shift+L` splits
+  left, `Ctrl+Tab` cycles panes, `Ctrl+Shift+Tab` cycles tabs, `Ctrl+D` closes a
+  pane, and `Ctrl+Shift+W` closes a tab while protecting the final session.
+  Clicking a pane focuses its exact session; the native title reports current
+  tab/pane counts. A pane share remains pinned to the ConPTY selected when
+  sharing starts, so an existing remote-control grant cannot migrate when local
+  focus changes. Debug and `ReleaseSafe` Windows cross-builds pass, and the
+  Wine-hosted no-window test now covers VT plus nested workspace layout,
+  cycling, collapse, and close protection. Physical Windows ConPTY/GDI/input
+  qualification remains open.
+- Added the first experimental native Windows terminal tranche: an x86_64 Win32/GDI GUI, ConPTY shell transport, shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true-color rendering, scrollback, visible-surface copy, clipboard paste, bounded local lifecycle/error logs, and local crash minidumps with no upload path. Windows builds no longer require GTK target libraries; `scripts/package_windows.sh` emits a checksummed `ReleaseFast` ZIP and manifest. The cross-build passes Debug/`ReleaseSafe`/`ReleaseFast` compilation and a Wine-hosted no-window VT fixture; physical Windows behavior, settings/restore, selection/mouse reporting, NoctEd, ARM64, signing, and installer packaging remain open.
 - Added lightweight NoctEd word wrap: `Alt+Z` toggles word wrapping across open documents, the View menu exposes the same checkable setting, and the choice persists in the GUI-owned settings file.
 - Reduced native NOCTTY and NoctEd tab/action chrome height again: controls now target 18 logical pixels while preserving 28-pixel horizontal hit widths; tab labels retain 90% typography and compact padding.
 - Hardened the native Cairo row-buffer path against an undersized callback buffer. The renderer now falls back to per-cell reads instead of indexing past the owned row storage.
@@ -83,7 +161,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Removed the remaining PTY C shim. `Pty.zig` now owns validated fixed-argv fork/exec for shell, command, SSH, tmux, and Zellij profiles; environment setup; nonblocking descriptor I/O; resize; exit polling; foreground metadata; bounded process-group teardown; and `/proc` resource sampling. App and selected-pane resources share one process-tree traversal and one machine sample; a focused 2,000-iteration ReleaseSafe microcheck improved from a 0.062 s median to 0.040 s median (35.5%) on this host. Debug/`ReleaseSafe` PTY lifecycle, forced-group shutdown, exact tmux/Zellij argv, compact pane-resource, and resource-churn gates remain green.
 - Moved the active-pane/resource information strip below the notebook so a bottom-positioned tab row remains immediately above it. The compact native smoke now verifies notebook-first/strip-last root ordering, while dropdown mode reduces the full-width resize grip from 12 to 4 pixels.
 - Added live CPU and resident-memory usage to the active-pane information bar. `App` samples the complete NOCTTY process tree; `Pane` samples the selected terminal shell tree. Both reuse the existing one-second root maintenance cadence, rapid refreshes reuse the cached sample, `/proc` traversal is fixed-capacity, formatting remains caller-buffered, and hover shows process counts and detailed MiB/CPU values. Focused unit/build and native compact-UX proof cover resource parsing, deltas, labels/tooltips, and setter dedupe. The compact smoke's stale hard-coded 11 pt expectation was also corrected to follow the configured default font. A repeatedly observed cold/contention launch-profile test timeout now uses the same bounded 20-second exit budget already used by heavier qualification paths. A focused five-process-tree microcheck measured 200 sampler calls at a host-local 39.8 µs average. The dogfood installer now atomically replaces binaries so an already-running NOCTTY does not block installation; the running process still requires a normal restart to load the new inode.
-- Added and exercised `./scripts/install_dogfood.sh`. It installs unstripped `ReleaseFast` `noctty`/`nocted` binaries by default under `~/.local/libexec/noctty-dogfood`, logging launchers under `~/.local/bin`, and absolute installed desktop-entry commands. Each invocation retains local arguments, session/backend, stdout/stderr, GTK/GLib debug output, exit status, and best-effort core dumps in the newest 20 logs per app; no logs are uploaded. **Open NoctEd Here** resolves the sibling logging launcher, so child editor runs receive a separate log.
+- Added and exercised `./scripts/install_dogfood.sh`. It installs unstripped `ReleaseFast` `noctty`/`nocted` binaries by default under `~/.local/libexec/noctty-dogfood`, logging launchers under `~/.local/bin`, and absolute installed desktop-entry commands. Each invocation retains local arguments, session/backend, stdout/stderr, GTK/GLib debug output, exit status, best-effort core dumps, and an atomic duration receipt; the bounded stores keep 100 verbose logs and 500 compact receipts per app, and no evidence is uploaded. **Open NoctEd Here** resolves the sibling logging launcher, so the editor receives independent evidence.
 - Refreshed `docs/PUBLIC_ALPHA_CODE_REVIEW.md` to match the current public-alpha state: screenshots, code map, clean source-copy fast gate, bounded source-alpha gate, issue templates, release notes, and local Git baseline are now closed; counted dogfood remains the honest blocker.
 - Added `docs/PUBLIC_ALPHA_GO_NO_GO.md`, a final decision sheet that keeps the project no-go for public alpha announcement while counted dogfood remains zero, while documenting the narrower acceptable source-alpha path once dogfood starts.
 - Refreshed the bounded source-alpha proof: `./scripts/public_alpha_verify.sh` passes with build/check, no-surprise network, docs truth, native-grid X11/Wayland smoke, and NoctEd native smoke true; `./scripts/dogfood_status.sh` still reports zero counted sessions, so dogfood remains the honest blocker.

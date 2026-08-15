@@ -6,9 +6,9 @@ This is the short project memory. Detailed evidence lives in `docs/TECHNICAL_STA
 
 NOCTTY is a native Linux-first terminal workspace with a small companion
 editor, NoctEd, for terminal-heavy development on KDE Plasma, Wayland, and X11.
-An experimental single-window Win32/ConPTY terminal reuses the Zig VT but is not
-Windows workspace parity. NOCTTY is not a VS Code, Zed, Sublime, Ghostty, or
-Yakuake replacement.
+An experimental Win32/ConPTY terminal workspace reuses the Zig VT and now owns
+bounded tabs and recursive splits, but it is not Windows feature parity. NOCTTY
+is not a VS Code, Zed, Sublime, Ghostty, or Yakuake replacement.
 
 ## Non-negotiables
 
@@ -21,7 +21,8 @@ Yakuake replacement.
 ## Current state
 
 - Public-readiness docs, source baseline, package contracts, no-surprise-network checks, and dogfood installation are present.
-- The experimental x86_64 Windows host now cross-compiles without GTK, uses Win32/GDI plus ConPTY and the shared Zig VT, retains local logs/minidumps without upload, passes a Wine-hosted no-window VT self-test, and emits a checksummed `ReleaseFast` ZIP. Physical Windows behavior and feature parity remain open.
+- Installed dogfood launchers now retain private atomic running/finished duration receipts with host/boot identity, monotonic elapsed seconds, exit status, backend, and log linkage. `dogfood_status.sh` accepts only unique two-hour NOCTTY receipts attached to real-work entries. Retained legacy logs on this host currently prove 8.777 NOCTTY process-hours and 3.056 NoctEd process-hours, but zero quota-counted sessions; one 4.466-hour NOCTTY runtime remains uncounted without work context.
+- The experimental x86_64 Windows host now cross-compiles without GTK, uses Win32/GDI plus independent ConPTY/Zig-VT sessions behind bounded native tabs and recursive splits, retains local logs/minidumps without upload, passes a Wine-hosted no-window VT/workspace self-test, and emits a checksummed `ReleaseFast` ZIP. Physical Windows behavior and broader feature parity remain open.
 - Native Linux terminal VT, PTY, grid, renderer, history, session lifecycle, continuity, settings, tab/chrome, NoctEd, and package gates are implemented for the current 0.1.0 slice.
 - Settings navigation now has ATK names, 48-logical-pixel focusable category rows, destination-specific tooltips, theme-aware selected/focus contrast, a Window keyboard entry point, and narrow-work-area scrolling. Native settings, HiDPI/theme, compact UX, and X11 stacking receipts include `category_navigation=true`.
 - NoctEd file-tab close controls retain 28-logical-pixel targets; transient icon controls retain 28-logical-pixel targets; project, tab, close, and result navigation has visible focus; and search surfaces expose descriptive placeholders. The sustained native endurance matrix repeats 32 complete workflows in Debug/`ReleaseSafe` on live Wayland/X11, retaining 4,096 combined search/resource/monitor/lifecycle phase cycles, 3,072 deterministic ranking evaluations, rendered widget captures, process-tree memory, and clean teardown.
@@ -49,7 +50,10 @@ These are evidence/operator boundaries, not reasons to invent local claims.
 
 ## Immediate priorities
 
-1. Record counted daily-driver dogfood sessions in `docs/DOGFOOD_LOG.md`.
+1. Complete one current-version four-session OMP preflight, then record counted
+   daily-driver dogfood sessions in `docs/DOGFOOD_LOG.md`;
+   `dogfood_status.sh` qualifies only one automatically correlated, complete
+   workspace trace and never accepts manual step claims.
 2. Run the checksummed Windows alpha on physical Windows 10/11 and retain launch, input, resize, shell-exit, log, and crash-dump receipts before expanding claims.
 3. Fix only P0/P1 dogfood blockers.
 4. Run `./scripts/native_grid_stability_qualification.sh --run` when 48 hours of uninterrupted compositor access are available.

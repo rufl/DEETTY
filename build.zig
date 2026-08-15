@@ -642,6 +642,7 @@ fn addShareSources(b: *std.Build, module: *std.Build.Module) void {
             "-Wsign-conversion",
             "-Wshadow",
             "-Wformat",
+            "-Wno-macro-redefined",
             "-Werror",
         },
     });
@@ -662,6 +663,7 @@ fn addNativeGridSources(
             "-Wsign-conversion",
             "-Wshadow",
             "-Wformat=2",
+            "-Wno-macro-redefined",
             "-Werror",
         }
     else
@@ -674,6 +676,7 @@ fn addNativeGridSources(
             "-Wsign-conversion",
             "-Wshadow",
             "-Wformat=2",
+            "-Wno-macro-redefined",
             // Smoke helpers remain compiled but unreachable in production.
             "-Wno-unused-function",
             "-Werror",

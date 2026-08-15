@@ -3,10 +3,12 @@ status=packaged
 target=x86_64-windows-gnu
 optimization=ReleaseFast
 compiler=zig 0.16.0
-source_commit=32396cc4e687
-attempted_command=PATH=/usr/bin:/bin:/usr/sbin:/sbin ./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
+source_commit=2614d2e8f1d5
+working_tree_dirty=true
+tracked_diff_sha256=a5401c43f84aec609cd4eec60be9d2c0bf1001cccc08245d06aebbf2233ce16b
+attempted_command=PATH=/usr/bin:/bin ./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
 
-The experimental native Windows package was produced by scripts/package_windows.sh from the Win32/GDI host, ConPTY transport, and shared Zig VT/parser. The retained archive sidecar remains a cross-build/package receipt; physical Windows validation, signing, installer packaging, ARM64, tabs/splits, settings/restore, and NoctEd remain outside this artifact.
+The experimental native Windows package was produced by scripts/package_windows.sh from the Win32/GDI host, ConPTY transport, shared Zig VT/parser, and multi-pane split-layout receiver with bounded remote history, control handoff, and authenticated reconnect protocol support. The retained archive sidecar remains a cross-build/package receipt; physical Windows validation, signing, installer packaging, ARM64, local Windows tabs/splits, settings/restore, and NoctEd remain outside this artifact.
 
 telemetry=false
 network_uploads=false

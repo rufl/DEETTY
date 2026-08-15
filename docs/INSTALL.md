@@ -41,8 +41,8 @@ The optional split-terminal comparison is not a runtime dependency. It requires 
 
 ## Dogfood Install
 
-For unstripped `ReleaseFast` binaries with per-launch stdout/stderr, GTK/GLib
-messages, exit-status, and crash-log capture:
+For unstripped `ReleaseFast` binaries with private per-launch stdout/stderr,
+GTK/GLib messages, exit status, crash-log capture, and atomic duration receipts:
 
 ```sh
 ./scripts/install_dogfood.sh
@@ -51,8 +51,10 @@ messages, exit-status, and crash-log capture:
 This installs logging launchers as `~/.local/bin/noctty` and
 `~/.local/bin/nocted`, keeps the staged binaries under
 `~/.local/libexec/noctty-dogfood/`, stages the pinned GTK Layer Shell runtime
-needed for undecorated Wayland dropdowns, updates the installed desktop entries,
-and retains the newest 20 logs per app under `~/.local/state/noctty/logs/`. Set
+needed for undecorated Wayland dropdowns, and updates the installed desktop
+entries. It retains the newest 100 verbose logs per app under
+`~/.local/state/noctty/logs/` and 500 compact `0600` duration receipts per app
+under `~/.local/state/noctty/dogfood-sessions/`. Set
 `NOCTTY_DOGFOOD_OPTIMIZE=Debug` for a debugging build. See
 [DOGFOOD_LOGGING.md](DOGFOOD_LOGGING.md).
 

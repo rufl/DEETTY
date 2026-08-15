@@ -133,6 +133,12 @@ pub const OwnedFrame = struct {
         allocator.free(self.bytes);
     }
 };
+pub const HistoryDelta = union(enum) {
+    unchanged,
+    append_from: usize,
+    reset,
+};
+
 
 pub const Publisher = struct {
     stream_id: u32,
@@ -148,6 +154,8 @@ pub const Publisher = struct {
     },
     title_initialized: bool = false,
     last_title_digest: [32]u8 = [_]u8{0} ** 32,
+    history_initialized: bool = false,
+    history_tail: ?Vt.HistoryIdentity = null,
 
     pub fn init(stream_id: u32) !Publisher {
         if (stream_id == 0) return error.InvalidShareStream;
@@ -159,6 +167,8 @@ pub const Publisher = struct {
         self.damage_generation = 0;
         self.cursor_initialized = false;
         self.title_initialized = false;
+        self.history_initialized = false;
+        self.history_tail = null;
     }
 
     pub fn snapshotBegin(self: *Publisher, grid: *const Vt.Grid, scrollback_rows: u32) !struct { frame: Protocol.Frame, payload: [snapshot_begin_length]u8 } {
@@ -199,6 +209,37 @@ pub const Publisher = struct {
             .bytes = bytes,
         };
     }
+    pub fn historyRowFrameAlloc(
+        self: *Publisher,
+        allocator: std.mem.Allocator,
+        grid: *const Vt.Grid,
+        source_row: usize,
+        wire_row: usize,
+        message_type: Protocol.MessageType,
+    ) !OwnedFrame {
+        if (message_type != .history_row and message_type != .history_push)
+            return error.InvalidPresentationMessage;
+        const bytes = try encodeHistoryRowAlloc(
+            allocator,
+            grid,
+            source_row,
+            wire_row,
+        );
+        errdefer allocator.free(bytes);
+        return .{
+            .frame = .{
+                .header = .{
+                    .message_type = message_type,
+                    .stream_id = self.stream_id,
+                    .sequence = try self.sequence.sending(),
+                    .payload_length = @intCast(bytes.len),
+                },
+                .payload = bytes,
+            },
+            .bytes = bytes,
+        };
+    }
+
 
     pub fn snapshotEnd(self: *Publisher) !Protocol.Frame {
         return .{
@@ -268,6 +309,34 @@ pub const Publisher = struct {
 
     pub fn checkpointComplete(self: *Publisher, grid: *const Vt.Grid) void {
         self.damage_generation = grid.damage_generation;
+        self.historyComplete(grid);
+    }
+    pub fn historyDelta(self: *const Publisher, grid: *const Vt.Grid) HistoryDelta {
+        const total = grid.historyCount();
+        const retained = @min(total, @as(usize, Protocol.max_scrollback_rows));
+        const first = total - retained;
+        if (!self.history_initialized) return .reset;
+        if (total == 0)
+            return if (self.history_tail == null) .unchanged else .reset;
+        if (self.history_tail == null) return .{ .append_from = first };
+        for (first..total) |row| {
+            const meta = grid.historyRowIdentity(row) orelse return .reset;
+            if (!std.meta.eql(meta, self.history_tail.?)) continue;
+            return if (row + 1 == total)
+                .unchanged
+            else
+                .{ .append_from = row + 1 };
+        }
+        return .reset;
+    }
+
+    pub fn historyComplete(self: *Publisher, grid: *const Vt.Grid) void {
+        const total = grid.historyCount();
+        self.history_tail = if (total == 0)
+            null
+        else
+            grid.historyRowIdentity(total - 1);
+        self.history_initialized = true;
     }
 };
 
@@ -304,6 +373,70 @@ pub fn encodeGridRowAlloc(allocator: std.mem.Allocator, grid: *const Vt.Grid, ro
         std.mem.writeInt(u32, header[4..8], grid.colorRgb(cell.foreground), .big);
         std.mem.writeInt(u32, header[8..12], grid.colorRgb(cell.background), .big);
         if (bytes.items.len + header.len + text_length > Protocol.max_payload_bytes)
+            return error.PresentationRowTooLarge;
+        try bytes.appendSlice(&header);
+        try bytes.appendSlice(text[0..text_length]);
+    }
+    return bytes.toOwnedSlice();
+}
+pub fn encodeHistoryRowAlloc(
+    allocator: std.mem.Allocator,
+    grid: *const Vt.Grid,
+    source_row: usize,
+    wire_row: usize,
+) ![]u8 {
+    if (source_row >= grid.historyCount() or
+        wire_row >= Protocol.max_scrollback_rows or
+        grid.columns > Protocol.max_columns)
+        return error.InvalidPresentationRow;
+    var bytes = std.array_list.Managed(u8).init(allocator);
+    errdefer bytes.deinit();
+    try bytes.ensureTotalCapacity(
+        row_header_length + grid.columns * (cell_header_length + 1),
+    );
+    var row_header: [row_header_length]u8 = undefined;
+    std.mem.writeInt(u16, row_header[0..2], @intCast(wire_row), .big);
+    std.mem.writeInt(u16, row_header[2..4], 0, .big);
+    std.mem.writeInt(u16, row_header[4..6], @intCast(grid.columns), .big);
+    try bytes.appendSlice(&row_header);
+    for (0..grid.columns) |column| {
+        const cell = grid.historyCell(column, source_row);
+        var text: [max_grapheme_bytes]u8 = undefined;
+        const text_length = grid.historyCellText(
+            column,
+            source_row,
+            &text,
+        );
+        if (text_length > max_grapheme_bytes)
+            return error.PresentationGraphemeTooLarge;
+        const flags = CellFlags{
+            .bold = cell.flags.bold,
+            .inverse = cell.flags.inverse,
+            .italic = cell.flags.italic,
+            .underline = cell.flags.underline,
+            .strikethrough = cell.flags.strikethrough,
+            .dim = cell.flags.dim,
+            .continuation = cell.flags.continuation,
+            .width = cell.flags.width,
+        };
+        var header: [cell_header_length]u8 = undefined;
+        header[0] = @intCast(text_length);
+        header[1] = 0;
+        std.mem.writeInt(u16, header[2..4], @bitCast(flags), .big);
+        std.mem.writeInt(
+            u32,
+            header[4..8],
+            grid.colorRgb(cell.foreground),
+            .big,
+        );
+        std.mem.writeInt(
+            u32,
+            header[8..12],
+            grid.colorRgb(cell.background),
+            .big,
+        );
+        if (bytes.items.len + header.len + text_length >
+            Protocol.max_payload_bytes)
             return error.PresentationRowTooLarge;
         try bytes.appendSlice(&header);
         try bytes.appendSlice(text[0..text_length]);

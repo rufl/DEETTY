@@ -29,41 +29,8 @@ install -m 0644 "$layer_shell" "$runtime_dir/lib/libgtk-layer-shell.so.0.new"
 mv -f "$runtime_dir/lib/libgtk-layer-shell.so.0.new" \
   "$runtime_dir/lib/libgtk-layer-shell.so.0"
 
-cat >"$runtime_dir/launch" <<'EOF'
-#!/bin/sh
-app=$(basename "$0")
-case "$app" in
-  noctty|nocted) ;;
-  *) echo "unknown NOCTTY dogfood launcher: $app" >&2; exit 64 ;;
-esac
-
-state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
-log_dir="$state_home/noctty/logs"
-mkdir -p "$log_dir"
-log="$log_dir/$app-$(date +%Y%m%d-%H%M%S)-$$.log"
-
-# Keep logging useful without allowing unattended dogfood logs to grow forever.
-ls -1t "$log_dir/$app"-*.log 2>/dev/null | awk 'NR > 20' | xargs -r rm -f
-
-export G_MESSAGES_DEBUG=all
-ulimit -c unlimited 2>/dev/null || true
-{
-  printf 'dogfood_launch app=%s timestamp=%s pid=%s session=%s backend=%s args=' \
-    "$app" "$(date --iso-8601=seconds)" "$$" "${XDG_SESSION_TYPE:-unknown}" "${GDK_BACKEND:-auto}"
-  printf ' %s' "$@"
-  printf '\n'
-} >>"$log"
-
-launcher=$(readlink -f "$0")
-runtime_dir=$(dirname "$launcher")
-export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-"$runtime_dir/$app-bin" "$@" >>"$log" 2>&1
-status=$?
-printf 'dogfood_exit app=%s timestamp=%s status=%s log=%s\n' \
-  "$app" "$(date --iso-8601=seconds)" "$status" "$log" >>"$log"
-exit "$status"
-EOF
-chmod +x "$runtime_dir/launch"
+install -m 0755 scripts/dogfood_launch.sh "$runtime_dir/launch.new"
+mv -f "$runtime_dir/launch.new" "$runtime_dir/launch"
 ln -sfn launch "$runtime_dir/nocted"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/noctty"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/nocted"
@@ -80,5 +47,6 @@ command -v gtk-update-icon-cache >/dev/null 2>&1 &&
 
 "$runtime_dir/noctty-bin" --version
 "$runtime_dir/nocted-bin" --version
-printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true layer_shell=true logs=%s/noctty/logs optimize=%s retained_logs_per_app=20\n' \
-  "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}" "$optimize"
+printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true layer_shell=true logs=%s/noctty/logs receipts=%s/noctty/dogfood-sessions optimize=%s retained_logs_per_app=100 retained_receipts_per_app=500\n' \
+  "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}" \
+  "${XDG_STATE_HOME:-$HOME/.local/state}" "$optimize"

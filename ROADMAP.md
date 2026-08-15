@@ -154,14 +154,15 @@ Current first tranche:
 - [ ] physical Windows-to-Linux pairing, viewing, control, disconnect, and
   tailnet/VPN qualification
 - [ ] physical Windows 10/11 launch, input, resize, shell-exit, and crash-log proof
-- [ ] tabs and recursive splits
-- [ ] settings, themes, workspace restore, and launch-profile UI
+- [x] bounded tabs and recursive splits with independent ConPTY sessions
+- [x] native settings and themes, checksummed saved-layout restore, startup
+  restore control, and launch-profile selection
 - [ ] selection and mouse-reporting applications
 - [ ] Windows NoctEd
 - [ ] signing and installer packaging
 
-The Windows host remains an experimental single-window terminal until those
-boundaries have receipts. Linux KDE/Wayland/X11 support remains first-class.
+The Windows host remains an experimental native terminal workspace until the
+remaining boundaries have receipts. Linux KDE/Wayland/X11 support remains first-class.
 
 ## WIZP relationship
 
