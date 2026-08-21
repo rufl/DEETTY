@@ -297,6 +297,12 @@ fn buildRelationships(
     arena: []const u8,
     entries: []Entry,
 ) !Relationships {
+    if (entries.len == 0) {
+        return .{
+            .children = try allocator.alloc(u32, 0),
+            .roots = try allocator.alloc(u32, 0),
+        };
+    }
     var by_path = std.StringHashMap(u32).init(allocator);
     defer by_path.deinit();
     try by_path.ensureTotalCapacity(@intCast(entries.len));

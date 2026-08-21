@@ -126,6 +126,8 @@ while [ "$group_index" -lt 8 ]; do
   group_index=$((group_index + 1))
 done
 
+printf 'version=1\nroot=%s\n' "$scratch/project" >"$scratch/project.npr"
+
 if output=$(env \
   XDG_CONFIG_HOME="$scratch/config" \
   NOCTED_DISABLE_SINGLE_INSTANCE=1 \
@@ -142,7 +144,7 @@ if output=$(env \
   NOCTED_SMOKE_SCREENSHOT="$scratch/quick-open.png" \
   "$binary" \
   --smoke \
-  --project "$scratch/project" \
+  --project "$scratch/project.npr" \
   --open "$scratch/project/src/sample.zig" 2>&1); then
   :
 else
@@ -158,6 +160,10 @@ printf '%s\n' "$output" | grep -F \
   'ranking_queries=3 ranking_cycles=8 ranking_deterministic=true' >/dev/null
 printf '%s\n' "$output" | grep -F \
   'foreground_lane=true scan_lane=true worker_drained=1' >/dev/null
+printf '%s\n' "$output" | grep -F \
+  'nocted_tree_navigation parent=1 sidebar_toggle=1' >/dev/null
+printf '%s\n' "$output" | grep -F \
+  'nocted_about_dialog close_visible=1 close_response=1' >/dev/null
 for field in \
   'project_activation=1' \
   'project_tree_lazy=1' \
@@ -165,6 +171,7 @@ for field in \
   'external_clean_reload=1' \
   'external_dirty_keep=1' \
   'editor_zoom=1' \
+  'minimap_geometry=1' \
   'multi_selection=1' \
   'multi_selection_undo=1' \
   'multi_selection_rendered=1' \
@@ -216,8 +223,8 @@ if [ "$resource_mode" = 1 ]; then
 fi
 test "$(cat "$scratch/project/src/created.zig")" = 'const smoke_created = true;'
 if [ "$lifecycle_mode" = 0 ]; then
-  grep -F 'project=' "$scratch/config/nocted/session.conf" >/dev/null
-  grep -F "recent=$scratch/project" "$scratch/config/nocted/session.conf" >/dev/null
+  ! grep -F 'project=' "$scratch/config/nocted/session.conf" >/dev/null
+  grep -F "recent=$scratch/project.npr" "$scratch/config/nocted/session.conf" >/dev/null
 else
   printf '%s\n' "$output" | grep -F \
     'nocted_project_monitor_qualification pass=1 burst_cycles=8 files_per_burst=12' >/dev/null

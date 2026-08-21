@@ -18,6 +18,10 @@
 #include "nocted_host.h"
 
 #define NOCTED_CLASS_NAME L"NoctEdWindowsEditor"
+#define NOCTED_SETTINGS_CLASS L"NoctEdWindowsSettings"
+#define NOCTED_FONT_SIZE_DEFAULT 11
+#define NOCTED_FONT_SIZE_MIN 8
+#define NOCTED_FONT_SIZE_MAX 32
 #define NOCTED_INVALID_INDEX ((size_t)-1)
 #define NOCTED_MAX_TABS 32u
 #define ID_FILE_NEW 41001
@@ -34,27 +38,39 @@
 #define ID_EDIT_PASTE 41105
 #define ID_EDIT_SELECT_ALL 41106
 #define ID_EDIT_FIND 41107
+#define ID_VIEW_ZOOM_IN 41201
+#define ID_VIEW_ZOOM_OUT 41202
+#define ID_VIEW_ZOOM_RESET 41203
+#define ID_SETTINGS_FONT_SIZE 41301
 #define ID_CONTROL_TABS 42001
 #define ID_CONTROL_TREE 42002
 #define ID_CONTROL_EDITOR 42003
 #define ID_CONTROL_STATUS 42004
 #define ID_CONTROL_FIND 42005
 #define ID_CONTROL_FIND_NEXT 42006
+#define ID_SETTINGS_SIZE_EDIT 43001
+#define ID_SETTINGS_SIZE_SPIN 43002
 
 typedef struct {
     HINSTANCE instance;
     HWND window, tabs, tree, editor, status, find_edit, find_button;
-    HFONT font;
+    HWND settings_window, settings_size_edit;
+    HFONT ui_font, editor_font;
     HACCEL accelerators;
     HMODULE rich_edit;
     const NoctedWindowsCallbacks *callbacks;
     int suppress_change, find_visible;
+    int editor_font_size, zoom_wheel_delta;
     UINT dpi;
 } NoctedHost;
 
 static LRESULT CALLBACK nocted_window_proc(HWND, UINT, WPARAM, LPARAM);
 static void nocted_sync(NoctedHost *host);
 static int nocted_save(NoctedHost *host, int force_path);
+static void update_chrome(NoctedHost *host);
+static LRESULT CALLBACK settings_window_proc(HWND, UINT, WPARAM, LPARAM);
+static LRESULT CALLBACK editor_subclass_proc(HWND, UINT, WPARAM, LPARAM,
+                                             UINT_PTR, DWORD_PTR);
 
 static wchar_t *utf8_to_wide(const uint8_t *bytes, size_t length) {
     int count;
@@ -176,18 +192,216 @@ static UINT window_dpi(HWND window) {
 
 static void update_font(NoctedHost *host) {
     LOGFONTW description;
-    if (host->font != NULL) DeleteObject(host->font);
+    HFONT next_ui, next_editor;
     ZeroMemory(&description, sizeof(description));
     description.lfHeight = -MulDiv(11, (int)host->dpi, 72);
     wcscpy(description.lfFaceName, L"Consolas");
-    host->font = CreateFontIndirectW(&description);
-    if (host->font == NULL) return;
-    SendMessageW(host->editor, WM_SETFONT, (WPARAM)host->font, TRUE);
-    SendMessageW(host->tabs, WM_SETFONT, (WPARAM)host->font, TRUE);
-    SendMessageW(host->tree, WM_SETFONT, (WPARAM)host->font, TRUE);
-    SendMessageW(host->status, WM_SETFONT, (WPARAM)host->font, TRUE);
-    SendMessageW(host->find_edit, WM_SETFONT, (WPARAM)host->font, TRUE);
-    SendMessageW(host->find_button, WM_SETFONT, (WPARAM)host->font, TRUE);
+    next_ui = CreateFontIndirectW(&description);
+    description.lfHeight =
+        -MulDiv(host->editor_font_size, (int)host->dpi, 72);
+    next_editor = CreateFontIndirectW(&description);
+    if (next_ui == NULL || next_editor == NULL) {
+        if (next_ui != NULL) DeleteObject(next_ui);
+        if (next_editor != NULL) DeleteObject(next_editor);
+        return;
+    }
+    SendMessageW(host->editor, WM_SETFONT, (WPARAM)next_editor, TRUE);
+    SendMessageW(host->tabs, WM_SETFONT, (WPARAM)next_ui, TRUE);
+    SendMessageW(host->tree, WM_SETFONT, (WPARAM)next_ui, TRUE);
+    SendMessageW(host->status, WM_SETFONT, (WPARAM)next_ui, TRUE);
+    SendMessageW(host->find_edit, WM_SETFONT, (WPARAM)next_ui, TRUE);
+    SendMessageW(host->find_button, WM_SETFONT, (WPARAM)next_ui, TRUE);
+    if (host->settings_window != NULL) {
+        HWND child = GetWindow(host->settings_window, GW_CHILD);
+        while (child != NULL) {
+            SendMessageW(child, WM_SETFONT, (WPARAM)next_ui, TRUE);
+            child = GetWindow(child, GW_HWNDNEXT);
+        }
+    }
+    if (host->ui_font != NULL) DeleteObject(host->ui_font);
+    if (host->editor_font != NULL) DeleteObject(host->editor_font);
+    host->ui_font = next_ui;
+    host->editor_font = next_editor;
+}
+
+static int apply_editor_font_size(NoctedHost *host, int value) {
+    if (value < NOCTED_FONT_SIZE_MIN || value > NOCTED_FONT_SIZE_MAX)
+        return 0;
+    if (value == host->editor_font_size) return 1;
+    if (host->callbacks->set_editor_font_size(
+            host->callbacks->userdata, value) <= 0) {
+        show_error(host, L"The editor font size could not be saved.");
+        return 0;
+    }
+    host->editor_font_size = value;
+    update_font(host);
+    update_chrome(host);
+    return 1;
+}
+
+static void open_settings(NoctedHost *host) {
+    RECT owner, settings;
+    int width, height, x, y;
+    if (host->settings_window != NULL &&
+        IsWindow(host->settings_window)) {
+        ShowWindow(host->settings_window, SW_SHOWNORMAL);
+        SetForegroundWindow(host->settings_window);
+        SetFocus(host->settings_size_edit);
+        return;
+    }
+    width = MulDiv(360, (int)host->dpi, 96);
+    height = MulDiv(180, (int)host->dpi, 96);
+    host->settings_window = CreateWindowExW(
+        WS_EX_DLGMODALFRAME | WS_EX_CONTROLPARENT,
+        NOCTED_SETTINGS_CLASS, L"NoctEd Settings",
+        WS_POPUP | WS_CAPTION | WS_SYSMENU,
+        CW_USEDEFAULT, CW_USEDEFAULT, width, height,
+        host->window, NULL, host->instance, host);
+    if (host->settings_window == NULL) {
+        MessageBoxW(host->window, L"The Settings window could not be opened.",
+                    L"NoctEd", MB_OK | MB_ICONERROR);
+        return;
+    }
+    GetWindowRect(host->window, &owner);
+    GetWindowRect(host->settings_window, &settings);
+    x = owner.left + ((owner.right - owner.left) -
+                     (settings.right - settings.left)) / 2;
+    y = owner.top + ((owner.bottom - owner.top) -
+                    (settings.bottom - settings.top)) / 2;
+    SetWindowPos(host->settings_window, HWND_TOP, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetFocus(host->settings_size_edit);
+    SendMessageW(host->settings_size_edit, EM_SETSEL, 0, -1);
+}
+
+static LRESULT CALLBACK settings_window_proc(
+    HWND window, UINT message, WPARAM word, LPARAM long_value) {
+    NoctedHost *host =
+        (NoctedHost *)GetWindowLongPtrW(window, GWLP_USERDATA);
+    if (message == WM_NCCREATE) {
+        CREATESTRUCTW *create = (CREATESTRUCTW *)long_value;
+        host = (NoctedHost *)create->lpCreateParams;
+        SetWindowLongPtrW(window, GWLP_USERDATA, (LONG_PTR)host);
+    }
+    if (host == NULL) return DefWindowProcW(window, message, word, long_value);
+    switch (message) {
+        case WM_CREATE: {
+            HWND label, spin, ok, cancel;
+            int left = MulDiv(20, (int)host->dpi, 96);
+            int top = MulDiv(22, (int)host->dpi, 96);
+            int row_height = MulDiv(26, (int)host->dpi, 96);
+            label = CreateWindowExW(
+                0, L"STATIC", L"Editor font size (8–32 pt):",
+                WS_CHILD | WS_VISIBLE | SS_LEFT,
+                left, top, MulDiv(205, (int)host->dpi, 96), row_height,
+                window, NULL, host->instance, NULL);
+            host->settings_size_edit = CreateWindowExW(
+                WS_EX_CLIENTEDGE, L"EDIT", L"",
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_NUMBER |
+                    ES_AUTOHSCROLL,
+                MulDiv(235, (int)host->dpi, 96), top,
+                MulDiv(70, (int)host->dpi, 96), row_height,
+                window, (HMENU)(INT_PTR)ID_SETTINGS_SIZE_EDIT,
+                host->instance, NULL);
+            spin = CreateWindowExW(
+                0, UPDOWN_CLASSW, L"",
+                WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT |
+                    UDS_SETBUDDYINT | UDS_ARROWKEYS,
+                0, 0, 0, 0, window,
+                (HMENU)(INT_PTR)ID_SETTINGS_SIZE_SPIN,
+                host->instance, NULL);
+            ok = CreateWindowExW(
+                0, L"BUTTON", L"OK",
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
+                MulDiv(170, (int)host->dpi, 96),
+                MulDiv(82, (int)host->dpi, 96),
+                MulDiv(76, (int)host->dpi, 96),
+                MulDiv(28, (int)host->dpi, 96),
+                window, (HMENU)(INT_PTR)IDOK, host->instance, NULL);
+            cancel = CreateWindowExW(
+                0, L"BUTTON", L"Cancel",
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+                MulDiv(252, (int)host->dpi, 96),
+                MulDiv(82, (int)host->dpi, 96),
+                MulDiv(76, (int)host->dpi, 96),
+                MulDiv(28, (int)host->dpi, 96),
+                window, (HMENU)(INT_PTR)IDCANCEL, host->instance, NULL);
+            if (label == NULL || host->settings_size_edit == NULL ||
+                spin == NULL || ok == NULL || cancel == NULL)
+                return -1;
+            SendMessageW(spin, UDM_SETBUDDY,
+                         (WPARAM)host->settings_size_edit, 0);
+            SendMessageW(spin, UDM_SETRANGE32,
+                         NOCTED_FONT_SIZE_MIN, NOCTED_FONT_SIZE_MAX);
+            SendMessageW(spin, UDM_SETPOS32, 0, host->editor_font_size);
+            SendMessageW(label, WM_SETFONT, (WPARAM)host->ui_font, TRUE);
+            SendMessageW(host->settings_size_edit, WM_SETFONT,
+                         (WPARAM)host->ui_font, TRUE);
+            SendMessageW(ok, WM_SETFONT, (WPARAM)host->ui_font, TRUE);
+            SendMessageW(cancel, WM_SETFONT, (WPARAM)host->ui_font, TRUE);
+            return 0;
+        }
+        case WM_COMMAND:
+            if (LOWORD(word) == IDOK) {
+                BOOL translated = FALSE;
+                UINT unsigned_value = GetDlgItemInt(
+                    window, ID_SETTINGS_SIZE_EDIT, &translated, FALSE);
+                if (!translated || unsigned_value > (UINT)INT_MAX ||
+                    !apply_editor_font_size(host, (int)unsigned_value)) {
+                    if (!translated || unsigned_value > (UINT)INT_MAX ||
+                        unsigned_value < NOCTED_FONT_SIZE_MIN ||
+                        unsigned_value > NOCTED_FONT_SIZE_MAX)
+                        MessageBoxW(
+                            window,
+                            L"Enter an editor font size from 8 to 32 points.",
+                            L"NoctEd Settings", MB_OK | MB_ICONWARNING);
+                    return 0;
+                }
+                DestroyWindow(window);
+                return 0;
+            }
+            if (LOWORD(word) == IDCANCEL) {
+                DestroyWindow(window);
+                return 0;
+            }
+            break;
+        case WM_CLOSE:
+            DestroyWindow(window);
+            return 0;
+        case WM_DESTROY:
+            host->settings_window = NULL;
+            host->settings_size_edit = NULL;
+            if (IsWindow(host->editor)) SetFocus(host->editor);
+            return 0;
+        default:
+            break;
+    }
+    return DefWindowProcW(window, message, word, long_value);
+}
+
+static LRESULT CALLBACK editor_subclass_proc(
+    HWND window, UINT message, WPARAM word, LPARAM long_value,
+    UINT_PTR subclass_id, DWORD_PTR reference) {
+    NoctedHost *host = (NoctedHost *)reference;
+    (void)subclass_id;
+    if (message == WM_MOUSEWHEEL &&
+        (GET_KEYSTATE_WPARAM(word) & MK_CONTROL) != 0) {
+        host->zoom_wheel_delta += GET_WHEEL_DELTA_WPARAM(word);
+        while (host->zoom_wheel_delta >= WHEEL_DELTA) {
+            host->zoom_wheel_delta -= WHEEL_DELTA;
+            if (!apply_editor_font_size(host, host->editor_font_size + 1))
+                break;
+        }
+        while (host->zoom_wheel_delta <= -WHEEL_DELTA) {
+            host->zoom_wheel_delta += WHEEL_DELTA;
+            if (!apply_editor_font_size(host, host->editor_font_size - 1))
+                break;
+        }
+        return 0;
+    }
+    if (message == WM_NCDESTROY)
+        RemoveWindowSubclass(window, editor_subclass_proc, 1u);
+    return DefSubclassProc(window, message, word, long_value);
 }
 
 static void layout(NoctedHost *host) {
@@ -286,14 +500,23 @@ static void sync_project(NoctedHost *host) {
 static void update_chrome(NoctedHost *host) {
     wchar_t *path = callback_text(host, host->callbacks->active_path);
     wchar_t *project = callback_text(host, host->callbacks->project_name);
-    wchar_t title[32768];
+    wchar_t title[32768], status[32768];
     const wchar_t *shown = path != NULL && path[0] != L'\0' ? path : L"Untitled";
-    _snwprintf(title, sizeof(title) / sizeof(title[0]) - 1u, L"%ls - NoctEd", shown);
+    const wchar_t *project_shown =
+        project != NULL && project[0] != L'\0'
+            ? project
+            : L"No project folder open";
+    _snwprintf(title, sizeof(title) / sizeof(title[0]) - 1u,
+               L"%ls - NoctEd", shown);
     title[sizeof(title) / sizeof(title[0]) - 1u] = L'\0';
+    _snwprintf(status, sizeof(status) / sizeof(status[0]) - 1u,
+               L"%ls  |  Editor font: %d pt",
+               project_shown, host->editor_font_size);
+    status[sizeof(status) / sizeof(status[0]) - 1u] = L'\0';
     SetWindowTextW(host->window, title);
-    SetWindowTextW(host->status, project != NULL && project[0] != L'\0'
-                                    ? project : L"No project folder open");
-    free(path); free(project);
+    SetWindowTextW(host->status, status);
+    free(path);
+    free(project);
 }
 
 static void nocted_sync(NoctedHost *host) {
@@ -330,16 +553,16 @@ static int open_file(NoctedHost *host) {
 }
 
 static int open_folder(NoctedHost *host) {
-    BROWSEINFOW browse; PIDLIST_ABSOLUTE item; wchar_t path[32768];
-    uint8_t *utf8; size_t length; int result;
-    ZeroMemory(&browse, sizeof(browse)); browse.hwndOwner = host->window;
-    browse.lpszTitle = L"Open a project folder";
-    browse.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-    item = SHBrowseForFolderW(&browse); if (item == NULL) return 0;
-    if (!SHGetPathFromIDListW(item, path)) { CoTaskMemFree(item); return 0; }
-    CoTaskMemFree(item); utf8 = wide_to_utf8(path, &length); if (utf8 == NULL) return 0;
+    OPENFILENAMEW dialog; wchar_t path[32768]; uint8_t *utf8; size_t length; int result;
+    ZeroMemory(path, sizeof(path)); ZeroMemory(&dialog, sizeof(dialog));
+    dialog.lStructSize = sizeof(dialog); dialog.hwndOwner = host->window;
+    dialog.lpstrFile = path; dialog.nMaxFile = (DWORD)(sizeof(path) / sizeof(path[0]));
+    dialog.lpstrFilter = L"NoctEd projects\0*.npr\0\0";
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_EXPLORER;
+    if (!GetOpenFileNameW(&dialog)) return 0;
+    utf8 = wide_to_utf8(path, &length); if (utf8 == NULL) return 0;
     result = host->callbacks->open_project(host->callbacks->userdata, utf8, length); free(utf8);
-    if (result < 0) { show_error(host, L"The folder could not be opened."); return 0; }
+    if (result < 0) { show_error(host, L"The project could not be opened."); return 0; }
     nocted_sync(host); return 1;
 }
 
@@ -515,11 +738,17 @@ static void parse_launch(NoctedHost *host) {
 }
 
 static int create_menu(NoctedHost *host) {
-    HMENU menu = CreateMenu(), file = CreatePopupMenu(), edit = CreatePopupMenu();
-    if (menu == NULL || file == NULL || edit == NULL) return 0;
+    HMENU menu = CreateMenu();
+    HMENU file = CreatePopupMenu();
+    HMENU edit = CreatePopupMenu();
+    HMENU view = CreatePopupMenu();
+    HMENU settings = CreatePopupMenu();
+    if (menu == NULL || file == NULL || edit == NULL ||
+        view == NULL || settings == NULL)
+        return 0;
     if (!AppendMenuW(file, MF_STRING, ID_FILE_NEW, L"&New\tCtrl+N") ||
         !AppendMenuW(file, MF_STRING, ID_FILE_OPEN, L"&Open...\tCtrl+O") ||
-        !AppendMenuW(file, MF_STRING, ID_FILE_OPEN_FOLDER, L"Open &Folder...") ||
+        !AppendMenuW(file, MF_STRING, ID_FILE_OPEN_FOLDER, L"Open &Project...") ||
         !AppendMenuW(file, MF_SEPARATOR, 0, NULL) ||
         !AppendMenuW(file, MF_STRING, ID_FILE_SAVE, L"&Save\tCtrl+S") ||
         !AppendMenuW(file, MF_STRING, ID_FILE_SAVE_AS, L"Save &As...\tCtrl+Shift+S") ||
@@ -535,19 +764,41 @@ static int create_menu(NoctedHost *host) {
         !AppendMenuW(edit, MF_STRING, ID_EDIT_SELECT_ALL, L"Select &All\tCtrl+A") ||
         !AppendMenuW(edit, MF_SEPARATOR, 0, NULL) ||
         !AppendMenuW(edit, MF_STRING, ID_EDIT_FIND, L"&Find...\tCtrl+F") ||
+        !AppendMenuW(view, MF_STRING, ID_VIEW_ZOOM_IN,
+                     L"Zoom &In\tCtrl++") ||
+        !AppendMenuW(view, MF_STRING, ID_VIEW_ZOOM_OUT,
+                     L"Zoom &Out\tCtrl+-") ||
+        !AppendMenuW(view, MF_STRING, ID_VIEW_ZOOM_RESET,
+                     L"&Reset Zoom\tCtrl+0") ||
+        !AppendMenuW(settings, MF_STRING, ID_SETTINGS_FONT_SIZE,
+                     L"Editor &Font Size...") ||
         !AppendMenuW(menu, MF_POPUP, (UINT_PTR)file, L"&File") ||
-        !AppendMenuW(menu, MF_POPUP, (UINT_PTR)edit, L"&Edit") || !SetMenu(host->window, menu)) {
-        DestroyMenu(menu); return 0;
+        !AppendMenuW(menu, MF_POPUP, (UINT_PTR)edit, L"&Edit") ||
+        !AppendMenuW(menu, MF_POPUP, (UINT_PTR)view, L"&View") ||
+        !AppendMenuW(menu, MF_POPUP, (UINT_PTR)settings, L"&Settings") ||
+        !SetMenu(host->window, menu)) {
+        DestroyMenu(menu);
+        return 0;
     }
     return 1;
 }
 
 static HACCEL create_accelerators(void) {
-    ACCEL entries[] = {{FVIRTKEY | FCONTROL, 'N', ID_FILE_NEW},
-        {FVIRTKEY | FCONTROL, 'O', ID_FILE_OPEN}, {FVIRTKEY | FCONTROL, 'S', ID_FILE_SAVE},
+    ACCEL entries[] = {
+        {FVIRTKEY | FCONTROL, 'N', ID_FILE_NEW},
+        {FVIRTKEY | FCONTROL, 'O', ID_FILE_OPEN},
+        {FVIRTKEY | FCONTROL, 'S', ID_FILE_SAVE},
         {FVIRTKEY | FCONTROL | FSHIFT, 'S', ID_FILE_SAVE_AS},
-        {FVIRTKEY | FCONTROL, 'W', ID_FILE_CLOSE}, {FVIRTKEY | FCONTROL, 'F', ID_EDIT_FIND}};
-    return CreateAcceleratorTableW(entries, (int)(sizeof(entries) / sizeof(entries[0])));
+        {FVIRTKEY | FCONTROL, 'W', ID_FILE_CLOSE},
+        {FVIRTKEY | FCONTROL, 'F', ID_EDIT_FIND},
+        {FVIRTKEY | FCONTROL, VK_OEM_PLUS, ID_VIEW_ZOOM_IN},
+        {FVIRTKEY | FCONTROL, VK_ADD, ID_VIEW_ZOOM_IN},
+        {FVIRTKEY | FCONTROL, VK_OEM_MINUS, ID_VIEW_ZOOM_OUT},
+        {FVIRTKEY | FCONTROL, VK_SUBTRACT, ID_VIEW_ZOOM_OUT},
+        {FVIRTKEY | FCONTROL, '0', ID_VIEW_ZOOM_RESET},
+    };
+    return CreateAcceleratorTableW(
+        entries, (int)(sizeof(entries) / sizeof(entries[0])));
 }
 
 static int create_controls(NoctedHost *host) {
@@ -571,6 +822,9 @@ static int create_controls(NoctedHost *host) {
     SendMessageW(host->editor, EM_EXLIMITTEXT, 0, (LPARAM)(1024u * 1024u));
     SendMessageW(host->editor, EM_SETEVENTMASK, 0,
         SendMessageW(host->editor, EM_GETEVENTMASK, 0, 0) | ENM_CHANGE);
+    if (!SetWindowSubclass(
+            host->editor, editor_subclass_proc, 1u, (DWORD_PTR)host))
+        return 0;
     return 1;
 }
 
@@ -592,6 +846,18 @@ static int handle_command(NoctedHost *host, UINT command) {
         case ID_EDIT_SELECT_ALL: SendMessageW(host->editor, EM_SETSEL, 0, -1); return 1;
         case ID_EDIT_FIND: show_find(host); return 1;
         case ID_CONTROL_FIND_NEXT: find_next(host); return 1;
+        case ID_VIEW_ZOOM_IN:
+            (void)apply_editor_font_size(host, host->editor_font_size + 1);
+            return 1;
+        case ID_VIEW_ZOOM_OUT:
+            (void)apply_editor_font_size(host, host->editor_font_size - 1);
+            return 1;
+        case ID_VIEW_ZOOM_RESET:
+            (void)apply_editor_font_size(host, NOCTED_FONT_SIZE_DEFAULT);
+            return 1;
+        case ID_SETTINGS_FONT_SIZE:
+            open_settings(host);
+            return 1;
         default: return 0;
     }
 }
@@ -603,8 +869,16 @@ static LRESULT CALLBACK nocted_window_proc(HWND window, UINT message, WPARAM wor
         SetWindowLongPtrW(window, GWLP_USERDATA, (LONG_PTR)host); }
     if (host == NULL) return DefWindowProcW(window, message, word, long_value);
     switch (message) {
-        case WM_CREATE: if (!create_controls(host) || !create_menu(host)) return -1;
-            host->dpi = window_dpi(window); update_font(host); return 0;
+        case WM_CREATE:
+            if (!create_controls(host) || !create_menu(host)) return -1;
+            host->dpi = window_dpi(window);
+            host->editor_font_size =
+                host->callbacks->editor_font_size(host->callbacks->userdata);
+            if (host->editor_font_size < NOCTED_FONT_SIZE_MIN ||
+                host->editor_font_size > NOCTED_FONT_SIZE_MAX)
+                host->editor_font_size = NOCTED_FONT_SIZE_DEFAULT;
+            update_font(host);
+            return 0;
         case WM_SIZE: layout(host); return 0;
         case WM_GETMINMAXINFO: { MINMAXINFO *limits = (MINMAXINFO *)long_value;
             limits->ptMinTrackSize.x = MulDiv(720, (int)host->dpi, 96);
@@ -626,7 +900,11 @@ static LRESULT CALLBACK nocted_window_proc(HWND window, UINT message, WPARAM wor
             if (note->idFrom == ID_CONTROL_TREE && note->code == NM_DBLCLK) {
                 open_tree_selection(host); return 0; } break; }
         case WM_CLOSE: if (confirm_exit(host)) DestroyWindow(window); return 0;
-        case WM_DESTROY: PostQuitMessage(0); return 0;
+        case WM_DESTROY:
+            if (host->settings_window != NULL)
+                DestroyWindow(host->settings_window);
+            PostQuitMessage(0);
+            return 0;
         default: break;
     }
     return DefWindowProcW(window, message, word, long_value);
@@ -677,11 +955,23 @@ int nocted_windows_host_run(HINSTANCE instance, int show_command,
         CoUninitialize();
         return 1;
     }
+    wc.style = 0;
+    wc.lpfnWndProc = settings_window_proc;
+    wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
+    wc.hIcon = NULL;
+    wc.lpszClassName = NOCTED_SETTINGS_CLASS;
+    if (!RegisterClassExW(&wc)) {
+        UnregisterClassW(NOCTED_CLASS_NAME, instance);
+        FreeLibrary(host.rich_edit);
+        CoUninitialize();
+        return 1;
+    }
     window = CreateWindowExW(
         0, NOCTED_CLASS_NAME, L"NoctEd",
         WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
         1180, 760, NULL, NULL, instance, &host);
     if (window == NULL) {
+        UnregisterClassW(NOCTED_SETTINGS_CLASS, instance);
         UnregisterClassW(NOCTED_CLASS_NAME, instance);
         FreeLibrary(host.rich_edit);
         CoUninitialize();
@@ -693,6 +983,10 @@ int nocted_windows_host_run(HINSTANCE instance, int show_command,
     ShowWindow(window, show_command == 0 ? SW_SHOWNORMAL : show_command);
     UpdateWindow(window);
     while ((result = GetMessageW(&message, NULL, 0, 0)) > 0) {
+        if (host.settings_window != NULL &&
+            IsWindow(host.settings_window) &&
+            IsDialogMessageW(host.settings_window, &message))
+            continue;
         if (host.accelerators == NULL ||
             !TranslateAcceleratorW(window, host.accelerators, &message)) {
             TranslateMessage(&message);
@@ -701,7 +995,9 @@ int nocted_windows_host_run(HINSTANCE instance, int show_command,
     }
     if (host.accelerators != NULL)
         DestroyAcceleratorTable(host.accelerators);
-    if (host.font != NULL) DeleteObject(host.font);
+    if (host.ui_font != NULL) DeleteObject(host.ui_font);
+    if (host.editor_font != NULL) DeleteObject(host.editor_font);
+    UnregisterClassW(NOCTED_SETTINGS_CLASS, instance);
     UnregisterClassW(NOCTED_CLASS_NAME, instance);
     FreeLibrary(host.rich_edit);
     CoUninitialize();

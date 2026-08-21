@@ -4,6 +4,7 @@ export LC_ALL=C
 
 binary=${1:-./zig-out/bin/nocted}
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/nocted-single-instance.XXXXXX")
+scratch=$(cd "$scratch" && pwd -P)
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
 }
@@ -18,6 +19,7 @@ printf '%s\n' \
   "$(printf 'tab=1\t\tVW50aXRsZWQ=\tdW5zYXZlZA==')" \
   >"$scratch/config/nocted/session.conf"
 printf '%s\n' 'const routed = true;' >"$scratch/project/sample.zig"
+printf 'version=1\nroot=%s\n' "$scratch/project" >"$scratch/project.npr"
 
 dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' sh -eu -c '
   binary=$1
@@ -27,8 +29,15 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' sh -eu -c '
   export HOME="${HOME:-/tmp}"
   export NO_AT_BRIDGE=1
   export G_DEBUG=fatal-warnings
-  "$binary" --project "$scratch/project" >/dev/null 2>&1 &
+  "$binary" --project "$scratch/project.npr" >/dev/null 2>&1 &
   primary=$!
+  for _ in $(seq 1 60); do
+    if test -e "$scratch/config/nocted/instance.lock"; then
+      break
+    fi
+    sleep 0.1
+  done
+  test -e "$scratch/config/nocted/instance.lock"
   sleep 1
   "$binary" --open "$scratch/project/sample.zig"
   test -f "$scratch/config/nocted/session.conf"

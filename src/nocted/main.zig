@@ -7,18 +7,21 @@ const worker = @import("Worker.zig");
 const tree_sitter = @import("TreeSitter.zig");
 
 const version = @import("noctty_release").version;
+const log = std.log.scoped(.nocted);
 
 const project_root_entry = std.math.maxInt(u64);
 const project_placeholder_entry = project_root_entry - 1;
 const max_project_monitors: usize = 512;
 const max_project_monitor_changes = core.project_index.max_filesystem_changes;
 const document_page_key = "nocted-document";
-const editor_zoom_percent_default: i16 = 100;
-const editor_zoom_percent_min: i16 = 60;
-const editor_zoom_percent_max: i16 = 240;
 const WorkerJob = worker.Job;
 const instance_lock_exclusive: c_int = 2;
 const instance_lock_nonblocking: c_int = 4;
+const editor_zoom_percent_default: i16 = 100;
+const editor_zoom_percent_min: i16 = 60;
+const editor_zoom_percent_max: i16 = 240;
+const editor_zoom_percent_step: i16 = 10;
+const editor_font_size_pt_default: i16 = 11;
 
 extern fn flock(fd: c_int, operation: c_int) c_int;
 
@@ -799,6 +802,8 @@ const App = struct {
     task_generation: u64 = 0,
     project_load_ok: bool = true,
     project_search_ok: bool = true,
+    project_surface_open: bool = false,
+    project_file_path: ?[]u8 = null,
     project_root: ?[]u8 = null,
     project_index: core.project_index.Index = .{},
     project_entry_count: usize = 0,
@@ -832,12 +837,16 @@ const App = struct {
     untitled_serial: usize = 0,
     language_manager: *c.GtkSourceLanguageManager,
     style_manager: *c.GtkSourceStyleSchemeManager,
+    ui_font_provider: *c.GtkCssProvider,
+    ui_font_screen: *c.GdkScreen,
     editor_zoom_provider: *c.GtkCssProvider,
     editor_zoom_percent: i16 = editor_zoom_percent_default,
     editor_zoom_scroll_delta: f64 = 0,
     window: *c.GtkWidget = undefined,
     main_paned: *c.GtkWidget = undefined,
     sidebar: *c.GtkWidget = undefined,
+    sidebar_toggle_button: *c.GtkWidget = undefined,
+    project_parent_button: *c.GtkWidget = undefined,
     tree: *c.GtkWidget = undefined,
     tree_store: *c.GtkTreeStore = undefined,
     tree_store_owned: bool = false,
@@ -882,6 +891,7 @@ const App = struct {
     folding_item: *c.GtkWidget = undefined,
     word_wrap_item: *c.GtkWidget = undefined,
     smoke: bool = false,
+    startup_smoke: bool = false,
     resource_smoke: bool = false,
     smoke_passed: bool = false,
     smoke_preview: SmokePreview = .none,
@@ -931,11 +941,16 @@ const App = struct {
             const style_manager = c.gtk_source_style_scheme_manager_new() orelse
                 return error.StyleManagerUnavailable;
             errdefer c.g_object_unref(@ptrCast(style_manager));
+            const ui_font_provider = c.gtk_css_provider_new() orelse
+                return error.UiFontProviderUnavailable;
+            errdefer c.g_object_unref(@ptrCast(ui_font_provider));
             const editor_zoom_provider = c.gtk_css_provider_new() orelse
                 return error.EditorZoomProviderUnavailable;
+            errdefer c.g_object_unref(@ptrCast(editor_zoom_provider));
             break :blk .{
                 .language_manager = language_manager,
                 .style_manager = style_manager,
+                .ui_font_provider = ui_font_provider,
                 .editor_zoom_provider = editor_zoom_provider,
             };
         };
@@ -959,9 +974,19 @@ const App = struct {
             ).init(allocator),
             .language_manager = native.language_manager,
             .style_manager = native.style_manager,
+            .ui_font_provider = native.ui_font_provider,
+            .ui_font_screen = c.gdk_screen_get_default() orelse
+                return error.UiFontScreenUnavailable,
             .editor_zoom_provider = native.editor_zoom_provider,
         };
         errdefer app.deinit();
+        app.discardLegacyProjectState();
+        try app.applyUiFontCss(app.settings.ui_font_size_pt);
+        c.gtk_style_context_add_provider_for_screen(
+            app.ui_font_screen,
+            @ptrCast(app.ui_font_provider),
+            c.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        );
         try app.applyEditorZoomCss(editor_zoom_percent_default);
         try app.captureDefaultLanguagePaths();
         try app.applySyntaxPaths();
@@ -998,6 +1023,7 @@ const App = struct {
         self.default_language_paths.deinit();
         self.settings.deinit(self.allocator);
         self.session.deinit(self.allocator);
+        if (self.project_file_path) |path| self.allocator.free(path);
         if (self.project_root) |root| self.allocator.free(root);
         self.allocator.free(self.settings_path);
         self.allocator.free(self.session_path);
@@ -1010,15 +1036,45 @@ const App = struct {
             c.g_object_unref(@ptrCast(self.quick_open_store));
         c.g_object_unref(@ptrCast(self.language_manager));
         c.g_object_unref(@ptrCast(self.style_manager));
+        c.gtk_style_context_remove_provider_for_screen(
+            self.ui_font_screen,
+            @ptrCast(self.ui_font_provider),
+        );
+        c.g_object_unref(@ptrCast(self.ui_font_provider));
         c.g_object_unref(@ptrCast(self.editor_zoom_provider));
     }
 
-    fn applyEditorZoomCss(self: *App, zoom_percent: i16) !void {
-        var css_buffer: [80]u8 = undefined;
+    fn applyUiFontCss(self: *App, font_size_pt: u8) !void {
+        var css_buffer: [160]u8 = undefined;
         const css = try std.fmt.bufPrintZ(
             &css_buffer,
-            "#nocted-editor {{ font-size: {d}%; }}",
-            .{zoom_percent},
+            "label, button, entry, spinbutton, treeview, menuitem " ++
+                "{{ font-size: {d}pt; }}",
+            .{font_size_pt},
+        );
+        var error_ptr: ?*c.GError = null;
+        if (c.gtk_css_provider_load_from_data(
+            self.ui_font_provider,
+            css.ptr,
+            @intCast(css.len),
+            &error_ptr,
+        ) == 0) {
+            if (error_ptr) |err| c.g_error_free(err);
+            return error.UiFontCssFailed;
+        }
+        if (error_ptr) |err| c.g_error_free(err);
+    }
+
+    fn applyEditorZoomCss(self: *App, zoom_percent: i16) !void {
+        const scaled_points = @divTrunc(
+            editor_font_size_pt_default * zoom_percent + 50,
+            100,
+        );
+        var css_buffer: [72]u8 = undefined;
+        const css = try std.fmt.bufPrintZ(
+            &css_buffer,
+            "#nocted-editor {{ font-size: {d}pt; }}",
+            .{scaled_points},
         );
         var error_ptr: ?*c.GError = null;
         if (c.gtk_css_provider_load_from_data(
@@ -1033,22 +1089,105 @@ const App = struct {
         if (error_ptr) |err| c.g_error_free(err);
     }
 
-    fn adjustEditorZoom(self: *App, delta: i16) !void {
-        const next = std.math.clamp(
-            self.editor_zoom_percent + delta,
+    fn setUiFontSize(self: *App, value: u8) !void {
+        try core.settings.validateUiFontSize(value);
+        const previous = self.settings.ui_font_size_pt;
+        if (value == previous) return;
+
+        // Do not leave the current process or its persisted settings half-updated.
+        try self.applyUiFontCss(value);
+        var candidate = self.settings;
+        candidate.ui_font_size_pt = value;
+        core.settings.save(self.io, self.settings_path, &candidate) catch |err| {
+            self.applyUiFontCss(previous) catch |rollback_err| {
+                log.err(
+                    "could not restore interface font after settings write failure: {s}",
+                    .{@errorName(rollback_err)},
+                );
+            };
+            return err;
+        };
+        self.settings.ui_font_size_pt = value;
+
+        var status_buffer: [48]u8 = undefined;
+        const status = std.fmt.bufPrintZ(
+            &status_buffer,
+            "Interface font size: {d} pt",
+            .{value},
+        ) catch return;
+        self.updateStatus(status.ptr);
+    }
+
+    fn setEditorZoom(self: *App, percent: i16) !void {
+        const bounded = std.math.clamp(
+            percent,
             editor_zoom_percent_min,
             editor_zoom_percent_max,
         );
-        if (next == self.editor_zoom_percent) return;
-        try self.applyEditorZoomCss(next);
-        self.editor_zoom_percent = next;
+        if (bounded == self.editor_zoom_percent) return;
+        try self.applyEditorZoomCss(bounded);
+        self.editor_zoom_percent = bounded;
         var status_buffer: [32]u8 = undefined;
         const status = std.fmt.bufPrintZ(
             &status_buffer,
-            "Zoom {d}%",
-            .{next},
+            "Editor zoom: {d}%",
+            .{bounded},
         ) catch return;
         self.updateStatus(status.ptr);
+    }
+
+    fn adjustEditorZoom(self: *App, delta: i16) !void {
+        try self.setEditorZoom(self.editor_zoom_percent + delta);
+    }
+
+    fn showUiFontSettings(self: *App) void {
+        const dialog = c.gtk_dialog_new_with_buttons(
+            "NoctEd Settings",
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            "Cancel",
+            c.GTK_RESPONSE_CANCEL,
+            "Apply",
+            c.GTK_RESPONSE_ACCEPT,
+            @as(?*anyopaque, null),
+        ) orelse return;
+        defer c.gtk_widget_destroy(dialog);
+        c.gtk_window_set_resizable(asWindow(dialog), 0);
+        c.gtk_dialog_set_default_response(@ptrCast(dialog), c.GTK_RESPONSE_ACCEPT);
+
+        const row = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 12) orelse return;
+        c.gtk_widget_set_margin_start(row, 18);
+        c.gtk_widget_set_margin_end(row, 18);
+        c.gtk_widget_set_margin_top(row, 18);
+        c.gtk_widget_set_margin_bottom(row, 18);
+        const label = c.gtk_label_new("Interface font size (points)") orelse return;
+        c.gtk_label_set_xalign(asLabel(label), 0.0);
+        const spin = c.gtk_spin_button_new_with_range(
+            core.settings.ui_font_size_pt_min,
+            core.settings.ui_font_size_pt_max,
+            1,
+        ) orelse return;
+        c.gtk_spin_button_set_value(
+            @ptrCast(spin),
+            @floatFromInt(self.settings.ui_font_size_pt),
+        );
+        c.gtk_spin_button_set_numeric(@ptrCast(spin), 1);
+        setAccessibleName(spin, "Interface font size in points");
+        c.gtk_widget_set_tooltip_text(
+            spin,
+            "Sets menus, tabs, sidebar, dialogs, and status text. Document text size is unchanged.",
+        );
+        c.gtk_box_pack_start(asBox(row), label, 1, 1, 0);
+        c.gtk_box_pack_start(asBox(row), spin, 0, 0, 0);
+        const area = c.gtk_dialog_get_content_area(@ptrCast(dialog)) orelse return;
+        c.gtk_box_pack_start(asBox(area), row, 1, 1, 0);
+        c.gtk_widget_show_all(dialog);
+        c.gtk_widget_grab_focus(spin);
+
+        if (c.gtk_dialog_run(@ptrCast(dialog)) != c.GTK_RESPONSE_ACCEPT) return;
+        const value = c.gtk_spin_button_get_value_as_int(@ptrCast(spin));
+        self.setUiFontSize(@intCast(value)) catch
+            self.updateStatus("Interface font size could not be applied");
     }
 
     fn shutdownWorker(self: *App) void {
@@ -1367,7 +1506,23 @@ const App = struct {
         connect(self.window, "key-press-event", @ptrCast(&onWindowKeyPress), self);
 
         const root_box = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0) orelse unreachable;
+        const top_bar = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0) orelse unreachable;
+        c.gtk_widget_set_name(top_bar, "nocted-topbar");
+        self.sidebar_toggle_button = iconButton(
+            "view-list-symbolic",
+            "Toggle file tree sidebar (Ctrl+B)",
+        );
+        c.gtk_widget_set_name(self.sidebar_toggle_button, "nocted-chrome-button");
+        connect(
+            self.sidebar_toggle_button,
+            "clicked",
+            @ptrCast(&onToggleSidebar),
+            self,
+        );
         const menu = self.buildMenuBar();
+        c.gtk_widget_set_hexpand(menu, 1);
+        c.gtk_box_pack_start(asBox(top_bar), self.sidebar_toggle_button, 0, 0, 2);
+        c.gtk_box_pack_start(asBox(top_bar), menu, 1, 1, 0);
         self.main_paned = c.gtk_paned_new(c.GTK_ORIENTATION_HORIZONTAL) orelse unreachable;
         c.gtk_widget_set_name(self.main_paned, "nocted-main");
         self.sidebar = try self.buildSidebar();
@@ -1385,7 +1540,7 @@ const App = struct {
         self.project_search_box = try self.buildProjectSearchPanel();
         self.quick_open_box = try self.buildQuickOpenPanel();
         const status = self.buildStatusBar();
-        c.gtk_box_pack_start(asBox(root_box), menu, 0, 0, 0);
+        c.gtk_box_pack_start(asBox(root_box), top_bar, 0, 0, 0);
         c.gtk_box_pack_start(asBox(root_box), self.main_paned, 1, 1, 0);
         c.gtk_box_pack_start(asBox(root_box), self.quick_open_box, 0, 0, 0);
         c.gtk_box_pack_start(asBox(root_box), self.project_search_box, 0, 0, 0);
@@ -1394,7 +1549,8 @@ const App = struct {
         c.gtk_container_add(asContainer(self.window), root_box);
         c.gtk_widget_show_all(self.window);
         self.refreshRecentProjectsMenu();
-        c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.settings.sidebar_visible));
+        // The cached tree stays closed until an explicit .npr project opens it.
+        c.gtk_widget_hide(self.sidebar);
         c.gtk_widget_hide(self.quick_open_box);
         c.gtk_widget_hide(self.project_search_box);
         c.gtk_widget_hide(self.search_box);
@@ -1408,7 +1564,13 @@ const App = struct {
         appendMenuAction(file_menu, "New File", &onNewFile, self);
         appendMenuAction(file_menu, "Open File...", &onOpenFile, self);
         appendMenuAction(file_menu, "Quick Open...", &onShowQuickOpen, self);
-        appendMenuAction(file_menu, "Open Folder...", &onOpenFolder, self);
+        appendMenuAction(
+            file_menu,
+            "Create Project from Folder...",
+            &onOpenFolder,
+            self,
+        );
+        appendMenuAction(file_menu, "Open Project...", &onOpenProject, self);
         const recent_root = c.gtk_menu_item_new_with_label("Open Recent") orelse unreachable;
         const recent_menu = c.gtk_menu_new() orelse unreachable;
         for (0..core.session.max_recent_projects) |index| {
@@ -1470,6 +1632,10 @@ const App = struct {
         appendMenuRoot(bar, "Find", find_menu);
 
         const view_menu = c.gtk_menu_new() orelse unreachable;
+        appendMenuAction(view_menu, "Zoom In", &onZoomIn, self);
+        appendMenuAction(view_menu, "Zoom Out", &onZoomOut, self);
+        appendMenuAction(view_menu, "Reset Zoom", &onResetZoom, self);
+        appendMenuSeparator(view_menu);
         appendMenuAction(view_menu, "Toggle Side Bar", &onToggleSidebar, self);
         appendMenuAction(view_menu, "Toggle Minimap", &onToggleMinimap, self);
         self.word_wrap_item = appendCheckMenuAction(
@@ -1492,6 +1658,15 @@ const App = struct {
         appendMenuAction(view_menu, "Fold All", &onFoldAll, self);
         appendMenuAction(view_menu, "Unfold All", &onUnfoldAll, self);
         appendMenuRoot(bar, "View", view_menu);
+
+        const settings_menu = c.gtk_menu_new() orelse unreachable;
+        appendMenuAction(
+            settings_menu,
+            "Interface Font Size...",
+            &onShowUiFontSettings,
+            self,
+        );
+        appendMenuRoot(bar, "Settings", settings_menu);
 
         const tools_menu = c.gtk_menu_new() orelse unreachable;
         appendMenuAction(
@@ -1526,6 +1701,20 @@ const App = struct {
         appendMenuAction(help_menu, "About NoctEd", &onAbout, self);
         appendMenuRoot(bar, "Help", help_menu);
         return bar;
+    }
+
+    fn discardLegacyProjectState(self: *App) void {
+        if (self.session.project) |project| self.allocator.free(project);
+        self.session.project = null;
+        var index: usize = 0;
+        while (index < self.session.recent_projects.items.len) {
+            const path = self.session.recent_projects.items[index];
+            if (isProjectFilePath(path)) {
+                index += 1;
+            } else {
+                self.allocator.free(self.session.recent_projects.orderedRemove(index));
+            }
+        }
     }
 
     fn refreshRecentProjectsMenu(self: *App) void {
@@ -1623,7 +1812,7 @@ const App = struct {
         }
         try self.session.setSession(
             self.allocator,
-            self.project_root,
+            null,
             tabs[0..tab_count],
             active_tab,
         );
@@ -1639,7 +1828,7 @@ const App = struct {
     fn openRecentProject(self: *App, index: usize) void {
         if (index >= self.session.recent_projects.items.len) return;
         const path = self.session.recent_projects.items[index];
-        self.openProject(path) catch |err| {
+        self.openProjectFile(path) catch |err| {
             self.showWorkerError("Recent project unavailable", err);
             return;
         };
@@ -1659,10 +1848,6 @@ const App = struct {
         const was_suppressed = self.suppress_session_persist;
         self.suppress_session_persist = true;
         defer self.suppress_session_persist = was_suppressed;
-        if (self.session.project) |project| {
-            self.openProject(project) catch {};
-            _ = self.drainProjectLoad();
-        }
         var restored: [core.session.max_open_files]?*Document =
             [_]?*Document{null} ** core.session.max_open_files;
         for (self.session.tabs.items, 0..) |tab, index| {
@@ -1762,9 +1947,38 @@ const App = struct {
     fn buildSidebar(self: *App) !*c.GtkWidget {
         const box = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0) orelse unreachable;
         c.gtk_widget_set_name(box, "nocted-sidebar");
-        const header = c.gtk_label_new("FOLDERS") orelse unreachable;
-        c.gtk_widget_set_name(header, "nocted-sidebar-title");
-        c.gtk_label_set_xalign(asLabel(header), 0.0);
+        const header = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0) orelse unreachable;
+        c.gtk_widget_set_name(header, "nocted-sidebar-header");
+        const title = c.gtk_label_new("FOLDERS") orelse unreachable;
+        c.gtk_widget_set_name(title, "nocted-sidebar-title");
+        c.gtk_label_set_xalign(asLabel(title), 0.0);
+        self.project_parent_button = iconButton(
+            "go-up-symbolic",
+            "Open parent folder",
+        );
+        c.gtk_widget_set_name(self.project_parent_button, "nocted-chrome-button");
+        c.gtk_widget_set_sensitive(self.project_parent_button, 0);
+        const hide_sidebar = iconButton(
+            "go-previous-symbolic",
+            "Hide file tree sidebar",
+        );
+        c.gtk_widget_set_name(hide_sidebar, "nocted-chrome-button");
+        connect(
+            self.project_parent_button,
+            "clicked",
+            @ptrCast(&onOpenParentFolder),
+            self,
+        );
+        connect(hide_sidebar, "clicked", @ptrCast(&onToggleSidebar), self);
+        c.gtk_box_pack_start(asBox(header), title, 1, 1, 0);
+        c.gtk_box_pack_end(asBox(header), hide_sidebar, 0, 0, 1);
+        c.gtk_box_pack_end(
+            asBox(header),
+            self.project_parent_button,
+            0,
+            0,
+            1,
+        );
         self.tree_store = try createProjectTreeStore();
         self.tree_store_owned = true;
         self.tree = c.gtk_tree_view_new_with_model(@ptrCast(self.tree_store)) orelse unreachable;
@@ -2000,7 +2214,46 @@ const App = struct {
         return self.allocator.dupe(u8, buffer[0..length]);
     }
 
+    fn openProjectFile(self: *App, requested_path: []const u8) !void {
+        if (!isProjectFilePath(requested_path)) return error.ProjectFileRequired;
+        const resolved = try self.resolveExistingPath(requested_path);
+        defer self.allocator.free(resolved);
+        var project = try core.project.loadAlloc(self.allocator, self.io, resolved);
+        defer project.deinit(self.allocator);
+        try self.openProject(project.root);
+
+        const project_file_path = try self.allocator.dupe(u8, resolved);
+        if (self.project_file_path) |previous| self.allocator.free(previous);
+        self.project_file_path = project_file_path;
+        self.project_surface_open = true;
+        c.gtk_widget_set_visible(
+            self.sidebar,
+            @intFromBool(self.settings.sidebar_visible),
+        );
+        self.rememberProject(resolved);
+    }
+
+    fn createProjectFileForRoot(self: *App, requested_root: []const u8) !void {
+        const root = try self.resolveExistingPath(requested_root);
+        defer self.allocator.free(root);
+        const project_file_path = try std.fmt.allocPrint(
+            self.allocator,
+            "{s}{s}",
+            .{ root, core.project.extension },
+        );
+        defer self.allocator.free(project_file_path);
+        try core.project.save(self.io, project_file_path, root);
+        try self.openProjectFile(project_file_path);
+    }
+
     fn openProject(self: *App, requested_path: []const u8) !void {
+        if (self.smoke or self.project_lifecycle_smoke) {
+            self.project_surface_open = true;
+            c.gtk_widget_set_visible(
+                self.sidebar,
+                @intFromBool(self.settings.sidebar_visible),
+            );
+        }
         const resolved = try self.resolveExistingPath(requested_path);
         errdefer self.allocator.free(resolved);
         self.cancelProjectLoad();
@@ -2189,6 +2442,7 @@ const App = struct {
         self.project_entry_count = self.project_index.entries.len;
         self.project_truncated = self.project_index.truncated;
         self.project_load_ok = true;
+        self.updateProjectNavigationControls();
         if (load.delta) {
             self.project_delta_updates +|= 1;
             self.project_delta_added +|= load.delta_stats.added_entries;
@@ -2242,7 +2496,7 @@ const App = struct {
                 .{self.project_entry_count},
             ) catch return;
         self.updateStatus(status.ptr);
-        self.rememberProject(self.project_root.?);
+        if (self.project_file_path) |path| self.rememberProject(path);
         if (c.gtk_widget_get_visible(self.quick_open_box) != 0)
             self.scheduleQuickOpenUpdate();
     }
@@ -2793,7 +3047,7 @@ const App = struct {
         c.gtk_style_context_add_provider(
             c.gtk_widget_get_style_context(view),
             @ptrCast(self.editor_zoom_provider),
-            c.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            c.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 2,
         );
         c.gtk_widget_add_events(
             view,
@@ -3685,7 +3939,43 @@ const App = struct {
         );
     }
 
+    fn updateProjectNavigationControls(self: *App) void {
+        const root = self.project_root orelse {
+            c.gtk_widget_set_sensitive(self.project_parent_button, 0);
+            return;
+        };
+        const parent = std.fs.path.dirname(root);
+        const can_open_parent = parent != null and
+            parent.?.len > 0 and
+            !std.mem.eql(u8, parent.?, root);
+        c.gtk_widget_set_sensitive(
+            self.project_parent_button,
+            @intFromBool(can_open_parent),
+        );
+    }
+
+    fn openParentFolder(self: *App) void {
+        const root = self.project_root orelse {
+            self.updateStatus("Open a folder first");
+            return;
+        };
+        const parent = std.fs.path.dirname(root) orelse {
+            self.updateStatus("Already at the filesystem root");
+            return;
+        };
+        if (parent.len == 0 or std.mem.eql(u8, parent, root)) {
+            self.updateStatus("Already at the filesystem root");
+            return;
+        }
+        self.openProject(parent) catch |err|
+            self.showWorkerError("Parent folder unavailable", err);
+    }
+
     fn toggleSidebar(self: *App) void {
+        if (!self.project_surface_open) {
+            self.updateStatus("Open a .npr project to show the file tree");
+            return;
+        }
         self.settings.sidebar_visible = !self.settings.sidebar_visible;
         c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.settings.sidebar_visible));
         self.persistSettings();
@@ -4203,6 +4493,7 @@ const App = struct {
 
     fn persistSettings(self: *App) void {
         core.settings.save(self.io, self.settings_path, &self.settings) catch |err| {
+            log.err("settings save failed: {s}", .{@errorName(err)});
             const status = std.fmt.allocPrintSentinel(
                 self.allocator,
                 "Settings save failed: {s}",
@@ -5054,6 +5345,49 @@ const App = struct {
                 }
             }
         }
+        var project_parent_navigation_ok = false;
+        if (self.project_root) |root| {
+            const original_root = self.allocator.dupe(u8, root) catch null;
+            defer if (original_root) |value| self.allocator.free(value);
+            if (original_root) |original| {
+                const child_root = std.fs.path.join(
+                    self.allocator,
+                    &.{ original, "src" },
+                ) catch null;
+                defer if (child_root) |value| self.allocator.free(value);
+                if (child_root) |child| {
+                    if (pathIsDirectory(self.io, child)) {
+                        self.openProject(child) catch {};
+                        const entered_child = self.drainProjectLoad() and
+                            self.project_root != null and
+                            std.mem.eql(u8, self.project_root.?, child) and
+                            c.gtk_widget_get_sensitive(
+                                self.project_parent_button,
+                            ) != 0;
+                        if (entered_child) {
+                            onOpenParentFolder(
+                                self.project_parent_button,
+                                self,
+                            );
+                            project_parent_navigation_ok =
+                                self.drainProjectLoad() and
+                                self.project_root != null and
+                                std.mem.eql(
+                                    u8,
+                                    self.project_root.?,
+                                    original,
+                                );
+                        }
+                        if (self.project_root == null or
+                            !std.mem.eql(u8, self.project_root.?, original))
+                        {
+                            self.openProject(original) catch {};
+                            _ = self.drainProjectLoad();
+                        }
+                    }
+                }
+            }
+        }
         const document = self.currentDocument();
         const language = if (document) |value|
             c.gtk_source_buffer_get_language(value.buffer)
@@ -5080,44 +5414,66 @@ const App = struct {
                 false
         else
             false;
+        const minimap_geometry = if (document) |value|
+            if (value.map) |map| geometry: {
+                const width = c.gtk_widget_get_allocated_width(map);
+                break :geometry width >= 64 and width <= 160;
+            } else false
+        else
+            false;
         const editor_zoom_ok = if (document) |value| zoom: {
             const initial_zoom = self.editor_zoom_percent;
+            const initial_ui_font = self.settings.ui_font_size_pt;
+            const grows = initial_zoom < editor_zoom_percent_max;
+            const changed_zoom = if (grows)
+                initial_zoom + editor_zoom_percent_step
+            else
+                initial_zoom - editor_zoom_percent_step;
+            const change_direction: c_int =
+                if (grows) c.GDK_SCROLL_UP else c.GDK_SCROLL_DOWN;
+            const restore_direction: c_int =
+                if (grows) c.GDK_SCROLL_DOWN else c.GDK_SCROLL_UP;
             var scroll_event = std.mem.zeroes(c.GdkEventScroll);
             scroll_event.state = c.GDK_CONTROL_MASK;
-            scroll_event.direction = c.GDK_SCROLL_UP;
-            const zoomed_in = onEditorScroll(
+            scroll_event.direction = change_direction;
+            const zoomed = onEditorScroll(
                 value.view,
                 &scroll_event,
                 value,
-            ) != 0 and self.editor_zoom_percent == initial_zoom + 10;
-            scroll_event.direction = c.GDK_SCROLL_DOWN;
-            const zoomed_out = onEditorScroll(
+            ) != 0 and self.editor_zoom_percent == changed_zoom and
+                self.settings.ui_font_size_pt == initial_ui_font;
+            scroll_event.direction = restore_direction;
+            const restored = onEditorScroll(
                 value.view,
                 &scroll_event,
                 value,
-            ) != 0 and self.editor_zoom_percent == initial_zoom;
+            ) != 0 and self.editor_zoom_percent == initial_zoom and
+                self.settings.ui_font_size_pt == initial_ui_font;
             scroll_event.direction = c.GDK_SCROLL_SMOOTH;
-            scroll_event.delta_y = -1;
-            const smooth_in = onEditorScroll(
+            scroll_event.delta_y = if (grows) -1 else 1;
+            const smooth_zoomed = onEditorScroll(
                 value.view,
                 &scroll_event,
                 value,
-            ) != 0 and self.editor_zoom_percent == initial_zoom + 10;
-            scroll_event.delta_y = 1;
-            const smooth_out = onEditorScroll(
+            ) != 0 and self.editor_zoom_percent == changed_zoom and
+                self.settings.ui_font_size_pt == initial_ui_font;
+            scroll_event.delta_y = if (grows) 1 else -1;
+            const smooth_restored = onEditorScroll(
                 value.view,
                 &scroll_event,
                 value,
-            ) != 0 and self.editor_zoom_percent == initial_zoom;
+            ) != 0 and self.editor_zoom_percent == initial_zoom and
+                self.settings.ui_font_size_pt == initial_ui_font;
             scroll_event.state = 0;
             scroll_event.direction = c.GDK_SCROLL_UP;
             const ordinary_scroll = onEditorScroll(
                 value.view,
                 &scroll_event,
                 value,
-            ) == 0 and self.editor_zoom_percent == initial_zoom;
-            break :zoom zoomed_in and zoomed_out and smooth_in and
-                smooth_out and ordinary_scroll;
+            ) == 0 and self.editor_zoom_percent == initial_zoom and
+                self.settings.ui_font_size_pt == initial_ui_font;
+            break :zoom zoomed and restored and smooth_zoomed and
+                smooth_restored and ordinary_scroll;
         } else false;
         const project_ok = self.project_entry_count > 0 and !self.project_truncated;
         const language_count = self.languageCount();
@@ -5442,9 +5798,7 @@ const App = struct {
         )) |loaded_value| {
             var loaded = loaded_value;
             defer loaded.deinit(self.allocator);
-            session_persist_ok = loaded.project != null and
-                self.project_root != null and
-                std.mem.eql(u8, loaded.project.?, self.project_root.?) and
+            session_persist_ok = loaded.project == null and
                 loaded.tabs.items.len >= 2 and
                 loaded.active_tab != null and
                 loaded.recent_projects.items.len > 0;
@@ -5485,10 +5839,10 @@ const App = struct {
                 self.openRecentProject(0);
                 recent_project_ok = self.drainProjectLoad() and
                     self.recent_project_activations == recent_before + 1 and
-                    self.project_root != null and
+                    self.project_file_path != null and
                     std.mem.eql(
                         u8,
-                        self.project_root.?,
+                        self.project_file_path.?,
                         self.session.recent_projects.items[0],
                     ) and self.recent_project_items[0] != null and
                     c.gtk_widget_get_visible(self.recent_project_items[0].?) != 0;
@@ -5509,9 +5863,24 @@ const App = struct {
                 document_reopen_ok = self.currentDocument() != null;
             }
         }
+        const sidebar_button_visible =
+            c.gtk_widget_get_visible(self.sidebar_toggle_button) != 0;
+        onToggleSidebar(self.sidebar_toggle_button, self);
+        const sidebar_hidden =
+            !self.settings.sidebar_visible and
+            c.gtk_widget_get_visible(self.sidebar) == 0 and
+            c.gtk_widget_get_visible(self.sidebar_toggle_button) != 0;
+        onToggleSidebar(self.sidebar_toggle_button, self);
+        const sidebar_controls_ok =
+            sidebar_button_visible and
+            sidebar_hidden and
+            self.settings.sidebar_visible and
+            c.gtk_widget_get_visible(self.sidebar) != 0;
+        const about_close_ok = runAboutDialog(self, true);
         const pass = self.currentDocument() != null and language_ok and tree_sitter_ok and line_numbers_ok and
-            minimap_bound and editor_zoom_ok and project_ok and project_activation_ok and
-            project_tree_lazy_ok and
+            minimap_bound and minimap_geometry and editor_zoom_ok and project_ok and
+            project_activation_ok and project_tree_lazy_ok and
+            project_parent_navigation_ok and sidebar_controls_ok and
             language_count >= 100 and undo_ok and redo_ok and save_ok and
             multi_selection_ok and multi_selection_undo_ok and
             multi_selection_rendered_ok and
@@ -5537,13 +5906,23 @@ const App = struct {
             self.project_delta_added > 0 and
             self.project_index.retainedCount() == 1 and
             self.settings.minimap_visible and
-            self.settings.sidebar_visible;
+            self.settings.sidebar_visible and about_close_ok;
         c.g_print(
             "nocted_word_wrap_configurable=%d\n",
             @as(c_int, @intFromBool(word_wrap_config_ok)),
         );
         c.g_print(
-            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d editor_zoom=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
+            "nocted_tree_navigation parent=%d sidebar_toggle=%d\n",
+            @as(c_int, @intFromBool(project_parent_navigation_ok)),
+            @as(c_int, @intFromBool(sidebar_controls_ok)),
+        );
+        c.g_print(
+            "nocted_about_dialog close_visible=%d close_response=%d\n",
+            @as(c_int, @intFromBool(about_close_ok)),
+            @as(c_int, @intFromBool(about_close_ok)),
+        );
+        c.g_print(
+            "nocted_native_smoke_diagnostic pass=%d documents=%zu language=%s language_ok=%d tree_sitter=%d line_numbers=%d minimap_bound=%d minimap_geometry=%d editor_zoom=%d project=%d project_activation=%d project_tree_lazy=%d project_items=%zu project_truncated=%d project_index_bytes=%zu project_index_refs=%zu project_monitors=%zu monitor_events=%zu project_delta_updates=%zu project_delta_fallbacks=%zu project_delta_added=%zu project_delta_removed=%zu external_clean_reload=%d external_dirty_keep=%d installed_syntaxes=%zu undo=%d redo=%d multi_selection=%d multi_selection_undo=%d multi_selection_rendered=%d save=%d search=%d fold=%d unfold=%d folded_save=%d folded_edit_restore=%d fold_undo_preserved=%d folding_configurable=%d folded_regions=%zu find_in_files=%d search_snapshot_first=%d project_search_results=%zu search_batch_peak=%u search_batch_cap=%zu worker_lanes=2 project_search_activation=%d multi_file_tabs=%d tab_navigation=%d close_other=%d close_all=%d document_reopen=%d untitled=%d untitled_dirty=%d save_as=%d save_as_collision=%d save_as_atomic=%d save_as_language=%d quick_open=%d quick_open_bounded=%d quick_open_activation=%d session_persist=%d session_restore=%d session_dirty_restore=%d recent_project=%d textmate_import=%d textmate_language=%d textmate_rendered=%d textmate_precedence=%d textmate_malformed_rejected=%d minimap_visible=%d sidebar_visible=%d\n",
             @as(c_int, @intFromBool(pass)),
             self.documents.items.len,
             language_id,
@@ -5551,6 +5930,7 @@ const App = struct {
             @as(c_int, @intFromBool(tree_sitter_ok)),
             @as(c_int, @intFromBool(line_numbers_ok)),
             @as(c_int, @intFromBool(minimap_bound)),
+            @as(c_int, @intFromBool(minimap_geometry)),
             @as(c_int, @intFromBool(editor_zoom_ok)),
             @as(c_int, @intFromBool(project_ok)),
             @as(c_int, @intFromBool(project_activation_ok)),
@@ -5653,23 +6033,24 @@ fn pathIsDirectory(io: std.Io, path: []const u8) bool {
     } else |_| return false;
 }
 
+fn isProjectFilePath(path: []const u8) bool {
+    return std.mem.endsWith(u8, path, core.project.extension);
+}
+
 fn openApplicationPath(app: *App, path: []const u8) void {
-    if (app.project_root) |root| {
-        if (std.mem.eql(u8, root, path) or
-            (std.mem.startsWith(u8, path, root) and
-                path.len > root.len and path[root.len] == std.fs.path.sep))
-        {
-            app.openDocument(path) catch {};
-            return;
-        }
-    }
-    if (pathIsDirectory(app.io, path)) {
-        app.openProject(path) catch {};
+    if (isProjectFilePath(path)) {
+        app.openProjectFile(path) catch |err| {
+            app.showWorkerError("Project open failed", err);
+        };
         return;
     }
-    const project = std.fs.path.dirname(path) orelse ".";
-    app.openProject(project) catch {};
-    app.openDocument(path) catch {};
+    if (pathIsDirectory(app.io, path)) {
+        app.updateStatus("Choose File > Create Project to save and open a .npr project");
+        return;
+    }
+    app.openDocument(path) catch |err| {
+        app.showWorkerError("Open failed", err);
+    };
 }
 
 fn onApplicationActivate(
@@ -5693,14 +6074,16 @@ fn onApplicationOpen(
     const app: *App = @ptrCast(@alignCast(data.?));
     if (app.shutting_down or file_count <= 0) return;
     const project_hint = std.mem.span(hint);
-    if (project_hint.len > 0) app.openProject(project_hint) catch {};
+    if (project_hint.len > 0) app.openProjectFile(project_hint) catch |err| {
+        app.showWorkerError("Project open failed", err);
+    };
     for (0..@intCast(file_count)) |index| {
         const path_z = c.g_file_get_path(files[index]) orelse continue;
         defer c.g_free(path_z);
         const path = std.mem.span(path_z);
         if (project_hint.len > 0 and std.mem.eql(u8, path, project_hint)) continue;
         if (project_hint.len > 0)
-            app.openDocument(path) catch {}
+            app.openDocument(path) catch |err| app.showWorkerError("Open failed", err)
         else
             openApplicationPath(app, path);
     }
@@ -5974,6 +6357,9 @@ pub fn main(init: std.process.Init) !void {
         if (std.mem.eql(u8, arg, "--smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.smoke = true;
+        } else if (std.mem.eql(u8, arg, "--startup-smoke")) {
+            if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
+            app.startup_smoke = true;
         } else if (std.mem.eql(u8, arg, "--project-lifecycle-smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.project_lifecycle_smoke = true;
@@ -5989,13 +6375,11 @@ pub fn main(init: std.process.Init) !void {
             try files.append(arg);
         }
     }
-    const restore_requested = !app.smoke and !app.project_lifecycle_smoke;
-    const restored_session = restore_requested and app.restoreSession();
-    if (!restored_session and project == null and files.items.len == 0) {
-        app.openProject(".") catch {};
-    }
+    const restore_requested = !app.smoke and !app.startup_smoke and
+        !app.project_lifecycle_smoke;
+    _ = restore_requested and app.restoreSession();
     if (project) |project_path| {
-        app.openProject(project_path) catch |err| {
+        app.openProjectFile(project_path) catch |err| {
             const status = try std.fmt.allocPrintSentinel(
                 allocator,
                 "Project open failed: {s}",
@@ -6006,22 +6390,33 @@ pub fn main(init: std.process.Init) !void {
             app.updateStatus(status.ptr);
         };
     }
-    for (files.items) |path| app.openDocument(path) catch |err| {
-        const status = try std.fmt.allocPrintSentinel(
-            allocator,
-            "Open failed: {s}",
-            .{@errorName(err)},
-            0,
-        );
-        defer allocator.free(status);
-        app.updateStatus(status.ptr);
-    };
+    for (files.items) |path| {
+        if (isProjectFilePath(path)) {
+            app.openProjectFile(path) catch |err| {
+                app.showWorkerError("Project open failed", err);
+            };
+            continue;
+        }
+        app.openDocument(path) catch |err| {
+            const status = try std.fmt.allocPrintSentinel(
+                allocator,
+                "Open failed: {s}",
+                .{@errorName(err)},
+                0,
+            );
+            defer allocator.free(status);
+            app.updateStatus(status.ptr);
+        };
+    }
     if (files.items.len == 0 and
         !app.hasWorkerJob(.document_load) and
         c.gtk_notebook_get_n_pages(asNotebook(app.notebook)) == 0)
         app.newDocument() catch |err| app.showWorkerError("New file unavailable", err);
     app.promptLegacySyntax();
-    if (build_options.enable_smoke and app.project_lifecycle_smoke) {
+    if (build_options.enable_smoke and app.startup_smoke) {
+        if (c.g_idle_add(onStartupSmoke, &app) == 0)
+            return error.StartupSmokeSourceUnavailable;
+    } else if (build_options.enable_smoke and app.project_lifecycle_smoke) {
         app.project_lifecycle_mutate = std.mem.eql(
             u8,
             init.environ_map.get("NOCTED_LIFECYCLE_MUTATE") orelse "0",
@@ -6115,9 +6510,21 @@ fn installCss() void {
         \\#nocted-window { background: #0b0d12; color: #d7dde8; }
         \\#nocted-menu { background: #11151d; color: #d7dde8; padding: 1px 4px; }
         \\#nocted-menu menuitem { padding: 3px 8px; }
+        \\#nocted-topbar { background: #11151d; border-bottom: 1px solid #222a38; }
         \\#nocted-main { background: #0b0d12; }
         \\#nocted-sidebar { background: #11151d; border-right: 1px solid #222a38; }
+        \\#nocted-sidebar-header { border-bottom: 1px solid #222a38; min-height: 32px; }
         \\#nocted-sidebar-title { color: #7f8a9c; font-size: 0.9em; font-weight: bold; padding: 7px 9px 5px; }
+        \\#nocted-chrome-button { min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #aeb7c6; }
+        \\#nocted-chrome-button:hover { background: #242c3a; color: #ffffff; }
+        \\#nocted-chrome-button:active { background: #263249; }
+        \\#nocted-chrome-button:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
+        \\#nocted-chrome-button:disabled { color: #4f5969; }
+        \\#nocted-about-title { color: #202631; font-size: 1.25em; font-weight: bold; }
+        \\#nocted-about-close { min-width: 88px; min-height: 36px; padding: 4px 14px; border: 1px solid #5676a8; border-radius: 5px; background: #263249; color: #ffffff; }
+        \\#nocted-about-close:hover { background: #334369; border-color: #8fb8ff; }
+        \\#nocted-about-close:active { background: #1d2840; }
+        \\#nocted-about-close:focus { outline: 2px solid #8fb8ff; outline-offset: -3px; }
         \\#nocted-project-tree { background: #11151d; color: #c3cad6; }
         \\#nocted-project-tree:selected { background: #263249; color: #ffffff; }
         \\#nocted-project-tree:focus { outline: 2px solid #8fb8ff; outline-offset: -2px; }
@@ -6412,6 +6819,29 @@ fn onWindowKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque)
         app.find((modifiers & c.GDK_SHIFT_MASK) == 0);
         return 1;
     }
+    if ((modifiers == c.GDK_CONTROL_MASK or
+        modifiers == (c.GDK_CONTROL_MASK | c.GDK_SHIFT_MASK)) and
+        (key.keyval == c.GDK_KEY_plus or key.keyval == c.GDK_KEY_equal or
+            key.keyval == c.GDK_KEY_KP_Add))
+    {
+        app.adjustEditorZoom(editor_zoom_percent_step) catch
+            app.updateStatus("Editor zoom could not be increased");
+        return 1;
+    }
+    if (modifiers == c.GDK_CONTROL_MASK and
+        (key.keyval == c.GDK_KEY_minus or key.keyval == c.GDK_KEY_KP_Subtract))
+    {
+        app.adjustEditorZoom(-editor_zoom_percent_step) catch
+            app.updateStatus("Editor zoom could not be decreased");
+        return 1;
+    }
+    if (modifiers == c.GDK_CONTROL_MASK and
+        (key.keyval == c.GDK_KEY_0 or key.keyval == c.GDK_KEY_KP_0))
+    {
+        app.setEditorZoom(editor_zoom_percent_default) catch
+            app.updateStatus("Editor zoom could not be reset");
+        return 1;
+    }
     if (modifiers == c.GDK_CONTROL_MASK and lowered == c.GDK_KEY_s) {
         if (app.currentDocument()) |document| _ = app.saveDocument(document);
         return 1;
@@ -6691,26 +7121,26 @@ fn onEditorScroll(
     switch (scroll.direction) {
         c.GDK_SCROLL_UP => {
             document.app.editor_zoom_scroll_delta = 0;
-            delta = 10;
+            delta = 1;
         },
         c.GDK_SCROLL_DOWN => {
             document.app.editor_zoom_scroll_delta = 0;
-            delta = -10;
+            delta = -1;
         },
         c.GDK_SCROLL_SMOOTH => {
             document.app.editor_zoom_scroll_delta += scroll.delta_y;
             if (document.app.editor_zoom_scroll_delta <= -1) {
                 document.app.editor_zoom_scroll_delta += 1;
-                delta = 10;
+                delta = 1;
             } else if (document.app.editor_zoom_scroll_delta >= 1) {
                 document.app.editor_zoom_scroll_delta -= 1;
-                delta = -10;
+                delta = -1;
             } else return 1;
         },
         else => return 0,
     }
-    document.app.adjustEditorZoom(delta) catch
-        document.app.updateStatus("Zoom failed");
+    document.app.adjustEditorZoom(delta * editor_zoom_percent_step) catch
+        document.app.updateStatus("Editor zoom could not be changed");
     return 1;
 }
 
@@ -6894,9 +7324,33 @@ fn onProjectLoadStep(data: ?*anyopaque) callconv(.c) c.gboolean {
 fn onOpenFolder(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     const dialog = c.gtk_file_chooser_dialog_new(
-        "Open Folder",
+        "Create NoctEd Project",
         asWindow(app.window),
         c.GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+        "Cancel",
+        c.GTK_RESPONSE_CANCEL,
+        "Create",
+        c.GTK_RESPONSE_ACCEPT,
+        @as(?*anyopaque, null),
+    ) orelse return;
+    c.gtk_file_chooser_set_local_only(@ptrCast(dialog), 1);
+    if (c.gtk_dialog_run(@ptrCast(dialog)) == c.GTK_RESPONSE_ACCEPT) {
+        if (c.gtk_file_chooser_get_filename(@ptrCast(dialog))) |path| {
+            app.createProjectFileForRoot(std.mem.span(path)) catch |err| {
+                app.showWorkerError("Project creation failed", err);
+            };
+            c.g_free(path);
+        }
+    }
+    c.gtk_widget_destroy(dialog);
+}
+
+fn onOpenProject(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const dialog = c.gtk_file_chooser_dialog_new(
+        "Open NoctEd Project",
+        asWindow(app.window),
+        c.GTK_FILE_CHOOSER_ACTION_OPEN,
         "Cancel",
         c.GTK_RESPONSE_CANCEL,
         "Open",
@@ -6906,17 +7360,8 @@ fn onOpenFolder(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     c.gtk_file_chooser_set_local_only(@ptrCast(dialog), 1);
     if (c.gtk_dialog_run(@ptrCast(dialog)) == c.GTK_RESPONSE_ACCEPT) {
         if (c.gtk_file_chooser_get_filename(@ptrCast(dialog))) |path| {
-            app.openProject(std.mem.span(path)) catch |err| {
-                const status = std.fmt.allocPrintSentinel(
-                    app.allocator,
-                    "Folder open failed: {s}",
-                    .{@errorName(err)},
-                    0,
-                ) catch null;
-                if (status) |message| {
-                    app.updateStatus(message.ptr);
-                    app.allocator.free(message);
-                }
+            app.openProjectFile(std.mem.span(path)) catch |err| {
+                app.showWorkerError("Project open failed", err);
             };
             c.g_free(path);
         }
@@ -7120,6 +7565,11 @@ fn onFindPrevious(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     app.find(false);
 }
 
+fn onOpenParentFolder(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.openParentFolder();
+}
+
 fn onToggleSidebar(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.toggleSidebar();
@@ -7159,6 +7609,32 @@ fn onFoldAll(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 fn onUnfoldAll(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.unfoldAll();
+}
+
+fn onZoomIn(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.adjustEditorZoom(editor_zoom_percent_step) catch
+        app.updateStatus("Editor zoom could not be increased");
+}
+
+fn onZoomOut(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.adjustEditorZoom(-editor_zoom_percent_step) catch
+        app.updateStatus("Editor zoom could not be decreased");
+}
+
+fn onResetZoom(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.setEditorZoom(editor_zoom_percent_default) catch
+        app.updateStatus("Editor zoom could not be reset");
+}
+
+fn onShowUiFontSettings(
+    _: ?*c.GtkWidget,
+    data: ?*anyopaque,
+) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.showUiFontSettings();
 }
 
 fn onImportSyntax(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
@@ -7225,18 +7701,81 @@ fn onToolAction(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     }
 }
 
+fn runAboutDialog(app: *App, auto_close: bool) bool {
+    const dialog = c.gtk_dialog_new_with_buttons(
+        "About NoctEd",
+        asWindow(app.window),
+        c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+        "Close",
+        c.GTK_RESPONSE_CLOSE,
+        @as(?*anyopaque, null),
+    ) orelse return false;
+    defer c.gtk_widget_destroy(dialog);
+    c.gtk_window_set_resizable(asWindow(dialog), 0);
+    c.gtk_dialog_set_default_response(@ptrCast(dialog), c.GTK_RESPONSE_CLOSE);
+
+    const body = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 10) orelse return false;
+    c.gtk_widget_set_margin_start(body, 32);
+    c.gtk_widget_set_margin_end(body, 32);
+    c.gtk_widget_set_margin_top(body, 24);
+    c.gtk_widget_set_margin_bottom(body, 24);
+    const title = c.gtk_label_new("NoctEd") orelse return false;
+    c.gtk_widget_set_name(title, "nocted-about-title");
+    const version_label = c.gtk_label_new(version) orelse return false;
+    const comments = c.gtk_label_new(
+        "Native project editor with a project tree and minimap",
+    ) orelse return false;
+    c.gtk_box_pack_start(asBox(body), title, 0, 0, 0);
+    c.gtk_box_pack_start(asBox(body), version_label, 0, 0, 0);
+    c.gtk_box_pack_start(asBox(body), comments, 0, 0, 0);
+    const content = c.gtk_dialog_get_content_area(@ptrCast(dialog)) orelse
+        return false;
+    c.gtk_box_pack_start(asBox(content), body, 1, 1, 0);
+
+    const close_button = c.gtk_dialog_get_widget_for_response(
+        @ptrCast(dialog),
+        c.GTK_RESPONSE_CLOSE,
+    ) orelse return false;
+    c.gtk_widget_set_name(close_button, "nocted-about-close");
+    c.gtk_widget_set_size_request(close_button, 88, 36);
+    c.gtk_widget_set_tooltip_text(close_button, "Close About NoctEd");
+    setAccessibleName(close_button, "Close About NoctEd");
+    c.gtk_widget_show_all(dialog);
+    const close_visible = c.gtk_widget_get_visible(close_button) != 0 and
+        c.gtk_widget_get_sensitive(close_button) != 0;
+    if (auto_close) {
+        var request = SmokeDialogResponse{
+            .dialog = dialog,
+            .response = c.GTK_RESPONSE_CLOSE,
+        };
+        if (c.g_idle_add(onSmokeDialogResponse, &request) == 0) return false;
+        return close_visible and
+            c.gtk_dialog_run(@ptrCast(dialog)) == c.GTK_RESPONSE_CLOSE;
+    }
+    _ = c.gtk_dialog_run(@ptrCast(dialog));
+    return close_visible;
+}
+
 fn onAbout(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
-    const dialog = c.gtk_about_dialog_new() orelse return;
-    c.gtk_about_dialog_set_program_name(@ptrCast(dialog), "NoctEd");
-    c.gtk_about_dialog_set_version(@ptrCast(dialog), version);
-    c.gtk_about_dialog_set_comments(
-        @ptrCast(dialog),
-        "Native project editor with a project tree and minimap",
+    _ = runAboutDialog(app, false);
+}
+
+fn onStartupSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const tree_closed = c.gtk_widget_get_visible(app.sidebar) == 0;
+    const no_project = app.project_root == null and app.project_load == null and
+        !app.hasWorkerJob(.project_scan);
+    const visible = c.gtk_widget_get_visible(app.window) != 0;
+    c.g_print(
+        "nocted_startup_smoke visible=%d tree_closed=%d project_scan=%d\n",
+        @as(c_int, @intFromBool(visible)),
+        @as(c_int, @intFromBool(tree_closed)),
+        @as(c_int, @intFromBool(!no_project)),
     );
-    c.gtk_window_set_transient_for(@ptrCast(dialog), asWindow(app.window));
-    _ = c.gtk_dialog_run(@ptrCast(dialog));
-    c.gtk_widget_destroy(dialog);
+    app.shutting_down = true;
+    c.gtk_widget_destroy(app.window);
+    return c.G_SOURCE_REMOVE;
 }
 
 fn onSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {

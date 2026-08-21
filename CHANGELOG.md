@@ -4,12 +4,57 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Settings now shows the currently mapped open/retract shortcut directly on
+  the change button and refreshes the label after recording a replacement.
+
+- Uncolored tab titles now inherit GTK's theme text color instead of forcing
+  white text, restoring readable titles with light desktop themes while
+  retaining contrast-aware text for explicitly colored tabs.
+
+- Disabled KDE startup notification for NOCTTY's layer-shell desktop entry.
+  KWin cannot resolve a layer surface as an activatable xdg-toplevel; its
+  activation timeout was followed by a compositor main-thread stall.
+
+- Shortcut-enabled dropdown startup now keeps the toplevel unmapped until it
+  is explicitly shown, avoiding a rapid layer-surface create/configure/destroy
+  cycle. Layer surfaces also skip inapplicable xdg activation requests.
+
+- Fixed NoctEd's About dialog close affordance by explicitly revealing and
+  sizing the GTK response button, giving it a high-contrast native style, and
+  covering both visibility and the close response in native smoke.
+
+- Fixed the NOCTTY terminal context menu's **Command Palette…** item routing
+  to the actual command palette instead of action 17, which is tab rename.
+  Palette opening now waits for menu teardown so focus lands in command search,
+  and compact native smoke rejects any resulting inline tab rename.
+
+- Improved Linux NoctEd project navigation with an always-visible file-tree
+  toggle, a matching sidebar-header hide control, and an Up button that
+  reopens the parent directory and disables at the filesystem root. Native
+  smoke covers parent navigation and sidebar hide/restore behavior.
+
 - Fixed native GTK dogfood window lifecycle regressions: presentation-mode
   changes now recreate the toplevel without losing Settings, tray Show recovers
   a hidden surface even if cached presentation state drifted, shortcut recording
-  temporarily releases the active Plasma accelerator so keys such as F10 can be
-  captured, and layer-shell dialogs are initialized on the overlay layer above
-  the dropdown.
+  temporarily releases the active Plasma accelerator and hides Settings while
+  the overlay recorder owns compositor keyboard focus so keys such as F10 can
+  be captured, and layer-shell dialogs are initialized on the overlay layer
+  above the dropdown.
+
+- Added native NoctEd font controls on Windows. The editor exposes
+  View-menu zoom commands and accelerators, `Ctrl+wheel` document zoom, and a
+  DPI-aware Settings dialog for exact 8–32 point sizes. The selected size is
+  atomically persisted in NoctEd's GUI-owned settings and reported in the
+  status bar.
+
+- Added persistent 8–32 point native interface font sizing to Linux NoctEd.
+  **Settings > Interface Font Size...** adjusts menus, tabs, the sidebar,
+  dialogs, and status text without changing document text. View-menu actions,
+  `Ctrl++`, `Ctrl+-`, `Ctrl+0`, and `Ctrl+wheel` retain independent bounded
+  60–240% code-text zoom. Interface-font CSS excludes the GtkSourceMap, and
+  native smoke now bounds minimap geometry so it cannot expand into a second
+  full-size editor. The interface value is stored atomically in NoctEd's
+  GUI-owned `settings.conf`.
 
 - Completed the next native Windows source tranche. The Win32 terminal now has
   Unicode-aware drag selection, bounded clipboard extraction, and DEC

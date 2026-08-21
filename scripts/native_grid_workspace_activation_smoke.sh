@@ -20,5 +20,7 @@ printf '%s\n' "$output" | grep -q "^${receipt}$"
 
 grep -F 'Exec=noctty --open-uri %u' resources/com.noctty.NOCTTY.desktop >/dev/null
 grep -F 'MimeType=x-scheme-handler/noctty;' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'StartupNotify=false' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'X-KDE-StartupNotify=false' resources/com.noctty.NOCTTY.desktop >/dev/null
 
-printf '%s\n' 'native_grid_workspace_activation_contract uri=true desktop=true recent=true native_window=true config_v9=true'
+printf '%s\n' 'native_grid_workspace_activation_contract uri=true desktop=true startup_notify=false recent=true native_window=true config_v9=true'

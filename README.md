@@ -96,23 +96,24 @@ the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
 color, scrollback, clipboard paste, text selection, DEC mouse reporting,
 bounded tabs and recursive splits, native settings, saved-layout restore,
 launch profiles, local logs/minidumps, and paired session sharing/receiving.
-The Windows package also contains a separate native NoctEd editor and a
-reproducible per-user NSIS installer with reversible shortcuts/Open-With
-registration and an operator-owned signing hook. Physical Windows 10/11
-qualification and full Linux workspace parity remain open. See
+The Windows package also contains a separate native NoctEd editor with
+persistent 8–32 point font controls, menu/keyboard zoom, and `Ctrl+wheel`
+document zoom. Its reproducible per-user NSIS installer provides reversible
+shortcuts/Open-With registration and an operator-owned signing hook. Physical
+Windows 10/11 qualification and full Linux workspace parity remain open. See
 [Windows alpha](docs/WINDOWS.md).
 
 NoctEd provides on Linux:
 
 - standalone `nocted` binary/process
-- project tree
+- project tree with persistent show/hide controls and one-click parent-directory navigation
 - a clean Untitled buffer on first launch, plus file tabs with 28-logical-pixel close targets and explicit interaction states
 - UTF-8 editing through GtkSourceView with direct vendored Tree-sitter highlighting and GtkSourceView fallback
 - document find and project Find in Files
 - quick open
 - reversible folding
 - minimap
-- Sublime-style `Ctrl+wheel` editor zoom
+- persistent 8–32 point GUI font controls under **Settings > Interface Font Size...**, independent from View-menu, keyboard, and `Ctrl+wheel` code-text zoom
 - recent projects
 - atomic save/Save As behavior
 - atomic hot-exit recovery for dirty saved and untitled tabs
@@ -210,7 +211,7 @@ Useful launch variants:
 zig build run -- --native-grid-windowed
 zig build run -- --native-grid-zen
 zig build run -- --native-grid-two-pane
-zig build run-nocted -- --project . --open src/nocted/main.zig
+zig build run-nocted -- --open src/nocted/main.zig
 ```
 
 Optional legacy/fallback build:

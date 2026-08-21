@@ -25,8 +25,10 @@ for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$v
   test -s "$path"
 done
 
-test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 2
-test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" | wc -l | tr -d ' ')" -eq 0
+test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 5
+test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" \
+  ! -path src/windows/nocted_host.c ! -path src/windows/dpapi.c \
+  ! -path src/share/net.c | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
 
 grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 2u' "$grid_abi" >/dev/null
@@ -91,9 +93,8 @@ grep -F '_ = execve(options.program.ptr' "$pty" >/dev/null
 grep -F 'pub fn packedRow(self: Grid, row: usize, output: []u64) usize {' "$vt" >/dev/null
 
 grep -F 'CreatePseudoConsole(size, input_read, output_write' "$windows_host" >/dev/null
-grep -F 'MiniDumpWriteDump(' "$windows_host" >/dev/null
+grep -F 'const Vt = Share.vt;' "$windows_main" >/dev/null
 grep -F 'telemetry=false uploads=false' "$windows_host" >/dev/null
-grep -F 'const Vt = @import("noctty_vt");' "$windows_main" >/dev/null
 grep -F -- '-Dtarget=x86_64-windows-gnu' "$windows_package" >/dev/null
 grep -F 'physical_windows_validation=false' "$windows_package" >/dev/null
 grep -F 'windows_smoke self_test=true' "$windows_smoke" >/dev/null

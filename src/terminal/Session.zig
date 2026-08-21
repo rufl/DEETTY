@@ -4,7 +4,7 @@ const Vt = @import("Vt.zig");
 const LaunchProfile = @import("LaunchProfile.zig");
 
 pub const TerminalSession = struct {
-    const max_pump_bytes = 2 * 1024 * 1024;
+    const max_pump_bytes = 128 * 1024;
     const output_buffer_bytes = 128 * 1024;
     // Queue blocked PTY input instead of sleeping on the native UI thread.
     pub const max_pending_write_bytes = 64 * 1024 * 1024;

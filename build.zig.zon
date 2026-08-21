@@ -2,6 +2,7 @@
     .name = .noctty,
     .version = "0.1.0",
     .fingerprint = 0x80bfc21e15f21c08,
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",

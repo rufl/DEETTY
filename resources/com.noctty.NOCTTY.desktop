@@ -7,8 +7,8 @@ Icon=com.noctty.NOCTTY
 Terminal=false
 Categories=System;TerminalEmulator;
 MimeType=x-scheme-handler/noctty;
-StartupNotify=true
-X-KDE-StartupNotify=true
+StartupNotify=false
+X-KDE-StartupNotify=false
 Actions=Show;Toggle;
 
 [Desktop Action Show]

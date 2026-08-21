@@ -8,20 +8,21 @@ NoctEd is NOCTTY's standalone native project editor. It is built as the separate
 
 The current desktop surface follows the compact Sublime Text 2 editing model:
 
-- a persistent left project tree backed by a compact immutable arena index, with generated/vendor and bounded ignore rules applied, full scans and precise structural deltas processed on the background lane, and replacement snapshots published transactionally through bounded main-thread slices;
+- a persistent left project tree backed by a compact immutable arena index, with an always-visible top-bar toggle, a matching hide control in the tree header, and an Up button that reopens the parent directory; generated/vendor and bounded ignore rules apply, full scans and precise structural deltas run on the background lane, and replacement snapshots publish transactionally through bounded main-thread slices;
 - reorderable file tabs with dirty markers, 28-logical-pixel width and 18-logical-pixel height close targets, 90% tab-label typography, hover/active/focus states, previous/next navigation, clean untitled buffers, native Save As, Save/Discard/Cancel-aware tab/close-other/close-all actions, and ordered active-tab restoration with dirty saved and untitled contents;
 - line numbers, current-line highlighting, bracket matching, auto-indent, undo/redo, UTF-8 editing, and bounded select-all-occurrences transactions with rendered secondary ranges;
-- bounded Sublime-style `Ctrl+wheel` editor zoom from 60% through 240% in 10% steps, shared across open documents while ordinary wheel scrolling and the minimap scale remain independent;
+- bounded Sublime-style code-text zoom from 60% through 240% in 10% steps through `View > Zoom In/Out/Reset Zoom`, keyboard accelerators, and `Ctrl+wheel`, shared across open documents while ordinary scrolling and the minimap scale remain independent;
 - a right-side GtkSourceMap minimap constrained independently from editor font sizing, with a translucent viewport that leaves minimap glyphs visible;
 - native find with next/previous navigation and occurrence feedback;
 - bounded streaming literal Find in Files with unsaved-buffer snapshots first, path/line/column previews, GTK backpressure, and click-to-open line activation;
 - bounded smart-case/top-K project quick-open with deterministic path-aware ranking, coalesced query edits, and keyboard/row activation;
 - persisted indentation-based code folding with current/all fold and unfold actions;
-- GUI-owned Open Recent and Clear Recent Projects actions with bounded most-recent-first history;
+- GUI-owned Create Project from Folder, Open Project, Open Recent, and Clear Recent Projects actions; projects are explicit atomic `.npr` files with bounded most-recent-first history;
 - a compact menu strip and line/column/language status bar; a launch with no restored/open document creates one clean Untitled buffer and names Ctrl+S as the next save action;
-- GUI toggles for the project tree, minimap, and code folding, persisted under `XDG_CONFIG_HOME/nocted` or `~/.config/nocted`.
+- a cached, closed project-tree surface on normal startup; only an explicit `.npr` project opens, scans, and renders its file tree; and
+- GUI toggles for the project tree, minimap, and code folding plus a persistent 8–32 point interface font setting for menus, tabs, the sidebar, dialogs, and status text, stored under `XDG_CONFIG_HOME/nocted` or `~/.config/nocted`.
 
-NOCTTY's `Open NoctEd Here` action resolves the selected pane's live working directory and starts the sibling `nocted --project <directory>` process. Packaged installs and dependency bundles ship both binaries. NOCTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when NOCTTY exits.
+NOCTTY's `Open NoctEd Here` action starts the sibling NoctEd process without scanning the terminal's working directory. Create or open an explicit `.npr` project from NoctEd when a file tree is needed. Packaged installs and dependency bundles ship both binaries. NOCTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when NOCTTY exits.
 
 ## File Safety
 
@@ -57,10 +58,10 @@ The retained rendered baseline on this host discovers 171 installed definitions 
 ## Launch
 
 ```sh
-zig build run-nocted -- --project . --open src/nocted/main.zig
-./zig-out/bin/nocted --project /path/to/project
+zig build run-nocted -- --open src/nocted/main.zig
+./zig-out/bin/nocted /path/to/project.npr
 ./zig-out/bin/nocted file.zig another.json
-./zig-out/bin/nocted # restore the last clean/dirty project-tab session
+./zig-out/bin/nocted # restore the last clean/dirty tab session without scanning a project
 ```
 
 ## Editing Controls
@@ -73,11 +74,13 @@ zig build run-nocted -- --project . --open src/nocted/main.zig
 - `Ctrl+Shift+F`: open `Find > Find in Files...`; Enter runs the bounded worker-backed project search.
 - `Ctrl+Shift+L`: select all occurrences of the current selection; type, Backspace, or Delete to edit every rendered range in one undo transaction, and press Escape to clear them.
 - `Ctrl+PageUp`, `Ctrl+PageDown`: previous and next file tab.
-- `Ctrl+wheel`: increase or decrease editor text zoom without changing the minimap scale.
+- `View > Zoom In/Out/Reset Zoom`, `Ctrl++`, `Ctrl+-`, `Ctrl+0`, and `Ctrl+wheel` adjust code text from 60% through 240% without changing the interface font or minimap scale.
 - `Ctrl+W`: close the current file through the dirty-document guard.
 - `Ctrl+Shift+[`, `Ctrl+Shift+]`: fold and unfold the current indentation region.
 - `File > New File`, `File > Save As...`, `File > Quick Open...`, and `File > Open Recent` expose creation/opening workflows without requiring shortcuts.
 - File and View menus expose close-other/close-all plus fold-all/unfold-all without requiring settings-file edits.
+- The top-left file-tree button and the matching sidebar-header button show or hide the project tree; `Ctrl+B` remains the keyboard equivalent. The sidebar-header Up button reopens the parent directory and disables at the filesystem root.
+- `Settings > Interface Font Size...` selects an exact 8–32 point size for NoctEd's GUI chrome without changing code text; manual settings-file editing is unnecessary.
 
 ## Verification
 

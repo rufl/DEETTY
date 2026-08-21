@@ -2,9 +2,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
-    if (builtin.zig_version.major != 0 or builtin.zig_version.minor < 16) {
+    if (builtin.zig_version.major != 0 or builtin.zig_version.minor != 16) {
         std.debug.panic(
-            "NOCTTY requires Zig 0.16.x or newer (found {d}.{d}.{d}).",
+            "NOCTTY requires Zig 0.16.x (found {d}.{d}.{d}).",
             .{ builtin.zig_version.major, builtin.zig_version.minor, builtin.zig_version.patch },
         );
     }
@@ -90,6 +90,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "noctty",
         .root_module = exe_mod,
+        .use_llvm = true,
     });
     b.installArtifact(exe);
 
@@ -111,6 +112,7 @@ pub fn build(b: *std.Build) void {
     const nocted_exe = b.addExecutable(.{
         .name = "nocted",
         .root_module = nocted_mod,
+        .use_llvm = true,
     });
     b.installArtifact(nocted_exe);
 
@@ -133,6 +135,7 @@ pub fn build(b: *std.Build) void {
     const vte_exe = b.addExecutable(.{
         .name = "noctty-vte",
         .root_module = vte_mod,
+        .use_llvm = true,
     });
     const install_vte = b.addInstallArtifact(vte_exe, .{});
     const vte_step = b.step("vte-fallback", "Build the optional VTE fallback binary");
@@ -159,6 +162,7 @@ pub fn build(b: *std.Build) void {
     const smoke_exe = b.addExecutable(.{
         .name = "noctty-smoke",
         .root_module = smoke_mod,
+        .use_llvm = true,
     });
 
     const nocted_smoke_mod = b.createModule(.{
@@ -179,6 +183,7 @@ pub fn build(b: *std.Build) void {
     const nocted_smoke_exe = b.addExecutable(.{
         .name = "nocted-smoke",
         .root_module = nocted_smoke_mod,
+        .use_llvm = true,
     });
 
     const install_smoke = b.addInstallArtifact(smoke_exe, .{});
@@ -207,6 +212,7 @@ pub fn build(b: *std.Build) void {
     const nocted_stability_exe = b.addExecutable(.{
         .name = "nocted-core-stability",
         .root_module = nocted_stability_mod,
+        .use_llvm = true,
     });
     const install_nocted_stability = b.addInstallArtifact(nocted_stability_exe, .{});
     const nocted_stability_binary_step = b.step(
@@ -229,6 +235,7 @@ pub fn build(b: *std.Build) void {
     const nocted_worker_qualification_exe = b.addExecutable(.{
         .name = "nocted-worker-qualification",
         .root_module = nocted_worker_qualification_mod,
+        .use_llvm = true,
     });
     const install_nocted_worker_qualification = b.addInstallArtifact(
         nocted_worker_qualification_exe,
@@ -252,6 +259,7 @@ pub fn build(b: *std.Build) void {
     const nocted_project_index_exe = b.addExecutable(.{
         .name = "nocted-project-index-qualification",
         .root_module = nocted_project_index_mod,
+        .use_llvm = true,
     });
     const install_nocted_project_index = b.addInstallArtifact(
         nocted_project_index_exe,
@@ -273,6 +281,7 @@ pub fn build(b: *std.Build) void {
     const terminal_compatibility_exe = b.addExecutable(.{
         .name = "noctty-terminal-compatibility",
         .root_module = terminal_compatibility_mod,
+        .use_llvm = true,
     });
     const install_terminal_compatibility = b.addInstallArtifact(
         terminal_compatibility_exe,
@@ -295,6 +304,7 @@ pub fn build(b: *std.Build) void {
     const terminal_session_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-session-qualification",
         .root_module = terminal_session_qualification_mod,
+        .use_llvm = true,
     });
     const install_terminal_session_qualification = b.addInstallArtifact(
         terminal_session_qualification_exe,
@@ -322,6 +332,7 @@ pub fn build(b: *std.Build) void {
     const terminal_agent_fairness_exe = b.addExecutable(.{
         .name = "noctty-terminal-agent-fairness",
         .root_module = terminal_agent_fairness_mod,
+        .use_llvm = true,
     });
     const install_terminal_agent_fairness = b.addInstallArtifact(
         terminal_agent_fairness_exe,
@@ -346,6 +357,7 @@ pub fn build(b: *std.Build) void {
     const launch_continuity_qualification_exe = b.addExecutable(.{
         .name = "noctty-launch-continuity-qualification",
         .root_module = launch_continuity_qualification_mod,
+        .use_llvm = true,
     });
     const install_launch_continuity_qualification = b.addInstallArtifact(
         launch_continuity_qualification_exe,
@@ -370,6 +382,7 @@ pub fn build(b: *std.Build) void {
     const terminal_real_tui_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-real-tui-qualification",
         .root_module = terminal_real_tui_qualification_mod,
+        .use_llvm = true,
     });
     const install_terminal_real_tui_qualification = b.addInstallArtifact(
         terminal_real_tui_qualification_exe,
@@ -394,6 +407,7 @@ pub fn build(b: *std.Build) void {
     const terminal_ncurses_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-ncurses-qualification",
         .root_module = terminal_ncurses_qualification_mod,
+        .use_llvm = true,
     });
     const install_terminal_ncurses_qualification = b.addInstallArtifact(
         terminal_ncurses_qualification_exe,
@@ -418,6 +432,7 @@ pub fn build(b: *std.Build) void {
     const terminal_system_tui_qualification_exe = b.addExecutable(.{
         .name = "noctty-terminal-system-tui-qualification",
         .root_module = terminal_system_tui_qualification_mod,
+        .use_llvm = true,
     });
     const install_terminal_system_tui_qualification = b.addInstallArtifact(
         terminal_system_tui_qualification_exe,
@@ -481,18 +496,22 @@ pub fn build(b: *std.Build) void {
 
     const tests = b.addTest(.{
         .root_module = root_mod,
+        .use_llvm = true,
     });
     const run_tests = b.addRunArtifact(tests);
     const nocted_tests = b.addTest(.{
         .root_module = nocted_core_mod,
+        .use_llvm = true,
     });
     const run_nocted_tests = b.addRunArtifact(nocted_tests);
     const ghostty_vt_public_tests = b.addTest(.{
         .root_module = ghostty_vt_public_mod,
+        .use_llvm = true,
     });
     const run_ghostty_vt_public_tests = b.addRunArtifact(ghostty_vt_public_tests);
     const vte_host_tests = b.addTest(.{
         .root_module = vte_host_test_mod,
+        .use_llvm = true,
     });
     const run_vte_host_tests = b.addRunArtifact(vte_host_tests);
 

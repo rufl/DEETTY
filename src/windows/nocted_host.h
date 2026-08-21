@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <windows.h>
 
-#define NOCTED_WINDOWS_ABI_VERSION 2u
+#define NOCTED_WINDOWS_ABI_VERSION 3u
 #define NOCTED_CLOSE_OK 1
 #define NOCTED_CLOSE_DIRTY 2
 #define NOCTED_SAVE_NEEDS_PATH 2
@@ -36,6 +36,8 @@ typedef struct {
                             size_t capacity, size_t *parent, int *directory);
     size_t (*last_error)(void *userdata, uint8_t *output, size_t capacity);
     int (*persist_session)(void *userdata);
+    int (*editor_font_size)(void *userdata);
+    int (*set_editor_font_size)(void *userdata, int value);
 } NoctedWindowsCallbacks;
 
 int nocted_windows_host_run(HINSTANCE instance, int show_command,

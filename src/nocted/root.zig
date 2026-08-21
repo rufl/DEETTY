@@ -4,6 +4,7 @@ pub const ignore = @import("Ignore.zig");
 pub const lsp = @import("Lsp.zig");
 pub const multi_selection = @import("MultiSelection.zig");
 pub const project_index = @import("ProjectIndex.zig");
+pub const project = @import("Project.zig");
 pub const project_search = @import("ProjectSearch.zig");
 pub const quick_open = @import("QuickOpen.zig");
 pub const settings = @import("Settings.zig");
@@ -19,6 +20,7 @@ test {
     _ = lsp;
     _ = multi_selection;
     _ = project_index;
+    _ = project;
     _ = project_search;
     _ = quick_open;
     _ = settings;

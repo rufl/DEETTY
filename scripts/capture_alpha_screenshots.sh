@@ -77,6 +77,6 @@ launch_and_capture noctty "$noctty_out" "NOCTTY native grid" \
   zig build run -- --native-grid-windowed
 
 launch_and_capture nocted "$nocted_out" "NOCTED" \
-  zig build run-nocted -- --project "$repo_root" --open "$repo_root/README.md"
+  zig build run-nocted -- --open "$repo_root/README.md"
 
 printf 'alpha_screenshots noctty=%s nocted=%s captured=true\n' "$noctty_out" "$nocted_out"

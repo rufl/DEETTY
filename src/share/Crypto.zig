@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
 const X25519 = std.crypto.dh.X25519;
 const Cipher = std.crypto.aead.chacha_poly.ChaCha20Poly1305;
@@ -17,14 +16,14 @@ pub const transport_tag_length = Cipher.tag_length;
 pub const max_plaintext_bytes: usize = 60 * 1024;
 
 pub const Role = enum { initiator, responder };
-pub const RandomContext = if (builtin.zig_version.minor >= 16) std.Io else void;
+pub const RandomContext = std.Io;
 
 pub fn fromIo(io: std.Io) RandomContext {
-    if (comptime builtin.zig_version.minor >= 16) return io else return {};
+    return io;
 }
 
 pub fn testingRandomContext() RandomContext {
-    if (comptime builtin.zig_version.minor >= 16) return std.testing.io else return {};
+    return std.testing.io;
 }
 
 pub const Identity = struct {
@@ -32,10 +31,7 @@ pub const Identity = struct {
     secret_key: [secret_key_length]u8,
 
     pub fn generate(random: RandomContext) Identity {
-        const pair = if (comptime builtin.zig_version.minor >= 16)
-            X25519.KeyPair.generate(random)
-        else
-            X25519.KeyPair.generate();
+        const pair = X25519.KeyPair.generate(random);
         return .{ .public_key = pair.public_key, .secret_key = pair.secret_key };
     }
 

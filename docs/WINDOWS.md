@@ -149,6 +149,13 @@ tabs, dirty recovery buffers, the active tab, and the project root under
 buffer from recovery instead of reopening the file; failure to persist the
 remaining recovery state blocks shutdown.
 
+Use **View → Zoom In/Out/Reset Zoom** or `Ctrl++`, `Ctrl+-`, and `Ctrl+0`
+to change the active editor font. Holding `Ctrl` while scrolling over the
+document provides the same point-by-point zoom. **Settings → Editor Font
+Size…** accepts an exact size from 8 to 32 points. The status bar reports the
+current size, which is restored from
+`%LOCALAPPDATA%\NOCTTY\NoctEd\settings.conf` on the next launch.
+
 ## Pair and share a terminal
 
 Pairing is explicit on both devices. The first command listens on `PORT` and

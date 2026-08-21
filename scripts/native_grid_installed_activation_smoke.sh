@@ -68,10 +68,12 @@ registered=$(env XDG_DATA_HOME="$data_home" \
 [[ $registered == "$desktop_id" ]]
 grep -F 'Exec=noctty --open-uri %u' "$data_home/applications/$desktop_id" >/dev/null
 grep -F 'MimeType=x-scheme-handler/noctty;' "$data_home/applications/$desktop_id" >/dev/null
+grep -F 'StartupNotify=false' "$data_home/applications/$desktop_id" >/dev/null
+grep -F 'X-KDE-StartupNotify=false' "$data_home/applications/$desktop_id" >/dev/null
 [[ -x $prefix/bin/noctty ]]
 [[ -x $prefix/bin/noctty-smoke ]]
 
-printf '%s\n' 'native_grid_installed_activation_contract installed_desktop=true mime_registered=true exec_open_uri=true fixture_tabs=2 production_binary=true smoke_isolated=true scratch_scoped=true'
+printf '%s\n' 'native_grid_installed_activation_contract installed_desktop=true mime_registered=true exec_open_uri=true startup_notify=false fixture_tabs=2 production_binary=true smoke_isolated=true scratch_scoped=true'
 if [[ $mode == contract ]]; then
     exit 0
 fi

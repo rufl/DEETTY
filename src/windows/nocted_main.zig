@@ -1,6 +1,7 @@
 const std = @import("std");
 const windows = std.os.windows;
 const core = @import("nocted_core");
+const log = std.log.scoped(.nocted_windows);
 
 const allocator = std.heap.page_allocator;
 const invalid_index = std.math.maxInt(usize);
@@ -28,6 +29,8 @@ const EditorApp = struct {
     active: ?usize = null,
     next_untitled: usize = 1,
     session_path: []u8,
+    settings_path: []u8,
+    settings: core.settings.Settings,
     project_root: ?[]u8 = null,
     project_index: core.project_index.Index = .{},
     error_bytes: [max_error_bytes]u8 = undefined,
@@ -35,11 +38,29 @@ const EditorApp = struct {
     restoring: bool = true,
 
     fn init(io: std.Io) !EditorApp {
-        const session_path = try windowsSessionPathAlloc();
-        var self = EditorApp{
-            .io = io,
-            .documents = std.array_list.Managed(EditorDocument).init(allocator),
-            .session_path = session_path,
+        var self = blk: {
+            const session_path = try windowsSessionPathAlloc();
+            errdefer allocator.free(session_path);
+            const settings_directory = std.fs.path.dirname(session_path) orelse
+                return error.SettingsDirectoryUnavailable;
+            const settings_path = try std.fs.path.join(
+                allocator,
+                &.{ settings_directory, "settings.conf" },
+            );
+            errdefer allocator.free(settings_path);
+            var settings = try core.settings.loadAlloc(
+                allocator,
+                io,
+                settings_path,
+            );
+            errdefer settings.deinit(allocator);
+            break :blk EditorApp{
+                .io = io,
+                .documents = std.array_list.Managed(EditorDocument).init(allocator),
+                .session_path = session_path,
+                .settings_path = settings_path,
+                .settings = settings,
+            };
         };
         errdefer self.deinit();
         try self.restoreSession();
@@ -49,11 +70,13 @@ const EditorApp = struct {
     }
 
     fn deinit(self: *EditorApp) void {
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
         for (self.documents.items) |*document| document.deinit();
         self.documents.deinit();
         self.project_index.deinit(allocator);
         if (self.project_root) |value| allocator.free(value);
+        self.settings.deinit(allocator);
+        allocator.free(self.settings_path);
         allocator.free(self.session_path);
         self.* = undefined;
     }
@@ -69,6 +92,23 @@ const EditorApp = struct {
             .{ context, @errorName(err) },
         ) catch context[0..@min(context.len, self.error_bytes.len)];
         self.error_length = rendered.len;
+    }
+
+    fn persistSessionAfterMutation(self: *EditorApp) void {
+        if (self.restoring) return;
+        self.persistSession() catch |err| {
+            log.err("session persistence failed: {s}", .{@errorName(err)});
+        };
+    }
+
+    fn setEditorFontSize(self: *EditorApp, value: u8) !void {
+        const previous = self.settings.ui_font_size_pt;
+        try self.settings.setUiFontSize(value);
+        core.settings.save(self.io, self.settings_path, &self.settings) catch |err| {
+            self.settings.ui_font_size_pt = previous;
+            log.err("editor font settings save failed: {s}", .{@errorName(err)});
+            return err;
+        };
     }
 
     fn untitledName(self: *EditorApp) ![]u8 {
@@ -93,7 +133,7 @@ const EditorApp = struct {
             .identity = null,
         });
         self.active = self.documents.items.len - 1;
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
         return self.active.?;
     }
 
@@ -149,7 +189,7 @@ const EditorApp = struct {
         try self.documents.append(item);
         loaded = undefined;
         self.active = self.documents.items.len - 1;
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
         return self.active.?;
     }
 
@@ -203,7 +243,7 @@ const EditorApp = struct {
         document.mode = .editable;
         document.dirty = false;
         document.identity = saved_identity;
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
     }
 
     fn removeDocument(self: *EditorApp, index: usize) !void {
@@ -228,7 +268,7 @@ const EditorApp = struct {
         if (self.documents.items[index].dirty and !discard)
             return error.DocumentDirty;
         try self.removeDocument(index);
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
     }
 
     fn discardDocumentChanges(self: *EditorApp, index: usize) !void {
@@ -245,6 +285,14 @@ const EditorApp = struct {
         return allocator.dupe(u8, buffer[0..length]);
     }
 
+    fn openProjectFile(self: *EditorApp, path: []const u8) !void {
+        if (!std.mem.endsWith(u8, path, core.project.extension))
+            return error.ProjectFileRequired;
+        var project = try core.project.loadAlloc(allocator, self.io, path);
+        defer project.deinit(allocator);
+        try self.openProject(project.root);
+    }
+
     fn openProject(self: *EditorApp, path: []const u8) !void {
         const root = try self.canonicalDirectoryAlloc(path);
         errdefer allocator.free(root);
@@ -254,7 +302,7 @@ const EditorApp = struct {
         if (self.project_root) |value| allocator.free(value);
         self.project_root = root;
         self.project_index = index;
-        if (!self.restoring) self.persistSession() catch {};
+        self.persistSessionAfterMutation();
     }
 
     fn openProjectEntry(self: *EditorApp, entry_index: usize) !usize {
@@ -271,7 +319,8 @@ const EditorApp = struct {
     fn restoreSession(self: *EditorApp) !void {
         var saved = try core.session.loadAlloc(allocator, self.io, self.session_path);
         defer saved.deinit(allocator);
-        if (saved.project) |project| self.openProject(project) catch {};
+        if (saved.project != null)
+            log.warn("not restoring legacy saved project; open its .npr file explicitly", .{});
         for (saved.tabs.items) |tab| {
             if (self.documents.items.len >= core.session.max_open_files) break;
             if (tab.path) |path| {
@@ -318,7 +367,7 @@ const EditorApp = struct {
         defer state.deinit(allocator);
         try state.setSession(
             allocator,
-            self.project_root,
+            null,
             inputs,
             self.active,
         );
@@ -340,9 +389,11 @@ const TabTitle = *const fn (?*anyopaque, usize, [*]u8, usize, *c_int, *c_int) ca
 const CopyBytes = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) usize;
 const ProjectEntry = *const fn (?*anyopaque, usize, [*]u8, usize, *usize, *c_int) callconv(.c) usize;
 const Persist = *const fn (?*anyopaque) callconv(.c) c_int;
+const GetInt = *const fn (?*anyopaque) callconv(.c) c_int;
+const SetInt = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
 
 const Callbacks = extern struct {
-    abi_version: u32 = 2,
+    abi_version: u32 = 3,
     userdata: ?*anyopaque,
     new_document: NewDocument,
     open_document: PathCommand,
@@ -364,6 +415,8 @@ const Callbacks = extern struct {
     project_entry: ProjectEntry,
     last_error: CopyBytes,
     persist_session: Persist,
+    editor_font_size: GetInt,
+    set_editor_font_size: SetInt,
 };
 
 extern fn nocted_windows_host_run(windows.HINSTANCE, c_int, *const Callbacks) c_int;
@@ -404,7 +457,7 @@ fn openDocumentCallback(raw: ?*anyopaque, path: [*]const u8, length: usize) call
 fn openProjectCallback(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) c_int {
     const app = appFromOpaque(raw);
     app.clearError();
-    app.openProject(path[0..length]) catch |err| {
+    app.openProjectFile(path[0..length]) catch |err| {
         app.setError("Could not open the folder", err);
         return -1;
     };
@@ -546,6 +599,26 @@ fn persistSessionCallback(raw: ?*anyopaque) callconv(.c) c_int {
     return 1;
 }
 
+fn editorFontSizeCallback(raw: ?*anyopaque) callconv(.c) c_int {
+    return appFromOpaque(raw).settings.ui_font_size_pt;
+}
+
+fn setEditorFontSizeCallback(raw: ?*anyopaque, value: c_int) callconv(.c) c_int {
+    const app = appFromOpaque(raw);
+    app.clearError();
+    if (value < core.settings.ui_font_size_pt_min or
+        value > core.settings.ui_font_size_pt_max)
+    {
+        app.setError("Could not set the editor font size", error.InvalidEditorFontSize);
+        return -1;
+    }
+    app.setEditorFontSize(@intCast(value)) catch |err| {
+        app.setError("Could not save the editor font size", err);
+        return -1;
+    };
+    return 1;
+}
+
 fn windowsSessionPathAlloc() ![]u8 {
     var buffer: [std.fs.max_path_bytes]u8 = undefined;
     const length = nocted_windows_session_path(&buffer, buffer.len);
@@ -580,6 +653,21 @@ fn selfTest(io: std.Io, session_path: []const u8) !void {
     } else |err| {
         if (err != error.FileIdentityUnavailable) return err;
     }
+    const settings_path = try std.mem.concat(
+        allocator,
+        u8,
+        &.{ session_path, ".settings-self-test" },
+    );
+    defer allocator.free(settings_path);
+    defer std.Io.Dir.cwd().deleteFile(io, settings_path) catch {};
+    var expected_settings = core.settings.Settings.init(allocator);
+    defer expected_settings.deinit(allocator);
+    try expected_settings.setUiFontSize(19);
+    try core.settings.save(io, settings_path, &expected_settings);
+    var loaded_settings = try core.settings.loadAlloc(allocator, io, settings_path);
+    defer loaded_settings.deinit(allocator);
+    if (loaded_settings.ui_font_size_pt != 19)
+        return error.EditorFontSettingsMismatch;
 }
 
 pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.HINSTANCE, command_line: [*:0]u16, show_command: c_int) callconv(.c) c_int {
@@ -626,6 +714,8 @@ pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.
         .project_entry = projectEntryCallback,
         .last_error = lastErrorCallback,
         .persist_session = persistSessionCallback,
+        .editor_font_size = editorFontSizeCallback,
+        .set_editor_font_size = setEditorFontSizeCallback,
     };
     return nocted_windows_host_run(instance, show_command, &callbacks);
 }
