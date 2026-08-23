@@ -47,6 +47,21 @@ command -v gtk-update-icon-cache >/dev/null 2>&1 &&
 
 "$runtime_dir/noctty-bin" --version
 "$runtime_dir/nocted-bin" --version
-printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true layer_shell=true logs=%s/noctty/logs receipts=%s/noctty/dogfood-sessions optimize=%s retained_logs_per_app=100 retained_receipts_per_app=500\n' \
-  "$prefix" "${XDG_STATE_HOME:-$HOME/.local/state}" \
-  "${XDG_STATE_HOME:-$HOME/.local/state}" "$optimize"
+state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
+state_dir="$state_home/noctty"
+mkdir -p "$state_dir"
+build_receipt="$state_dir/dogfood-build.receipt"
+build_receipt_new="$build_receipt.new.$$"
+{
+  printf 'build_receipt_version=1\n'
+  printf 'install_timestamp=%s\n' "$(date --iso-8601=seconds)"
+  printf 'install_epoch=%s\n' "$(date +%s)"
+  printf 'optimize=%s\n' "$optimize"
+  printf 'noctty_sha256=%s\n' "$(sha256sum "$runtime_dir/noctty-bin" | awk '{ print $1 }')"
+  printf 'nocted_sha256=%s\n' "$(sha256sum "$runtime_dir/nocted-bin" | awk '{ print $1 }')"
+  printf 'layer_shell_sha256=%s\n' "$(sha256sum "$runtime_dir/lib/libgtk-layer-shell.so.0" | awk '{ print $1 }')"
+} >"$build_receipt_new"
+chmod 0600 "$build_receipt_new"
+mv -f "$build_receipt_new" "$build_receipt"
+printf 'dogfood_install prefix=%s binaries=true wrappers=true desktop_entries=true layer_shell=true logs=%s/noctty/logs receipts=%s/noctty/dogfood-sessions build_receipt=%s optimize=%s retained_logs_per_app=100 retained_receipts_per_app=500\n' \
+  "$prefix" "$state_home" "$state_home" "$build_receipt" "$optimize"

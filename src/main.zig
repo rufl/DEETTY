@@ -518,6 +518,7 @@ const NativeGridBridge = struct {
     saw_secondary_output: bool = false,
     saw_secondary_exited: bool = false,
     io: ?std.Io = null,
+    process_environment: ?*const std.process.Environ.Map = null,
     config_path: ?[]const u8 = null,
     theme_path: ?[]const u8 = null,
     autosave_path: ?[]const u8 = null,
@@ -2540,7 +2541,12 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         }
         if (maintenance.project_refresh_due) {
             const io = bridge.io orelse return;
-            populateProjectPanels(bridge.app, bridge.app.allocator, io) catch {
+            populateProjectPanels(
+                bridge.app,
+                bridge.app.allocator,
+                io,
+                bridge.process_environment,
+            ) catch {
                 bridge.callback_failed = true;
                 return;
             };
@@ -3240,7 +3246,21 @@ pub fn main(init: std.process.Init) !void {
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-layout-preset-smoke")) {
-                try nativeGridLayoutPresetSmoke(allocator, init.io, stdout);
+                try nativeGridLayoutPresetSmoke(
+                    allocator,
+                    init.io,
+                    stdout,
+                    .qualification_matrix,
+                );
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-4x4-smoke")) {
+                try nativeGridLayoutPresetSmoke(
+                    allocator,
+                    init.io,
+                    stdout,
+                    .production_four_by_four,
+                );
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-recursive-split-smoke")) {
@@ -3314,7 +3334,12 @@ pub fn main(init: std.process.Init) !void {
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-maintenance-smoke")) {
-                try nativeGridMaintenanceSmoke(allocator, init.io, stdout);
+                try nativeGridMaintenanceSmoke(
+                    allocator,
+                    init.io,
+                    init.environ_map,
+                    stdout,
+                );
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-hot-session-smoke")) {
@@ -4460,10 +4485,22 @@ fn projectScan(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
     var file_scan = try noctty.project_scan.scanFilesAlloc(allocator, io, root_dir, options);
     defer file_scan.deinit(allocator);
 
-    var status_scan = noctty.project_scan.runGitStatusAlloc(allocator, io, null, options) catch null;
+    var status_scan = noctty.project_scan.runGitStatusAlloc(
+        allocator,
+        io,
+        null,
+        null,
+        options,
+    ) catch null;
     defer if (status_scan) |*scan| scan.deinit(allocator);
 
-    var graph_scan = noctty.project_scan.runGitGraphAlloc(allocator, io, null, options) catch null;
+    var graph_scan = noctty.project_scan.runGitGraphAlloc(
+        allocator,
+        io,
+        null,
+        null,
+        options,
+    ) catch null;
     defer if (graph_scan) |*scan| scan.deinit(allocator);
 
     const git_status: []const noctty.workspace.GitStatusInput = if (status_scan) |scan| scan.git_status else &.{};
@@ -4498,15 +4535,32 @@ fn projectScan(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
     });
 }
 
-fn populateProjectPanels(app: *noctty.app.App, allocator: std.mem.Allocator, io: std.Io) !void {
+fn populateProjectPanels(
+    app: *noctty.app.App,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    process_environment: ?*const std.process.Environ.Map,
+) !void {
     const options = noctty.project_scan.ScanOptions{ .max_file_entries = 128, .max_git_status_entries = 128, .max_git_graph_entries = 12, .max_depth = 4 };
     var root_dir = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
     defer root_dir.close(io);
     var file_scan = try noctty.project_scan.scanFilesAlloc(allocator, io, root_dir, options);
     defer file_scan.deinit(allocator);
-    var status_scan = noctty.project_scan.runGitStatusAlloc(allocator, io, null, options) catch null;
+    var status_scan = noctty.project_scan.runGitStatusAlloc(
+        allocator,
+        io,
+        null,
+        process_environment,
+        options,
+    ) catch null;
     defer if (status_scan) |*scan| scan.deinit(allocator);
-    var graph_scan = noctty.project_scan.runGitGraphAlloc(allocator, io, null, options) catch null;
+    var graph_scan = noctty.project_scan.runGitGraphAlloc(
+        allocator,
+        io,
+        null,
+        process_environment,
+        options,
+    ) catch null;
     defer if (graph_scan) |*scan| scan.deinit(allocator);
     _ = try app.dispatch(.{ .set_project_panels = .{
         .git_status = if (status_scan) |scan| scan.git_status else &.{},
@@ -6180,10 +6234,47 @@ fn nativeGridTerminalChordsSmoke(out: anytype) !void {
     try out.print("native_grid_terminal_chords_smoke panes=2 broadcast=true ctrl_c=true interrupt_target=current_pane primary_interrupts=0 secondary_interrupts=1 enter=carriage_return line_feed=false ctrl_d=true exact_pane=true eof_forwarded=false final_pane_protected=true remaining_focused=true exited=true\n", .{});
 }
 
+const NativeGridLayoutSmokeMode = enum {
+    qualification_matrix,
+    production_four_by_four,
+};
+
+const NativeGridLayoutSmokeExpectations = struct {
+    workspace_smoke: c_int,
+    session_count: usize,
+    layout_pane_count: usize,
+    total_pane_count: usize,
+};
+
+fn nativeGridLayoutSmokeExpectations(
+    mode: NativeGridLayoutSmokeMode,
+) NativeGridLayoutSmokeExpectations {
+    return switch (mode) {
+        .qualification_matrix => .{
+            .workspace_smoke = 21,
+            .session_count = 60,
+            .layout_pane_count = 15,
+            .total_pane_count = 16,
+        },
+        .production_four_by_four => .{
+            .workspace_smoke = 43,
+            .session_count = 16,
+            .layout_pane_count = 16,
+            .total_pane_count = 17,
+        },
+    };
+}
+
+/// Exercises either the historical layout matrix or the isolated production
+/// “New 4×4” route. The focused route deliberately starts from one terminal,
+/// opens exactly one 16-pane tab through the workspace menu, and then verifies
+/// the persisted model. Keeping the modes explicit prevents a boolean argument
+/// from silently changing session-count and persistence invariants.
 fn nativeGridLayoutPresetSmoke(
     allocator: std.mem.Allocator,
     io: std.Io,
     out: anytype,
+    mode: NativeGridLayoutSmokeMode,
 ) !void {
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
@@ -6206,11 +6297,13 @@ fn nativeGridLayoutPresetSmoke(
     const primary_command = if (tui_vim)
         "printf 'NOCTTY_LAYOUT_TUI_VIM\\n' >/tmp/noctty-layout-tui.txt; exec vim -Nu NONE -n -i NONE -c 'set noswapfile' /tmp/noctty-layout-tui.txt\n"
     else if (tui_btop)
-        "printf 'NOCTTY_LAYOUT_TUI_VIM\\n' >/tmp/noctty-layout-tui.txt; exec btop --force-utf --update 100\n"
+        "exec btop --force-utf --update 100\n"
     else
         "printf 'NOCTTY_LAYOUT_PRESET_PRIMARY'; read -r; exit 0\n";
-    const child_command = if (tui_vim or tui_btop)
+    const child_command = if (tui_vim)
         "exec vim -Nu NONE -n -i NONE -c 'set noswapfile' /tmp/noctty-layout-tui.txt\n"
+    else if (tui_btop)
+        "exec btop --force-utf --update 100\n"
     else
         "printf 'NOCTTY_LAYOUT_PRESET_CHILD'; IFS= read -r _; exit 0\n";
     try primary.write(primary_command);
@@ -6225,32 +6318,48 @@ fn nativeGridLayoutPresetSmoke(
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
     };
+    const expectations = nativeGridLayoutSmokeExpectations(mode);
     const status = runNativeGridHost(.{
         .session = &primary,
         .bridge = &bridge,
         .pane_id = tab.active_pane_id,
         .rows = 36,
-        .workspace_smoke = 21,
+        .workspace_smoke = expectations.workspace_smoke,
     });
-    if (status != 0 or bridge.callback_failed or
-        !bridge.saw_layout_2x2 or !bridge.saw_layout_4x2 or
-        !bridge.saw_layout_3x3 or !bridge.saw_layout_4x4 or
-        !bridge.saw_layout_1x1 or bridge.created_session_count != 48)
+    if (status != 0) return error.NativeGridLayoutPresetSmokeFailed;
+    if (bridge.callback_failed) return error.NativeGridLayoutPresetSmokeFailed;
+    if (!bridge.saw_layout_4x4) return error.NativeGridLayoutPresetSmokeFailed;
+    if (bridge.created_session_count != expectations.session_count)
         return error.NativeGridLayoutPresetSmokeFailed;
+    if (mode == .qualification_matrix) {
+        if (!bridge.saw_layout_1x1) return error.NativeGridLayoutPresetSmokeFailed;
+        if (!bridge.saw_layout_2x2) return error.NativeGridLayoutPresetSmokeFailed;
+        if (!bridge.saw_layout_4x2) return error.NativeGridLayoutPresetSmokeFailed;
+        if (!bridge.saw_layout_3x3) return error.NativeGridLayoutPresetSmokeFailed;
+    }
     var pane_total: usize = 0;
     var saw_source = false;
-    var saw_overflow = false;
+    var saw_layout_tab = false;
     for (app.workspace.tabs.items) |*current_tab| {
         pane_total += current_tab.panes.items.len;
         saw_source = saw_source or current_tab.findPane(1) != null and
             current_tab.panes.items.len == 1;
-        saw_overflow = saw_overflow or current_tab.panes.items.len == 15;
+        saw_layout_tab = saw_layout_tab or
+            current_tab.panes.items.len == expectations.layout_pane_count;
     }
-    if (app.workspace.tabs.items.len != 2 or pane_total != 16 or
-        !saw_source or !saw_overflow or !app.recovery.dirty)
+    if (app.workspace.tabs.items.len != 2 or
+        pane_total != expectations.total_pane_count or
+        !saw_source or !saw_layout_tab or !app.recovery.dirty)
         return error.NativeGridLayoutPresetModelMismatch;
 
-    const workspace_path = "/tmp/noctty-native-grid-layout-preset.nocttyws";
+    var workspace_path_buffer: [160]u8 = undefined;
+    const workspace_path = try std.fmt.bufPrint(
+        &workspace_path_buffer,
+        "/tmp/noctty-native-grid-layout-preset-{d}-{s}.nocttyws",
+        .{ std.c.getpid(), @tagName(mode) },
+    );
+    // A process-specific path keeps concurrent local qualification runs from
+    // replacing each other's atomic persistence fixture.
     std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
     defer std.Io.Dir.cwd().deleteFile(io, workspace_path) catch {};
     const saved = try app.saveWorkspaceFile(io, std.Io.Dir.cwd(), workspace_path, .manual);
@@ -6261,18 +6370,23 @@ fn nativeGridLayoutPresetSmoke(
     loaded.deinit(allocator);
     var restored_total: usize = 0;
     var restored_source = false;
-    var restored_overflow = false;
+    var restored_layout_tab = false;
     for (restored.workspace.tabs.items) |*current_tab| {
         restored_total += current_tab.panes.items.len;
         restored_source = restored_source or current_tab.findPane(1) != null and
             current_tab.panes.items.len == 1 and current_tab.active_pane_id == 1;
-        restored_overflow = restored_overflow or
-            current_tab.panes.items.len == 15;
+        restored_layout_tab = restored_layout_tab or
+            current_tab.panes.items.len == expectations.layout_pane_count;
     }
-    if (restored.workspace.tabs.items.len != 2 or restored_total != 16 or
-        !restored_source or !restored_overflow)
+    if (restored.workspace.tabs.items.len != 2 or
+        restored_total != expectations.total_pane_count or
+        !restored_source or !restored_layout_tab)
         return error.NativeGridLayoutPresetRestoreMismatch;
-    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true\n", .{});
+    if (mode == .production_four_by_four) {
+        try out.print("native_grid_4x4_smoke route=workspace_menu production_tab=true panes=16 balanced=true mapped=true pty_ready=true all_panes_drawn=true all_panes_nonblank=true tui_rendered=true tui_input=true sessions_created=16 source_tab_preserved=true restored=true exited=true\n", .{});
+        return;
+    }
+    try out.print("native_grid_layout_preset_smoke context_menu=true menu_survived=true layout_2x2=true panes_2x2=4 balanced_2x2=true churn_cycles=8 layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true production_4x4=true all_panes_nonblank=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true prompt=true cancel_preserved=true accepted=true overflow_tab=true overflow_panes=15 sessions_preserved=16 interactive=true source_focused=true restored=true exited=true\n", .{});
 }
 
 fn nativeGridRecursiveSplitSmoke(out: anytype) !void {
@@ -7049,7 +7163,12 @@ fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: a
     try out.writeAll("native_grid_project_editor_smoke rendered_project=true workspace_saved=true workspace_loaded=true recent_control=true recent_persisted=true summary_scroll=true project_accessible=true context_menu=true menu_survived=true nocted_launch=true editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true parent_mapped=true exited=true\n");
 }
 
-fn nativeGridMaintenanceSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
+fn nativeGridMaintenanceSmoke(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    process_environment: *const std.process.Environ.Map,
+    out: anytype,
+) !void {
     const autosave_path = "/tmp/noctty-native-grid-autosave.nocttyws";
     std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
     defer std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
@@ -7063,7 +7182,7 @@ fn nativeGridMaintenanceSmoke(allocator: std.mem.Allocator, io: std.Io, out: any
     var session = try noctty.terminal_session.TerminalSession.spawn(allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
     try session.write("printf 'NOCTTY_MAINTENANCE_OK'; sleep 2; exit 0\n");
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .autosave_path = autosave_path };
+    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .process_environment = process_environment, .autosave_path = autosave_path };
     const status = runNativeGridHost(.{
         .session = &session,
         .bridge = &bridge,
@@ -7427,7 +7546,7 @@ fn runNativeGridTwoPane(allocator: std.mem.Allocator, io: std.Io, home_dir: []co
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
     app.applySessionEnvironment(sessionEnvironment(environ_map));
-    try populateProjectPanels(&app, allocator, io);
+    try populateProjectPanels(&app, allocator, io, environ_map);
     _ = try app.dispatch(.split_down);
     const primary_pane = app.workspace.findPane(1) orelse return error.PaneNotFound;
     const secondary_pane = app.workspace.findPane(2) orelse return error.PaneNotFound;
@@ -7452,7 +7571,7 @@ fn runNativeGridTwoPane(allocator: std.mem.Allocator, io: std.Io, home_dir: []co
     defer allocator.free(theme_path);
     const autosave_path = try app.defaultWorkspacePathAlloc(home_dir, "default", .autosave);
     defer allocator.free(autosave_path);
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = 1, .secondary_pane_id = 2, .io = io, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .session_pool = &session_pool };
+    var bridge = NativeGridBridge{ .app = &app, .pane_id = 1, .secondary_pane_id = 2, .io = io, .process_environment = environ_map, .config_path = config_path, .theme_path = theme_path, .autosave_path = autosave_path, .session_pool = &session_pool };
     const status = runNativeGridHost(.{
         .session = &primary,
         .bridge = &bridge,
@@ -7674,7 +7793,7 @@ fn runNativeGridActivated(
         break :activated .restored;
     } else loadNativeGridHotSession(&app, io, autosave_path);
     if (hot_session_load != .restored) app.markWorkspaceDirtyAt(0);
-    try populateProjectPanels(&app, allocator, io);
+    try populateProjectPanels(&app, allocator, io, environ_map);
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     const pane = app.workspace.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
     if (activated_workspace_path != null)
@@ -7732,6 +7851,7 @@ fn runNativeGridActivated(
         .app = &app,
         .pane_id = tab.active_pane_id,
         .io = io,
+        .process_environment = environ_map,
         .config_path = config_path,
         .theme_path = theme_path,
         .autosave_path = autosave_path,

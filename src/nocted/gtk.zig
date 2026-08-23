@@ -236,6 +236,7 @@ pub extern fn gtk_widget_draw(widget: *GtkWidget, context: *CairoContext) void;
 pub extern fn gtk_widget_get_window(widget: *GtkWidget) ?*GdkWindow;
 pub extern fn gtk_widget_get_accessible(widget: *GtkWidget) *AtkObject;
 pub extern fn gtk_container_add(container: *GtkContainer, widget: *GtkWidget) void;
+pub extern fn gtk_container_check_resize(container: *GtkContainer) void;
 pub extern fn gtk_box_new(orientation: c_int, spacing: c_int) ?*GtkWidget;
 pub extern fn gtk_box_pack_start(box: *GtkBox, child: *GtkWidget, expand: gboolean, fill: gboolean, padding: c_uint) void;
 pub extern fn gtk_box_pack_end(box: *GtkBox, child: *GtkWidget, expand: gboolean, fill: gboolean, padding: c_uint) void;

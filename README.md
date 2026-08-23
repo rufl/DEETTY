@@ -322,9 +322,11 @@ Wayland dropdown:
 ./scripts/install_dogfood.sh
 ./scripts/dogfood_status.sh
 ./scripts/dogfood_runtime_status.sh --list-candidates
+./scripts/plasma_wayland_post_upgrade.sh --full
 ```
 
-See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
+The post-upgrade lane is local and operator-initiated; it performs no package
+refresh, telemetry, or upload. See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
 
 Main maintainer gate:
 

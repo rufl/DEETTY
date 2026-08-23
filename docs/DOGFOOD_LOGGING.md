@@ -36,8 +36,10 @@ NOCTTY_DOGFOOD_OPTIMIZE=Debug ./scripts/install_dogfood.sh
 ## Logs and duration receipts
 
 Every launcher invocation records command arguments, session/backend context,
-host and boot identity, wall-clock and monotonic start values, stdout, stderr,
-GTK/GLib debug messages, timestamp, duration, and exit status under:
+host and boot identity, the local OS/kernel/desktop/Plasma/KWin fingerprint,
+staged-binary SHA-256, wall-clock and monotonic start values, stdout, stderr,
+GTK/GLib debug messages, timestamp, duration, exit status, and bounded runtime
+warning-marker counts under:
 
 ```text
 ~/.local/state/noctty/logs/
@@ -51,8 +53,12 @@ The launcher also atomically maintains a private `0600` receipt under:
 
 The receipt is written as `state=running` before the binary starts and replaced
 with `state=finished`, end time, monotonic duration, and exit status after every
-ordinary zero or nonzero exit. If the launcher or machine is killed, the
-running receipt remains visibly incomplete and is never counted as elapsed
+ordinary zero or nonzero exit. Each dogfood install also atomically replaces a
+private `dogfood-build.receipt` containing its install epoch, optimization mode,
+both binary hashes, and the staged Layer Shell hash; local crash counts can
+therefore distinguish retained historical dumps from dumps created after the
+current install. If the launcher or machine is killed, the running receipt
+remains visibly incomplete and is never counted as elapsed
 acceptance evidence. Duration uses `/proc/uptime` while the boot ID matches and
 falls back to bounded nonnegative wall-clock subtraction only when necessary.
 
@@ -63,7 +69,40 @@ tail -F ~/.local/state/noctty/logs/*.log
 ./scripts/dogfood_runtime_status.sh
 ./scripts/dogfood_runtime_status.sh --list-candidates
 ./scripts/dogfood_status.sh
+./scripts/local_diagnostic_report.sh
+./scripts/local_interaction_spike_report.sh --quick
+./scripts/plasma_wayland_health.sh
+./scripts/plasma_wayland_post_upgrade.sh --full
 ```
+
+`local_interaction_spike_report.sh` exercises ReleaseSafe Wayland pane splits,
+pane close, tab open/close, and editor open/save/search/restore paths. Full mode
+also runs 16-session layout churn. It stores private bounded elapsed-time and
+root/process-tree PSS/RSS receipts, compares each run with the previous run in
+the same mode, and flags latency only above both 3× and +1 second or tree RSS
+above both 1.5× and +64 MiB. These intentionally generous thresholds avoid
+calling ordinary scheduler noise a regression.
+
+`local_diagnostic_report.sh` produces a pasteable local receipt and retained
+coredump-count summary for correlating failures with the installed binary and
+Plasma/Wayland stack. It reports bounded GTK, GDK, GLib, GObject, native-grid,
+and Zig-panic categories, distinguishes all sessions for the current binary
+from sessions after the current install epoch, and emits at most 20 recent
+binary/kernel/Plasma/KWin cohorts plus the five newest interaction receipts for
+before/after upgrade comparison; it does not include log text.
+`plasma_wayland_health.sh` checks the current Wayland socket, Plasma services,
+KDE portal, accessibility bus, staged Layer Shell
+runtime, installed dogfood binaries, and locally known package upgrades. Both
+are read-only: they never refresh package databases, read terminal output,
+upload anything, contact the network, or change local state. The post-upgrade
+command additionally builds local test artifacts, runs the current
+`ReleaseSafe` Wayland maintenance and fresh-process NoctEd restore lanes, and
+writes clean `--version` receipts through the exact installed launchers. It
+fails closed if installed runtime integrity is lost, if a NOCTTY/NoctEd
+product or qualification-smoke coredump appeared after that install, or if
+current-install receipts contain a failure, incomplete run, categorized
+critical marker, or interaction spike. Review output before sharing it with a
+maintainer.
 
 `dogfood_runtime_status.sh` imports both version-1 receipts and older
 `dogfood_launch`/`dogfood_exit` logs. Its hours are runtime-only evidence:
@@ -110,8 +149,11 @@ coredumpctl info noctty-bin
 coredumpctl info nocted-bin
 ```
 
-No logs or receipts are uploaded. Logging is local only and adds no telemetry
-or network behavior.
+No logs or receipts are uploaded. Reports also group finished, failed,
+incomplete, and warning-bearing sessions by installed binary hash and desktop
+stack, so behavior can be compared across upgrades without identifying a user
+or sending data anywhere. Logging is local only and adds no telemetry or network
+behavior.
 
 When **Open NoctEd Here** starts NoctEd, the sibling installed launcher is used,
 so that editor process receives its own log and duration receipt.

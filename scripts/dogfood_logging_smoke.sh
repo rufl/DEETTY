@@ -19,13 +19,18 @@ exit 0
 EOF
 cat >"$runtime/nocted-bin" <<'EOF'
 #!/usr/bin/env sh
-printf 'stub_nocted_failure\n' >&2
+printf '%s\n' 'Gtk-CRITICAL fixture' >&2
+printf '%s\n' 'Gdk-CRITICAL fixture' >&2
+printf '%s\n' 'GLib-CRITICAL fixture' >&2
+printf '%s\n' 'GObject-CRITICAL fixture' >&2
+printf '%s\n' 'native_grid_fixture_failed' >&2
+printf '%s\n' 'thread 7 panic: fixture' >&2
 exit 7
 EOF
 chmod +x "$runtime/noctty-bin" "$runtime/nocted-bin"
 
-XDG_STATE_HOME="$state" XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland \
-  "$runtime/noctty" --fixture
+XDG_STATE_HOME="$state" XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE \
+  WAYLAND_DISPLAY=wayland-fixture GDK_BACKEND=wayland "$runtime/noctty" --fixture
 set +e
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 \
   "$runtime/nocted" --fixture
@@ -39,12 +44,24 @@ nocted_receipt=$(printf '%s\n' "$state"/noctty/dogfood-sessions/nocted-*.receipt
 [ -f "$nocted_receipt" ]
 [ "$(stat -c '%a' "$noctty_receipt")" = 600 ]
 [ "$(stat -c '%a' "$nocted_receipt")" = 600 ]
+grep -Fx 'receipt_version=3' "$noctty_receipt" >/dev/null
 grep -Fx 'state=finished' "$noctty_receipt" >/dev/null
 grep -Fx 'exit_status=0' "$noctty_receipt" >/dev/null
+grep -Fx 'runtime_warning_markers=0' "$noctty_receipt" >/dev/null
 grep -Fx 'desktop_session=wayland' "$noctty_receipt" >/dev/null
+grep -Fx 'desktop_name=KDE' "$noctty_receipt" >/dev/null
+grep -Fx 'wayland_display=wayland-fixture' "$noctty_receipt" >/dev/null
+grep -E '^binary_sha256=([0-9a-f]{64}|unknown)$' "$noctty_receipt" >/dev/null
 grep -Fx 'backend=wayland' "$noctty_receipt" >/dev/null
 grep -Fx 'state=finished' "$nocted_receipt" >/dev/null
 grep -Fx 'exit_status=7' "$nocted_receipt" >/dev/null
+grep -Fx 'runtime_warning_markers=6' "$nocted_receipt" >/dev/null
+grep -Fx 'gtk_critical_markers=1' "$nocted_receipt" >/dev/null
+grep -Fx 'gdk_critical_markers=1' "$nocted_receipt" >/dev/null
+grep -Fx 'glib_critical_markers=1' "$nocted_receipt" >/dev/null
+grep -Fx 'gobject_critical_markers=1' "$nocted_receipt" >/dev/null
+grep -Fx 'native_grid_failure_markers=1' "$nocted_receipt" >/dev/null
+grep -Fx 'panic_markers=1' "$nocted_receipt" >/dev/null
 grep -Fx 'desktop_session=x11' "$nocted_receipt" >/dev/null
 
 noctty_log=$(printf '%s\n' "$state"/noctty/logs/noctty-*.log)
@@ -53,7 +70,8 @@ grep -F 'dogfood_launch app=noctty session_id=' "$noctty_log" >/dev/null
 grep -F ' omp_version=deferred ' "$noctty_log" >/dev/null
 grep -F 'dogfood_exit app=noctty session_id=' "$noctty_log" >/dev/null
 grep -F 'duration_seconds=' "$noctty_log" >/dev/null
-grep -F 'stub_nocted_failure' "$nocted_log" >/dev/null
+grep -F 'runtime_warning_markers=0' "$noctty_log" >/dev/null
+grep -F 'native_grid_fixture_failed' "$nocted_log" >/dev/null
 grep -F 'event=omp_log_review pane=0 value=1 detail=clean' "$noctty_log" >/dev/null
 grep -F 'event=omp_version pane=0 value=1 detail=' "$noctty_log" >/dev/null
 
@@ -72,11 +90,71 @@ running_count=$(grep -lFx 'state=running' \
   "$state"/noctty/dogfood-sessions/noctty-*.receipt | wc -l)
 [ "$running_count" -eq 1 ]
 
+noctty_hash=$(awk -F= '$1 == "binary_sha256" { print $2; exit }' "$noctty_receipt")
+nocted_hash=$(awk -F= '$1 == "binary_sha256" { print $2; exit }' "$nocted_receipt")
+{
+  printf 'build_receipt_version=1\n'
+  printf 'install_epoch=4102444800\n'
+  printf 'noctty_sha256=%s\n' "$noctty_hash"
+  printf 'nocted_sha256=%s\n' "$nocted_hash"
+} >"$state/noctty/dogfood-build.receipt"
+chmod 0600 "$state/noctty/dogfood-build.receipt"
+mkdir -p "$state/noctty/interaction-qualifications"
+cat >"$state/noctty/interaction-qualifications/interaction-fixture.receipt" <<'EOF'
+interaction_receipt_version=1
+run_id=interaction-fixture
+epoch=4102444800
+mode=quick
+spike_detected=false
+scenario_split_open_elapsed_ms=1200
+scenario_split_open_peak_tree_rss_kib=131072
+scenario_split_open_latency_spike=false
+scenario_split_open_memory_spike=false
+EOF
+chmod 0600 "$state/noctty/interaction-qualifications/interaction-fixture.receipt"
+malformed_receipt="$state/noctty/dogfood-sessions/noctty-malformed.receipt"
+sed \
+  -e 's/^session_id=.*/session_id=noctty-malformed/' \
+  -e 's/^exit_status=.*/exit_status=0invalid/' \
+  "$noctty_receipt" >"$malformed_receipt"
+chmod 0600 "$malformed_receipt"
+
 cat >"$state/noctty/logs/noctty-legacy-two-hour.log" <<'EOF'
 dogfood_launch app=noctty timestamp=2026-08-01T10:00:00+00:00 epoch=1785578400
 legacy fixture
 dogfood_exit app=noctty timestamp=2026-08-01T12:00:00+00:00 epoch=1785585600 duration_seconds=7200 status=1
 EOF
+
+mkdir -p "$scratch/tools"
+cat >"$scratch/tools/coredumpctl" <<'EOF'
+#!/usr/bin/env sh
+printf '%s\n' 'No coredumps found.' >&2
+exit 1
+EOF
+chmod +x "$scratch/tools/coredumpctl"
+diagnostic_report=$(PATH="$scratch/tools:$PATH" \
+  ./scripts/local_diagnostic_report.sh "$state")
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_report version=4 no_network=true terminal_content=false' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_crashes inventory=true install_baseline=true retained_noctty=0 retained_nocted=0 retained_noctty_smoke=0 retained_nocted_smoke=0 since_install_noctty=0 since_install_nocted=0 since_install_noctty_smoke=0 since_install_nocted_smoke=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_summary app=noctty sessions=2 finished=1 failed=0 incomplete=1 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_build app=noctty sessions=1 finished=1 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_build app=nocted sessions=1 finished=1 failed=1 incomplete=0 runtime_warning_sessions=1' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_errors app=nocted gtk_critical=1 gdk_critical=1 glib_critical=1 gobject_critical=1 native_grid_failed=1 panic=1' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install app=noctty sessions=0 finished=0 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install_errors app=noctty gtk_critical=0 gdk_critical=0 glib_critical=0 gobject_critical=0 native_grid_failed=0 panic=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -E 'local_diagnostic_cohort app=nocted binary_sha256=[0-9a-f]{64} .* sessions=1 finished=1 failed=1 incomplete=0 runtime_warning_sessions=1' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_receipt session_id=' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_interaction receipt_id=interaction-fixture mode=quick epoch=4102444800 scenario=split_open elapsed_ms=1200 peak_tree_rss_kib=131072 latency_spike=false memory_spike=false run_spike=false' >/dev/null
+cat >"$scratch/tools/coredumpctl" <<'EOF'
+#!/usr/bin/env sh
+printf '%s\n' 'fixture query failure' >&2
+exit 2
+EOF
+failed_inventory=$(PATH="$scratch/tools:$PATH" \
+  ./scripts/local_diagnostic_report.sh "$state")
+printf '%s\n' "$failed_inventory" | grep -F \
+  'local_diagnostic_crashes inventory=false install_baseline=false' >/dev/null
+rm -f "$malformed_receipt"
 
 status=$(./scripts/dogfood_runtime_status.sh "$state")
 printf '%s\n' "$status" | grep -F 'receipt_sessions=3' >/dev/null
@@ -230,4 +308,4 @@ printf '%s\n' "$partial" | grep -F 'focus_isolation=true' >/dev/null
 printf '%s\n' "$partial" | grep -F 'logs_clean=true compatible=false' >/dev/null
 
 
-printf 'dogfood_logging_smoke atomic_receipts=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'
+printf 'dogfood_logging_smoke atomic_receipts=true desktop_fingerprint=true categorized_errors=true upgrade_cohorts=true interaction_spikes=true local_diagnostic_report=true coredump_query_fail_closed=true malformed_receipt_rejected=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'

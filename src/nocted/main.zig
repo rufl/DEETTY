@@ -888,10 +888,12 @@ const App = struct {
     status_label: *c.GtkWidget = undefined,
     position_label: *c.GtkWidget = undefined,
     language_label: *c.GtkWidget = undefined,
+    status_widgets_ready: bool = false,
     folding_item: *c.GtkWidget = undefined,
     word_wrap_item: *c.GtkWidget = undefined,
     smoke: bool = false,
     startup_smoke: bool = false,
+    session_restore_smoke: bool = false,
     resource_smoke: bool = false,
     smoke_passed: bool = false,
     smoke_preview: SmokePreview = .none,
@@ -2200,6 +2202,7 @@ const App = struct {
         setAccessibleName(self.status_label, "Editor status");
         setAccessibleName(self.position_label, "Cursor position");
         setAccessibleName(self.language_label, "Document language");
+        self.status_widgets_ready = true;
         c.gtk_box_pack_start(asBox(box), self.status_label, 1, 1, 8);
         c.gtk_box_pack_end(asBox(box), self.language_label, 0, 0, 8);
         c.gtk_box_pack_end(asBox(box), self.position_label, 0, 0, 0);
@@ -3452,10 +3455,12 @@ const App = struct {
     }
 
     fn updateStatus(self: *App, message: [*:0]const u8) void {
+        if (!self.status_widgets_ready) return;
         c.gtk_label_set_text(asLabel(self.status_label), message);
     }
 
     fn updateDocumentStatus(self: *App, document: *Document) void {
+        if (!self.status_widgets_ready) return;
         var iter: c.GtkTextIter = undefined;
         const mark = c.gtk_text_buffer_get_insert(@ptrCast(document.buffer));
         c.gtk_text_buffer_get_iter_at_mark(@ptrCast(document.buffer), &iter, mark);
@@ -4667,6 +4672,27 @@ const App = struct {
         return count;
     }
 
+    fn waitForProjectModel(
+        self: *App,
+        previous_models: usize,
+        expected_path: ?[]const u8,
+    ) bool {
+        for (0..2500) |_| {
+            while (c.g_main_context_iteration(null, 0) != 0) {}
+            const expected_indexed = if (expected_path) |path|
+                self.project_index.findPath(path) != null
+            else
+                true;
+            if (self.project_model_commits > previous_models and
+                self.project_load == null and
+                !self.hasWorkerJob(.project_scan) and
+                expected_indexed)
+                return true;
+            self.io.sleep(.fromMilliseconds(2), .awake) catch {};
+        }
+        return false;
+    }
+
     fn waitForProjectDraw(
         self: *App,
         previous_draws: usize,
@@ -4868,6 +4894,28 @@ const App = struct {
         return self.runRealProjectLifecycleSmoke();
     }
 
+    fn drawWidgetForQualification(widget: *c.GtkWidget) bool {
+        c.gtk_container_check_resize(@ptrCast(widget));
+        while (c.g_main_context_iteration(null, 0) != 0) {}
+        const window = c.gtk_widget_get_window(widget) orelse return false;
+        const width = c.gdk_window_get_width(window);
+        const height = c.gdk_window_get_height(window);
+        if (width <= 0 or height <= 0) return false;
+        const surface = c.cairo_image_surface_create(
+            c.CAIRO_FORMAT_ARGB32,
+            width,
+            height,
+        );
+        defer c.cairo_surface_destroy(surface);
+        if (c.cairo_surface_status(surface) != c.CAIRO_STATUS_SUCCESS)
+            return false;
+        const context = c.cairo_create(surface);
+        defer c.cairo_destroy(context);
+        if (c.cairo_status(context) != c.CAIRO_STATUS_SUCCESS) return false;
+        c.gtk_widget_draw(widget, context);
+        return true;
+    }
+
     fn waitForSearchQualification(
         self: *App,
         first_before: usize,
@@ -4876,10 +4924,15 @@ const App = struct {
     ) bool {
         for (0..5000) |_| {
             while (c.g_main_context_iteration(null, 0) != 0) {}
-            if (self.project_search_first_commits > first_before and
+            const search_complete =
+                self.project_search_first_commits > first_before and
                 self.project_search_completion_commits > completion_before and
-                self.project_search_draw_commits > draw_before and
-                !self.hasWorkerJob(.project_search))
+                !self.hasWorkerJob(.project_search);
+            if (search_complete and
+                self.project_search_draw_commits <= draw_before)
+                _ = drawWidgetForQualification(self.window);
+            if (search_complete and
+                self.project_search_draw_commits > draw_before)
                 return true;
             self.io.sleep(.fromMilliseconds(2), .awake) catch {};
         }
@@ -4921,6 +4974,14 @@ const App = struct {
         return false;
     }
 
+    fn searchLoadFailure(stage: []const u8) bool {
+        std.debug.print(
+            "nocted_search_load_qualification pass=0 stage={s}\n",
+            .{stage},
+        );
+        return false;
+    }
+
     fn runSearchLoadQualification(self: *App, root: []const u8) bool {
         const cycles: usize = 8;
         const ranking_queries = [_][]const u8{
@@ -4939,20 +5000,38 @@ const App = struct {
         var ranking_fingerprints: [ranking_queries.len]?u64 =
             [_]?u64{null} ** ranking_queries.len;
 
-        const previous_draws = self.project_draw_commits;
-        self.openProject(root) catch return false;
-        if (!self.waitForProjectDraw(previous_draws, "src/rank-target.zig") or
-            self.project_entry_count < 200 or self.project_truncated)
-            return false;
+        const previous_models = self.project_model_commits;
+        self.openProject(root) catch return searchLoadFailure("open_project");
+        if (!self.waitForProjectModel(previous_models, "src/rank-target.zig")) {
+            std.debug.print(
+                "nocted_search_load_state models_before={d} models_after={d} " ++
+                    "project_load={d} project_scan={d} entries={d} " ++
+                    "truncated={d} expected_path={d}\n",
+                .{
+                    previous_models,
+                    self.project_model_commits,
+                    @intFromBool(self.project_load != null),
+                    @intFromBool(self.hasWorkerJob(.project_scan)),
+                    self.project_entry_count,
+                    @intFromBool(self.project_truncated),
+                    @intFromBool(
+                        self.project_index.findPath("src/rank-target.zig") != null,
+                    ),
+                },
+            );
+            return searchLoadFailure("initial_project_model");
+        }
+        if (self.project_entry_count < 200 or self.project_truncated)
+            return searchLoadFailure("initial_project_bounds");
         const target_path = std.fs.path.join(
             self.allocator,
             &.{ root, "src/rank-target.zig" },
-        ) catch return false;
+        ) catch return searchLoadFailure("target_path");
         defer self.allocator.free(target_path);
         const save_path = std.fs.path.join(
             self.allocator,
             &.{ root, "src/qualification-save.zig" },
-        ) catch return false;
+        ) catch return searchLoadFailure("save_path");
         defer self.allocator.free(save_path);
 
         self.showQuickOpen();
@@ -4961,16 +5040,20 @@ const App = struct {
                 c.gtk_entry_set_text(@ptrCast(self.quick_open_entry), "");
                 self.cancelQuickOpenUpdate();
                 const started = std.Io.Clock.awake.now(self.io);
-                const query_z = self.allocator.dupeZ(u8, query) catch return false;
+                const query_z = self.allocator.dupeZ(u8, query) catch
+                    return searchLoadFailure("quick_open_query");
                 defer self.allocator.free(query_z);
                 c.gtk_entry_set_text(@ptrCast(self.quick_open_entry), query_z.ptr);
                 self.scheduleQuickOpenUpdate();
-                if (!self.waitForQuickOpen()) return false;
+                if (!self.waitForQuickOpen())
+                    return searchLoadFailure("quick_open_wait");
                 quick_values[cycle * ranking_queries.len + query_index] =
                     elapsedNanoseconds(started, self.io);
-                const fingerprint = self.quickOpenFingerprint() orelse return false;
+                const fingerprint = self.quickOpenFingerprint() orelse
+                    return searchLoadFailure("quick_open_fingerprint");
                 if (ranking_fingerprints[query_index]) |expected| {
-                    if (fingerprint != expected) return false;
+                    if (fingerprint != expected)
+                        return searchLoadFailure("quick_open_ranking");
                 } else {
                     ranking_fingerprints[query_index] = fingerprint;
                 }
@@ -4992,13 +5075,13 @@ const App = struct {
                 first_before,
                 completion_before,
                 draw_before,
-            )) return false;
+            )) return searchLoadFailure("search_wait");
             first_values[cycle] = self.project_search_last_first_ns;
             total_values[cycle] = self.project_search_last_total_ns;
             draw_values[cycle] = self.project_search_last_draw_ns;
             if (self.project_search_result_count < 200 or
                 self.project_search_truncated)
-                return false;
+                return searchLoadFailure("search_result_bounds");
         }
 
         for (0..cycles) |cycle| {
@@ -5007,7 +5090,8 @@ const App = struct {
                 "qualification_absent_marker",
             );
             self.runProjectSearch();
-            if (!self.hasWorkerJob(.project_search)) return false;
+            if (!self.hasWorkerJob(.project_search))
+                return searchLoadFailure("cancel_search_admission");
             const cancel_before = self.project_search_cancel_commits;
             const first_before = self.project_search_first_commits;
             const completion_before = self.project_search_completion_commits;
@@ -5017,12 +5101,13 @@ const App = struct {
                 "qualification_search_marker",
             );
             self.runProjectSearch();
-            if (!self.waitForSearchCancellation(cancel_before) or
-                !self.waitForSearchQualification(
-                    first_before,
-                    completion_before,
-                    draw_before,
-                )) return false;
+            if (!self.waitForSearchCancellation(cancel_before))
+                return searchLoadFailure("search_cancel_wait");
+            if (!self.waitForSearchQualification(
+                first_before,
+                completion_before,
+                draw_before,
+            )) return searchLoadFailure("cancel_replacement_wait");
             cancel_values[cycle] = self.project_search_last_cancel_ns;
         }
 
@@ -5032,9 +5117,11 @@ const App = struct {
                 "qualification_absent_marker",
             );
             self.runProjectSearch();
-            if (!self.hasWorkerJob(.project_search)) return false;
+            if (!self.hasWorkerJob(.project_search))
+                return searchLoadFailure("open_search_admission");
             const started = std.Io.Clock.awake.now(self.io);
-            self.openDocument(target_path) catch return false;
+            self.openDocument(target_path) catch
+                return searchLoadFailure("open_under_search");
             self.drainWorkerKind(.document_load);
             open_values[cycle] = elapsedNanoseconds(started, self.io);
             self.cancelProjectSearch();
@@ -5042,16 +5129,18 @@ const App = struct {
         }
 
         for (0..cycles) |cycle| {
-            const refresh_draws = self.project_draw_commits;
-            self.openProject(root) catch return false;
-            if (!self.hasWorkerJob(.project_scan)) return false;
+            const refresh_models = self.project_model_commits;
+            self.openProject(root) catch return searchLoadFailure("refresh_project");
+            if (!self.hasWorkerJob(.project_scan))
+                return searchLoadFailure("refresh_scan_admission");
             const started = std.Io.Clock.awake.now(self.io);
             self.saveContentsOnWorker(
                 save_path,
                 "const qualification_save = true;\n",
-            ) catch return false;
+            ) catch return searchLoadFailure("save_under_refresh");
             save_values[cycle] = elapsedNanoseconds(started, self.io);
-            if (!self.waitForProjectDraw(refresh_draws, null)) return false;
+            if (!self.waitForProjectModel(refresh_models, null))
+                return searchLoadFailure("refresh_project_model");
         }
 
         self.cancelProjectSearch();
@@ -6360,6 +6449,9 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--startup-smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.startup_smoke = true;
+        } else if (std.mem.eql(u8, arg, "--session-restore-smoke")) {
+            if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
+            app.session_restore_smoke = true;
         } else if (std.mem.eql(u8, arg, "--project-lifecycle-smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.project_lifecycle_smoke = true;
@@ -6416,6 +6508,9 @@ pub fn main(init: std.process.Init) !void {
     if (build_options.enable_smoke and app.startup_smoke) {
         if (c.g_idle_add(onStartupSmoke, &app) == 0)
             return error.StartupSmokeSourceUnavailable;
+    } else if (build_options.enable_smoke and app.session_restore_smoke) {
+        if (c.g_idle_add(onSessionRestoreSmoke, &app) == 0)
+            return error.SessionRestoreSmokeSourceUnavailable;
     } else if (build_options.enable_smoke and app.project_lifecycle_smoke) {
         app.project_lifecycle_mutate = std.mem.eql(
             u8,
@@ -6781,6 +6876,7 @@ fn onWindowDestroy(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     if (!app.shutting_down) app.persistSession() catch {};
     app.shutting_down = true;
+    app.status_widgets_ready = false;
     c.gtk_main_quit();
 }
 
@@ -7761,6 +7857,21 @@ fn onAbout(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     _ = runAboutDialog(app, false);
 }
 
+fn onSessionRestoreSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const restored = app.session_restores > 0 and app.documents.items.len > 0 and
+        app.active_document != null;
+    c.g_print(
+        "nocted_session_restore_smoke restored=%d documents=%zu status_widgets=%d\n",
+        @as(c_int, @intFromBool(restored)),
+        app.documents.items.len,
+        @as(c_int, @intFromBool(app.status_widgets_ready)),
+    );
+    app.shutting_down = true;
+    c.gtk_widget_destroy(app.window);
+    return c.G_SOURCE_REMOVE;
+}
+
 fn onStartupSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
     const app: *App = @ptrCast(@alignCast(data.?));
     const tree_closed = c.gtk_widget_get_visible(app.sidebar) == 0;
@@ -7889,6 +8000,8 @@ fn onSmokePreviewDone(data: ?*anyopaque) callconv(.c) c.gboolean {
 fn onSmokeCapture(data: ?*anyopaque) callconv(.c) c.gboolean {
     const app: *App = @ptrCast(@alignCast(data.?));
     const path = app.smoke_screenshot_path orelse return c.G_SOURCE_REMOVE;
+    c.gtk_container_check_resize(@ptrCast(app.window));
+    while (c.g_main_context_iteration(null, 0) != 0) {}
     const window = c.gtk_widget_get_window(app.window) orelse return c.G_SOURCE_REMOVE;
     const width = c.gdk_window_get_width(window);
     const height = c.gdk_window_get_height(window);

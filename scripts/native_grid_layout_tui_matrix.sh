@@ -6,19 +6,22 @@ command -v btop >/dev/null
 
 run_case() {
     backend=$1
+    application=$2
     output=$(timeout 180 env GDK_BACKEND="$backend" GTK_MODULES= \
-        NOCTTY_LAYOUT_TUI=btop \
+        NO_AT_BRIDGE=1 NOCTTY_LAYOUT_TUI="$application" \
         zig build --global-cache-dir .zig-cache/global smoke-run -- \
-        --native-grid-layout-preset-smoke 2>&1)
+        --native-grid-4x4-smoke 2>&1)
     printf '%s\n' "$output"
     printf '%s\n' "$output" | grep -F \
-        'layout_4x2=true panes_4x2=8 balanced_4x2=true layout_3x3=true panes_3x3=9 balanced_3x3=true layout_4x4=true panes_4x4=16 balanced_4x4=true auto_fit=80x24 zoom_overlay=true floor_feedback=true tui_rendered=true tui_input=true' \
+        'native_grid_4x4_smoke route=workspace_menu production_tab=true panes=16 balanced=true mapped=true pty_ready=true all_panes_drawn=true all_panes_nonblank=true tui_rendered=true tui_input=true sessions_created=16 source_tab_preserved=true restored=true exited=true' \
         >/dev/null
-    printf 'native_grid_layout_tui_case backend=%s app=btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true\n' \
-        "$backend"
+    printf 'native_grid_layout_tui_case backend=%s app=%s panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true\n' \
+        "$backend" "$application"
 }
 
-run_case wayland
-run_case x11
+run_case wayland vim
+run_case wayland btop
+run_case x11 vim
+run_case x11 btop
 
-echo 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true'
+echo 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true'

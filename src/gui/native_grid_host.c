@@ -499,6 +499,7 @@ typedef struct NocttyGridContextTag {
     int tab_rename_focus_restored;
     int tab_context_menu_opened;
     int tab_context_menu_survived;
+    int tab_close_smoke_attempts;
     int tab_close_targeted_background;
     int tab_close_applied;
     int tab_close_session_stopped;
@@ -9302,6 +9303,62 @@ static void bind_preset_max_positions(NocttyGridContext *root,
         root, gtk_paned_get_child2(GTK_PANED(widget)));
 }
 
+enum {
+    NOCTTY_PRESET_SETTLE_INTERVAL_MS = 50,
+    NOCTTY_PRESET_SETTLE_ATTEMPTS = 4,
+};
+
+typedef struct {
+    GtkWidget *page;
+    guint attempts_remaining;
+} NocttyPresetSettleRequest;
+
+static void queue_grid_preset_widget_draw(GtkWidget *widget,
+                                          gpointer user_data) {
+    (void)user_data;
+    gtk_widget_queue_draw(widget);
+    if (GTK_IS_CONTAINER(widget))
+        gtk_container_forall(GTK_CONTAINER(widget),
+                             queue_grid_preset_widget_draw, NULL);
+}
+
+static void destroy_grid_preset_settle_request(gpointer user_data) {
+    NocttyPresetSettleRequest *request = user_data;
+    g_object_unref(request->page);
+    g_free(request);
+}
+
+static gboolean settle_grid_preset_page(gpointer user_data) {
+    NocttyPresetSettleRequest *request = user_data;
+    if (gtk_widget_in_destruction(request->page)) return G_SOURCE_REMOVE;
+
+    /* KWin may defer child paints while nested GtkPaned allocations settle.
+     * Refreshing the bounded widget tree over four main-loop turns ensures
+     * every terminal receives damage without blocking the UI thread. The
+     * request owns the page, so closing the tab cannot leave a stale context
+     * callback behind. */
+    gtk_widget_queue_resize(request->page);
+    queue_grid_preset_widget_draw(request->page, NULL);
+
+    g_assert(request->attempts_remaining > 0);
+    request->attempts_remaining--;
+    return request->attempts_remaining == 0
+        ? G_SOURCE_REMOVE
+        : G_SOURCE_CONTINUE;
+}
+
+static void schedule_grid_preset_settle(GtkWidget *page) {
+    NocttyPresetSettleRequest *request = g_new0(
+        NocttyPresetSettleRequest, 1);
+    request->page = g_object_ref(page);
+    request->attempts_remaining = NOCTTY_PRESET_SETTLE_ATTEMPTS;
+    guint source = g_timeout_add_full(
+        G_PRIORITY_DEFAULT, NOCTTY_PRESET_SETTLE_INTERVAL_MS,
+        settle_grid_preset_page, request,
+        destroy_grid_preset_settle_request);
+    if (source == 0) destroy_grid_preset_settle_request(request);
+}
+
 static gboolean rebuild_grid_preset_page(
     NocttyGridContext *source, NocttyGridContext **ordered,
     guint count, guint rows, guint columns) {
@@ -9343,6 +9400,7 @@ static gboolean rebuild_grid_preset_page(
     }
     gtk_widget_show_all(page);
     gtk_widget_queue_resize(page);
+    schedule_grid_preset_settle(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
         gtk_widget_set_sensitive(ordered[index]->area, TRUE);
@@ -15429,6 +15487,7 @@ static gboolean request_tab_color_smoke(gpointer user_data) {
 static gboolean request_new_tab_after_close_smoke(gpointer user_data);
 static gboolean cleanup_new_tab_after_close_smoke(gpointer user_data);
 static gboolean continue_tab_close_smoke(gpointer user_data);
+static gboolean focus_out_tab_close_smoke(gpointer user_data);
 
 static gboolean finish_tab_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
@@ -15472,6 +15531,24 @@ static gboolean probe_retired_tab_callback(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+static gboolean open_tab_close_smoke_menu(NocttyGridContext *root) {
+    GtkWidget *page = gtk_notebook_get_nth_page(
+        GTK_NOTEBOOK(root->notebook), 0);
+    GtkWidget *tab_widget = page != NULL
+        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        : NULL;
+    if (tab_widget == NULL || gtk_widget_get_window(tab_widget) == NULL)
+        return FALSE;
+    GdkEventButton event = {0};
+    event.type = GDK_BUTTON_PRESS;
+    event.window = gtk_widget_get_window(tab_widget);
+    event.send_event = TRUE;
+    event.time = GDK_CURRENT_TIME;
+    event.button = 3;
+    (void)on_tab_button_press(tab_widget, &event, root);
+    return root->workspace_menu != NULL;
+}
+
 static gboolean continue_tab_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *menu = root->workspace_menu;
@@ -15480,7 +15557,15 @@ static gboolean continue_tab_close_smoke(gpointer user_data) {
     GtkWidget *close = menu_ready
         ? find_workspace_menu_item(menu, "Close Tab")
         : NULL;
-    if (close == NULL) return G_SOURCE_REMOVE;
+    if (close == NULL) {
+        if (root->tab_close_smoke_attempts++ < 80) {
+            if (root->tab_close_smoke_attempts % 20 == 0)
+                (void)open_tab_close_smoke_menu(root);
+            g_timeout_add(25, focus_out_tab_close_smoke, root);
+        }
+        return G_SOURCE_REMOVE;
+    }
+    root->tab_close_smoke_attempts = 0;
     root->tab_context_menu_survived = 1;
     GtkWidget *page = g_object_get_data(G_OBJECT(close), "noctty-tab-page");
     NocttyGridContext *closing = grid_context_for_page(root, page);
@@ -15496,11 +15581,13 @@ static gboolean focus_out_tab_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *menu = root->workspace_menu;
     if ((menu == NULL || !gtk_widget_get_mapped(menu)) &&
-        root->project_smoke_attempts++ < 20) {
+        root->tab_close_smoke_attempts++ < 80) {
+        if (root->tab_close_smoke_attempts % 20 == 0)
+            (void)open_tab_close_smoke_menu(root);
         g_timeout_add(25, focus_out_tab_close_smoke, root);
         return G_SOURCE_REMOVE;
     }
-    root->project_smoke_attempts = 0;
+    root->tab_close_smoke_attempts = 0;
     if (menu == NULL || !gtk_widget_get_mapped(menu))
         return G_SOURCE_REMOVE;
     (void)on_window_focus_out(root->window, NULL, root);
@@ -15514,19 +15601,10 @@ static gboolean request_tab_close_smoke(gpointer user_data) {
     GtkWidget *current = gtk_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
         gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
-    GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
-        : NULL;
     root->tab_close_targeted_background = page != NULL && page != current;
-    if (tab_widget == NULL) return G_SOURCE_REMOVE;
-    GdkEventButton event = {0};
-    event.type = GDK_BUTTON_PRESS;
-    event.window = gtk_widget_get_window(tab_widget);
-    event.send_event = TRUE;
-    event.time = GDK_CURRENT_TIME;
-    event.button = 3;
-    (void)on_tab_button_press(tab_widget, &event, root);
-    root->project_smoke_attempts = 0;
+    if (!root->tab_close_targeted_background) return G_SOURCE_REMOVE;
+    root->tab_close_smoke_attempts = 0;
+    (void)open_tab_close_smoke_menu(root);
     g_timeout_add(25, focus_out_tab_close_smoke, root);
     return G_SOURCE_REMOVE;
 }
@@ -16217,9 +16295,12 @@ static gboolean verify_layout_terminals_ready(NocttyGridContext *context,
                 }
             }
         }
+        /* Buffer content alone does not prove a visible pane. Requiring the
+         * draw callback catches mapped terminals that GTK has not painted. */
         if (grid_context_session_available(candidate) &&
             gtk_widget_get_parent(candidate->area) != NULL &&
-            gtk_widget_get_mapped(candidate->area) && nonblank)
+            gtk_widget_get_mapped(candidate->area) && candidate->saw_draw &&
+            nonblank)
             ready++;
     }
     return ready == expected;
@@ -16249,6 +16330,19 @@ static gboolean verify_layout_auto_fit(NocttyGridContext *context) {
     return count == 16 && fitted && overlay;
 }
 
+static gboolean write_layout_smoke_input(NocttyGridContext *context,
+                                           const char *bytes,
+                                           size_t length) {
+    if (context->write == NULL ||
+        context->write(context->userdata, bytes, length) != (int)length)
+        return FALSE;
+    /* TerminalSession writes may be buffered under PTY backpressure. Production
+     * keyboard paths already arm this source; smoke-generated input must do the
+     * same or a busy 16-pane fixture can retain queued keys indefinitely. */
+    schedule_grid_write_flush(context);
+    return TRUE;
+}
+
 static gboolean verify_layout_tui(NocttyGridContext *context) {
     const char *tui = g_getenv("NOCTTY_LAYOUT_TUI");
     NocttyGridContext *root = root_grid_context(context);
@@ -16273,8 +16367,7 @@ static gboolean verify_layout_tui(NocttyGridContext *context) {
             }
         }
         if (nonblank >= 8) rendered++;
-        if (candidate->write != NULL &&
-            candidate->write(candidate->userdata, "l", 1) == 1) input++;
+        if (write_layout_smoke_input(candidate, "l", 1)) input++;
     }
     if (rendered != 16 || input != 16)
         g_printerr("native_grid_layout_tui_not_ready app=%s rendered=%u input=%u\n",
@@ -16306,13 +16399,13 @@ static void finish_layout_preset_smoke_sessions(NocttyGridContext *root) {
         if (candidate->active && candidate->write != NULL) {
             const char *tui = g_getenv("NOCTTY_LAYOUT_TUI");
             if (g_strcmp0(tui, "vim") == 0)
-                (void)candidate->write(candidate->userdata, "\033:q!\r", 5);
-            else if (g_strcmp0(tui, "btop") == 0 && candidate == root)
-                (void)candidate->write(candidate->userdata, "q", 1);
+                (void)write_layout_smoke_input(
+                    candidate, "\033:q!\r", 5);
             else if (g_strcmp0(tui, "btop") == 0)
-                (void)candidate->write(candidate->userdata, "\033:q!\r", 5);
+                (void)write_layout_smoke_input(candidate, "\003", 1);
             else
-                (void)candidate->write(candidate->userdata, "exit 0\n", 7);
+                (void)write_layout_smoke_input(
+                    candidate, "exit 0\n", 7);
         }
     }
 }
@@ -16320,7 +16413,27 @@ static void finish_layout_preset_smoke_sessions(NocttyGridContext *root) {
 static gboolean check_layout_preset_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *remaining;
-    if (root->layout_preset_smoke_stage == 2) {
+    if (root->layout_preset_smoke_stage == 9) {
+        gboolean geometry = verify_layout_preset_geometry(root, 4, 4);
+        gboolean terminals = verify_layout_terminals_ready(root, 16);
+        gboolean tui = geometry && terminals && verify_layout_tui(root);
+        root->layout_preset_4x4_rendered =
+            root->layout_preset_4x4_applied && geometry && terminals && tui;
+        if (!root->layout_preset_4x4_rendered &&
+            root->layout_preset_smoke_attempts++ < 40) {
+            GtkWidget *page = gtk_notebook_get_nth_page(
+                GTK_NOTEBOOK(root->notebook),
+                gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+            if (page != NULL) queue_grid_preset_widget_draw(page, NULL);
+            g_timeout_add(50, check_layout_preset_smoke, root);
+            return G_SOURCE_REMOVE;
+        }
+        if (!root->layout_preset_4x4_rendered)
+            g_printerr("native_grid_4x4_not_ready applied=%d geometry=%d terminals=%d tui=%d attempts=%d\n",
+                       root->layout_preset_4x4_applied, geometry, terminals,
+                       tui, root->layout_preset_smoke_attempts);
+        finish_layout_preset_smoke_sessions(root);
+    } else if (root->layout_preset_smoke_stage == 2) {
         gboolean rendered =
             root->layout_preset_2x2_applied &&
             verify_layout_preset_geometry(root, 2, 2);
@@ -16346,8 +16459,9 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         root->layout_preset_4x4_rendered =
             root->layout_preset_4x4_applied &&
             verify_layout_preset_geometry(root, 4, 4) &&
-            verify_layout_auto_fit(root) && verify_layout_tui(root) &&
-            verify_layout_floor_feedback(root);
+            verify_layout_auto_fit(root) &&
+            verify_layout_terminals_ready(root, 16) &&
+            verify_layout_tui(root) && verify_layout_floor_feedback(root);
         root->layout_preset_finalizing = 1;
         root->layout_preset_smoke_stage = 6;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
@@ -16363,10 +16477,11 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             GTK_NOTEBOOK(root->notebook));
         GtkWidget *production_page = gtk_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook), current_index);
-        root->layout_preset_2x2_rendered =
-            root->layout_preset_2x2_rendered &&
-            verify_layout_preset_geometry(root, 2, 2) &&
-            verify_layout_terminals_ready(root, 4);
+        root->layout_preset_4x4_rendered =
+            root->layout_preset_4x4_rendered &&
+            verify_layout_preset_geometry(root, 4, 4) &&
+            verify_layout_terminals_ready(root, 16) &&
+            verify_layout_auto_fit(root) && verify_layout_tui(root);
         if (production_page != NULL && production_page != root->page)
             (void)close_grid_tab(root, production_page);
         finish_layout_preset_smoke_sessions(root);
@@ -16404,8 +16519,8 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             remaining->active && remaining->area != NULL &&
             remaining->page == root->page;
         root->layout_preset_smoke_stage = 8;
-        if (!open_grid_layout_preset_tab(root, 51)) {
-            root->layout_preset_2x2_rendered = 0;
+        if (!open_grid_layout_preset_tab(root, 60)) {
+            root->layout_preset_4x4_rendered = 0;
             finish_layout_preset_smoke_sessions(root);
         } else {
             g_timeout_add(420, check_layout_preset_smoke, root);
@@ -16432,6 +16547,31 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
     GtkWidget *menu = root->workspace_menu;
     gboolean menu_ready = menu != NULL && gtk_widget_get_mapped(menu) &&
         gtk_widget_get_mapped(root->window) && root->window_presented;
+    if (root->workspace_smoke == 43) {
+        GtkWidget *layout_4x4 = menu_ready
+            ? find_workspace_menu_item(menu, "New 4×4") : NULL;
+        gboolean route_ready = layout_4x4 != NULL &&
+            GPOINTER_TO_INT(g_object_get_data(
+                G_OBJECT(layout_4x4), "noctty-workspace-event")) == 60;
+        if (!route_ready) {
+            if (root->layout_preset_smoke_attempts++ < 40) {
+                if (root->layout_preset_smoke_attempts == 20)
+                    (void)open_smoke_workspace_menu(active_grid_context(root));
+                g_timeout_add(25, continue_layout_preset_smoke, root);
+            } else {
+                NocttyGridContext *remaining = active_grid_context(root);
+                if (remaining != NULL && remaining->write != NULL)
+                    (void)remaining->write(remaining->userdata, "exit 1\n", 7);
+            }
+            return G_SOURCE_REMOVE;
+        }
+        root->layout_preset_menu_survived = 1;
+        root->layout_preset_smoke_attempts = 0;
+        gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x4);
+        gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x4, TRUE);
+        g_timeout_add(600, check_layout_preset_smoke, root);
+        return G_SOURCE_REMOVE;
+    }
     GtkWidget *layout_1x1 = menu_ready
         ? find_workspace_menu_item(menu, "New 1×1") : NULL;
     GtkWidget *layout_2x2 = menu_ready
@@ -16502,7 +16642,8 @@ static gboolean start_layout_preset_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->layout_preset_churn_rounds = 0;
     root->layout_preset_finalizing = 0;
-    root->layout_preset_smoke_stage = 3;
+    root->layout_preset_smoke_stage =
+        root->workspace_smoke == 43 ? 9 : 3;
     return request_layout_preset_smoke(root);
 }
 
@@ -17635,7 +17776,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         g_timeout_add(250, request_window_resize_smoke, &context);
     } else if (workspace_smoke == 20) {
         g_timeout_add(300, request_pane_close_smoke, &context);
-    } else if (workspace_smoke == 21) {
+    } else if (workspace_smoke == 21 || workspace_smoke == 43) {
         g_timeout_add(300, start_layout_preset_smoke, &context);
     } else if (workspace_smoke == 22) {
         g_timeout_add(300, emit_workspace_smoke_tab, &context);
@@ -18095,29 +18236,48 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.terminal_close_prompt_accepted > 0 &&
          context.terminal_close_prompt_busy_count > 0 &&
          final_page_count == 1 && final_tabs_visible);
-    int layout_preset_ok = workspace_smoke != 21 ||
-        (context.context_menu_opened &&
-         context.session_creation_focus_deferred &&
-         context.layout_preset_menu_survived &&
-         context.layout_preset_2x2_applied &&
-         context.layout_preset_2x2_rendered &&
-         context.layout_preset_4x2_applied &&
-         context.layout_preset_4x2_rendered &&
-         context.layout_preset_3x3_applied &&
-         context.layout_preset_3x3_rendered &&
-         context.layout_preset_4x4_applied &&
-         context.layout_preset_4x4_rendered &&
-         context.layout_preset_1x1_applied &&
-         context.layout_preset_1x1_rendered &&
-         context.layout_preset_churn_rounds == 8 &&
-         context.layout_preset_created_count == 43 &&
-         context.layout_preset_closed_count == 28 &&
-         context.layout_preset_prompt_count == 2 &&
-         context.layout_preset_prompt_cancelled == 1 &&
-         context.layout_preset_prompt_accepted == 1 &&
-         context.layout_preset_moved_count == 15 &&
-         context.layout_preset_remaining_focused &&
-         final_page_count == 2 && final_tabs_visible);
+    int layout_preset_ok = workspace_smoke == 43
+        ? (context.context_menu_opened &&
+           context.session_creation_focus_deferred &&
+           context.layout_preset_menu_survived &&
+           context.layout_preset_4x4_applied &&
+           context.layout_preset_4x4_rendered &&
+           context.layout_preset_created_count == 0 &&
+           context.layout_preset_closed_count == 0 &&
+           final_page_count == 2 && final_tabs_visible)
+        : workspace_smoke != 21 ||
+          (context.context_menu_opened &&
+           context.session_creation_focus_deferred &&
+           context.layout_preset_menu_survived &&
+           context.layout_preset_2x2_applied &&
+           context.layout_preset_2x2_rendered &&
+           context.layout_preset_4x2_applied &&
+           context.layout_preset_4x2_rendered &&
+           context.layout_preset_3x3_applied &&
+           context.layout_preset_3x3_rendered &&
+           context.layout_preset_4x4_applied &&
+           context.layout_preset_4x4_rendered &&
+           context.layout_preset_1x1_applied &&
+           context.layout_preset_1x1_rendered &&
+           context.layout_preset_churn_rounds == 8 &&
+           context.layout_preset_created_count == 43 &&
+           context.layout_preset_closed_count == 28 &&
+           context.layout_preset_prompt_count == 2 &&
+           context.layout_preset_prompt_cancelled == 1 &&
+           context.layout_preset_prompt_accepted == 1 &&
+           context.layout_preset_moved_count == 15 &&
+           context.layout_preset_remaining_focused &&
+           final_page_count == 2 && final_tabs_visible);
+    if (workspace_smoke == 43 && !layout_preset_ok)
+        g_printerr("native_grid_4x4_failure context_menu=%d focus_deferred=%d menu=%d applied=%d rendered=%d created=%d closed=%d pages=%d tabs_visible=%d\n",
+                   context.context_menu_opened,
+                   context.session_creation_focus_deferred,
+                   context.layout_preset_menu_survived,
+                   context.layout_preset_4x4_applied,
+                   context.layout_preset_4x4_rendered,
+                   context.layout_preset_created_count,
+                   context.layout_preset_closed_count,
+                   final_page_count, final_tabs_visible);
     int resize_overlay_ok = workspace_smoke != 18 ||
         (context.resize_overlay_initial_suppressed &&
          context.resize_overlay_smoke_initial_hidden &&

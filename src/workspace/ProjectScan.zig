@@ -59,6 +59,7 @@ pub fn runGitStatusAlloc(
     allocator: std.mem.Allocator,
     io: std.Io,
     cwd_path: ?[]const u8,
+    environ_map: ?*const std.process.Environ.Map,
     options: ScanOptions,
 ) !ScanResult {
     try options.validate();
@@ -66,6 +67,7 @@ pub fn runGitStatusAlloc(
     const result = try std.process.run(allocator, io, .{
         .argv = &argv,
         .cwd = if (cwd_path) |path| .{ .path = path } else .inherit,
+        .environ_map = environ_map,
         .stdout_limit = .limited(max_git_output_bytes),
         .stderr_limit = .limited(64 * 1024),
     });
@@ -83,6 +85,7 @@ pub fn runGitGraphAlloc(
     allocator: std.mem.Allocator,
     io: std.Io,
     cwd_path: ?[]const u8,
+    environ_map: ?*const std.process.Environ.Map,
     options: ScanOptions,
 ) !ScanResult {
     try options.validate();
@@ -98,6 +101,7 @@ pub fn runGitGraphAlloc(
     const result = try std.process.run(allocator, io, .{
         .argv = &argv,
         .cwd = if (cwd_path) |path| .{ .path = path } else .inherit,
+        .environ_map = environ_map,
         .stdout_limit = .limited(max_git_output_bytes),
         .stderr_limit = .limited(64 * 1024),
     });

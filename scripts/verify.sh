@@ -57,6 +57,10 @@ bash -n ./scripts/native_grid_authenticated_agent_qualification.sh
 bash -n ./scripts/native_grid_installed_continuity_qualification.sh
 bash -n ./scripts/native_grid_stability_qualification.sh
 sh -n ./scripts/native_grid_shortcut_live_smoke.sh
+sh -n ./scripts/local_diagnostic_report.sh
+bash -n ./scripts/local_interaction_spike_report.sh
+sh -n ./scripts/plasma_wayland_health.sh
+bash -n ./scripts/plasma_wayland_post_upgrade.sh
 bash -n ./scripts/terminal_benchmark.sh
 sh -n ./scripts/terminal_benchmark_workload.sh
 ./scripts/package_smoke.sh

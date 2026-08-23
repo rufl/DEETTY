@@ -96,7 +96,12 @@ scheduling calculation, not a new CPU benchmark
 The bounded native-grid qualification repeats real 1x1/2x2/1x1 churn eight
 times, grows through balanced 3x3 and 4x4 layouts, then proves cancel-first
 shrink protection and preservation of 15 surplus sessions in an overflow tab
-in both Debug and `ReleaseSafe`. A mapped matrix additionally runs 16-pane Vim and mixed btop/Vim grids on both native Wayland and X11, requiring nonblank content, routed input, 80×24 auto-fit, and session preservation (`native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 auto_fit=80x24 rendered=true input_routed=true sessions_preserved=true`). A complementary headless production-session lane
+in both Debug and `ReleaseSafe`. A production-path matrix additionally opens
+separate all-Vim and all-btop 4×4 tabs on both native Wayland and X11. Each case
+starts from one source terminal and requires exactly 16 new sessions with mapped,
+drawn, nonblank panes, routed input, source-tab preservation, and persisted-model
+restoration
+(`native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true`). A complementary headless production-session lane
 now repeats 64 ordinary plus eight forced real-PTY lifecycles per mode. The
 forced job ignores `SIGHUP` and `SIGTERM`; all 16 cases exhaust the 500 ms grace,
 lose both shell and foreground group, and leave zero process or allocator
