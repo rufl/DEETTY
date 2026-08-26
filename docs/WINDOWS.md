@@ -257,6 +257,12 @@ Build the reproducible per-user NSIS installer from that portable ZIP:
   dist/noctty-windows-x86_64-alpha.zip
 ```
 
+The installer builder verifies the portable ZIP checksum, manifest schema,
+version, revision, unsigned status, and NoctEd payload before consuming it. A
+missing or stale generated portable artifact is rebuilt from the current tree
+and validated again; an invalid regenerated contract fails with an explicit
+error instead of a silent `grep` exit.
+
 The installer targets `%LOCALAPPDATA%\Programs\NOCTTY`, requires no
 administrator elevation, creates Start Menu shortcuts, offers optional desktop
 shortcuts, and registers NoctEd only as an **Open with** option for supported

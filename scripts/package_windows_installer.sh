@@ -23,28 +23,39 @@ case "$out_name" in
   *) echo 'package_windows_installer error=output_must_end_in_exe' >&2; exit 1 ;;
 esac
 
-if [ ! -s "$portable_path" ]; then
-  ./scripts/package_windows.sh "$portable_path"
-fi
-test -s "$portable_path"
-test -s "$portable_path.sha256"
-test -s "$portable_path.manifest"
-(
-  cd "$(dirname "$portable_path")"
-  sha256sum -c "$(basename "$portable_path").sha256" >/dev/null
-)
-grep -Fx 'windows_bundle_manifest_version=2' "$portable_path.manifest" >/dev/null
-grep -Fx 'signed=false' "$portable_path.manifest" >/dev/null
-grep -Fx 'nocted_included=true' "$portable_path.manifest" >/dev/null
-
 version=$(sed -n 's/^pub const version = "\([^"]*\)";$/\1/p' src/release.zig)
 package_revision=$(sed -n 's/^pub const package_revision = "\([^"]*\)";$/\1/p' src/release.zig)
 release_date=$(sed -n 's/^pub const release_date = "\([^"]*\)";$/\1/p' src/release.zig)
 test -n "$version"
 test -n "$package_revision"
 test -n "$release_date"
-grep -Fx "version=$version" "$portable_path.manifest" >/dev/null
-grep -Fx "package_revision=$package_revision" "$portable_path.manifest" >/dev/null
+
+portable_contract_valid() {
+  test -s "$portable_path" &&
+    test -s "$portable_path.sha256" &&
+    test -s "$portable_path.manifest" &&
+    (
+      cd "$(dirname "$portable_path")"
+      sha256sum -c "$(basename "$portable_path").sha256" >/dev/null 2>&1
+    ) &&
+    grep -Fx 'windows_bundle_manifest_version=2' \
+      "$portable_path.manifest" >/dev/null &&
+    grep -Fx 'signed=false' "$portable_path.manifest" >/dev/null &&
+    grep -Fx 'nocted_included=true' "$portable_path.manifest" >/dev/null &&
+    grep -Fx "version=$version" "$portable_path.manifest" >/dev/null &&
+    grep -Fx "package_revision=$package_revision" \
+      "$portable_path.manifest" >/dev/null
+}
+
+portable_rebuilt=false
+if ! portable_contract_valid; then
+  ./scripts/package_windows.sh "$portable_path"
+  portable_rebuilt=true
+fi
+if ! portable_contract_valid; then
+  echo "package_windows_installer error=portable_contract_invalid path=$portable_path" >&2
+  exit 1
+fi
 
 numeric_base=$(printf '%s\n' "$version" | sed 's/[^0-9.].*$//')
 numeric_version=$(
@@ -269,4 +280,4 @@ fi
   cd "$out_dir"
   sha256sum -c "$(basename "$out_path").sha256" >/dev/null
 )
-echo "package_windows_installer path=$out version=$version package_revision=$package_revision architecture=x86_64 signed=false checksum=$installer_digest bytes=$installer_bytes"
+echo "package_windows_installer path=$out version=$version package_revision=$package_revision architecture=x86_64 signed=false checksum=$installer_digest bytes=$installer_bytes portable_rebuilt=$portable_rebuilt"
