@@ -309,7 +309,7 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `392/392` tests in Debug and `ReleaseSafe`. The
+`19/19` steps and `393/393` tests in Debug and `ReleaseSafe`. The
 `./scripts/verify.sh` aggregate passes with scoped scratch cleanup; the current
 focused isolation receipt proves private X11/Wayland state and no inherited
 active display.

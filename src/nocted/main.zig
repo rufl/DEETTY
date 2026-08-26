@@ -772,6 +772,7 @@ fn utf8ByteOffset(text: []const u8, character_offset: usize) ?usize {
 const App = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
+    environ_map: *const std.process.Environ.Map,
     home: []const u8,
     settings_path: []u8,
     session_path: []u8,
@@ -908,6 +909,7 @@ const App = struct {
     fn init(
         allocator: std.mem.Allocator,
         io: std.Io,
+        environ_map: *const std.process.Environ.Map,
         home: []const u8,
         config_home: ?[]const u8,
     ) !App {
@@ -959,6 +961,7 @@ const App = struct {
         var app = App{
             .allocator = allocator,
             .io = io,
+            .environ_map = environ_map,
             .home = home,
             .settings_path = settings_path,
             .session_path = session_path,
@@ -1201,6 +1204,7 @@ const App = struct {
     }
 
     fn submitWorkerJob(self: *App, job: *WorkerJob) !void {
+        job.environ_map = self.environ_map;
         const admission = worker.admit(self.worker_jobs.items, job);
         self.worker_cancelled_jobs += admission.cancelled_jobs;
         switch (admission.status) {
@@ -6323,7 +6327,13 @@ pub fn main(init: std.process.Init) !void {
             return error.InvalidTaskAction;
         const plan = core.task.detect(init.io, args[2], action) orelse
             return error.ProjectTaskUnavailable;
-        const result = try core.task.runAlloc(allocator, init.io, args[2], plan);
+        const result = try core.task.runControlledAlloc(
+            allocator,
+            init.io,
+            args[2],
+            plan,
+            .{ .environ_map = init.environ_map },
+        );
         defer allocator.free(result.output);
         var buffer: [4096]u8 = undefined;
         var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
@@ -6420,6 +6430,7 @@ pub fn main(init: std.process.Init) !void {
     var app = try App.init(
         allocator,
         init.io,
+        init.environ_map,
         home,
         init.environ_map.get("XDG_CONFIG_HOME"),
     );

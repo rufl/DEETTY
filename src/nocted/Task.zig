@@ -318,6 +318,7 @@ pub const Result = struct {
 pub const RunControl = struct {
     context: ?*anyopaque = null,
     is_cancelled: ?*const fn (?*anyopaque) bool = null,
+    environ_map: ?*const std.process.Environ.Map = null,
     timeout_ms: u32 = 120_000,
 
     fn cancelled(control: RunControl) bool {
@@ -353,8 +354,22 @@ pub fn runControlledAlloc(
 ) !Result {
     if (control.timeout_ms == 0) return error.InvalidTaskTimeout;
     if (control.cancelled()) return error.TaskCancelled;
+    var child_environment: ?std.process.Environ.Map = null;
+    if (control.environ_map) |source| {
+        child_environment = try source.clone(allocator);
+        if (child_environment) |*environment| {
+            if (environment.contains("XDG_ACTIVATION_TOKEN")) {
+                std.debug.assert(environment.orderedRemove("XDG_ACTIVATION_TOKEN"));
+            }
+            if (environment.contains("DESKTOP_STARTUP_ID")) {
+                std.debug.assert(environment.orderedRemove("DESKTOP_STARTUP_ID"));
+            }
+        }
+    }
+    defer if (child_environment) |*environment| environment.deinit();
     var child = try std.process.spawn(io, .{
         .argv = plan_value.argv,
+        .environ_map = if (child_environment) |*environment| environment else null,
         .cwd = .{ .path = root },
         .stdin = .ignore,
         .stdout = .pipe,
@@ -532,6 +547,34 @@ test "task output is capped per stream" {
             .{},
         ),
     );
+}
+
+test "controlled task strips desktop activation variables" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+    var environment = std.process.Environ.Map.init(std.testing.allocator);
+    defer environment.deinit();
+    try environment.put("XDG_ACTIVATION_TOKEN", "token");
+    try environment.put("DESKTOP_STARTUP_ID", "startup");
+    try environment.put("NOCTED_TASK_KEEP", "ready");
+    const result = try runControlledAlloc(
+        std.testing.allocator,
+        std.testing.io,
+        root,
+        .{
+            .name = "fixture",
+            .argv = &.{
+                "sh",
+                "-c",
+                "test -z \"$XDG_ACTIVATION_TOKEN\" && test -z \"$DESKTOP_STARTUP_ID\" && test \"$NOCTED_TASK_KEEP\" = ready",
+            },
+        },
+        .{ .environ_map = &environment },
+    );
+    defer std.testing.allocator.free(result.output);
+    try std.testing.expect(result.success);
 }
 
 test "task timeout applies while output continues" {

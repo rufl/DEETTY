@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+export XDG_ACTIVATION_TOKEN=nocted-task-smoke-token
+export DESKTOP_STARTUP_ID=nocted-task-smoke-startup
+
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/nocted-task.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 
@@ -14,6 +17,8 @@ mkdir -p "$scratch/shims"
 cat >"$scratch/shims/task-tool" <<'EOF'
 #!/bin/sh
 set -eu
+test -z "${XDG_ACTIVATION_TOKEN:-}"
+test -z "${DESKTOP_STARTUP_ID:-}"
 printf '%s:%s\n' "$(basename "$0")" "$*"
 EOF
 chmod +x "$scratch/shims/task-tool"
@@ -70,4 +75,4 @@ probe dotnet test \
 probe python run \
   'nocted_task_probe project=Python action=run success=true output=python3:main.py'
 
-echo 'nocted_task_smoke ecosystems=9 manifest_detection=true package_script_validation=true bounded=true background_worker=true output=true exit_status=true scratch_clean=true'
+echo 'nocted_task_smoke ecosystems=9 manifest_detection=true package_script_validation=true bounded=true background_worker=true activation_token=false output=true exit_status=true scratch_clean=true'

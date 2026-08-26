@@ -183,6 +183,7 @@ pub const Job = struct {
     owner: *anyopaque,
     allocator: std.mem.Allocator,
     io: std.Io,
+    environ_map: ?*const std.process.Environ.Map = null,
     generation: u64,
     cancelled: std.atomic.Value(bool) = .init(false),
     synchronous: bool = false,
@@ -442,7 +443,11 @@ fn execute(job: *Job) !void {
                 job.io,
                 payload.root,
                 payload.plan,
-                .{ .context = job, .is_cancelled = taskCancelled },
+                .{
+                    .context = job,
+                    .is_cancelled = taskCancelled,
+                    .environ_map = job.environ_map,
+                },
             );
             payload.output = result.output;
             payload.success = result.success;
