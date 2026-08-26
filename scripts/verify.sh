@@ -35,8 +35,10 @@ run_zig_build() {
 
 ./scripts/check_terminal_unicode.sh
 ./scripts/terminal_compatibility_qualification.sh
-./scripts/terminal_session_qualification.sh
+# Keep the latency-sensitive fairness lane ahead of the 144-process lifecycle
+# qualification so one proof lane does not distort the next through teardown churn.
 ./scripts/terminal_agent_fairness_qualification.sh
+./scripts/terminal_session_qualification.sh
 ./scripts/launch_continuity_qualification.sh
 ./scripts/terminal_ncurses_qualification.sh
 ./scripts/terminal_system_tui_qualification.sh

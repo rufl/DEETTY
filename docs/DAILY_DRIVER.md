@@ -37,7 +37,7 @@ fallback:
   only if descriptor registration fails;
 - hidden panes still drain and parse PTY output, but presentation is coalesced
   to 100 ms and unmapped drawing areas do not queue redraws;
-- native-grid ABI v2 consumes terminal-owned dirty column spans, coalesces
+- native-grid ABI v4 consumes terminal-owned dirty column spans, coalesces
   equal-background fills, and caches eligible Cairo glyph conversion without
   weakening grapheme, rich-style, fallback-font, or full-redraw paths;
 - mapped output uses one owned GTK frame-clock callback, hidden output retains

@@ -308,9 +308,10 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `384/384` tests in Debug and `ReleaseSafe`. `./scripts/verify.sh`
-remains the required aggregate and deliberately fails when host contention
-pushes the pending-paste teardown beyond its two-second wall-clock budget.
+`19/19` steps and `384/384` tests in Debug and `ReleaseSafe`. The required
+`./scripts/verify.sh` aggregate also passes with scoped scratch cleanup; it
+still deliberately rejects pending-paste teardown beyond its two-second
+wall-clock budget.
 
 Bounded public-source-alpha gate:
 

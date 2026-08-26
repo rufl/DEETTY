@@ -454,6 +454,14 @@ fn signalProcess(pid: c_int, signal: std.c.SIG) void {
     _ = std.c.kill(pid, signal);
 }
 
+fn monotonicMilliseconds() ?u64 {
+    var now: std.c.timespec = undefined;
+    if (std.c.clock_gettime(.MONOTONIC, &now) != 0) return null;
+    if (now.sec < 0 or now.nsec < 0) return null;
+    return @as(u64, @intCast(now.sec)) * std.time.ms_per_s +
+        @as(u64, @intCast(now.nsec)) / std.time.ns_per_ms;
+}
+
 fn closePty(fd: c_int, child_pid: c_int, child_reaped: bool) void {
     const foreground = if (fd >= 0) tcgetpgrp(fd) else -1;
     const own_group = getpgrp();
@@ -470,10 +478,19 @@ fn closePty(fd: c_int, child_pid: c_int, child_reaped: bool) void {
     if (child_running or shell_group_alive) signalProcess(-child_pid, .HUP);
     if (child_running) signalProcess(child_pid, .HUP);
 
+    const graceful_shutdown_ms: u64 = 500;
+    const shutdown_deadline_ms = if (monotonicMilliseconds()) |started_ms|
+        started_ms +| graceful_shutdown_ms
+    else
+        null;
     for (0..50) |_| {
         foreground_alive = processGroupAlive(foreground, own_group);
         shell_group_alive = !child_reaped and processGroupAlive(child_pid, own_group);
         if (!child_running and !foreground_alive and !shell_group_alive) break;
+        if (shutdown_deadline_ms) |deadline_ms| {
+            const current_ms = monotonicMilliseconds() orelse deadline_ms;
+            if (current_ms >= deadline_ms) break;
+        }
         sleepBrief(10);
         if (child_running)
             child_running = std.c.waitpid(child_pid, &status, std.c.W.NOHANG) == 0;

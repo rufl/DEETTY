@@ -24,6 +24,14 @@ Both modes require all markers, shared-scratch serialization, queue exercise and
 
 These are one-host observations, not release thresholds. Debug intentionally pays checked-parser and allocator costs; the production-relevant `ReleaseSafe` lane retained all twenty-nine markers below 2.5 ms while the flood continued. No scheduler or 2 MiB pump-ceiling change was justified by this result.
 
+A 2026-08-26 follow-up corrected PTY shutdown's grace accounting: the existing
+50-iteration cap now also observes its intended 500 ms monotonic deadline, so
+scheduler-stretched 10 ms sleeps cannot turn the grace period into seconds.
+The exact aggregate subsequently retained 12.948 ms Debug and 12.698 ms
+`ReleaseSafe` pending-paste teardown and completed with clean scratch. The
+process-group signals, grace ceiling, forced cleanup, and two-second
+qualification threshold were not weakened.
+
 Stable contract:
 
 ```text
