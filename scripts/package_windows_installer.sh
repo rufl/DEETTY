@@ -47,15 +47,18 @@ grep -Fx "version=$version" "$portable_path.manifest" >/dev/null
 grep -Fx "package_revision=$package_revision" "$portable_path.manifest" >/dev/null
 
 numeric_base=$(printf '%s\n' "$version" | sed 's/[^0-9.].*$//')
-old_ifs=$IFS
-IFS=.
-set -- $numeric_base
-IFS=$old_ifs
-test "$#" -eq 3
-case "$1$2$3$package_revision" in
-  *[!0-9]*) echo 'package_windows_installer error=version_not_numeric' >&2; exit 1 ;;
-esac
-numeric_version=$1.$2.$3.$package_revision
+numeric_version=$(
+  printf '%s\n' "$numeric_base" |
+    awk -F. -v revision="$package_revision" '
+      NF != 3 { exit 1 }
+      $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || $3 !~ /^[0-9]+$/ { exit 1 }
+      revision !~ /^[0-9]+$/ { exit 1 }
+      { printf "%s.%s.%s.%s", $1, $2, $3, revision }
+    '
+) || {
+  echo 'package_windows_installer error=version_not_numeric' >&2
+  exit 1
+}
 
 makensis=${NOCTTY_MAKENSIS:-makensis}
 case "$makensis" in
