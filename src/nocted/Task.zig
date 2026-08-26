@@ -368,16 +368,14 @@ pub fn runControlledAlloc(
 
     while (true) {
         if (control.cancelled()) return error.TaskCancelled;
+        const now = std.Io.Clock.now(.awake, io);
+        const elapsed_ns = started.durationTo(now).nanoseconds;
+        const timeout_ns = @as(i128, control.timeout_ms) *
+            std.time.ns_per_ms;
+        if (elapsed_ns >= timeout_ns) return error.TaskTimedOut;
         multi_reader.fill(64, poll_timeout) catch |err| switch (err) {
             error.EndOfStream => break,
-            error.Timeout => {
-                const now = std.Io.Clock.now(.awake, io);
-                const elapsed_ns = started.durationTo(now).nanoseconds;
-                const timeout_ns = @as(i128, control.timeout_ms) *
-                    std.time.ns_per_ms;
-                if (elapsed_ns >= timeout_ns) return error.TaskTimedOut;
-                continue;
-            },
+            error.Timeout => continue,
             else => |other| return other,
         };
         if (stdout_reader.buffered().len > 1024 * 1024 or
@@ -444,6 +442,35 @@ test "controlled task execution cancels a sleeping process group promptly" {
         std.Io.Clock.now(.awake, std.testing.io),
     ).nanoseconds;
     try std.testing.expect(probe.checks >= 3);
+    try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
+}
+
+test "task timeout applies while output continues" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+    const started = std.Io.Clock.now(.awake, std.testing.io);
+    try std.testing.expectError(
+        error.TaskTimedOut,
+        runControlledAlloc(
+            std.testing.allocator,
+            std.testing.io,
+            root,
+            .{
+                .name = "fixture",
+                .argv = &.{
+                    "sh",
+                    "-c",
+                    "while :; do printf x; sleep 0.005; done",
+                },
+            },
+            .{ .timeout_ms = 120 },
+        ),
+    );
+    const elapsed_ns = started.durationTo(
+        std.Io.Clock.now(.awake, std.testing.io),
+    ).nanoseconds;
     try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
 }
 
