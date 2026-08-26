@@ -32,6 +32,13 @@ if [ -n "$optional_symbol" ]; then
     "$optional_symbol" >&2
   exit 1
 fi
+smoke_symbol=$(strings "$binary" | grep -Em 1 \
+  'native_grid_presentation_qualification|NOCTTY stability qualification|A deliberately long shell title' || true)
+if [ -n "$smoke_symbol" ]; then
+  printf 'release_contract error=production_smoke_symbol match=%s\n' \
+    "$smoke_symbol" >&2
+  exit 1
+fi
 nocted_runtime_contract=$("$nocted_binary" --runtime-contract)
 printf '%s\n' "$nocted_runtime_contract" | grep -E \
   '^nocted_runtime_contract tree_sitter=true captures=[1-9][0-9]* capture_limit=4096 direct_limit_bytes=32768$' >/dev/null
@@ -66,4 +73,4 @@ grep -F "## $version — $release_date product behavior complete; release harden
 grep -F "Product-behavior and local release-source baseline: $version, $verified_date." docs/RELEASE_CHECKLIST.md >/dev/null
 grep -F "Canonical release contract: version $version, source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
 
-echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true noctty_runtime=true nocted_runtime=true production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"
+echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true noctty_runtime=true nocted_runtime=true production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_smoke_symbols=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"

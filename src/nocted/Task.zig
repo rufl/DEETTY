@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 
 const manifest_bytes_max = 256 * 1024;
 const root_entries_max = 4096;
+const stream_bytes_max = 1024 * 1024;
 
 pub const Action = enum { check, build, test_project, run };
 
@@ -12,22 +13,22 @@ pub const Plan = struct {
 };
 
 pub fn detect(io: std.Io, root: []const u8, action: Action) ?Plan {
-    if (has(io, root, "build.zig")) return zigPlan(action);
-    if (has(io, root, "Cargo.toml")) return cargoPlan(action);
-    if (has(io, root, "go.mod")) return goPlan(action);
-    if (has(io, root, ".metadata") and has(io, root, "pubspec.yaml")) {
+    if (hasFile(io, root, "build.zig")) return zigPlan(action);
+    if (hasFile(io, root, "Cargo.toml")) return cargoPlan(action);
+    if (hasFile(io, root, "go.mod")) return goPlan(action);
+    if (hasFile(io, root, ".metadata") and hasFile(io, root, "pubspec.yaml")) {
         return flutterPlan(io, root, action);
     }
-    if (has(io, root, "pubspec.yaml")) return dartPlan(action);
-    if (has(io, root, "package.json")) return npmPlan(io, root, action);
+    if (hasFile(io, root, "pubspec.yaml")) return dartPlan(action);
+    if (hasFile(io, root, "package.json")) return npmPlan(io, root, action);
     if (hasProjectFileExtension(io, root, &.{ ".sln", ".csproj", ".fsproj" })) {
         return dotnetPlan(action);
     }
     if (hasPythonManifest(io, root)) return pythonPlan(io, root, action);
-    if (has(io, root, "Makefile")) {
+    if (hasFile(io, root, "Makefile")) {
         return makePlan(io, root, "Makefile", action);
     }
-    if (has(io, root, "makefile")) {
+    if (hasFile(io, root, "makefile")) {
         return makePlan(io, root, "makefile", action);
     }
     return null;
@@ -74,12 +75,12 @@ fn flutterPlan(io: std.Io, root: []const u8, action: Action) ?Plan {
         .name = "Flutter",
         .argv = switch (action) {
             .check => &.{ "flutter", "analyze" },
-            .build => if (has(io, root, "linux"))
+            .build => if (hasDirectory(io, root, "linux"))
                 &.{ "flutter", "build", "linux" }
             else
                 return null,
             .test_project => &.{ "flutter", "test" },
-            .run => if (has(io, root, "linux"))
+            .run => if (hasDirectory(io, root, "linux"))
                 &.{ "flutter", "run", "-d", "linux" }
             else
                 return null,
@@ -147,15 +148,15 @@ fn pythonPlan(io: std.Io, root: []const u8, action: Action) ?Plan {
         .name = "Python",
         .argv = switch (action) {
             .check => &.{ "python3", "-m", "compileall", "-q", "." },
-            .build => if (has(io, root, "pyproject.toml") or
-                has(io, root, "setup.py"))
+            .build => if (hasFile(io, root, "pyproject.toml") or
+                hasFile(io, root, "setup.py"))
                 &.{ "python3", "-m", "build" }
             else
                 return null,
             .test_project => &.{ "python3", "-m", "pytest" },
-            .run => if (has(io, root, "main.py"))
+            .run => if (hasFile(io, root, "main.py"))
                 &.{ "python3", "main.py" }
-            else if (has(io, root, "__main__.py"))
+            else if (hasFile(io, root, "__main__.py"))
                 &.{ "python3", "." }
             else
                 return null,
@@ -190,9 +191,9 @@ fn makePlan(
 }
 
 fn hasPythonManifest(io: std.Io, root: []const u8) bool {
-    return has(io, root, "pyproject.toml") or
-        has(io, root, "setup.py") or
-        has(io, root, "requirements.txt");
+    return hasFile(io, root, "pyproject.toml") or
+        hasFile(io, root, "setup.py") or
+        hasFile(io, root, "requirements.txt");
 }
 
 fn hasProjectFileExtension(
@@ -211,6 +212,8 @@ fn hasProjectFileExtension(
         const entry = iterator.next(io) catch return false;
         const present = entry orelse return false;
         if (present.kind != .file and present.kind != .sym_link) continue;
+        const stat = directory.statFile(io, present.name, .{}) catch continue;
+        if (stat.kind != .file) continue;
         for (extensions) |extension| {
             if (std.ascii.endsWithIgnoreCase(present.name, extension)) return true;
         }
@@ -284,14 +287,27 @@ fn readProjectFileAlloc(
     ) catch null;
 }
 
-fn has(io: std.Io, root: []const u8, name: []const u8) bool {
+fn hasFile(io: std.Io, root: []const u8, name: []const u8) bool {
+    return hasKind(io, root, name, .file);
+}
+
+fn hasDirectory(io: std.Io, root: []const u8, name: []const u8) bool {
+    return hasKind(io, root, name, .directory);
+}
+
+fn hasKind(
+    io: std.Io,
+    root: []const u8,
+    name: []const u8,
+    expected: std.Io.File.Kind,
+) bool {
     const path = std.fs.path.join(
         std.heap.page_allocator,
         &.{ root, name },
     ) catch return false;
     defer std.heap.page_allocator.free(path);
-    _ = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
-    return true;
+    const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
+    return stat.kind == expected;
 }
 
 pub const Result = struct {
@@ -378,13 +394,13 @@ pub fn runControlledAlloc(
             error.Timeout => continue,
             else => |other| return other,
         };
-        if (stdout_reader.buffered().len > 1024 * 1024 or
-            stderr_reader.buffered().len > 1024 * 1024)
+        if (stdout_reader.buffered().len > stream_bytes_max or
+            stderr_reader.buffered().len > stream_bytes_max)
             return error.StreamTooLong;
     }
     try multi_reader.checkAnyError();
-    if (stdout_reader.buffered().len > 1024 * 1024 or
-        stderr_reader.buffered().len > 1024 * 1024)
+    if (stdout_reader.buffered().len > stream_bytes_max or
+        stderr_reader.buffered().len > stream_bytes_max)
         return error.StreamTooLong;
     if (control.cancelled()) return error.TaskCancelled;
     const term = try child.wait(io);
@@ -421,7 +437,40 @@ const CancellationProbe = struct {
     }
 };
 
-test "controlled task execution cancels a sleeping process group promptly" {
+fn taskDescendantTerminated(process_id: i32) bool {
+    var path_buffer: [64]u8 = undefined;
+    const path = std.fmt.bufPrint(
+        &path_buffer,
+        "/proc/{d}/stat",
+        .{process_id},
+    ) catch return false;
+    const stat = std.Io.Dir.cwd().readFileAlloc(
+        std.testing.io,
+        path,
+        std.testing.allocator,
+        .limited(1024),
+    ) catch |err| switch (err) {
+        error.FileNotFound => return true,
+        else => return false,
+    };
+    defer std.testing.allocator.free(stat);
+    const close = std.mem.lastIndexOfScalar(u8, stat, ')') orelse return false;
+    return close + 2 < stat.len and stat[close + 2] == 'Z';
+}
+
+fn waitForTaskDescendantTermination(process_id: i32) bool {
+    for (0..100) |_| {
+        if (taskDescendantTerminated(process_id)) return true;
+        std.Io.sleep(
+            std.testing.io,
+            .fromMilliseconds(5),
+            .awake,
+        ) catch return false;
+    }
+    return taskDescendantTerminated(process_id);
+}
+
+test "controlled task cancellation terminates a descendant promptly" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
@@ -434,15 +483,55 @@ test "controlled task execution cancels a sleeping process group promptly" {
             std.testing.allocator,
             std.testing.io,
             root,
-            .{ .name = "fixture", .argv = &.{ "sh", "-c", "sleep 5" } },
+            .{
+                .name = "fixture",
+                .argv = &.{
+                    "sh",
+                    "-c",
+                    "sleep 5 & printf '%s' \"$!\" > task-child-pid; wait",
+                },
+            },
             .{ .context = &probe, .is_cancelled = CancellationProbe.cancelled },
         ),
     );
     const elapsed_ns = started.durationTo(
         std.Io.Clock.now(.awake, std.testing.io),
     ).nanoseconds;
+    const process_group_bytes = try tmp.dir.readFileAlloc(
+        std.testing.io,
+        "task-child-pid",
+        std.testing.allocator,
+        .limited(32),
+    );
+    defer std.testing.allocator.free(process_group_bytes);
+    const process_id = try std.fmt.parseInt(
+        i32,
+        std.mem.trim(u8, process_group_bytes, " \t\r\n"),
+        10,
+    );
     try std.testing.expect(probe.checks >= 3);
     try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
+    try std.testing.expect(waitForTaskDescendantTermination(process_id));
+}
+
+test "task output is capped per stream" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+    try std.testing.expectError(
+        error.StreamTooLong,
+        runControlledAlloc(
+            std.testing.allocator,
+            std.testing.io,
+            root,
+            .{
+                .name = "fixture",
+                .argv = &.{ "head", "-c", "1048577", "/dev/zero" },
+            },
+            .{},
+        ),
+    );
 }
 
 test "task timeout applies while output continues" {
@@ -472,6 +561,16 @@ test "task timeout applies while output continues" {
         std.Io.Clock.now(.awake, std.testing.io),
     ).nanoseconds;
     try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
+}
+
+test "manifest detection ignores directories" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "build.zig");
+    try tmp.dir.createDirPath(std.testing.io, "Sample.csproj");
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+    try std.testing.expect(detect(std.testing.io, root, .check) == null);
 }
 
 test "detects native build manifests with deterministic precedence" {
