@@ -111,16 +111,13 @@ const EditorApp = struct {
         };
     }
 
-    fn untitledName(self: *EditorApp) ![]u8 {
-        const name = try std.fmt.allocPrint(allocator, "Untitled {d}", .{self.next_untitled});
-        self.next_untitled += 1;
-        return name;
-    }
-
     fn newDocument(self: *EditorApp) !usize {
         if (self.documents.items.len >= core.session.max_open_files)
             return error.TooManyOpenFiles;
-        const name = try self.untitledName();
+        const untitled_id = self.next_untitled;
+        const next_untitled = std.math.add(usize, untitled_id, 1) catch
+            return error.UntitledIdExhausted;
+        const name = try std.fmt.allocPrint(allocator, "Untitled {d}", .{untitled_id});
         errdefer allocator.free(name);
         const contents = try allocator.alloc(u8, 0);
         errdefer allocator.free(contents);
@@ -132,6 +129,7 @@ const EditorApp = struct {
             .dirty = false,
             .identity = null,
         });
+        self.next_untitled = next_untitled;
         self.active = self.documents.items.len - 1;
         self.persistSessionAfterMutation();
         return self.active.?;

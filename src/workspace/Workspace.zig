@@ -2200,7 +2200,9 @@ pub const Workspace = struct {
         }
 
         for (snapshot.tabs) |tab_snapshot| {
-            try restored_tabs.append(try self.restoreTabSnapshot(tab_snapshot));
+            var restored_tab = try self.restoreTabSnapshot(tab_snapshot);
+            errdefer restored_tab.deinit();
+            try restored_tabs.append(restored_tab);
         }
 
         var restored_panels = try snapshot.project_panels.clone(self.allocator);
@@ -2699,7 +2701,9 @@ pub const Workspace = struct {
         errdefer tab.deinit();
 
         for (snapshot.panes) |pane_snapshot| {
-            try tab.panes.append(try self.restorePaneSnapshot(pane_snapshot));
+            var restored_pane = try self.restorePaneSnapshot(pane_snapshot);
+            errdefer restored_pane.deinit();
+            try tab.panes.append(restored_pane);
         }
 
         try tab.layout.nodes.appendSlice(snapshot.nodes);
@@ -2846,6 +2850,9 @@ fn exerciseWorkspaceAllocationFailures(allocator: std.mem.Allocator) !void {
     _ = try workspace.splitActivePane(.right);
     try workspace.applyPresetToActiveTab(.four_by_four);
     try workspace.applyPresetToActiveTab(.one_by_one);
+    var snapshot = try workspace.captureSnapshot();
+    defer snapshot.deinit(allocator);
+    try workspace.restoreSnapshot(snapshot);
 }
 
 test "workspace ownership survives allocation failures" {
