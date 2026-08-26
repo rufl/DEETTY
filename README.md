@@ -308,10 +308,10 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `384/384` tests in Debug and `ReleaseSafe`. The most recent
-completed `./scripts/verify.sh` aggregate passes with scoped scratch cleanup;
-the latest post-change rerun reached the deterministic pipeline without a
-failed assertion before its external 30-minute harness cap.
+`19/19` steps and `388/388` tests in Debug and `ReleaseSafe`. The
+`./scripts/verify.sh` aggregate passes with scoped scratch cleanup; the current
+focused isolation receipt proves private X11/Wayland state and no inherited
+active display.
 
 Bounded public-source-alpha gate:
 
@@ -344,11 +344,16 @@ A fresh current-source single-job maintainer run completed successfully on
 core/worker, project-index, package, release-contract, and truth-check lanes,
 followed by `verify_cleanup scratch=true cache=true install=true artifacts=true`.
 
-Display-backed smoke gate:
+Display-backed smoke gate (disposable dedicated VM/container compositor only,
+never the active desktop):
 
 ```sh
 ./scripts/native_release_smoke.sh
 ```
+
+Focused X11 and Wayland regressions use the serialized, timeout-bounded
+`scripts/run_isolated_x11.sh` and `scripts/run_isolated_wayland.sh` wrappers;
+the maintainer gate fails closed if their required isolation tools are missing.
 
 Opt-in focused qualification lanes exist for terminal compatibility, renderer
 behavior, PTY lifecycle, NoctEd worker/index/search behavior, and native UI

@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
+  exec ./scripts/run_isolated_wayland.sh "$0" "$@"
+fi
+
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in
   /*) ;;
@@ -8,12 +12,12 @@ case "$binary" in
 esac
 test -x "$binary"
 if [ -z "${WAYLAND_DISPLAY-}" ]; then
-  printf '%s\n' 'native_grid_wayland_activation_smoke skipped=true reason=wayland_missing'
-  exit 0
+  echo 'native_grid_wayland_activation_smoke error=isolated_wayland_missing' >&2
+  exit 1
 fi
 if "$binary" --status | grep -F 'running=true' >/dev/null; then
-  printf '%s\n' 'native_grid_wayland_activation_smoke skipped=true reason=existing_owner'
-  exit 0
+  echo 'native_grid_wayland_activation_smoke error=isolated_owner_conflict' >&2
+  exit 1
 fi
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-wayland-activation.XXXXXX")

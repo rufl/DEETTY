@@ -192,4 +192,4 @@ Focused gates additionally preserve:
 - live Wayland `noctty-dropdown` layer-shell plus D-Bus hidden/status/show/hide/toggle and single-instance activation;
 - scale-2 font and high-contrast rendering.
 
-Graphical gates require a usable Wayland/X11 display. The present machine proves shared Noctalia protocols on Plasma Wayland; final acceptance on each Noctalia compositor must run in that compositor's session. `scripts/verify.sh` remains the deterministic headless-safe source gate.
+Graphical gates must not use the developer's active display. The maintained focused lanes use `scripts/run_isolated_x11.sh` (private D-Bus + Xvfb) or `scripts/run_isolated_wayland.sh` (private D-Bus + virtual KWin), with serialized execution, bounded timeouts, private XDG state, and process-tree cleanup. `scripts/verify.sh` proves both isolation boundaries and runs pane-close plus activation regression coverage there. The broader `scripts/native_release_smoke.sh` and final Noctalia-compositor acceptance must run in a disposable dedicated VM/container compositor session, never the active desktop. Physical compositor/HID acceptance remains a separate external boundary.

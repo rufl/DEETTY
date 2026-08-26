@@ -821,6 +821,7 @@ typedef struct NocttyGridContextTag {
     guint focus_hide_source;
     guint resize_overlay_arm_source;
     guint resize_overlay_hide_source;
+    guint focus_deferred_source;
     guint layout_save_source;
     guint pane_cycle_feedback_source;
     guint tab_cycle_feedback_source;
@@ -7873,6 +7874,7 @@ static void stop_grid_context_sources(NocttyGridContext *context) {
     remove_grid_source(&context->focus_hide_source);
     remove_grid_source(&context->resize_overlay_arm_source);
     remove_grid_source(&context->resize_overlay_hide_source);
+    remove_grid_source(&context->focus_deferred_source);
     remove_grid_source(&context->resize_commit_source);
     remove_grid_source(&context->pane_cycle_feedback_source);
     remove_grid_source(&context->tab_cycle_feedback_source);
@@ -9071,6 +9073,7 @@ static guint active_grid_context_count(NocttyGridContext *context) {
 
 static gboolean focus_grid_context_idle(gpointer user_data) {
     NocttyGridContext *context = user_data;
+    context->focus_deferred_source = 0;
     if (!grid_context_session_available(context) || context->exited ||
         context->area == NULL || context->page == NULL) return G_SOURCE_REMOVE;
     NocttyGridContext *root = root_grid_context(context);
@@ -9248,7 +9251,9 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
         gtk_widget_show_all(remaining->page);
         update_compact_tab(remaining);
         gtk_widget_grab_focus(remaining->area);
-        g_idle_add(focus_grid_context_idle, remaining);
+        remove_grid_source(&remaining->focus_deferred_source);
+        remaining->focus_deferred_source =
+            g_idle_add(focus_grid_context_idle, remaining);
     }
     root->pane_close_session_stopped = session_stopped;
     root->pane_close_applied = rendered_closed && session_stopped;

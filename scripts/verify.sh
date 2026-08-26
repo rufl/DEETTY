@@ -46,6 +46,8 @@ run_zig_build() {
 ./scripts/native_grid_pipeline_qualification.sh
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
+./scripts/isolated_display_smoke.sh
+./scripts/native_grid_pane_close_smoke.sh
 ./scripts/nocted_lsp_smoke.sh
 ./scripts/nocted_task_smoke.sh
 ./scripts/nocted_state_recovery_qualification.sh
@@ -71,6 +73,7 @@ sh -n ./scripts/terminal_benchmark_workload.sh
 ./scripts/package_smoke.sh
 ./scripts/native_grid_single_instance_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
 ./scripts/native_grid_state_recovery_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+./scripts/native_grid_wayland_activation_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
 ./scripts/release_contract_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
 ./scripts/package_manifests_smoke.sh
 ./scripts/release_workflow_contract_smoke.sh
