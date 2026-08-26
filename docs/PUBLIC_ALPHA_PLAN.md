@@ -33,7 +33,7 @@ Required:
   - dropdown/windowed mode
   - settings
   - NoctEd project edit/search
-- Screenshot recapture helper: `./scripts/capture_alpha_screenshots.sh`.
+- Screenshot recapture helper (disposable compositor only): `NOCTTY_DEDICATED_DISPLAY=1 ./scripts/capture_alpha_screenshots.sh`.
 - README links to detailed evidence instead of embedding every receipt inline.
 - `docs/CODE_MAP.md` explains the large native/runtime/editor source surfaces.
 - One obvious verification command remains documented: `./scripts/verify.sh`.

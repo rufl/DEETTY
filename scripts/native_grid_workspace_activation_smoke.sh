@@ -1,6 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 receipt='native_grid_workspace_activation_smoke native_uri=true file_uri=true percent_decode=true authority_rejected=true validated_snapshot=true startup_restore_seam=true recent_mru=true fixed_capacity=8 config_v9=true atomic=true separate_process_policy=true exited=true'
 repo_root=$(cd "$(dirname "$0")/.." && pwd -P)
 scratch=$(mktemp -d "$repo_root/.noctty-workspace-activation.XXXXXX")

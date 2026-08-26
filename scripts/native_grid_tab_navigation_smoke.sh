@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+./scripts/require_isolated_display.sh --dedicated
+
 receipt='native_grid_tab_navigation_smoke pane_ctrl_tab=true alt_scroll=true alt_scroll_up=true alt_scroll_down=true current_tab=true visible_panes_only=true hidden_skipped=true visual_feedback=true ctrl_alt_scroll=true tab_scroll_up=true tab_scroll_down=true tab_wraparound=true tab_visual_feedback=true tab_ctrl_shift_tab=true smart_filter_preserved=true cycle_next=true cycle_previous=true shortcut_close=true shortcut_reopen=true focus_restored=true tabs=2 exited=true'
 
 wayland_output=$(GDK_BACKEND=wayland zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-tab-navigation-smoke)

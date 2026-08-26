@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+./scripts/require_isolated_display.sh --dedicated
+
 receipt='native_grid_settings_stacking_smoke visible=true transient_parent=true keep_above=true compositor_stack=true geometry=sane parent_restored=true exited=true'
 
 wayland_output=$(GDK_BACKEND=wayland zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-settings-stacking-smoke)

@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 if [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
   echo "native_grid_modes_smoke skipped=true reason=display_missing"
   exit 0

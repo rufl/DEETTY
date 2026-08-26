@@ -14,6 +14,9 @@ elif [[ $# -ne 0 ]]; then
     echo 'usage: native_grid_installed_activation_smoke.sh [--contract-only|--backend wayland|x11]' >&2
     exit 2
 fi
+if [[ $mode == full ]]; then
+    ./scripts/require_isolated_display.sh --dedicated
+fi
 
 repo_root=$(pwd -P)
 scratch_parent=${NOCTTY_INSTALLED_ACTIVATION_PARENT:-$repo_root}

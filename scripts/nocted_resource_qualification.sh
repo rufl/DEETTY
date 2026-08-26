@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+isolation_backend=${NOCTED_GDK_BACKEND:-x11}
+if [[ ${NOCTTY_DEDICATED_DISPLAY:-0} != 1 &&
+      ${NOCTTY_ISOLATED_DISPLAY:-} != "$isolation_backend" ]]; then
+    case "$isolation_backend" in
+        x11) exec ./scripts/run_isolated_x11.sh "$0" "$@" ;;
+        wayland) exec ./scripts/run_isolated_wayland.sh "$0" "$@" ;;
+        *) echo 'nocted_resource_qualification error=unsupported_backend' >&2; exit 2 ;;
+    esac
+fi
+./scripts/require_isolated_display.sh
+
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 resource_parent=${NOCTED_RESOURCE_PARENT:-"$repo_root"}
 case "$resource_parent" in

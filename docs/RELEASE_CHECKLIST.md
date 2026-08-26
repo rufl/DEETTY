@@ -147,7 +147,7 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Workspace layout, selection, focus, pane transfer, and guarded broadcast input: context menu, command palette, and `Ctrl+Shift+B` share explicit enable confirmation with `Keep Off` default and immediate disable
 - [x] Scale-2 font and high-contrast rendering
 - [x] Borderless eight-direction window resizing, native StatusNotifier activation, and right-click `Close NOCTTY` with PTY/menu teardown
-- [x] Consolidated `./scripts/native_release_smoke.sh`
+- [x] Consolidated `NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh` for disposable compositor sessions
 
 Expected consolidated result:
 

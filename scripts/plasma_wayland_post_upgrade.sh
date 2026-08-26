@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
 mode=${1:---quick}

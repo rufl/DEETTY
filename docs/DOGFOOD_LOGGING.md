@@ -83,9 +83,9 @@ tail -F ~/.local/state/noctty/logs/*.log
 ./scripts/dogfood_runtime_status.sh --list-candidates
 ./scripts/dogfood_status.sh
 ./scripts/local_diagnostic_report.sh
-./scripts/local_interaction_spike_report.sh --quick
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/local_interaction_spike_report.sh --quick
 ./scripts/plasma_wayland_health.sh
-./scripts/plasma_wayland_post_upgrade.sh --full
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
 ```
 
 `local_interaction_spike_report.sh` exercises ReleaseSafe Wayland pane splits,

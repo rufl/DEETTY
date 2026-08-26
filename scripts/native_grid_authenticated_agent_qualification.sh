@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 command -v vim >/dev/null
 command -v btop >/dev/null
 

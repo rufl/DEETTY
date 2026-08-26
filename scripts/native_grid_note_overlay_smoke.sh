@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+./scripts/require_isolated_display.sh --dedicated
+
 receipt='native_grid_note_overlay_smoke alt_hold=true visible_panes=2 workspace_note=true utf8=true multiline=true compact=true hidden_on_release=true exited=true'
 
 wayland_output=$(GDK_BACKEND=wayland zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-note-overlay-smoke)

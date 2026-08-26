@@ -37,16 +37,16 @@ The NCT-112/NCT-119 pipeline receipt advances beyond synthetic cells: two 64-sam
 
 ```sh
 ./scripts/verify.sh
-./scripts/native_release_smoke.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh
 ./scripts/nocted_resource_qualification.sh
 ./scripts/nocted_worker_qualification.sh
 ./scripts/nocted_core_stability_qualification.sh
 ./scripts/nocted_core_endurance_qualification.sh
-./scripts/nocted_native_endurance_qualification.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/nocted_native_endurance_qualification.sh
 ./scripts/native_grid_resource_qualification.sh
 ./scripts/native_grid_renderer_qualification.sh
 ./scripts/native_grid_pipeline_qualification.sh
-./scripts/native_grid_full_stack_qualification.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_full_stack_qualification.sh
 ./scripts/terminal_real_tui_qualification.sh
 ./scripts/terminal_ncurses_qualification.sh
 ./scripts/terminal_system_tui_qualification.sh

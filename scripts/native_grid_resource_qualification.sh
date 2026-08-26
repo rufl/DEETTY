@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ${NOCTTY_ISOLATED_DISPLAY:-} != x11 &&
+      ${NOCTTY_DEDICATED_DISPLAY:-0} != 1 ]]; then
+    exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-resource-qualification.XXXXXX")
 cleanup() {
     rm -rf "$scratch"

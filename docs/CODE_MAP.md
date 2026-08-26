@@ -87,11 +87,12 @@ read this as engineering evidence, not as extra product surface.
 
 - `scripts/verify.sh` — full maintainer gate. It is intentionally broad and may
   take a long time on contributor machines.
-- `scripts/native_release_smoke.sh` — display-backed native smoke gate.
-- `scripts/native_grid_presentation_qualification.sh`: opt-in live Plasma Wayland/X11 synthetic key-handler-to-draw/frame-clock and presentation-timing lane.
+- `scripts/native_release_smoke.sh` — display-backed native smoke gate; requires an explicitly acknowledged disposable compositor session.
+- `scripts/run_isolated_x11.sh`, `scripts/run_isolated_wayland.sh`, and `scripts/require_isolated_display.sh` — serialized focused-display boundaries and the fail-closed guard for broader disposable-session lanes; `scripts/check_display_isolation.sh` keeps the wrapper inventory explicit.
+- `scripts/native_grid_presentation_qualification.sh`: opt-in dedicated Plasma Wayland/X11 synthetic key-handler-to-draw/frame-clock and presentation-timing lane.
 - `scripts/native_grid_full_stack_qualification.sh`: opt-in live Wayland/X11 idle/fullscreen compositor-pixel, memory, and wakeup lane.
 - `scripts/native_grid_stability_qualification.sh`: NCT-112 hidden/visible phase runner. `--smoke` checks Debug/`ReleaseSafe` Wayland/X11 quickly; `--run` retains the default 48-hour authenticated `ReleaseSafe` matrix.
-- `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in authenticated Codex exact-response matrix through production PTY/VT/GTK/Cairo on live Wayland/X11.
+- `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in authenticated Codex exact-response matrix through production PTY/VT/GTK/Cairo in dedicated Wayland/X11 sessions.
 - `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, NOCTTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path.
 - `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.

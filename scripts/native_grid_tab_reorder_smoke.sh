@@ -1,35 +1,13 @@
 #!/usr/bin/env sh
 set -eu
-export LC_ALL=C
 
-if test "${NOCTTY_TAB_REORDER_NESTED_X11:-0}" != 1 &&
-   test "${XDG_SESSION_TYPE:-}" = wayland &&
-   command -v dbus-run-session >/dev/null 2>&1 &&
-   command -v xvfb-run >/dev/null 2>&1 &&
-   command -v kwin_x11 >/dev/null 2>&1; then
-  nested_scratch=$(mktemp -d /tmp/noctty-tab-reorder-x11.XXXXXX)
-  nested_status=0
-  dbus-run-session -- xvfb-run -a \
-    -s '-screen 0 1920x1080x24 -nolisten tcp' \
-    sh -c '
-      set -eu
-      kwin_x11 --replace >"$2/kwin.log" 2>&1 &
-      kwin_pid=$!
-      trap '\''kill "$kwin_pid" 2>/dev/null || true; wait "$kwin_pid" 2>/dev/null || true'\'' EXIT HUP INT TERM
-      sleep 2
-      NOCTTY_TAB_REORDER_NESTED_X11=1 XDG_SESSION_TYPE=x11 sh "$1"
-    ' sh "$0" "$nested_scratch" \
-    >"$nested_scratch/output.log" 2>"$nested_scratch/error.log" ||
-    nested_status=$?
-  cat "$nested_scratch/output.log"
-  if test "$nested_status" -ne 0; then
-    cat "$nested_scratch/error.log" >&2
-    cat "$nested_scratch/kwin.log" >&2 2>/dev/null || true
-  fi
-  rm -rf "$nested_scratch"
-  exit "$nested_status"
+./scripts/require_isolated_display.sh --dedicated
+if [ -z "${DISPLAY:-}" ]; then
+  echo 'native_grid_tab_reorder_smoke error=dedicated_xwayland_required' >&2
+  exit 2
 fi
 
+export LC_ALL=C
 command -v xdotool >/dev/null 2>&1 || {
   printf 'native_grid_tab_reorder_smoke error=xdotool_not_found\n' >&2
   exit 1

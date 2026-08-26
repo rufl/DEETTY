@@ -59,8 +59,9 @@ the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairnes
 
 ## Screenshots
 
-Current alpha screenshots from the author's Plasma Wayland desktop. Recapture
-with `./scripts/capture_alpha_screenshots.sh` when the UI changes materially.
+Current retained alpha screenshots from the author's Plasma Wayland desktop.
+Future recaptures must use a disposable compositor session:
+`NOCTTY_DEDICATED_DISPLAY=1 ./scripts/capture_alpha_screenshots.sh`.
 
 ![NOCTTY alpha terminal workspace](docs/assets/noctty-alpha.png)
 
@@ -327,11 +328,14 @@ Wayland dropdown:
 ./scripts/install_dogfood.sh
 ./scripts/dogfood_status.sh
 ./scripts/dogfood_runtime_status.sh --list-candidates
-./scripts/plasma_wayland_post_upgrade.sh --full
 ```
 
-The post-upgrade lane is local and operator-initiated; it performs no package
-refresh, telemetry, or upload. See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
+The display-backed post-upgrade lane is operator-initiated inside a disposable
+Plasma VM/session and performs no package refresh, telemetry, or upload:
+
+```sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
+``` See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
 
 Main maintainer gate:
 
@@ -348,7 +352,7 @@ Display-backed smoke gate (disposable dedicated VM/container compositor only,
 never the active desktop):
 
 ```sh
-./scripts/native_release_smoke.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh
 ```
 
 Focused X11 and Wayland regressions use the serialized, timeout-bounded

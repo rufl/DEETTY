@@ -4,6 +4,7 @@ set -eu
 if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
   exec ./scripts/run_isolated_wayland.sh "$0" "$@"
 fi
+./scripts/require_isolated_display.sh
 
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in

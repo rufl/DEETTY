@@ -1,5 +1,16 @@
 #!/usr/bin/env sh
 set -eu
+
+isolation_backend=${NOCTED_GDK_BACKEND:-x11}
+if [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ] &&
+  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != "$isolation_backend" ]; then
+  case "$isolation_backend" in
+    x11) exec ./scripts/run_isolated_x11.sh "$0" "$@" ;;
+    wayland) exec ./scripts/run_isolated_wayland.sh "$0" "$@" ;;
+    *) echo 'nocted_native_smoke error=unsupported_backend' >&2; exit 2 ;;
+  esac
+fi
+./scripts/require_isolated_display.sh
 export LC_ALL=C
 
 lifecycle_root=$(pwd -P)

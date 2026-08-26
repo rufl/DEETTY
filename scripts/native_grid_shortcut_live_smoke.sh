@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+
+./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
 if pgrep -x noctty >/dev/null 2>&1 ||

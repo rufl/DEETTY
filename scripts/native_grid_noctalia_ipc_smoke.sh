@@ -1,13 +1,15 @@
 #!/usr/bin/env sh
 set -eu
+
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_wayland.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 export LC_ALL=C
 export NO_AT_BRIDGE=1
 
-
-if [ -z "${WAYLAND_DISPLAY-}" ]; then
-    echo "native_grid_noctalia_ipc_smoke skipped=true reason=wayland_missing"
-    exit 0
-fi
 
 zig build --global-cache-dir .zig-cache/global
 zig build --global-cache-dir .zig-cache/global smoke-binaries

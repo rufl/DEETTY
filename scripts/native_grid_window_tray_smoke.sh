@@ -1,6 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 output=/tmp/noctty-native-grid-window-tray.txt
 errors=/tmp/noctty-native-grid-window-tray.stderr
 ready=/tmp/noctty-native-grid-window-tray-ready

@@ -1,5 +1,12 @@
 #!/usr/bin/env sh
 set -eu
+
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 export LC_ALL=C
 
 zig build --global-cache-dir .zig-cache/global install smoke-binaries

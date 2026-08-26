@@ -127,8 +127,8 @@ Use the existing exact renderer and real PTY pipeline directly:
 ```sh
 ./scripts/native_grid_renderer_qualification.sh
 ./scripts/native_grid_pipeline_qualification.sh
-./scripts/native_grid_presentation_qualification.sh
-./scripts/native_grid_full_stack_qualification.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_presentation_qualification.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_full_stack_qualification.sh
 ```
 
 They retain Debug/ReleaseSafe timing, allocation, memory, and pixel evidence

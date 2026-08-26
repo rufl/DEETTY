@@ -157,10 +157,10 @@ The maintained local repository gate is:
 
 It runs the SHA-256-pinned Debug/`ReleaseSafe` terminal protocol/state and malformed/Unicode qualification, Zig tests/checks, install-tree validation, truthful package-manifest structure checks with available/unavailable RPM and Arch parser status, two isolated normalized install-tarball builds with byte-for-byte comparison and SHA-256 sidecar verification, the guarded 0.1.0 version/date contract, a pinned x86_64/aarch64 release-workflow contract check, fail-closed dependency-bundle ownership/license-payload/manifest checks, the release-operations evidence status guard plus missing-evidence, semantic-receipt, scaffold-template, artifact-intake, signature-intake, receipt-intake, and acceptance-intake smokes, self-cleaning verification scratch space, Ghostty ABI guards, PTY/VT/session smokes, documentation checks, and native-layout guards. The gate redirects its temporary directory, XDG cache, Zig local/global caches, install prefix, and generated artifacts into that scoped root. Set `NOCTTY_ZIG_SINGLE_JOB=1` for an opt-in serialized Zig build on constrained or sandboxed hosts; normal runs keep Zig's default job count.
 
-The complete display-backed release gate is:
+The complete display-backed release gate fails closed unless it is running in a disposable dedicated VM/container compositor session:
 
 ```sh
-./scripts/native_release_smoke.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh
 ```
 
 Its expected successful receipt is:
@@ -177,7 +177,7 @@ The installed activation lane is deliberately opt-in because it needs access to 
 
 ```sh
 ./scripts/native_grid_installed_activation_smoke.sh --contract-only
-./scripts/native_grid_installed_activation_smoke.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_installed_activation_smoke.sh
 ```
 
 The first command validates the disposable production install, desktop MIME registration, exact `%u` command, isolated smoke surface, and two-tab fixture. Both commands keep the install prefix, temporary tree, XDG cache, and Zig local/global caches below one trap-cleaned project-local scratch root. The full command dispatches the installed `noctty:` handler through `gio`, then clicks the actual Recent Workspaces control and requires mapped/drawn child-window receipts on Wayland and X11. It fails if either display is inaccessible. The retained live run reports `native_grid_installed_activation_matrix backends=wayland,x11 installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true`; this is mapped activation proof on the current Plasma session, not universal compositor acceptance.
@@ -193,7 +193,7 @@ Opt-in resource and deterministic robustness lanes cover both Debug and `Release
 ./scripts/nocted_core_stability_qualification.sh
 ./scripts/nocted_worker_qualification.sh
 ./scripts/nocted_core_endurance_qualification.sh
-./scripts/nocted_native_endurance_qualification.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/nocted_native_endurance_qualification.sh
 ./scripts/nocted_project_index_qualification.sh
 ./scripts/terminal_compatibility_qualification.sh
 ./scripts/terminal_real_tui_qualification.sh

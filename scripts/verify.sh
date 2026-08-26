@@ -46,6 +46,7 @@ run_zig_build() {
 ./scripts/native_grid_pipeline_qualification.sh
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
+./scripts/check_display_isolation.sh
 ./scripts/isolated_display_smoke.sh
 ./scripts/native_grid_pane_close_smoke.sh
 ./scripts/nocted_lsp_smoke.sh

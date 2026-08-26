@@ -4,6 +4,7 @@ set -eu
 x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
   ./scripts/run_isolated_x11.sh sh -eu -c '
+    ./scripts/require_isolated_display.sh
     [ "$NOCTTY_ISOLATED_DISPLAY" = x11 ]
     [ "$XDG_SESSION_TYPE" = x11 ]
     [ "${DISPLAY:-}" != :active-fixture ]
@@ -17,6 +18,7 @@ printf '%s\n' "$x11_output" | grep -Fx 'isolated_x11=true' >/dev/null
 wayland_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
   ./scripts/run_isolated_wayland.sh sh -eu -c '
+    ./scripts/require_isolated_display.sh
     [ "$NOCTTY_ISOLATED_DISPLAY" = wayland ]
     [ "$XDG_SESSION_TYPE" = wayland ]
     [ -z "${DISPLAY:-}" ]
@@ -32,5 +34,23 @@ if NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=invalid \
   echo 'isolated_display_smoke error=invalid_timeout_accepted' >&2
   exit 1
 fi
+if DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
+  ./scripts/require_isolated_display.sh >/dev/null 2>&1; then
+  echo 'isolated_display_smoke error=active_display_accepted' >&2
+  exit 1
+fi
+if DISPLAY=:dedicated-fixture WAYLAND_DISPLAY= \
+  ./scripts/require_isolated_display.sh --dedicated >/dev/null 2>&1; then
+  echo 'isolated_display_smoke error=unacknowledged_dedicated_accepted' >&2
+  exit 1
+fi
+DISPLAY=:dedicated-fixture WAYLAND_DISPLAY= NOCTTY_DEDICATED_DISPLAY=1 \
+  ./scripts/require_isolated_display.sh --dedicated
+if DISPLAY=:fixture WAYLAND_DISPLAY= \
+  NOCTTY_ISOLATED_DISPLAY=unknown \
+  ./scripts/require_isolated_display.sh >/dev/null 2>&1; then
+  echo 'isolated_display_smoke error=unknown_boundary_accepted' >&2
+  exit 1
+fi
 
-echo 'isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true serialized=true timeout_bounded=true fail_closed=true'
+echo 'isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true serialized=true timeout_bounded=true direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true'

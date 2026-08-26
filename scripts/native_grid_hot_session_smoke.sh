@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+
+./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
 receipt='native_grid_hot_session_smoke autosave=true atomic=true write_through=true startup_restore=true tabs=2 panes=5 recursive_layout=true ratios=true titles=true colors=true tags=true smart_filter=true profiles=true settings=true cwd=true corrupt_fallback=true processes=restarted exited=true'

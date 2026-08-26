@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+./scripts/require_isolated_display.sh --dedicated
+
 for backend in wayland x11; do
     echo "native-host smoke backend=$backend"
     if [ "$backend" = x11 ]; then

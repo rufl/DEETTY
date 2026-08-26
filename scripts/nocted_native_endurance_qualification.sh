@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+./scripts/require_isolated_display.sh --dedicated
+
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
 
