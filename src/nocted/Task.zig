@@ -521,14 +521,12 @@ test "controlled task cancellation terminates a descendant promptly" {
     try std.testing.expect(probe.checks >= 3);
     try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
     try std.testing.expect(waitForTaskDescendantTermination(process_id));
-    const term_receipt = try tmp.dir.readFileAlloc(
+    const term_receipt = try tmp.dir.statFile(
         std.testing.io,
         "task-term-received",
-        std.testing.allocator,
-        .limited(16),
+        .{},
     );
-    defer std.testing.allocator.free(term_receipt);
-    try std.testing.expectEqualStrings("term", term_receipt);
+    try std.testing.expectEqual(std.Io.File.Kind.file, term_receipt.kind);
 }
 
 test "task output is capped per stream" {

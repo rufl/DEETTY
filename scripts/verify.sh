@@ -7,11 +7,14 @@ case "$verify_parent" in
   *) verify_parent="$(pwd -P)/$verify_parent" ;;
 esac
 verify_root=$(mktemp -d "$verify_parent/.noctty-verify.XXXXXX")
+visible_root=
 
 cleanup() {
   if [ -n "${verify_root:-}" ]; then rm -rf "$verify_root"; fi
+  if [ -n "${visible_root:-}" ]; then rm -rf "$visible_root"; fi
 }
 trap cleanup EXIT HUP INT TERM
+visible_root=$(mktemp -d "$PWD/.noctty-verify-visible.XXXXXX")
 
 mkdir -p "$verify_root/tmp" "$verify_root/xdg-cache" "$verify_root/zig-local" "$verify_root/zig-global" "$verify_root/install"
 export TMPDIR="$verify_root/tmp"
@@ -33,7 +36,42 @@ run_zig_build() {
   fi
 }
 
+run_pressure_gated_display() {
+  attempt=1
+  while [ "$attempt" -le 6 ]; do
+    if "$@"; then return 0; else status=$?; fi
+    if [ "$status" -ne 75 ] || [ "$attempt" -eq 6 ]; then return "$status"; fi
+    printf 'verify_display_retry attempt=%s status=deferred\n' "$attempt" >&2
+    attempt=$((attempt + 1))
+    sleep 10
+  done
+}
+
 ./scripts/check_terminal_unicode.sh
+# Admit isolated graphical proof before process/build qualification raises the
+# pressure signal. Status-75 deferrals remain bounded and fail closed.
+./scripts/check_display_isolation.sh
+run_pressure_gated_display ./scripts/isolated_display_smoke.sh
+run_pressure_gated_display ./scripts/native_grid_pane_close_smoke.sh
+run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
+run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
+run_zig_build --prefix "$visible_root" --cache-dir "$NOCTTY_ZIG_CACHE_DIR" \
+  --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR"
+run_pressure_gated_display ./scripts/nocted_single_instance_smoke.sh \
+  "$visible_root/bin/nocted"
+run_pressure_gated_display ./scripts/native_grid_single_instance_smoke.sh \
+  "$visible_root/bin/noctty"
+run_pressure_gated_display ./scripts/native_grid_state_recovery_smoke.sh \
+  "$visible_root/bin/noctty"
+./scripts/package_smoke.sh
+# The shared bubble deliberately masks /dev/shm. Exercise the package installed
+# below the scoped verify root through the reviewed private-socket fallback.
+NOCTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_single_instance_smoke.sh \
+  "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+NOCTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_state_recovery_smoke.sh \
+  "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+./scripts/native_grid_wayland_activation_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+
 ./scripts/terminal_compatibility_qualification.sh
 # Keep the latency-sensitive fairness lane ahead of the 144-process lifecycle
 # qualification so one proof lane does not distort the next through teardown churn.
@@ -44,11 +82,6 @@ run_zig_build() {
 ./scripts/terminal_system_tui_qualification.sh
 ./scripts/native_grid_renderer_qualification.sh
 ./scripts/native_grid_pipeline_qualification.sh
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
-./scripts/check_display_isolation.sh
-./scripts/isolated_display_smoke.sh
-./scripts/native_grid_pane_close_smoke.sh
 ./scripts/nocted_lsp_smoke.sh
 ./scripts/nocted_task_smoke.sh
 ./scripts/nocted_state_recovery_qualification.sh
@@ -56,7 +89,6 @@ run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZI
 ./scripts/nocted_core_stability_qualification.sh
 ./scripts/nocted_worker_qualification.sh
 ./scripts/nocted_project_index_qualification.sh
-./scripts/nocted_single_instance_smoke.sh "$PWD/zig-out/bin/nocted"
 bash -n ./scripts/nocted_native_endurance_qualification.sh
 bash -n ./scripts/native_grid_authenticated_agent_qualification.sh
 bash -n ./scripts/native_grid_installed_continuity_qualification.sh
@@ -71,10 +103,6 @@ sh -n ./scripts/plasma_wayland_health.sh
 bash -n ./scripts/plasma_wayland_post_upgrade.sh
 bash -n ./scripts/terminal_benchmark.sh
 sh -n ./scripts/terminal_benchmark_workload.sh
-./scripts/package_smoke.sh
-./scripts/native_grid_single_instance_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
-./scripts/native_grid_state_recovery_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
-./scripts/native_grid_wayland_activation_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
 ./scripts/release_contract_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
 ./scripts/package_manifests_smoke.sh
 ./scripts/release_workflow_contract_smoke.sh
@@ -100,7 +128,10 @@ sh ./scripts/terminal_session_smoke.sh
 ./scripts/check_native_layout.sh
 
 verify_root_path=$verify_root
-rm -rf "$verify_root_path"
+visible_root_path=$visible_root
+rm -rf "$verify_root_path" "$visible_root_path"
 verify_root=
+visible_root=
 test ! -e "$verify_root_path"
-echo "verify_cleanup scratch=true cache=true install=true artifacts=true"
+test ! -e "$visible_root_path"
+echo "verify_cleanup scratch=true visible_staging=true cache=true install=true artifacts=true"

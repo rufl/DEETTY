@@ -46,7 +46,8 @@ if [ "${NOCTTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
     echo 'run_isolated_x11 error=shared_isolated_display_runner_missing' >&2
     exit 2
   fi
-  exec "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" --wm none -- \
+  exec env TMPDIR=/tmp \
+    "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" --wm none -- \
     env NOCTTY_ISOLATED_DISPLAY=x11 NOCTTY_SHARED_ISOLATION=1 \
     sh -eu -c '
       root=$(mktemp -d /tmp/noctty-isolated-home.XXXXXX)

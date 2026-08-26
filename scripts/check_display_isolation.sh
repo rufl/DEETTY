@@ -100,7 +100,18 @@ grep -F 'require_isolated_display.sh --dedicated' \
   scripts/native_grid_installed_activation_smoke.sh >/dev/null
 grep -F 'NOCTTY_DEDICATED_DISPLAY' scripts/ci_verify.sh >/dev/null
 grep -F 'dedicated_native_smoke_session_required' scripts/ci_verify.sh >/dev/null
+grep -F 'run_pressure_gated_display()' scripts/verify.sh >/dev/null
+grep -F 'Admit isolated graphical proof before process/build qualification' \
+  scripts/verify.sh >/dev/null
+grep -F 'if [ "$status" -ne 75 ] || [ "$attempt" -eq 6 ]' \
+  scripts/verify.sh >/dev/null
+grep -F 'shared bubble deliberately masks /dev/shm' scripts/verify.sh >/dev/null
+grep -F 'visible_root=$(mktemp -d "$PWD/.noctty-verify-visible.XXXXXX")' \
+  scripts/verify.sh >/dev/null
+grep -F 'visible_staging=true' scripts/verify.sh >/dev/null
+test "$(grep -c 'NOCTTY_LEGACY_DISPLAY_RUNNER=1' scripts/verify.sh)" -eq 2
 grep -F 'overzeer-isolated-display' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'exec env TMPDIR=/tmp' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'run_isolated_x11.sh' scripts/terminal_benchmark.sh >/dev/null
 grep -F 'NOCTTY_ISOLATED_DISPLAY_SCREEN=' scripts/terminal_benchmark.sh >/dev/null
 grep -F 'invalid_warmup:$warmup' scripts/terminal_benchmark.sh >/dev/null
@@ -111,4 +122,4 @@ grep -F 'require_isolated_display.sh" --dedicated' \
   scripts/terminal_benchmark.sh >/dev/null
 
 printf '%s\n' \
-  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true ci_native_opt_in=true active_display_default=false fail_closed=true"
+  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true pressure_retry_bounded=true scoped_install_fallback=true ci_native_opt_in=true active_display_default=false fail_closed=true"

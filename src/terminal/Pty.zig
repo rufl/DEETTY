@@ -62,7 +62,9 @@ fn readFile(path: [*:0]const u8, buffer: []u8) ?[]u8 {
     const flags: std.posix.O = .{ .ACCMODE = .RDONLY, .CLOEXEC = true };
     const fd = std.posix.openatZ(std.posix.AT.FDCWD, path, flags, 0) catch return null;
     defer _ = std.c.close(fd);
-    var length = std.posix.read(fd, buffer) catch return null;
+    const read_length = std.c.read(fd, buffer.ptr, buffer.len);
+    if (read_length < 0) return null;
+    var length: usize = @intCast(read_length);
     while (length > 0 and (buffer[length - 1] == '\n' or buffer[length - 1] == '\r')) length -= 1;
     return buffer[0..length];
 }
