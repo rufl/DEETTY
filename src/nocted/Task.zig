@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 const manifest_bytes_max = 256 * 1024;
 const root_entries_max = 4096;
 const stream_bytes_max = 1024 * 1024;
+const termination_grace_ms = 100;
 
 pub const Action = enum { check, build, test_project, run };
 
@@ -330,6 +331,11 @@ pub const RunControl = struct {
 fn killTaskProcessGroup(child: *std.process.Child, io: std.Io) void {
     if (child.id) |child_id| {
         if (builtin.os.tag != .windows and builtin.os.tag != .wasi) {
+            std.posix.kill(-child_id, .TERM) catch {};
+            io.sleep(
+                .fromMilliseconds(termination_grace_ms),
+                .awake,
+            ) catch {};
             std.posix.kill(-child_id, .KILL) catch {};
         }
     }
@@ -490,7 +496,8 @@ test "controlled task cancellation terminates a descendant promptly" {
                 .argv = &.{
                     "sh",
                     "-c",
-                    "sleep 5 & printf '%s' \"$!\" > task-child-pid; wait",
+                    "trap 'printf term > task-term-received; exit 0' TERM; " ++
+                        "sleep 5 & printf '%s' \"$!\" > task-child-pid; wait",
                 },
             },
             .{ .context = &probe, .is_cancelled = CancellationProbe.cancelled },
@@ -514,6 +521,14 @@ test "controlled task cancellation terminates a descendant promptly" {
     try std.testing.expect(probe.checks >= 3);
     try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
     try std.testing.expect(waitForTaskDescendantTermination(process_id));
+    const term_receipt = try tmp.dir.readFileAlloc(
+        std.testing.io,
+        "task-term-received",
+        std.testing.allocator,
+        .limited(16),
+    );
+    defer std.testing.allocator.free(term_receipt);
+    try std.testing.expectEqualStrings("term", term_receipt);
 }
 
 test "task output is capped per stream" {
