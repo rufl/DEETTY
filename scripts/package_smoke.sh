@@ -24,6 +24,7 @@ zig build --prefix "$prefix" --cache-dir "$cache_dir" --global-cache-dir "$globa
 test -x "$prefix/bin/noctty"
 test -x "$prefix/bin/nocted"
 test -s "$prefix/share/applications/com.noctty.NOCTTY.desktop"
+test -s "$prefix/share/kio/servicemenus/nocttyhere.desktop"
 test -s "$prefix/share/applications/com.noctty.NoctEd.desktop"
 test -s "$prefix/share/metainfo/com.noctty.NOCTTY.metainfo.xml"
 test -s "$prefix/share/metainfo/com.noctty.NoctEd.metainfo.xml"
@@ -61,4 +62,4 @@ if [ -n "$scratch" ]; then
   test ! -e "$scratch_path"
 fi
 
-echo "package_smoke noctty=true nocted=true desktops=true metainfo=true icons=true nocted_syntax=true noctalia=true license=true cache_scope=$cache_scope"
+echo "package_smoke noctty=true nocted=true desktops=true dolphin_service_menu=true metainfo=true icons=true nocted_syntax=true noctalia=true license=true cache_scope=$cache_scope"

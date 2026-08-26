@@ -65,6 +65,7 @@ build_archive() {
   tar -tzf "$archive" | grep -F './bin/noctty' >/dev/null
   tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
   tar -tzf "$archive" | grep -F './share/applications/com.noctty.NOCTTY.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './share/kio/servicemenus/nocttyhere.desktop' >/dev/null
   tar -tzf "$archive" | grep -F './share/applications/com.noctty.NoctEd.desktop' >/dev/null
   tar -tzf "$archive" | grep -F './share/metainfo/com.noctty.NOCTTY.metainfo.xml' >/dev/null
   tar -tzf "$archive" | grep -F './share/metainfo/com.noctty.NoctEd.metainfo.xml' >/dev/null

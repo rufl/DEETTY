@@ -54,7 +54,7 @@ Not claimed yet:
 - authenticated agent compatibility across every coding CLI
 - signed/public packages
 
-See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md),
+See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md), the [Konsole resilience review](docs/KONSOLE_RESILIENCE_REVIEW.md),
 the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairness qualification](docs/TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md), the [mapped presentation qualification](docs/NATIVE_GRID_PRESENTATION_QUALIFICATION.md), the [full-stack mapped qualification](docs/NATIVE_GRID_FULL_STACK_QUALIFICATION.md), the [hidden/visible stability qualification](docs/NATIVE_GRID_STABILITY_QUALIFICATION.md), the [authenticated Codex qualification](docs/AUTHENTICATED_AGENT_QUALIFICATION.md), the [installed tmux/Zellij continuity qualification](docs/INSTALLED_CONTINUITY_QUALIFICATION.md), the [NoctEd native endurance qualification](docs/NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md), and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
 
 ## Screenshots
@@ -82,6 +82,8 @@ The qualified Linux NOCTTY host provides:
 - retained installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11
 - retained authenticated Codex 0.144.6 exact-response proof through the production PTY/VT/GTK/Cairo path on Plasma Wayland/X11
 - hot-session workspace recovery plus mapped Wayland/X11 desktop-link and Recent Workspaces activation, with explicit shell-restart, tmux/Zellij-attach, or registered-agent-resume choices
+- validated last-known-good settings/theme fallback, exact damaged-state retention, and a native startup recovery notice instead of a blocked terminal
+- deterministic pre-state single-instance ownership for the dropdown, cold-start and Show/Toggle activation-token handoff without PTY inheritance, plus explicit separate New Workspace and Dolphin **Open NOCTTY Here** launches
 - continuity badges distinguishing restartable shells, live sessions, and agent resumes
 - opt-in password-protected encrypted screen-history export
 - native settings, command palette, terminal search, Quick Note, and Project Workspace surfaces with keyboard-accessible controls, assistive names, and narrow-window scrolling
@@ -306,7 +308,9 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `343/343` tests; the single-job full verifier also passes.
+`19/19` steps and `384/384` tests in Debug and `ReleaseSafe`. `./scripts/verify.sh`
+remains the required aggregate and deliberately fails when host contention
+pushes the pending-paste teardown beyond its two-second wall-clock budget.
 
 Bounded public-source-alpha gate:
 

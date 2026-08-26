@@ -31,8 +31,8 @@ test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" \
   ! -path src/share/net.c | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
 
-grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 2u' "$grid_abi" >/dev/null
-grep -F 'pub const version: u32 = 2;' "$grid_abi_zig" >/dev/null
+grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 4u' "$grid_abi" >/dev/null
+grep -F 'pub const version: u32 = 4;' "$grid_abi_zig" >/dev/null
 grep -F 'pub const Paste = *const fn (?*anyopaque, [*]const u8, usize)' "$grid_abi_zig" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
@@ -79,6 +79,10 @@ grep -F 'g_idle_add(focus_grid_area_idle, g_object_ref(context->area));' "$grid"
 grep -F 'g_idle_add(recreate_grid_toplevel_idle, root);' "$grid" >/dev/null
 grep -F 'root->layer_shell_active = 0;' "$grid" >/dev/null
 grep -F 'root->window = create_grid_toplevel(root);' "$grid" >/dev/null
+grep -F '"gtk_layer_get_protocol_version"' "$grid" >/dev/null
+grep -F 'root->layer_shell_keyboard_mode = protocol_version >= 4 ? 2 : 1;' "$grid" >/dev/null
+grep -F 'set_grid_layer_keyboard_active(root, FALSE);' "$grid" >/dev/null
+grep -F 'root->hide_source = g_timeout_add(16, finish_grid_hide, root);' "$grid" >/dev/null
 
 grep -F 'typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);' "$grid_abi" >/dev/null
 grep -F 'int dirty_count = context->dirty_spans(' "$grid" >/dev/null
@@ -116,4 +120,4 @@ grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v2=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true live_window_mode_switch=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true nocted_accessible=true nocted_startup_untitled=true native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'
+echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v4=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true nocted_accessible=true nocted_startup_untitled=true native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'

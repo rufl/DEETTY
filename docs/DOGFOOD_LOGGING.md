@@ -35,15 +35,23 @@ NOCTTY_DOGFOOD_OPTIMIZE=Debug ./scripts/install_dogfood.sh
 
 ## Logs and duration receipts
 
-Every launcher invocation records command arguments, session/backend context,
-host and boot identity, the local OS/kernel/desktop/Plasma/KWin fingerprint,
-staged-binary SHA-256, wall-clock and monotonic start values, stdout, stderr,
-GTK/GLib debug messages, timestamp, duration, exit status, and bounded runtime
-warning-marker counts under:
+Every GUI-session launcher invocation records command arguments (capped at
+512 bytes each with control bytes replaced so filenames cannot forge log
+records), session/backend context, sanitized host and boot identity, the local
+OS/kernel/desktop/Plasma/KWin fingerprint, staged-binary SHA-256, wall-clock and
+monotonic start values, stdout, stderr, GTK/GLib warnings, timestamp, duration,
+exit status, and bounded runtime warning-marker counts under:
 
 ```text
 ~/.local/state/noctty/logs/
 ```
+
+Existing-owner `--status`, `--show`, `--hide`, and `--toggle` calls plus
+`--version` bypass this setup and execute the staged binary directly; a Show or
+Toggle with no owner still starts a fully logged GUI session. This keeps
+external shortcut activation latency close to the native D-Bus call instead of
+paying the desktop/version/hash/log-rotation setup on every toggle. Set
+`NOCTTY_DOGFOOD_VERBOSE=1` when full GTK/GLib debug messages are needed.
 
 The launcher also atomically maintains a private `0600` receipt under:
 
@@ -55,7 +63,9 @@ The receipt is written as `state=running` before the binary starts and replaced
 with `state=finished`, end time, monotonic duration, and exit status after every
 ordinary zero or nonzero exit. Each dogfood install also atomically replaces a
 private `dogfood-build.receipt` containing its install epoch, optimization mode,
-both binary hashes, and the staged Layer Shell hash; local crash counts can
+both binary hashes, the staged Layer Shell hash, and cached Plasma/KWin
+versions so later GUI launches do not execute both desktop binaries just to
+build their fingerprint; local crash counts can
 therefore distinguish retained historical dumps from dumps created after the
 current install. If the launcher or machine is killed, the running receipt
 remains visibly incomplete and is never counted as elapsed

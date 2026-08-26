@@ -60,6 +60,51 @@ extern fn noctty_native_grid_pipeline_qualification(
     mode: [*:0]const u8,
 ) c_int;
 const NativeGridWrite = NativeGridAbi.Write;
+const instance_lock_exclusive: c_int = 2;
+const instance_lock_nonblocking: c_int = 4;
+const instance_lock_unlock: c_int = 8;
+
+extern fn flock(fd: c_int, operation: c_int) c_int;
+
+const NativeInstanceLock = struct {
+    fd: c_int,
+
+    fn acquire(
+        allocator: std.mem.Allocator,
+        io: std.Io,
+        home_dir: []const u8,
+    ) !NativeInstanceLock {
+        const directory = try std.fs.path.join(allocator, &.{
+            home_dir,
+            ".local",
+            "state",
+            "noctty",
+        });
+        defer allocator.free(directory);
+        try std.Io.Dir.cwd().createDirPath(io, directory);
+        const path = try std.fs.path.join(allocator, &.{ directory, "instance.lock" });
+        defer allocator.free(path);
+        const path_z = try allocator.dupeZ(u8, path);
+        defer allocator.free(path_z);
+        const fd = std.posix.openatZ(
+            std.posix.AT.FDCWD,
+            path_z,
+            .{ .ACCMODE = .RDWR, .CREAT = true, .CLOEXEC = true },
+            0o600,
+        ) catch return error.InstanceLockUnavailable;
+        if (flock(fd, instance_lock_exclusive | instance_lock_nonblocking) != 0) {
+            _ = std.c.close(fd);
+            return error.InstanceAlreadyRunning;
+        }
+        return .{ .fd = fd };
+    }
+
+    fn deinit(self: *NativeInstanceLock) void {
+        _ = flock(self.fd, instance_lock_unlock);
+        _ = std.c.close(self.fd);
+        self.* = undefined;
+    }
+};
 
 const NativeGridRunOptions = struct {
     session: *noctty.terminal_session.TerminalSession,
@@ -76,6 +121,10 @@ const NativeGridRunOptions = struct {
     secondary_pane_id: u64 = 0,
     secondary_initially_active: c_int = 0,
     enable_notifications: c_int = 0,
+    claim_control: c_int = 1,
+    show_on_control_conflict: c_int = 0,
+    recovery_notice_flags: u32 = 0,
+    startup_activation_token: ?[]const u8 = null,
 };
 
 fn runNativeGridHost(options: NativeGridRunOptions) c_int {
@@ -123,6 +172,17 @@ fn runNativeGridHost(options: NativeGridRunOptions) c_int {
         .secondary_pane_id = options.secondary_pane_id,
         .secondary_initially_active = options.secondary_initially_active,
         .enable_notifications = options.enable_notifications,
+        .claim_control = options.claim_control,
+        .show_on_control_conflict = options.show_on_control_conflict,
+        .recovery_notice_flags = options.recovery_notice_flags,
+        .startup_activation_token = if (options.startup_activation_token) |token|
+            token.ptr
+        else
+            null,
+        .startup_activation_token_length = if (options.startup_activation_token) |token|
+            token.len
+        else
+            0,
     };
     return NativeGridAbi.run(&callbacks, &launch);
 }
@@ -2070,6 +2130,20 @@ const NativeGridHotSessionLoad = enum {
     invalid,
 };
 
+const StartupRecovery = struct {
+    const config_backup: u32 = 1 << 0;
+    const config_defaults: u32 = 1 << 1;
+    const theme_backup: u32 = 1 << 2;
+    const theme_defaults: u32 = 1 << 3;
+    const workspace_defaults: u32 = 1 << 4;
+
+    flags: u32 = 0,
+
+    fn record(self: *StartupRecovery, flag: u32) void {
+        self.flags |= flag;
+    }
+};
+
 fn loadNativeGridHotSession(
     app: *noctty.app.App,
     io: std.Io,
@@ -2092,6 +2166,86 @@ fn loadNativeGridHotSession(
     };
     receipt.deinit(app.allocator);
     return .restored;
+}
+
+fn loadNativeGridConfig(
+    app: *noctty.app.App,
+    io: std.Io,
+    path: []const u8,
+    recovery: *StartupRecovery,
+) !void {
+    if (app.loadConfigFile(io, std.Io.Dir.cwd(), path, .settings)) |receipt| {
+        receipt.deinit(app.allocator);
+        return;
+    } else |primary_error| switch (primary_error) {
+        error.FileNotFound => return,
+        error.OutOfMemory => return primary_error,
+        else => {
+            std.log.warn("settings recovery needed for '{s}': {s}", .{
+                path,
+                @errorName(primary_error),
+            });
+        },
+    }
+
+    const backup_path = try noctty.config_storage.backupPathAlloc(
+        app.allocator,
+        path,
+    );
+    defer app.allocator.free(backup_path);
+    if (app.loadConfigFile(io, std.Io.Dir.cwd(), backup_path, .backup)) |receipt| {
+        receipt.deinit(app.allocator);
+        recovery.record(StartupRecovery.config_backup);
+    } else |backup_error| switch (backup_error) {
+        error.OutOfMemory => return backup_error,
+        else => {
+            std.log.warn("using safe settings defaults; backup '{s}' failed: {s}", .{
+                backup_path,
+                @errorName(backup_error),
+            });
+            recovery.record(StartupRecovery.config_defaults);
+        },
+    }
+}
+
+fn loadNativeGridThemes(
+    app: *noctty.app.App,
+    io: std.Io,
+    path: []const u8,
+    recovery: *StartupRecovery,
+) !void {
+    if (app.loadThemeLibraryFile(io, std.Io.Dir.cwd(), path, .library)) |receipt| {
+        receipt.deinit(app.allocator);
+        return;
+    } else |primary_error| switch (primary_error) {
+        error.FileNotFound => return,
+        error.OutOfMemory => return primary_error,
+        else => {
+            std.log.warn("theme-library recovery needed for '{s}': {s}", .{
+                path,
+                @errorName(primary_error),
+            });
+        },
+    }
+
+    const backup_path = try noctty.theme_storage.backupPathAlloc(
+        app.allocator,
+        path,
+    );
+    defer app.allocator.free(backup_path);
+    if (app.loadThemeLibraryFile(io, std.Io.Dir.cwd(), backup_path, .backup)) |receipt| {
+        receipt.deinit(app.allocator);
+        recovery.record(StartupRecovery.theme_backup);
+    } else |backup_error| switch (backup_error) {
+        error.OutOfMemory => return backup_error,
+        else => {
+            std.log.warn("using built-in themes; backup '{s}' failed: {s}", .{
+                backup_path,
+                @errorName(backup_error),
+            });
+            recovery.record(StartupRecovery.theme_defaults);
+        },
+    }
 }
 
 fn nativeGridProfilePreset(index: c_int) ?noctty.terminal.ProfilePreset {
@@ -2986,16 +3140,21 @@ pub fn main(init: std.process.Init) !void {
             return;
         }
         if (std.mem.eql(u8, cmd, "--status")) {
-            _ = try sendNativeControl(0, "status", stdout);
+            _ = try sendNativeControl(0, "status", null, stdout);
             return;
         }
         if (std.mem.eql(u8, cmd, "--hide")) {
-            _ = try sendNativeControl(3, "hide", stdout);
+            _ = try sendNativeControl(3, "hide", null, stdout);
             return;
         }
         if (std.mem.eql(u8, cmd, "--show") or std.mem.eql(u8, cmd, "--toggle")) {
             const action: c_int = if (std.mem.eql(u8, cmd, "--show")) 2 else 1;
-            const handled = try sendNativeControl(action, if (action == 2) "show" else "toggle", stdout);
+            const handled = try sendNativeControl(
+                action,
+                if (action == 2) "show" else "toggle",
+                init.environ_map.get("XDG_ACTIVATION_TOKEN"),
+                stdout,
+            );
             if (!handled) try runNativeGrid(allocator, init.io, home_dir, init.environ_map, 0, .visible);
             return;
         }
@@ -3005,17 +3164,45 @@ pub fn main(init: std.process.Init) !void {
                 try runNativeGrid(allocator, init.io, home_dir, init.environ_map, 0, .external_hidden);
             return;
         }
+        if (std.mem.eql(u8, cmd, "--new-window")) {
+            const working_directory = if (args.len == 2)
+                null
+            else if (args.len == 4 and
+                std.mem.eql(u8, args[2], "--working-directory"))
+                args[3]
+            else
+                return error.InvalidNewWindowArguments;
+            if (working_directory) |path|
+                try validateLocalWorkingDirectory(init.io, path);
+            try runNativeGridActivated(
+                allocator,
+                init.io,
+                home_dir,
+                init.environ_map,
+                1,
+                .visible,
+                null,
+                .restart_shells,
+                false,
+                working_directory,
+            );
+            return;
+        }
         if (std.mem.eql(u8, cmd, "--open-uri")) {
             if (args.len == 2) {
                 var existing_visible: c_int = 0;
-                if (VteHost.controlCall(2, &existing_visible) == 0)
+                if (VteHost.controlCallWithToken(
+                    2,
+                    init.environ_map.get("XDG_ACTIVATION_TOKEN"),
+                    &existing_visible,
+                ) == 0)
                     try runNativeGrid(
                         allocator,
                         init.io,
                         home_dir,
                         init.environ_map,
                         0,
-                        .automatic,
+                        .visible,
                     );
                 return;
             }
@@ -3030,6 +3217,8 @@ pub fn main(init: std.process.Init) !void {
                 .visible,
                 parsed.slice(),
                 .restart_shells,
+                false,
+                null,
             );
             return;
         }
@@ -3049,6 +3238,8 @@ pub fn main(init: std.process.Init) !void {
                 .visible,
                 parsed.slice(),
                 restore_mode,
+                false,
+                null,
             );
             return;
         }
@@ -3423,13 +3614,26 @@ pub fn main(init: std.process.Init) !void {
         return error.UnknownRenderer;
     }
     var existing_visible: c_int = 0;
-    if (VteHost.controlCall(2, &existing_visible) != 0) return;
+    if (VteHost.controlCallWithToken(
+        2,
+        init.environ_map.get("XDG_ACTIVATION_TOKEN"),
+        &existing_visible,
+    ) != 0) return;
     try runNativeGrid(allocator, init.io, home_dir, init.environ_map, -1, .automatic);
 }
 
-fn sendNativeControl(action: c_int, action_name: []const u8, out: anytype) !bool {
+fn sendNativeControl(
+    action: c_int,
+    action_name: []const u8,
+    activation_token: ?[]const u8,
+    out: anytype,
+) !bool {
     var visible: c_int = 0;
-    const handled = VteHost.controlCall(action, &visible) != 0;
+    const handled = VteHost.controlCallWithToken(
+        action,
+        activation_token,
+        &visible,
+    ) != 0;
     try out.print("noctty_control action={s} running={} visible={}\n", .{
         action_name,
         handled,
@@ -4800,6 +5004,27 @@ fn terminalPipelineQualification(
         256,
     );
     defer session.deinit();
+    try session.write(
+        "PS1=''; PS2=''; export PS1 PS2; printf '\\033[2J\\033[H\\033]2;noctty-pipeline-ready\\007'\n",
+    );
+    var startup_ready = false;
+    for (0..5000) |_| {
+        switch (try session.pump()) {
+            .bytes => {},
+            .would_block => noctty.pty.sleepBrief(1),
+            .eof => return error.TerminalPipelineStartupFailed,
+        }
+        if (std.mem.eql(
+            u8,
+            session.grid.titleSlice(),
+            "noctty-pipeline-ready",
+        )) {
+            startup_ready = true;
+            break;
+        }
+    }
+    if (!startup_ready) return error.TerminalPipelineStartupTimedOut;
+
     var context = TerminalPipelineContext{ .session = &session, .io = io };
     const callbacks = NativeGridAbi.Callbacks{
         .userdata = &session,
@@ -4843,8 +5068,7 @@ fn terminalPipelineQualification(
     for (0..5000) |_| {
         switch (try session.pump()) {
             .bytes => {},
-            .would_block => noctty.pty.sleepBrief(1),
-            .eof => {},
+            .would_block, .eof => noctty.pty.sleepBrief(1),
         }
         if (try session.pollExit()) |code| {
             if (code != 0) return error.TerminalPipelineChildExitFailed;
@@ -7688,6 +7912,20 @@ fn runNativeGridBenchmark(
     }
 }
 
+fn validateLocalWorkingDirectory(io: std.Io, path: []const u8) !void {
+    if (path.len == 0 or path.len > noctty.workspace_activation.max_workspace_path_bytes)
+        return error.InvalidWorkingDirectory;
+    if (!std.fs.path.isAbsolute(path)) return error.WorkingDirectoryMustBeAbsolute;
+    if (path.len > 1 and path[1] == '/') return error.WorkingDirectoryNetworkPathForbidden;
+    if (!std.unicode.utf8ValidateSlice(path)) return error.InvalidWorkingDirectoryEncoding;
+    for (path) |byte| {
+        if (byte == 0 or byte < 0x20 or byte == 0x7f)
+            return error.InvalidWorkingDirectoryControl;
+    }
+    var directory = try std.Io.Dir.cwd().openDir(io, path, .{});
+    directory.close(io);
+}
+
 fn parseRestoreMode(value: []const u8) !noctty.continuity.RestoreMode {
     const raw = std.fmt.parseInt(u8, value, 10) catch return error.InvalidWorkspaceActivationArguments;
     return switch (raw) {
@@ -7708,6 +7946,8 @@ fn runNativeGrid(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8,
         launch_policy,
         null,
         .restart_shells,
+        true,
+        null,
     );
 }
 
@@ -7760,6 +8000,25 @@ fn applyRestoreMode(
     }
 }
 
+fn forwardShowAfterInstanceConflict(activation_token: ?[]const u8) bool {
+    const attempt_count_max: u8 = 26;
+    const call_timeout_ms: c_int = 50;
+    const retry_delay_ms: u64 = 25;
+
+    var attempt: u8 = 0;
+    while (attempt < attempt_count_max) : (attempt += 1) {
+        var visible: c_int = 0;
+        if (VteHost.controlCallWithTokenTimeout(
+            2,
+            activation_token,
+            &visible,
+            call_timeout_ms,
+        ) != 0) return true;
+        noctty.pty.sleepBrief(retry_delay_ms);
+    }
+    return false;
+}
+
 fn runNativeGridActivated(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -7769,7 +8028,34 @@ fn runNativeGridActivated(
     launch_policy: GridLaunchPolicy,
     activated_workspace_path: ?[]const u8,
     restore_mode: noctty.continuity.RestoreMode,
+    claim_control: bool,
+    initial_working_directory: ?[]const u8,
 ) !void {
+    var instance_lock: ?NativeInstanceLock = null;
+    if (claim_control) {
+        instance_lock = NativeInstanceLock.acquire(allocator, io, home_dir) catch |err| switch (err) {
+            error.InstanceAlreadyRunning => {
+                if (launch_policy != .external_hidden and !forwardShowAfterInstanceConflict(
+                    environ_map.get("XDG_ACTIVATION_TOKEN"),
+                ))
+                    std.log.warn("primary NOCTTY is starting but did not accept Show within 2 seconds", .{});
+                return;
+            },
+            error.OutOfMemory => return err,
+            else => degraded: {
+                std.log.warn("instance lock unavailable; retaining D-Bus ownership fallback: {s}", .{@errorName(err)});
+                break :degraded null;
+            },
+        };
+    }
+    defer if (instance_lock) |*lock| lock.deinit();
+
+    const startup_activation_token = if (environ_map.get("XDG_ACTIVATION_TOKEN")) |token|
+        try allocator.dupe(u8, token)
+    else
+        null;
+    defer if (startup_activation_token) |token| allocator.free(token);
+
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
     app.applySessionEnvironment(sessionEnvironment(environ_map));
@@ -7777,25 +8063,50 @@ fn runNativeGridActivated(
     defer allocator.free(config_path);
     const theme_path = try app.defaultThemeLibraryPathAlloc(home_dir);
     defer allocator.free(theme_path);
-    const autosave_path = try app.defaultWorkspacePathAlloc(home_dir, "default", .autosave);
-    defer allocator.free(autosave_path);
-    if (app.loadConfigFile(io, std.Io.Dir.cwd(), config_path, .settings)) |receipt| {
-        receipt.deinit(allocator);
-    } else |err| if (err != error.FileNotFound) return err;
-    if (app.loadThemeLibraryFile(io, std.Io.Dir.cwd(), theme_path, .library)) |receipt| {
-        receipt.deinit(allocator);
-    } else |err| if (err != error.FileNotFound) return err;
+    const autosave_path = if (claim_control)
+        try app.defaultWorkspacePathAlloc(home_dir, "default", .autosave)
+    else
+        null;
+    defer if (autosave_path) |path| allocator.free(path);
+    var autosave_persistence_path: ?[]const u8 = autosave_path;
+    var startup_recovery = StartupRecovery{};
+    try loadNativeGridConfig(&app, io, config_path, &startup_recovery);
+    try loadNativeGridThemes(&app, io, theme_path, &startup_recovery);
     const hot_session_load: NativeGridHotSessionLoad = if (activated_workspace_path) |path| activated: {
         const receipt = try app.loadActivatedWorkspacePath(io, std.Io.Dir.cwd(), path);
         receipt.deinit(allocator);
         const config_receipt = try app.saveConfigFile(io, std.Io.Dir.cwd(), config_path, .settings);
         config_receipt.deinit(allocator);
         break :activated .restored;
-    } else loadNativeGridHotSession(&app, io, autosave_path);
+    } else if (autosave_path) |path|
+        loadNativeGridHotSession(&app, io, path)
+    else
+        .missing;
+    if (hot_session_load == .invalid) {
+        startup_recovery.record(StartupRecovery.workspace_defaults);
+        const rejected_path = noctty.workspace_storage.retainRejectedSnapshotFile(
+            allocator,
+            io,
+            std.Io.Dir.cwd(),
+            autosave_path.?,
+        ) catch |err| switch (err) {
+            error.OutOfMemory => return err,
+            else => failed: {
+                std.log.warn(
+                    "workspace retention failed for '{s}'; autosave disabled: {s}",
+                    .{ autosave_path.?, @errorName(err) },
+                );
+                autosave_persistence_path = null;
+                break :failed null;
+            },
+        };
+        if (rejected_path) |path| allocator.free(path);
+    }
     if (hot_session_load != .restored) app.markWorkspaceDirtyAt(0);
     try populateProjectPanels(&app, allocator, io, environ_map);
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     const pane = app.workspace.findPane(tab.active_pane_id) orelse return error.PaneNotFound;
+    if (initial_working_directory) |path| try pane.setCwd(path);
     if (activated_workspace_path != null)
         try applyRestoreMode(&app, pane, restore_mode);
     const shell_raw = noctty.launch_profile.safeFallbackShell(
@@ -7824,12 +8135,14 @@ fn runNativeGridActivated(
             &session_pool.pump_scratch,
         )
     else launch: {
-        const profile = &app.config.terminal.launch_profile;
-        const resolved_cwd = profile.workingDirectory(pane.cwd);
+        const initial_profile = app.config.terminal.launch_profile.forInitialLaunch(
+            initial_working_directory,
+        );
+        const resolved_cwd = initial_profile.workingDirectory(pane.cwd);
         if (!std.mem.eql(u8, resolved_cwd, pane.cwd)) try pane.setCwd(resolved_cwd);
         break :launch try noctty.terminal_session.TerminalSession.spawnProfileWithScratch(
             allocator,
-            profile,
+            &initial_profile,
             pane.cwd,
             shell,
             120,
@@ -7854,19 +8167,18 @@ fn runNativeGridActivated(
         .process_environment = environ_map,
         .config_path = config_path,
         .theme_path = theme_path,
-        .autosave_path = autosave_path,
+        .autosave_path = autosave_persistence_path,
         .hot_session_loaded = hot_session_load == .restored,
         .restore_mode = restore_mode,
         .session_pool = &session_pool,
         .primary_session = &session,
         .share_state = &share_state,
     };
-    persistNativeGridHotSession(&bridge);
     const effective_mode: c_int = if (mode >= 0)
         mode
     else
         @intCast(@intFromEnum(app.config.default_mode));
-    const shortcut_mode: c_int = if (effective_mode != 0) 0 else switch (launch_policy) {
+    const shortcut_mode: c_int = if (!claim_control or effective_mode != 0) 0 else switch (launch_policy) {
         .automatic => if (app.backend.capabilities.app_shortcut_registration) 1 else if (app.backend.capabilities.external_activation) 3 else 0,
         .visible => if (!app.backend.capabilities.app_shortcut_registration and app.backend.capabilities.external_activation) 3 else 0,
         .external_hidden => 2,
@@ -7881,8 +8193,13 @@ fn runNativeGridActivated(
         .shortcut_key = qtShortcutKey(app.config.dropdown.shortcut),
         .enable_shortcut = shortcut_mode,
         .enable_notifications = if (app.config.status.desktop_notifications) 1 else 0,
+        .claim_control = @intFromBool(claim_control),
+        .show_on_control_conflict = @intFromBool(launch_policy == .visible),
+        .recovery_notice_flags = startup_recovery.flags,
+        .startup_activation_token = startup_activation_token,
     });
-    persistNativeGridHotSession(&bridge);
+    if (status == 3) return;
     if (status != 0) return error.NativeGridHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridStateSyncFailed;
+    persistNativeGridHotSession(&bridge);
 }

@@ -319,6 +319,15 @@ typedef struct NocttyGridContextTag {
     GDBusNodeInfo *control_node;
     guint control_object_id;
     int control_registered;
+    int control_name_conflict;
+    int control_conflict_forwarded;
+    int claim_control;
+    int show_on_control_conflict;
+    guint32 recovery_notice_flags;
+    GtkWidget *recovery_notice;
+    gchar *xdg_activation_token;
+    int xdg_activation_token_received;
+    int xdg_activation_token_applied;
     int control_status_seen;
     int control_status_count;
     int control_show_seen;
@@ -353,6 +362,7 @@ typedef struct NocttyGridContextTag {
     NocttyApplicationCloseOrigin application_close_accepted_origin;
     void *layer_shell_library;
     int layer_shell_active;
+    int layer_shell_keyboard_mode;
     int window_presented;
     guint window_mode_recreate_source;
     int window_mode_surface_recreated;
@@ -865,6 +875,8 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event,
 static gboolean on_key_release(GtkWidget *widget, GdkEventKey *event,
                                gpointer user_data);
 static void toggle_grid_window(NocttyGridContext *context);
+static void set_grid_layer_keyboard_active(NocttyGridContext *context,
+                                           gboolean active);
 static const char *broadcast_menu_label(NocttyGridContext *context);
 static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data);
 #if NOCTTY_ENABLE_SMOKE
@@ -4663,12 +4675,57 @@ static gboolean finish_grid_hide(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+static gboolean retain_xdg_activation_token_bytes(
+    NocttyGridContext *context, const gchar *token, gsize length) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (token == NULL || length == 0 || length > 4096 ||
+        memchr(token, '\0', length) != NULL ||
+        !g_utf8_validate(token, (gssize)length, NULL))
+        return FALSE;
+    for (gsize index = 0; index < length; index++) {
+        if ((guchar)token[index] < 0x20 || token[index] == 0x7f)
+            return FALSE;
+    }
+    gchar *owned = g_strndup(token, length);
+    if (owned == NULL) return FALSE;
+    g_free(root->xdg_activation_token);
+    root->xdg_activation_token = owned;
+    root->xdg_activation_token_received = 1;
+    return TRUE;
+}
+
+static gboolean retain_xdg_activation_token(NocttyGridContext *context,
+                                             const gchar *token) {
+    return token != NULL && retain_xdg_activation_token_bytes(
+        context, token, strlen(token));
+}
+
+static void clear_xdg_activation_token(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    g_clear_pointer(&root->xdg_activation_token, g_free);
+}
+
+static void apply_xdg_activation_token(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (root->xdg_activation_token == NULL ||
+        !GTK_IS_WINDOW(root->window)) return;
+    gtk_window_set_startup_id(GTK_WINDOW(root->window),
+                              root->xdg_activation_token);
+    root->xdg_activation_token_applied = 1;
+    if (g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL)
+        g_printerr("noctty_xdg_activation applied=true backend=%s\n",
+                   GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())
+                       ? "wayland" : "x11");
+    clear_xdg_activation_token(root);
+}
+
 static void toggle_grid_window(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     gboolean visible = GTK_IS_WIDGET(root->window) &&
         !gtk_widget_in_destruction(root->window) &&
         gtk_widget_get_visible(root->window);
     if (root->window_presented && visible) {
+        set_grid_layer_keyboard_active(root, FALSE);
         hide_quick_note_overlays(root);
         dismiss_grid_popup_windows(root);
         root->window_presented = 0;
@@ -4686,9 +4743,17 @@ static void toggle_grid_window(NocttyGridContext *context) {
             if (root->hide_source != 0) g_source_remove(root->hide_source);
             root->hide_source = g_timeout_add((guint)root->dropdown_animation_ms,
                                               finish_grid_hide, root);
+        } else if (root->layer_shell_active) {
+            if (root->hide_source != 0) g_source_remove(root->hide_source);
+            // Give keyboard-interactivity NONE one frame to commit before
+            // unmapping the layer surface, avoiding a combined KWin focus and
+            // surface-destroy transition on the cold path.
+            root->hide_source = g_timeout_add(16, finish_grid_hide, root);
         } else gtk_widget_hide(root->window);
     } else {
+        set_grid_layer_keyboard_active(root, TRUE);
         root->window_presented = 1;
+        apply_xdg_activation_token(root);
         if (root->hide_source != 0) {
             g_source_remove(root->hide_source);
             root->hide_source = 0;
@@ -4719,7 +4784,9 @@ static const char noctty_control_xml[] =
     "<node>"
     " <interface name='com.noctty.NOCTTY.Control'>"
     "  <method name='Toggle'><arg type='b' name='visible' direction='out'/></method>"
+    "  <method name='ToggleWithActivation'><arg type='s' name='token' direction='in'/><arg type='b' name='visible' direction='out'/></method>"
     "  <method name='Show'><arg type='b' name='visible' direction='out'/></method>"
+    "  <method name='ShowWithActivation'><arg type='s' name='token' direction='in'/><arg type='b' name='visible' direction='out'/></method>"
     "  <method name='Hide'><arg type='b' name='visible' direction='out'/></method>"
     "  <method name='GetState'><arg type='b' name='visible' direction='out'/></method>"
     " </interface>"
@@ -4741,16 +4808,32 @@ static void on_control_method_call(GDBusConnection *connection,
                                    GDBusMethodInvocation *invocation,
                                    gpointer user_data) {
     (void)connection; (void)sender; (void)object_path; (void)interface_name;
-    (void)parameters;
     NocttyGridContext *root = root_grid_context(user_data);
     gboolean visible = root->window_presented;
-    if (g_strcmp0(method_name, "Toggle") == 0) {
+    gboolean activated_toggle =
+        g_strcmp0(method_name, "ToggleWithActivation") == 0;
+    gboolean activated_show =
+        g_strcmp0(method_name, "ShowWithActivation") == 0;
+    if (activated_toggle || activated_show) {
+        const gchar *token = NULL;
+        g_variant_get(parameters, "(&s)", &token);
+        gboolean will_show = !visible;
+        if (will_show && !retain_xdg_activation_token(root, token)) {
+            g_dbus_method_invocation_return_error(
+                invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+                "Invalid or oversized XDG activation token");
+            return;
+        }
+    }
+    if (g_strcmp0(method_name, "Toggle") == 0 || activated_toggle) {
         root->control_toggle_seen = 1;
+        if (visible) clear_xdg_activation_token(root);
         toggle_grid_window(root);
         visible = !visible;
-    } else if (g_strcmp0(method_name, "Show") == 0) {
+    } else if (g_strcmp0(method_name, "Show") == 0 || activated_show) {
         root->control_show_seen = 1;
         if (!visible) toggle_grid_window(root);
+        else clear_xdg_activation_token(root);
         visible = TRUE;
     } else if (g_strcmp0(method_name, "Hide") == 0) {
         root->control_hide_seen = 1;
@@ -4819,9 +4902,24 @@ static void on_grid_control_name_requested(GObject *source,
         guint32 request_result = 0;
         g_variant_get(reply, "(u)", &request_result);
         root->control_registered = request_result == 1u || request_result == 4u;
+        root->control_name_conflict = request_result == 2u || request_result == 3u;
+        if (g_getenv("NOCTTY_DEBUG_CONTROL_OWNERSHIP") != NULL)
+            g_printerr("noctty_control_ownership pid=%ld result=%u owner=%d conflict=%d\n",
+                       (long)getpid(), request_result,
+                       root->control_registered, root->control_name_conflict);
         g_variant_unref(reply);
     }
     g_clear_error(&error);
+    if (root->control_name_conflict && root->show_on_control_conflict) {
+        GVariant *forwarded = g_dbus_connection_call_sync(
+            root->control_bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY",
+            "com.noctty.NOCTTY.Control", "Show", NULL,
+            G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
+        if (forwarded != NULL) {
+            root->control_conflict_forwarded = 1;
+            g_variant_unref(forwarded);
+        }
+    }
     if (root->control_registered && root->shortcut_transport == 2 &&
         root->mode == 0 && root->workspace_smoke == 16)
         (void)g_file_set_contents("/tmp/noctty-noctalia-control-ready",
@@ -4881,6 +4979,13 @@ static int register_grid_control(NocttyGridContext *context) {
     g_bus_get(G_BUS_TYPE_SESSION, root->dbus_cancellable,
               on_grid_control_bus_ready, root);
     return 1;
+}
+
+static gboolean quit_control_name_conflict(gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    root->window_presented = 0;
+    gtk_main_quit();
+    return G_SOURCE_REMOVE;
 }
 
 static const char noctty_tray_xml[] =
@@ -5247,10 +5352,19 @@ static void on_grid_tray_method_call(
     const gchar *method_name, GVariant *parameters,
     GDBusMethodInvocation *invocation, gpointer user_data) {
     (void)connection; (void)sender; (void)object_path; (void)interface_name;
-    (void)parameters;
     NocttyGridContext *root = root_grid_context(user_data);
-    if (g_strcmp0(method_name, "Activate") == 0) {
+    if (g_strcmp0(method_name, "ProvideXdgActivationToken") == 0) {
+        const gchar *token = NULL;
+        g_variant_get(parameters, "(&s)", &token);
+        if (!retain_xdg_activation_token(root, token)) {
+            g_dbus_method_invocation_return_error(
+                invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
+                "Invalid or oversized XDG activation token");
+            return;
+        }
+    } else if (g_strcmp0(method_name, "Activate") == 0) {
         root->tray_activation_count++;
+        if (root->window_presented) clear_xdg_activation_token(root);
         toggle_grid_window(root);
     } else if (g_strcmp0(method_name, "SecondaryActivate") == 0) {
         root->tray_secondary_seen = 1;
@@ -6915,6 +7029,75 @@ static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     return button;
 }
 
+enum {
+    NOCTTY_RECOVERY_CONFIG_BACKUP = 1u << 0,
+    NOCTTY_RECOVERY_CONFIG_DEFAULTS = 1u << 1,
+    NOCTTY_RECOVERY_THEME_BACKUP = 1u << 2,
+    NOCTTY_RECOVERY_THEME_DEFAULTS = 1u << 3,
+    NOCTTY_RECOVERY_WORKSPACE_DEFAULTS = 1u << 4,
+};
+
+static void on_recovery_notice_response(GtkInfoBar *bar, gint response_id,
+                                        gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    if (response_id == GTK_RESPONSE_APPLY) open_grid_settings(root);
+    gtk_widget_hide(GTK_WIDGET(bar));
+}
+
+static GtkWidget *create_recovery_notice(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    guint32 flags = root->recovery_notice_flags;
+    if (flags == 0) return NULL;
+
+    GString *message = g_string_new(NULL);
+    if (flags & NOCTTY_RECOVERY_CONFIG_BACKUP)
+        g_string_append(message,
+            "Settings were damaged. Last-known-good settings were loaded.");
+    else if (flags & NOCTTY_RECOVERY_CONFIG_DEFAULTS)
+        g_string_append(message,
+            "Settings were damaged. Safe defaults were loaded.");
+    if (flags & NOCTTY_RECOVERY_THEME_BACKUP) {
+        if (message->len > 0) g_string_append_c(message, ' ');
+        g_string_append(message,
+            "The last-known-good theme library was restored.");
+    } else if (flags & NOCTTY_RECOVERY_THEME_DEFAULTS) {
+        if (message->len > 0) g_string_append_c(message, ' ');
+        g_string_append(message,
+            "Built-in themes are available while the damaged library is retained.");
+    }
+    if (flags & NOCTTY_RECOVERY_WORKSPACE_DEFAULTS) {
+        if (message->len > 0) g_string_append_c(message, ' ');
+        g_string_append(message,
+            "The damaged workspace snapshot was skipped; a clean workspace was opened.");
+    }
+
+    GtkWidget *bar = gtk_info_bar_new_with_buttons(
+        "Open Settings", GTK_RESPONSE_APPLY,
+        "Dismiss", GTK_RESPONSE_CLOSE, NULL);
+    gtk_info_bar_set_message_type(GTK_INFO_BAR(bar), GTK_MESSAGE_WARNING);
+    gtk_widget_set_name(bar, "noctty-recovery-notice");
+    GtkWidget *content = gtk_info_bar_get_content_area(GTK_INFO_BAR(bar));
+    GtkWidget *label = gtk_label_new(message->str);
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(label), 96);
+    set_widget_accessible_name(label, "NOCTTY startup recovery notice");
+    gtk_box_pack_start(GTK_BOX(content), label, TRUE, TRUE, 0);
+    g_signal_connect(bar, "response",
+                     G_CALLBACK(on_recovery_notice_response), root);
+    g_print("noctty_startup_recovery_notice flags=%u "
+            "config_backup=%d config_defaults=%d theme_backup=%d "
+            "theme_defaults=%d workspace_defaults=%d\n",
+            flags,
+            (flags & NOCTTY_RECOVERY_CONFIG_BACKUP) != 0,
+            (flags & NOCTTY_RECOVERY_CONFIG_DEFAULTS) != 0,
+            (flags & NOCTTY_RECOVERY_THEME_BACKUP) != 0,
+            (flags & NOCTTY_RECOVERY_THEME_DEFAULTS) != 0,
+            (flags & NOCTTY_RECOVERY_WORKSPACE_DEFAULTS) != 0);
+    g_string_free(message, TRUE);
+    return bar;
+}
+
 static void on_window_settings_button_clicked(GtkButton *button,
                                               gpointer user_data) {
     (void)button;
@@ -8214,7 +8397,7 @@ static NocttyGridContext *grid_context_for_pane(NocttyGridContext *context,
 static gboolean flush_grid_layout_hot_session(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->layout_save_source = 0;
-    if (root->event_data != NULL)
+    if (!root->control_name_conflict && root->event_data != NULL)
         (void)noctty_grid_flush_hot_session(root->event_data);
     return G_SOURCE_REMOVE;
 }
@@ -10341,6 +10524,7 @@ static void on_settings_destroy(GtkWidget *widget, gpointer user_data) {
 }
 
 typedef gboolean (*NocttyLayerIsSupported)(void);
+typedef guint (*NocttyLayerGetProtocolVersion)(void);
 typedef void (*NocttyLayerInitForWindow)(GtkWindow *);
 typedef void (*NocttyLayerSetNamespace)(GtkWindow *, const char *);
 typedef void (*NocttyLayerSetMonitor)(GtkWindow *, GdkMonitor *);
@@ -10349,6 +10533,20 @@ typedef int (*NocttyLayerGetInt)(GtkWindow *);
 typedef gboolean (*NocttyLayerIsLayerWindow)(GtkWindow *);
 typedef void (*NocttyLayerSetEdge)(GtkWindow *, int, gboolean);
 typedef void (*NocttyLayerSetMargin)(GtkWindow *, int, int);
+
+static void set_grid_layer_keyboard_active(NocttyGridContext *context,
+                                           gboolean active) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (!root->layer_shell_active || root->layer_shell_library == NULL ||
+        root->window == NULL || gtk_widget_in_destruction(root->window))
+        return;
+    NocttyLayerSetInt set_keyboard_mode =
+        (NocttyLayerSetInt)dlsym(root->layer_shell_library,
+                                 "gtk_layer_set_keyboard_mode");
+    if (set_keyboard_mode == NULL) return;
+    set_keyboard_mode(GTK_WINDOW(root->window),
+                      active ? root->layer_shell_keyboard_mode : 0);
+}
 
 static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     GdkDisplay *display = gtk_widget_get_display(window);
@@ -10449,6 +10647,9 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     NocttyLayerIsSupported is_supported =
         (NocttyLayerIsSupported)dlsym(root->layer_shell_library,
                                       "gtk_layer_is_supported");
+    NocttyLayerGetProtocolVersion get_protocol_version =
+        (NocttyLayerGetProtocolVersion)dlsym(
+            root->layer_shell_library, "gtk_layer_get_protocol_version");
     NocttyLayerInitForWindow init_for_window =
         (NocttyLayerInitForWindow)dlsym(root->layer_shell_library,
                                         "gtk_layer_init_for_window");
@@ -10476,11 +10677,17 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) set_monitor(GTK_WINDOW(root->window), monitor);
     set_layer(GTK_WINDOW(root->window), 3);
-    set_keyboard_mode(GTK_WINDOW(root->window), 1);
+    guint protocol_version = get_protocol_version != NULL
+        ? get_protocol_version() : 0;
+    root->layer_shell_keyboard_mode = protocol_version >= 4 ? 2 : 1;
+    set_keyboard_mode(GTK_WINDOW(root->window),
+                      root->layer_shell_keyboard_mode);
     set_exclusive_zone(GTK_WINDOW(root->window), 0);
     root->layer_shell_active = 1;
     apply_grid_layer_geometry(root);
-    g_debug("NOCTTY dropdown layer-shell active");
+    g_debug("NOCTTY dropdown layer-shell active protocol=%u keyboard_mode=%s",
+            protocol_version,
+            root->layer_shell_keyboard_mode == 2 ? "on-demand" : "exclusive");
     return 1;
 }
 
@@ -17413,8 +17620,17 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         callbacks->scroll == NULL || callbacks->cursor == NULL ||
         callbacks->title == NULL || callbacks->cursor_mode == NULL ||
         callbacks->mouse_mode == NULL || callbacks->focus == NULL ||
-        callbacks->event == NULL)
+        callbacks->event == NULL) {
+        g_printerr("native_grid_abi_rejected expected=%u callbacks_version=%u options_version=%u callbacks_size=%u/%zu options_size=%u/%zu\n",
+                   NOCTTY_NATIVE_GRID_ABI_VERSION,
+                   callbacks != NULL ? callbacks->abi_version : 0,
+                   options != NULL ? options->abi_version : 0,
+                   callbacks != NULL ? callbacks->struct_size : 0,
+                   sizeof(*callbacks),
+                   options != NULL ? options->struct_size : 0,
+                   sizeof(*options));
         return -4;
+    }
     void *userdata = callbacks->userdata;
     NocttyGridPump pump = callbacks->pump;
     NocttyGridWrite write = callbacks->write;
@@ -17445,6 +17661,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     uint64_t secondary_pane_id = options->secondary_pane_id;
     int secondary_initially_active = options->secondary_initially_active;
     int enable_notifications = options->enable_notifications;
+    int claim_control = options->claim_control;
+    int show_on_control_conflict = options->show_on_control_conflict;
+    guint32 recovery_notice_flags = options->recovery_notice_flags;
+    const gchar *startup_activation_token =
+        options->startup_activation_token;
+    gsize startup_activation_token_length =
+        options->startup_activation_token_length;
 #if !NOCTTY_ENABLE_SMOKE
     if (workspace_smoke >= 0) return -3;
     workspace_smoke = -1;
@@ -17507,6 +17730,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.primary = 1;
     context.active = 1;
     context.enable_notifications = enable_notifications;
+    context.claim_control = claim_control;
+    context.show_on_control_conflict = show_on_control_conflict;
+    context.recovery_notice_flags = recovery_notice_flags;
     context.font_size = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 6) / 100.0
         : 13.0;
@@ -17590,6 +17816,10 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     gtk_widget_show_all(context.window_toolbar_controls);
     context.revealer = gtk_revealer_new();
     context.content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    context.recovery_notice = create_recovery_notice(&context);
+    if (context.recovery_notice != NULL)
+        gtk_box_pack_start(GTK_BOX(context.content_box),
+                           context.recovery_notice, FALSE, FALSE, 0);
     context.pane_info_strip =
         noctty_pane_info_strip_new(context.show_pane_info);
     if (context.pane_info_strip == NULL) {
@@ -17646,15 +17876,30 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.layout_restore_applying = 1;
     gboolean hot_session_restored = restore_hot_session(&context);
     (void)configure_grid_layer_shell(&context);
-    int control_ready = register_grid_control(&context);
-    gboolean start_hidden =
+    if (claim_control) {
+        (void)register_grid_control(&context);
+        drain_grid_dbus_operations(&context);
+    }
+    gboolean control_conflict = context.control_name_conflict;
+    gboolean start_hidden = claim_control &&
         (enable_shortcut == 1 || enable_shortcut == 2) &&
-        control_ready && mode == 0;
+        context.control_registered && mode == 0;
     int tray_ready = 0;
-    if ((workspace_smoke < 0 && control_ready) || workspace_smoke == 19)
+    if (((workspace_smoke < 0 && context.control_registered) ||
+         workspace_smoke == 19) && !control_conflict)
         tray_ready = register_grid_tray(&context);
+    if (!control_conflict && startup_activation_token != NULL) {
+        gboolean retained = retain_xdg_activation_token_bytes(
+            &context, startup_activation_token,
+            startup_activation_token_length);
+        if (retained && !start_hidden)
+            apply_xdg_activation_token(&context);
+        else if (!retained && g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL)
+            g_printerr("noctty_xdg_activation retained=false source=startup\n");
+    }
     show_all_with_action_affordances(
-        start_hidden ? context.window_layout : context.window);
+        (start_hidden || control_conflict)
+            ? context.window_layout : context.window);
     update_window_resize_handles(&context);
     update_notebook_chrome(&context);
     for (guint index = 0; index < context.contexts->len; index++) {
@@ -17677,8 +17922,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     update_status_tooltip(&context, "starting");
     if (secondary_userdata != NULL) update_status_tooltip(&secondary, secondary.active ? "starting" : "idle");
     if (secondary_userdata != NULL && !secondary.active) gtk_widget_hide(secondary.area);
-    if (enable_shortcut == 1) {
+    if (enable_shortcut == 1 && claim_control && !control_conflict) {
         (void)register_grid_shortcut(&context, shortcut_key);
+    }
+    if (control_conflict) {
+        context.window_presented = 0;
+        g_idle_add(quit_control_name_conflict, &context);
     }
     if (start_hidden) {
         gtk_revealer_set_reveal_child(GTK_REVEALER(context.revealer), FALSE);
@@ -17845,7 +18094,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     if (context.layout_save_source != 0) {
         g_source_remove(context.layout_save_source);
         context.layout_save_source = 0;
-        if (context.event_data != NULL)
+        if (!context.control_name_conflict && context.event_data != NULL)
             (void)noctty_grid_flush_hot_session(context.event_data);
     }
     drain_grid_dbus_operations(&context);
@@ -17869,6 +18118,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         dlclose(context.layer_shell_library);
         context.layer_shell_library = NULL;
     }
+    g_clear_pointer(&context.xdg_activation_token, g_free);
     g_clear_pointer(&context.note_overlay_text, g_free);
     g_clear_pointer(&context.note_overlay_label, g_free);
     g_clear_pointer(&context.note_overlay_font, pango_font_description_free);
@@ -17887,12 +18137,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         if (candidate->heap_allocated) g_free(candidate);
     }
     g_ptr_array_free(context.contexts, TRUE);
-    return 0;
+    return context.control_name_conflict ? 3 : 0;
 #else
     if (context.layout_save_source != 0) {
         g_source_remove(context.layout_save_source);
         context.layout_save_source = 0;
-        if (context.event_data != NULL)
+        if (!context.control_name_conflict && context.event_data != NULL)
             (void)noctty_grid_flush_hot_session(context.event_data);
     }
     int control_was_registered = context.control_registered;
@@ -18404,6 +18654,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.compact_scrollbar_thumb_dragged &&
          context.compact_keyboard_scrollback_up &&
          context.compact_keyboard_scrollback_down);
+    g_clear_pointer(&context.xdg_activation_token, g_free);
     g_clear_pointer(&context.note_overlay_text, g_free);
     g_clear_pointer(&context.note_overlay_label, g_free);
     g_clear_pointer(&context.note_overlay_font, pango_font_description_free);

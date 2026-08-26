@@ -7,6 +7,27 @@ case "$app" in
   *) echo "unknown NOCTTY dogfood launcher: $app" >&2; exit 64 ;;
 esac
 
+launcher=$(readlink -f "$0")
+runtime_dir=$(dirname "$launcher")
+export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+# Existing-instance controls are latency-sensitive and do not represent a new
+# dogfood session. Bypass receipt/log setup, but retain it when Show or Toggle
+# must cold-start the GUI.
+if [ "$app" = noctty ] && [ "$#" -eq 1 ]; then
+  case "$1" in
+    --version|--status|--hide)
+      exec "$runtime_dir/noctty-bin" "$@"
+      ;;
+    --show|--toggle)
+      if "$runtime_dir/noctty-bin" --status 2>/dev/null |
+         grep -F 'running=true' >/dev/null; then
+        exec "$runtime_dir/noctty-bin" "$@"
+      fi
+      ;;
+  esac
+fi
+
 umask 077
 state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
 log_dir="$state_home/noctty/logs"
@@ -29,10 +50,21 @@ backend=${GDK_BACKEND:-auto}
 kernel_release=$(uname -r 2>/dev/null || printf 'unknown')
 os_id=$(awk -F= '$1 == "ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || printf 'unknown')
 os_build=$(awk -F= '$1 == "BUILD_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || printf 'unknown')
-plasma_version=$(plasmashell --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || printf 'unknown')
-kwin_version=$(kwin_wayland --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || printf 'unknown')
-launcher=$(readlink -f "$0")
-runtime_dir=$(dirname "$launcher")
+build_receipt="$state_home/noctty/dogfood-build.receipt"
+plasma_version=$(awk -F= '$1 == "plasma_version" { print $2; exit }' \
+  "$build_receipt" 2>/dev/null || true)
+kwin_version=$(awk -F= '$1 == "kwin_version" { print $2; exit }' \
+  "$build_receipt" 2>/dev/null || true)
+if [ -z "$plasma_version" ]; then
+  plasma_version=$(plasmashell --version 2>/dev/null |
+    awk 'NR == 1 { print $NF; exit }' || true)
+fi
+if [ -z "$kwin_version" ]; then
+  kwin_version=$(kwin_wayland --version 2>/dev/null |
+    awk 'NR == 1 { print $NF; exit }' || true)
+fi
+[ -n "$plasma_version" ] || plasma_version=unknown
+[ -n "$kwin_version" ] || kwin_version=unknown
 binary_path="$runtime_dir/$app-bin"
 binary_sha256=$(sha256sum "$binary_path" 2>/dev/null | awk 'NR == 1 { print $1; exit }' || printf 'unknown')
 omp_version=deferred
@@ -42,6 +74,12 @@ safe_token() {
   if [ -n "$value" ]; then printf '%s' "$value"; else printf 'unknown'; fi
 }
 
+safe_log_argument() {
+  printf '%s' "$1" | LC_ALL=C tr '\000-\037\177' '?' | LC_ALL=C cut -c1-512
+}
+
+host_name=$(safe_token "$host_name")
+boot_id=$(safe_token "$boot_id")
 desktop_session=$(safe_token "$desktop_session")
 desktop_name=$(safe_token "$desktop_name")
 wayland_display=$(safe_token "$wayland_display")
@@ -117,18 +155,21 @@ ls -1t "$log_dir/$app"-*.log 2>/dev/null | awk 'NR > 100' | xargs -r rm -f
 ls -1t "$receipt_dir/$app"-*.receipt 2>/dev/null |
   awk 'NR > 500' | xargs -r rm -f
 
-export G_MESSAGES_DEBUG=all
+if [ "${NOCTTY_DOGFOOD_VERBOSE:-0}" = 1 ]; then
+  export G_MESSAGES_DEBUG=all
+fi
 ulimit -c unlimited 2>/dev/null || true
 {
   printf 'dogfood_launch app=%s session_id=%s timestamp=%s epoch=%s uptime_seconds=%s pid=%s host=%s boot_id=%s session=%s backend=%s receipt=%s omp_version=%s args=' \
     "$app" "$session_id" "$start_timestamp" "$start_epoch" "$start_uptime" \
     "$$" "$host_name" "$boot_id" "$desktop_session" "$backend" "$receipt" \
     "$omp_version"
-  printf ' %s' "$@"
+  for argument in "$@"; do
+    printf ' %s' "$(safe_log_argument "$argument")"
+  done
   printf '\n'
 } >>"$log"
 
-export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export NOCTTY_DOGFOOD_SESSION_ID="$session_id"
 export NOCTTY_DOGFOOD_LOG="$log"
 set +e

@@ -446,6 +446,7 @@ pub fn build(b: *std.Build) void {
         &install_terminal_system_tui_qualification.step,
     );
     b.installFile("resources/com.noctty.NOCTTY.desktop", "share/applications/com.noctty.NOCTTY.desktop");
+    b.installFile("resources/nocttyhere.desktop", "share/kio/servicemenus/nocttyhere.desktop");
     b.installFile("resources/com.noctty.NOCTTY.metainfo.xml", "share/metainfo/com.noctty.NOCTTY.metainfo.xml");
     b.installFile("resources/com.noctty.NOCTTY.svg", "share/icons/hicolor/scalable/apps/com.noctty.NOCTTY.svg");
     b.installFile("resources/com.noctty.NoctEd.desktop", "share/applications/com.noctty.NoctEd.desktop");

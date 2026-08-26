@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define NOCTTY_NATIVE_GRID_ABI_VERSION 2u
+#define NOCTTY_NATIVE_GRID_ABI_VERSION 4u
 
 typedef struct {
     uint32_t first;
@@ -85,6 +85,11 @@ typedef struct {
     uint64_t secondary_pane_id;
     int secondary_initially_active;
     int enable_notifications;
+    int claim_control;
+    int show_on_control_conflict;
+    uint32_t recovery_notice_flags;
+    const char *startup_activation_token;
+    size_t startup_activation_token_length;
 } NocttyGridLaunchOptions;
 
 int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,

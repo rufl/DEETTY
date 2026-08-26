@@ -553,20 +553,67 @@ pub fn qtKeyFromGdk(keyval: c_uint, state: c_uint) c_int {
     return @intCast(key);
 }
 
+fn validActivationToken(token: []const u8) bool {
+    if (token.len == 0 or token.len > 4096) return false;
+    if (!std.unicode.utf8ValidateSlice(token)) return false;
+    for (token) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return false;
+    }
+    return true;
+}
+
 pub fn controlCall(action: c_int, visible_out: *c_int) c_int {
+    return controlCallWithToken(action, null, visible_out);
+}
+
+pub fn controlCallWithToken(
+    action: c_int,
+    activation_token: ?[]const u8,
+    visible_out: *c_int,
+) c_int {
+    return controlCallWithTokenTimeout(
+        action,
+        activation_token,
+        visible_out,
+        2000,
+    );
+}
+
+fn validControlTimeout(timeout_ms: c_int) bool {
+    return timeout_ms > 0 and timeout_ms <= 2000;
+}
+
+pub fn controlCallWithTokenTimeout(
+    action: c_int,
+    activation_token: ?[]const u8,
+    visible_out: *c_int,
+    timeout_ms: c_int,
+) c_int {
+    if (!validControlTimeout(timeout_ms)) return 0;
+    var token_buffer: [4097:0]u8 = undefined;
+    const valid_token = if (activation_token) |token| valid: {
+        if (!validActivationToken(token)) break :valid false;
+        @memcpy(token_buffer[0..token.len], token);
+        token_buffer[token.len] = 0;
+        break :valid true;
+    } else false;
     const method: [*:0]const u8 = switch (action) {
-        1 => "Toggle",
-        2 => "Show",
+        1 => if (valid_token) "ToggleWithActivation" else "Toggle",
+        2 => if (valid_token) "ShowWithActivation" else "Show",
         3 => "Hide",
         else => "GetState",
     };
+    const parameters: ?*GVariant = if (valid_token)
+        g_variant_new("(s)", token_buffer[0..].ptr)
+    else
+        null;
     var error_value: ?*GError = null;
     const bus = g_bus_get_sync(G_BUS_TYPE_SESSION, null, &error_value) orelse {
         if (error_value) |err| g_error_free(err);
         return 0;
     };
     defer g_object_unref(bus);
-    const reply = g_dbus_connection_call_sync(bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY", "com.noctty.NOCTTY.Control", method, null, variantType("(b)"), 0, 2000, null, &error_value) orelse {
+    const reply = g_dbus_connection_call_sync(bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY", "com.noctty.NOCTTY.Control", method, parameters, variantType("(b)"), 0, timeout_ms, null, &error_value) orelse {
         if (error_value) |err| g_error_free(err);
         return 0;
     };
@@ -919,6 +966,20 @@ pub fn run(pane_id: u64, shortcut_key: c_int, callback: Callback, callback_data:
     unregisterGlobalShortcut(&ctx);
     if (ctx.layer_shell_library) |*library| library.close();
     return 0;
+}
+
+test "activation tokens and control timeouts are bounded" {
+    try std.testing.expect(validActivationToken("plasma-token_123"));
+    try std.testing.expect(!validActivationToken(""));
+    try std.testing.expect(!validActivationToken("bad\ntoken"));
+    try std.testing.expect(!validActivationToken(&[_]u8{0xff}));
+    const oversized = [_]u8{'a'} ** 4097;
+    try std.testing.expect(!validActivationToken(&oversized));
+
+    try std.testing.expect(validControlTimeout(1));
+    try std.testing.expect(validControlTimeout(2000));
+    try std.testing.expect(!validControlTimeout(0));
+    try std.testing.expect(!validControlTimeout(2001));
 }
 
 test "GDK shortcut conversion preserves Qt-compatible key and modifier bits" {

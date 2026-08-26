@@ -20,7 +20,14 @@ printf '%s\n' "$output" | grep -q "^${receipt}$"
 
 grep -F 'Exec=noctty --open-uri %u' resources/com.noctty.NOCTTY.desktop >/dev/null
 grep -F 'MimeType=x-scheme-handler/noctty;' resources/com.noctty.NOCTTY.desktop >/dev/null
-grep -F 'StartupNotify=false' resources/com.noctty.NOCTTY.desktop >/dev/null
-grep -F 'X-KDE-StartupNotify=false' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'StartupNotify=true' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'X-KDE-StartupNotify=true' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'Actions=Show;NewWorkspace;Toggle;' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'Exec=noctty --new-window' resources/com.noctty.NOCTTY.desktop >/dev/null
+grep -F 'TryExec=noctty' resources/nocttyhere.desktop >/dev/null
+grep -F 'MimeType=inode/directory;' resources/nocttyhere.desktop >/dev/null
+grep -F 'X-KDE-ServiceTypes=KonqPopupMenu/Plugin' resources/nocttyhere.desktop >/dev/null
+grep -F 'X-KDE-MaxNumberOfUrls=1' resources/nocttyhere.desktop >/dev/null
+grep -F 'Exec=noctty --new-window --working-directory %f' resources/nocttyhere.desktop >/dev/null
 
-printf '%s\n' 'native_grid_workspace_activation_contract uri=true desktop=true startup_notify=false recent=true native_window=true config_v9=true'
+printf '%s\n' 'native_grid_workspace_activation_contract uri=true desktop=true startup_notify=true recent=true native_window=true new_workspace=true open_here=true config_v9=true'

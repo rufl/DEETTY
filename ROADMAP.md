@@ -62,8 +62,10 @@ Only fix P0/P1 dogfood blockers during this phase.
 
 Closed dogfood blockers now include legacy relative-cwd startup failure,
 collapsed 32 px window recovery, centered percentage-driven dropdown geometry,
-bounded windowed startup sizing, and decorated Wayland fallback caused by a
-missing host GTK Layer Shell runtime.
+bounded windowed startup sizing, decorated Wayland fallback caused by a
+missing host GTK Layer Shell runtime, damaged local-state startup failure,
+concurrent primary-owner races, activation-token handoff, and isolated New
+Workspace/Open NOCTTY Here launches.
 
 ## Phase 2 — NoctEd useful-enough alpha
 

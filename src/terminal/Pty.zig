@@ -253,7 +253,8 @@ const ChildEnvironment = struct {
                 ) orelse return error.PtySpawnFailed);
                 const key = self.storage[start..equals];
                 if (!std.mem.eql(u8, key, "TERM") and
-                    !std.mem.eql(u8, key, "COLORTERM"))
+                    !std.mem.eql(u8, key, "COLORTERM") and
+                    !isStartupActivationKey(key))
                 {
                     self.overrides[self.override_count] = @ptrCast(self.storage[start..].ptr);
                     self.override_keys[self.override_count] = key;
@@ -270,7 +271,8 @@ const ChildEnvironment = struct {
         while (environ[inherited_index]) |entry| : (inherited_index += 1) {
             const text = std.mem.span(entry);
             const equals = std.mem.indexOfScalar(u8, text, '=') orelse text.len;
-            if (self.overridesKey(text[0..equals])) continue;
+            const key = text[0..equals];
+            if (self.overridesKey(key) or isStartupActivationKey(key)) continue;
             // ponytail: Fail closed if a process really carries more than 4096 variables.
             if (self.entry_count == child_environment_inherited_max)
                 return error.PtySpawnFailed;
@@ -305,6 +307,11 @@ const ChildEnvironment = struct {
         return self.entries[0..self.entry_count :null].ptr;
     }
 };
+
+fn isStartupActivationKey(key: []const u8) bool {
+    return std.mem.eql(u8, key, "XDG_ACTIVATION_TOKEN") or
+        std.mem.eql(u8, key, "DESKTOP_STARTUP_ID");
+}
 
 fn childCloseInheritedDescriptors() void {
     const linux = std.os.linux;
@@ -693,6 +700,22 @@ test "zig-owned pty closes inherited descriptors before exec" {
     try std.testing.expect(saw_clean);
     try std.testing.expect(saw_exit);
     try std.testing.expect(std.mem.indexOf(u8, output[0..used], "NOCTTY_FD_LEAK") == null);
+}
+
+test "PTY child environment excludes one-use startup activation state" {
+    var child_environment: ChildEnvironment = undefined;
+    try child_environment.init(
+        "XDG_ACTIVATION_TOKEN=profile-token;DESKTOP_STARTUP_ID=profile-id;NOCTTY_KEEP=ready",
+    );
+
+    var saw_keep = false;
+    for (child_environment.entries[0..child_environment.entry_count]) |entry| {
+        const text = std.mem.span(entry.?);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "XDG_ACTIVATION_TOKEN="));
+        try std.testing.expect(!std.mem.startsWith(u8, text, "DESKTOP_STARTUP_ID="));
+        if (std.mem.eql(u8, text, "NOCTTY_KEEP=ready")) saw_keep = true;
+    }
+    try std.testing.expect(saw_keep);
 }
 
 test "zig-owned pty advertises the tested terminal capability environment" {

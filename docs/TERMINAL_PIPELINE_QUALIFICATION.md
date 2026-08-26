@@ -4,7 +4,7 @@ Status: bounded NCT-112/NCT-119 real-PTY-to-production-Cairo tranche passed on 2
 
 ## Qualified Boundary
 
-`scripts/native_grid_pipeline_qualification.sh` builds the verification-only native binary in Debug and `ReleaseSafe`. Each run starts `/bin/sh` through the production `TerminalSession`, writes 64 distinct rich-output commands through the real PTY, drains each response through the bounded PTY pump and production VT grid until its final OSC title marker is visible, then calls the exact production `draw_grid_contents` Cairo path through the ABI-v2 row/cell callbacks. The same renderer context and Cairo image surface are retained across all 64 samples.
+`scripts/native_grid_pipeline_qualification.sh` builds the verification-only native binary in Debug and `ReleaseSafe`. Each run starts `/bin/sh` through the production `TerminalSession`, clears the interactive prompt and waits for an explicit clear/title readiness marker, writes 64 distinct rich-output commands through the real PTY, drains each response through the bounded PTY pump and production VT grid until its final OSC title marker is visible, then calls the exact production `draw_grid_contents` Cairo path through the ABI-v2 row/cell callbacks. The same renderer context and Cairo image surface are retained across all 64 samples.
 
 For every sample, the lane records two display-independent wall-clock intervals:
 
@@ -15,7 +15,11 @@ It also records draw process CPU, output bytes, renderer-owned allocations, root
 
 ## Retained Result
 
-Each retained run ingested 191,646 PTY bytes across 64 measured updates at 120×40.
+The 2026-07-18 retained run ingested 191,646 PTY bytes across 64 measured
+updates at 120×40. The current readiness handshake deliberately removes prompt
+bytes from the measured region; its local regression runs ingest 190,912 bytes.
+The stable contract checks positive output and deterministic pixels rather than
+pinning either historical byte count.
 
 | Mode | Input write→draw p50 / p95 / p99 | PTY-read start→draw p50 / p95 / p99 | Draw CPU p50 / p95 / p99 |
 | --- | ---: | ---: | ---: |

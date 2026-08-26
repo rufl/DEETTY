@@ -29,8 +29,14 @@ exit 7
 EOF
 chmod +x "$runtime/noctty-bin" "$runtime/nocted-bin"
 
+fast_status=$(XDG_STATE_HOME="$state" "$runtime/noctty" --status)
+printf '%s\n' "$fast_status" | grep -F 'stub_noctty_output' >/dev/null
+[ ! -d "$state/noctty/dogfood-sessions" ]
+
+fixture_argument=$(printf '%s\n%s' '--fixture' 'forged_log_line=true')
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE \
-  WAYLAND_DISPLAY=wayland-fixture GDK_BACKEND=wayland "$runtime/noctty" --fixture
+  WAYLAND_DISPLAY=wayland-fixture GDK_BACKEND=wayland \
+  "$runtime/noctty" "$fixture_argument"
 set +e
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 \
   "$runtime/nocted" --fixture
@@ -67,6 +73,8 @@ grep -Fx 'desktop_session=x11' "$nocted_receipt" >/dev/null
 noctty_log=$(printf '%s\n' "$state"/noctty/logs/noctty-*.log)
 nocted_log=$(printf '%s\n' "$state"/noctty/logs/nocted-*.log)
 grep -F 'dogfood_launch app=noctty session_id=' "$noctty_log" >/dev/null
+grep -F 'args= --fixture?forged_log_line=true' "$noctty_log" >/dev/null
+! grep -Fx 'forged_log_line=true' "$noctty_log" >/dev/null
 grep -F ' omp_version=deferred ' "$noctty_log" >/dev/null
 grep -F 'dogfood_exit app=noctty session_id=' "$noctty_log" >/dev/null
 grep -F 'duration_seconds=' "$noctty_log" >/dev/null
@@ -308,4 +316,4 @@ printf '%s\n' "$partial" | grep -F 'focus_isolation=true' >/dev/null
 printf '%s\n' "$partial" | grep -F 'logs_clean=true compatible=false' >/dev/null
 
 
-printf 'dogfood_logging_smoke atomic_receipts=true desktop_fingerprint=true categorized_errors=true upgrade_cohorts=true interaction_spikes=true local_diagnostic_report=true coredump_query_fail_closed=true malformed_receipt_rejected=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'
+printf 'dogfood_logging_smoke fast_control=true log_arguments_bounded=true atomic_receipts=true desktop_fingerprint=true categorized_errors=true upgrade_cohorts=true interaction_spikes=true local_diagnostic_report=true coredump_query_fail_closed=true malformed_receipt_rejected=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'

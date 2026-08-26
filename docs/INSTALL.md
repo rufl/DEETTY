@@ -41,8 +41,8 @@ The optional split-terminal comparison is not a runtime dependency. It requires 
 
 ## Dogfood Install
 
-For unstripped `ReleaseFast` binaries with private per-launch stdout/stderr,
-GTK/GLib messages, exit status, crash-log capture, and atomic duration receipts:
+For unstripped `ReleaseFast` binaries with private GUI-session stdout/stderr,
+GTK/GLib warnings, exit status, crash-log capture, and atomic duration receipts:
 
 ```sh
 ./scripts/install_dogfood.sh
@@ -54,8 +54,14 @@ This installs logging launchers as `~/.local/bin/noctty` and
 needed for undecorated Wayland dropdowns, and updates the installed desktop
 entries. It retains the newest 100 verbose logs per app under
 `~/.local/state/noctty/logs/` and 500 compact `0600` duration receipts per app
-under `~/.local/state/noctty/dogfood-sessions/`. Set
-`NOCTTY_DOGFOOD_OPTIMIZE=Debug` for a debugging build. See
+under `~/.local/state/noctty/dogfood-sessions/`. Existing-instance control and
+version calls bypass receipt setup so external shortcuts do not pay the roughly
+200 ms logging-launcher setup cost; Show/Toggle still use the logged path when
+they must cold-start the GUI. Set `NOCTTY_DOGFOOD_VERBOSE=1` only when full
+GTK/GLib debug chatter is needed, and `NOCTTY_DOGFOOD_OPTIMIZE=Debug` for a
+debugging build. The installer rewrites application and Dolphin service-menu
+`TryExec`/`Exec` entries to the absolute dogfood prefix so Plasma does not
+depend on its inherited `PATH`. See
 [DOGFOOD_LOGGING.md](DOGFOOD_LOGGING.md).
 
 ## Local Prefix Install
@@ -70,6 +76,7 @@ The default install tree contains only production binaries and resources:
 - `bin/nocted`
 - `share/applications/com.noctty.NOCTTY.desktop`
 - `share/applications/com.noctty.NoctEd.desktop`
+- `share/kio/servicemenus/nocttyhere.desktop`
 - `share/metainfo/com.noctty.NOCTTY.metainfo.xml`
 - `share/metainfo/com.noctty.NoctEd.metainfo.xml`
 - `share/icons/hicolor/scalable/apps/com.noctty.NOCTTY.svg`
@@ -84,7 +91,7 @@ The default install tree contains only production binaries and resources:
 
 The optional `noctty-vte`, the `noctty-smoke`/`nocted-smoke` verification binaries, and the `nocted-core-stability`, `nocted-project-index-qualification`, `noctty-terminal-compatibility`, and `noctty-terminal-session-qualification` runners are non-default build artifacts and are excluded from normalized release archives.
 
-If `$HOME/.local/bin` is not already on `PATH`, add it before launching `noctty` or `nocted`. Both desktop entries become available after the desktop environment refreshes its application cache.
+If `$HOME/.local/bin` is not already on `PATH`, add it before launching `noctty` or `nocted`. Both desktop entries and Dolphin's **Open NOCTTY Here** directory action become available after Plasma refreshes its service/application cache.
 
 The installed workspace-URL contract can be checked without modifying user desktop state:
 

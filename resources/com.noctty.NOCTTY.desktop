@@ -1,19 +1,28 @@
 [Desktop Entry]
 Type=Application
 Name=NOCTTY
+GenericName=Terminal Workspace
 Comment=Native terminal workspace for Plasma and Noctalia Wayland
+TryExec=noctty
 Exec=noctty --open-uri %u
 Icon=com.noctty.NOCTTY
 Terminal=false
 Categories=System;TerminalEmulator;
 MimeType=x-scheme-handler/noctty;
-StartupNotify=false
-X-KDE-StartupNotify=false
-Actions=Show;Toggle;
+Keywords=terminal;console;shell;command;command-line;tty;pty;workspace;split;tabs;agent;
+StartupNotify=true
+X-KDE-StartupNotify=true
+StartupWMClass=com.noctty.NOCTTY
+Actions=Show;NewWorkspace;Toggle;
 
 [Desktop Action Show]
 Name=Show NOCTTY
 Exec=noctty --show
+
+[Desktop Action NewWorkspace]
+Name=Open New Workspace Window
+Icon=window-new
+Exec=noctty --new-window
 
 [Desktop Action Toggle]
 Name=Show or Hide NOCTTY

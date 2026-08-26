@@ -80,6 +80,15 @@ pub const Profile = struct {
         return if (self.working_directory.slice().len == 0) pane_cwd else self.working_directory.slice();
     }
 
+    pub fn forInitialLaunch(
+        self: Profile,
+        explicit_working_directory: ?[]const u8,
+    ) Profile {
+        var profile = self;
+        if (explicit_working_directory != null) profile.working_directory = .{};
+        return profile;
+    }
+
     pub fn argument(self: *const Profile) []const u8 {
         return switch (self.kind) {
             .shell => "",
@@ -307,6 +316,23 @@ test "launch profiles validate shell command cwd environment and ssh modes" {
     profile.kind = .zellij;
     try profile.validate();
     try std.testing.expectEqualStrings("noctty-work", profile.argument());
+}
+
+test "explicit initial working directory overrides a configured profile cwd" {
+    var configured = Profile{};
+    try configured.working_directory.set("/profile-directory");
+
+    const explicit = configured.forInitialLaunch("/open-here");
+    try std.testing.expectEqualStrings(
+        "/open-here",
+        explicit.workingDirectory("/open-here"),
+    );
+
+    const inherited = configured.forInitialLaunch(null);
+    try std.testing.expectEqualStrings(
+        "/profile-directory",
+        inherited.workingDirectory("/fallback"),
+    );
 }
 
 test "launch profiles reject unsafe or ambiguous fields" {

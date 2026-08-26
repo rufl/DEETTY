@@ -17,7 +17,7 @@ Official references:
 
 ## Runtime Contract
 
-The native grid host owns the session-bus name `com.noctty.NOCTTY` and exports `Toggle`, `Show`, `Hide`, and `GetState` at `/com/noctty/NOCTTY`. The matching native commands are:
+The primary native grid host takes a per-user lock before loading mutable state, owns the session-bus name `com.noctty.NOCTTY`, and exports `Toggle`, `Show`, `Hide`, `GetState`, plus bounded one-use activation-token variants at `/com/noctty/NOCTTY`. The matching native commands are:
 
 ```sh
 noctty --status
@@ -28,7 +28,8 @@ noctty --toggle
 
 `noctty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `noctty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-Dropdown mode uses `gtk-layer-shell` with the namespace `noctty-dropdown`, overlay layer, top/left/right anchors, no exclusive zone, exclusive keyboard focus while mapped, and symmetric width margins recomputed whenever the configured percentage or pixel width changes. Automatic Plasma shortcut startup keeps that exclusive surface hidden until the user shows it instead of briefly mapping it while KGlobalAccel registration is pending. Distribution packages provide the runtime; dependency bundles and dogfood installs stage the pinned private copy when needed. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface. Ordinary windowed and zen launches remain native toplevel/fullscreen windows.
+Dropdown mode uses `gtk-layer-shell` with the namespace `noctty-dropdown`, overlay layer, top/left/right anchors, no exclusive zone, on-demand keyboard focus on layer-shell protocol v4+ (with
+an exclusive fallback only for older compositors), and symmetric width margins recomputed whenever the configured percentage or pixel width changes. Automatic Plasma shortcut startup keeps that keyboard-interactive surface hidden until the user shows it instead of briefly mapping it while KGlobalAccel registration is pending. Distribution packages provide the runtime; dependency bundles and dogfood installs stage the pinned private copy when needed. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface. Ordinary windowed and zen launches remain native toplevel/fullscreen windows.
 
 Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive NOCTTY completion notifications through `org.freedesktop.Notifications`.
 

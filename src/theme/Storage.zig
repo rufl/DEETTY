@@ -10,6 +10,16 @@ const max_theme_count: usize = 1024;
 
 pub const max_theme_file_bytes: usize = 4 * 1024 * 1024;
 
+pub fn backupPathAlloc(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+    if (path.len == 0) return error.InvalidThemeLibraryPath;
+    return std.fmt.allocPrint(allocator, "{s}.bak", .{path});
+}
+
+pub fn rejectedPathAlloc(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+    if (path.len == 0) return error.InvalidThemeLibraryPath;
+    return std.fmt.allocPrint(allocator, "{s}.rejected", .{path});
+}
+
 pub const ThemeFileRole = enum {
     library,
     backup,
@@ -123,13 +133,8 @@ pub fn saveThemeLibraryFile(
     const bytes = try exportThemeLibraryAlloc(allocator, themes);
     defer allocator.free(bytes);
 
-    var atomic = try dir.createFileAtomic(io, path, .{
-        .make_path = true,
-        .replace = true,
-    });
-    defer atomic.deinit(io);
-    try atomic.file.writeStreamingAll(io, bytes);
-    try atomic.replace(io);
+    if (role == .library) try backupValidThemeLibraryFile(allocator, io, dir, path);
+    try replaceFileAtomic(io, dir, path, bytes);
 
     return .{
         .path = try allocator.dupe(u8, path),
@@ -137,6 +142,55 @@ pub fn saveThemeLibraryFile(
         .bytes = bytes.len,
         .theme_count = themes.len,
     };
+}
+
+fn backupValidThemeLibraryFile(
+    allocator: std.mem.Allocator,
+    io: Io,
+    dir: Dir,
+    path: []const u8,
+) !void {
+    const existing = dir.readFileAlloc(
+        io,
+        path,
+        allocator,
+        .limited(max_theme_file_bytes),
+    ) catch |err| switch (err) {
+        error.FileNotFound => return,
+        error.StreamTooLong => {
+            const rejected_path = try rejectedPathAlloc(allocator, path);
+            defer allocator.free(rejected_path);
+            try dir.rename(path, dir, rejected_path, io);
+            return;
+        },
+        else => return err,
+    };
+    defer allocator.free(existing);
+
+    var validated = importThemeLibraryAlloc(allocator, existing) catch |err| switch (err) {
+        error.OutOfMemory => return err,
+        else => {
+            const rejected_path = try rejectedPathAlloc(allocator, path);
+            defer allocator.free(rejected_path);
+            try replaceFileAtomic(io, dir, rejected_path, existing);
+            return;
+        },
+    };
+    validated.deinit(allocator);
+
+    const backup_path = try backupPathAlloc(allocator, path);
+    defer allocator.free(backup_path);
+    try replaceFileAtomic(io, dir, backup_path, existing);
+}
+
+fn replaceFileAtomic(io: Io, dir: Dir, path: []const u8, bytes: []const u8) !void {
+    var atomic = try dir.createFileAtomic(io, path, .{
+        .make_path = true,
+        .replace = true,
+    });
+    defer atomic.deinit(io);
+    try atomic.file.writeStreamingAll(io, bytes);
+    try atomic.replace(io);
 }
 
 pub fn loadThemeLibraryFile(
@@ -375,4 +429,115 @@ test "theme libraries save and load through atomic storage" {
     try std.testing.expectEqual(@as(usize, 2), loaded.receipt.theme_count);
     try std.testing.expectEqualStrings("Workspace Night", loaded.loaded.entries[1].theme.name);
     try std.testing.expectEqual(ThemeMod.Color.fromHex(0x010203), loaded.loaded.entries[1].theme.background);
+}
+
+test "theme writes retain only a validated last-known-good backup" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const path = "themes/themes.nocttythemes";
+    const original = [_]ThemeMod.Theme{ThemeMod.Theme.builtinDark()};
+    const first = try saveThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        path,
+        &original,
+        .library,
+    );
+    first.deinit(allocator);
+
+    const replacement = try ThemeMod.importTheme(.ghostty, "Replacement",
+        \\background = #f0f0f0
+        \\foreground = #101010
+    );
+    const updated = [_]ThemeMod.Theme{replacement};
+    const second = try saveThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        path,
+        &updated,
+        .library,
+    );
+    second.deinit(allocator);
+
+    var backup = try loadThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        "themes/themes.nocttythemes.bak",
+        .backup,
+    );
+    defer backup.deinit(allocator);
+    try std.testing.expectEqualStrings("noctty-dark", backup.loaded.entries[0].theme.name);
+
+    try replaceFileAtomic(io, tmp.dir, path, "damaged themes");
+    const third = try saveThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        path,
+        &original,
+        .library,
+    );
+    third.deinit(allocator);
+
+    var retained = try loadThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        "themes/themes.nocttythemes.bak",
+        .backup,
+    );
+    defer retained.deinit(allocator);
+    try std.testing.expectEqualStrings("noctty-dark", retained.loaded.entries[0].theme.name);
+    const rejected = try tmp.dir.readFileAlloc(
+        io,
+        "themes/themes.nocttythemes.rejected",
+        allocator,
+        .limited(64),
+    );
+    defer allocator.free(rejected);
+    try std.testing.expectEqualStrings("damaged themes", rejected);
+}
+
+test "oversized theme libraries remain recoverable before a valid replacement" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const path = "themes/themes.nocttythemes";
+    const oversized = try allocator.alloc(u8, max_theme_file_bytes + 1);
+    defer allocator.free(oversized);
+    @memset(oversized, 0x5a);
+    try replaceFileAtomic(io, tmp.dir, path, oversized);
+
+    const themes = [_]ThemeMod.Theme{ThemeMod.Theme.builtinDark()};
+    const saved = try saveThemeLibraryFile(
+        allocator,
+        io,
+        tmp.dir,
+        path,
+        &themes,
+        .library,
+    );
+    saved.deinit(allocator);
+
+    const rejected = try tmp.dir.readFileAlloc(
+        io,
+        "themes/themes.nocttythemes.rejected",
+        allocator,
+        .limited(max_theme_file_bytes + 2),
+    );
+    defer allocator.free(rejected);
+    try std.testing.expectEqual(oversized.len, rejected.len);
+    try std.testing.expectEqual(@as(u8, 0x5a), rejected[0]);
+    try std.testing.expectEqual(@as(u8, 0x5a), rejected[rejected.len - 1]);
+
+    var loaded = try loadThemeLibraryFile(allocator, io, tmp.dir, path, .library);
+    defer loaded.deinit(allocator);
 }

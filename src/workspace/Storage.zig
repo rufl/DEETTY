@@ -155,6 +155,19 @@ pub const RecoveryCleanupReceipt = struct {
 
 pub const max_workspace_file_bytes: usize = 64 * 1024 * 1024;
 
+pub fn retainRejectedSnapshotFile(
+    allocator: std.mem.Allocator,
+    io: Io,
+    dir: Dir,
+    path: []const u8,
+) ![]u8 {
+    if (path.len == 0) return error.InvalidWorkspacePath;
+    const rejected_path = try std.fmt.allocPrint(allocator, "{s}.rejected", .{path});
+    errdefer allocator.free(rejected_path);
+    try dir.rename(path, dir, rejected_path, io);
+    return rejected_path;
+}
+
 pub fn defaultWorkspacePathAlloc(
     allocator: std.mem.Allocator,
     home_dir: []const u8,
@@ -375,6 +388,41 @@ test "recovery state tracks dirty autosave and clean manual saves" {
     try std.testing.expect(state.hasPendingRecovery());
     try state.markSaved(allocator, "manual/project.nocttyws", .manual);
     try std.testing.expect(state.recovery_path == null);
+}
+
+test "damaged workspace snapshots can be retained before safe replacement" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var damaged = try tmp.dir.createFileAtomic(io, "autosave/default.nocttyws", .{
+        .make_path = true,
+        .replace = true,
+    });
+    defer damaged.deinit(io);
+    try damaged.file.writeStreamingAll(io, "damaged workspace");
+    try damaged.replace(io);
+
+    const rejected_path = try retainRejectedSnapshotFile(
+        allocator,
+        io,
+        tmp.dir,
+        "autosave/default.nocttyws",
+    );
+    defer allocator.free(rejected_path);
+    try std.testing.expectEqualStrings(
+        "autosave/default.nocttyws.rejected",
+        rejected_path,
+    );
+    const rejected = try tmp.dir.readFileAlloc(
+        io,
+        rejected_path,
+        allocator,
+        .limited(64),
+    );
+    defer allocator.free(rejected);
+    try std.testing.expectEqualStrings("damaged workspace", rejected);
 }
 
 test "workspace snapshots save and load through atomic storage" {

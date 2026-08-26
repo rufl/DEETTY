@@ -1,10 +1,23 @@
 # NOCTTY Backlog Archive
 
-Last refreshed: 2026-08-04.
+Last refreshed: 2026-08-22.
 
 This archive records completed implementation slices that changed the verified project boundary. The 0.1.0 product-behavior epics, follow-through safety slices, release-source/evidence work through NCT-085 plus the NCT-077 dependency-license payload follow-through, native performance and memory work through NCT-102 plus NCT-109 and NCT-116 through NCT-120, tab-drag hardening through NCT-113, NoctEd work through NCT-118 including NCT-104 daily-editing workflows and NCT-105 syntax compatibility, and active-pane information through NCT-115 are closed. Granular “still open” clauses below are preserved as point-in-time history and are superseded by the current product boundary.
 
 NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening, NCT-101 native output throughput hardening, and NCT-102 event-driven PTY scheduling plus benchmark isolation are also closed.
+
+## 2026-08-22 <!-- craft-ignore: chronological archive navigation -->
+
+### NCT-124 Konsole-class Plasma launch resilience: done
+
+- Added parse-validated, atomically rotated settings/theme last-known-good backups; malformed primaries fall back without blocking a terminal and are retained as `.rejected` before a later GUI save replaces them. Invalid hot-workspace bytes receive the same exact retention.
+- Added one native keyboard-accessible startup recovery notice with Open Settings and Dismiss actions.
+- Added a per-user primary lock before mutable state, sharing identity, PTYs, or GTK; D-Bus name conflict remains the fallback. Twelve simultaneous cold callers and a hidden/show race resolve to one visible owner without duplicate hot-session writes.
+- Added one-use bounded XDG activation-token handling for cold launches plus control and StatusNotifier paths, applied with GTK immediately before presentation and excluded from PTY child environments. Retained live X11 and Plasma Wayland presentation receipts.
+- Added explicit separate `--new-window`, bounded `--working-directory`, desktop New Workspace, and Dolphin Open NOCTTY Here paths without claiming the primary control service or hot-session file.
+- Removed first-toggle jank from the dogfood route: existing-owner controls bypass logging/fingerprint setup, install receipts cache Plasma/KWin versions, GTK debug chatter is opt-in, and protocol-v4+ layer surfaces use on-demand keyboard focus plus a keyboard-`NONE` commit before unmap.
+- Acceptance met: `native_grid_single_instance_smoke cold_callers=12 owner=1 duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true separate_window=true open_here_cwd=true process_group_cleanup=true`; `native_grid_state_recovery_smoke config_defaults=true theme_defaults=true workspace_defaults=true notice=true malformed_retained=true usable_terminal=true process_group_cleanup=true`; `native_grid_wayland_activation_smoke gtk_startup_id=true xdg_activation_token=true cold_start=true forwarded_show=true token_not_in_pty=true backend=wayland visible=true process_group_cleanup=true`.
+- Honest boundary: this closes local launch/state/activation plumbing, not NCT-112 multi-day stability, physical HID-to-photon focus proof, arbitrary process resurrection, or broad compositor acceptance.
 
 ## 2026-08-04 <!-- craft-ignore: chronological archive navigation -->
 

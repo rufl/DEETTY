@@ -80,6 +80,8 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 ## Native Product Gate
 
 - [x] Dropdown, borderless windowed, and zen fullscreen
+- [x] Pre-state primary-instance lock plus D-Bus fallback, 12-caller cold-start and hidden/show race convergence, one-use GTK activation-token forwarding, and explicit isolated New Workspace/Open NOCTTY Here launch paths (NCT-124)
+- [x] Damaged settings/theme/workspace startup fallback with validated last-known-good backups, exact rejected-byte retention, and one native recovery notice (NCT-124)
 - [x] Undecorated Wayland dogfood dropdown through a launcher-owned pinned GTK Layer Shell runtime, with symmetric recentering after percentage/pixel width changes
 - [x] Legacy 32 px dropdown recovery to the percentage setting above a 480×240 usable floor, plus bounded 80%×75% windowed startup sizing
 - [x] Wayland layer-shell and X11 top-edge placement

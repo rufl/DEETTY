@@ -35,11 +35,28 @@ ln -sfn launch "$runtime_dir/nocted"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/noctty"
 ln -sfn ../libexec/noctty-dogfood/launch "$prefix/bin/nocted"
 
-# Desktop launchers do not consistently inherit ~/.local/bin in PATH.
-for desktop in "$prefix/share/applications/com.noctty.NOCTTY.desktop" "$prefix/share/applications/com.noctty.NoctEd.desktop"; do
+# Plasma and Dolphin launchers do not consistently inherit ~/.local/bin in PATH.
+for desktop in \
+  "$prefix/share/applications/com.noctty.NOCTTY.desktop" \
+  "$prefix/share/applications/com.noctty.NoctEd.desktop" \
+  "$prefix/share/kio/servicemenus/nocttyhere.desktop"
+do
   test -f "$desktop" || continue
-  sed -i "s|^Exec=noctty |Exec=$prefix/bin/noctty |; s|^Exec=nocted |Exec=$prefix/bin/nocted |" "$desktop"
+  sed -i \
+    -e "s|^TryExec=noctty$|TryExec=$prefix/bin/noctty|" \
+    -e "s|^Exec=noctty |Exec=$prefix/bin/noctty |" \
+    -e "s|^Exec=nocted |Exec=$prefix/bin/nocted |" \
+    "$desktop"
 done
+
+grep -Fx "TryExec=$prefix/bin/noctty" \
+  "$prefix/share/applications/com.noctty.NOCTTY.desktop" >/dev/null
+grep -Fx "Exec=$prefix/bin/noctty --open-uri %u" \
+  "$prefix/share/applications/com.noctty.NOCTTY.desktop" >/dev/null
+grep -Fx "TryExec=$prefix/bin/noctty" \
+  "$prefix/share/kio/servicemenus/nocttyhere.desktop" >/dev/null
+grep -Fx "Exec=$prefix/bin/noctty --new-window --working-directory %f" \
+  "$prefix/share/kio/servicemenus/nocttyhere.desktop" >/dev/null
 
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$prefix/share/applications" || true
 command -v gtk-update-icon-cache >/dev/null 2>&1 &&
@@ -52,6 +69,10 @@ state_dir="$state_home/noctty"
 mkdir -p "$state_dir"
 build_receipt="$state_dir/dogfood-build.receipt"
 build_receipt_new="$build_receipt.new.$$"
+plasma_version=$(plasmashell --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || true)
+kwin_version=$(kwin_wayland --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || true)
+[ -n "$plasma_version" ] || plasma_version=unknown
+[ -n "$kwin_version" ] || kwin_version=unknown
 {
   printf 'build_receipt_version=1\n'
   printf 'install_timestamp=%s\n' "$(date --iso-8601=seconds)"
@@ -60,6 +81,8 @@ build_receipt_new="$build_receipt.new.$$"
   printf 'noctty_sha256=%s\n' "$(sha256sum "$runtime_dir/noctty-bin" | awk '{ print $1 }')"
   printf 'nocted_sha256=%s\n' "$(sha256sum "$runtime_dir/nocted-bin" | awk '{ print $1 }')"
   printf 'layer_shell_sha256=%s\n' "$(sha256sum "$runtime_dir/lib/libgtk-layer-shell.so.0" | awk '{ print $1 }')"
+  printf 'plasma_version=%s\n' "$plasma_version"
+  printf 'kwin_version=%s\n' "$kwin_version"
 } >"$build_receipt_new"
 chmod 0600 "$build_receipt_new"
 mv -f "$build_receipt_new" "$build_receipt"

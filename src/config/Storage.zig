@@ -56,6 +56,16 @@ pub const LoadedConfigFile = struct {
 
 pub const max_config_file_bytes: usize = 1024 * 1024;
 
+pub fn backupPathAlloc(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+    if (path.len == 0) return error.InvalidConfigPath;
+    return std.fmt.allocPrint(allocator, "{s}.bak", .{path});
+}
+
+pub fn rejectedPathAlloc(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+    if (path.len == 0) return error.InvalidConfigPath;
+    return std.fmt.allocPrint(allocator, "{s}.rejected", .{path});
+}
+
 pub fn defaultConfigPathAlloc(allocator: std.mem.Allocator, home_dir: []const u8) ![]u8 {
     if (home_dir.len == 0) return error.InvalidConfigPath;
     return std.fs.path.join(allocator, &.{
@@ -277,6 +287,56 @@ pub fn saveConfigFile(
     const bytes = try exportConfigAlloc(allocator, config);
     defer allocator.free(bytes);
 
+    if (role == .settings) try backupValidConfigFile(allocator, io, dir, path);
+    try replaceFileAtomic(io, dir, path, bytes);
+
+    return .{
+        .path = try allocator.dupe(u8, path),
+        .role = role,
+        .bytes = bytes.len,
+    };
+}
+
+fn backupValidConfigFile(
+    allocator: std.mem.Allocator,
+    io: Io,
+    dir: Dir,
+    path: []const u8,
+) !void {
+    const existing = dir.readFileAlloc(
+        io,
+        path,
+        allocator,
+        .limited(max_config_file_bytes),
+    ) catch |err| switch (err) {
+        error.FileNotFound => return,
+        error.StreamTooLong => {
+            const rejected_path = try rejectedPathAlloc(allocator, path);
+            defer allocator.free(rejected_path);
+            try dir.rename(path, dir, rejected_path, io);
+            return;
+        },
+        else => return err,
+    };
+    defer allocator.free(existing);
+
+    var validated = importConfigAlloc(allocator, existing) catch |err| switch (err) {
+        error.OutOfMemory => return err,
+        else => {
+            const rejected_path = try rejectedPathAlloc(allocator, path);
+            defer allocator.free(rejected_path);
+            try replaceFileAtomic(io, dir, rejected_path, existing);
+            return;
+        },
+    };
+    validated.deinit(allocator);
+
+    const backup_path = try backupPathAlloc(allocator, path);
+    defer allocator.free(backup_path);
+    try replaceFileAtomic(io, dir, backup_path, existing);
+}
+
+fn replaceFileAtomic(io: Io, dir: Dir, path: []const u8, bytes: []const u8) !void {
     var atomic = try dir.createFileAtomic(io, path, .{
         .make_path = true,
         .replace = true,
@@ -284,12 +344,6 @@ pub fn saveConfigFile(
     defer atomic.deinit(io);
     try atomic.file.writeStreamingAll(io, bytes);
     try atomic.replace(io);
-
-    return .{
-        .path = try allocator.dupe(u8, path),
-        .role = role,
-        .bytes = bytes.len,
-    };
 }
 
 pub fn loadConfigFile(
@@ -788,4 +842,92 @@ test "config snapshots save and load through atomic storage" {
     try std.testing.expectEqualStrings("Commit Mono", loaded.loaded.config.font.family);
     try std.testing.expectEqualStrings("workspace-night", loaded.loaded.config.default_theme);
     try std.testing.expectEqual(ConfigMod.TabPosition.bottom, loaded.loaded.config.tabs.position);
+}
+
+test "settings writes retain only a validated last-known-good backup" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const path = "settings/settings.nocttycfg";
+    var original = ConfigMod.Config.defaults();
+    original.font.size_pt = 12;
+    const first = try saveConfigFile(allocator, io, tmp.dir, path, original, .settings);
+    first.deinit(allocator);
+
+    var updated = original;
+    updated.font.size_pt = 15;
+    const second = try saveConfigFile(allocator, io, tmp.dir, path, updated, .settings);
+    second.deinit(allocator);
+
+    var backup = try loadConfigFile(
+        allocator,
+        io,
+        tmp.dir,
+        "settings/settings.nocttycfg.bak",
+        .backup,
+    );
+    defer backup.deinit(allocator);
+    try std.testing.expectEqual(@as(f32, 12), backup.loaded.config.font.size_pt);
+
+    try replaceFileAtomic(io, tmp.dir, path, "damaged settings");
+    updated.font.size_pt = 17;
+    const third = try saveConfigFile(allocator, io, tmp.dir, path, updated, .settings);
+    third.deinit(allocator);
+
+    var retained = try loadConfigFile(
+        allocator,
+        io,
+        tmp.dir,
+        "settings/settings.nocttycfg.bak",
+        .backup,
+    );
+    defer retained.deinit(allocator);
+    try std.testing.expectEqual(@as(f32, 12), retained.loaded.config.font.size_pt);
+    const rejected = try tmp.dir.readFileAlloc(
+        io,
+        "settings/settings.nocttycfg.rejected",
+        allocator,
+        .limited(64),
+    );
+    defer allocator.free(rejected);
+    try std.testing.expectEqualStrings("damaged settings", rejected);
+}
+
+test "oversized settings remain recoverable before a valid replacement" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const path = "settings/settings.nocttycfg";
+    const oversized = try allocator.alloc(u8, max_config_file_bytes + 1);
+    defer allocator.free(oversized);
+    @memset(oversized, 0xa5);
+    try replaceFileAtomic(io, tmp.dir, path, oversized);
+
+    const saved = try saveConfigFile(
+        allocator,
+        io,
+        tmp.dir,
+        path,
+        ConfigMod.Config.defaults(),
+        .settings,
+    );
+    saved.deinit(allocator);
+
+    const rejected = try tmp.dir.readFileAlloc(
+        io,
+        "settings/settings.nocttycfg.rejected",
+        allocator,
+        .limited(max_config_file_bytes + 2),
+    );
+    defer allocator.free(rejected);
+    try std.testing.expectEqual(oversized.len, rejected.len);
+    try std.testing.expectEqual(@as(u8, 0xa5), rejected[0]);
+    try std.testing.expectEqual(@as(u8, 0xa5), rejected[rejected.len - 1]);
+
+    var loaded = try loadConfigFile(allocator, io, tmp.dir, path, .settings);
+    defer loaded.deinit(allocator);
 }
