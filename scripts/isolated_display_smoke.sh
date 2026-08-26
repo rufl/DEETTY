@@ -2,6 +2,7 @@
 set -eu
 
 x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
+  NOCTTY_ACTIVE_HOME_FIXTURE="$HOME" \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
   ./scripts/run_isolated_x11.sh sh -eu -c '
     ./scripts/require_isolated_display.sh
@@ -9,7 +10,13 @@ x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
     [ "$XDG_SESSION_TYPE" = x11 ]
     [ "${DISPLAY:-}" != :active-fixture ]
     [ -z "${WAYLAND_DISPLAY:-}" ]
-    [ -n "${XDG_STATE_HOME:-}" ]
+    [ "$HOME" != "$NOCTTY_ACTIVE_HOME_FIXTURE" ]
+    private_root=$(dirname "$HOME")
+    [ "$(dirname "$XDG_CONFIG_HOME")" = "$private_root" ]
+    [ "$(dirname "$XDG_STATE_HOME")" = "$private_root" ]
+    [ "$(dirname "$XDG_CACHE_HOME")" = "$private_root" ]
+    [ "$(dirname "$XDG_DATA_HOME")" = "$private_root" ]
+    [ "$(dirname "$TMPDIR")" = "$private_root" ]
     printf "isolated_x11=true\n"
   ')
 printf '%s\n' "$x11_output"
@@ -34,6 +41,16 @@ if NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=invalid \
   echo 'isolated_display_smoke error=invalid_timeout_accepted' >&2
   exit 1
 fi
+if NOCTTY_ISOLATED_DISPLAY_SCREEN=1280x0x24 \
+  ./scripts/run_isolated_x11.sh true >/dev/null 2>&1; then
+  echo 'isolated_display_smoke error=invalid_screen_accepted' >&2
+  exit 1
+fi
+if OVERZEER_DISPLAY_RUNNER=/noctty/missing/isolated-runner \
+  ./scripts/run_isolated_x11.sh true >/dev/null 2>&1; then
+  echo 'isolated_display_smoke error=missing_shared_runner_accepted' >&2
+  exit 1
+fi
 if DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
   ./scripts/require_isolated_display.sh >/dev/null 2>&1; then
   echo 'isolated_display_smoke error=active_display_accepted' >&2
@@ -53,4 +70,4 @@ if DISPLAY=:fixture WAYLAND_DISPLAY= \
   exit 1
 fi
 
-echo 'isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true serialized=true timeout_bounded=true direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true'
+echo 'isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true private_xdg=true serialized=true timeout_bounded=true dynamic_screen=true shared_runner=true direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true'

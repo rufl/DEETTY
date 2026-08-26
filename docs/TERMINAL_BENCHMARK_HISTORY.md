@@ -301,15 +301,16 @@ so the 128 KiB buffer remains.
 ## Reproduce
 
 Install the seven peer terminals plus `xdotool` and `qdbus`, then run from an
-interactive KDE display session:
+acknowledged disposable KDE display session:
 
 ```sh
-./scripts/terminal_benchmark.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
 Environment variables can narrow a diagnostic run, for example:
 
 ```sh
+NOCTTY_DEDICATED_DISPLAY=1 \
 NOCTTY_BENCH_TERMINALS='noctty kitty' \
 NOCTTY_BENCH_PANES='1 4 8' \
 NOCTTY_BENCH_RUNS=3 \

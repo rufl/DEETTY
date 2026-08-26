@@ -438,6 +438,8 @@ fn execute(job: *Job) !void {
             );
         },
         .task_request => |*payload| {
+            const environment = job.environ_map orelse
+                return error.TaskEnvironmentUnavailable;
             const result = try core.task.runControlledAlloc(
                 job.allocator,
                 job.io,
@@ -446,7 +448,7 @@ fn execute(job: *Job) !void {
                 .{
                     .context = job,
                     .is_cancelled = taskCancelled,
-                    .environ_map = job.environ_map,
+                    .environ_map = environment,
                 },
             );
             payload.output = result.output;

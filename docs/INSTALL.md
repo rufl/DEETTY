@@ -37,7 +37,7 @@ zig build run -- --noctalia-plan niri
 
 Native single-instance controls used by Noctalia compositor bindings are `noctty --status`, `--show`, `--hide`, and `--toggle`. Use `noctty --hidden` only from compositor autostart after installing the matching F10 binding.
 
-The optional split-terminal comparison is not a runtime dependency. It requires the selected peer terminals, `xdotool`, and `qdbus` in an X11/XWayland session. `./scripts/terminal_benchmark.sh` stops Yakuake before and after a run, then writes machine-local artifacts under `benchmarks/`; methodology and limits are in [TERMINAL_BENCHMARK.md](TERMINAL_BENCHMARK.md).
+The optional split-terminal comparison is not a runtime dependency. It requires the selected peer terminals, `xdotool`, and `qdbus`. `NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh` uses the reviewed private display runner; a compositor-backed run requires `NOCTTY_DEDICATED_DISPLAY=1` in a disposable X11/XWayland session. The harness stops Yakuake before and after a run and writes machine-local artifacts under `benchmarks/`; methodology and limits are in [TERMINAL_BENCHMARK.md](TERMINAL_BENCHMARK.md).
 
 ## Dogfood Install
 

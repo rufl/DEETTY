@@ -71,23 +71,25 @@ pixel metric is useful only with its retained X11/XWayland and observer boundary
 
 ## Run
 
-Full matrix (long-running, visible X11/XWayland):
+Full matrix (long-running, visible X11/XWayland in a disposable dedicated
+session):
 
 ```sh
-./scripts/terminal_benchmark.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
-Offscreen matrix (requires `Xvfb`; the live status bar remains visible on
-standard error):
+Offscreen matrix (uses the reviewed shared display-isolation runner; the live
+status bar remains visible on standard error):
 
 ```sh
 NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
 ```
 
-The offscreen mode uses `xvfb-run -a` for a private display, unsets
-`WAYLAND_DISPLAY`, and records display and host provenance.
-It does not make compositor-presentation claims; those require a real display
-lane.
+The offscreen mode runs in private mount/PID/IPC/network and runtime
+namespaces with private D-Bus and X servers, serialized pressure admission,
+bounded timeout, and full process-tree cleanup. It records display and host
+provenance. It does not make compositor-presentation claims; those require an
+explicitly acknowledged disposable real-display lane.
 
 Focused, still auditable example:
 
@@ -96,6 +98,7 @@ NOCTTY_BENCH_TERMINALS='noctty kitty ghostty' \
 NOCTTY_BENCH_PANES='1 4' \
 NOCTTY_BENCH_OUTPUT_PANES='1 4' \
 NOCTTY_BENCH_RUNS=15 \
+NOCTTY_BENCH_OFFSCREEN=1 \
 ./scripts/terminal_benchmark.sh
 ```
 

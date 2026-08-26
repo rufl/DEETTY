@@ -1,15 +1,17 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in
   /*) ;;
   *) binary="$PWD/${binary#./}" ;;
 esac
 test -x "$binary"
-command -v dbus-run-session >/dev/null
-command -v xvfb-run >/dev/null
-
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-state-recovery.XXXXXX")
 cleanup() {
   if [ -s "$scratch/pid" ]; then
@@ -22,16 +24,29 @@ trap cleanup EXIT HUP INT TERM
 
 NOCTTY_RECOVERY_BINARY=$binary \
 NOCTTY_RECOVERY_SCRATCH=$scratch \
-dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
+sh -eu -c '
   binary=$NOCTTY_RECOVERY_BINARY
   scratch=$NOCTTY_RECOVERY_SCRATCH
   export HOME="$scratch/home"
+  export XDG_CONFIG_HOME="$scratch/config"
+  export XDG_STATE_HOME="$scratch/state"
+  export XDG_CACHE_HOME="$scratch/cache"
+  export XDG_DATA_HOME="$scratch/data"
   export GDK_BACKEND=x11
   export NO_AT_BRIDGE=1
   config="$HOME/.config/noctty/settings.nocttycfg"
   themes="$HOME/.config/noctty/themes.nocttythemes"
   workspace="$HOME/.local/state/noctty/autosave/default.nocttyws"
-  mkdir -p "$(dirname "$config")" "$(dirname "$workspace")"
+  mkdir -p "$(dirname "$config")" "$(dirname "$workspace")" \
+    "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
+
+  process_live() {
+    process_id=$1
+    test -r "/proc/$process_id/stat" || return 1
+    process_state=$(cut -d " " -f 3 "/proc/$process_id/stat" 2>/dev/null) || return 1
+    test "$process_state" != Z
+  }
+
   printf "%s" "damaged settings" > "$config"
   printf "%s" "damaged themes" > "$themes"
   printf "%s" "damaged workspace" > "$workspace"
@@ -61,11 +76,11 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
 
   kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
   attempt=0
-  while kill -0 "$pid" 2>/dev/null && [ "$attempt" -lt 100 ]; do
+  while process_live "$pid" && [ "$attempt" -lt 100 ]; do
     attempt=$((attempt + 1))
     sleep 0.05
   done
-  ! kill -0 "$pid" 2>/dev/null
+  ! process_live "$pid"
   wait "$pid" 2>/dev/null || true
 
   # If the rejected destination itself is unusable, startup must remain
@@ -108,11 +123,12 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
 
   kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
   attempt=0
-  while kill -0 "$pid" 2>/dev/null && [ "$attempt" -lt 100 ]; do
+  while process_live "$pid" && [ "$attempt" -lt 100 ]; do
     attempt=$((attempt + 1))
     sleep 0.05
   done
-  ! kill -0 "$pid" 2>/dev/null
+  ! process_live "$pid"
+  wait "$pid" 2>/dev/null || true
 '
 
 rm -rf "$scratch"

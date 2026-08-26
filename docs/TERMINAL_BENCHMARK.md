@@ -6,18 +6,28 @@ of truth for methodology and artifact requirements.
 
 ## Run
 
+The compositor-backed matrix must run in an acknowledged disposable session:
+
 ```sh
-./scripts/terminal_benchmark.sh
+NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
-For a disposable X11 lane:
+For an automatically isolated, display-independent X11 lane:
 
 ```sh
 NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
 ```
 
+Offscreen mode uses the shared `overzeer-isolated-display` boundary: a private
+mount/PID/IPC/network namespace, runtime directory, D-Bus session, and X server
+with serialized, pressure-gated, bounded process-tree cleanup. Both modes
+serialize benchmark runs and fail closed rather than use an unacknowledged
+active desktop.
+
 The harness writes raw samples (including execution order), summary, metadata,
-process attribution, and checksums to `benchmarks/`. Verify a run with:
+process attribution, and checksums to `benchmarks/`. Run stamps are bounded to
+portable filename characters, and an existing artifact set is never
+overwritten. Verify a run with:
 
 ```sh
 ./scripts/audit_terminal_benchmark.sh \

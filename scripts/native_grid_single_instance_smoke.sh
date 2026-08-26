@@ -1,15 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ]; then
+  exec ./scripts/run_isolated_x11.sh "$0" "$@"
+fi
+./scripts/require_isolated_display.sh
+
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in
   /*) ;;
   *) binary="$PWD/${binary#./}" ;;
 esac
 test -x "$binary"
-command -v dbus-run-session >/dev/null
 command -v gdbus >/dev/null
-command -v xvfb-run >/dev/null
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-single-instance.XXXXXX")
 cleanup() {
@@ -25,16 +28,18 @@ trap cleanup EXIT HUP INT TERM
 
 NOCTTY_SINGLE_INSTANCE_BINARY=$binary \
 NOCTTY_SINGLE_INSTANCE_SCRATCH=$scratch \
-dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
+sh -eu -c '
   binary=$NOCTTY_SINGLE_INSTANCE_BINARY
   scratch=$NOCTTY_SINGLE_INSTANCE_SCRATCH
   export HOME="$scratch/home"
   export XDG_CONFIG_HOME="$scratch/config"
   export XDG_STATE_HOME="$scratch/state"
+  export XDG_CACHE_HOME="$scratch/cache"
   export XDG_DATA_HOME="$scratch/data"
   export GDK_BACKEND=x11
   export NO_AT_BRIDGE=1
-  mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_DATA_HOME"
+  mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" \
+    "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
 
   process_live() {
     pid=$1

@@ -967,7 +967,7 @@ write_summary() {
     ' "$raw_csv" >"$summary_csv"
 }
 
-for command in zig xdotool ps awk find sort date getconf sha256sum; do
+for command in zig xdotool ps awk find sort date getconf sha256sum flock; do
     command -v "$command" >/dev/null || die "missing_command:$command"
 done
 
@@ -983,6 +983,14 @@ for pane_count in $pane_counts $output_pane_counts; do
     case "$pane_count" in 1|2|4|8|16|32) ;; *) die "invalid_pane_count:$pane_count" ;; esac
 done
 [[ "$runs" =~ ^[1-9][0-9]*$ ]] || die "invalid_runs:$runs"
+[[ "$output_lines" =~ ^[1-9][0-9]*$ ]] || die "invalid_output_lines:$output_lines"
+[[ "$cpu_sample_ms" =~ ^[1-9][0-9]*$ ]] || die "invalid_cpu_sample_ms:$cpu_sample_ms"
+[[ "$warmup" == 0 || "$warmup" == 1 ]] || die "invalid_warmup:$warmup"
+[[ "$window_width" =~ ^[1-9][0-9]*$ ]] || die "invalid_window_width:$window_width"
+[[ "$window_height" =~ ^[1-9][0-9]*$ ]] || die "invalid_window_height:$window_height"
+[[ "$font_size" =~ ^[1-9][0-9]*([.][0-9]+)?$ ]] || die "invalid_font_size:$font_size"
+[[ "$run_stamp" =~ ^[A-Za-z0-9._-]+$ && ${#run_stamp} -le 64 ]] ||
+    die "invalid_stamp:$run_stamp"
 [[ "$visual_timeout_ms" =~ ^[1-9][0-9]*$ ]] || die "invalid_visual_timeout_ms:$visual_timeout_ms"
 [[ "$inter_trial_settle_ms" =~ ^[0-9]+$ ]] || die "invalid_inter_trial_settle_ms:$inter_trial_settle_ms"
 [[ "$post_output_settle_ms" =~ ^[0-9]+$ ]] || die "invalid_post_output_settle_ms:$post_output_settle_ms"
@@ -992,11 +1000,24 @@ done
 [[ "$offscreen" == 0 || "$offscreen" == 1 ]] || die "invalid_offscreen:$offscreen"
 command -v import >/dev/null || die "visual_completion_requires_imagemagick"
 
-if (( offscreen == 1 )) && [[ "${NOCTTY_BENCH_XVFB:-}" != 1 ]]; then
-    command -v xvfb-run >/dev/null || die "offscreen_requires_xvfb-run"
-    exec env -u WAYLAND_DISPLAY NOCTTY_BENCH_XVFB=1 xvfb-run -a \
-        -s "-screen 0 ${window_width}x${window_height}x24 -nolisten tcp" "$0" "$@"
+if (( offscreen == 1 )); then
+    if [[ "${NOCTTY_BENCH_XVFB:-}" != 1 ]]; then
+        exec env NOCTTY_BENCH_XVFB=1 \
+            NOCTTY_ISOLATED_DISPLAY_SCREEN="${window_width}x${window_height}x24" \
+            NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=1800 \
+            "$repo_root/scripts/run_isolated_x11.sh" "$0" "$@"
+    fi
+    "$repo_root/scripts/require_isolated_display.sh"
+else
+    "$repo_root/scripts/require_isolated_display.sh" --dedicated
 fi
+
+benchmark_lock="${XDG_RUNTIME_DIR:-/tmp}/noctty-terminal-benchmark-$(id -u).lock"
+exec 9>"$benchmark_lock"
+flock -n 9 || die "benchmark_busy:$benchmark_lock"
+for artifact in "$raw_csv" "$summary_csv" "$metadata_file" "$process_tsv" "$checksums_file"; do
+    [[ ! -e "$artifact" ]] || die "artifact_exists:$artifact"
+done
 
 mkdir -p "$benchmark_dir"
 if (( skip_build == 0 )); then

@@ -28,7 +28,9 @@ scripts/native_grid_recursive_split_smoke.sh
 scripts/native_grid_resize_overlay_smoke.sh
 scripts/native_grid_resource_qualification.sh
 scripts/native_grid_settings_smoke.sh
+scripts/native_grid_single_instance_smoke.sh
 scripts/native_grid_smoke.sh
+scripts/native_grid_state_recovery_smoke.sh
 scripts/native_grid_tab_color_smoke.sh
 scripts/native_grid_tab_dirty_smoke.sh
 scripts/native_grid_tab_rename_smoke.sh
@@ -42,6 +44,7 @@ scripts/native_grid_workspace_activation_smoke.sh
 scripts/native_grid_workspace_smoke.sh
 scripts/nocted_native_smoke.sh
 scripts/nocted_resource_qualification.sh
+scripts/nocted_single_instance_smoke.sh
 '
 
 dedicated='
@@ -97,6 +100,15 @@ grep -F 'require_isolated_display.sh --dedicated' \
   scripts/native_grid_installed_activation_smoke.sh >/dev/null
 grep -F 'NOCTTY_DEDICATED_DISPLAY' scripts/ci_verify.sh >/dev/null
 grep -F 'dedicated_native_smoke_session_required' scripts/ci_verify.sh >/dev/null
+grep -F 'overzeer-isolated-display' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'run_isolated_x11.sh' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'NOCTTY_ISOLATED_DISPLAY_SCREEN=' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'invalid_warmup:$warmup' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'invalid_stamp:$run_stamp' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'artifact_exists:$artifact' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'benchmark_busy:$benchmark_lock' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'require_isolated_display.sh" --dedicated' \
+  scripts/terminal_benchmark.sh >/dev/null
 
 printf '%s\n' \
-  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true ci_native_opt_in=true active_display_default=false fail_closed=true"
+  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true ci_native_opt_in=true active_display_default=false fail_closed=true"

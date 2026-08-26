@@ -327,15 +327,6 @@ pub const RunControl = struct {
     }
 };
 
-pub fn runAlloc(
-    allocator: std.mem.Allocator,
-    io: std.Io,
-    root: []const u8,
-    plan_value: Plan,
-) !Result {
-    return runControlledAlloc(allocator, io, root, plan_value, .{});
-}
-
 fn killTaskProcessGroup(child: *std.process.Child, io: std.Io) void {
     if (child.id) |child_id| {
         if (builtin.os.tag != .windows and builtin.os.tag != .wasi) {
@@ -358,12 +349,8 @@ pub fn runControlledAlloc(
     if (control.environ_map) |source| {
         child_environment = try source.clone(allocator);
         if (child_environment) |*environment| {
-            if (environment.contains("XDG_ACTIVATION_TOKEN")) {
-                std.debug.assert(environment.orderedRemove("XDG_ACTIVATION_TOKEN"));
-            }
-            if (environment.contains("DESKTOP_STARTUP_ID")) {
-                std.debug.assert(environment.orderedRemove("DESKTOP_STARTUP_ID"));
-            }
+            _ = environment.orderedRemove("XDG_ACTIVATION_TOKEN");
+            _ = environment.orderedRemove("DESKTOP_STARTUP_ID");
         }
     }
     defer if (child_environment) |*environment| environment.deinit();
