@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+if [ "${NOCTTY_LEGACY_DISPLAY_RUNNER:-0}" = 1 ]; then
+  shared_runner=false
+  legacy_fallback=true
+else
+  shared_runner=true
+  legacy_fallback=false
+fi
+
 x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
   NOCTTY_ACTIVE_HOME_FIXTURE="$HOME" \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
@@ -46,7 +54,8 @@ if NOCTTY_ISOLATED_DISPLAY_SCREEN=1280x0x24 \
   echo 'isolated_display_smoke error=invalid_screen_accepted' >&2
   exit 1
 fi
-if OVERZEER_DISPLAY_RUNNER=/noctty/missing/isolated-runner \
+if NOCTTY_LEGACY_DISPLAY_RUNNER=0 \
+  OVERZEER_DISPLAY_RUNNER=/noctty/missing/isolated-runner \
   ./scripts/run_isolated_x11.sh true >/dev/null 2>&1; then
   echo 'isolated_display_smoke error=missing_shared_runner_accepted' >&2
   exit 1
@@ -70,4 +79,4 @@ if DISPLAY=:fixture WAYLAND_DISPLAY= \
   exit 1
 fi
 
-echo 'isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true private_xdg=true serialized=true timeout_bounded=true dynamic_screen=true shared_runner=true direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true'
+echo "isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true private_xdg=true serialized=true timeout_bounded=true dynamic_screen=true shared_runner=$shared_runner legacy_fallback=$legacy_fallback direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true"

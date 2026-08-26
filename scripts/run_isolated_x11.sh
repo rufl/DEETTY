@@ -81,7 +81,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 chmod 0700 "$scratch"
 mkdir -p "$scratch/home" "$scratch/config" "$scratch/state" \
-  "$scratch/cache" "$scratch/data"
+  "$scratch/cache" "$scratch/data" "$scratch/tmp"
 
 unset DISPLAY WAYLAND_DISPLAY
 export NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
@@ -90,7 +90,7 @@ flock -x -w "$timeout_seconds" "$lock" \
   timeout --kill-after=10 "$timeout_seconds" \
   env HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config" \
     XDG_STATE_HOME="$scratch/state" XDG_CACHE_HOME="$scratch/cache" \
-    XDG_DATA_HOME="$scratch/data" \
+    XDG_DATA_HOME="$scratch/data" TMPDIR="$scratch/tmp" \
   dbus-run-session -- xvfb-run -a -s "-screen 0 $screen -nolisten tcp" \
   sh -eu -c '
     scratch=$NOCTTY_ISOLATED_X11_ROOT
@@ -99,6 +99,7 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_STATE_HOME="$scratch/state"
     export XDG_CACHE_HOME="$scratch/cache"
     export XDG_DATA_HOME="$scratch/data"
+    export TMPDIR="$scratch/tmp"
     export XDG_SESSION_TYPE=x11
     export GDK_BACKEND=x11
     export NO_AT_BRIDGE=1

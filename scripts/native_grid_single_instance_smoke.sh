@@ -73,18 +73,24 @@ sh -eu -c '
       cat "$scratch"/*.log >&2 || true
       exit 1
     fi
-    sleep 0.4
-
+    attempt=0
     alive=0
     winner=
-    while read -r pid; do
-      if process_live "$pid"; then
-        alive=$((alive + 1))
-        winner=$pid
-      else
-        wait "$pid" 2>/dev/null || true
-      fi
-    done < "$scratch/round-pids"
+    while [ "$attempt" -lt 100 ]; do
+      alive=0
+      winner=
+      while read -r pid; do
+        if process_live "$pid"; then
+          alive=$((alive + 1))
+          winner=$pid
+        else
+          wait "$pid" 2>/dev/null || true
+        fi
+      done < "$scratch/round-pids"
+      [ "$alive" -le 1 ] && break
+      attempt=$((attempt + 1))
+      sleep 0.05
+    done
     if [ "$alive" -ne 1 ]; then
       printf "single-instance cold race left %s live owners\n" "$alive" >&2
       while read -r pid; do ps -o pid,ppid,stat,args -p "$pid" >&2 || true; done < "$scratch/round-pids"
@@ -134,17 +140,23 @@ sh -eu -c '
     exit 1
   fi
   printf "%s\n" "$final_state" | grep -F "visible=true" >/dev/null
-  sleep 0.4
-
+  attempt=0
   alive=0
   winner=
-  for pid in "$hidden_pid" "$show_pid"; do
-    if process_live "$pid"; then
-      alive=$((alive + 1))
-      winner=$pid
-    else
-      wait "$pid" 2>/dev/null || true
-    fi
+  while [ "$attempt" -lt 100 ]; do
+    alive=0
+    winner=
+    for pid in "$hidden_pid" "$show_pid"; do
+      if process_live "$pid"; then
+        alive=$((alive + 1))
+        winner=$pid
+      else
+        wait "$pid" 2>/dev/null || true
+      fi
+    done
+    [ "$alive" -le 1 ] && break
+    attempt=$((attempt + 1))
+    sleep 0.05
   done
   if [ "$alive" -ne 1 ]; then
     printf "hidden/show race left %s live owners\n" "$alive" >&2
@@ -261,4 +273,4 @@ sh -eu -c '
 rm -rf "$scratch"
 scratch=
 trap - EXIT HUP INT TERM
-printf '%s\n' 'native_grid_single_instance_smoke cold_callers=12 owner=1 duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true tray_activation_token=true stale_token_cleared=true separate_window=true open_here_cwd=true process_group_cleanup=true'
+printf '%s\n' 'native_grid_single_instance_smoke cold_callers=12 owner=1 convergence_wait_bounded=true duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true tray_activation_token=true stale_token_cleared=true separate_window=true open_here_cwd=true process_group_cleanup=true'
