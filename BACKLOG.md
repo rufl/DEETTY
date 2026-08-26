@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-08-10.
+Last refreshed: 2026-08-26.
 
 ## Source Of Truth Policy
 
