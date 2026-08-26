@@ -48,9 +48,12 @@ exit status, and bounded runtime warning-marker counts under:
 
 Existing-owner `--status`, `--show`, `--hide`, and `--toggle` calls plus
 `--version` bypass this setup and execute the staged binary directly; a Show or
-Toggle with no owner still starts a fully logged GUI session. This keeps
-external shortcut activation latency close to the native D-Bus call instead of
-paying the desktop/version/hash/log-rotation setup on every toggle. Set
+Toggle with no owner still starts a fully logged GUI session. Show/Toggle first
+consult the current owner's already-held native instance lock, avoiding a
+redundant D-Bus status round trip; a D-Bus probe remains only as compatibility
+fallback for older or degraded owners. This keeps external shortcut activation
+latency close to one native D-Bus call instead of paying the
+desktop/version/hash/log-rotation setup on every toggle. Set
 `NOCTTY_DOGFOOD_VERBOSE=1` when full GTK/GLib debug messages are needed.
 
 The launcher also atomically maintains a private `0600` receipt under:

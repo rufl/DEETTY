@@ -10,6 +10,7 @@ esac
 launcher=$(readlink -f "$0")
 runtime_dir=$(dirname "$launcher")
 export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+umask 077
 
 # Existing-instance controls are latency-sensitive and do not represent a new
 # dogfood session. Bypass receipt/log setup, but retain it when Show or Toggle
@@ -20,15 +21,22 @@ if [ "$app" = noctty ] && [ "$#" -eq 1 ]; then
       exec "$runtime_dir/noctty-bin" "$@"
       ;;
     --show|--toggle)
-      if "$runtime_dir/noctty-bin" --status 2>/dev/null |
-         grep -F 'running=true' >/dev/null; then
+      instance_lock="$HOME/.local/state/noctty/instance.lock"
+      lock_held=0
+      if command -v flock >/dev/null 2>&1 && [ -f "$instance_lock" ]; then
+        flock -n -E 75 "$instance_lock" true 2>/dev/null
+        lock_status=$?
+        if [ "$lock_status" -eq 75 ]; then lock_held=1; fi
+      fi
+      if [ "$lock_held" -eq 1 ] ||
+         "$runtime_dir/noctty-bin" --status 2>/dev/null |
+           grep -F 'running=true' >/dev/null; then
         exec "$runtime_dir/noctty-bin" "$@"
       fi
       ;;
   esac
 fi
 
-umask 077
 state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
 log_dir="$state_home/noctty/logs"
 receipt_dir="$state_home/noctty/dogfood-sessions"

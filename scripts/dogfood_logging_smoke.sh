@@ -1,8 +1,16 @@
 #!/usr/bin/env sh
 set -eu
 
+command -v flock >/dev/null
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-dogfood-logging.XXXXXX")
-trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+locker_pid=
+cleanup() {
+  if [ -n "$locker_pid" ]; then
+    kill -TERM "-$locker_pid" 2>/dev/null || kill -TERM "$locker_pid" 2>/dev/null || true
+  fi
+  rm -rf "$scratch"
+}
+trap cleanup EXIT HUP INT TERM
 runtime="$scratch/runtime"
 state="$scratch/state"
 mkdir -p "$runtime/lib" "$state/noctty/logs"
@@ -32,6 +40,24 @@ chmod +x "$runtime/noctty-bin" "$runtime/nocted-bin"
 fast_status=$(XDG_STATE_HOME="$state" "$runtime/noctty" --status)
 printf '%s\n' "$fast_status" | grep -F 'stub_noctty_output' >/dev/null
 [ ! -d "$state/noctty/dogfood-sessions" ]
+
+home="$scratch/home"
+instance_lock="$home/.local/state/noctty/instance.lock"
+mkdir -p "$(dirname "$instance_lock")"
+setsid sh -c '
+  exec 9>"$1"
+  flock -x 9
+  : >"$2"
+  while [ ! -e "$3" ]; do sleep 0.01; done
+' sh "$instance_lock" "$scratch/lock-ready" "$scratch/lock-stop" &
+locker_pid=$!
+while [ ! -e "$scratch/lock-ready" ]; do sleep 0.01; done
+fast_show=$(HOME="$home" XDG_STATE_HOME="$state" "$runtime/noctty" --show)
+printf '%s\n' "$fast_show" | grep -F 'stub_noctty_output' >/dev/null
+[ ! -d "$state/noctty/dogfood-sessions" ]
+: >"$scratch/lock-stop"
+wait "$locker_pid"
+locker_pid=
 
 fixture_argument=$(printf '%s\n%s' '--fixture' 'forged_log_line=true')
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE \
@@ -316,4 +342,4 @@ printf '%s\n' "$partial" | grep -F 'focus_isolation=true' >/dev/null
 printf '%s\n' "$partial" | grep -F 'logs_clean=true compatible=false' >/dev/null
 
 
-printf 'dogfood_logging_smoke fast_control=true log_arguments_bounded=true atomic_receipts=true desktop_fingerprint=true categorized_errors=true upgrade_cohorts=true interaction_spikes=true local_diagnostic_report=true coredump_query_fail_closed=true malformed_receipt_rejected=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'
+printf 'dogfood_logging_smoke fast_control=true instance_lock_fast_control=true log_arguments_bounded=true atomic_receipts=true desktop_fingerprint=true categorized_errors=true upgrade_cohorts=true interaction_spikes=true local_diagnostic_report=true coredump_query_fail_closed=true malformed_receipt_rejected=true monotonic_duration=true nonzero_exit=true incomplete_launch=true private_mode=true legacy_import=true runtime_hours=true omp_extraction=true omp_fail_closed=true\n'

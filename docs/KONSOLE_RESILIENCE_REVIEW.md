@@ -137,10 +137,15 @@ dogfood path. The old logging launcher cost roughly 200–234 ms even for a
 read-only control call and produced 1.4–2.2 s spikes while collecting fresh
 Plasma/KWin metadata. Direct native control calls were roughly 13–25 ms on the
 same host. The launcher now bypasses session receipts for existing-owner
-control calls, caches Plasma/KWin versions at install time, and enables full
+control calls, uses the owner's held native lock instead of a redundant D-Bus
+status preflight for Show/Toggle, caches Plasma/KWin versions at install time,
+and enables full
 GTK/GLib debug chatter only through `NOCTTY_DOGFOOD_VERBOSE=1`. After the
 verified dogfood install, 12 installed `--status` calls measured 17.82 ms median
-and 19.66 ms maximum on the same live owner.
+and 19.66 ms maximum on the same live owner. After removing Show/Toggle's
+redundant status round trip, a further 30-call installed-owner run retained
+15.19 ms Show median / 18.74 ms p95 / 35.47 ms maximum and 13.80 ms Hide
+median / 17.02 ms p95 / 17.62 ms maximum.
 
 The other cold-path risk was an overlay layer surface requesting exclusive
 keyboard ownership while KWin simultaneously mapped or unmapped it. NOCTTY now
