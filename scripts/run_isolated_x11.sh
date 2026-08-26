@@ -75,7 +75,10 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-isolated-x11.XXXXXX")
 cleanup() {
   rm -rf "$scratch"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 chmod 0700 "$scratch"
 mkdir -p "$scratch/home" "$scratch/config" "$scratch/state" \
   "$scratch/cache" "$scratch/data"

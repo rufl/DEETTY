@@ -43,7 +43,10 @@ verify_tmp=$(mktemp "$receipt_dir/.windows-sign-verify.tmp.XXXXXX")
 cleanup() {
   rm -f "$signed_tmp" "$receipt_tmp" "$verify_tmp"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 rm -f "$signed_tmp"
 
 unsigned_before=$(sha256sum "$unsigned_input" | awk '{print $1}')

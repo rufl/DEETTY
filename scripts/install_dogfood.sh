@@ -4,7 +4,11 @@ set -eu
 prefix=${1:-"$HOME/.local"}
 optimize=${NOCTTY_DOGFOOD_OPTIMIZE:-ReleaseFast}
 stage=$(mktemp -d "${TMPDIR:-/tmp}/noctty-dogfood-install.XXXXXX")
-trap 'rm -rf "$stage"' EXIT HUP INT TERM
+cleanup() { rm -rf "$stage"; }
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 zig build -Doptimize="$optimize" --prefix "$stage"
 

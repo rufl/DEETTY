@@ -29,7 +29,10 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-isolated-wayland.XXXXXX")
 cleanup() {
   rm -rf "$scratch"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 chmod 0700 "$scratch"
 mkdir -p "$scratch/runtime" "$scratch/home" "$scratch/config" \
   "$scratch/state" "$scratch/cache" "$scratch/data"
@@ -67,7 +70,10 @@ flock -x -w "$timeout_seconds" "$lock" \
         wait "$compositor_pid" 2>/dev/null || true
       fi
     }
-    trap cleanup EXIT HUP INT TERM
+    trap cleanup EXIT
+    trap "exit 129" HUP
+    trap "exit 130" INT
+    trap "exit 143" TERM
     export XDG_RUNTIME_DIR="$scratch/runtime"
     export HOME="$scratch/home"
     export XDG_CONFIG_HOME="$scratch/config"

@@ -13,7 +13,10 @@ cleanup() {
   if [ -n "${verify_root:-}" ]; then rm -rf "$verify_root"; fi
   if [ -n "${visible_root:-}" ]; then rm -rf "$visible_root"; fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 visible_root=$(mktemp -d "$PWD/.noctty-verify-visible.XXXXXX")
 
 mkdir -p "$verify_root/tmp" "$verify_root/xdg-cache" "$verify_root/zig-local" "$verify_root/zig-global" "$verify_root/install"
@@ -48,6 +51,7 @@ run_pressure_gated_display() {
 }
 
 ./scripts/check_terminal_unicode.sh
+./scripts/check_signal_traps.sh
 # Admit isolated graphical proof before process/build qualification raises the
 # pressure signal. Status-75 deferrals remain bounded and fail closed.
 ./scripts/check_display_isolation.sh

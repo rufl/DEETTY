@@ -30,7 +30,10 @@ cleanup() {
   if [ -n "${publish_tmp:-}" ]; then rm -f "$publish_tmp"; fi
   if [ -n "${sidecar_tmp:-}" ]; then rm -f "$sidecar_tmp"; fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-tarball.XXXXXX")
 publish_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")

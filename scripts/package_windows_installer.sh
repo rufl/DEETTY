@@ -92,7 +92,10 @@ cleanup() {
   if [ -n "$signed_tmp" ]; then rm -f "$signed_tmp"; fi
   if [ -n "$signed_receipt_tmp" ]; then rm -f "$signed_receipt_tmp"; fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 unzip -q "$portable_path" -d "$scratch/unpacked"
 payload="$scratch/unpacked/noctty-windows-x86_64"

@@ -34,7 +34,10 @@ cleanup() {
   rm -rf "$scratch"
   rm -f "$archive_tmp" "$checksum_tmp" "$manifest_tmp"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 stage="$scratch/stage"
 package="$scratch/noctty-windows-x86_64"

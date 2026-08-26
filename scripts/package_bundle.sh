@@ -32,7 +32,10 @@ cleanup() {
   if [ -n "${checksum_tmp:-}" ]; then rm -f "$checksum_tmp"; fi
   if [ -n "${manifest_tmp:-}" ]; then rm -f "$manifest_tmp"; fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 scratch=$(mktemp -d "$scratch_parent/.noctty-bundle.XXXXXX")
 stage="$scratch/stage"
