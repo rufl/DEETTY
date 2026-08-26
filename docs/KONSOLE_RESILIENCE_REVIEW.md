@@ -101,11 +101,15 @@ launches carry the token across the length-delimited native ABI, while the PTY
 environment builder excludes both XDG and legacy desktop startup tokens. A token is applied with
 GTK3's supported `gtk_window_set_startup_id` immediately before the initial or
 previously hidden window is presented, then cleared; it is never persisted.
+Every hide path also discards a pending token so StatusNotifier state cannot be
+attached to a later unrelated presentation.
 
 Proof:
 
 - unit tests retain the token boundary;
-- the single-instance X11 lane verifies token handoff to an existing owner;
+- the single-instance X11 lane verifies token handoff to an existing owner,
+  actual StatusNotifier token presentation, and stale-token clearing across
+  hide/show;
 - `scripts/native_grid_wayland_activation_smoke.sh` passed on the live Plasma
   Wayland session for cold-start and forwarded Show, observed token application
   before visible presentation, and verified that the PTY child did not inherit

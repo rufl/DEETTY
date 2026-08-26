@@ -4725,6 +4725,7 @@ static void toggle_grid_window(NocttyGridContext *context) {
         !gtk_widget_in_destruction(root->window) &&
         gtk_widget_get_visible(root->window);
     if (root->window_presented && visible) {
+        clear_xdg_activation_token(root);
         set_grid_layer_keyboard_active(root, FALSE);
         hide_quick_note_overlays(root);
         dismiss_grid_popup_windows(root);

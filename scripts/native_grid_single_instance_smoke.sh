@@ -8,6 +8,7 @@ case "$binary" in
 esac
 test -x "$binary"
 command -v dbus-run-session >/dev/null
+command -v gdbus >/dev/null
 command -v xvfb-run >/dev/null
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-single-instance.XXXXXX")
@@ -177,6 +178,47 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
   grep -F "noctty_xdg_activation applied=true backend=x11" \
     "$scratch/primary-hidden.log" >/dev/null
 
+  "$binary" --hide >/dev/null
+  attempt=0
+  while [ "$attempt" -lt 40 ]; do
+    if gdbus call --session --dest com.noctty.NOCTTY \
+      --object-path /StatusNotifierItem \
+      --method org.kde.StatusNotifierItem.ProvideXdgActivationToken \
+      noctty-tray-smoke-token >/dev/null 2>&1; then
+      break
+    fi
+    attempt=$((attempt + 1))
+    sleep 0.05
+  done
+  [ "$attempt" -lt 40 ]
+  gdbus call --session --dest com.noctty.NOCTTY \
+    --object-path /StatusNotifierItem \
+    --method org.kde.StatusNotifierItem.Activate 0 0 >/dev/null
+  attempt=0
+  while [ "$attempt" -lt 40 ]; do
+    applied_count=$(grep -c \
+      "noctty_xdg_activation applied=true backend=x11" \
+      "$scratch/primary-hidden.log" || true)
+    [ "$applied_count" -ge 2 ] && break
+    attempt=$((attempt + 1))
+    sleep 0.05
+  done
+  [ "$applied_count" -eq 2 ]
+
+  # A token supplied while visible must not survive a hide and become attached
+  # to a later unrelated Show.
+  gdbus call --session --dest com.noctty.NOCTTY \
+    --object-path /StatusNotifierItem \
+    --method org.kde.StatusNotifierItem.ProvideXdgActivationToken \
+    noctty-stale-tray-token >/dev/null
+  "$binary" --hide >/dev/null
+  XDG_ACTIVATION_TOKEN= "$binary" --show >/dev/null
+  sleep 0.1
+  applied_count=$(grep -c \
+    "noctty_xdg_activation applied=true backend=x11" \
+    "$scratch/primary-hidden.log" || true)
+  [ "$applied_count" -eq 2 ]
+
   project="$scratch/Open Here Project"
   mkdir -p "$project"
   setsid "$binary" --new-window --working-directory "$project" \
@@ -214,4 +256,4 @@ dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' sh -eu -c '
 rm -rf "$scratch"
 scratch=
 trap - EXIT HUP INT TERM
-printf '%s\n' 'native_grid_single_instance_smoke cold_callers=12 owner=1 duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true separate_window=true open_here_cwd=true process_group_cleanup=true'
+printf '%s\n' 'native_grid_single_instance_smoke cold_callers=12 owner=1 duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true tray_activation_token=true stale_token_cleared=true separate_window=true open_here_cwd=true process_group_cleanup=true'
