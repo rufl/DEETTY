@@ -13,6 +13,7 @@ pty=src/terminal/Pty.zig
 vt=src/terminal/Vt.zig
 nocted=src/nocted/main.zig
 nocted_task=src/nocted/Task.zig
+nocted_worker=src/nocted/Worker.zig
 isolated_x11=scripts/run_isolated_x11.sh
 isolated_wayland=scripts/run_isolated_wayland.sh
 nocted_endurance=scripts/nocted_native_endurance_qualification.sh
@@ -24,7 +25,7 @@ windows_main=src/windows/main.zig
 windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_task" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_package" "$windows_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_package" "$windows_smoke"; do
   test -s "$path"
 done
 
@@ -124,6 +125,9 @@ grep -F 'native_grid_stability_matrix' "$stability" >/dev/null
 grep -F 'if (has(io, root, "Cargo.toml")) return cargoPlan(action);' "$nocted_task" >/dev/null
 grep -F 'if (has(io, root, "go.mod")) return goPlan(action);' "$nocted_task" >/dev/null
 grep -F 'packageHasScript(io, root, "check")' "$nocted_task" >/dev/null
+grep -F 'pub fn runControlledAlloc(' "$nocted_task" >/dev/null
+grep -F '.pgid = if (builtin.os.tag == .windows' "$nocted_task" >/dev/null
+grep -F '.is_cancelled = taskCancelled' "$nocted_worker" >/dev/null
 grep -F 'export NOCTTY_ISOLATED_DISPLAY=x11' "$isolated_x11" >/dev/null
 grep -F 'export NOCTTY_ISOLATED_DISPLAY=wayland' "$isolated_wayland" >/dev/null
 grep -F 'unset DISPLAY WAYLAND_DISPLAY' "$isolated_x11" >/dev/null
@@ -133,4 +137,4 @@ grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v4=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true nocted_accessible=true nocted_startup_untitled=true nocted_tasks=9 native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true isolated_x11=true isolated_wayland=true active_display_inherited=false no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'
+echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v4=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true nocted_accessible=true nocted_startup_untitled=true nocted_tasks=9 task_process_group=true task_cancel_poll_ms=50 native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true isolated_x11=true isolated_wayland=true active_display_inherited=false no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'

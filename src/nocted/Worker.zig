@@ -327,6 +327,11 @@ pub fn run(data: ?*anyopaque, _: ?*anyopaque) callconv(.c) void {
     _ = c.g_idle_add(onComplete, job);
 }
 
+fn taskCancelled(context: ?*anyopaque) bool {
+    const job: *Job = @ptrCast(@alignCast(context orelse return true));
+    return job.isCancelled();
+}
+
 fn execute(job: *Job) !void {
     if (job.isCancelled()) return;
     switch (job.payload) {
@@ -432,11 +437,12 @@ fn execute(job: *Job) !void {
             );
         },
         .task_request => |*payload| {
-            const result = try core.task.runAlloc(
+            const result = try core.task.runControlledAlloc(
                 job.allocator,
                 job.io,
                 payload.root,
                 payload.plan,
+                .{ .context = job, .is_cancelled = taskCancelled },
             );
             payload.output = result.output;
             payload.success = result.success;

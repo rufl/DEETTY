@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const manifest_bytes_max = 256 * 1024;
 const root_entries_max = 4096;
@@ -298,30 +299,109 @@ pub const Result = struct {
     success: bool,
 };
 
+pub const RunControl = struct {
+    context: ?*anyopaque = null,
+    is_cancelled: ?*const fn (?*anyopaque) bool = null,
+    timeout_ms: u32 = 120_000,
+
+    fn cancelled(control: RunControl) bool {
+        const callback = control.is_cancelled orelse return false;
+        return callback(control.context);
+    }
+};
+
 pub fn runAlloc(
     allocator: std.mem.Allocator,
     io: std.Io,
     root: []const u8,
     plan_value: Plan,
 ) !Result {
-    const result = try std.process.run(allocator, io, .{
+    return runControlledAlloc(allocator, io, root, plan_value, .{});
+}
+
+fn killTaskProcessGroup(child: *std.process.Child, io: std.Io) void {
+    if (child.id) |child_id| {
+        if (builtin.os.tag != .windows and builtin.os.tag != .wasi) {
+            std.posix.kill(-child_id, .KILL) catch {};
+        }
+    }
+    child.kill(io);
+}
+
+pub fn runControlledAlloc(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    root: []const u8,
+    plan_value: Plan,
+    control: RunControl,
+) !Result {
+    if (control.timeout_ms == 0) return error.InvalidTaskTimeout;
+    if (control.cancelled()) return error.TaskCancelled;
+    var child = try std.process.spawn(io, .{
         .argv = plan_value.argv,
         .cwd = .{ .path = root },
-        .stdout_limit = .limited(1024 * 1024),
-        .stderr_limit = .limited(1024 * 1024),
-        .timeout = .{
-            .duration = .{ .raw = .fromSeconds(120), .clock = .awake },
-        },
+        .stdin = .ignore,
+        .stdout = .pipe,
+        .stderr = .pipe,
+        .pgid = if (builtin.os.tag == .windows or builtin.os.tag == .wasi)
+            null
+        else
+            0,
     });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    defer killTaskProcessGroup(&child, io);
+
+    var multi_reader_buffer: std.Io.File.MultiReader.Buffer(2) = undefined;
+    var multi_reader: std.Io.File.MultiReader = undefined;
+    multi_reader.init(
+        allocator,
+        io,
+        multi_reader_buffer.toStreams(),
+        &.{ child.stdout.?, child.stderr.? },
+    );
+    defer multi_reader.deinit();
+    const stdout_reader = multi_reader.reader(0);
+    const stderr_reader = multi_reader.reader(1);
+    const started = std.Io.Clock.now(.awake, io);
+    const poll_timeout: std.Io.Timeout = .{
+        .duration = .{ .raw = .fromMilliseconds(50), .clock = .awake },
+    };
+
+    while (true) {
+        if (control.cancelled()) return error.TaskCancelled;
+        multi_reader.fill(64, poll_timeout) catch |err| switch (err) {
+            error.EndOfStream => break,
+            error.Timeout => {
+                const now = std.Io.Clock.now(.awake, io);
+                const elapsed_ns = started.durationTo(now).nanoseconds;
+                const timeout_ns = @as(i128, control.timeout_ms) *
+                    std.time.ns_per_ms;
+                if (elapsed_ns >= timeout_ns) return error.TaskTimedOut;
+                continue;
+            },
+            else => |other| return other,
+        };
+        if (stdout_reader.buffered().len > 1024 * 1024 or
+            stderr_reader.buffered().len > 1024 * 1024)
+            return error.StreamTooLong;
+    }
+    try multi_reader.checkAnyError();
+    if (stdout_reader.buffered().len > 1024 * 1024 or
+        stderr_reader.buffered().len > 1024 * 1024)
+        return error.StreamTooLong;
+    if (control.cancelled()) return error.TaskCancelled;
+    const term = try child.wait(io);
+    const stdout = try multi_reader.toOwnedSlice(0);
+    defer allocator.free(stdout);
+    const stderr = try multi_reader.toOwnedSlice(1);
+    defer allocator.free(stderr);
+
     var output: std.Io.Writer.Allocating = .init(allocator);
     errdefer output.deinit();
-    try output.writer.writeAll(result.stdout);
-    try output.writer.writeAll(result.stderr);
+    try output.writer.writeAll(stdout);
+    try output.writer.writeAll(stderr);
     return .{
         .output = try output.toOwnedSlice(),
-        .success = switch (result.term) {
+        .success = switch (term) {
             .exited => |code| code == 0,
             else => false,
         },
@@ -331,6 +411,40 @@ pub fn runAlloc(
 fn temporaryRoot(tmp: *std.testing.TmpDir, buffer: []u8) ![]const u8 {
     const length = try tmp.dir.realPath(std.testing.io, buffer);
     return buffer[0..length];
+}
+
+const CancellationProbe = struct {
+    checks: u32 = 0,
+
+    fn cancelled(context: ?*anyopaque) bool {
+        const probe: *CancellationProbe = @ptrCast(@alignCast(context.?));
+        probe.checks += 1;
+        return probe.checks >= 3;
+    }
+};
+
+test "controlled task execution cancels a sleeping process group promptly" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+    var probe: CancellationProbe = .{};
+    const started = std.Io.Clock.now(.awake, std.testing.io);
+    try std.testing.expectError(
+        error.TaskCancelled,
+        runControlledAlloc(
+            std.testing.allocator,
+            std.testing.io,
+            root,
+            .{ .name = "fixture", .argv = &.{ "sh", "-c", "sleep 5" } },
+            .{ .context = &probe, .is_cancelled = CancellationProbe.cancelled },
+        ),
+    );
+    const elapsed_ns = started.durationTo(
+        std.Io.Clock.now(.awake, std.testing.io),
+    ).nanoseconds;
+    try std.testing.expect(probe.checks >= 3);
+    try std.testing.expect(elapsed_ns < 2 * std.time.ns_per_s);
 }
 
 test "detects native build manifests with deterministic precedence" {
