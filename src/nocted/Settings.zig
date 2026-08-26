@@ -36,8 +36,22 @@ pub const Settings = struct {
         }
         if (self.import_paths.items.len >= max_import_paths)
             return error.TooManySyntaxPaths;
-        try self.import_paths.append(try allocator.dupe(u8, path));
+        const owned_path = try allocator.dupe(u8, path);
+        errdefer allocator.free(owned_path);
+        try self.import_paths.append(owned_path);
         return true;
+    }
+
+    pub fn truncateImportPaths(
+        self: *Settings,
+        allocator: std.mem.Allocator,
+        retained_count: usize,
+    ) void {
+        std.debug.assert(retained_count <= self.import_paths.items.len);
+        while (self.import_paths.items.len > retained_count) {
+            const index = self.import_paths.items.len - 1;
+            allocator.free(self.import_paths.orderedRemove(index));
+        }
     }
 
     pub fn setUiFontSize(self: *Settings, value: u8) !void {
@@ -172,6 +186,34 @@ pub fn save(io: std.Io, path: []const u8, settings: *const Settings) !void {
     defer atomic.deinit(io);
     try atomic.file.writeStreamingAll(io, output.writer.buffered());
     try atomic.replace(io);
+}
+
+fn exerciseSyntaxPathAllocationFailures(allocator: std.mem.Allocator) !void {
+    var settings = Settings.init(allocator);
+    defer settings.deinit(allocator);
+    _ = try settings.addImportPath(allocator, "/first");
+    _ = try settings.addImportPath(allocator, "/second");
+}
+
+test "settings syntax path ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseSyntaxPathAllocationFailures,
+        .{},
+    );
+}
+
+test "settings truncates failed syntax path transactions" {
+    const allocator = std.testing.allocator;
+    var settings = Settings.init(allocator);
+    defer settings.deinit(allocator);
+    try std.testing.expect(try settings.addImportPath(allocator, "/first"));
+    const retained_count = settings.import_paths.items.len;
+    try std.testing.expect(try settings.addImportPath(allocator, "/second"));
+    try std.testing.expect(try settings.addImportPath(allocator, "/third"));
+    settings.truncateImportPaths(allocator, retained_count);
+    try std.testing.expectEqual(@as(usize, 1), settings.import_paths.items.len);
+    try std.testing.expectEqualStrings("/first", settings.import_paths.items[0]);
 }
 
 test "settings round trip GUI-owned syntax paths" {

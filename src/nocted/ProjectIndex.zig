@@ -84,11 +84,6 @@ pub const Index = struct {
         return self;
     }
 
-    pub fn cloneAlloc(self: Index, allocator: std.mem.Allocator) !Index {
-        _ = allocator;
-        return self.retain();
-    }
-
     pub fn path(self: Index, entry: Entry) []const u8 {
         const storage = self.storage orelse return &.{};
         const start: usize = entry.path_offset;

@@ -109,11 +109,14 @@ pub const Pane = struct {
 
     pub fn init(allocator: std.mem.Allocator, id: PaneId, title: []const u8, cwd: []const u8) !Pane {
         if (!std.fs.path.isAbsolute(cwd)) return error.InvalidPaneWorkingDirectory;
+        const owned_title = try allocator.dupe(u8, title);
+        errdefer allocator.free(owned_title);
+        const owned_cwd = try allocator.dupe(u8, cwd);
         return .{
             .allocator = allocator,
             .id = id,
-            .title = try allocator.dupe(u8, title),
-            .cwd = try allocator.dupe(u8, cwd),
+            .title = owned_title,
+            .cwd = owned_cwd,
             .tags = std.array_list.Managed([]u8).init(allocator),
         };
     }
@@ -153,7 +156,9 @@ pub const Pane = struct {
     pub fn addTag(self: *Pane, tag: []const u8) !void {
         const trimmed = std.mem.trim(u8, tag, " \t\r\n");
         if (trimmed.len == 0 or self.hasTag(trimmed)) return;
-        try self.tags.append(try self.allocator.dupe(u8, trimmed));
+        const owned_tag = try self.allocator.dupe(u8, trimmed);
+        errdefer self.allocator.free(owned_tag);
+        try self.tags.append(owned_tag);
     }
 
     pub fn hasTag(self: Pane, tag: []const u8) bool {
@@ -175,14 +180,20 @@ pub const Pane = struct {
     }
 
     pub fn setWorktreeRoot(self: *Pane, root_raw: ?[]const u8) !void {
-        if (self.worktree_root) |old| {
-            self.allocator.free(old);
+        const root = root_raw orelse {
+            if (self.worktree_root) |old| self.allocator.free(old);
             self.worktree_root = null;
-        }
-        const root = root_raw orelse return;
+            return;
+        };
         const trimmed = std.mem.trim(u8, root, " \t\r\n");
-        if (trimmed.len == 0) return;
-        self.worktree_root = try self.allocator.dupe(u8, trimmed);
+        if (trimmed.len == 0) {
+            if (self.worktree_root) |old| self.allocator.free(old);
+            self.worktree_root = null;
+            return;
+        }
+        const owned_root = try self.allocator.dupe(u8, trimmed);
+        if (self.worktree_root) |old| self.allocator.free(old);
+        self.worktree_root = owned_root;
     }
 
     pub fn applyProfilePreset(self: *Pane, preset: ProfilePreset, config: Config.Config) !TerminalProfile {
@@ -325,6 +336,37 @@ fn runningStatus(started_at_ms: ?u64, at_ms: u64, threshold_ms: u64) TerminalSta
         }
     }
     return .running;
+}
+
+fn exercisePaneAllocationFailures(allocator: std.mem.Allocator) !void {
+    var pane = try Pane.init(allocator, 1, "agent", "/tmp");
+    defer pane.deinit();
+    try pane.addTag("build");
+    try pane.addTag("review");
+}
+
+test "pane ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exercisePaneAllocationFailures,
+        .{},
+    );
+}
+
+test "pane keeps its worktree root when replacement allocation fails" {
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{});
+    var pane = try Pane.init(failing.allocator(), 1, "agent", "/tmp");
+    defer pane.deinit();
+    try pane.setWorktreeRoot("/first");
+    const aliased_root = pane.worktree_root.?;
+    try pane.setWorktreeRoot(aliased_root);
+    try std.testing.expectEqualStrings("/first", pane.worktree_root.?);
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(
+        error.OutOfMemory,
+        pane.setWorktreeRoot("/second"),
+    );
+    try std.testing.expectEqualStrings("/first", pane.worktree_root.?);
 }
 
 test "status colors separate agent states" {

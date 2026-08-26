@@ -10,11 +10,7 @@ pub const Candidate = struct {
     }
 };
 
-pub fn countLanguageSpecs(
-    allocator: std.mem.Allocator,
-    io: std.Io,
-    path: []const u8,
-) !usize {
+pub fn countLanguageSpecs(io: std.Io, path: []const u8) !usize {
     var directory = try std.Io.Dir.openDirAbsolute(io, path, .{ .iterate = true });
     defer directory.close(io);
     var iterator = directory.iterate();
@@ -24,7 +20,6 @@ pub fn countLanguageSpecs(
             continue;
         count += 1;
     }
-    _ = allocator;
     return count;
 }
 
@@ -53,6 +48,20 @@ pub fn countAdditionalLanguageSpecs(
         if (!already_available) count += 1;
     }
     return count;
+}
+
+fn appendCandidate(
+    allocator: std.mem.Allocator,
+    candidates: *std.array_list.Managed(Candidate),
+    path: []const u8,
+    additional_specs: usize,
+) !void {
+    const owned_path = try allocator.dupe(u8, path);
+    errdefer allocator.free(owned_path);
+    try candidates.append(.{
+        .path = owned_path,
+        .additional_specs = additional_specs,
+    });
 }
 
 pub fn discoverLegacyCandidatesAlloc(
@@ -93,10 +102,7 @@ pub fn discoverLegacyCandidatesAlloc(
             else => return err,
         };
         if (additional == 0) continue;
-        try candidates.append(.{
-            .path = try allocator.dupe(u8, path),
-            .additional_specs = additional,
-        });
+        try appendCandidate(allocator, &candidates, path, additional);
     }
     return candidates.toOwnedSlice();
 }
@@ -104,6 +110,24 @@ pub fn discoverLegacyCandidatesAlloc(
 pub fn deinitCandidates(allocator: std.mem.Allocator, candidates: []Candidate) void {
     for (candidates) |*candidate| candidate.deinit(allocator);
     allocator.free(candidates);
+}
+
+fn exerciseCandidateAllocationFailures(allocator: std.mem.Allocator) !void {
+    var candidates = std.array_list.Managed(Candidate).init(allocator);
+    defer {
+        for (candidates.items) |*candidate| candidate.deinit(allocator);
+        candidates.deinit();
+    }
+    try appendCandidate(allocator, &candidates, "/first", 1);
+    try appendCandidate(allocator, &candidates, "/second", 2);
+}
+
+test "legacy syntax candidate ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseCandidateAllocationFailures,
+        .{},
+    );
 }
 
 test "counts only compatible language definitions missing from baselines" {
@@ -124,7 +148,7 @@ test "counts only compatible language definitions missing from baselines" {
 
     try std.testing.expectEqual(
         @as(usize, 2),
-        try countLanguageSpecs(allocator, io, candidate),
+        try countLanguageSpecs(io, candidate),
     );
     try std.testing.expectEqual(
         @as(usize, 1),

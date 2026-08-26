@@ -75,17 +75,19 @@ pub const SplitLayout = struct {
     }
 
     pub fn setSingle(self: *SplitLayout, pane_id: Terminal.PaneId) !void {
+        try self.nodes.ensureTotalCapacity(1);
         self.nodes.clearRetainingCapacity();
-        try self.nodes.append(.{ .kind = .leaf, .pane_id = pane_id });
+        self.nodes.appendAssumeCapacity(.{ .kind = .leaf, .pane_id = pane_id });
         self.root = 0;
     }
 
     pub fn splitPane(self: *SplitLayout, pane_id: Terminal.PaneId, new_pane_id: Terminal.PaneId, direction: SplitDirection) !void {
         const idx = self.findLeafByPane(pane_id) orelse return error.PaneNotInLayout;
+        try self.nodes.ensureUnusedCapacity(2);
         const old_leaf_idx = self.nodes.items.len;
-        try self.nodes.append(.{ .kind = .leaf, .pane_id = pane_id });
+        self.nodes.appendAssumeCapacity(.{ .kind = .leaf, .pane_id = pane_id });
         const new_leaf_idx = self.nodes.items.len;
-        try self.nodes.append(.{ .kind = .leaf, .pane_id = new_pane_id });
+        self.nodes.appendAssumeCapacity(.{ .kind = .leaf, .pane_id = new_pane_id });
 
         const horizontal = direction == .left or direction == .right;
         self.nodes.items[idx] = .{
@@ -143,9 +145,15 @@ pub const SplitLayout = struct {
     }
 
     pub fn setGrid(self: *SplitLayout, pane_ids: []const Terminal.PaneId, rows: usize, cols: usize) !void {
-        if (rows == 0 or cols == 0 or pane_ids.len != rows * cols) return error.InvalidGrid;
-        self.nodes.clearRetainingCapacity();
-        self.root = try self.buildRows(pane_ids, rows, cols, 0);
+        if (rows == 0 or cols == 0) return error.InvalidGrid;
+        const expected_count = std.math.mul(usize, rows, cols) catch
+            return error.InvalidGrid;
+        if (pane_ids.len != expected_count) return error.InvalidGrid;
+        var replacement = SplitLayout.init(self.allocator);
+        errdefer replacement.deinit();
+        replacement.root = try replacement.buildRows(pane_ids, rows, cols, 0);
+        std.mem.swap(SplitLayout, self, &replacement);
+        replacement.deinit();
     }
 
     fn buildRows(self: *SplitLayout, pane_ids: []const Terminal.PaneId, rows: usize, cols: usize, row: usize) !usize {
@@ -1888,8 +1896,11 @@ pub const Tab = struct {
 
         const pane_title = try std.fmt.allocPrint(allocator, "terminal-{d}", .{first_pane_id});
         defer allocator.free(pane_title);
-        const pane = try Terminal.Pane.init(allocator, first_pane_id, pane_title, cwd);
+        var pane = try Terminal.Pane.init(allocator, first_pane_id, pane_title, cwd);
+        var pane_owned = true;
+        errdefer if (pane_owned) pane.deinit();
         try tab.panes.append(pane);
+        pane_owned = false;
         try tab.layout.setSingle(first_pane_id);
         return tab;
     }
@@ -1932,8 +1943,14 @@ pub const Tab = struct {
         const active = self.findPane(self.active_pane_id) orelse return error.ActivePaneMissing;
         const title = try std.fmt.allocPrint(self.allocator, "terminal-{d}", .{id});
         defer self.allocator.free(title);
-        const pane = try active.cloneForSplit(id, title);
+        var pane = try active.cloneForSplit(id, title);
+        var appended = false;
+        errdefer if (appended) {
+            var removed = self.panes.pop().?;
+            removed.deinit();
+        } else pane.deinit();
         try self.panes.append(pane);
+        appended = true;
         try self.layout.splitPane(self.active_pane_id, id, direction);
         self.active_pane_id = id;
         self.zoomed_pane_id = null;
@@ -1964,17 +1981,22 @@ pub const Tab = struct {
     pub fn applyPreset(self: *Tab, preset: LayoutPreset, next_id: *Terminal.PaneId) !void {
         const dimensions = preset.dimensions();
         const target_count = dimensions.rows * dimensions.cols;
-        while (self.panes.items.len > target_count) {
+        const original_count = self.panes.items.len;
+        var candidate_next_id = next_id.*;
+        errdefer while (self.panes.items.len > original_count) {
             var pane = self.panes.pop().?;
             pane.deinit();
-        }
+        };
         while (self.panes.items.len < target_count) {
-            const id = next_id.*;
-            next_id.* += 1;
+            const id = candidate_next_id;
+            candidate_next_id = std.math.add(Terminal.PaneId, id, 1) catch
+                return error.PaneIdExhausted;
             const title = try std.fmt.allocPrint(self.allocator, "terminal-{d}", .{id});
             defer self.allocator.free(title);
             const base = self.panes.items[0];
-            try self.panes.append(try base.cloneForSplit(id, title));
+            var pane = try base.cloneForSplit(id, title);
+            errdefer pane.deinit();
+            try self.panes.append(pane);
         }
 
         const rows = dimensions.rows;
@@ -1983,6 +2005,11 @@ pub const Tab = struct {
         defer self.allocator.free(ids);
         for (ids, 0..) |*slot, idx| slot.* = self.panes.items[idx].id;
         try self.layout.setGrid(ids, rows, cols);
+        while (self.panes.items.len > target_count) {
+            var pane = self.panes.pop().?;
+            pane.deinit();
+        }
+        next_id.* = candidate_next_id;
         self.active_pane_id = ids[0];
         self.zoomed_pane_id = null;
     }
@@ -2093,7 +2120,9 @@ pub const Workspace = struct {
             .quick_note = try allocator.dupe(u8, ""),
         };
         errdefer workspace.deinit();
-        try workspace.tabs.append(try Tab.init(allocator, 1, "Tab 1", cwd, 1));
+        var first_tab = try Tab.init(allocator, 1, "Tab 1", cwd, 1);
+        errdefer first_tab.deinit();
+        try workspace.tabs.append(first_tab);
         return workspace;
     }
 
@@ -2266,12 +2295,20 @@ pub const Workspace = struct {
     }
 
     pub fn setSmartFilterTag(self: *Workspace, tag: ?[]const u8) !void {
-        if (self.smart_filter_tag) |old| self.allocator.free(old);
-        self.smart_filter_tag = null;
-        if (tag) |value| {
-            const trimmed = std.mem.trim(u8, value, " \t\r\n");
-            if (trimmed.len > 0) self.smart_filter_tag = try self.allocator.dupe(u8, trimmed);
+        const value = tag orelse {
+            if (self.smart_filter_tag) |old| self.allocator.free(old);
+            self.smart_filter_tag = null;
+            return;
+        };
+        const trimmed = std.mem.trim(u8, value, " \t\r\n");
+        if (trimmed.len == 0) {
+            if (self.smart_filter_tag) |old| self.allocator.free(old);
+            self.smart_filter_tag = null;
+            return;
         }
+        const owned_tag = try self.allocator.dupe(u8, trimmed);
+        if (self.smart_filter_tag) |old| self.allocator.free(old);
+        self.smart_filter_tag = owned_tag;
     }
 
     pub fn paneMatchesSmartFilter(self: Workspace, pane_id: Terminal.PaneId) bool {
@@ -2297,10 +2334,16 @@ pub const Workspace = struct {
 
     pub fn addTab(self: *Workspace, title: []const u8, cwd: []const u8) !u64 {
         const id = self.next_tab_id;
-        self.next_tab_id += 1;
+        const next_tab_id = std.math.add(u64, id, 1) catch
+            return error.TabIdExhausted;
         const pane_id = self.next_pane_id;
-        self.next_pane_id += 1;
-        try self.tabs.append(try Tab.init(self.allocator, id, title, cwd, pane_id));
+        const next_pane_id = std.math.add(Terminal.PaneId, pane_id, 1) catch
+            return error.PaneIdExhausted;
+        var tab = try Tab.init(self.allocator, id, title, cwd, pane_id);
+        errdefer tab.deinit();
+        try self.tabs.append(tab);
+        self.next_tab_id = next_tab_id;
+        self.next_pane_id = next_pane_id;
         self.active_tab = self.tabs.items.len - 1;
         return id;
     }
@@ -2438,8 +2481,11 @@ pub const Workspace = struct {
     pub fn splitActivePane(self: *Workspace, direction: SplitDirection) !Terminal.PaneId {
         const tab = self.activeTab() orelse return error.NoActiveTab;
         const id = self.next_pane_id;
-        self.next_pane_id += 1;
-        return tab.splitActive(id, direction);
+        const next_pane_id = std.math.add(Terminal.PaneId, id, 1) catch
+            return error.PaneIdExhausted;
+        const result = try tab.splitActive(id, direction);
+        self.next_pane_id = next_pane_id;
+        return result;
     }
 
     pub fn setQuickNote(self: *Workspace, text: []const u8) !usize {
@@ -2738,6 +2784,77 @@ pub const PaneCloseResult = struct {
     active_tab_id: u64,
     active_pane_id: Terminal.PaneId,
 };
+
+test "layout and tab mutation remain unchanged on allocation failure" {
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{});
+    const allocator = failing.allocator();
+
+    var layout = SplitLayout.init(allocator);
+    defer layout.deinit();
+    try layout.setSingle(7);
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(
+        error.OutOfMemory,
+        layout.setGrid(&.{ 7, 8, 9, 10 }, 2, 2),
+    );
+    try std.testing.expectEqual(@as(?usize, 0), layout.root);
+    try std.testing.expectEqual(@as(usize, 1), layout.nodes.items.len);
+    try std.testing.expectEqual(@as(Terminal.PaneId, 7), layout.nodes.items[0].pane_id);
+    failing.fail_index = std.math.maxInt(usize);
+    layout.nodes.shrinkAndFree(layout.nodes.items.len);
+    try std.testing.expectEqual(layout.nodes.items.len, layout.nodes.capacity);
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(
+        error.OutOfMemory,
+        layout.splitPane(7, 8, .right),
+    );
+    try std.testing.expectEqual(@as(?usize, 0), layout.root);
+    try std.testing.expectEqual(@as(usize, 1), layout.nodes.items.len);
+    try std.testing.expectEqual(@as(Terminal.PaneId, 7), layout.nodes.items[0].pane_id);
+
+    failing.fail_index = std.math.maxInt(usize);
+    var workspace = try Workspace.init(allocator, "/tmp");
+    defer workspace.deinit();
+    const tab_id_before = workspace.next_tab_id;
+    const pane_id_before = workspace.next_pane_id;
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(
+        error.OutOfMemory,
+        workspace.addTab("Second", "/tmp"),
+    );
+    try std.testing.expectEqual(@as(usize, 1), workspace.tabs.items.len);
+    try std.testing.expectEqual(tab_id_before, workspace.next_tab_id);
+    try std.testing.expectEqual(pane_id_before, workspace.next_pane_id);
+
+    failing.fail_index = std.math.maxInt(usize);
+    try workspace.setSmartFilterTag("first");
+    const aliased_filter = workspace.smart_filter_tag.?;
+    try workspace.setSmartFilterTag(aliased_filter);
+    try std.testing.expectEqualStrings("first", workspace.smart_filter_tag.?);
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(
+        error.OutOfMemory,
+        workspace.setSmartFilterTag("second"),
+    );
+    try std.testing.expectEqualStrings("first", workspace.smart_filter_tag.?);
+}
+
+fn exerciseWorkspaceAllocationFailures(allocator: std.mem.Allocator) !void {
+    var workspace = try Workspace.init(allocator, "/tmp");
+    defer workspace.deinit();
+    _ = try workspace.addTab("Second", "/tmp");
+    _ = try workspace.splitActivePane(.right);
+    try workspace.applyPresetToActiveTab(.four_by_four);
+    try workspace.applyPresetToActiveTab(.one_by_one);
+}
+
+test "workspace ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseWorkspaceAllocationFailures,
+        .{},
+    );
+}
 
 test "workspace gives new tabs numbered default titles" {
     var workspace = try Workspace.init(std.testing.allocator, "/tmp");

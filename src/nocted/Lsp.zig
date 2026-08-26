@@ -539,17 +539,24 @@ fn appendFileEdits(
         const range = objectField(value, "range") orelse return error.InvalidTextEdit;
         const start = objectField(range, "start") orelse return error.InvalidTextEdit;
         const end = objectField(range, "end") orelse return error.InvalidTextEdit;
+        const owned_text = try allocator.dupe(u8, new_text);
+        errdefer allocator.free(owned_text);
         try edits.append(.{
             .start_line = try unsignedField(start, "line"),
             .start_character = try unsignedField(start, "character"),
             .end_line = try unsignedField(end, "line"),
             .end_character = try unsignedField(end, "character"),
-            .new_text = try allocator.dupe(u8, new_text),
+            .new_text = owned_text,
         });
     }
     const owned_uri = try allocator.dupe(u8, uri);
     errdefer allocator.free(owned_uri);
-    try output.append(.{ .uri = owned_uri, .edits = try edits.toOwnedSlice() });
+    const owned_edits = try edits.toOwnedSlice();
+    errdefer {
+        for (owned_edits) |edit| allocator.free(edit.new_text);
+        allocator.free(owned_edits);
+    }
+    try output.append(.{ .uri = owned_uri, .edits = owned_edits });
 }
 
 fn objectField(value: std.json.Value, name: []const u8) ?std.json.Value {
@@ -705,6 +712,24 @@ test "parses completion edits" {
     }
     try std.testing.expectEqualStrings("alpha", completions[0].label);
     try std.testing.expectEqualStrings("alpha()", completions[0].edit.new_text);
+}
+
+fn exerciseWorkspaceEditAllocationFailures(allocator: std.mem.Allocator) !void {
+    const response =
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"changes\":{\"file:///tmp/a.zig\":[{\"range\":{\"start\":{\"line\":0,\"character\":1},\"end\":{\"line\":0,\"character\":2}},\"newText\":\"x\"}],\"file:///tmp/b.zig\":[{\"range\":{\"start\":{\"line\":1,\"character\":0},\"end\":{\"line\":1,\"character\":1}},\"newText\":\"y\"}]}}}";
+    const edits = try editsAlloc(allocator, response, "file:///tmp/fallback.zig");
+    defer {
+        for (edits) |*item| item.deinit(allocator);
+        allocator.free(edits);
+    }
+}
+
+test "workspace edit ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseWorkspaceEditAllocationFailures,
+        .{},
+    );
 }
 
 test "parses formatting and workspace edits" {

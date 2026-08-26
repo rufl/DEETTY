@@ -12,6 +12,7 @@ main=src/main.zig
 pty=src/terminal/Pty.zig
 vt=src/terminal/Vt.zig
 nocted=src/nocted/main.zig
+nocted_settings=src/nocted/Settings.zig
 nocted_task=src/nocted/Task.zig
 nocted_worker=src/nocted/Worker.zig
 isolated_x11=scripts/run_isolated_x11.sh
@@ -25,7 +26,7 @@ windows_main=src/windows/main.zig
 windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_package" "$windows_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_package" "$windows_smoke"; do
   test -s "$path"
 done
 
@@ -101,6 +102,14 @@ grep -F 'g_unix_fd_add_full(' "$grid" >/dev/null
 grep -F 'const child_pid = std.c.fork();' "$pty" >/dev/null
 grep -F 'const read_length = std.c.read(fd, buffer.ptr, buffer.len);' "$pty" >/dev/null
 grep -F 'childCloseInheritedDescriptors();' "$pty" >/dev/null
+! grep -R -E --include='*.zig' '(append|insert)\(try ' src >/dev/null
+! grep -R -F --include='*.zig' '_ = allocator;' src >/dev/null
+grep -F 'checkAllAllocationFailures' src/nocted/Settings.zig >/dev/null
+grep -F 'checkAllAllocationFailures' src/nocted/Session.zig >/dev/null
+grep -F 'checkAllAllocationFailures' src/nocted/Lsp.zig >/dev/null
+grep -F 'checkAllAllocationFailures' src/nocted/SyntaxDiscovery.zig >/dev/null
+grep -F 'checkAllAllocationFailures' src/terminal/Terminal.zig >/dev/null
+grep -F 'checkAllAllocationFailures' src/workspace/Workspace.zig >/dev/null
 grep -F '_ = execve(options.program.ptr' "$pty" >/dev/null
 grep -F 'pub fn packedRow(self: Grid, row: usize, output: []u64) usize {' "$vt" >/dev/null
 
@@ -122,6 +131,9 @@ grep -F 'render=widget nonblack_samples=%zu' "$nocted" >/dev/null
 grep -F 'total_phase_cycles=$((total_cycles * 4))' "$nocted_endurance" >/dev/null
 grep -F 'No file open; use File > New File or Open File' "$nocted" >/dev/null
 grep -F 'app.newDocument() catch' "$nocted" >/dev/null
+grep -F 'pub fn truncateImportPaths(' "$nocted_settings" >/dev/null
+grep -F 'self.settings.truncateImportPaths(self.allocator, retained_count);' "$nocted" >/dev/null
+grep -F 'session save failed during window teardown' "$nocted" >/dev/null
 grep -F 'native_grid_stability_matrix' "$stability" >/dev/null
 grep -F 'if (hasFile(io, root, "Cargo.toml")) return cargoPlan(action);' "$nocted_task" >/dev/null
 grep -F 'if (hasFile(io, root, "go.mod")) return goPlan(action);' "$nocted_task" >/dev/null
@@ -147,4 +159,4 @@ grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v4=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true procfs_exit_race_quiet=true nocted_accessible=true nocted_startup_untitled=true nocted_tasks=9 task_process_group=true task_cancel_poll_ms=50 task_term_grace_ms=100 task_stream_cap=true task_activation_environment=false task_environment_required=true manifest_regular_files=true native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true isolated_x11=true isolated_wayland=true shared_x11_runner=true private_xdg=true active_display_inherited=false no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'
+echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true zig_state=true named_launch_options=true abi_v4=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true mapped_authenticated_agent=true mapped_installed_continuity=true inherited_fds_closed=true procfs_exit_race_quiet=true allocation_ownership=true allocator_noops=false transactional_layout=true nocted_accessible=true nocted_startup_untitled=true nocted_syntax_transaction=true nocted_teardown_save_logged=true nocted_tasks=9 task_process_group=true task_cancel_poll_ms=50 task_term_grace_ms=100 task_stream_cap=true task_activation_environment=false task_environment_required=true manifest_regular_files=true native_tab_target=28 nocted_tab_target=28 nocted_transient_target=28 nocted_widget_capture=true nocted_native_endurance=true isolated_x11=true isolated_wayland=true shared_x11_runner=true private_xdg=true active_display_inherited=false no_file_recovery_copy=true strict_c_warnings=true embedded_editor=false'

@@ -68,8 +68,11 @@ pub const State = struct {
         for (self.recent_projects.items, 0..) |existing, index| {
             if (std.mem.eql(u8, existing, project)) existing_index = index;
         }
-        if (existing_index) |index| allocator.free(self.recent_projects.orderedRemove(index));
-        try self.recent_projects.insert(0, try allocator.dupe(u8, project));
+        const owned_project = try allocator.dupe(u8, project);
+        errdefer allocator.free(owned_project);
+        try self.recent_projects.insert(0, owned_project);
+        if (existing_index) |index|
+            allocator.free(self.recent_projects.orderedRemove(index + 1));
         while (self.recent_projects.items.len > max_recent_projects)
             allocator.free(self.recent_projects.pop().?);
     }
@@ -112,7 +115,11 @@ pub const State = struct {
             clearTabs(allocator, &new_tabs);
             new_tabs.deinit();
         }
-        for (tabs) |tab| try new_tabs.append(try cloneTab(allocator, tab));
+        for (tabs) |tab| {
+            var cloned = try cloneTab(allocator, tab);
+            errdefer cloned.deinit(allocator);
+            try new_tabs.append(cloned);
+        }
 
         if (self.project) |value| allocator.free(value);
         clearTabs(allocator, &self.tabs);
@@ -208,7 +215,9 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !State {
             try validatePath(value);
             if (containsPath(state.recent_projects.items, value))
                 return error.DuplicateRecentProject;
-            try state.recent_projects.append(try allocator.dupe(u8, value));
+            const owned_recent = try allocator.dupe(u8, value);
+            errdefer allocator.free(owned_recent);
+            try state.recent_projects.append(owned_recent);
         } else switch (current_version) {
             1 => {
                 if (std.mem.eql(u8, key, "active")) {
@@ -410,6 +419,35 @@ fn clearTabs(
     tabs.clearRetainingCapacity();
 }
 
+fn exerciseSessionAllocationFailures(allocator: std.mem.Allocator) !void {
+    var state = State.init(allocator);
+    defer state.deinit(allocator);
+    try state.rememberProject(allocator, "/project/one");
+    try state.rememberProject(allocator, "/project/two");
+    try state.rememberProject(allocator, "/project/one");
+    try state.setSession(
+        allocator,
+        "/project/one",
+        &.{
+            .{ .path = "/project/one/a.zig", .display_name = "a.zig" },
+            .{
+                .path = null,
+                .display_name = "Untitled",
+                .contents = "dirty",
+            },
+        },
+        1,
+    );
+}
+
+test "session ownership survives allocation failures" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseSessionAllocationFailures,
+        .{},
+    );
+}
+
 test "recent projects are unique most-recent-first and bounded" {
     var state = State.init(std.testing.allocator);
     defer state.deinit(std.testing.allocator);
@@ -423,6 +461,15 @@ test "recent projects are unique most-recent-first and bounded" {
     try state.rememberProject(std.testing.allocator, "/tmp/project-7");
     try std.testing.expectEqualStrings("/tmp/project-7", state.recent_projects.items[0]);
     try std.testing.expectEqual(max_recent_projects, state.recent_projects.items.len);
+    const aliased_project = state.recent_projects.items[3];
+    var expected_buffer: [64]u8 = undefined;
+    const expected_length = @min(aliased_project.len, expected_buffer.len);
+    @memcpy(expected_buffer[0..expected_length], aliased_project[0..expected_length]);
+    try state.rememberProject(std.testing.allocator, aliased_project);
+    try std.testing.expectEqualStrings(
+        expected_buffer[0..expected_length],
+        state.recent_projects.items[0],
+    );
 }
 
 test "session rejects tabs beyond the hot-exit ownership cap" {

@@ -769,6 +769,16 @@ fn utf8ByteOffset(text: []const u8, character_offset: usize) ?usize {
     return iterator.i;
 }
 
+fn appendOwnedLanguagePath(
+    allocator: std.mem.Allocator,
+    paths: *std.array_list.Managed([:0]u8),
+    path: []const u8,
+) !void {
+    const owned_path = try allocator.dupeZ(u8, path);
+    errdefer allocator.free(owned_path);
+    try paths.append(owned_path);
+}
+
 const App = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -1448,7 +1458,9 @@ const App = struct {
         var index: usize = 0;
         while (paths[index] != null) : (index += 1) {
             const path = std.mem.span(paths[index].?);
-            try self.default_language_paths.append(try self.allocator.dupe(u8, path));
+            const owned_path = try self.allocator.dupe(u8, path);
+            errdefer self.allocator.free(owned_path);
+            try self.default_language_paths.append(owned_path);
         }
     }
 
@@ -1465,16 +1477,20 @@ const App = struct {
             "language-specs",
         });
         defer self.allocator.free(bundled);
-        try owned.append(try self.allocator.dupeZ(u8, self.generated_language_path));
+        try appendOwnedLanguagePath(
+            self.allocator,
+            &owned,
+            self.generated_language_path,
+        );
         try pointers.append(owned.items[owned.items.len - 1].ptr);
-        try owned.append(try self.allocator.dupeZ(u8, bundled));
+        try appendOwnedLanguagePath(self.allocator, &owned, bundled);
         try pointers.append(owned.items[owned.items.len - 1].ptr);
         for (self.settings.import_paths.items) |path| {
-            try owned.append(try self.allocator.dupeZ(u8, path));
+            try appendOwnedLanguagePath(self.allocator, &owned, path);
             try pointers.append(owned.items[owned.items.len - 1].ptr);
         }
         for (self.default_language_paths.items) |path| {
-            try owned.append(try self.allocator.dupeZ(u8, path));
+            try appendOwnedLanguagePath(self.allocator, &owned, path);
             try pointers.append(owned.items[owned.items.len - 1].ptr);
         }
         try pointers.append(null);
@@ -4516,7 +4532,6 @@ const App = struct {
 
     fn importSyntaxDirectory(self: *App, path: []const u8) void {
         const count = core.syntax_discovery.countLanguageSpecs(
-            self.allocator,
             self.io,
             path,
         ) catch {
@@ -4527,13 +4542,15 @@ const App = struct {
             self.updateStatus("No compatible .lang definitions found");
             return;
         }
-        const added = self.settings.addImportPath(self.allocator, path) catch {
-            self.updateStatus("Syntax path limit reached");
+        const retained_count = self.settings.import_paths.items.len;
+        const added = self.settings.addImportPath(self.allocator, path) catch |err| {
+            self.showWorkerError("Syntax path unavailable", err);
             return;
         };
         if (added) {
-            self.reloadSyntaxPaths() catch {
-                self.updateStatus("Unable to reload syntax definitions");
+            self.reloadSyntaxPaths() catch |err| {
+                self.settings.truncateImportPaths(self.allocator, retained_count);
+                self.showWorkerError("Unable to reload syntax definitions", err);
                 return;
             };
             self.persistSettings();
@@ -4658,13 +4675,24 @@ const App = struct {
         c.gtk_widget_destroy(dialog);
         self.settings.syntax_prompt_done = true;
         if (response == c.GTK_RESPONSE_ACCEPT) {
+            const retained_count = self.settings.import_paths.items.len;
             for (candidates) |candidate| {
                 _ = self.settings.addImportPath(
                     self.allocator,
                     candidate.path,
-                ) catch {};
+                ) catch |err| {
+                    self.settings.truncateImportPaths(self.allocator, retained_count);
+                    self.settings.syntax_prompt_done = false;
+                    self.showWorkerError("Legacy syntax import failed", err);
+                    return;
+                };
             }
-            self.applySyntaxPaths() catch {};
+            self.applySyntaxPaths() catch |err| {
+                self.settings.truncateImportPaths(self.allocator, retained_count);
+                self.settings.syntax_prompt_done = false;
+                self.showWorkerError("Legacy syntax activation failed", err);
+                return;
+            };
         }
         self.persistSettings();
     }
@@ -6885,7 +6913,9 @@ fn treeValueUInt64(model: *c.GtkTreeModel, iter: *c.GtkTreeIter, column: c_int) 
 
 fn onWindowDestroy(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
-    if (!app.shutting_down) app.persistSession() catch {};
+    if (!app.shutting_down) app.persistSession() catch |err| {
+        log.err("session save failed during window teardown: {s}", .{@errorName(err)});
+    };
     app.shutting_down = true;
     app.status_widgets_ready = false;
     c.gtk_main_quit();
