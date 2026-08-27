@@ -7696,11 +7696,11 @@ static void set_grid_window_title(NocttyGridContext *context,
     const char *prefix = root->mode == 0
         ? "NOCTTY Dropdown — "
         : root->mode == 2 ? "NOCTTY Zen — " : "";
-    gchar *display = g_strconcat(prefix, title, NULL);
+    char display[576];
+    g_snprintf(display, sizeof(display), "%s%s", prefix, title);
     const gchar *current = gtk_window_get_title(GTK_WINDOW(window));
     if (g_strcmp0(current, display) != 0)
         gtk_window_set_title(GTK_WINDOW(window), display);
-    g_free(display);
 }
 
 static int pump_grid_context(NocttyGridContext *context,

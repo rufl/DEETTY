@@ -18,7 +18,7 @@ for compositor in niri hyprland sway scroll labwc mango; do
     )"
     printf '%s\n' "$output" | grep -F "noctalia active=true supported=true version=v5 compositor=$compositor" >/dev/null
     printf '%s\n' "$output" | grep -F 'activation=dbus command=noctty --toggle service=com.noctty.NOCTTY' >/dev/null
-    printf '%s\n' "$output" | grep -F 'surface=toplevel identity=noctty-dropdown notifications=org.freedesktop.Notifications' >/dev/null
+    printf '%s\n' "$output" | grep -F 'surface=toplevel app_id=com.noctty.NOCTTY title_prefix=NOCTTY_Dropdown notifications=org.freedesktop.Notifications' >/dev/null
     printf '%s\n' "$output" | grep -F 'binding=' | grep -v 'unavailable' >/dev/null
     printf '%s\n' "$output" | grep -F 'autostart=' | grep -F 'noctty --hidden' >/dev/null ||
         printf '%s\n' "$output" | grep -F 'autostart=' | grep -F '"noctty" "--hidden"' >/dev/null

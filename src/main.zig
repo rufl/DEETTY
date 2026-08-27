@@ -7594,7 +7594,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
         .use_layer_shell = 0,
     });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
-    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true identity=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true\n", .{});
+    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=com.noctty.NOCTTY title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true\n", .{});
 }
 
 fn nativeGridWorkspaceActivationSmoke(

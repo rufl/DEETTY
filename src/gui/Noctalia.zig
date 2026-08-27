@@ -146,7 +146,7 @@ pub fn writePlan(writer: anytype, detection: Detection, shortcut: Config.Shortcu
         @tagName(detection.compositor),
     });
     try writer.writeAll("activation=dbus command=noctty --toggle service=com.noctty.NOCTTY\n");
-    try writer.writeAll("surface=toplevel identity=noctty-dropdown notifications=org.freedesktop.Notifications\n");
+    try writer.writeAll("surface=toplevel app_id=com.noctty.NOCTTY title_prefix=NOCTTY_Dropdown notifications=org.freedesktop.Notifications\n");
     if (!detection.compositor.isNoctaliaSupported()) {
         try writer.writeAll("binding=unavailable\nautostart=unavailable\n");
         return;

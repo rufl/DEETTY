@@ -59,4 +59,4 @@ fi
 rm -f "$ready"
 trap - EXIT
 cat "$output"
-grep -F 'native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true identity=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true' "$output" >/dev/null
+grep -F 'native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=com.noctty.NOCTTY title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true' "$output" >/dev/null
