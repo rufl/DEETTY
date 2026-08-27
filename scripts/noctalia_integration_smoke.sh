@@ -52,6 +52,9 @@ for path in \
 done
 
 grep -F 'F10 { spawn "noctty" "--toggle"; }' resources/noctalia/niri.kdl >/dev/null
+grep -F 'match app-id=r#"^com\.noctty\.NOCTTY$"# title=r#"^NOCTTY Dropdown(?: —|$)"#' resources/noctalia/niri.kdl >/dev/null
+grep -F 'open-floating true' resources/noctalia/niri.kdl >/dev/null
+grep -F 'default-floating-position x=0 y=0 relative-to="top"' resources/noctalia/niri.kdl >/dev/null
 grep -F 'hl.bind("F10", hl.dsp.exec_cmd("noctty --toggle"))' resources/noctalia/hyprland.lua >/dev/null
 grep -F 'bind = , F10, exec, noctty --toggle' resources/noctalia/hyprland.conf >/dev/null
 grep -F 'bindsym F10 exec noctty --toggle' resources/noctalia/sway.conf >/dev/null

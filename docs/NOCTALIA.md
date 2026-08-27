@@ -28,7 +28,7 @@ noctty --toggle
 
 `noctty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `noctty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel with `noctty-dropdown` identity, keep-above behavior, and bounded configured dimensions. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, and native windowed/zen transitions. Plasma retains the layer-shell path for its top-edge placement. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface.
+In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel. NOCTTY exposes the stable `com.noctty.NOCTTY` app ID and a `NOCTTY Dropdown — …` title prefix so compositor rules can distinguish dropdown surfaces from windowed and zen modes. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, bounded dimensions, and native mode transitions. Plasma retains the layer-shell path for exact client-owned top-edge placement.
 
 Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive NOCTTY completion notifications through `org.freedesktop.Notifications`.
 
@@ -53,7 +53,7 @@ noctty --noctalia-plan mango
 
 Ready-to-merge F10 fragments are installed under `share/noctty/noctalia/`:
 
-- `niri.kdl`
+- `niri.kdl`, including F10/autostart plus the required floating top-edge window rule for dependency-free dropdowns
 - `hyprland.lua` for current v5 guidance and `hyprland.conf` for v4/traditional configurations
 - `sway.conf`
 - `scroll.conf`

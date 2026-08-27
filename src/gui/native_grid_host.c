@@ -7687,6 +7687,22 @@ static void record_dogfood_omp_output(NocttyGridContext *context,
         context->dogfood_omp_feed_failed = 1;
 }
 
+static void set_grid_window_title(NocttyGridContext *context,
+                                  GtkWidget *window,
+                                  const char *title) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (!GTK_IS_WINDOW(window) || title == NULL || title[0] == '\0')
+        return;
+    const char *prefix = root->mode == 0
+        ? "NOCTTY Dropdown — "
+        : root->mode == 2 ? "NOCTTY Zen — " : "";
+    gchar *display = g_strconcat(prefix, title, NULL);
+    const gchar *current = gtk_window_get_title(GTK_WINDOW(window));
+    if (g_strcmp0(current, display) != 0)
+        gtk_window_set_title(GTK_WINDOW(window), display);
+    g_free(display);
+}
+
 static int pump_grid_context(NocttyGridContext *context,
                              gboolean *exited_now) {
     if (!grid_context_session_available(context) || context->exited)
@@ -7696,6 +7712,7 @@ static int pump_grid_context(NocttyGridContext *context,
         : -2;
     record_dogfood_omp_output(context, pumped);
     if (pumped != -2) schedule_grid_write_flush(context);
+
     if (pumped == 0) {
         (void)noctty_grid_close_transport(context->userdata);
         context->pty_fd = -2;
@@ -7719,12 +7736,9 @@ static int pump_grid_context(NocttyGridContext *context,
                 update_compact_tab(context);
             }
             if ((context->focused || context->primary) &&
-                root_grid_context(context)->workspace_smoke != 39) {
-                const gchar *current_title =
-                    gtk_window_get_title(GTK_WINDOW(context->window));
-                if (g_strcmp0(current_title, title) != 0)
-                    gtk_window_set_title(GTK_WINDOW(context->window), title);
-            }
+                root_grid_context(context)->workspace_smoke != 39)
+                set_grid_window_title(
+                    context, root_grid_context(context)->window, title);
         }
 
         uint64_t bell_serial = noctty_grid_bell_serial(context->userdata);
@@ -10905,8 +10919,9 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     root->application_icon_ready = g_strcmp0(
         gtk_window_get_icon_name(GTK_WINDOW(window)),
         "com.noctty.NOCTTY") == 0;
-    gtk_window_set_title(
-        GTK_WINDOW(window),
+    set_grid_window_title(
+        root,
+        window,
         root->workspace_smoke == 39
             ? "NOCTTY installed continuity qualification"
             : "NOCTTY native grid");
@@ -10934,8 +10949,9 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
 
     gboolean was_presented = root->window_presented &&
         gtk_widget_get_visible(old_window);
-    const char *old_title = gtk_window_get_title(GTK_WINDOW(old_window));
-    char *title = g_strdup(old_title);
+    NocttyGridContext *title_context = active_grid_context(root);
+    const char *title = title_context != NULL
+        ? title_context->display_title : NULL;
     gboolean reopen_settings = GTK_IS_WINDOW(root->settings_dialog) &&
         gtk_widget_get_visible(root->settings_dialog);
     if (reopen_settings) gtk_widget_destroy(root->settings_dialog);
@@ -10954,8 +10970,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
 
     root->layer_shell_active = 0;
     root->window = create_grid_toplevel(root);
-    if (title != NULL) gtk_window_set_title(GTK_WINDOW(root->window), title);
-    g_free(title);
+    if (title != NULL) set_grid_window_title(root, root->window, title);
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++)
         ((NocttyGridContext *)g_ptr_array_index(root->contexts, index))
@@ -18292,6 +18307,11 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          hot_session_color_rendered && hot_session_tag_tooltip &&
          hot_session_profile);
     int layer_shell_was_active = context.layer_shell_active;
+    const gchar *final_window_title =
+        gtk_window_get_title(GTK_WINDOW(context.window));
+    int dropdown_identity_ready = workspace_smoke != 16 ||
+        (final_window_title != NULL &&
+         g_str_has_prefix(final_window_title, "NOCTTY Dropdown"));
     dismiss_grid_popup_windows(&context);
     while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
     gtk_widget_destroy(context.window);
@@ -18401,6 +18421,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.requested_shortcut_key == 16777273);
     int control_ok = workspace_smoke != 16 ||
         (!layer_shell_was_active && control_was_registered &&
+         dropdown_identity_ready &&
          context.control_status_seen && context.control_status_count >= 2 &&
          context.control_show_seen && context.control_hide_seen &&
          context.control_toggle_seen &&
