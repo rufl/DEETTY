@@ -18,6 +18,7 @@ for compositor in niri hyprland sway scroll labwc mango; do
     )"
     printf '%s\n' "$output" | grep -F "noctalia active=true supported=true version=v5 compositor=$compositor" >/dev/null
     printf '%s\n' "$output" | grep -F 'activation=dbus command=noctty --toggle service=com.noctty.NOCTTY' >/dev/null
+    printf '%s\n' "$output" | grep -F 'surface=toplevel identity=noctty-dropdown notifications=org.freedesktop.Notifications' >/dev/null
     printf '%s\n' "$output" | grep -F 'binding=' | grep -v 'unavailable' >/dev/null
     printf '%s\n' "$output" | grep -F 'autostart=' | grep -F 'noctty --hidden' >/dev/null ||
         printf '%s\n' "$output" | grep -F 'autostart=' | grep -F '"noctty" "--hidden"' >/dev/null
@@ -34,6 +35,7 @@ host_plan="$(
 )"
 printf '%s\n' "$host_plan" | grep -F 'backend=noctalia_wayland shell=noctalia compositor=niri' >/dev/null
 printf '%s\n' "$host_plan" | grep -F 'global_shortcut=false external_activation=true layer_shell=false desktop_notifications=true' >/dev/null
+
 printf '%s\n' "$host_plan" | grep -F 'transport=compositor_binding' >/dev/null
 
 for path in \
