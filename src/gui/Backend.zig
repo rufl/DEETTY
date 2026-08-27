@@ -88,8 +88,8 @@ pub const Descriptor = struct {
                 .global_shortcuts = true,
                 .app_shortcut_registration = false,
                 .external_activation = true,
+                .layer_shell = false,
                 .desktop_notifications = true,
-                .layer_shell = true,
                 .drag_and_drop = true,
             },
         };
@@ -100,6 +100,7 @@ pub const Descriptor = struct {
         descriptor.kind = .wayland;
         descriptor.shell = .other;
         descriptor.capabilities.global_shortcuts = false;
+        descriptor.capabilities.layer_shell = true;
         return descriptor;
     }
 };
@@ -115,7 +116,7 @@ test "preferred backend is plasma-compatible and titlebar-free" {
     try std.testing.expectEqual(@as(u16, 0), backend.chrome.terminal_titlebar_px);
 }
 
-test "Noctalia backend covers every supported compositor without KDE coupling" {
+test "Noctalia backend uses dependency-free Wayland toplevel dropdowns" {
     inline for (.{
         WaylandCompositor.niri,
         WaylandCompositor.hyprland,
@@ -127,7 +128,8 @@ test "Noctalia backend covers every supported compositor without KDE coupling" {
         const backend = Descriptor.noctaliaFor(compositor);
         try std.testing.expectEqual(BackendKind.noctalia_wayland, backend.kind);
         try std.testing.expectEqual(DesktopShell.noctalia, backend.shell);
-        try std.testing.expect(backend.capabilities.layer_shell);
+        try std.testing.expect(backend.capabilities.wayland);
+        try std.testing.expect(!backend.capabilities.layer_shell);
         try std.testing.expect(backend.capabilities.external_activation);
         try std.testing.expect(backend.capabilities.desktop_notifications);
         try std.testing.expect(!backend.capabilities.app_shortcut_registration);

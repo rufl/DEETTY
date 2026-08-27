@@ -12,7 +12,7 @@ Building requires:
 - `pkg-config`;
 - GTK 3 development files;
 - GtkSourceView 4 development files;
-- `gtk-layer-shell` at runtime for Wayland drop-down placement.
+- `gtk-layer-shell` is optional at runtime: Plasma uses it for layer-shell dropdown placement, while Noctalia sessions use the dependency-free Wayland toplevel path.
 
 VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. Production `noctty` links neither VTE nor Tree-sitter. Production `nocted` statically includes its vendored Tree-sitter parsers and adds no Tree-sitter runtime package; distribution manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
 

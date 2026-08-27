@@ -33,7 +33,7 @@ host_plan="$(
     "$binary" --host-plan
 )"
 printf '%s\n' "$host_plan" | grep -F 'backend=noctalia_wayland shell=noctalia compositor=niri' >/dev/null
-printf '%s\n' "$host_plan" | grep -F 'global_shortcut=false external_activation=true layer_shell=true desktop_notifications=true' >/dev/null
+printf '%s\n' "$host_plan" | grep -F 'global_shortcut=false external_activation=true layer_shell=false desktop_notifications=true' >/dev/null
 printf '%s\n' "$host_plan" | grep -F 'transport=compositor_binding' >/dev/null
 
 for path in \
@@ -71,4 +71,4 @@ printf '%s\n' "$v4_hyprland" | grep -F 'version=v4 compositor=hyprland' >/dev/nu
 printf '%s\n' "$v4_hyprland" | grep -F 'binding=bind = , F10, exec, noctty --toggle' >/dev/null
 printf '%s\n' "$v4_hyprland" | grep -F 'autostart=exec-once = noctty --hidden' >/dev/null
 
-echo "noctalia_integration model=true v4_compatible=true v5=true niri=true hyprland=true sway=true scroll=true labwc=true mango=true dbus_activation=true layer_shell=true notifications=true artifacts=true"
+echo "noctalia_integration model=true v4_compatible=true v5=true niri=true hyprland=true sway=true scroll=true labwc=true mango=true dbus_activation=true layer_shell=false notifications=true artifacts=true"

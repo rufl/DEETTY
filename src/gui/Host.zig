@@ -1538,7 +1538,7 @@ test "environment chooses first-class Noctalia backend on supported compositor" 
     try std.testing.expect(!backend.capabilities.app_shortcut_registration);
     try std.testing.expect(backend.capabilities.external_activation);
     try std.testing.expect(backend.capabilities.desktop_notifications);
-    try std.testing.expect(backend.capabilities.layer_shell);
+    try std.testing.expect(!backend.capabilities.layer_shell);
 
     const host = NativeHost.init(Config.Config.defaults(), backend, .default());
     const plan = host.launchPlan();
@@ -1546,11 +1546,13 @@ test "environment chooses first-class Noctalia backend on supported compositor" 
     try std.testing.expect(!plan.register_global_shortcut);
     try std.testing.expect(plan.use_external_activation);
     try std.testing.expect(plan.use_desktop_notifications);
+    try std.testing.expect(!plan.use_layer_shell);
     try std.testing.expectEqual(ShortcutRegistrationTransport.compositor_binding, host.shortcutRegistrationRequest().transport);
     try std.testing.expectEqual(NotificationTransport.freedesktop_dbus, host.notificationDeliveryRequest().transport);
     const presentation = host.presentationPlan(.startup);
     try std.testing.expect(presentation.containsAction(.bind_external_activation));
     try std.testing.expect(!presentation.containsAction(.register_global_shortcut));
+    try std.testing.expectEqual(PresentationProtocol.wayland_toplevel, presentation.protocol);
 }
 
 test "dropdown geometry and zen mode are deterministic" {

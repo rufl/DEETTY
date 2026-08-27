@@ -28,8 +28,7 @@ noctty --toggle
 
 `noctty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `noctty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-Dropdown mode uses `gtk-layer-shell` with the namespace `noctty-dropdown`, overlay layer, top/left/right anchors, no exclusive zone, on-demand keyboard focus on layer-shell protocol v4+ (with
-an exclusive fallback only for older compositors), and symmetric width margins recomputed whenever the configured percentage or pixel width changes. Automatic Plasma shortcut startup keeps that keyboard-interactive surface hidden until the user shows it instead of briefly mapping it while KGlobalAccel registration is pending. Distribution packages provide the runtime; dependency bundles and dogfood installs stage the pinned private copy when needed. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface. Ordinary windowed and zen launches remain native toplevel/fullscreen windows.
+In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel with `noctty-dropdown` identity, keep-above behavior, and bounded configured dimensions. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, and native windowed/zen transitions. Plasma retains the layer-shell path for its top-edge placement. `noctty-window` and `noctty-zen` namespaces cover live mode changes from that surface.
 
 Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive NOCTTY completion notifications through `org.freedesktop.Notifications`.
 
@@ -69,8 +68,7 @@ The Zig backend detects the supported compositor family from standard session na
 
 Detected Noctalia sessions receive:
 
-- the `noctalia_wayland` backend and exact compositor identity;
-- layer-shell dropdown placement;
+- a dependency-free Wayland toplevel dropdown;
 - compositor-owned shortcut transport;
 - D-Bus external activation;
 - freedesktop notifications;
@@ -80,6 +78,6 @@ Detected Noctalia sessions receive:
 
 `scripts/noctalia_integration_smoke.sh` verifies v4-compatible/v5 plans, all six compositor serializers, environment detection, installed artifacts, external-activation and notification capability routing, and the recorded-shortcut model.
 
-`scripts/native_grid_noctalia_ipc_smoke.sh` is the live Wayland gate. It proves the layer-shell namespace, hidden-ready startup, D-Bus status/show/hide/toggle transitions, single-instance routing, and clean terminal exit. The rendered Settings gate separately proves shortcut capture, persistence, and fresh-process reload.
+`scripts/native_grid_noctalia_ipc_smoke.sh` is the live Wayland gate for D-Bus status/show/hide/toggle transitions, single-instance routing, dependency-free toplevel fallback, and clean terminal exit. The rendered Settings gate separately proves shortcut capture, persistence, and fresh-process reload.
 
-The current machine runs Plasma Wayland, so this proves the shared Wayland layer-shell, D-Bus, GTK, and freedesktop protocols live. The generated Niri/Hyprland/Sway/Scroll/Labwc/Mango syntax is source-checked against each documented contract; final release acceptance on each compositor still requires that compositor to be present. NOCTTY does not mislabel the current Plasma run as six separate compositor sessions.
+The current machine runs Plasma Wayland, so the live Plasma gate proves the layer-shell, D-Bus, GTK, and freedesktop protocols. Noctalia's dependency-free toplevel fallback is covered by the isolated Wayland gate and the backend plan. The generated Niri/Hyprland/Sway/Scroll/Labwc/Mango syntax is source-checked against each documented contract; final release acceptance on each compositor still requires that compositor to be present.

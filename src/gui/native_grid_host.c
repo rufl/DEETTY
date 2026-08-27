@@ -18397,7 +18397,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.shortcut_recorder_shown && context.shortcut_recorded &&
          context.requested_shortcut_key == 16777273);
     int control_ok = workspace_smoke != 16 ||
-        (control_was_registered && layer_shell_was_active &&
+        (!layer_shell_was_active && control_was_registered &&
          context.control_status_seen && context.control_status_count >= 2 &&
          context.control_show_seen && context.control_hide_seen &&
          context.control_toggle_seen &&
