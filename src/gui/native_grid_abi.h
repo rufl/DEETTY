@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define NOCTTY_NATIVE_GRID_ABI_VERSION 4u
+#define NOCTTY_NATIVE_GRID_ABI_VERSION 5u
 
 typedef struct {
     uint32_t first;
@@ -85,6 +85,7 @@ typedef struct {
     uint64_t secondary_pane_id;
     int secondary_initially_active;
     int enable_notifications;
+    int use_layer_shell;
     int claim_control;
     int show_on_control_conflict;
     uint32_t recovery_notice_flags;

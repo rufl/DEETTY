@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const version: u32 = 4;
+pub const version: u32 = 5;
 
 pub const DirtySpan = extern struct {
     first: u32,
@@ -76,6 +76,7 @@ pub const LaunchOptions = extern struct {
     secondary_pane_id: u64,
     secondary_initially_active: c_int,
     enable_notifications: c_int,
+    use_layer_shell: c_int = 1,
     claim_control: c_int = 1,
     show_on_control_conflict: c_int = 0,
     recovery_notice_flags: u32 = 0,
@@ -98,7 +99,7 @@ fn countPasteBytes(_: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.
 }
 
 test "native grid ABI layout is explicit and versioned" {
-    try std.testing.expectEqual(@as(u32, 4), version);
+    try std.testing.expectEqual(@as(u32, 5), version);
     try std.testing.expect(@sizeOf(Callbacks) >= 2 * @sizeOf(u32));
     try std.testing.expect(@sizeOf(LaunchOptions) >= 2 * @sizeOf(u32));
 }

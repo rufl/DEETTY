@@ -121,6 +121,7 @@ const NativeGridRunOptions = struct {
     secondary_pane_id: u64 = 0,
     secondary_initially_active: c_int = 0,
     enable_notifications: c_int = 0,
+    use_layer_shell: c_int = 1,
     claim_control: c_int = 1,
     show_on_control_conflict: c_int = 0,
     recovery_notice_flags: u32 = 0,
@@ -168,10 +169,11 @@ fn runNativeGridHost(options: NativeGridRunOptions) c_int {
         .shortcut_key = options.shortcut_key,
         .enable_shortcut = options.enable_shortcut,
         .workspace_smoke = options.workspace_smoke,
-        .secondary_userdata = options.secondary_session,
+        .secondary_userdata = if (options.secondary_session) |session| @ptrCast(session) else null,
+        .enable_notifications = options.enable_notifications,
+        .use_layer_shell = options.use_layer_shell,
         .secondary_pane_id = options.secondary_pane_id,
         .secondary_initially_active = options.secondary_initially_active,
-        .enable_notifications = options.enable_notifications,
         .claim_control = options.claim_control,
         .show_on_control_conflict = options.show_on_control_conflict,
         .recovery_notice_flags = options.recovery_notice_flags,
@@ -7589,6 +7591,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
         .mode = 0,
         .enable_shortcut = 2,
         .workspace_smoke = 16,
+        .use_layer_shell = 0,
     });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
     try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true namespace=noctty-dropdown hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true\n", .{});
@@ -7809,6 +7812,7 @@ fn runNativeGridTwoPane(allocator: std.mem.Allocator, io: std.Io, home_dir: []co
         .secondary_pane_id = 2,
         .secondary_initially_active = 1,
         .enable_notifications = if (app.config.status.desktop_notifications) 1 else 0,
+        .use_layer_shell = @intFromBool(app.backend.capabilities.layer_shell),
     });
     if (status != 0) return error.NativeGridTwoPaneHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridTwoPaneStateSyncFailed;
@@ -8193,6 +8197,7 @@ fn runNativeGridActivated(
         .shortcut_key = qtShortcutKey(app.config.dropdown.shortcut),
         .enable_shortcut = shortcut_mode,
         .enable_notifications = if (app.config.status.desktop_notifications) 1 else 0,
+        .use_layer_shell = @intFromBool(app.backend.capabilities.layer_shell),
         .claim_control = @intFromBool(claim_control),
         .show_on_control_conflict = @intFromBool(launch_policy == .visible),
         .recovery_notice_flags = startup_recovery.flags,

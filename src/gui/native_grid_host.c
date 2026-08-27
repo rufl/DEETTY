@@ -362,6 +362,7 @@ typedef struct NocttyGridContextTag {
     NocttyApplicationCloseOrigin application_close_accepted_origin;
     void *layer_shell_library;
     int layer_shell_active;
+    int layer_shell_allowed;
     int layer_shell_keyboard_mode;
     int window_presented;
     guint window_mode_recreate_source;
@@ -10643,7 +10644,7 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
 
 static int configure_grid_layer_shell(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    if (root->mode != 0 ||
+    if (root->mode != 0 || !root->layer_shell_allowed ||
         !GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(root->window))) return 0;
     if (root->layer_shell_library == NULL)
         root->layer_shell_library = dlopen("libgtk-layer-shell.so.0",
@@ -17667,6 +17668,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     uint64_t secondary_pane_id = options->secondary_pane_id;
     int secondary_initially_active = options->secondary_initially_active;
     int enable_notifications = options->enable_notifications;
+    int use_layer_shell = options->use_layer_shell;
     int claim_control = options->claim_control;
     int show_on_control_conflict = options->show_on_control_conflict;
     guint32 recovery_notice_flags = options->recovery_notice_flags;
@@ -17736,6 +17738,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.primary = 1;
     context.active = 1;
     context.enable_notifications = enable_notifications;
+    context.layer_shell_allowed = use_layer_shell;
     context.claim_control = claim_control;
     context.show_on_control_conflict = show_on_control_conflict;
     context.recovery_notice_flags = recovery_notice_flags;
