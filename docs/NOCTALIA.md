@@ -61,7 +61,7 @@ Ready-to-merge F10 fragments are installed under `share/noctty/noctalia/`:
 - `labwc-rc.xml` and `labwc-autostart`
 - `mango.conf`
 
-An optional compact Noctalia v5 `custom_button` fragment is provided as `noctalia-v5-widget.toml`. It invokes the same stable command and does not require a NOCTTY plugin or background service.
+An optional compact Noctalia v5 `custom_button` fragment is provided as `noctalia-v5-widget.toml`. It uses Noctalia's `[widget.noctty.actions]` table with `exec noctty --toggle` for left-click and `exec noctty --show` for right-click. It does not require a NOCTTY plugin or background service.
 
 ## Detection
 

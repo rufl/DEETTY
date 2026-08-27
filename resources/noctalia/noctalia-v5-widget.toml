@@ -3,5 +3,7 @@
 type = "custom_button"
 glyph = "terminal-2"
 tooltip = "Show or hide NOCTTY"
-command = "noctty --toggle"
-right_command = "noctty --show"
+
+[widget.noctty.actions]
+left = "exec noctty --toggle"
+right = "exec noctty --show"

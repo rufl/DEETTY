@@ -55,7 +55,9 @@ grep -F 'bind = , F10, exec, noctty --toggle' resources/noctalia/hyprland.conf >
 grep -F 'bindsym F10 exec noctty --toggle' resources/noctalia/sway.conf >/dev/null
 grep -F '<keybind key="F10">' resources/noctalia/labwc-rc.xml >/dev/null
 grep -F 'bind=NONE,F10,spawn,noctty --toggle' resources/noctalia/mango.conf >/dev/null
-grep -F 'command = "noctty --toggle"' resources/noctalia/noctalia-v5-widget.toml >/dev/null
+grep -F '[widget.noctty.actions]' resources/noctalia/noctalia-v5-widget.toml >/dev/null
+grep -F 'left = "exec noctty --toggle"' resources/noctalia/noctalia-v5-widget.toml >/dev/null
+grep -F 'right = "exec noctty --show"' resources/noctalia/noctalia-v5-widget.toml >/dev/null
 sh -n resources/noctalia/labwc-autostart
 
 v4_hyprland="$(
