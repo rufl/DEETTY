@@ -37,6 +37,9 @@ chmod 0700 "$scratch"
 mkdir -p "$scratch/runtime" "$scratch/home" "$scratch/config" \
   "$scratch/state" "$scratch/cache" "$scratch/data"
 chmod 0700 "$scratch/runtime"
+mkdir -p "$scratch/config/xdg-desktop-portal"
+printf '[preferred]\ndefault=gtk;\n' \
+  >"$scratch/config/xdg-desktop-portal/portals.conf"
 
 unset DISPLAY WAYLAND_DISPLAY
 export NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
@@ -46,6 +49,8 @@ flock -x -w "$timeout_seconds" "$lock" \
   env HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config" \
     XDG_STATE_HOME="$scratch/state" XDG_CACHE_HOME="$scratch/cache" \
     XDG_DATA_HOME="$scratch/data" XDG_RUNTIME_DIR="$scratch/runtime" \
+    XDG_CURRENT_DESKTOP=noctty-isolated \
+    XDG_SESSION_DESKTOP=noctty-isolated KDE_FULL_SESSION= DESKTOP_SESSION= \
   dbus-run-session -- sh -eu -c '
     scratch=$NOCTTY_ISOLATED_WAYLAND_ROOT
     compositor_pid=
@@ -81,6 +86,9 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_CACHE_HOME="$scratch/cache"
     export XDG_DATA_HOME="$scratch/data"
     export XDG_SESSION_TYPE=wayland
+    export XDG_CURRENT_DESKTOP=noctty-isolated
+    export XDG_SESSION_DESKTOP=noctty-isolated
+    unset KDE_FULL_SESSION DESKTOP_SESSION
     export WAYLAND_DISPLAY=noctty-isolated-wayland
     export GDK_BACKEND=wayland
     export NO_AT_BRIDGE=1
