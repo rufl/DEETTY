@@ -138,6 +138,51 @@ pub fn writeAutostartForVersion(writer: anytype, compositor: Backend.WaylandComp
     try writeAutostart(writer, compositor);
 }
 
+pub fn rewriteManagedBindingAlloc(
+    allocator: std.mem.Allocator,
+    source: []const u8,
+    compositor: Backend.WaylandCompositor,
+    shortcut: Config.Shortcut,
+) !?[]u8 {
+    if (std.mem.indexOf(u8, source, "NOCTTY integration for Noctalia") == null)
+        return null;
+
+    var binding_buffer: [512]u8 = undefined;
+    var binding_writer = std.Io.Writer.fixed(&binding_buffer);
+    try writeBinding(&binding_writer, compositor, shortcut);
+    const binding = binding_writer.buffered();
+
+    var line_start: usize = 0;
+    while (line_start < source.len) {
+        const line_end = line_start + (std.mem.indexOfScalar(
+            u8,
+            source[line_start..],
+            '\n',
+        ) orelse source.len - line_start);
+        const line = source[line_start..line_end];
+        if (std.mem.indexOf(u8, line, "noctty") != null and
+            std.mem.indexOf(u8, line, "toggle") != null)
+        {
+            var indent_len: usize = 0;
+            while (indent_len < line.len and
+                (line[indent_len] == ' ' or line[indent_len] == '\t'))
+                indent_len += 1;
+            const replacement = try allocator.alloc(
+                u8,
+                line_start + indent_len + binding.len + source.len - line_end,
+            );
+            @memcpy(replacement[0..line_start], source[0..line_start]);
+            @memcpy(replacement[line_start .. line_start + indent_len], line[0..indent_len]);
+            @memcpy(replacement[line_start + indent_len .. line_start + indent_len + binding.len], binding);
+            @memcpy(replacement[line_start + indent_len + binding.len ..], source[line_end..]);
+            return replacement;
+        }
+        if (line_end == source.len) break;
+        line_start = line_end + 1;
+    }
+    return null;
+}
+
 pub fn writePlan(writer: anytype, detection: Detection, shortcut: Config.Shortcut) !void {
     try writer.print("noctalia active={} supported={} version={s} compositor={s}\n", .{
         detection.active,
@@ -323,6 +368,38 @@ test "binding format follows a recorded modifier chord" {
     var writer = std.Io.Writer.fixed(&buf);
     try writeBinding(&writer, .mango, .{ .key = .home, .ctrl = true, .shift = true });
     try std.testing.expectEqualStrings("bind=CTRL+SHIFT,Home,spawn,noctty --toggle", writer.buffered());
+}
+
+test "rewrites only a managed Noctalia binding" {
+    const source =
+        \\// NOCTTY integration for Noctalia on Niri.
+        \\spawn-at-startup "noctty" "--hidden"
+        \\
+        \\binds {
+        \\    F10 { spawn "noctty" "--toggle"; }
+        \\}
+    ;
+    const rewritten = (try rewriteManagedBindingAlloc(
+        std.testing.allocator,
+        source,
+        .niri,
+        .{ .key = .home, .ctrl = true },
+    )).?;
+    defer std.testing.allocator.free(rewritten);
+    try std.testing.expectEqualStrings(
+        \\// NOCTTY integration for Noctalia on Niri.
+        \\spawn-at-startup "noctty" "--hidden"
+        \\
+        \\binds {
+        \\    Ctrl+Home { spawn "noctty" "--toggle"; }
+        \\}
+    , rewritten);
+    try std.testing.expect((try rewriteManagedBindingAlloc(
+        std.testing.allocator,
+        "unmanaged Noctalia binding",
+        .niri,
+        .{},
+    )) == null);
 }
 
 test "Noctalia v4 plan keeps Hyprland conf syntax" {

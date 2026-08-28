@@ -27,7 +27,14 @@ pub const TerminalSession = struct {
     deinitialized: bool = false,
 
     pub fn spawn(allocator: std.mem.Allocator, cwd: [:0]const u8, shell: [:0]const u8, columns: u16, rows: u16) !TerminalSession {
-        return spawnWithHistoryLimit(allocator, cwd, shell, columns, rows, Vt.Grid.default_history_lines);
+        return spawnWithHistoryLimit(
+            allocator,
+            cwd,
+            shell,
+            columns,
+            rows,
+            LaunchProfile.default_scrollback_lines,
+        );
     }
 
     pub fn spawnWithHistoryLimit(
@@ -65,12 +72,16 @@ pub const TerminalSession = struct {
     ) !TerminalSession {
         var pty = try Pty.Session.spawn(cwd, shell);
         errdefer pty.deinit();
+        const normalized_history_limit = if (history_limit == 0)
+            LaunchProfile.default_scrollback_lines
+        else
+            history_limit;
         var grid = try Vt.Grid.initWithHistoryAllocator(
             allocator,
             history_allocator,
             columns,
             rows,
-            history_limit,
+            normalized_history_limit,
         );
         errdefer grid.deinit();
         try pty.resize(rows, columns, 0, 0);
@@ -117,20 +128,23 @@ pub const TerminalSession = struct {
         rows: u16,
         pump_scratch: *PumpScratch,
     ) !TerminalSession {
-        try profile.validate();
-        const cwd = try allocator.dupeZ(u8, profile.workingDirectory(pane_cwd));
+        var normalized_profile = profile.*;
+        normalized_profile.normalizeScrollback();
+        try normalized_profile.validate();
+        const profile_effective = &normalized_profile;
+        const cwd = try allocator.dupeZ(u8, profile_effective.workingDirectory(pane_cwd));
         defer allocator.free(cwd);
-        const program = try allocator.dupeZ(u8, profile.shellPath(fallback_shell));
+        const program = try allocator.dupeZ(u8, profile_effective.shellPath(fallback_shell));
         defer allocator.free(program);
-        const argument = try allocator.dupeZ(u8, profile.argument());
+        const argument = try allocator.dupeZ(u8, profile_effective.argument());
         defer allocator.free(argument);
-        const environment = try allocator.dupeZ(u8, profile.environment.slice());
+        const environment = try allocator.dupeZ(u8, profile_effective.environment.slice());
         defer allocator.free(environment);
 
         var pty = try Pty.Session.spawnProfile(.{
             .cwd = cwd,
             .program = program,
-            .kind = profile.kind,
+            .kind = profile_effective.kind,
             .argument = argument,
             .environment = environment,
         });
@@ -140,7 +154,7 @@ pub const TerminalSession = struct {
             history_allocator,
             columns,
             rows,
-            profile.scrollback_lines,
+            profile_effective.scrollback_lines,
         );
         errdefer grid.deinit();
         try pty.resize(rows, columns, 0, 0);

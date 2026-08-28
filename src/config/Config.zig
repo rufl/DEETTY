@@ -279,7 +279,7 @@ pub const PanelMetrics = struct {
     spacing_px: u16 = 4,
     divider_px: u16 = 1,
     border_px: u16 = 1,
-    focused_border_px: u16 = 3,
+    focused_border_px: u16 = 1,
     selected_border_px: u16 = 2,
     status_border_px: u16 = 1,
     overlay_border_px: u16 = 1,
@@ -320,16 +320,34 @@ pub const ClipboardConfig = struct {
 };
 
 pub const TerminalConfig = struct {
+    pub const default_scrollback_lines = LaunchProfile.default_scrollback_lines;
     pub const max_scrollback_lines: u32 = 100_000;
 
-    scrollback_lines: u32 = 10_000,
+    scrollback_lines: u32 = default_scrollback_lines,
     scroll_lines: u8 = 3,
     smooth_scroll: bool = true,
     launch_profile: LaunchProfile.Profile = .{},
     launch_profiles: LaunchProfile.Library = .{},
 
+    pub fn normalizeScrollback(self: *TerminalConfig) void {
+        if (self.scrollback_lines == 0)
+            self.scrollback_lines = default_scrollback_lines;
+        self.launch_profile.normalizeScrollback();
+        for (self.launch_profiles.entries[0..self.launch_profiles.count]) |*entry|
+            entry.profile.normalizeScrollback();
+    }
+
+    pub fn effectiveScrollbackLines(self: TerminalConfig) u32 {
+        return if (self.scrollback_lines == 0)
+            default_scrollback_lines
+        else
+            self.scrollback_lines;
+    }
+
     pub fn validate(self: TerminalConfig) !void {
-        if (self.scrollback_lines > max_scrollback_lines) return error.InvalidScrollbackLines;
+        if (self.scrollback_lines == 0 or
+            self.scrollback_lines > max_scrollback_lines)
+            return error.InvalidScrollbackLines;
         if (self.scroll_lines == 0 or self.scroll_lines > 20)
             return error.InvalidScrollLineSpeed;
         try self.launch_profile.validate();
@@ -342,20 +360,23 @@ pub const TerminalConfig = struct {
 
     pub fn setScrollbackLines(self: *TerminalConfig, lines: u32) !void {
         var next = self.*;
-        next.scrollback_lines = lines;
-        next.launch_profile.scrollback_lines = lines;
+        const normalized = if (lines == 0) default_scrollback_lines else lines;
+        next.scrollback_lines = normalized;
+        next.launch_profile.scrollback_lines = normalized;
         if (next.launch_profiles.selected_index != LaunchProfile.no_selection) {
             const index = next.launch_profiles.selected_index;
-            next.launch_profiles.entries[index].profile.scrollback_lines = lines;
+            next.launch_profiles.entries[index].profile.scrollback_lines = normalized;
         }
         try next.validate();
         self.* = next;
     }
 
     pub fn setLaunchProfile(self: *TerminalConfig, profile: LaunchProfile.Profile) !void {
-        try profile.validate();
+        var normalized = profile;
+        normalized.normalizeScrollback();
+        try normalized.validate();
         var next = self.*;
-        next.launch_profile = profile;
+        next.launch_profile = normalized;
         next.launch_profiles.clearSelection();
         try next.validate();
         self.* = next;
@@ -366,9 +387,11 @@ pub const TerminalConfig = struct {
         name: []const u8,
         profile: LaunchProfile.Profile,
     ) !usize {
+        var normalized = profile;
+        normalized.normalizeScrollback();
         var next = self.*;
-        const index = try next.launch_profiles.saveAndSelect(name, profile);
-        next.launch_profile = profile;
+        const index = try next.launch_profiles.saveAndSelect(name, normalized);
+        next.launch_profile = normalized;
         try next.validate();
         self.* = next;
         return index;
@@ -461,7 +484,7 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u8, 0), cfg.recent_workspaces.count);
     try std.testing.expectEqual(@as(u16, 0), cfg.panels.main_titlebar_px);
     try std.testing.expectEqual(@as(u16, 0), cfg.panels.terminal_titlebar_px);
-    try std.testing.expectEqual(@as(u16, 3), cfg.panels.focused_border_px);
+    try std.testing.expectEqual(@as(u16, 1), cfg.panels.focused_border_px);
     try std.testing.expectEqual(@as(u16, 2), cfg.panels.selected_border_px);
     try std.testing.expectEqual(@as(u16, 1), cfg.panels.border_px);
     try std.testing.expectEqual(@as(u16, 1), cfg.panels.divider_px);
@@ -469,6 +492,30 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u16, 18), cfg.panels.dragger_px);
     try std.testing.expect(cfg.background.translucency);
     try std.testing.expectEqual(@as(u8, 92), cfg.background.opacity_percent);
+}
+
+test "zero scrollback normalizes to the hard default for active and named profiles" {
+    var terminal = TerminalConfig{};
+    terminal.scrollback_lines = 0;
+    terminal.launch_profile.scrollback_lines = 0;
+    var profile = LaunchProfile.Profile{ .kind = .command };
+    try profile.command.set("printf ready");
+    profile.scrollback_lines = 0;
+    terminal.launch_profiles.count = 1;
+    try terminal.launch_profiles.entries[0].name.set("Build");
+    terminal.launch_profiles.entries[0].profile = profile;
+
+    terminal.normalizeScrollback();
+    try terminal.validate();
+    try std.testing.expectEqual(@as(u32, 10_000), terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 10_000), terminal.launch_profile.scrollback_lines);
+    try std.testing.expectEqual(
+        @as(u32, 10_000),
+        terminal.launch_profiles.entries[0].profile.scrollback_lines,
+    );
+
+    try terminal.setScrollbackLines(0);
+    try std.testing.expectEqual(@as(u32, 10_000), terminal.scrollback_lines);
 }
 
 test "scrollback changes cover the active profile and its selected library entry" {

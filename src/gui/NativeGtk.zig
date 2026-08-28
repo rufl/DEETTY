@@ -152,6 +152,16 @@ const revision_key = "noctty-pane-info-revision";
 const tab_label_key = "noctty-tab-label-widget";
 const tab_close_key = "noctty-tab-close-widget";
 const compact_tab_css =
+    "window.noctty-terminal-window, " ++
+    "window.noctty-terminal-window > overlay, " ++
+    "window.noctty-terminal-window box, " ++
+    "window.noctty-terminal-window grid, " ++
+    "window.noctty-terminal-window revealer, " ++
+    "window.noctty-terminal-window paned, " ++
+    "window.noctty-terminal-window notebook, " ++
+    "window.noctty-terminal-window notebook > stack { " ++
+    "background-color: transparent; background-image: none; box-shadow: none; }" ++
+    "notebook.noctty-tab-notebook, notebook.noctty-tab-notebook > stack { background-color: transparent; background-image: none; }" ++
     "notebook.noctty-tab-notebook > header { margin: 0; padding: 0 5px; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; background: @theme_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0; border-width: 0; border-radius: 7px 7px 0 0; box-shadow: none; min-width: 0; min-height: 0; font-size: 0.9em; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
@@ -291,13 +301,14 @@ pub export fn noctty_show_all_with_action_affordances(widget: ?*GtkWidget) void 
     gtk_widget_show_all(current);
 }
 
-pub export fn noctty_install_compact_tab_styles(notebook: ?*GtkWidget) void {
-    const widget = notebook orelse return;
-    if (!isA(widget, gtk_notebook_get_type)) return;
+pub export fn noctty_install_compact_tab_styles(target: ?*GtkWidget) void {
+    const widget = target orelse return;
     const provider = compactTabProvider() orelse return;
     const screen = gtk_widget_get_screen(widget) orelse gdk_screen_get_default();
     if (screen) |value| gtk_style_context_add_provider_for_screen(value, @ptrCast(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    gtk_style_context_add_class(gtk_widget_get_style_context(widget), "noctty-tab-notebook");
+    g_object_set_data(object(widget), "noctty-style-provider-installed", @ptrFromInt(1));
+    if (isA(widget, gtk_notebook_get_type))
+        gtk_style_context_add_class(gtk_widget_get_style_context(widget), "noctty-tab-notebook");
 }
 
 fn tabChildOfType(tab_widget: *GtkWidget, get_type: *const fn () callconv(.c) GType) ?*GtkWidget {
@@ -414,7 +425,7 @@ fn settingsHeadingNew(
 pub export fn noctty_settings_grid_new() ?*GtkWidget {
     const grid = gtk_grid_new() orelse return null;
     gtk_grid_set_row_spacing(@ptrCast(grid), 12);
-    gtk_grid_set_column_spacing(@ptrCast(grid), 24);
+    gtk_grid_set_column_spacing(@ptrCast(grid), 16);
     gtk_grid_set_column_homogeneous(@ptrCast(grid), FALSE);
     gtk_widget_set_hexpand(grid, TRUE);
     gtk_widget_set_halign(grid, GTK_ALIGN_FILL);
@@ -431,10 +442,12 @@ pub export fn noctty_settings_grid_attach_control(
     const control_widget = control orelse return;
     const label = gtk_label_new(text orelse return) orelse return;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(label), TRUE);
+    gtk_label_set_max_width_chars(@ptrCast(label), 18);
     gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(label, 176, -1);
+    gtk_widget_set_size_request(label, 144, -1);
     gtk_widget_set_hexpand(control_widget, TRUE);
     gtk_widget_set_halign(control_widget, GTK_ALIGN_FILL);
     gtk_grid_attach(@ptrCast(grid_widget), label, 0, row, 1, 1);
@@ -453,7 +466,7 @@ pub export fn noctty_settings_group_new(
     defer g_free(markup);
     gtk_label_set_markup(@ptrCast(label), markup);
     gtk_frame_set_label_widget(@ptrCast(frame), label);
-    gtk_container_set_border_width(@ptrCast(child_widget), 16);
+    gtk_container_set_border_width(@ptrCast(child_widget), 12);
     gtk_widget_set_hexpand(child_widget, TRUE);
     gtk_widget_set_halign(child_widget, GTK_ALIGN_FILL);
     gtk_container_add(@ptrCast(frame), child_widget);
@@ -471,13 +484,13 @@ pub export fn noctty_settings_page_new(
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
-        GTK_POLICY_AUTOMATIC,
+        GTK_POLICY_NEVER,
         GTK_POLICY_AUTOMATIC,
     );
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
     gtk_widget_set_hexpand(scrolled, TRUE);
     const body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20) orelse return null;
-    gtk_container_set_border_width(@ptrCast(body), 28);
+    gtk_container_set_border_width(@ptrCast(body), 20);
     gtk_widget_set_hexpand(body, TRUE);
     gtk_widget_set_halign(body, GTK_ALIGN_FILL);
     const heading = settingsHeadingNew(title, description) orelse return null;

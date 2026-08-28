@@ -8,10 +8,29 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   drawn above field backgrounds and text, with input and cursor movement
   restarting the visible blink phase. The caret color is theme-configurable.
 
-- The dropdown bottom dragger now toggles between full and half-screen height
-  on double-click. The terminal context menu now follows a compact
-  Konsole/Yakuake-style hierarchy for split, layout, selection, pane, clear,
-  view, and tool actions instead of presenting one long flat list.
+- Double-clicking a pane in a multi-pane tab focuses it at full available width
+  and height, shows the active session name, and restores the exact split
+  geometry on the next double-click. Disabling broadcast input through
+  `Ctrl+Alt+B`, `Ctrl+Shift+B`, the pane menu, or the command palette now shows
+  an explicit `Broadcast mode disabled.` confirmation.
+
+- Fixed background translucency disappearing when Settings closed by installing
+  RGBA visuals and transparent root/container styles before the first Wayland
+  surface commit. The terminal window, resize overlay, revealer, notebook
+  stack, pages, and split containers remain transparent without a modal.
+
+- Every application-close origin—including window controls, toolbar, tray, and
+  natural last-session exit—now requires explicit **Close Anyway** confirmation,
+  even when no foreground process is detected.
+
+- Terminal history now has a hard 10,000-line default across current, pooled,
+  split, restored, and profile-launched sessions. Persisted or imported zero
+  values migrate to 10,000 instead of disabling scrollback.
+
+- The dropdown bottom dragger now toggles exactly once between full and
+  half-screen height on double-click. The terminal context menu now offers
+  Split Down, Up, Left, and Right under **Split Pane**, and labels new preset
+  tabs as **New Split Tab**.
 
 - Added Noctalia JSON theme import for active `colors.json` material colors and
   complete dark/light colorscheme variants, including terminal foreground,

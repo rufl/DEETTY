@@ -266,6 +266,9 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
     }
 
     if (!reader.finished()) return error.InvalidConfigSnapshot;
+    // Older or interrupted snapshots could persist zero, which disables
+    // history. Preserve every other setting while restoring the hard default.
+    config.terminal.normalizeScrollback();
     try config.validate();
 
     return .{
@@ -905,7 +908,7 @@ test "version thirteen config snapshots use safe border thickness defaults" {
 
     var loaded = try importConfigAlloc(allocator, legacy);
     defer loaded.deinit(allocator);
-    try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.focused_border_px);
+    try std.testing.expectEqual(@as(u16, 1), loaded.config.panels.focused_border_px);
     try std.testing.expectEqual(@as(u16, 2), loaded.config.panels.selected_border_px);
     try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.window_border_px);
     try std.testing.expectEqual(@as(u16, 18), loaded.config.panels.dragger_px);

@@ -233,7 +233,7 @@ const NativeGridSessionPool = struct {
     shell: [:0]const u8,
     profile: ?*const noctty.launch_profile.Profile = null,
     smoke_command: ?[]const u8 = null,
-    history_limit: usize = noctty.vt.Grid.default_history_lines,
+    history_limit: usize = noctty.launch_profile.default_scrollback_lines,
     // Every native session is pumped serially by the GTK main loop.
     pump_scratch: noctty.terminal_session.TerminalSession.PumpScratch = .{},
     sessions: std.array_list.Managed(*noctty.terminal_session.TerminalSession),
@@ -315,8 +315,12 @@ const NativeGridSessionPool = struct {
     }
 
     fn setHistoryLimit(self: *NativeGridSessionPool, history_limit: usize) !void {
-        for (self.sessions.items) |session| try session.grid.setHistoryLimit(history_limit);
-        self.history_limit = history_limit;
+        const normalized = if (history_limit == 0)
+            noctty.launch_profile.default_scrollback_lines
+        else
+            history_limit;
+        for (self.sessions.items) |session| try session.grid.setHistoryLimit(normalized);
+        self.history_limit = normalized;
     }
 
     fn release(self: *NativeGridSessionPool, target: *noctty.terminal_session.TerminalSession) bool {
@@ -573,6 +577,8 @@ const NativeGridBridge = struct {
     saw_layout_4x4: bool = false,
     saw_split_command: bool = false,
     saw_split_left_command: bool = false,
+    saw_split_right_command: bool = false,
+    saw_split_up_command: bool = false,
     saw_broadcast_command: bool = false,
     saw_selection_command: bool = false,
     saw_focus_command: bool = false,
@@ -587,6 +593,7 @@ const NativeGridBridge = struct {
     autosave_path: ?[]const u8 = null,
     config_persisted: bool = false,
     workspace_saved: bool = false,
+    noctalia_shortcut_binding_updated: bool = false,
     workspace_loaded: bool = false,
     maintenance_tick_seen: bool = false,
     autosave_executed: bool = false,
@@ -602,6 +609,8 @@ const NativeGridBridge = struct {
     idle_history_compactions: usize = 0,
     saw_split_down_vertical: bool = false,
     saw_split_left_horizontal: bool = false,
+    saw_split_right_horizontal: bool = false,
+    saw_split_up_vertical: bool = false,
     saw_rendered_move: bool = false,
     saw_tab_position_applied: bool = false,
     saw_pane_zoom: bool = false,
@@ -1718,7 +1727,7 @@ export fn noctty_grid_compact_setting(raw: ?*anyopaque, field: c_int) callconv(.
         7 => @intFromFloat(bridge.app.config.font.min_size_pt * 100.0),
         8 => @intFromFloat(bridge.app.config.font.max_size_pt * 100.0),
         9 => @intFromBool(bridge.app.config.tabs.show_pane_info),
-        10 => @intCast(bridge.app.config.terminal.scrollback_lines),
+        10 => @intCast(bridge.app.config.terminal.effectiveScrollbackLines()),
         11 => @intFromEnum(bridge.app.config.font.antialias),
         12 => @intFromEnum(bridge.app.config.font.hinting),
         14 => bridge.app.config.dropdown.width_px,
@@ -1745,7 +1754,7 @@ export fn noctty_grid_launch_profile(raw: ?*anyopaque, field: c_int, output: [*]
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
     const profile = &bridge.app.config.terminal.launch_profile;
     if (field == 0) return @intCast(@intFromEnum(profile.kind));
-    if (field == 6) return @intCast(profile.scrollback_lines);
+    if (field == 6) return @intCast(profile.effectiveScrollbackLines());
     const value = switch (field) {
         1 => profile.shell.slice(),
         2 => profile.command.slice(),
@@ -1775,7 +1784,7 @@ export fn noctty_grid_launch_profile_library(raw: ?*anyopaque, index_raw: c_int,
     if (index >= library.count) return -1;
     const entry = &library.entries[index];
     if (field == 1) return @intCast(@intFromEnum(entry.profile.kind));
-    if (field == 7) return @intCast(entry.profile.scrollback_lines);
+    if (field == 7) return @intCast(entry.profile.effectiveScrollbackLines());
     const value = switch (field) {
         0 => entry.name.slice(),
         2 => entry.profile.shell.slice(),
@@ -1836,6 +1845,20 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
                     return null;
                 };
             },
+            27 => {
+                bridge.saw_split_right_command = true;
+                _ = bridge.app.dispatch(.split_right) catch {
+                    bridge.callback_failed = true;
+                    return null;
+                };
+            },
+            28 => {
+                bridge.saw_split_up_command = true;
+                _ = bridge.app.dispatch(.split_up) catch {
+                    bridge.callback_failed = true;
+                    return null;
+                };
+            },
             else => return null,
         }
     }
@@ -1872,7 +1895,7 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
             if (noctty.continuity.profileForResume(
                 pane.agent_resume,
                 pane.cwd,
-                bridge.app.config.terminal.scrollback_lines,
+                bridge.app.config.terminal.effectiveScrollbackLines(),
             )) |profile| {
                 restore_profile = profile;
                 profile_override = &restore_profile;
@@ -2429,6 +2452,14 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         bridge.saw_split_left_horizontal = true;
         return;
     }
+    if (event == 68) {
+        bridge.saw_split_right_horizontal = true;
+        return;
+    }
+    if (event == 69) {
+        bridge.saw_split_up_vertical = true;
+        return;
+    }
     if (event == 62) {
         bridge.saw_rendered_move = true;
         return;
@@ -2520,6 +2551,20 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
     if (event == 22) {
         bridge.saw_split_left_command = true;
         _ = bridge.app.dispatch(.split_left) catch {
+            bridge.callback_failed = true;
+        };
+        return;
+    }
+    if (event == 27) {
+        bridge.saw_split_right_command = true;
+        _ = bridge.app.dispatch(.split_right) catch {
+            bridge.callback_failed = true;
+        };
+        return;
+    }
+    if (event == 28) {
+        bridge.saw_split_up_command = true;
+        _ = bridge.app.dispatch(.split_up) catch {
             bridge.callback_failed = true;
         };
         return;
@@ -3028,13 +3073,16 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             bridge.callback_failed = true;
             return;
         }
-        const history_limit: usize = @intCast(exit_code);
+        const requested_history_limit: u32 = @intCast(exit_code);
         _ = bridge.app.dispatch(.{
-            .set_scrollback_lines = @intCast(history_limit),
+            .set_scrollback_lines = requested_history_limit,
         }) catch {
             bridge.callback_failed = true;
             return;
         };
+        const history_limit: usize = @intCast(
+            bridge.app.config.terminal.effectiveScrollbackLines(),
+        );
         if (bridge.primary_session) |session| session.grid.setHistoryLimit(history_limit) catch {
             bridge.callback_failed = true;
             return;
@@ -3216,6 +3264,8 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             return;
         };
         persistNativeGridConfig(bridge);
+        bridge.noctalia_shortcut_binding_updated =
+            syncNoctaliaShortcutBinding(bridge) catch false;
         return;
     }
     if (event == native_event_status_notification)
@@ -4149,6 +4199,66 @@ fn nativeHostEvent(raw: ?*anyopaque, pane_id: u64, event: NativeHostEvent, exit_
     _ = bridge.app.dispatch(.{ .terminal_status = .{ .pane_id = pane_id, .event = app_event } }) catch {
         bridge.callback_failed = true;
     };
+}
+
+fn syncNoctaliaShortcutBinding(bridge: *NativeGridBridge) !bool {
+    const io = bridge.io orelse return false;
+    const environ_map = bridge.process_environment orelse return false;
+    const detection = sessionEnvironment(environ_map.*).noctaliaDetection();
+    if (!detection.supported()) return false;
+
+    var owned_config_home: ?[]u8 = null;
+    defer if (owned_config_home) |path| bridge.app.allocator.free(path);
+    const config_home = environ_map.get("XDG_CONFIG_HOME") orelse blk: {
+        const home = environ_map.get("HOME") orelse return false;
+        const path = try std.fs.path.join(
+            bridge.app.allocator,
+            &.{ home, ".config" },
+        );
+        owned_config_home = path;
+        break :blk path;
+    };
+    const candidates: []const []const u8 = switch (detection.compositor) {
+        .niri => &.{"niri/noctty.kdl"},
+        .hyprland => &.{ "hypr/noctty.lua", "hypr/noctty.conf" },
+        .sway => &.{"sway/noctty.conf"},
+        .scroll => &.{"scroll/noctty.conf"},
+        .labwc => &.{"labwc/noctty-rc.xml"},
+        .mango => &.{"mango/noctty.conf"},
+        .none, .other => return false,
+    };
+    for (candidates) |relative_path| {
+        const path = try std.fs.path.join(
+            bridge.app.allocator,
+            &.{ config_home, relative_path },
+        );
+        defer bridge.app.allocator.free(path);
+        const source = std.Io.Dir.cwd().readFileAlloc(
+            io,
+            path,
+            bridge.app.allocator,
+            .limited(128 * 1024),
+        ) catch |err| switch (err) {
+            error.FileNotFound => continue,
+            else => return err,
+        };
+        defer bridge.app.allocator.free(source);
+        const replacement = (try noctty.gui.noctalia.rewriteManagedBindingAlloc(
+            bridge.app.allocator,
+            source,
+            detection.compositor,
+            bridge.app.config.dropdown.shortcut,
+        )) orelse continue;
+        defer bridge.app.allocator.free(replacement);
+        var atomic = try std.Io.Dir.cwd().createFileAtomic(io, path, .{
+            .replace = true,
+        });
+        defer atomic.deinit(io);
+        try atomic.file.writeStreamingAll(io, replacement);
+        try atomic.replace(io);
+        return true;
+    }
+    return false;
 }
 
 fn dumpDefaultConfig(out: anytype) !void {
@@ -5679,8 +5789,11 @@ export fn noctty_grid_scroll_state(
 
 export fn noctty_grid_cursor(raw: ?*anyopaque) callconv(.c) u32 {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    if (!session.grid.cursor_visible) return 0xffffffff;
-    return (@as(u32, @intCast(session.grid.cursor_row)) << 16) | @as(u32, @intCast(session.grid.cursor_column));
+    // Full-screen TUIs can leave DECTCEM disabled while moving the active
+    // input cursor. The native renderer owns the blink phase, so always
+    // expose the live grid position unless the viewport is in scrollback.
+    return (@as(u32, @intCast(session.grid.cursor_row)) << 16) |
+        @as(u32, @intCast(session.grid.cursor_column));
 }
 
 export fn noctty_grid_title(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
@@ -6028,7 +6141,7 @@ fn nativeGridWorkspaceSmoke(out: anytype) !void {
     if (!app.workspace.findPane(3).?.selected) return error.NativeGridSelectionMissing;
     if (!app.workspace.findPane(3).?.hasTag("ci")) return error.NativeGridTagMissing;
     if (app.workspace.smart_filter_tag != null) return error.NativeGridFilterNotCleared;
-    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true broadcast_shortcut=true broadcast_confirm=true broadcast_cancel_default=true broadcast_disable_immediate=true broadcast_state_label=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 dropdown_minimum=true visual_ready=true controlled_exit=true exited=true\n", .{});
+    try out.print("native_grid_workspace_smoke tab_command=true split_down=true split_left=true broadcast=true broadcast_shortcut=true broadcast_confirm=true broadcast_cancel_default=true broadcast_disable_immediate=true broadcast_disable_feedback=true broadcast_state_label=true selection_indicator=true selected_pane=3 focus_cycle=true pane_move=true rendered_move=true tag=true tag_suggestions=true filter=true filter_indicator=true filter_empty=true filter_empty_context=true filter_empty_clear=true filter_empty_escape=true filter_focus=true filter_cleared=true tabs=2 active_panes=2 dropdown_minimum=true visual_ready=true controlled_exit=true exited=true\n", .{});
 }
 
 fn nativeGridTabNavigationSmoke(out: anytype) !void {
@@ -6431,7 +6544,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true context_palette=true context_submenus=true palette_no_tab_rename=true find=true scrollback=true pane_scrollbar=true zoom=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true terminal_accessible=true dynamic_shortcut=true light_tab_title=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true tui_wheel=true tui_caret=true dragger_double_click=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true context_palette=true context_submenus=true palette_no_tab_rename=true find=true scrollback=true pane_scrollbar=true zoom=true zoom_message=true split_geometry_restored=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true terminal_accessible=true dynamic_shortcut=true light_tab_title=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true tui_wheel=true tui_caret=true dragger_double_click=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {
@@ -7472,7 +7585,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
         }
     }
     if (!launch_marker) return error.NativeGridLaunchProfileOutputMismatch;
-    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true geometry=sane dialogs=above_terminal application_icon=true categories=3 category_navigation=true category_tooltips=true narrow_access=true page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true scrollback_all_panes=true scroll_lines=7 smooth_scroll=false launch_profile=true launch_feedback=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 shortcut_label=current_updated settings_handoff=true font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast translucency=true opacity=78 tint=#19324c alpha_support_notice=true status=background padding=8 spacing=4 divider=5 thickness_live=true pane_borders=6/4/2 status_border=3 overlay_border=2 window_border=7 dragger=12 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_settings_smoke rendered=true toolbar=true settings_button=true close_button=true order=yakuake button_pointer=true button_tooltips=true settings_activated=true close_activated=true session_stopped=true geometry=sane dialogs=above_terminal application_icon=true categories=3 category_navigation=true category_tooltips=true narrow_access=true page_switch=true mode=windowed tabs=bottom live_tab_position=bottom startup_tab_position=bottom dropdown=90x40 animation=120 hide_on_focus_loss=true focus_follows_pointer=true pane_info=true pane_info_toggle=true scrollback=256 scrollback_live=true scrollback_all_panes=true scroll_lines=7 smooth_scroll=false launch_profile=true launch_feedback=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp launch_env=2 launch_scrollback=2048 launch_atomic=true launch_persisted=true launch_runtime=true launch_library=true launch_profiles=1 launch_named=true launch_saved=true launch_selected=true launch_deleted=true launch_continuity_controls=true launch_tmux=true launch_zellij=true shortcut_recorder=true shortcut=F11 shortcut_label=current_updated settings_handoff=true font_family=Monospace font_size=16 smoothing=grayscale hinting=full theme=noctty-high-contrast translucency=true translucency_surface=true opacity=78 tint=#19324c alpha_support_notice=true status=background padding=8 spacing=4 divider=5 thickness_live=true pane_borders=6/4/2 status_border=3 overlay_border=2 window_border=7 dragger=12 notifications=false preset=readable persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridSettingsStackingSmoke(allocator: std.mem.Allocator, out: anytype) !void {
@@ -8419,6 +8532,8 @@ fn runNativeGridActivated(
         .primary_session = &session,
         .share_state = &share_state,
     };
+    bridge.noctalia_shortcut_binding_updated =
+        syncNoctaliaShortcutBinding(&bridge) catch false;
     const effective_mode: c_int = if (mode >= 0)
         mode
     else

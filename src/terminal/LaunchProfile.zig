@@ -6,6 +6,7 @@ pub const max_working_directory_bytes: usize = 4096;
 pub const max_environment_bytes: usize = 2048;
 pub const max_ssh_target_bytes: usize = 256;
 pub const max_environment_entries: usize = 16;
+pub const default_scrollback_lines: u32 = 10_000;
 pub const max_scrollback_lines: u32 = 100_000;
 pub const max_name_bytes: usize = 64;
 pub const max_named_profiles: usize = 8;
@@ -46,14 +47,28 @@ pub const Profile = struct {
     working_directory: BoundedText(max_working_directory_bytes) = .{},
     environment: BoundedText(max_environment_bytes) = .{},
     ssh_target: BoundedText(max_ssh_target_bytes) = .{},
-    scrollback_lines: u32 = 10_000,
+    scrollback_lines: u32 = default_scrollback_lines,
+
+    pub fn normalizeScrollback(self: *Profile) void {
+        if (self.scrollback_lines == 0)
+            self.scrollback_lines = default_scrollback_lines;
+    }
+
+    pub fn effectiveScrollbackLines(self: *const Profile) u32 {
+        return if (self.scrollback_lines == 0)
+            default_scrollback_lines
+        else
+            self.scrollback_lines;
+    }
 
     pub fn validate(self: *const Profile) !void {
         try validateOptionalAbsolutePath(self.shell.slice(), error.InvalidLaunchShell);
         try validateSingleLine(self.command.slice(), error.InvalidLaunchCommand);
         try validateOptionalAbsolutePath(self.working_directory.slice(), error.InvalidLaunchWorkingDirectory);
         try validateEnvironment(self.environment.slice());
-        if (self.scrollback_lines > max_scrollback_lines) return error.InvalidLaunchScrollbackLines;
+        if (self.scrollback_lines == 0 or
+            self.scrollback_lines > max_scrollback_lines)
+            return error.InvalidLaunchScrollbackLines;
 
         switch (self.kind) {
             .shell => try validateSshTarget(self.ssh_target.slice()),

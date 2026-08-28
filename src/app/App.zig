@@ -65,6 +65,8 @@ pub const App = struct {
         toggle_pane_zoom: Terminal.PaneId,
         move_pane_to_tab: MovePaneToTab,
         split_left,
+        split_right,
+        split_up,
         split_down,
         preset: Workspace.LayoutPreset,
         toggle_broadcast,
@@ -928,6 +930,16 @@ pub const App = struct {
                 self.markWorkspaceDirtyAt(0);
                 return .{ .pane_created = pane_id };
             },
+            .split_right => {
+                const pane_id = try self.workspace.splitActivePane(.right);
+                self.markWorkspaceDirtyAt(0);
+                return .{ .pane_created = pane_id };
+            },
+            .split_up => {
+                const pane_id = try self.workspace.splitActivePane(.up);
+                self.markWorkspaceDirtyAt(0);
+                return .{ .pane_created = pane_id };
+            },
             .split_down => {
                 const pane_id = try self.workspace.splitActivePane(.down);
                 self.markWorkspaceDirtyAt(0);
@@ -1608,7 +1620,10 @@ test "app dispatches context menu split and grid commands" {
     defer app.deinit();
 
     _ = try app.dispatch(.split_left);
-    try std.testing.expectEqual(@as(usize, 2), app.workspace.activeTab().?.panes.items.len);
+    _ = try app.dispatch(.split_right);
+    _ = try app.dispatch(.split_up);
+    _ = try app.dispatch(.split_down);
+    try std.testing.expectEqual(@as(usize, 5), app.workspace.activeTab().?.panes.items.len);
 
     _ = try app.dispatch(.{ .preset = .two_by_two });
     try std.testing.expectEqual(@as(usize, 4), app.workspace.activeTab().?.panes.items.len);

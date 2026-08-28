@@ -1,6 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
+config_home=$(mktemp -d "${TMPDIR:-/tmp}/noctty-noctalia-config.XXXXXX")
+trap 'rm -rf "$config_home"' EXIT HUP INT TERM
+export HOME="$config_home"
+export XDG_CONFIG_HOME="$config_home"
+
 cache_dir="${NOCTTY_ZIG_CACHE_DIR:-.zig-cache}"
 global_cache_dir="${NOCTTY_ZIG_GLOBAL_CACHE_DIR:-.zig-cache/global}"
 prefix="${NOCTTY_INSTALL_PREFIX:-zig-out}"
