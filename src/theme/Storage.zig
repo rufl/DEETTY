@@ -5,7 +5,7 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const theme_magic = "NOCTTYTHM";
-const theme_version: u8 = 1;
+const theme_version: u8 = 3;
 const max_theme_count: usize = 1024;
 
 pub const max_theme_file_bytes: usize = 4 * 1024 * 1024;
@@ -94,7 +94,8 @@ pub fn importThemeLibraryAlloc(allocator: std.mem.Allocator, bytes: []const u8) 
     };
     try reader.expectMagic();
     const version = try reader.readU8();
-    if (version != theme_version) return error.UnsupportedThemeLibrarySnapshot;
+    if (version == 0 or version > theme_version) return error.UnsupportedThemeLibrarySnapshot;
+    reader.version = version;
 
     const count = try reader.readU64AsUsize();
     if (count == 0) return error.EmptyThemeLibrary;
@@ -247,6 +248,7 @@ const ThemeWriter = struct {
         try self.writeColor(theme.background);
         try self.writeColor(theme.cursor);
         for (theme.palette) |color| try self.writeColor(color);
+        for (theme.chrome) |color| try self.writeColor(color);
     }
 
     fn writeString(self: *ThemeWriter, value: []const u8) !void {
@@ -282,6 +284,7 @@ const ThemeReader = struct {
     allocator: std.mem.Allocator,
     bytes: []const u8,
     offset: usize = 0,
+    version: u8 = 0,
 
     fn expectMagic(self: *ThemeReader) !void {
         if (self.bytes.len < theme_magic.len) return error.InvalidThemeLibrarySnapshot;
@@ -303,6 +306,17 @@ const ThemeReader = struct {
         const cursor = try self.readColor();
         var palette: [16]ThemeMod.Color = undefined;
         for (&palette) |*color| color.* = try self.readColor();
+        var chrome = ThemeMod.Theme.builtinDark().chrome;
+        const cursor_index = @intFromEnum(ThemeMod.ChromeColor.terminal_cursor);
+        if (self.version >= 2) {
+            for (chrome[0..cursor_index]) |*color| color.* = try self.readColor();
+            if (self.version >= 3) chrome[cursor_index] = try self.readColor();
+        } else {
+            chrome[@intFromEnum(ThemeMod.ChromeColor.workspace_background)] = background;
+            chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_background)] = background;
+            chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_foreground)] = foreground;
+        }
+        if (self.version < 3) chrome[cursor_index] = cursor;
 
         return .{
             .theme = .{
@@ -311,6 +325,7 @@ const ThemeReader = struct {
                 .background = background,
                 .cursor = cursor,
                 .palette = palette,
+                .chrome = chrome,
             },
             .owned_name = name,
         };
@@ -361,7 +376,7 @@ const ThemeReader = struct {
 
 test "theme libraries export and import owned themes" {
     const allocator = std.testing.allocator;
-    const workspace = try ThemeMod.importTheme(.ghostty, "Workspace Night",
+    const workspace = try ThemeMod.importTheme(allocator, .ghostty, "Workspace Night",
         \\background = #000011
         \\foreground = #eeeeee
         \\cursor-color = #ff00aa
@@ -380,7 +395,60 @@ test "theme libraries export and import owned themes" {
     try std.testing.expectEqualStrings("Workspace Night", loaded.entries[1].theme.name);
     try std.testing.expectEqual(ThemeMod.Color.fromHex(0x000011), loaded.entries[1].theme.background);
     try std.testing.expectEqual(ThemeMod.Color.fromHex(0x123456), loaded.entries[1].theme.palette[3]);
+    try std.testing.expectEqual(
+        workspace.chromeColor(.scrollbar_thumb),
+        loaded.entries[1].theme.chromeColor(.scrollbar_thumb),
+    );
     try std.testing.expect(loaded.entries[1].theme.name.ptr != workspace.name.ptr);
+}
+
+test "version one themes retain their colors in workspace chrome" {
+    const allocator = std.testing.allocator;
+    var legacy_theme = ThemeMod.Theme.builtinDark();
+    legacy_theme.name = "Legacy";
+    legacy_theme.background = ThemeMod.Color.fromHex(0x102030);
+    legacy_theme.foreground = ThemeMod.Color.fromHex(0xe0d0c0);
+
+    const current = try exportThemeLibraryAlloc(allocator, &.{legacy_theme});
+    defer allocator.free(current);
+    const chrome_bytes = ThemeMod.ChromeColor.count * 4;
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - chrome_bytes]);
+    defer allocator.free(legacy);
+    legacy[theme_magic.len] = 1;
+
+    var loaded = try importThemeLibraryAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expectEqual(
+        legacy_theme.background,
+        loaded.entries[0].theme.chromeColor(.workspace_background),
+    );
+    try std.testing.expectEqual(
+        legacy_theme.background,
+        loaded.entries[0].theme.chromeColor(.overlay_background),
+    );
+    try std.testing.expectEqual(
+        legacy_theme.foreground,
+        loaded.entries[0].theme.chromeColor(.overlay_foreground),
+    );
+}
+
+test "version two themes carry terminal cursor color into chrome" {
+    const allocator = std.testing.allocator;
+    var legacy_theme = ThemeMod.Theme.builtinDark();
+    legacy_theme.cursor = ThemeMod.Color.fromHex(0xabcdef);
+
+    const current = try exportThemeLibraryAlloc(allocator, &.{legacy_theme});
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4]);
+    defer allocator.free(legacy);
+    legacy[theme_magic.len] = 2;
+
+    var loaded = try importThemeLibraryAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expectEqual(
+        legacy_theme.cursor,
+        loaded.entries[0].theme.chromeColor(.terminal_cursor),
+    );
 }
 
 test "theme libraries reject malformed or duplicate snapshots" {
@@ -412,7 +480,7 @@ test "theme libraries save and load through atomic storage" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const workspace = try ThemeMod.importTheme(.xresources, "Workspace Night",
+    const workspace = try ThemeMod.importTheme(allocator, .xresources, "Workspace Night",
         \\*.background: #010203
         \\*.foreground: #aabbcc
     );
@@ -449,7 +517,7 @@ test "theme writes retain only a validated last-known-good backup" {
     );
     first.deinit(allocator);
 
-    const replacement = try ThemeMod.importTheme(.ghostty, "Replacement",
+    const replacement = try ThemeMod.importTheme(allocator, .ghostty, "Replacement",
         \\background = #f0f0f0
         \\foreground = #101010
     );

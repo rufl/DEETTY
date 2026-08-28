@@ -4,8 +4,37 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- TUI applications such as Pi and OMP now receive a visible blinking caret
+  drawn above field backgrounds and text, with input and cursor movement
+  restarting the visible blink phase. The caret color is theme-configurable.
+
+- The dropdown bottom dragger now toggles between full and half-screen height
+  on double-click. The terminal context menu now follows a compact
+  Konsole/Yakuake-style hierarchy for split, layout, selection, pane, clear,
+  view, and tool actions instead of presenting one long flat list.
+
+- Added Noctalia JSON theme import for active `colors.json` material colors and
+  complete dark/light colorscheme variants, including terminal foreground,
+  background, cursor, selection, all 16 ANSI colors, and NOCTTY chrome/status
+  role mapping. Dark and light imports retain distinct names.
+
 - Settings now shows the currently mapped open/retract shortcut directly on
   the change button and refreshes the label after recording a replacement.
+
+- Added persisted Appearance controls for workspace tint, compositor-aware
+  background translucency and opacity, pane borders, scrollbars, overlays,
+  selection, search, and status colors. Focused, selected, and unselected pane
+  borders, status and overlay outlines, split handles, window resize borders,
+  and the bottom dragger now have independent persisted thickness controls.
+  Unsupported compositor alpha falls back to opaque rendering with an explicit
+  Settings notice.
+
+- Added persisted wheel-step and smooth-scrolling controls, raised normal
+  session scrollback defaults to 10,000 lines, and synchronized live, restored,
+  split, profile, context-menu layout, and legacy two-pane session limits.
+  Scrolled viewports preserve their logical rows as output arrives; keyboard
+  and paste input return them to the live bottom, and wheel events over the
+  scrollbar rail reach mouse-reporting applications with bounded coordinates.
 
 - Uncolored tab titles now inherit GTK's theme text color instead of forcing
   white text, restoring readable titles with light desktop themes while

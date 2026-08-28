@@ -89,7 +89,7 @@ The qualified Linux NOCTTY host provides:
 - opt-in password-protected encrypted screen-history export
 - native settings, command palette, terminal search, Quick Note, and Project Workspace surfaces with keyboard-accessible controls, assistive names, and narrow-window scrolling
 - optional tray/status notifier integration
-- native themes and import paths for simple terminal color formats
+- native themes plus Ghostty, Xresources, Alacritty, and Noctalia JSON imports; Noctalia dark/light terminal palettes and Material workspace roles map to NOCTTY chrome, status, selection, and caret colors
 - opt-in end-to-end encrypted sharing of the active terminal to one paired
   NOCTTY device, with a native remote preview and separately approved,
   connection-scoped input control

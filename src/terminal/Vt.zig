@@ -1834,12 +1834,6 @@ pub const Grid = struct {
         }
     }
 
-    fn resetViewportForOutput(self: *Grid) void {
-        if (self.viewport_offset == 0) return;
-        self.viewport_offset = 0;
-        self.markAllDirty();
-    }
-
     pub fn titleSlice(self: Grid) []const u8 {
         return self.title.items;
     }
@@ -2283,6 +2277,11 @@ pub const Grid = struct {
             }
             const line = try self.acquireHistoryHotSlot(record_slot);
             @memcpy(line, source[0..self.columns]);
+            if (self.viewport_offset > 0)
+                self.viewport_offset = @min(
+                    self.viewport_offset + 1,
+                    self.history.items.len,
+                );
             return;
         }
         if (self.history.items.len == 0) return;
@@ -2297,7 +2296,11 @@ pub const Grid = struct {
         }
         self.history_meta.items[record_slot] = meta;
         self.history_start = (self.history_start + 1) % self.history.items.len;
-        self.viewport_offset = @min(self.viewport_offset, self.history.items.len);
+        if (self.viewport_offset > 0)
+            self.viewport_offset = @min(
+                self.viewport_offset + 1,
+                self.history.items.len,
+            );
     }
 
     fn acquireHistoryHotSlot(self: *Grid, record_slot: usize) ![]Cell {
@@ -2574,7 +2577,6 @@ pub const Grid = struct {
     }
 
     fn putCodepoint(self: *Grid, codepoint: u21) !void {
-        self.resetViewportForOutput();
         if (self.last_grapheme_valid) {
             const starts_cluster = self.grapheme_stream.push(codepoint);
             if (!starts_cluster and
@@ -2690,7 +2692,6 @@ pub const Grid = struct {
     }
 
     fn putAscii(self: *Grid, bytes: []const u8) !void {
-        self.resetViewportForOutput();
         var offset: usize = 0;
         var last_row: usize = self.cursor_row;
         var last_column: usize = self.cursor_column;
@@ -3912,6 +3913,23 @@ test "terminal grid retains scrollback for wheel navigation" {
     try std.testing.expectEqual(@as(u21, 'o'), grid.cell(0, 0).codepoint);
     grid.scrollViewport(-@as(isize, @intCast(grid.history.items.len)));
     try std.testing.expectEqual(@as(usize, 0), grid.viewport_offset);
+}
+
+test "terminal grid keeps a scrolled viewport stable while output continues" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+    try grid.feed("alpha\r\nbravo\r\ncharly\r\ndelta");
+
+    grid.scrollViewport(1);
+    try std.testing.expectEqual(@as(u21, 'a'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'b'), grid.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, 'c'), grid.cell(0, 2).codepoint);
+
+    try grid.feed("\r\necho");
+    try std.testing.expectEqual(@as(usize, 2), grid.viewport_offset);
+    try std.testing.expectEqual(@as(u21, 'a'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'b'), grid.cell(0, 1).codepoint);
+    try std.testing.expectEqual(@as(u21, 'c'), grid.cell(0, 2).codepoint);
 }
 
 test "terminal grid rotates full-screen rows and blends viewport history" {

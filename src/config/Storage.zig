@@ -7,12 +7,13 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const config_magic = "NOCTTYCFG";
-const config_version: u8 = 11;
+const config_version: u8 = 14;
 const default_launch_profile_tail_bytes: usize = 1 + (5 * 8) + 4;
 const default_launch_library_tail_bytes: usize = 2;
 const default_recent_workspace_tail_bytes: usize = 1;
 const default_font_rendering_tail_bytes: usize = 2;
-const default_dropdown_pixel_tail_bytes: usize = 4;
+// Legacy test fixtures omit pixel dimensions and all settings added afterward.
+const default_dropdown_pixel_tail_bytes: usize = 20;
 
 pub const ConfigFileRole = enum {
     settings,
@@ -130,6 +131,16 @@ pub fn exportConfigAlloc(allocator: std.mem.Allocator, config: ConfigMod.Config)
     try writer.writeU8(@intFromEnum(config.font.hinting));
     try writer.writeU16(config.dropdown.width_px);
     try writer.writeU16(config.dropdown.height_px);
+    try writer.writeBool(config.background.translucency);
+    try writer.writeU8(config.background.opacity_percent);
+    try writer.writeU8(config.terminal.scroll_lines);
+    try writer.writeBool(config.terminal.smooth_scroll);
+    try writer.writeU16(config.panels.focused_border_px);
+    try writer.writeU16(config.panels.selected_border_px);
+    try writer.writeU16(config.panels.status_border_px);
+    try writer.writeU16(config.panels.overlay_border_px);
+    try writer.writeU16(config.panels.window_border_px);
+    try writer.writeU16(config.panels.dragger_px);
 
     return writer.bytes.toOwnedSlice();
 }
@@ -198,6 +209,8 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
         ConfigMod.Config.defaults().terminal.scrollback_lines;
     if (version >= 6) {
         try readLaunchProfile(&reader, &config.terminal.launch_profile, version);
+    } else {
+        config.terminal.launch_profile.scrollback_lines = config.terminal.scrollback_lines;
     }
     if (version >= 7) {
         config.terminal.launch_profiles.count = try reader.readU8();
@@ -234,6 +247,22 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
     if (version >= 11) {
         config.dropdown.width_px = try reader.readU16();
         config.dropdown.height_px = try reader.readU16();
+    }
+    if (version >= 12) {
+        config.background.translucency = try reader.readBool();
+        config.background.opacity_percent = try reader.readU8();
+    }
+    if (version >= 13) {
+        config.terminal.scroll_lines = try reader.readU8();
+        config.terminal.smooth_scroll = try reader.readBool();
+    }
+    if (version >= 14) {
+        config.panels.focused_border_px = try reader.readU16();
+        config.panels.selected_border_px = try reader.readU16();
+        config.panels.status_border_px = try reader.readU16();
+        config.panels.overlay_border_px = try reader.readU16();
+        config.panels.window_border_px = try reader.readU16();
+        config.panels.dragger_px = try reader.readU16();
     }
 
     if (!reader.finished()) return error.InvalidConfigSnapshot;
@@ -600,6 +629,16 @@ test "config snapshots export and import owned gui settings" {
     config.status.long_running_minutes = 45;
     config.clipboard.bracketed_paste = false;
     config.default_theme = "workspace-night";
+    config.background.translucency = false;
+    config.background.opacity_percent = 76;
+    config.terminal.scroll_lines = 7;
+    config.terminal.smooth_scroll = false;
+    config.panels.focused_border_px = 7;
+    config.panels.selected_border_px = 5;
+    config.panels.status_border_px = 4;
+    config.panels.overlay_border_px = 3;
+    config.panels.window_border_px = 9;
+    config.panels.dragger_px = 14;
 
     const bytes = try exportConfigAlloc(allocator, config);
     defer allocator.free(bytes);
@@ -640,6 +679,16 @@ test "config snapshots export and import owned gui settings" {
     try std.testing.expectEqual(@as(u16, 45), loaded.config.status.long_running_minutes);
     try std.testing.expect(!loaded.config.clipboard.bracketed_paste);
     try std.testing.expectEqualStrings("workspace-night", loaded.config.default_theme);
+    try std.testing.expect(!loaded.config.background.translucency);
+    try std.testing.expectEqual(@as(u8, 76), loaded.config.background.opacity_percent);
+    try std.testing.expectEqual(@as(u8, 7), loaded.config.terminal.scroll_lines);
+    try std.testing.expect(!loaded.config.terminal.smooth_scroll);
+    try std.testing.expectEqual(@as(u16, 7), loaded.config.panels.focused_border_px);
+    try std.testing.expectEqual(@as(u16, 5), loaded.config.panels.selected_border_px);
+    try std.testing.expectEqual(@as(u16, 4), loaded.config.panels.status_border_px);
+    try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.overlay_border_px);
+    try std.testing.expectEqual(@as(u16, 9), loaded.config.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 14), loaded.config.panels.dragger_px);
 }
 
 test "version one config snapshots load with pointer focus disabled" {
@@ -663,7 +712,7 @@ test "version one config snapshots load with pointer focus disabled" {
     try std.testing.expectEqual(ConfigMod.TabPosition.bottom, loaded.config.tabs.position);
     try std.testing.expect(!loaded.config.tabs.focus_follows_pointer);
     try std.testing.expect(loaded.config.tabs.show_pane_info);
-    try std.testing.expectEqual(@as(u32, 1000), loaded.config.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 10_000), loaded.config.terminal.scrollback_lines);
 }
 
 test "version three config snapshots enable pane information by default" {
@@ -677,7 +726,7 @@ test "version three config snapshots enable pane information by default" {
     var loaded = try importConfigAlloc(allocator, legacy);
     defer loaded.deinit(allocator);
     try std.testing.expect(loaded.config.tabs.show_pane_info);
-    try std.testing.expectEqual(@as(u32, 1000), loaded.config.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 10_000), loaded.config.terminal.scrollback_lines);
 }
 
 test "version four config snapshots use the bounded scrollback default" {
@@ -690,12 +739,14 @@ test "version four config snapshots use the bounded scrollback default" {
 
     var loaded = try importConfigAlloc(allocator, legacy);
     defer loaded.deinit(allocator);
-    try std.testing.expectEqual(@as(u32, 1000), loaded.config.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 10_000), loaded.config.terminal.scrollback_lines);
 }
 
-test "version five config snapshots use the default launch profile" {
+test "version five config snapshots carry scrollback into the default launch profile" {
     const allocator = std.testing.allocator;
-    const current = try exportConfigAlloc(allocator, ConfigMod.Config.defaults());
+    var config = ConfigMod.Config.defaults();
+    try config.terminal.setScrollbackLines(4_321);
+    const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
     const legacy = try allocator.dupe(u8, current[0 .. current.len - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
@@ -705,7 +756,8 @@ test "version five config snapshots use the default launch profile" {
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(LaunchProfile.Kind.shell, loaded.config.terminal.launch_profile.kind);
     try std.testing.expectEqualStrings("", loaded.config.terminal.launch_profile.shell.slice());
-    try std.testing.expectEqual(@as(u32, 1000), loaded.config.terminal.launch_profile.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 4_321), loaded.config.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 4_321), loaded.config.terminal.launch_profile.scrollback_lines);
     try std.testing.expectEqual(@as(u8, 0), loaded.config.terminal.launch_profiles.count);
 }
 
@@ -799,6 +851,64 @@ test "version eight config snapshots retain recent workspaces" {
         "/tmp/legacy-eight.nocttyws",
         loaded.config.recent_workspaces.at(0).?,
     );
+}
+
+test "version eleven config snapshots use safe background defaults" {
+    const allocator = std.testing.allocator;
+    var config = ConfigMod.Config.defaults();
+    config.background.translucency = false;
+    config.background.opacity_percent = 44;
+    const current = try exportConfigAlloc(allocator, config);
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(
+        u8,
+        current[0 .. current.len - 16],
+    );
+    defer allocator.free(legacy);
+    legacy[config_magic.len] = 11;
+
+    var loaded = try importConfigAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expect(loaded.config.background.translucency);
+    try std.testing.expectEqual(@as(u8, 92), loaded.config.background.opacity_percent);
+}
+
+test "version twelve config snapshots use safe scroll defaults" {
+    const allocator = std.testing.allocator;
+    var config = ConfigMod.Config.defaults();
+    config.terminal.scroll_lines = 9;
+    config.terminal.smooth_scroll = false;
+    const current = try exportConfigAlloc(allocator, config);
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 14]);
+    defer allocator.free(legacy);
+    legacy[config_magic.len] = 12;
+
+    var loaded = try importConfigAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expectEqual(@as(u8, 3), loaded.config.terminal.scroll_lines);
+    try std.testing.expect(loaded.config.terminal.smooth_scroll);
+}
+
+test "version thirteen config snapshots use safe border thickness defaults" {
+    const allocator = std.testing.allocator;
+    var config = ConfigMod.Config.defaults();
+    config.panels.focused_border_px = 8;
+    config.panels.selected_border_px = 6;
+    config.panels.window_border_px = 10;
+    config.panels.dragger_px = 15;
+    const current = try exportConfigAlloc(allocator, config);
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 12]);
+    defer allocator.free(legacy);
+    legacy[config_magic.len] = 13;
+
+    var loaded = try importConfigAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.focused_border_px);
+    try std.testing.expectEqual(@as(u16, 2), loaded.config.panels.selected_border_px);
+    try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 18), loaded.config.panels.dragger_px);
 }
 
 test "config snapshots reject invalid bytes" {

@@ -19,7 +19,7 @@ run_case() {
         --native-grid-4x4-smoke 2>&1)
     printf '%s\n' "$output"
     printf '%s\n' "$output" | grep -F \
-        'native_grid_4x4_smoke route=workspace_menu production_tab=true panes=16 balanced=true mapped=true pty_ready=true all_panes_drawn=true all_panes_nonblank=true tui_rendered=true tui_input=true sessions_created=16 source_tab_preserved=true restored=true exited=true' \
+        'native_grid_4x4_smoke route=workspace_menu production_tab=true panes=16 balanced=true mapped=true pty_ready=true all_panes_drawn=true all_panes_nonblank=true tui_rendered=true tui_input=true sessions_created=16 scrollback=12345 all_panes_scrollback=true source_tab_preserved=true restored=true exited=true' \
         >/dev/null
     printf 'native_grid_layout_tui_case backend=%s app=%s panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true\n' \
         "$backend" "$application"

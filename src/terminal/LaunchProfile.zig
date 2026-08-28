@@ -46,7 +46,7 @@ pub const Profile = struct {
     working_directory: BoundedText(max_working_directory_bytes) = .{},
     environment: BoundedText(max_environment_bytes) = .{},
     ssh_target: BoundedText(max_ssh_target_bytes) = .{},
-    scrollback_lines: u32 = 1000,
+    scrollback_lines: u32 = 10_000,
 
     pub fn validate(self: *const Profile) !void {
         try validateOptionalAbsolutePath(self.shell.slice(), error.InvalidLaunchShell);

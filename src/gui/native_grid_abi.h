@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define NOCTTY_NATIVE_GRID_ABI_VERSION 5u
+#define NOCTTY_NATIVE_GRID_ABI_VERSION 6u
 
 typedef struct {
     uint32_t first;
@@ -19,6 +19,7 @@ typedef int (*NocttyGridDirtyRows)(void *, uint8_t *, size_t);
 typedef int (*NocttyGridDirtySpans)(void *, NocttyGridDirtySpan *, size_t);
 typedef int (*NocttyGridPresentationReady)(void *);
 typedef uint32_t (*NocttyGridColorRgb)(void *, uint32_t);
+typedef uint32_t (*NocttyGridUiColorRgb)(void *, uint32_t);
 typedef int (*NocttyGridCellText)(void *, int, int, char *, size_t);
 typedef int (*NocttyGridCellHyperlink)(void *, int, int, char *, size_t);
 typedef int (*NocttyGridPollExit)(void *);
@@ -52,6 +53,7 @@ typedef struct {
     NocttyGridDirtySpans dirty_spans;
     NocttyGridPresentationReady presentation_ready;
     NocttyGridColorRgb color_rgb;
+    NocttyGridUiColorRgb ui_color_rgb;
     NocttyGridCellText cell_text;
     NocttyGridCellHyperlink cell_hyperlink;
     NocttyGridPollExit poll_exit;

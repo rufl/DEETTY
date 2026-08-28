@@ -75,6 +75,7 @@ pub const App = struct {
         set_focus_follows_pointer: bool,
         set_show_pane_info: bool,
         set_scrollback_lines: u32,
+        set_scroll_behavior: ScrollBehavior,
         set_launch_profile: LaunchProfile.Profile,
         save_named_launch_profile: struct {
             name: []const u8,
@@ -120,6 +121,7 @@ pub const App = struct {
         set_font_family: []const u8,
         set_font_antialias: Config.FontAntialias,
         set_font_hinting: Config.FontHinting,
+        set_background: Config.BackgroundConfig,
         set_default_theme: []const u8,
         set_syntax_theme: []const u8,
         set_panel_metrics: Config.PanelMetrics,
@@ -130,6 +132,7 @@ pub const App = struct {
         preview_theme_import: ThemeImport,
         install_theme_import: ThemeImport,
         select_theme: []const u8,
+        set_theme_chrome_color: ThemeChromeColorChange,
         read_quick_note,
         set_quick_note: []const u8,
         prepare_paste: ClipboardPaste,
@@ -291,6 +294,16 @@ pub const App = struct {
         contents: []const u8,
     };
 
+    pub const ScrollBehavior = struct {
+        lines: u8,
+        smooth: bool,
+    };
+
+    pub const ThemeChromeColorChange = struct {
+        role: Theme.ChromeColor,
+        color: Theme.Color,
+    };
+
     pub const ClipboardPaste = struct {
         input: []const u8,
         policy: Paste.PastePolicy = .literal,
@@ -325,6 +338,7 @@ pub const App = struct {
         focus_follows_pointer,
         show_pane_info,
         scrollback_lines,
+        scroll_behavior,
         launch_profile,
         launch_profile_library,
         tab_position,
@@ -337,6 +351,7 @@ pub const App = struct {
         font_family,
         font_antialias,
         font_hinting,
+        background,
         default_theme,
         syntax_theme,
         panel_metrics,
@@ -830,6 +845,13 @@ pub const App = struct {
         return null;
     }
 
+    pub fn activeTheme(self: App) Theme.Theme {
+        if (self.findTheme(self.config.default_theme)) |theme| return theme;
+        if (std.mem.eql(u8, self.config.default_theme, "noctty-high-contrast"))
+            return Theme.Theme.builtinHighContrast();
+        return Theme.Theme.builtinDark();
+    }
+
     pub fn dispatch(self: *App, command: Command) !CommandResult {
         switch (command) {
             .new_tab => {
@@ -962,9 +984,16 @@ pub const App = struct {
             },
             .set_scrollback_lines => |lines| {
                 var next = self.config;
-                next.terminal.scrollback_lines = lines;
+                try next.terminal.setScrollbackLines(lines);
                 try self.applyConfig(next);
                 return .{ .config_changed = .scrollback_lines };
+            },
+            .set_scroll_behavior => |behavior| {
+                var next = self.config;
+                next.terminal.scroll_lines = behavior.lines;
+                next.terminal.smooth_scroll = behavior.smooth;
+                try self.applyConfig(next);
+                return .{ .config_changed = .scroll_behavior };
             },
             .set_launch_profile => |profile| {
                 var next = self.config;
@@ -1183,6 +1212,12 @@ pub const App = struct {
                 try self.applyConfig(next);
                 return .{ .config_changed = .font_hinting };
             },
+            .set_background => |background| {
+                var next = self.config;
+                next.background = background;
+                try self.applyConfig(next);
+                return .{ .config_changed = .background };
+            },
             .set_default_theme => |name| {
                 try self.setOwnedDefaultTheme(name);
                 return .{ .config_changed = .default_theme };
@@ -1224,15 +1259,25 @@ pub const App = struct {
                 return .{ .theme_previewed = Theme.Preview.fromTheme(theme) };
             },
             .install_theme_import => |request| {
-                const imported = try Theme.importTheme(request.format, std.mem.trim(u8, request.name, " \t\r\n"), request.contents);
+                const imported = try Theme.importTheme(self.allocator, request.format, std.mem.trim(u8, request.name, " \t\r\n"), request.contents);
                 const theme = try self.installThemeCopy(imported);
                 return .{ .theme_installed = Theme.Preview.fromTheme(theme) };
             },
             .select_theme => |name| {
                 const theme_name = std.mem.trim(u8, name, " \t\r\n");
-                const theme = self.findTheme(theme_name) orelse return error.ThemeNotInstalled;
+                const theme = self.findTheme(theme_name) orelse builtin: {
+                    if (std.mem.eql(u8, theme_name, "noctty-high-contrast"))
+                        break :builtin try self.installThemeCopy(
+                            Theme.Theme.builtinHighContrast(),
+                        );
+                    return error.ThemeNotInstalled;
+                };
                 try self.setOwnedDefaultTheme(theme.name);
                 return .{ .theme_selected = Theme.Preview.fromTheme(theme) };
+            },
+            .set_theme_chrome_color => |change| {
+                const theme = try self.setActiveThemeChromeColor(change);
+                return .{ .theme_installed = Theme.Preview.fromTheme(theme) };
             },
             .read_quick_note => return .{ .quick_note_read = self.workspace.quick_note },
             .set_quick_note => |text| {
@@ -1413,7 +1458,7 @@ pub const App = struct {
 
     fn previewThemeImport(self: *App, request: ThemeImport) !Theme.Theme {
         const theme_name = std.mem.trim(u8, request.name, " \t\r\n");
-        const imported = try Theme.importTheme(request.format, theme_name, request.contents);
+        const imported = try Theme.importTheme(self.allocator, request.format, theme_name, request.contents);
         const owned_name = try self.allocator.dupe(u8, imported.name);
         errdefer self.allocator.free(owned_name);
         if (self.owned_preview_theme_name) |old| self.allocator.free(old);
@@ -1442,6 +1487,7 @@ pub const App = struct {
             .background = theme.background,
             .cursor = theme.cursor,
             .palette = theme.palette,
+            .chrome = theme.chrome,
         };
 
         for (self.themes.items) |*entry| {
@@ -1460,6 +1506,26 @@ pub const App = struct {
             .owned_name = owned_name,
         });
         return self.themes.items[self.themes.items.len - 1].theme;
+    }
+
+    fn setActiveThemeChromeColor(
+        self: *App,
+        change: ThemeChromeColorChange,
+    ) !Theme.Theme {
+        for (self.themes.items) |*entry| {
+            if (!std.mem.eql(u8, entry.theme.name, self.config.default_theme)) continue;
+            entry.theme.setChromeColor(change.role, change.color);
+            return entry.theme;
+        }
+        var fallback = self.activeTheme();
+        fallback.name = self.config.default_theme;
+        _ = try self.installThemeCopy(fallback);
+        for (self.themes.items) |*entry| {
+            if (!std.mem.eql(u8, entry.theme.name, self.config.default_theme)) continue;
+            entry.theme.setChromeColor(change.role, change.color);
+            return entry.theme;
+        }
+        return error.ThemeNotInstalled;
     }
 
     fn themeListAlloc(self: App) ![]Theme.Theme {
@@ -1491,6 +1557,7 @@ pub const App = struct {
                         .background = record.theme.background,
                         .cursor = record.theme.cursor,
                         .palette = record.theme.palette,
+                        .chrome = record.theme.chrome,
                     },
                     .owned_name = owned_name,
                 });
@@ -1891,6 +1958,23 @@ test "app dispatches typed gui settings commands" {
     try std.testing.expect(app.config.tabs.focus_follows_pointer);
     try std.testing.expect(!app.config.tabs.show_pane_info);
 
+    _ = try app.dispatch(.{ .set_scrollback_lines = 12_345 });
+    try std.testing.expectEqual(@as(u32, 12_345), app.config.terminal.scrollback_lines);
+    try std.testing.expectEqual(
+        @as(u32, 12_345),
+        app.config.terminal.launch_profile.scrollback_lines,
+    );
+
+    try std.testing.expectEqual(
+        App.ConfigSetting.scroll_behavior,
+        (try app.dispatch(.{ .set_scroll_behavior = .{
+            .lines = 6,
+            .smooth = false,
+        } })).config_changed,
+    );
+    try std.testing.expectEqual(@as(u8, 6), app.config.terminal.scroll_lines);
+    try std.testing.expect(!app.host.config.terminal.smooth_scroll);
+
     try std.testing.expectEqual(App.ConfigSetting.status_indicator, (try app.dispatch(.{ .set_status_indicator = .background })).config_changed);
     try std.testing.expectEqual(Config.StatusIndicator.background, app.config.status.indicator);
 
@@ -1910,6 +1994,16 @@ test "app dispatches typed gui settings commands" {
     _ = try app.dispatch(.{ .set_default_theme = " noctty-high-contrast " });
     try std.testing.expectEqualStrings("JetBrains Mono", app.config.font.family);
     try std.testing.expectEqualStrings("noctty-high-contrast", app.host.config.default_theme);
+
+    try std.testing.expectEqual(
+        App.ConfigSetting.background,
+        (try app.dispatch(.{ .set_background = .{
+            .translucency = false,
+            .opacity_percent = 68,
+        } })).config_changed,
+    );
+    try std.testing.expect(!app.config.background.translucency);
+    try std.testing.expectEqual(@as(u8, 68), app.host.config.background.opacity_percent);
 
     var metrics = app.config.panels;
     metrics.padding_px = 8;
@@ -2181,7 +2275,7 @@ test "app falls back to first loaded theme when current default is absent" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const workspace = try Theme.importTheme(.xresources, "Workspace Night",
+    const workspace = try Theme.importTheme(allocator, .xresources, "Workspace Night",
         \\*.background: #010203
         \\*.foreground: #aabbcc
     );
@@ -3061,6 +3155,38 @@ test "app dispatches terminal status detection and notification requests" {
     try std.testing.expectEqual(Terminal.TerminalStatus.done, done.status_changed.current);
     try std.testing.expect(done.status_changed.notification_queued);
     try std.testing.expectEqual(Host.NotificationReason.completed, app.host.last_notification.?.reason);
+}
+
+test "app persists active theme workspace color changes" {
+    const allocator = std.testing.allocator;
+    var app = try App.init(allocator);
+    defer app.deinit();
+
+    _ = try app.dispatch(.{ .set_theme_chrome_color = .{
+        .role = .scrollbar_thumb,
+        .color = Theme.Color.fromHex(0x123456),
+    } });
+    try std.testing.expectEqual(
+        Theme.Color.fromHex(0x123456),
+        app.activeTheme().chromeColor(.scrollbar_thumb),
+    );
+}
+
+test "app materializes a missing active theme before changing workspace colors" {
+    const allocator = std.testing.allocator;
+    var app = try App.init(allocator);
+    defer app.deinit();
+
+    _ = try app.dispatch(.{ .set_default_theme = "missing-library-theme" });
+    _ = try app.dispatch(.{ .set_theme_chrome_color = .{
+        .role = .overlay_border,
+        .color = Theme.Color.fromHex(0xabcdef),
+    } });
+    try std.testing.expect(app.findTheme("missing-library-theme") != null);
+    try std.testing.expectEqual(
+        Theme.Color.fromHex(0xabcdef),
+        app.activeTheme().chromeColor(.overlay_border),
+    );
 }
 
 test "app exposes active tab status summary for host chrome" {

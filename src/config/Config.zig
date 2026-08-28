@@ -279,12 +279,26 @@ pub const PanelMetrics = struct {
     spacing_px: u16 = 4,
     divider_px: u16 = 1,
     border_px: u16 = 1,
+    focused_border_px: u16 = 3,
+    selected_border_px: u16 = 2,
+    status_border_px: u16 = 1,
+    overlay_border_px: u16 = 1,
+    window_border_px: u16 = 3,
+    dragger_px: u16 = 18,
     terminal_titlebar_px: u16 = 0,
     main_titlebar_px: u16 = 0,
 
     pub fn validate(self: PanelMetrics) !void {
         if (self.padding_px > 64 or self.spacing_px > 64) return error.InvalidPanelSpacing;
-        if (self.divider_px > 8 or self.border_px > 8) return error.InvalidPanelBorder;
+        if (self.divider_px == 0 or self.divider_px > 16 or self.border_px > 12 or
+            self.focused_border_px == 0 or self.focused_border_px > 12 or
+            self.selected_border_px == 0 or self.selected_border_px > 12 or
+            self.status_border_px == 0 or self.status_border_px > 12 or
+            self.overlay_border_px == 0 or self.overlay_border_px > 12)
+            return error.InvalidPanelBorder;
+        if (self.window_border_px == 0 or self.window_border_px > 16 or
+            self.dragger_px == 0 or self.dragger_px > 32)
+            return error.InvalidResizeHandleThickness;
         if (self.terminal_titlebar_px != 0 or self.main_titlebar_px != 0) return error.ThickTitlebarForbidden;
     }
 };
@@ -308,18 +322,34 @@ pub const ClipboardConfig = struct {
 pub const TerminalConfig = struct {
     pub const max_scrollback_lines: u32 = 100_000;
 
-    scrollback_lines: u32 = 1000,
+    scrollback_lines: u32 = 10_000,
+    scroll_lines: u8 = 3,
+    smooth_scroll: bool = true,
     launch_profile: LaunchProfile.Profile = .{},
     launch_profiles: LaunchProfile.Library = .{},
 
     pub fn validate(self: TerminalConfig) !void {
         if (self.scrollback_lines > max_scrollback_lines) return error.InvalidScrollbackLines;
+        if (self.scroll_lines == 0 or self.scroll_lines > 20)
+            return error.InvalidScrollLineSpeed;
         try self.launch_profile.validate();
         try self.launch_profiles.validate();
         if (self.launch_profiles.selected()) |selected| {
             if (!self.launch_profile.eql(&selected.profile))
                 return error.LaunchProfileSelectionMismatch;
         }
+    }
+
+    pub fn setScrollbackLines(self: *TerminalConfig, lines: u32) !void {
+        var next = self.*;
+        next.scrollback_lines = lines;
+        next.launch_profile.scrollback_lines = lines;
+        if (next.launch_profiles.selected_index != LaunchProfile.no_selection) {
+            const index = next.launch_profiles.selected_index;
+            next.launch_profiles.entries[index].profile.scrollback_lines = lines;
+        }
+        try next.validate();
+        self.* = next;
     }
 
     pub fn setLaunchProfile(self: *TerminalConfig, profile: LaunchProfile.Profile) !void {
@@ -359,6 +389,16 @@ pub const TerminalConfig = struct {
     }
 };
 
+pub const BackgroundConfig = struct {
+    translucency: bool = true,
+    opacity_percent: u8 = 92,
+
+    pub fn validate(self: BackgroundConfig) !void {
+        if (self.opacity_percent < 10 or self.opacity_percent > 100)
+            return error.InvalidBackgroundOpacity;
+    }
+};
+
 pub const Config = struct {
     default_mode: WindowMode = .dropdown,
     dropdown: DropdownConfig = .{},
@@ -368,6 +408,7 @@ pub const Config = struct {
     status: StatusConfig = .{},
     clipboard: ClipboardConfig = .{},
     terminal: TerminalConfig = .{},
+    background: BackgroundConfig = .{},
     recent_workspaces: WorkspaceActivation.RecentWorkspaces = .{},
     default_theme: []const u8 = "noctty-dark",
     syntax_theme: []const u8 = "noctty-syntax-default",
@@ -388,6 +429,7 @@ pub const Config = struct {
         try self.font.validate();
         try self.status.validate();
         try self.terminal.validate();
+        try self.background.validate();
         try self.recent_workspaces.validate();
         if (std.mem.trim(u8, self.default_theme, " \t\r\n").len == 0) return error.InvalidThemeName;
         if (std.mem.trim(u8, self.syntax_theme, " \t\r\n").len == 0) return error.InvalidSyntaxThemeName;
@@ -411,12 +453,37 @@ test "defaults match product constraints" {
     try std.testing.expect(cfg.font.ligatures);
     try std.testing.expectEqual(FontAntialias.subpixel, cfg.font.antialias);
     try std.testing.expectEqual(FontHinting.slight, cfg.font.hinting);
-    try std.testing.expectEqual(@as(u32, 1000), cfg.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 10_000), cfg.terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u8, 3), cfg.terminal.scroll_lines);
+    try std.testing.expect(cfg.terminal.smooth_scroll);
     try std.testing.expectEqual(LaunchProfile.Kind.shell, cfg.terminal.launch_profile.kind);
     try std.testing.expectEqual(@as(u8, 0), cfg.terminal.launch_profiles.count);
     try std.testing.expectEqual(@as(u8, 0), cfg.recent_workspaces.count);
     try std.testing.expectEqual(@as(u16, 0), cfg.panels.main_titlebar_px);
     try std.testing.expectEqual(@as(u16, 0), cfg.panels.terminal_titlebar_px);
+    try std.testing.expectEqual(@as(u16, 3), cfg.panels.focused_border_px);
+    try std.testing.expectEqual(@as(u16, 2), cfg.panels.selected_border_px);
+    try std.testing.expectEqual(@as(u16, 1), cfg.panels.border_px);
+    try std.testing.expectEqual(@as(u16, 1), cfg.panels.divider_px);
+    try std.testing.expectEqual(@as(u16, 3), cfg.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 18), cfg.panels.dragger_px);
+    try std.testing.expect(cfg.background.translucency);
+    try std.testing.expectEqual(@as(u8, 92), cfg.background.opacity_percent);
+}
+
+test "scrollback changes cover the active profile and its selected library entry" {
+    var terminal = TerminalConfig{};
+    var profile = LaunchProfile.Profile{ .kind = .command };
+    try profile.command.set("printf ready");
+    _ = try terminal.saveAndSelectLaunchProfile("Build", profile);
+
+    try terminal.setScrollbackLines(12_345);
+    try std.testing.expectEqual(@as(u32, 12_345), terminal.scrollback_lines);
+    try std.testing.expectEqual(@as(u32, 12_345), terminal.launch_profile.scrollback_lines);
+    try std.testing.expectEqual(
+        @as(u32, 12_345),
+        terminal.launch_profiles.entries[0].profile.scrollback_lines,
+    );
 }
 
 test "validation rejects invalid gui settings" {
@@ -435,6 +502,14 @@ test "validation rejects invalid gui settings" {
     cfg = Config.defaults();
     cfg.panels.main_titlebar_px = 1;
     try std.testing.expectError(error.ThickTitlebarForbidden, cfg.validate());
+
+    cfg = Config.defaults();
+    cfg.terminal.scroll_lines = 21;
+    try std.testing.expectError(error.InvalidScrollLineSpeed, cfg.validate());
+
+    cfg = Config.defaults();
+    cfg.background.opacity_percent = 9;
+    try std.testing.expectError(error.InvalidBackgroundOpacity, cfg.validate());
 
     cfg = Config.defaults();
     cfg.default_theme = "";

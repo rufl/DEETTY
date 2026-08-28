@@ -19,12 +19,35 @@ pub const Color = struct {
     }
 };
 
+pub const ChromeColor = enum(u8) {
+    workspace_background,
+    pane_border_active,
+    pane_border_selected,
+    pane_border_inactive,
+    scrollbar_track,
+    scrollbar_thumb,
+    scrollbar_thumb_hover,
+    overlay_background,
+    overlay_border,
+    overlay_foreground,
+    selection_background,
+    search_match_background,
+    status_info,
+    status_success,
+    status_warning,
+    status_error,
+    terminal_cursor,
+
+    pub const count = @typeInfo(ChromeColor).@"enum".fields.len;
+};
+
 pub const Theme = struct {
     name: []const u8,
     foreground: Color,
     background: Color,
     cursor: Color,
     palette: [16]Color,
+    chrome: [ChromeColor.count]Color,
 
     pub fn builtinDark() Theme {
         return .{
@@ -50,7 +73,54 @@ pub const Theme = struct {
                 Color.fromHex(0x9de7ff),
                 Color.fromHex(0xe5e9f0),
             },
+            .chrome = .{
+                Color.fromHex(0x0b0d12),
+                Color.fromHex(0xf9e2af),
+                Color.fromHex(0xf9e2af),
+                Color.fromHex(0x343848),
+                Color.fromHex(0x0e1016),
+                Color.fromHex(0x8c96aa),
+                Color.fromHex(0xf2b82e),
+                Color.fromHex(0x12151d),
+                Color.fromHex(0xf2b82e),
+                Color.fromHex(0xf7f8ff),
+                Color.fromHex(0x3d609f),
+                Color.fromHex(0xf2e68c),
+                Color.fromHex(0x408cf2),
+                Color.fromHex(0x40cc66),
+                Color.fromHex(0xf5b82e),
+                Color.fromHex(0xe64040),
+                Color.fromHex(0x8fb8ff),
+            },
         };
+    }
+
+    pub fn builtinHighContrast() Theme {
+        var theme = builtinDark();
+        theme.name = "noctty-high-contrast";
+        theme.foreground = Color.fromHex(0xffffff);
+        theme.background = Color.fromHex(0x000000);
+        theme.cursor = Color.fromHex(0xffffff);
+        theme.chrome = .{
+            Color.fromHex(0x000000), Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff), Color.fromHex(0xffffff),
+            Color.fromHex(0x000000), Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff), Color.fromHex(0x000000),
+            Color.fromHex(0xffffff), Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff), Color.fromHex(0xffff00),
+            Color.fromHex(0xffffff), Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff), Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff),
+        };
+        return theme;
+    }
+
+    pub fn chromeColor(self: Theme, color: ChromeColor) Color {
+        return self.chrome[@intFromEnum(color)];
+    }
+
+    pub fn setChromeColor(self: *Theme, color: ChromeColor, value: Color) void {
+        self.chrome[@intFromEnum(color)] = value;
     }
 };
 
@@ -86,6 +156,9 @@ pub const ImportFormat = enum {
     ghostty,
     xresources,
     alacritty_toml,
+    noctalia_dark,
+    noctalia_light,
+    noctalia_active,
 };
 
 pub fn validateName(name: []const u8) !void {
@@ -110,23 +183,168 @@ pub fn formatColor(color: Color, writer: anytype) !void {
     try writer.print("#{x:0>2}{x:0>2}{x:0>2}", .{ color.r, color.g, color.b });
 }
 
-pub fn importTheme(format: ImportFormat, name: []const u8, contents: []const u8) !Theme {
+pub fn importTheme(
+    allocator: std.mem.Allocator,
+    format: ImportFormat,
+    name: []const u8,
+    contents: []const u8,
+) !Theme {
     try validateName(name);
     var theme = Theme.builtinDark();
     theme.name = name;
 
-    var it = std.mem.splitScalar(u8, contents, '\n');
-    while (it.next()) |line_raw| {
-        const line = std.mem.trim(u8, line_raw, " \t\r");
-        if (line.len == 0 or line[0] == '#') continue;
-        switch (format) {
-            .ghostty => applyGhosttyLine(&theme, line) catch {},
-            .xresources => applyXresourcesLine(&theme, line) catch {},
-            .alacritty_toml => applyAlacrittyLine(&theme, line) catch {},
+    switch (format) {
+        .noctalia_dark, .noctalia_light, .noctalia_active => try applyNoctaliaTheme(allocator, &theme, format, contents),
+        else => {
+            var it = std.mem.splitScalar(u8, contents, '\n');
+            while (it.next()) |line_raw| {
+                const line = std.mem.trim(u8, line_raw, " \t\r");
+                if (line.len == 0 or line[0] == '#') continue;
+                switch (format) {
+                    .ghostty => applyGhosttyLine(&theme, line) catch {},
+                    .xresources => applyXresourcesLine(&theme, line) catch {},
+                    .alacritty_toml => applyAlacrittyLine(&theme, line) catch {},
+                    else => unreachable,
+                }
+            }
+            theme.setChromeColor(.workspace_background, theme.background);
+            theme.setChromeColor(.overlay_background, theme.background);
+            theme.setChromeColor(.overlay_foreground, theme.foreground);
+            theme.setChromeColor(.terminal_cursor, theme.cursor);
+        },
+    }
+    return theme;
+}
+
+fn jsonColor(object: *const std.json.ObjectMap, key: []const u8) ?Color {
+    const value = object.get(key) orelse return null;
+    if (value != .string) return null;
+    return parseHexColor(value.string) catch null;
+}
+
+fn setJsonColor(
+    object: *const std.json.ObjectMap,
+    key: []const u8,
+    target: *Color,
+) bool {
+    target.* = jsonColor(object, key) orelse return false;
+    return true;
+}
+
+fn noctaliaObject(
+    root: *std.json.ObjectMap,
+    format: ImportFormat,
+) ?*const std.json.ObjectMap {
+    const key = switch (format) {
+        .noctalia_dark => "dark",
+        .noctalia_light => "light",
+        .noctalia_active => return root,
+        else => unreachable,
+    };
+    const value = root.getPtr(key) orelse return null;
+    if (value.* != .object) return null;
+    return &value.object;
+}
+
+fn applyNoctaliaTerminal(
+    theme: *Theme,
+    terminal: *const std.json.ObjectMap,
+) usize {
+    var applied: usize = 0;
+    applied += @intFromBool(setJsonColor(terminal, "foreground", &theme.foreground));
+    applied += @intFromBool(setJsonColor(terminal, "background", &theme.background));
+    applied += @intFromBool(setJsonColor(terminal, "cursor", &theme.cursor));
+    if (jsonColor(terminal, "selectionBg")) |color| {
+        theme.setChromeColor(.selection_background, color);
+        applied += 1;
+    }
+    const names = [_][]const u8{
+        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+    };
+    if (terminal.get("normal")) |normal| if (normal == .object) {
+        for (names, 0..) |key, index| {
+            if (jsonColor(&normal.object, key)) |color| {
+                theme.palette[index] = color;
+                applied += 1;
+            }
+        }
+    };
+    if (terminal.get("bright")) |bright| if (bright == .object) {
+        for (names, 0..) |key, index| {
+            if (jsonColor(&bright.object, key)) |color| {
+                theme.palette[index + 8] = color;
+                applied += 1;
+            }
+        }
+    };
+    return applied;
+}
+
+fn applyNoctaliaTheme(
+    allocator: std.mem.Allocator,
+    theme: *Theme,
+    format: ImportFormat,
+    contents: []const u8,
+) !void {
+    var parsed = std.json.parseFromSlice(std.json.Value, allocator, contents, .{}) catch
+        return error.InvalidNoctaliaTheme;
+    defer parsed.deinit();
+    if (parsed.value != .object) return error.InvalidNoctaliaTheme;
+    const source = noctaliaObject(&parsed.value.object, format) orelse
+        return error.InvalidNoctaliaTheme;
+
+    var applied: usize = 0;
+    applied += @intFromBool(setJsonColor(source, "mOnSurface", &theme.foreground));
+    applied += @intFromBool(setJsonColor(source, "mSurface", &theme.background));
+    if (jsonColor(source, "mPrimary")) |color| {
+        theme.cursor = color;
+        theme.setChromeColor(.pane_border_active, color);
+        theme.setChromeColor(.selection_background, color);
+        theme.setChromeColor(.status_info, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mTertiary")) |color| {
+        theme.setChromeColor(.pane_border_selected, color);
+        theme.setChromeColor(.search_match_background, color);
+        theme.setChromeColor(.status_success, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mOutline")) |color| {
+        theme.setChromeColor(.pane_border_inactive, color);
+        theme.setChromeColor(.overlay_border, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mSurfaceVariant")) |color| {
+        theme.setChromeColor(.scrollbar_track, color);
+        theme.setChromeColor(.overlay_background, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mOnSurfaceVariant")) |color| {
+        theme.setChromeColor(.scrollbar_thumb, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mHover")) |color| {
+        theme.setChromeColor(.scrollbar_thumb_hover, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mSecondary")) |color| {
+        theme.setChromeColor(.status_warning, color);
+        applied += 1;
+    }
+    if (jsonColor(source, "mError")) |color| {
+        theme.setChromeColor(.status_error, color);
+        applied += 1;
+    }
+    if (source.get("terminal")) |terminal| {
+        if (terminal == .object) {
+            applied += applyNoctaliaTerminal(theme, &terminal.object);
         }
     }
+    if (applied == 0) return error.InvalidNoctaliaTheme;
 
-    return theme;
+    theme.setChromeColor(.workspace_background, theme.background);
+    theme.setChromeColor(.overlay_foreground, theme.foreground);
+    theme.setChromeColor(.terminal_cursor, theme.cursor);
 }
 
 fn applyGhosttyLine(theme: *Theme, line: []const u8) !void {
@@ -179,7 +397,7 @@ fn applyAlacrittyLine(theme: *Theme, line: []const u8) !void {
 }
 
 test "imports ghostty theme colors" {
-    const imported = try importTheme(.ghostty, "sample",
+    const imported = try importTheme(std.testing.allocator, .ghostty, "sample",
         \\background = #000011
         \\foreground = #eeeeee
         \\cursor-color = #ff00aa
@@ -189,6 +407,62 @@ test "imports ghostty theme colors" {
     try std.testing.expectEqual(Color.fromHex(0xeeeeee), imported.foreground);
     try std.testing.expectEqual(Color.fromHex(0xff00aa), imported.cursor);
     try std.testing.expectEqual(Color.fromHex(0xcc0000), imported.palette[1]);
+    try std.testing.expectEqual(
+        imported.background,
+        imported.chromeColor(.workspace_background),
+    );
+    try std.testing.expectEqual(imported.background, imported.chromeColor(.overlay_background));
+    try std.testing.expectEqual(imported.foreground, imported.chromeColor(.overlay_foreground));
+}
+
+test "imports complete Noctalia terminal and chrome color schemes" {
+    const imported = try importTheme(std.testing.allocator, .noctalia_dark, "Noctalia Tokyo",
+        \\{"dark":{"mPrimary":"#112233","mSecondary":"#223344","mTertiary":"#334455","mError":"#ff0011","mSurface":"#010203","mOnSurface":"#f1f2f3","mSurfaceVariant":"#101112","mOnSurfaceVariant":"#d1d2d3","mOutline":"#445566","mHover":"#556677","terminal":{"foreground":"#a9b1d6","background":"#1f2335","selectionBg":"#4b517a","cursor":"#abcdef","normal":{"black":"#000001","red":"#000002","green":"#000003","yellow":"#000004","blue":"#000005","magenta":"#000006","cyan":"#000007","white":"#000008"},"bright":{"black":"#000009","red":"#00000a","green":"#00000b","yellow":"#00000c","blue":"#00000d","magenta":"#00000e","cyan":"#00000f","white":"#000010"}}}}
+    );
+    try std.testing.expectEqual(Color.fromHex(0xa9b1d6), imported.foreground);
+    try std.testing.expectEqual(Color.fromHex(0x1f2335), imported.background);
+    try std.testing.expectEqual(Color.fromHex(0xabcdef), imported.cursor);
+    try std.testing.expectEqual(Color.fromHex(0x000002), imported.palette[1]);
+    try std.testing.expectEqual(Color.fromHex(0x000010), imported.palette[15]);
+    try std.testing.expectEqual(
+        Color.fromHex(0x4b517a),
+        imported.chromeColor(.selection_background),
+    );
+    try std.testing.expectEqual(
+        Color.fromHex(0xabcdef),
+        imported.chromeColor(.terminal_cursor),
+    );
+    try std.testing.expectEqual(
+        Color.fromHex(0xff0011),
+        imported.chromeColor(.status_error),
+    );
+
+    const light = try importTheme(std.testing.allocator, .noctalia_light, "Noctalia Light",
+        \\{"light":{"mSurface":"#f0f2f7","mOnSurface":"#4e70c2","terminal":{"background":"#ffffff","foreground":"#111111"}}}
+    );
+    try std.testing.expectEqual(Color.fromHex(0xffffff), light.background);
+    try std.testing.expectEqual(Color.fromHex(0x111111), light.foreground);
+}
+
+test "imports active Noctalia material colors without a terminal section" {
+    const imported = try importTheme(std.testing.allocator, .noctalia_active, "Noctalia Active",
+        \\{"mPrimary":"#adc6ff","mError":"#ffb4ab","mSurface":"#121316","mOnSurface":"#e3e2e6","mOutline":"#44474f"}
+    );
+    try std.testing.expectEqual(Color.fromHex(0x121316), imported.background);
+    try std.testing.expectEqual(Color.fromHex(0xe3e2e6), imported.foreground);
+    try std.testing.expectEqual(
+        Color.fromHex(0xadc6ff),
+        imported.chromeColor(.terminal_cursor),
+    );
+}
+
+test "built-in theme exposes independently configurable workspace colors" {
+    var theme = Theme.builtinDark();
+    const selected_before = theme.chromeColor(.pane_border_selected);
+    theme.setChromeColor(.scrollbar_thumb, Color.fromHex(0x123456));
+
+    try std.testing.expectEqual(Color.fromHex(0x123456), theme.chromeColor(.scrollbar_thumb));
+    try std.testing.expectEqual(selected_before, theme.chromeColor(.pane_border_selected));
 }
 
 test "theme preview formats gui-facing summary" {
@@ -200,12 +474,12 @@ test "theme preview formats gui-facing summary" {
 }
 
 test "theme import rejects invalid display names" {
-    try std.testing.expectError(error.InvalidThemeName, importTheme(.ghostty, "", "background = #000000"));
-    try std.testing.expectError(error.InvalidThemeName, importTheme(.ghostty, "bad/name", "background = #000000"));
+    try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "", "background = #000000"));
+    try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "bad/name", "background = #000000"));
 }
 
 test "imports xresources theme colors" {
-    const imported = try importTheme(.xresources, "xr",
+    const imported = try importTheme(std.testing.allocator, .xresources, "xr",
         \\*.background: #010203
         \\*.foreground: #aabbcc
         \\*.color2: #00ff00
