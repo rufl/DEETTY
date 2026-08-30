@@ -173,6 +173,15 @@ pub const Listener = struct {
         return PendingConnection.init(socket, result);
     }
 
+    pub fn readable(self: *Listener, timeout_milliseconds: u32) !bool {
+        const result = noctty_share_socket_readable(
+            self.socket,
+            timeout_milliseconds,
+        );
+        if (result < 0) return error.ShareListenerPollFailed;
+        return result == 1;
+    }
+
     pub fn close(self: *Listener) void {
         if (self.socket != invalid_socket) noctty_share_socket_close(self.socket);
         self.socket = invalid_socket;

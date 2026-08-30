@@ -12,6 +12,7 @@ main=src/main.zig
 pty=src/terminal/Pty.zig
 vt=src/terminal/Vt.zig
 nocted=src/nocted/main.zig
+nocted_gtk=src/nocted/gtk.zig
 nocted_settings=src/nocted/Settings.zig
 nocted_task=src/nocted/Task.zig
 nocted_worker=src/nocted/Worker.zig
@@ -37,8 +38,8 @@ test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" \
   ! -path src/share/net.c | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
 
-grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 5u' "$grid_abi" >/dev/null
-grep -F 'pub const version: u32 = 5;' "$grid_abi_zig" >/dev/null
+grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 6u' "$grid_abi" >/dev/null
+grep -F 'pub const version: u32 = 6;' "$grid_abi_zig" >/dev/null
 grep -F 'pub const Paste = *const fn (?*anyopaque, [*]const u8, usize)' "$grid_abi_zig" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
@@ -56,19 +57,69 @@ grep -F '"--native-grid-installed-continuity-qualification"' "$main" >/dev/null
 grep -F 'pub export fn noctty_settings_page_new' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_settings_grid_attach_control' "$native_gtk" >/dev/null
 grep -F 'gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);' "$native_gtk" >/dev/null
+grep -A4 -F 'gtk_scrolled_window_set_policy(' "$native_gtk" | \
+  grep -F 'GTK_POLICY_AUTOMATIC,' >/dev/null
 ! grep -F 'static GtkWidget *settings_page_new' "$grid" >/dev/null
 ! grep -F 'static void settings_grid_attach_control' "$grid" >/dev/null
 grep -F 'save failed; keep this window open' "$grid" >/dev/null
 grep -F 'if (save_quick_note(root)) gtk_widget_destroy' "$grid" >/dev/null
 grep -F 'Could not save terminal scrollback' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(entry, "Search terminal scrollback");' "$grid" >/dev/null
+grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
+grep -F '"Close file: {s}"' "$nocted" >/dev/null
+test "$(grep -c 'gtk_widget_queue_resize(parent);' "$grid")" -eq 1
+grep -F 'read_theme_file_bounded(filename, 4 * 1024 * 1024' "$grid" >/dev/null
+grep -F 'read_theme_file_bounded(path, 1024 * 1024, &contents, &length)' "$grid" >/dev/null
+grep -F 'if (*length == 0 || *length > (gsize)maximum)' "$grid" >/dev/null
+grep -F '"Theme imported, selected, and saved."' "$grid" >/dev/null
+grep -F 'persistNativeGridConfigChecked(bridge)' "$main" >/dev/null
+grep -F 'NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED' "$grid" >/dev/null
+grep -F 'context->nocted_directory_resolved ? directory : NULL,' "$grid" >/dev/null
+grep -F 'static void set_status_label_feedback(' "$grid" >/dev/null
+grep -F 'if (root->note_load_failed) return TRUE;' "$grid" >/dev/null
+grep -F 'Workspace note could not be loaded; close this window and try again.' "$grid" >/dev/null
+grep -F 'workarea.width < 600 ? GTK_ORIENTATION_VERTICAL' "$grid" >/dev/null
+grep -F 'gboolean vertical_rows = workarea.width < 640;' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(label, "NOCTTY keyboard shortcuts");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(combo, "Workspace restore mode");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(entry, "Screen history password");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(provider, "Agent provider");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(entry, "Rename terminal tab");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(entry, "Workspace tag");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(noctalia_variant,' "$grid" >/dev/null
+grep -F '"Noctalia import variant");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(peers, "Paired device");' "$grid" >/dev/null
+grep -F 'set_widget_accessible_name(status, "Session sharing status");' "$grid" >/dev/null
+grep -F 'MAX(1, MIN(480, width - 64))' "$grid" >/dev/null
+grep -F 'sharing_status_can_clear_host(205)' "$grid" >/dev/null
+grep -F 'sharing_status_can_clear_viewer(306)' "$grid" >/dev/null
+grep -F '"Close sharing session"' "$grid" >/dev/null
+grep -F '"Close remote session"' "$grid" >/dev/null
+grep -F '"Retry saving devices", 18' "$grid" >/dev/null
+grep -F 'if (revoked) continue;' "$grid" >/dev/null
+grep -F 'text_length > NOCTTY_SHARING_PASTE_MAX_BYTES' "$grid" >/dev/null
+grep -F 'noctty_grid_share_action(root->event_data, 6, -1' "$grid" >/dev/null
+grep -F 'noctty_grid_share_action(root->event_data, 11, -1' "$grid" >/dev/null
+grep -F 'state.paired_device_persistence = .save_failed;' "$main" >/dev/null
+grep -F 'pairing.destroy();' "$main" >/dev/null
+grep -F 'const readable = self.listener.?.readable(50)' src/share/PairController.zig >/dev/null
+grep -F 'fn setStatusFeedback(' "$nocted" >/dev/null
+grep -F 'if (text_changed or role_changed or description_changed)' "$nocted" >/dev/null
+grep -F 'if (text_changed || role_changed || description_changed)' "$grid" >/dev/null
+grep -F 'setAccessibleName(combo, "Language-service completions");' "$nocted" >/dev/null
+grep -F 'setAccessibleName(entry, "New symbol name");' "$nocted" >/dev/null
+! grep -F 'g_strstrip((gchar *)text)' "$grid" >/dev/null
+grep -F 'pub const ATK_ROLE_STATUSBAR: c_int = 53;' "$nocted_gtk" >/dev/null
+grep -F '"Could not save the workspace"' "$grid" >/dev/null
+! sed -n '/export fn noctty_grid_text_action/,/^}/p' "$main" | \
+  grep -F 'callback_failed = true' >/dev/null
 grep -F 'context.full_stack_idle_ticks == 0' "$grid" >/dev/null
 grep -F 'context.stability_hidden_draws == 0' "$grid" >/dev/null
 grep -F "bytes[0] = '\\r'; length = 1;" "$grid" >/dev/null
 ! grep -F "bytes[0] = '\\n'; length = 1;" "$grid" >/dev/null
 grep -F 'poll_installed_continuity_detach_smoke' "$grid" >/dev/null
 grep -F 'g_dbus_connection_call_sync(' "$grid" >/dev/null
-grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 3' "$grid" >/dev/null
+grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 2' "$grid" >/dev/null
 grep -F '#define NOCTTY_PANE_INFO_HEIGHT_PX 18' "$grid" >/dev/null
 grep -F 'return index == 3 || index == 4 ? "ew-resize" : "ns-resize";' "$grid" >/dev/null
 ! grep -F 'nwse-resize' "$grid" >/dev/null
@@ -79,7 +130,7 @@ grep -F 'gtk_window_set_icon_name(GTK_WINDOW(window), "com.noctty.NOCTTY");' "$g
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
 grep -F 'static void configure_overlay_window_geometry(' "$grid" >/dev/null
 grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' "$grid" >/dev/null
-grep -F 'GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);' "$grid" >/dev/null
+grep -F 'GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);' "$grid" >/dev/null
 grep -F 'if (!gtk_widget_get_mapped(widget)) {' "$grid" >/dev/null
 grep -F 'resize_grid_to_allocation(context, &allocation);' "$grid" >/dev/null
 grep -F 'g_idle_add(focus_grid_area_idle, g_object_ref(context->area));' "$grid" >/dev/null
@@ -156,10 +207,11 @@ grep -F 'NOCTTY_ISOLATED_DISPLAY=x11 NOCTTY_SHARED_ISOLATION=1' "$isolated_x11" 
 grep -F 'export XDG_CONFIG_HOME="$root/config"' "$isolated_x11" >/dev/null
 grep -F 'export NOCTTY_ISOLATED_DISPLAY=wayland' "$isolated_wayland" >/dev/null
 grep -F 'unset DISPLAY WAYLAND_DISPLAY' "$isolated_x11" >/dev/null
+grep -F 'export XDG_RUNTIME_DIR="$scratch/runtime"' "$isolated_x11" >/dev/null
 grep -F 'unset DISPLAY WAYLAND_DISPLAY' "$isolated_wayland" >/dev/null
 
 grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v5=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_abi=true'
+echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_abi=true'

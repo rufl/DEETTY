@@ -59,6 +59,7 @@ done
 grep -F 'F10 { spawn "noctty" "--toggle"; }' resources/noctalia/niri.kdl >/dev/null
 grep -F 'match app-id=r#"^com\.noctty\.NOCTTY$"# title=r#"^NOCTTY Dropdown(?: —|$)"#' resources/noctalia/niri.kdl >/dev/null
 grep -F 'open-floating true' resources/noctalia/niri.kdl >/dev/null
+grep -F 'draw-border-with-background false' resources/noctalia/niri.kdl >/dev/null
 grep -F 'default-floating-position x=0 y=0 relative-to="top"' resources/noctalia/niri.kdl >/dev/null
 grep -F 'hl.bind("F10", hl.dsp.exec_cmd("noctty --toggle"))' resources/noctalia/hyprland.lua >/dev/null
 grep -F 'bind = , F10, exec, noctty --toggle' resources/noctalia/hyprland.conf >/dev/null
@@ -81,4 +82,4 @@ printf '%s\n' "$v4_hyprland" | grep -F 'version=v4 compositor=hyprland' >/dev/nu
 printf '%s\n' "$v4_hyprland" | grep -F 'binding=bind = , F10, exec, noctty --toggle' >/dev/null
 printf '%s\n' "$v4_hyprland" | grep -F 'autostart=exec-once = noctty --hidden' >/dev/null
 
-echo "noctalia_integration model=true v4_compatible=true v5=true niri=true hyprland=true sway=true scroll=true labwc=true mango=true dbus_activation=true layer_shell=false notifications=true artifacts=true"
+echo "noctalia_integration model=true v4_compatible=true v5=true niri=true niri_translucency=true hyprland=true sway=true scroll=true labwc=true mango=true dbus_activation=true layer_shell=false notifications=true artifacts=true"

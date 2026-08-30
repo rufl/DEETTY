@@ -108,7 +108,7 @@ while IFS= read -r document; do
 done
 
 grep -F 'Current public-readiness status: **pre-public Linux alpha**.' README.md >/dev/null
-grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood exists.' \
+grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood, the' \
   docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
 grep -F 'full_verify=false' scripts/public_alpha_verify.sh \
   docs/PUBLIC_ALPHA_GO_NO_GO.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
@@ -128,7 +128,7 @@ test ! -e scripts/native_grid_editor_shutdown_smoke.sh
 
 current_abi_docs='docs/ARCHITECTURE.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/TECHNICAL_STATUS.md'
 for document in $current_abi_docs; do
-  grep -F 'ABI v4' "$document" >/dev/null
+  grep -F 'ABI v6' "$document" >/dev/null
   ! grep -E 'ABI v2|render_abi_version=2' "$document" >/dev/null
 done
 grep -F 'ABI v4 packed-row fetches' docs/RELEASE_CHECKLIST.md >/dev/null

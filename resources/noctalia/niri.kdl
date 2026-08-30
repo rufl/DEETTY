@@ -10,5 +10,6 @@ binds {
 window-rule {
     match app-id=r#"^com\.noctty\.NOCTTY$"# title=r#"^NOCTTY Dropdown(?: —|$)"#
     open-floating true
+    draw-border-with-background false
     default-floating-position x=0 y=0 relative-to="top"
 }

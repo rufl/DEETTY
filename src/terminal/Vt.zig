@@ -74,6 +74,58 @@ pub const SelectionRange = struct {
     end_row: usize,
 };
 
+const NormalizedSelection = struct {
+    first_column: usize,
+    first_row: usize,
+    last_column: usize,
+    last_row: usize,
+    restricted: bool,
+
+    fn columnsForRow(self: NormalizedSelection, columns: usize, row: usize) struct {
+        first: usize,
+        end: usize,
+    } {
+        if (!self.restricted) return .{ .first = 0, .end = columns };
+        if (self.first_row == self.last_row) {
+            return .{ .first = self.first_column, .end = self.last_column + 1 };
+        }
+        if (row == self.first_row) {
+            return .{ .first = self.first_column, .end = columns };
+        }
+        if (row == self.last_row) {
+            return .{ .first = 0, .end = self.last_column + 1 };
+        }
+        return .{ .first = 0, .end = columns };
+    }
+};
+
+fn normalizeSelection(
+    columns: usize,
+    rows: usize,
+    selection: ?SelectionRange,
+) NormalizedSelection {
+    const range = selection orelse return .{
+        .first_column = 0,
+        .first_row = 0,
+        .last_column = columns - 1,
+        .last_row = rows - 1,
+        .restricted = false,
+    };
+    const start_column = @min(range.start_column, columns - 1);
+    const start_row = @min(range.start_row, rows - 1);
+    const end_column = @min(range.end_column, columns - 1);
+    const end_row = @min(range.end_row, rows - 1);
+    const forward = start_row < end_row or
+        (start_row == end_row and start_column <= end_column);
+    return .{
+        .first_column = if (forward) start_column else end_column,
+        .first_row = if (forward) start_row else end_row,
+        .last_column = if (forward) end_column else start_column,
+        .last_row = if (forward) end_row else start_row,
+        .restricted = true,
+    };
+}
+
 pub fn copySelectionFromGrid(
     grid: anytype,
     output: []u8,
@@ -82,31 +134,17 @@ pub fn copySelectionFromGrid(
     const columns: usize = @intCast(grid.columns);
     const rows: usize = @intCast(grid.rows);
     if (columns == 0 or rows == 0) return 0;
-    const first_column = if (selection) |range|
-        @min(@min(range.start_column, range.end_column), columns - 1)
-    else
-        0;
-    const last_column = if (selection) |range|
-        @min(@max(range.start_column, range.end_column), columns - 1)
-    else
-        columns - 1;
-    const first_row = if (selection) |range|
-        @min(@min(range.start_row, range.end_row), rows - 1)
-    else
-        0;
-    const last_row = if (selection) |range|
-        @min(@max(range.start_row, range.end_row), rows - 1)
-    else
-        rows - 1;
+    const bounds = normalizeSelection(columns, rows, selection);
 
     var required: usize = 0;
     var text: [128]u8 = undefined;
-    for (first_row..last_row + 1) |row| {
-        var start = first_column;
+    for (bounds.first_row..bounds.last_row + 1) |row| {
+        const row_columns = bounds.columnsForRow(columns, row);
+        var start = row_columns.first;
         while (start > 0 and
             (@as(u32, @truncate(grid.packedCell(start, row) >> 32)) & 128) != 0)
             start -= 1;
-        var end = last_column + 1;
+        var end = row_columns.end;
         while (end > start) {
             const packed_cell = grid.packedCell(end - 1, row);
             const codepoint: u32 = @truncate(packed_cell);
@@ -120,18 +158,19 @@ pub fn copySelectionFromGrid(
             const length = grid.cellText(column, row, &text);
             required = std.math.add(usize, required, length) catch return null;
         }
-        if (row != last_row)
+        if (row != bounds.last_row)
             required = std.math.add(usize, required, 1) catch return null;
     }
     if (required > output.len) return null;
 
     var used: usize = 0;
-    for (first_row..last_row + 1) |row| {
-        var start = first_column;
+    for (bounds.first_row..bounds.last_row + 1) |row| {
+        const row_columns = bounds.columnsForRow(columns, row);
+        var start = row_columns.first;
         while (start > 0 and
             (@as(u32, @truncate(grid.packedCell(start, row) >> 32)) & 128) != 0)
             start -= 1;
-        var end = last_column + 1;
+        var end = row_columns.end;
         while (end > start) {
             const packed_cell = grid.packedCell(end - 1, row);
             const codepoint: u32 = @truncate(packed_cell);
@@ -146,7 +185,7 @@ pub fn copySelectionFromGrid(
             @memcpy(output[used..][0..length], text[0..length]);
             used += length;
         }
-        if (row != last_row) {
+        if (row != bounds.last_row) {
             output[used] = '\n';
             used += 1;
         }
@@ -4786,6 +4825,36 @@ test "terminal grid extracts bounded normalized Unicode selection" {
         .end_row = 1,
     }) orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("中", output[0..wide_length]);
+}
+
+test "terminal grid extracts linear multi-row selection" {
+    var grid = try Grid.init(std.testing.allocator, 8, 3);
+    defer grid.deinit();
+    try grid.feed("ABCDEFGH\r\nijklmnop\r\nQRSTUVWX");
+
+    var output: [64]u8 = undefined;
+    const forward = SelectionRange{
+        .start_column = 3,
+        .start_row = 0,
+        .end_column = 2,
+        .end_row = 2,
+    };
+    const forward_length = grid.copySelection(&output, forward) orelse
+        return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings(
+        "DEFGH\nijklmnop\nQRS",
+        output[0..forward_length],
+    );
+    const reverse_length = grid.copySelection(&output, .{
+        .start_column = 2,
+        .start_row = 2,
+        .end_column = 3,
+        .end_row = 0,
+    }) orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings(
+        "DEFGH\nijklmnop\nQRS",
+        output[0..reverse_length],
+    );
 }
 
 test "terminal grid counts synchronized output begin transitions" {

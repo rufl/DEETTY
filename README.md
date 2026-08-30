@@ -45,8 +45,8 @@ Experimental:
 
 Not claimed yet:
 
-- Windows feature parity, Windows NoctEd, or physically qualified Windows
-  daily-driver support
+- Windows feature parity or physically qualified Windows terminal/editor and
+  installer daily-driver support
 - macOS support
 - VS Code/Zed/Sublime parity
 - universal terminal compatibility
@@ -59,8 +59,9 @@ the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairnes
 
 ## Screenshots
 
-Current retained alpha screenshots from the author's Plasma Wayland desktop.
-Future recaptures must use a disposable compositor session:
+Retained 2026-07-19 alpha baseline screenshots from the author's Plasma
+Wayland desktop. They predate the current UI and must be recaptured before a
+public announcement. Recaptures must use a disposable compositor session:
 `NOCTTY_DEDICATED_DISPLAY=1 ./scripts/capture_alpha_screenshots.sh`.
 
 ![NOCTTY alpha terminal workspace](docs/assets/noctty-alpha.png)
@@ -87,12 +88,13 @@ The qualified Linux NOCTTY host provides:
 - deterministic pre-state single-instance ownership for the dropdown, cold-start and Show/Toggle activation-token handoff without PTY inheritance, plus explicit separate New Workspace and Dolphin **Open NOCTTY Here** launches
 - continuity badges distinguishing restartable shells, live sessions, and agent resumes
 - opt-in password-protected encrypted screen-history export
-- native settings, command palette, terminal search, Quick Note, and Project Workspace surfaces with keyboard-accessible controls, assistive names, and narrow-window scrolling
+- native settings, command palette, terminal search, Quick Note, shortcut card, and Project Workspace surfaces with keyboard-accessible controls, assistive status/error feedback, and work-area-bounded narrow-window scrolling
 - optional tray/status notifier integration
 - native themes plus Ghostty, Xresources, Alacritty, and Noctalia JSON imports; Noctalia dark/light terminal palettes and Material workspace roles map to NOCTTY chrome, status, selection, and caret colors
 - opt-in end-to-end encrypted sharing of the active terminal to one paired
   NOCTTY device, with a native remote preview and separately approved,
-  connection-scoped input control
+  connection-scoped input control, assistive form/status semantics, and a
+  work-area-bounded preview
 
 The experimental Windows host provides a native Win32/GDI window, ConPTY,
 the shared Zig VT/parser, Unicode and control-key input, live resize, ANSI/true
@@ -129,15 +131,17 @@ NoctEd provides on Linux:
 Session sharing mirrors presentation state, not a PTY or process. The machine
 running the shell remains authoritative; closing it ends the remote view.
 Open **Session Sharing…** from the Linux workspace menu. On one device choose
-**Pair: Listen**. On the other, choose **Discover on LAN** to fill the announced
-endpoint, review it, and choose **Pair: Connect**. If LAN discovery is
+the other device's alias and reachable endpoint, then **Listen for pairing**;
+the listener does not infer a routed return address. On the other device,
+choose **Discover on LAN** to fill the
+announced endpoint, review it, and choose **Connect to pairing listener**. If LAN discovery is
 unavailable, enter the listener's reachable hostname or IP directly. Compare
 and explicitly confirm the six-digit code on both devices. The endpoint may be
 a LAN address, IPv4/IPv6 address, DNS name, or a
 Tailscale/WireGuard/ZeroTier-style VPN name or address.
 
 Select the saved peer and choose **Share current pane**, **Share current tab**,
-or **Share entire session** on the host, then **Receive selected device** on the
+or **Share entire session** on the host, then **Receive from selected device** on the
 viewer. A pane share stays pinned to that pane and ends when it closes. A tab
 share follows every pane in the tab that was active when sharing started. An
 entire-session share follows every tab and pane in workspace order, including
@@ -146,27 +150,38 @@ The receiver's **Shared tab** selector chooses the reconstructed remote tab;
 the preview renders all of that tab's panes from the host split tree and ratio
 state. **Shared pane** changes keyboard focus within the layout, and clicking a
 pane does the same. Selected and host-active panes remain visibly distinct.
+The form, actions, and status use native accessibility names/roles, but the
+Cairo remote-terminal canvas does not yet expose its cell text through an ATK
+text interface; screen-reader use of remote terminal content is not qualified.
 Each pane keeps an independent bounded sequence and checkpoint. Receivers also
 retain the latest 64 host scrollback rows per pane; the preview's mouse wheel
 navigates that bounded history while new rows preserve the scrolled view.
 `Ctrl+Shift+V` and `Shift+Insert` paste only after an explicit user action,
 including bracketed-paste framing when the remote application requests it.
+Remote pastes are capped at 64 KiB so one clipboard action cannot monopolize
+the native UI; partial failures attempt to close bracketed-paste mode and stay
+visible in the sharing status.
 Keep the same TCP port used during pairing reachable on the host. Viewing is
 the default. A control request and host grant apply only to the selected pane
 and current connection; changing panes requires a separate grant. Grants end
 on revoke, disconnect, pane closure, resynchronization, or reconnect. After a
 link closes or fails, **Reconnect securely** performs a new authenticated
-handshake with the saved paired key and starts view-only.
-**Revoke paired device** persists locally and closes a matching active share.
+handshake with the saved paired key and starts view-only. A stopped or failed
+host/viewer can also be explicitly closed without restarting NOCTTY.
+**Revoke paired device** asks for confirmation, persists locally, closes a
+matching active share, and removes the revoked record from the actionable
+selector. If paired-device persistence fails, the in-memory change is identified
+as current-run-only and **Retry saving devices** remains available.
 
 There is no relay, account service, NAT traversal, port forwarding, or subnet
 scan. Pairing listeners send bounded, opt-in LAN multicast/broadcast
 announcements containing only a temporary instance identifier, alias, port,
 protocol version, and capability bits. Announcements are unauthenticated hints;
 trust begins only after both devices confirm the same pairing code. Discovery
-runs only while the user asks for it in the Session Sharing dialog; closing the
-dialog stops discovery. Direct endpoints remain the reliable path across
-routed VPNs.
+runs only while the user asks for it in the Session Sharing dialog. Closing the
+dialog stops discovery, pairing, hosting, and receiving because NOCTTY does not
+yet have a separate persistent sharing indicator. Direct endpoints remain the
+reliable path across routed VPNs.
 
 After the encrypted transport starts, both sides require matching workspace,
 dynamic-pane, tab-hierarchy, split-layout, share-scope, resynchronization,
@@ -309,7 +324,7 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `402/402` tests in Debug and `ReleaseSafe`. The
+`19/19` steps and `420/420` tests in Debug and `ReleaseSafe`. The
 `./scripts/verify.sh` aggregate passes with scoped scratch cleanup; the current
 focused isolation receipt proves private X11/Wayland state and no inherited
 active display.

@@ -28,7 +28,7 @@ noctty --toggle
 
 `noctty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `noctty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel. NOCTTY exposes the stable `com.noctty.NOCTTY` app ID and a `NOCTTY Dropdown — …` title prefix so compositor rules can distinguish dropdown surfaces from windowed and zen modes. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, bounded dimensions, and native mode transitions. Plasma retains the layer-shell path for exact client-owned top-edge placement.
+In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel. NOCTTY exposes the stable `com.noctty.NOCTTY` app ID and a `NOCTTY Dropdown — …` title prefix so compositor rules can distinguish dropdown surfaces from windowed and zen modes. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, bounded dimensions, and native mode transitions. The managed Niri window rule sets `draw-border-with-background false`; otherwise Niri's focused-window ring uses an opaque backing rectangle that masks terminal translucency until a dialog takes focus. Plasma retains the layer-shell path for exact client-owned top-edge placement.
 
 Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive NOCTTY completion notifications through `org.freedesktop.Notifications`.
 
@@ -68,6 +68,7 @@ The Zig backend detects the supported compositor family from standard session na
 
 Detected Noctalia sessions receive:
 
+- Theme Library discovery of installed `colorschemes/*/*.json` files with explicit Dark/Light selection;
 - a dependency-free Wayland toplevel dropdown;
 - compositor-owned shortcut transport;
 - D-Bus external activation;

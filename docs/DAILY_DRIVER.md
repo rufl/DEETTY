@@ -1,6 +1,6 @@
 # Daily-driver terminal audit
 
-Audit refreshed: 2026-08-05.
+Audit refreshed: 2026-08-29.
 
 ## Verdict
 
@@ -9,7 +9,7 @@ measured terminal-only footprint is small. It is suitable for ordinary shell
 work and supervised agent sessions, but it is not yet an unconditional Yakuake
 replacement for all-day Codex, Claude Code, and Antigravity CLI use.
 
-The remaining daily-driver acceptance categories are counted real-work sessions and the elapsed 48-hour hidden/visible stability run. Authenticated Codex 0.144.6 and installed tmux/Zellij mapped acceptance are retained at one-host boundaries, and the stability harness passes its short Debug/`ReleaseSafe` Wayland/X11 shakedown without claiming multi-day completion. Hot-session recovery still restores tabs, split geometry, profile state, and working directories by starting new shells; arbitrary agent processes are not resurrected unless the user deliberately runs them inside a persistent tmux/Zellij session.
+The remaining daily-driver acceptance categories are counted real-work sessions, one current-build two-hour defect recapture, and the elapsed 48-hour hidden/visible stability run. Authenticated Codex 0.144.6 and installed tmux/Zellij mapped acceptance are retained at one-host boundaries, and the stability harness passes its short Debug/`ReleaseSafe` Wayland/X11 shakedown without claiming multi-day completion. Hot-session recovery still restores tabs, split geometry, profile state, and working directories by starting new shells; arbitrary agent processes are not resurrected unless the user deliberately runs them inside a persistent tmux/Zellij session.
 
 The 2026-07-16 hardening slice closes the immediate lifecycle and idle-cost
 defects. Current dogfood startup additionally rejects legacy relative pane cwd
@@ -37,7 +37,7 @@ fallback:
   only if descriptor registration fails;
 - hidden panes still drain and parse PTY output, but presentation is coalesced
   to 100 ms and unmapped drawing areas do not queue redraws;
-- native-grid ABI v4 consumes terminal-owned dirty column spans, coalesces
+- native-grid ABI v6 consumes terminal-owned dirty column spans, coalesces
   equal-background fills, and caches eligible Cairo glyph conversion without
   weakening grapheme, rich-style, fallback-font, or full-redraw paths;
 - mapped output uses one owned GTK frame-clock callback, hidden output retains
@@ -128,11 +128,12 @@ These are short one-host engineering probes, not the multi-day agent-TUI soak, p
 | Unicode layout | Grapheme-aware cells and width handling plus all 766 Unicode 17 grapheme-break cases retained; installed Codex and btop produce Unicode cell state | Retain real-TUI selection/search and mapped rendered diffs |
 | OSC | Bounded OSC 8 hyperlinks and explicit blocked OSC 52 policy are state-diffed; fixed string overflow is retained | Retain native interaction receipts and fuzz duration |
 | Terminal queries | Bounded DA/DSR/DECRQM/XTGETTCAP replies run in the pinned 23-case/six-schedule corpus | Retain real-agent query traces against the advertised `TERM=xterm-256color` surface |
-| Link handling | OSC 8 state reaches native rich cells | Retain hover/copy/explicit-open rendered interaction evidence |
+| Link handling | OSC 8 state reaches native rich cells; Ctrl-click opens allowed links even while a TUI owns mouse reporting, and pixel-aligned underlines remain below the baseline | Retain hover/copy interaction evidence |
 | Scrollback | GUI-configurable 0-to-100000-line ring, 1000 default, live global application plus independent per-profile choices in an eight-entry named library | Retain |
 | Shell profiles | One atomic active profile plus up to eight GUI names cover interactive shell, one-line command, SSH, Persistent tmux, Persistent Zellij, absolute/inherited cwd, 16 bounded environment overrides, validated targets, persistence, save/select/delete, real selected local command launch, and disposable Ed25519 OpenSSH authentication (`credentialed_ssh=true`) | Retain remote-network and any password/agent/hardware-key expansion only if those claims are needed; the current bounded credential case is complete |
 | Workspace activation | Bounded local `noctty:`/`file:` admission, pre-PTY snapshot restore, settings-version-9 retention of the version-8 eight-entry MRU, adaptive accessible Project Workspace dialog, and live installed `gio` plus rendered Recent Workspaces child activation on Plasma Wayland/X11 (`native_grid_installed_activation_matrix backends=wayland,x11 installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true`) | Retain |
 | Process continuity | Layout/cwd hot restore plus first-class tmux/Zellij create-or-attach profile dispatch and installed tmux 3.7b/Zellij 0.44.3 mapped detach/relaunch/reattach with preserved content | Multi-day and remote/cross-host continuity remain outside the current receipt |
+| Paired session sharing | Native direct encrypted pairing, pane/tab/session presentation, view-only default, per-pane grants, bounded history/paste, reconnect, revocation, explicit terminal-state recovery, and fail-closed dialog teardown compile on Linux and experimental Windows; focused peer-store tests pass | Retain current mapped interaction/accessibility evidence and physical Linux/Windows plus routed-VPN qualification before daily-driver sharing claims |
 | Qualification | Debug/`ReleaseSafe` 32-session native-grid churn, repeated production PTY lifecycles, installed TUI tranches, authenticated Codex, installed tmux/Zellij relaunch/reattach, 100000-line reflow/grow-shrink, exact-Cairo frames, mapped key-to-frame runs, and archived Wayland/X11 pixels plus memory/wakeups | Multi-day pane churn, broader agent-product parity, final compositor acceptance, and physical-input latency |
 
 The implementation selects `TERM=xterm-256color`, and the bounded Codex
@@ -176,8 +177,11 @@ acceptable.
 
 ## Codex CLI
 
-The audit shell exposes Codex CLI 0.144.5. The high-value controls are:
+The audit shell exposes Codex CLI 0.151.0. The high-value controls are:
 
+- set `tui.alternate_screen = "never"` or launch with
+  `codex --no-alt-screen` so interactive output enters terminal history;
+  alternate-screen framebuffers cannot provide semantic terminal scrollback;
 - use a lean profile and disable unused stdio MCP servers with
   `mcp_servers.NAME.enabled=false`; every enabled stdio server can add a local
   child process;
@@ -195,6 +199,9 @@ Example `~/.codex/lean.config.toml`:
 ```toml
 model_auto_compact_token_limit = 64000
 tool_output_token_limit = 8000
+
+[tui]
+alternate_screen = "never"
 
 [mcp_servers.rarely_used]
 enabled = false

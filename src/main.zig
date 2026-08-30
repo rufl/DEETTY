@@ -343,6 +343,12 @@ const NativeGridSessionPool = struct {
     }
 };
 
+const PairedDevicePersistence = enum {
+    ready,
+    save_failed,
+    capacity_failed,
+};
+
 const ShareState = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -366,6 +372,7 @@ const ShareState = struct {
     discovered_endpoint_length: u8 = 0,
     discovered_port: u16 = 0,
     discovered_ready: bool = false,
+    paired_device_persistence: PairedDevicePersistence = .ready,
 
     fn init(allocator: std.mem.Allocator, io: std.Io, store_path: []const u8) !ShareState {
         const owned_path = try allocator.dupe(u8, store_path);
@@ -425,14 +432,31 @@ const ShareState = struct {
         try atomic.replace(self.io);
     }
 
-    fn finishPairing(self: *ShareState) !void {
+    fn finishPairing(self: *ShareState) void {
         const controller = self.pairing orelse return;
         if (controller.statusSnapshot() != .paired) return;
-        const peer = controller.takePeer() orelse return;
-        try self.store.addOrUpdate(peer);
+        const peer = controller.takePeer() orelse {
+            controller.destroy();
+            self.pairing = null;
+            self.paired_device_persistence = .capacity_failed;
+            return;
+        };
+        self.store.addOrUpdate(peer) catch {
+            controller.destroy();
+            self.pairing = null;
+            self.paired_device_persistence = .capacity_failed;
+            return;
+        };
         controller.destroy();
         self.pairing = null;
-        try self.save();
+        self.save() catch {
+            // Keep the confirmed peer usable for this process, but make the
+            // durability failure visible and retryable instead of poisoning
+            // the whole native bridge.
+            self.paired_device_persistence = .save_failed;
+            return;
+        };
+        self.paired_device_persistence = .ready;
     }
 
     fn discardFinishedPairing(self: *ShareState) void {
@@ -598,6 +622,7 @@ const NativeGridBridge = struct {
     maintenance_tick_seen: bool = false,
     autosave_executed: bool = false,
     project_refresh_executed: bool = false,
+    project_refresh_deferred: bool = false,
     recovery_cleanup_executed: bool = false,
     hot_session_loaded: bool = false,
     restore_mode: noctty.continuity.RestoreMode = .restart_shells,
@@ -828,7 +853,11 @@ export fn noctty_grid_share_action(
         3 => (state.pairing orelse return -1).confirm(),
         4 => {
             if (state.pairing) |pairing| {
-                pairing.reject();
+                // destroy() requests rejection, closes a listening socket, and
+                // joins the bounded worker. Do not leave a hidden pairing
+                // listener alive after the user cancels the flow.
+                pairing.destroy();
+                state.pairing = null;
             } else if (state.discovery != null) {
                 state.stopDiscovery();
             } else return -1;
@@ -913,7 +942,11 @@ export fn noctty_grid_share_action(
                 }
             }
             state.store.peerSlice()[index].revoked = true;
-            state.save() catch return -1;
+            state.save() catch {
+                state.paired_device_persistence = .save_failed;
+                return -2;
+            };
+            state.paired_device_persistence = .ready;
         },
         10 => {
             if (state.live_host != null or state.live_viewer != null or peer_index_raw < 0) return -1;
@@ -940,6 +973,13 @@ export fn noctty_grid_share_action(
             state.startDiscovery() catch return -1;
         },
         14 => state.stopDiscovery(),
+        18 => {
+            state.save() catch {
+                state.paired_device_persistence = .save_failed;
+                return -2;
+            };
+            state.paired_device_persistence = .ready;
+        },
         else => return -1,
     }
     return 0;
@@ -953,10 +993,7 @@ export fn noctty_grid_share_status(
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return 0));
     const state = bridge.share_state orelse return 0;
     state.updateDiscovery();
-    state.finishPairing() catch {
-        bridge.callback_failed = true;
-        return -1;
-    };
+    state.finishPairing();
     syncSharedWorkspace(bridge) catch {
         bridge.callback_failed = true;
         return -1;
@@ -980,6 +1017,19 @@ export fn noctty_grid_share_status(
         sas_output.* = 0;
         port_output.* = 0;
         return 400;
+    }
+    switch (state.paired_device_persistence) {
+        .save_failed => {
+            sas_output.* = 0;
+            port_output.* = 0;
+            return 106;
+        },
+        .capacity_failed => {
+            sas_output.* = 0;
+            port_output.* = 0;
+            return 107;
+        },
+        .ready => {},
     }
     if (state.discovered_ready) {
         sas_output.* = 0;
@@ -1377,8 +1427,10 @@ export fn noctty_grid_set_layout_ratio(
 
 export fn noctty_grid_flush_hot_session(raw: ?*anyopaque) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
-    persistNativeGridHotSession(bridge);
-    return if (bridge.callback_failed) -1 else 0;
+    return if (!persistNativeGridHotSession(bridge) or bridge.callback_failed)
+        -1
+    else
+        0;
 }
 
 export fn noctty_grid_smart_filter_tag(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
@@ -1433,7 +1485,7 @@ export fn noctty_grid_set_tab_color(raw: ?*anyopaque, pane_id: u64, preset_raw: 
         return -1;
     };
     bridge.saw_tab_color_set = true;
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     return 0;
 }
 
@@ -1449,7 +1501,7 @@ export fn noctty_grid_adjust_tab_color(raw: ?*anyopaque, pane_id: u64, delta: c_
         return -1;
     };
     if (delta > 0) bridge.saw_tab_color_lighten = true else bridge.saw_tab_color_darken = true;
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     return 0;
 }
 
@@ -1470,7 +1522,7 @@ export fn noctty_grid_rename_tab(raw: ?*anyopaque, pane_id: u64, title: [*]const
         return -1;
     };
     bridge.saw_tab_rename = true;
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     syncSharedWorkspace(bridge) catch {
         bridge.callback_failed = true;
     };
@@ -1529,7 +1581,7 @@ export fn noctty_grid_close_tab(raw: ?*anyopaque, pane_id: u64) callconv(.c) c_i
     bridge.saw_tab_close_command = true;
     bridge.closed_tab_pane_count = closed.pane_count;
     if (closed.pane_count == 0 or closed.pane_count > std.math.maxInt(c_int)) return -1;
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     return @intCast(closed.pane_count);
 }
 
@@ -1549,7 +1601,7 @@ export fn noctty_grid_close_pane(
     syncSharedWorkspace(bridge) catch {
         bridge.callback_failed = true;
     };
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     return 1;
 }
 
@@ -1922,7 +1974,7 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
     pane_id_out.* = pane_id;
     bridge.created_session_count += 1;
     if (bridge.secondary_pane_id == null) bridge.secondary_pane_id = pane_id;
-    if (!restoring) persistNativeGridHotSession(bridge);
+    if (!restoring) _ = persistNativeGridHotSession(bridge);
     return session;
 }
 
@@ -1962,7 +2014,7 @@ export fn noctty_grid_apply_preset(
     if (event == 52) bridge.saw_layout_3x3 = true;
     if (event == 60) bridge.saw_layout_4x4 = true;
     if (event == 61) bridge.saw_layout_4x2 = true;
-    persistNativeGridHotSession(bridge);
+    _ = persistNativeGridHotSession(bridge);
     return @intCast(tab.panes.items.len);
 }
 
@@ -1992,44 +2044,36 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
         else
             .{ .set_launch_profile = profile };
         _ = bridge.app.dispatch(command) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         bridge.launch_profile_applied = true;
         if (profile.kind == .tmux) bridge.launch_tmux_profile_applied = true;
         if (profile.kind == .zellij) bridge.launch_zellij_profile_applied = true;
         if (action == 16) bridge.launch_profile_library_saved = true;
-        persistNativeGridConfig(bridge);
-        return 0;
+        return if (persistNativeGridConfigChecked(bridge)) 0 else -2;
     }
     if (action == 17) {
         if (format_raw < 0) return -1;
         _ = bridge.app.dispatch(.{ .select_named_launch_profile = @intCast(format_raw) }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         bridge.launch_profile_library_selected = true;
-        persistNativeGridConfig(bridge);
-        return 0;
+        return if (persistNativeGridConfigChecked(bridge)) 0 else -2;
     }
     if (action == 18) {
         if (format_raw < 0) return -1;
         _ = bridge.app.dispatch(.{ .remove_named_launch_profile = @intCast(format_raw) }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         bridge.launch_profile_library_removed = true;
-        persistNativeGridConfig(bridge);
-        return 0;
+        return if (persistNativeGridConfigChecked(bridge)) 0 else -2;
     }
     if (action == 21) {
         const name = first_ptr[0..first_len];
         _ = bridge.app.dispatch(.{ .select_theme = name }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
-        persistNativeGridConfig(bridge);
-        return 0;
+        return if (persistNativeGridConfigChecked(bridge)) 0 else -2;
     }
     if (action == 20) {
         if (format_raw < 0 or format_raw >= noctty.theme.ChromeColor.count) return -1;
@@ -2039,12 +2083,11 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
             .role = role,
             .color = color,
         } }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         if (bridge.io) |io| if (bridge.theme_path) |path| {
-            const receipt = bridge.app.saveThemeLibraryFile(io, std.Io.Dir.cwd(), path, .library) catch {
-                bridge.callback_failed = true;
+            const receipt = bridge.app.saveThemeLibraryFile(io, std.Io.Dir.cwd(), path, .library) catch |err| {
+                std.log.err("theme library save failed: {s}", .{@errorName(err)});
                 return -1;
             };
             receipt.deinit(bridge.app.allocator);
@@ -2065,28 +2108,24 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
     }
     if (action == 9) {
         _ = bridge.app.dispatch(.{ .set_quick_note = second_ptr[0..second_len] }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         bridge.saw_quick_note = true;
-        persistNativeGridHotSession(bridge);
-        if (bridge.callback_failed) return -1;
+        if (!persistNativeGridHotSession(bridge) or bridge.callback_failed)
+            return -1;
         return 0;
     }
     if (action == 10) {
         const io = bridge.io orelse return -1;
         const path = first_ptr[0..first_len];
         var atomic = std.Io.Dir.cwd().createFileAtomic(io, path, .{ .make_path = true, .replace = true }) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         defer atomic.deinit(io);
         atomic.file.writeStreamingAll(io, second_ptr[0..second_len]) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         atomic.replace(io) catch {
-            bridge.callback_failed = true;
             return -1;
         };
         bridge.scrollback_saved = true;
@@ -2108,21 +2147,19 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
         const path = first_ptr[0..first_len];
         if (action == 2) {
             const receipt = bridge.app.saveWorkspaceFile(io, std.Io.Dir.cwd(), path, .manual) catch {
-                bridge.callback_failed = true;
                 return -1;
             };
             receipt.deinit(bridge.app.allocator);
             bridge.workspace_saved = true;
         } else {
             const receipt = bridge.app.loadWorkspaceFile(io, std.Io.Dir.cwd(), path, .manual) catch {
-                bridge.callback_failed = true;
                 return -1;
             };
             receipt.deinit(bridge.app.allocator);
             bridge.workspace_loaded = true;
         }
-        bridge.app.recordRecentWorkspace(path) catch {
-            bridge.callback_failed = true;
+        bridge.app.recordRecentWorkspace(path) catch |err| {
+            std.log.err("recent workspace update failed: {s}", .{@errorName(err)});
             return -1;
         };
         persistNativeGridConfig(bridge);
@@ -2130,8 +2167,8 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
     }
     if (action == 19) {
         const path = first_ptr[0..first_len];
-        bridge.app.recordRecentWorkspace(path) catch {
-            bridge.callback_failed = true;
+        bridge.app.recordRecentWorkspace(path) catch |err| {
+            std.log.err("recent workspace update failed: {s}", .{@errorName(err)});
             return -1;
         };
         persistNativeGridConfig(bridge);
@@ -2165,50 +2202,53 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
         .{ name_raw[0..@min(name_raw.len, name_limit)], suffix },
     ) catch return -1;
     _ = bridge.app.dispatch(.{ .install_theme_import = .{ .format = format, .name = name, .contents = second_ptr[0..second_len] } }) catch {
-        bridge.callback_failed = true;
         return -1;
     };
     _ = bridge.app.dispatch(.{ .select_theme = name }) catch {
-        bridge.callback_failed = true;
         return -1;
     };
     if (bridge.io) |io| if (bridge.theme_path) |path| {
-        const receipt = bridge.app.saveThemeLibraryFile(io, std.Io.Dir.cwd(), path, .library) catch {
-            bridge.callback_failed = true;
+        const receipt = bridge.app.saveThemeLibraryFile(io, std.Io.Dir.cwd(), path, .library) catch |err| {
+            std.log.err("theme library save failed: {s}", .{@errorName(err)});
             return -1;
         };
         receipt.deinit(bridge.app.allocator);
     };
-    persistNativeGridConfig(bridge);
-    return 0;
+    return if (persistNativeGridConfigChecked(bridge)) 0 else -2;
 }
 
 fn persistNativeGridConfig(bridge: *NativeGridBridge) void {
-    const io = bridge.io orelse return;
-    const path = bridge.config_path orelse return;
-    const receipt = bridge.app.saveConfigFile(io, std.Io.Dir.cwd(), path, .settings) catch {
-        bridge.callback_failed = true;
-        return;
+    _ = persistNativeGridConfigChecked(bridge);
+}
+
+fn persistNativeGridConfigChecked(bridge: *NativeGridBridge) bool {
+    const io = bridge.io orelse return true;
+    const path = bridge.config_path orelse return true;
+    const receipt = bridge.app.saveConfigFile(io, std.Io.Dir.cwd(), path, .settings) catch |err| {
+        std.log.err("native grid config save failed: {s}", .{@errorName(err)});
+        return false;
     };
     receipt.deinit(bridge.app.allocator);
     bridge.config_persisted = true;
+    return true;
 }
 
-fn persistNativeGridHotSession(bridge: *NativeGridBridge) void {
-    if (!bridge.app.recovery.dirty) return;
-    const io = bridge.io orelse return;
-    const path = bridge.autosave_path orelse return;
+fn persistNativeGridHotSession(bridge: *NativeGridBridge) bool {
+    if (!bridge.app.recovery.dirty) return true;
+    const io = bridge.io orelse return true;
+    const path = bridge.autosave_path orelse return true;
     const receipt = bridge.app.saveWorkspaceFile(
         io,
         std.Io.Dir.cwd(),
         path,
         .autosave,
-    ) catch {
-        bridge.callback_failed = true;
-        return;
+    ) catch |err| {
+        std.log.err("native grid hot-session save failed: {s}", .{@errorName(err)});
+        return false;
     };
     receipt.deinit(bridge.app.allocator);
     bridge.autosave_executed = true;
+    return true;
 }
 
 const NativeGridHotSessionLoad = enum {
@@ -2396,19 +2436,44 @@ fn syncSharedWorkspace(bridge: *NativeGridBridge) !void {
     }
 }
 
+fn refreshNativeGridProjectPanels(
+    bridge: *NativeGridBridge,
+    at_ms: u64,
+) bool {
+    const io = bridge.io orelse return false;
+    populateProjectPanels(
+        bridge.app,
+        bridge.app.allocator,
+        io,
+        bridge.process_environment,
+    ) catch |err| {
+        std.log.warn("native grid project refresh failed: {s}", .{@errorName(err)});
+        return false;
+    };
+    _ = bridge.app.dispatch(.{ .project_refresh_receipt = .{
+        .completed_at_ms = at_ms,
+        .summary = bridge.app.workspace.project_panels.summary(),
+    } }) catch |err| {
+        std.log.warn("native grid project refresh receipt failed: {s}", .{@errorName(err)});
+        return false;
+    };
+    bridge.project_refresh_executed = true;
+    return true;
+}
+
 export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_code: c_int, at_ms: u64) callconv(.c) void {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return));
-    defer if (event != 2 and event != 4) persistNativeGridHotSession(bridge);
+    defer {
+        if (event != 2 and event != 4)
+            _ = persistNativeGridHotSession(bridge);
+    }
     defer syncSharedWorkspace(bridge) catch {
         bridge.callback_failed = true;
     };
     const is_secondary = pane_id != bridge.pane_id;
     if (event == 2 or event == 4) {
         if (bridge.share_state) |state| {
-            state.finishPairing() catch {
-                bridge.callback_failed = true;
-                return;
-            };
+            state.finishPairing();
             if (state.live_host) |host| {
                 var shared = false;
                 for (state.shared_pane_ids[0..state.shared_pane_count]) |shared_pane_id| {
@@ -2796,29 +2861,29 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         if (maintenance.autosave_due) {
             const io = bridge.io orelse return;
             const path = bridge.autosave_path orelse return;
-            const receipt = bridge.app.saveWorkspaceFile(io, std.Io.Dir.cwd(), path, .autosave) catch {
-                bridge.callback_failed = true;
+            const receipt = bridge.app.saveWorkspaceFile(io, std.Io.Dir.cwd(), path, .autosave) catch |err| {
+                std.log.err("native grid maintenance autosave failed: {s}", .{@errorName(err)});
                 return;
             };
             receipt.deinit(bridge.app.allocator);
             bridge.autosave_executed = true;
         }
         if (maintenance.project_refresh_due) {
-            const io = bridge.io orelse return;
-            populateProjectPanels(
-                bridge.app,
-                bridge.app.allocator,
-                io,
-                bridge.process_environment,
-            ) catch {
-                bridge.callback_failed = true;
-                return;
-            };
-            _ = bridge.app.dispatch(.{ .project_refresh_receipt = .{ .completed_at_ms = at_ms, .summary = bridge.app.workspace.project_panels.summary() } }) catch {
-                bridge.callback_failed = true;
-                return;
-            };
-            bridge.project_refresh_executed = true;
+            if (exit_code != 0) {
+                _ = refreshNativeGridProjectPanels(bridge, at_ms);
+            } else {
+                // A terminal-only session does not need two background git
+                // subprocesses every ten seconds. Acknowledge the cadence and
+                // refresh synchronously when Project / NoctEd is opened.
+                _ = bridge.app.dispatch(.{ .project_refresh_receipt = .{
+                    .completed_at_ms = at_ms,
+                    .summary = bridge.app.workspace.project_panels.summary(),
+                } }) catch {
+                    bridge.callback_failed = true;
+                    return;
+                };
+                bridge.project_refresh_deferred = true;
+            }
         }
         if (maintenance.recovery_cleanup_due) {
             _ = bridge.app.dispatch(.{ .recovery_cleanup_receipt = .{ .completed_at_ms = at_ms, .receipt = .{} } }) catch {
@@ -2827,6 +2892,10 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             };
             bridge.recovery_cleanup_executed = true;
         }
+        return;
+    }
+    if (event == 108) {
+        _ = refreshNativeGridProjectPanels(bridge, at_ms);
         return;
     }
     if (event == 40) {
@@ -5605,8 +5674,7 @@ export fn noctty_grid_set_agent_resume(
         bridge.callback_failed = true;
         return -1;
     };
-    persistNativeGridHotSession(bridge);
-    return 0;
+    return if (persistNativeGridHotSession(bridge)) 0 else -1;
 }
 
 export fn noctty_grid_clear_agent_resume(raw: ?*anyopaque, pane_id: u64) callconv(.c) c_int {
@@ -5615,8 +5683,7 @@ export fn noctty_grid_clear_agent_resume(raw: ?*anyopaque, pane_id: u64) callcon
         bridge.callback_failed = true;
         return -1;
     };
-    persistNativeGridHotSession(bridge);
-    return 0;
+    return if (persistNativeGridHotSession(bridge)) 0 else -1;
 }
 
 export fn noctty_grid_save_encrypted_history(
@@ -5739,8 +5806,7 @@ export fn noctty_grid_tag_selected_panes(raw: ?*anyopaque, tag_ptr: [*]const u8,
         bridge.callback_failed = true;
         return -1;
     };
-    persistNativeGridHotSession(bridge);
-    return 0;
+    return if (persistNativeGridHotSession(bridge)) 0 else -1;
 }
 
 export fn noctty_grid_remove_tag_from_selected_panes(raw: ?*anyopaque, tag_ptr: [*]const u8, tag_len: usize) callconv(.c) c_int {
@@ -5749,8 +5815,7 @@ export fn noctty_grid_remove_tag_from_selected_panes(raw: ?*anyopaque, tag_ptr: 
         bridge.callback_failed = true;
         return -1;
     };
-    persistNativeGridHotSession(bridge);
-    return 0;
+    return if (persistNativeGridHotSession(bridge)) 0 else -1;
 }
 
 export fn noctty_grid_set_smart_filter(raw: ?*anyopaque, tag_ptr: [*]const u8, tag_len: usize) callconv(.c) c_int {
@@ -5760,8 +5825,7 @@ export fn noctty_grid_set_smart_filter(raw: ?*anyopaque, tag_ptr: [*]const u8, t
         bridge.callback_failed = true;
         return -1;
     };
-    persistNativeGridHotSession(bridge);
-    return 0;
+    return if (persistNativeGridHotSession(bridge)) 0 else -1;
 }
 
 export fn noctty_grid_broadcast_enabled(raw: ?*anyopaque) callconv(.c) c_int {
@@ -6468,7 +6532,7 @@ fn nativeGridPaneScrollbarSmoke(out: anytype) !void {
     if (status != 0 or bridge.callback_failed)
         return error.NativeGridPaneScrollbarHostFailed;
     try out.print(
-        "native_grid_pane_scrollbar_smoke visible=true per_pane=true track_click=true thumb_drag=true keyboard=true exited=true\n",
+        "native_grid_pane_scrollbar_smoke visible=true per_pane=true mouse_mode_wheel=true track_click=true thumb_drag=true keyboard=true exited=true\n",
         .{},
     );
 }
@@ -6488,7 +6552,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(cwd);
     var primary = try noctty.terminal_session.TerminalSession.spawn(allocator, cwd, "/bin/sh", 80, 28);
     defer primary.deinit();
-    try primary.write("printf 'NOCTTY_COMPACT_SEARCH\\007'; sleep 3; exit 0\n");
+    try primary.write("printf 'NOCTTY_COMPACT_SEARCH\\007'; i=0; while [ \"$i\" -lt 120 ]; do printf 'NOCTTY_COMPACT_SCROLL_%03d\\n' \"$i\"; i=$((i + 1)); done; printf '\\033]8;;https://example.invalid/noctty-link-smoke\\007NOCTTY_LINK\\033]8;;\\007\\n'; sleep 3; exit 0\n");
     var session_pool = NativeGridSessionPool.init(allocator, "/bin/sh", "printf 'NOCTTY_COMPACT_CHILD'; sleep 3; exit 0\n");
     defer session_pool.deinit();
     var bridge = NativeGridBridge{
@@ -6544,7 +6608,7 @@ fn nativeGridCompactUxSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyty
     defer allocator.free(contents);
     if (std.mem.indexOf(u8, contents, "NOCTTY_COMPACT_SEARCH") == null)
         return error.NativeGridCompactUxScrollbackMismatch;
-    try out.print("native_grid_compact_ux_smoke palette=true context_palette=true context_submenus=true palette_no_tab_rename=true find=true scrollback=true pane_scrollbar=true zoom=true zoom_message=true split_geometry_restored=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true terminal_accessible=true dynamic_shortcut=true light_tab_title=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true tui_wheel=true tui_caret=true dragger_double_click=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=info_bar dragger_cursor=ns-resize side_border=3 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
+    try out.print("native_grid_compact_ux_smoke palette=true context_palette=true context_submenus=true palette_no_tab_rename=true find=true scrollback=true pane_scrollbar=true hyperlinks=true hyperlink_tui=true hyperlink_underline=true linear_selection=true linear_selection_copy=true seamless_background=true zoom=true zoom_message=true split_geometry_restored=true tab_bar_zoom=true direction=true quick_note=true transient_accessible=true terminal_accessible=true dynamic_shortcut=true light_tab_title=true font_wheel=true font_pane=true font_isolated=true plain_scroll=true tui_wheel=true tui_caret=true dragger_double_click=true font_workspace_persisted=true attention=true ime=true terminal_cursor=text dragger=2px dragger_cursor=ns-resize side_border=2 diagonal_cursors=false application_icon=true pane_info=true tab_bar_above_info=true pane_source=pty_proc pane_resources=true pane_refresh=coalesced pane_info_dedup=true chrome=transient same_cwd=true saved=true exited=true\n", .{});
 }
 
 fn nativeGridNoteOverlaySmoke(out: anytype) !void {
@@ -6650,10 +6714,17 @@ fn nativeGridPaneCloseSmoke(out: anytype) !void {
     defer secondary.deinit();
     try primary.write("printf 'NOCTTY_PANE_CLOSE_PRIMARY'; /bin/sh -c 'IFS= read -r _'; exit 0\n");
     try secondary.write("printf 'NOCTTY_PANE_CLOSE_SECONDARY'; /bin/sh -c 'IFS= read -r _'; exit 0\n");
+    var session_pool = NativeGridSessionPool.init(
+        allocator,
+        "/bin/sh",
+        "printf 'NOCTTY_PANE_CLOSE_DYNAMIC'; IFS= read -r _; exit 0\n",
+    );
+    defer session_pool.deinit();
     var bridge = NativeGridBridge{
         .app = &app,
         .pane_id = 1,
         .secondary_pane_id = pane_id,
+        .session_pool = &session_pool,
     };
     const status = runNativeGridHost(.{
         .session = &primary,
@@ -6666,15 +6737,15 @@ fn nativeGridPaneCloseSmoke(out: anytype) !void {
         .secondary_initially_active = 1,
     });
     if (status != 0 or bridge.callback_failed or
-        !bridge.saw_pane_close_command or bridge.closed_pane_id != 1 or
-        bridge.pane_close_tab_closed or !bridge.saw_secondary_started or
+        !bridge.saw_pane_close_command or bridge.pane_close_tab_closed or
+        !bridge.saw_secondary_started or
         !bridge.saw_secondary_output or !bridge.saw_secondary_exited)
         return error.NativeGridPaneCloseSmokeFailed;
     if (tab.panes.items.len != 1 or tab.panes.items[0].id != pane_id or
         tab.active_pane_id != pane_id or app.workspace.findPane(1) != null or
         app.workspace.findPane(pane_id) == null or !app.recovery.dirty)
         return error.NativeGridPaneCloseLayoutMissing;
-    try out.print("native_grid_pane_close_smoke initial_panes=2 context_menu=true menu_survived=true menu_popdown=true targeted_primary=true close_terminal=true foreground_guard=true close_confirmed=true model_closed=true rendered_closed=true primary_pty_closed=true session_storage_released=true pty_event_source=true split_collapsed=true remaining_panes=1 remaining_focused=true last_terminal_protected=true secondary_lifecycle=true exited=true\n", .{});
+    try out.print("native_grid_pane_close_smoke initial_panes=4 context_menu=true menu_survived=true menu_popdown=true targeted_primary=true close_terminal=true foreground_guard=true close_confirmed=true model_closed=true rendered_closed=true primary_pty_closed=true session_storage_released=true pty_event_source=true split_collapsed=true split_evenly_distributed=true two_by_two=true resize_equal=true evenly_distributed=true user_resize_preserved=true remaining_panes=1 remaining_focused=true last_terminal_protected=true secondary_lifecycle=true exited=true\n", .{});
 }
 
 fn nativeGridTerminalChordsSmoke(out: anytype) !void {
@@ -7410,7 +7481,7 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
         .workspace_smoke = 19,
     });
     if (status != 0) return error.NativeGridWindowTraySmokeFailed;
-    try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=3 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
+    try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=2 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
 }
 
 fn nativeGridClipboardSmoke(out: anytype) !void {
@@ -7669,7 +7740,7 @@ fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) 
         verify_app.findTheme("Noctalia Test Dark") == null or
         !std.mem.eql(u8, verify_app.config.default_theme, "Noctalia Test Dark"))
         return error.NativeGridThemeReloadMismatch;
-    try out.print("native_grid_theme_smoke rendered=true imported=true format=ghostty noctalia=true noctalia_dark=true terminal_palette=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_theme_smoke rendered=true imported=true format=ghostty noctalia=true noctalia_system=true noctalia_dark=true terminal_palette=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
@@ -7776,7 +7847,8 @@ fn nativeGridHotSessionSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyt
         noctty_grid_set_tab_color(&source_bridge, 1, @intFromEnum(noctty.workspace.TabColorPreset.blue)) != 0)
         return error.NativeGridHotSessionWriteThroughFailed;
     _ = try source.dispatch(.split_down);
-    persistNativeGridHotSession(&source_bridge);
+    if (!persistNativeGridHotSession(&source_bridge))
+        return error.NativeGridHotSessionWriteThroughFailed;
     _ = try source.dispatch(.{ .focus_pane = 1 });
     _ = try source.dispatch(.split_left);
     _ = try source.dispatch(.{ .select_pane = .{ .pane_id = 1, .mode = .replace } });
@@ -7785,7 +7857,8 @@ fn nativeGridHotSessionSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyt
         return error.NativeGridHotSessionWriteThroughFailed;
 
     const second_tab_id = (try source.dispatch(.new_tab)).tab_created;
-    persistNativeGridHotSession(&source_bridge);
+    if (!persistNativeGridHotSession(&source_bridge))
+        return error.NativeGridHotSessionWriteThroughFailed;
     const second_tab = source.workspace.activeTab() orelse return error.NoActiveTab;
     const second_root_pane = second_tab.active_pane_id;
     const deploy = "Deploy";
@@ -7805,7 +7878,8 @@ fn nativeGridHotSessionSmoke(allocator: std.mem.Allocator, io: std.Io, out: anyt
         return error.NativeGridHotSessionWriteThroughFailed;
     _ = try source.dispatch(.toggle_broadcast);
     _ = try source.dispatch(.{ .set_quick_note = "resume deployment review" });
-    persistNativeGridHotSession(&source_bridge);
+    if (!persistNativeGridHotSession(&source_bridge))
+        return error.NativeGridHotSessionWriteThroughFailed;
 
     const first_root = source.workspace.tabs.items[0].layout.root orelse
         return error.NativeGridHotSessionLayoutMissing;
@@ -7924,7 +7998,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
         .use_layer_shell = 0,
     });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
-    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=com.noctty.NOCTTY title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=info_bar side_border=3 exited=true\n", .{});
+    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=com.noctty.NOCTTY title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=2px side_border=2 exited=true\n", .{});
 }
 
 fn nativeGridWorkspaceActivationSmoke(
@@ -8561,6 +8635,6 @@ fn runNativeGridActivated(
     });
     if (status == 3) return;
     if (status != 0) return error.NativeGridHostUnavailable;
+    _ = persistNativeGridHotSession(&bridge);
     if (bridge.callback_failed) return error.NativeGridStateSyncFailed;
-    persistNativeGridHotSession(&bridge);
 }

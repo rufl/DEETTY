@@ -1008,7 +1008,20 @@ pub export fn wWinMain(
 
     if (self_test_requested) return if (selfTest(&state)) 0 else 1;
     if (mode.kind == .share) {
-        if (mode.index >= state.store.peer_count or mode.port == 0) return 1;
+        if (mode.index >= state.store.peer_count) {
+            showWindowsMessage("No paired device has that index.");
+            return 1;
+        }
+        if (state.store.peerSliceConst()[mode.index].revoked) {
+            showWindowsMessage(
+                "That paired device is revoked. Pair it again before sharing.",
+            );
+            return 1;
+        }
+        if (mode.port == 0) {
+            showWindowsMessage("Sharing requires a nonzero TCP port.");
+            return 1;
+        }
         state.live_host = Share.live_host.LiveHost.create(
             std.heap.page_allocator,
             random,
@@ -1032,16 +1045,35 @@ pub export fn wWinMain(
                 .pane_id = 1,
                 .ratio_permille = 0,
             }},
-        ) catch return 1;
+        ) catch {
+            showWindowsMessage(
+                "Could not start sharing. Check the selected device and port.",
+            );
+            return 1;
+        };
         state.shared_pane = state.workspace.activePaneIndex();
     } else if (mode.kind == .receive) {
-        if (mode.index >= state.store.peer_count) return 1;
+        if (mode.index >= state.store.peer_count) {
+            showWindowsMessage("No paired device has that index.");
+            return 1;
+        }
+        if (state.store.peerSliceConst()[mode.index].revoked) {
+            showWindowsMessage(
+                "That paired device is revoked. Pair it again before receiving.",
+            );
+            return 1;
+        }
         state.live_viewer = Share.live_viewer.LiveViewer.create(
             std.heap.page_allocator,
             random,
             state.store.identity,
             state.store.peerSliceConst()[mode.index],
-        ) catch return 1;
+        ) catch {
+            showWindowsMessage(
+                "Could not receive the selected device. Check its endpoint.",
+            );
+            return 1;
+        };
     }
 
     const callbacks = Callbacks{
@@ -1375,8 +1407,20 @@ fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: 
         showWindowsMessage("Pairing confirmation failed.");
         return 1;
     };
-    store.addOrUpdate(peer) catch return 1;
-    saveStore(store) catch return 1;
+    store.addOrUpdate(peer) catch {
+        showWindowsMessage(
+            "Could not retain the paired device. Revoke an unused device and " ++
+                "try again.",
+        );
+        return 1;
+    };
+    saveStore(store) catch {
+        showWindowsMessage(
+            "The pairing handshake succeeded, but Windows could not save the " ++
+                "device. Check profile-storage permissions and pair again.",
+        );
+        return 1;
+    };
     showWindowsMessage("Paired device saved. Use --share 0 PORT or --receive 0.");
     return 0;
 }

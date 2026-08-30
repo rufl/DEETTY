@@ -1,6 +1,6 @@
 # NoctEd
 
-Last verified: 2026-08-03.
+Last verified: 2026-08-29.
 
 NoctEd is NOCTTY's standalone native project editor. It is built as the separate `nocted` executable, runs in its own process, and does not share NOCTTY's terminal lifetime. The implementation is Zig; `src/nocted/gtk.zig` is a narrow declaration-only GTK 3 and GtkSourceView 4 ABI boundary.
 
@@ -9,20 +9,35 @@ NoctEd is NOCTTY's standalone native project editor. It is built as the separate
 The current desktop surface follows the compact Sublime Text 2 editing model:
 
 - a persistent left project tree backed by a compact immutable arena index, with an always-visible top-bar toggle, a matching hide control in the tree header, and an Up button that reopens the parent directory; generated/vendor and bounded ignore rules apply, full scans and precise structural deltas run on the background lane, and replacement snapshots publish transactionally through bounded main-thread slices;
-- reorderable file tabs with dirty markers, 28-logical-pixel width and 18-logical-pixel height close targets, 90% tab-label typography, hover/active/focus states, previous/next navigation, clean untitled buffers, native Save As, Save/Discard/Cancel-aware tab/close-other/close-all actions, and ordered active-tab restoration with dirty saved and untitled contents;
+- reorderable file tabs with dirty markers, 28-logical-pixel width and 18-logical-pixel height close targets whose tooltip and ATK name identify the complete file target after open or Save As, 90% tab-label typography, hover/active/focus states, previous/next navigation, clean untitled buffers, native Save As, Save/Discard/Cancel-aware tab/close-other/close-all actions, and ordered active-tab restoration with dirty saved and untitled contents;
 - line numbers, current-line highlighting, bracket matching, auto-indent, undo/redo, UTF-8 editing, and bounded select-all-occurrences transactions with rendered secondary ranges;
 - bounded Sublime-style code-text zoom from 60% through 240% in 10% steps through `View > Zoom In/Out/Reset Zoom`, keyboard accelerators, and `Ctrl+wheel`, shared across open documents while ordinary scrolling and the minimap scale remain independent;
 - a right-side GtkSourceMap minimap constrained independently from editor font sizing, with a translucent viewport that leaves minimap glyphs visible;
-- native find with next/previous navigation and occurrence feedback;
-- bounded streaming literal Find in Files with unsaved-buffer snapshots first, path/line/column previews, GTK backpressure, and click-to-open line activation;
-- bounded smart-case/top-K project quick-open with deterministic path-aware ranking, coalesced query edits, and keyboard/row activation;
+- native find with next/previous navigation and occurrence feedback announced
+  through a native accessibility status role, with unavailable-search failures
+  promoted to an alert;
+- bounded streaming literal Find in Files with unsaved-buffer snapshots first,
+  path/line/column previews, GTK backpressure, click-to-open line activation,
+  and status/alert publication for progress, results, and failure;
+- bounded smart-case/top-K project quick-open with deterministic path-aware
+  ranking, coalesced query edits, keyboard/row activation, and accessible
+  result/error announcements;
 - persisted indentation-based code folding with current/all fold and unfold actions;
 - GUI-owned Create Project from Folder, Open Project, Open Recent, and Clear Recent Projects actions; projects are explicit atomic `.npr` files with bounded most-recent-first history;
-- a compact menu strip and line/column/language status bar; a launch with no restored/open document creates one clean Untitled buffer and names Ctrl+S as the next save action;
+- a compact menu strip and line/column/language status bar whose live messages
+  emit native status events and whose confirmed failures use an alert role; a
+  launch with no restored/open document creates one clean Untitled buffer and
+  names Ctrl+S as the next save action;
 - a cached, closed project-tree surface on normal startup; only an explicit `.npr` project opens, scans, and renders its file tree; and
 - GUI toggles for the project tree, minimap, and code folding plus a persistent 8–32 point interface font setting for menus, tabs, the sidebar, dialogs, and status text, stored under `XDG_CONFIG_HOME/nocted` or `~/.config/nocted`.
 
-NOCTTY's `Open NoctEd Here` action starts the sibling NoctEd process without scanning the terminal's working directory. Create or open an explicit `.npr` project from NoctEd when a file tree is needed. Packaged installs and dependency bundles ship both binaries. NOCTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when NOCTTY exits.
+Language-service completion and symbol-rename controls also expose explicit
+assistive names; they do not rely on placeholder text as their accessible
+label. Live status publication compares the current text, role, and description
+before emitting, avoiding duplicate announcements when the visible state did
+not change.
+
+NOCTTY's `Open NoctEd Here` action starts the sibling NoctEd process with the selected terminal directory as its process cwd. NoctEd does not scan that directory or open a project implicitly; create or open an explicit `.npr` project when a file tree is needed. Packaged installs and dependency bundles ship both binaries. NOCTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when NOCTTY exits.
 
 ## File Safety
 

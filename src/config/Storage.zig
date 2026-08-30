@@ -7,7 +7,7 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const config_magic = "NOCTTYCFG";
-const config_version: u8 = 14;
+const config_version: u8 = 15;
 const default_launch_profile_tail_bytes: usize = 1 + (5 * 8) + 4;
 const default_launch_library_tail_bytes: usize = 2;
 const default_recent_workspace_tail_bytes: usize = 1;
@@ -263,6 +263,12 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
         config.panels.overlay_border_px = try reader.readU16();
         config.panels.window_border_px = try reader.readU16();
         config.panels.dragger_px = try reader.readU16();
+    }
+    if (version < 15) {
+        if (config.panels.window_border_px == 3)
+            config.panels.window_border_px = 2;
+        if (config.panels.dragger_px == 18)
+            config.panels.dragger_px = 2;
     }
 
     if (!reader.finished()) return error.InvalidConfigSnapshot;
@@ -910,8 +916,33 @@ test "version thirteen config snapshots use safe border thickness defaults" {
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(@as(u16, 1), loaded.config.panels.focused_border_px);
     try std.testing.expectEqual(@as(u16, 2), loaded.config.panels.selected_border_px);
-    try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.window_border_px);
-    try std.testing.expectEqual(@as(u16, 18), loaded.config.panels.dragger_px);
+    try std.testing.expectEqual(@as(u16, 2), loaded.config.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 2), loaded.config.panels.dragger_px);
+}
+
+test "version fourteen migrates only the old default dragger thickness" {
+    const allocator = std.testing.allocator;
+    var default_config = ConfigMod.Config.defaults();
+    default_config.panels.window_border_px = 3;
+    default_config.panels.dragger_px = 18;
+    const default_bytes = try exportConfigAlloc(allocator, default_config);
+    defer allocator.free(default_bytes);
+    default_bytes[config_magic.len] = 14;
+    var migrated = try importConfigAlloc(allocator, default_bytes);
+    defer migrated.deinit(allocator);
+    try std.testing.expectEqual(@as(u16, 2), migrated.config.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 2), migrated.config.panels.dragger_px);
+
+    var custom_config = ConfigMod.Config.defaults();
+    custom_config.panels.window_border_px = 7;
+    custom_config.panels.dragger_px = 12;
+    const custom_bytes = try exportConfigAlloc(allocator, custom_config);
+    defer allocator.free(custom_bytes);
+    custom_bytes[config_magic.len] = 14;
+    var preserved = try importConfigAlloc(allocator, custom_bytes);
+    defer preserved.deinit(allocator);
+    try std.testing.expectEqual(@as(u16, 7), preserved.config.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 12), preserved.config.panels.dragger_px);
 }
 
 test "config snapshots reject invalid bytes" {

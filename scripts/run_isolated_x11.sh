@@ -70,7 +70,16 @@ for command in dbus-run-session flock timeout xvfb-run; do
   fi
 done
 
-lock="${XDG_RUNTIME_DIR:-/tmp}/noctty-isolated-display-$(id -u).lock"
+lock_root="/tmp/noctty-isolated-display-$(id -u)"
+if ! mkdir -m 0700 "$lock_root" 2>/dev/null; then
+  if [ ! -d "$lock_root" ] || [ -L "$lock_root" ] ||
+    [ "$(stat -c %u "$lock_root")" != "$(id -u)" ] ||
+    [ "$(stat -c %a "$lock_root")" != 700 ]; then
+    echo "run_isolated_x11: unsafe shared lock directory: $lock_root" >&2
+    exit 1
+  fi
+fi
+lock="$lock_root/runner.lock"
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-isolated-x11.XXXXXX")
 cleanup() {
   rm -rf "$scratch"
@@ -81,7 +90,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 chmod 0700 "$scratch"
 mkdir -p "$scratch/home" "$scratch/config" "$scratch/state" \
-  "$scratch/cache" "$scratch/data" "$scratch/tmp"
+  "$scratch/cache" "$scratch/data" "$scratch/runtime" "$scratch/tmp"
+chmod 0700 "$scratch/runtime"
 
 unset DISPLAY WAYLAND_DISPLAY
 export NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
@@ -90,7 +100,8 @@ flock -x -w "$timeout_seconds" "$lock" \
   timeout --kill-after=10 "$timeout_seconds" \
   env HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config" \
     XDG_STATE_HOME="$scratch/state" XDG_CACHE_HOME="$scratch/cache" \
-    XDG_DATA_HOME="$scratch/data" TMPDIR="$scratch/tmp" \
+    XDG_DATA_HOME="$scratch/data" XDG_RUNTIME_DIR="$scratch/runtime" \
+    TMPDIR="$scratch/tmp" \
   dbus-run-session -- xvfb-run -a -s "-screen 0 $screen -nolisten tcp" \
   sh -eu -c '
     scratch=$NOCTTY_ISOLATED_X11_ROOT
@@ -99,6 +110,7 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_STATE_HOME="$scratch/state"
     export XDG_CACHE_HOME="$scratch/cache"
     export XDG_DATA_HOME="$scratch/data"
+    export XDG_RUNTIME_DIR="$scratch/runtime"
     export TMPDIR="$scratch/tmp"
     export XDG_SESSION_TYPE=x11
     export GDK_BACKEND=x11

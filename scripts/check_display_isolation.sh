@@ -112,8 +112,9 @@ grep -F 'visible_staging=true' scripts/verify.sh >/dev/null
 test "$(grep -c 'NOCTTY_LEGACY_DISPLAY_RUNNER=1' scripts/verify.sh)" -eq 2
 grep -F 'overzeer-isolated-display' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'exec env TMPDIR=/tmp' scripts/run_isolated_x11.sh >/dev/null
-grep -F 'XDG_DATA_HOME="$scratch/data" TMPDIR="$scratch/tmp"' \
+grep -F 'XDG_DATA_HOME="$scratch/data" XDG_RUNTIME_DIR="$scratch/runtime"' \
   scripts/run_isolated_x11.sh >/dev/null
+grep -F 'chmod 0700 "$scratch/runtime"' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'legacy_fallback=$legacy_fallback' scripts/isolated_display_smoke.sh >/dev/null
 grep -F 'convergence_wait_bounded=true' \
   scripts/native_grid_single_instance_smoke.sh >/dev/null
@@ -127,4 +128,4 @@ grep -F 'require_isolated_display.sh" --dedicated' \
   scripts/terminal_benchmark.sh >/dev/null
 
 printf '%s\n' \
-  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"
+  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true legacy_runtime_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"

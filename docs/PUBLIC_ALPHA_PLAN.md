@@ -142,7 +142,9 @@ Before public alpha tag:
 - [x] build/run instructions tested from a clean source copy
 - [x] no telemetry/network surprises; retained source scan: `./scripts/check_no_surprise_network.sh`
 - [x] package/signing status clear
-- [x] screenshots current
+- [ ] Recapture NOCTTY and NoctEd screenshots from the current installed build
+  in a disposable compositor session; the retained 2026-07-19 images are
+  baseline evidence only.
 - [x] contribution and security notes present
 - [x] public bug/dogfood issue templates and PR template present
 - [x] local Git boundary and first public source baseline commit

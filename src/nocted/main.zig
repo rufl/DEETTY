@@ -147,6 +147,7 @@ const Document = struct {
     map: ?*c.GtkWidget,
     buffer: *c.GtkSourceBuffer,
     tab_label: *c.GtkWidget,
+    tab_close: *c.GtkWidget,
     search_settings: ?*c.GtkSourceSearchSettings = null,
     search_context: ?*c.GtkSourceSearchContext = null,
     fold_tag: *c.GtkTextTag,
@@ -1202,7 +1203,7 @@ const App = struct {
         if (c.gtk_dialog_run(@ptrCast(dialog)) != c.GTK_RESPONSE_ACCEPT) return;
         const value = c.gtk_spin_button_get_value_as_int(@ptrCast(spin));
         self.setUiFontSize(@intCast(value)) catch
-            self.updateStatus("Interface font size could not be applied");
+            self.updateStatusError("Interface font size could not be applied");
     }
 
     fn shutdownWorker(self: *App) void {
@@ -1370,7 +1371,7 @@ const App = struct {
             0,
         ) catch return;
         defer self.allocator.free(status);
-        self.updateStatus(status.ptr);
+        self.updateStatusError(status.ptr);
     }
 
     fn completeWorkerJob(self: *App, job: *WorkerJob) void {
@@ -1420,7 +1421,7 @@ const App = struct {
                         error.InvalidSearchQuery => "Search must be one UTF-8 line",
                         else => "Project search failed",
                     };
-                    c.gtk_label_set_text(asLabel(self.project_search_status), message);
+                    setStatusFeedback(self.project_search_status, message, true);
                 },
                 .document_load => {
                     const requested = job.payload.document_load.requested_path;
@@ -1782,11 +1783,11 @@ const App = struct {
         if (err == error.SessionDocumentTooLarge or
             err == error.SessionStateTooLarge)
         {
-            self.updateStatus("Session is too large; save or close large dirty files");
+            self.updateStatusError("Session is too large; save or close large dirty files");
             return;
         }
         if (err == error.TooManyOpenFiles) {
-            self.updateStatus("Too many open tabs for hot exit; close or save some tabs");
+            self.updateStatusError("Too many open tabs for hot exit; close or save some tabs");
             return;
         }
         var status_buffer: [160]u8 = undefined;
@@ -1795,7 +1796,7 @@ const App = struct {
             "Unable to preserve unsaved files: {s}",
             .{@errorName(err)},
         ) catch return;
-        self.updateStatus(status.ptr);
+        self.updateStatusError(status.ptr);
     }
 
     fn persistSession(self: *App) !void {
@@ -3104,6 +3105,7 @@ const App = struct {
             .map = null,
             .buffer = buffer,
             .tab_label = tab_label,
+            .tab_close = close,
             .identity = identity,
             .syntax_tags = syntax_tags,
             .fold_tag = fold_tag,
@@ -3147,6 +3149,7 @@ const App = struct {
         self.active_document = document;
         c.gtk_widget_grab_focus(view);
         self.updateDocumentStatus(document);
+        self.updateTabLabel(document);
         self.updateStatus(if (document.editable) "Ready" else "Read-only preview");
         self.scheduleSessionPersist();
         return document;
@@ -3214,7 +3217,7 @@ const App = struct {
         path: [:0]const u8,
     ) bool {
         const contents = document.completeTextAlloc() catch {
-            self.updateStatus("Save failed: unable to restore folded text");
+            self.updateStatusError("Save failed: unable to restore folded text");
             return false;
         };
         defer self.allocator.free(contents);
@@ -3227,7 +3230,7 @@ const App = struct {
                 0,
             ) catch return false;
             defer self.allocator.free(status);
-            self.updateStatus(status);
+            self.updateStatusError(status);
             return false;
         };
         document.identity = core.document.identityForPath(self.io, path) catch null;
@@ -3255,26 +3258,26 @@ const App = struct {
                 0,
             ) catch return false;
             defer self.allocator.free(status);
-            self.updateStatus(status.ptr);
+            self.updateStatusError(status.ptr);
             return false;
         };
         var resolved_owned = true;
         defer if (resolved_owned) self.allocator.free(resolved);
         if (self.documents_by_path.get(resolved)) |candidate| {
             if (candidate != document) {
-                self.updateStatus("File is already open");
+                self.updateStatusError("File is already open");
                 return false;
             }
         }
         self.documents_by_path.ensureUnusedCapacity(1) catch {
-            self.updateStatus("Save As failed: out of memory");
+            self.updateStatusError("Save As failed: out of memory");
             return false;
         };
         const display_name = self.allocator.dupeZ(
             u8,
             std.fs.path.basename(resolved),
         ) catch {
-            self.updateStatus("Save As failed: out of memory");
+            self.updateStatusError("Save As failed: out of memory");
             return false;
         };
         var display_name_owned = true;
@@ -3476,7 +3479,12 @@ const App = struct {
 
     fn updateStatus(self: *App, message: [*:0]const u8) void {
         if (!self.status_widgets_ready) return;
-        c.gtk_label_set_text(asLabel(self.status_label), message);
+        setStatusFeedback(self.status_label, message, false);
+    }
+
+    fn updateStatusError(self: *App, message: [*:0]const u8) void {
+        if (!self.status_widgets_ready) return;
+        setStatusFeedback(self.status_label, message, true);
     }
 
     fn updateDocumentStatus(self: *App, document: *Document) void {
@@ -3504,6 +3512,17 @@ const App = struct {
     fn updateTabLabel(self: *App, document: *Document) void {
         _ = self;
         const dirty = c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) != 0;
+        var close_buffer: [std.fs.max_path_bytes + 16]u8 = undefined;
+        var close_name: [*:0]const u8 = "Close file";
+        if (std.fmt.bufPrintZ(
+            &close_buffer,
+            "Close file: {s}",
+            .{document.display_name},
+        )) |formatted| {
+            close_name = formatted.ptr;
+        } else |_| {}
+        c.gtk_widget_set_tooltip_text(document.tab_close, close_name);
+        setAccessibleName(document.tab_close, close_name);
         if (!dirty) {
             c.gtk_label_set_text(asLabel(document.tab_label), document.display_name.ptr);
             return;
@@ -3573,7 +3592,7 @@ const App = struct {
         self.quick_open_result_count = 0;
         self.quick_open_truncated = false;
         if (self.project_root == null) {
-            c.gtk_label_set_text(asLabel(self.quick_open_status), "Open a folder first");
+            setStatusFeedback(self.quick_open_status, "Open a folder first", true);
             return;
         }
         const query = std.mem.span(c.gtk_entry_get_text(@ptrCast(self.quick_open_entry)));
@@ -3587,7 +3606,7 @@ const App = struct {
                 error.InvalidQuickOpenQuery => "Quick Open requires one UTF-8 line",
                 else => "Quick Open failed",
             };
-            c.gtk_label_set_text(asLabel(self.quick_open_status), message);
+            setStatusFeedback(self.quick_open_status, message, true);
             return;
         };
         defer results.deinit(self.allocator);
@@ -3621,7 +3640,7 @@ const App = struct {
                 "{d} files",
                 .{results.matches.len},
             ) catch return;
-        c.gtk_label_set_text(asLabel(self.quick_open_status), status.ptr);
+        setStatusFeedback(self.quick_open_status, status.ptr, false);
         if (results.matches.len > 0) {
             const first = c.gtk_tree_path_new_first() orelse return;
             defer c.gtk_tree_path_free(first);
@@ -3658,7 +3677,7 @@ const App = struct {
                 0,
             ) catch return false;
             defer self.allocator.free(status);
-            self.updateStatus(status.ptr);
+            self.updateStatusError(status.ptr);
             return false;
         };
         self.quick_open_activations += 1;
@@ -3672,22 +3691,22 @@ const App = struct {
         self.project_search_result_count = 0;
         self.project_search_truncated = false;
         const root = self.project_root orelse {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Open a folder first");
+            setStatusFeedback(self.project_search_status, "Open a folder first", true);
             return;
         };
         const query = std.mem.span(c.gtk_entry_get_text(@ptrCast(self.project_search_entry)));
         if (query.len == 0) {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Enter search text");
+            setStatusFeedback(self.project_search_status, "Enter search text", false);
             return;
         }
         const root_copy = self.allocator.dupe(u8, root) catch {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Project search failed");
+            setStatusFeedback(self.project_search_status, "Project search failed", true);
             return;
         };
         var root_owned = true;
         defer if (root_owned) self.allocator.free(root_copy);
         const query_copy = self.allocator.dupe(u8, query) catch {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Project search failed");
+            setStatusFeedback(self.project_search_status, "Project search failed", true);
             return;
         };
         var query_owned = true;
@@ -3696,13 +3715,13 @@ const App = struct {
         var index_owned = true;
         defer if (index_owned) index.deinit(self.allocator);
         const snapshots = self.captureSearchSnapshots(root, index) catch {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Project search failed");
+            setStatusFeedback(self.project_search_status, "Project search failed", true);
             return;
         };
         var snapshots_owned = true;
         defer if (snapshots_owned) self.freeSearchSnapshots(snapshots);
         const job = self.allocator.create(WorkerJob) catch {
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Project search failed");
+            setStatusFeedback(self.project_search_status, "Project search failed", true);
             return;
         };
         var job_owned = true;
@@ -3729,14 +3748,14 @@ const App = struct {
         snapshots_owned = false;
         self.submitWorkerJob(job) catch {
             job.deinit();
-            c.gtk_label_set_text(asLabel(self.project_search_status), "Project search failed");
+            setStatusFeedback(self.project_search_status, "Project search failed", true);
             return;
         };
         job_owned = false;
         self.project_search_started = std.Io.Clock.awake.now(self.io);
         self.project_search_draw_started = null;
         self.project_search_ok = false;
-        c.gtk_label_set_text(asLabel(self.project_search_status), "Searching...");
+        setStatusFeedback(self.project_search_status, "Searching...", false);
     }
 
     fn captureSearchSnapshots(
@@ -3820,7 +3839,7 @@ const App = struct {
                 "{d} matching lines in {d} files",
                 .{ payload.search.results.len, payload.search.files_scanned },
             ) catch return;
-        c.gtk_label_set_text(asLabel(self.project_search_status), status.ptr);
+        setStatusFeedback(self.project_search_status, status.ptr, false);
         self.project_search_ok = true;
     }
 
@@ -3856,7 +3875,7 @@ const App = struct {
             "Searching... {d} matches",
             .{self.project_search_result_count},
         ) catch return;
-        c.gtk_label_set_text(asLabel(self.project_search_status), status.ptr);
+        setStatusFeedback(self.project_search_status, status.ptr, false);
         if (self.project_search_draw_started != null)
             c.gtk_widget_queue_draw(self.project_search_tree);
     }
@@ -3905,7 +3924,7 @@ const App = struct {
     fn updateSearch(self: *App) void {
         const document = self.currentDocument() orelse return;
         const context = document.ensureSearchContext() catch {
-            c.gtk_label_set_text(asLabel(self.search_status), "Search unavailable");
+            setStatusFeedback(self.search_status, "Search unavailable", true);
             return;
         };
         const settings = document.search_settings.?;
@@ -3919,7 +3938,7 @@ const App = struct {
             "..."
         else
             std.fmt.bufPrintZ(&status_buffer, "{d} matches", .{count}) catch return;
-        c.gtk_label_set_text(asLabel(self.search_status), status.ptr);
+        setStatusFeedback(self.search_status, status.ptr, false);
     }
 
     fn find(self: *App, forward: bool) void {
@@ -4214,7 +4233,10 @@ const App = struct {
         ) orelse return;
         _ = c.gtk_dialog_run(@ptrCast(dialog));
         c.gtk_widget_destroy(dialog);
-        self.updateStatus(if (payload.success) "Project task passed" else "Project task failed");
+        if (payload.success)
+            self.updateStatus("Project task passed")
+        else
+            self.updateStatusError("Project task failed");
     }
 
     fn runLanguageFeature(
@@ -4416,6 +4438,7 @@ const App = struct {
         _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Cancel", c.GTK_RESPONSE_CANCEL);
         _ = c.gtk_dialog_add_button(@ptrCast(dialog), "Insert", c.GTK_RESPONSE_ACCEPT);
         const combo = c.gtk_combo_box_text_new() orelse return false;
+        setAccessibleName(combo, "Language-service completions");
         for (completions) |completion| {
             const label = self.allocator.dupeZ(u8, completion.label) catch continue;
             defer self.allocator.free(label);
@@ -4467,7 +4490,7 @@ const App = struct {
                 return;
         }
         const summary = core.lsp.summaryAlloc(self.allocator, response) catch {
-            self.updateStatus("Invalid language-service response");
+            self.updateStatusError("Invalid language-service response");
             return;
         };
         defer self.allocator.free(summary);
@@ -4502,6 +4525,7 @@ const App = struct {
             return;
         };
         c.gtk_entry_set_placeholder_text(@ptrCast(entry), "New name");
+        setAccessibleName(entry, "New symbol name");
         const area = c.gtk_dialog_get_content_area(@ptrCast(dialog)) orelse {
             c.gtk_widget_destroy(dialog);
             return;
@@ -6797,6 +6821,32 @@ fn setAccessibleName(widget: *c.GtkWidget, name: [*:0]const u8) void {
     c.atk_object_set_name(c.gtk_widget_get_accessible(widget), name);
 }
 
+fn setStatusFeedback(
+    widget: *c.GtkWidget,
+    message: [*:0]const u8,
+    is_error: bool,
+) void {
+    const accessible = c.gtk_widget_get_accessible(widget);
+    const target_role = if (is_error) c.ATK_ROLE_ALERT else c.ATK_ROLE_STATUSBAR;
+    const text_changed = !std.mem.eql(
+        u8,
+        std.mem.span(c.gtk_label_get_text(asLabel(widget))),
+        std.mem.span(message),
+    );
+    const role_changed = c.atk_object_get_role(accessible) != target_role;
+    const current_description = c.atk_object_get_description(accessible);
+    const description_changed = current_description == null or !std.mem.eql(
+        u8,
+        std.mem.span(current_description.?),
+        std.mem.span(message),
+    );
+    if (text_changed) c.gtk_label_set_text(asLabel(widget), message);
+    if (role_changed) c.atk_object_set_role(accessible, target_role);
+    if (description_changed) c.atk_object_set_description(accessible, message);
+    if (text_changed or role_changed or description_changed)
+        c.g_signal_emit_by_name(accessible, "visible-data-changed");
+}
+
 fn treeStoreSet(
     allocator: std.mem.Allocator,
     store: *c.GtkTreeStore,
@@ -6918,7 +6968,7 @@ fn onWindowDestroy(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     };
     app.shutting_down = true;
     app.status_widgets_ready = false;
-    c.gtk_main_quit();
+    if (c.gtk_main_level() > 0) c.gtk_main_quit();
 }
 
 fn onWindowDelete(_: ?*c.GtkWidget, _: ?*c.GdkEvent, data: ?*anyopaque) callconv(.c) c.gboolean {
@@ -6962,21 +7012,21 @@ fn onWindowKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque)
             key.keyval == c.GDK_KEY_KP_Add))
     {
         app.adjustEditorZoom(editor_zoom_percent_step) catch
-            app.updateStatus("Editor zoom could not be increased");
+            app.updateStatusError("Editor zoom could not be increased");
         return 1;
     }
     if (modifiers == c.GDK_CONTROL_MASK and
         (key.keyval == c.GDK_KEY_minus or key.keyval == c.GDK_KEY_KP_Subtract))
     {
         app.adjustEditorZoom(-editor_zoom_percent_step) catch
-            app.updateStatus("Editor zoom could not be decreased");
+            app.updateStatusError("Editor zoom could not be decreased");
         return 1;
     }
     if (modifiers == c.GDK_CONTROL_MASK and
         (key.keyval == c.GDK_KEY_0 or key.keyval == c.GDK_KEY_KP_0))
     {
         app.setEditorZoom(editor_zoom_percent_default) catch
-            app.updateStatus("Editor zoom could not be reset");
+            app.updateStatusError("Editor zoom could not be reset");
         return 1;
     }
     if (modifiers == c.GDK_CONTROL_MASK and lowered == c.GDK_KEY_s) {
@@ -7277,7 +7327,7 @@ fn onEditorScroll(
         else => return 0,
     }
     document.app.adjustEditorZoom(delta * editor_zoom_percent_step) catch
-        document.app.updateStatus("Editor zoom could not be changed");
+        document.app.updateStatusError("Editor zoom could not be changed");
     return 1;
 }
 
@@ -7751,19 +7801,19 @@ fn onUnfoldAll(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 fn onZoomIn(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.adjustEditorZoom(editor_zoom_percent_step) catch
-        app.updateStatus("Editor zoom could not be increased");
+        app.updateStatusError("Editor zoom could not be increased");
 }
 
 fn onZoomOut(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.adjustEditorZoom(-editor_zoom_percent_step) catch
-        app.updateStatus("Editor zoom could not be decreased");
+        app.updateStatusError("Editor zoom could not be decreased");
 }
 
 fn onResetZoom(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.setEditorZoom(editor_zoom_percent_default) catch
-        app.updateStatus("Editor zoom could not be reset");
+        app.updateStatusError("Editor zoom could not be reset");
 }
 
 fn onShowUiFontSettings(

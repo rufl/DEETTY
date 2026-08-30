@@ -484,7 +484,7 @@ pub export fn noctty_settings_page_new(
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
-        GTK_POLICY_NEVER,
+        GTK_POLICY_AUTOMATIC,
         GTK_POLICY_AUTOMATIC,
     );
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
@@ -571,7 +571,7 @@ pub export fn noctty_settings_response(
 fn addStyle(strip: *GtkWidget, label: *GtkWidget) void {
     const provider = gtk_css_provider_new() orelse return;
     _ = gtk_css_provider_load_from_data(provider, "#noctty-pane-info {" ++
-        " background-color: alpha(@theme_fg_color, 0.035);" ++
+        " background-color: #000000;" ++
         " border-top: 1px solid alpha(@theme_fg_color, 0.09);" ++
         "}" ++
         "#noctty-pane-info label {" ++

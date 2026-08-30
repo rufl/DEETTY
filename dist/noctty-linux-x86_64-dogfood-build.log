@@ -1,3 +1,0 @@
-noctty 0.1.0
-nocted 0.1.0
-dogfood_install prefix=/home/lich/lichforge/code/monorepo/desktop/NOCTTY/dist/noctty-linux-x86_64-dogfood binaries=true wrappers=true desktop_entries=true layer_shell=true logs=/home/lich/.local/state/noctty/logs optimize=ReleaseFast retained_logs_per_app=20

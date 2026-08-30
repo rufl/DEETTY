@@ -283,8 +283,8 @@ pub const PanelMetrics = struct {
     selected_border_px: u16 = 2,
     status_border_px: u16 = 1,
     overlay_border_px: u16 = 1,
-    window_border_px: u16 = 3,
-    dragger_px: u16 = 18,
+    window_border_px: u16 = 2,
+    dragger_px: u16 = 2,
     terminal_titlebar_px: u16 = 0,
     main_titlebar_px: u16 = 0,
 
@@ -488,8 +488,8 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u16, 2), cfg.panels.selected_border_px);
     try std.testing.expectEqual(@as(u16, 1), cfg.panels.border_px);
     try std.testing.expectEqual(@as(u16, 1), cfg.panels.divider_px);
-    try std.testing.expectEqual(@as(u16, 3), cfg.panels.window_border_px);
-    try std.testing.expectEqual(@as(u16, 18), cfg.panels.dragger_px);
+    try std.testing.expectEqual(@as(u16, 2), cfg.panels.window_border_px);
+    try std.testing.expectEqual(@as(u16, 2), cfg.panels.dragger_px);
     try std.testing.expect(cfg.background.translucency);
     try std.testing.expectEqual(@as(u8, 92), cfg.background.opacity_percent);
 }

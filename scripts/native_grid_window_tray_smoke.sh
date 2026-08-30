@@ -98,6 +98,6 @@ if printf '%s\n' "$items_after" | grep -F "$service/StatusNotifierItem" >/dev/nu
     exit 1
 fi
 cat "$output"
-grep -F 'native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=3 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true' "$output" >/dev/null
+grep -F 'native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=2 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true' "$output" >/dev/null
 echo "native_grid_window_tray_teardown removed=true"
 rm -f "$errors"

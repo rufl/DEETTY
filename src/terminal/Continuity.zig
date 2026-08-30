@@ -103,7 +103,7 @@ pub fn profileForResume(
     profile.scrollback_lines = scrollback_lines;
     const command_name = switch (reference.provider) {
         .claude_code => "claude --resume ",
-        .codex => "codex resume ",
+        .codex => "codex --no-alt-screen resume ",
         .custom => unreachable,
     };
     var command: [LaunchProfile.max_command_bytes]u8 = undefined;
@@ -142,6 +142,13 @@ test "resume profiles use fixed provider argv-shaped shell commands" {
     const profile = try profileForResume(reference, "/tmp/project", 1000);
     try std.testing.expectEqual(LaunchProfile.Kind.command, profile.kind);
     try std.testing.expectEqualStrings("claude --resume abc-123", profile.command.slice());
+
+    reference.provider = .codex;
+    const codex_profile = try profileForResume(reference, "/tmp/project", 1000);
+    try std.testing.expectEqualStrings(
+        "codex --no-alt-screen resume abc-123",
+        codex_profile.command.slice(),
+    );
 }
 
 test "resume references reject shell metacharacters" {

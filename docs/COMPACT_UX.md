@@ -93,7 +93,31 @@ Click a tab's close button or right-click its title and choose `Close Tab` to cl
 
 The native Settings window follows Yakuake's compact list pattern: Window, Behavior, and Appearance remain keyboard-selectable in a narrow system-icon sidebar while only the active page is shown. Category rows have explicit accessible names, 48-logical-pixel targets, destination-specific tooltips, selected-state contrast, visible keyboard focus, and opening Settings places focus on Window so keyboard users can navigate immediately. Both axes remain scroll-accessible on narrow work areas instead of clipping launch-profile controls. Existing settings continue to apply live and persist through the Zig configuration boundary.
 
-Transient power surfaces are named at their actual controls: command search and results, terminal search and result status, and Quick Note text plus save status. The compact smoke reads those ATK names before accepting the interaction path.
+Transient power surfaces are named at their actual controls: command search and results, terminal search and result status, Quick Note text plus save status, and the keyboard-shortcut card. Find switches to a vertical layout on narrow work areas, command rows stack their hint below the action, and the command, note, and shortcut surfaces derive bounded scroll geometry from the current monitor work area. Dynamic note and theme status uses native status/alert roles; a failed Quick Note read leaves the editor read-only and closes without overwriting the prior note. The compact smoke reads the established ATK names before accepting the interaction path; current narrow-layout mapped recapture remains subject to the isolated-display gate.
+
+Restore mode, encrypted-history password, registered-agent fields, and the
+session-sharing form also expose explicit assistive names. Sharing state and
+action failures emit status/alert events, while the remote preview's requested
+width and height are capped by the already workarea-bounded dialog. The sharing
+status publisher compares text, role, and description before emitting so its
+200 ms refresh timer does not repeat an unchanged screen-reader announcement.
+Action sensitivity follows the pairing/host/viewer state, including explicit
+clear actions for stopped and failed roles. Revocation has a cancel-default
+confirmation and removes the peer from the actionable selector; save failure
+retains a three-second alert plus an explicit retry. Closing the dialog stops
+every network role because there is no separate persistent sharing indicator.
+Remote paste is limited to 64 KiB and reports partial or denied delivery instead
+of silently returning.
+The sharing smoke rejects missing names, a non-status initial role, or a
+preview request outside its 480x260 upper bound; mapped compact proof still
+requires an admitted private display session.
+These contracts cover form/action/status accessibility, not an ATK text model
+for the Cairo-rendered remote terminal canvas; screen-reader access to remote
+cell content remains unqualified.
+
+Inline tab rename, workspace-tag input, Noctalia import variants, and NoctEd
+completion/rename controls carry explicit names too. Tag input is copied and
+trimmed before validation rather than mutating GTK's borrowed entry text.
 
 ## Chrome Budget
 

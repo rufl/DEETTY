@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-08-26.
+Last refreshed: 2026-08-29.
 
 ## Source Of Truth Policy
 
@@ -12,6 +12,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 |---|---|
 | NCT-112 | Multi-day terminal stability |
 | NCT-123 | Experimental Windows host parity and physical qualification |
+| NCT-125 | Current-build dogfood defect recapture |
 | Release operations | Signed artifacts, publication, independent redistribution review, compositor and HID acceptance |
 
 ## Active
@@ -22,6 +23,57 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 
 Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
 `docs/RELEASE_CHECKLIST.md`, and the linked qualification records.
+
+### NCT-125 Current-build dogfood defect recapture — partial
+
+- [ ] [status:yellow] Install the 2026-08-29 dogfood reliability build and
+  retain a clean two-hour Plasma Wayland session that uses Codex scrollbar
+  wheel/drag navigation, opens and closes native menus/dialogs, exercises
+  Project / NoctEd once, and exits both NOCTTY and NoctEd normally. The source
+  slice fixes the Codex mouse-mode scrollbar priority, bounds project refresh
+  to its visible GUI, owns sharing refresh timers, rejects retired menu
+  contexts, anchors popups to the top-level surface, makes NoctEd teardown
+  idempotent, and separates recoverable persistence failures from hard model
+  synchronization failures. A follow-on source/behavior audit bounded theme
+  imports, made workspace and theme failures visible and retryable, refreshed
+  live theme controls, restored two-axis narrow Settings access, gave every
+  tab/file close control a contextual accessible name, removed duplicate split
+  resize work, and isolated the legacy X11 fallback's runtime sockets. The
+  final contained pass makes `Open NoctEd Here` use the selected pane as its
+  process cwd, closes bounded-theme-read races, propagates durable
+  profile and active-theme save failures, prevents failed Quick Note reads from
+  overwriting state, announces dynamic failures to assistive technology, and
+  bounds compact transient surfaces to the active monitor. The
+  subsequent low-effort audit labels workspace-restore, encrypted-history,
+  agent-resume, and sharing form controls for assistive technology; announces
+  sharing plus NoctEd find/project-search/Quick Open/main-status changes as
+  native status or alert events; labels tab-rename, workspace-tag,
+  Noctalia-import, and NoctEd language-service controls; safely copies tag text
+  before trimming; suppresses unchanged timed announcements; and prevents the
+  sharing preview from forcing a 480x260 minimum beyond a compact work area.
+  The focused sharing follow-through also makes stopped/failed roles clearable,
+  disables impossible actions, confirms and hides revoked peers, exposes
+  retryable paired-device persistence failures, reclaims revoked capacity only
+  when the bounded store is full, stops every network role when the only
+  sharing surface closes, bounds listener cancellation polling, and retains
+  explicit remote input/paste failure feedback with a 64 KiB paste ceiling.
+  Both smoke binaries and the
+  native source contract compile/pass. The focused mapped sharing proof failed
+  closed first at a read-only shared-runner lock and then at sandbox-denied
+  private D-Bus socket creation, so it adds no mapped visual evidence. The
+  initial aggregate check passed 418/418; the
+  final current-source run passed 411 tests, skipped one, and failed only six
+  loopback-sharing tests because this sandbox denies socket creation. Fresh
+  production NOCTTY plus both smoke binaries compile. The focused graphical
+  scrollbar proof correctly failed closed because this sandbox could not create
+  the private display namespace. The current visual-flow audit likewise stopped
+  at sandbox-denied private D-Bus socket creation and did not touch the active
+  desktop; a later 520x420 compact run deferred fail-closed at the isolated
+  runner's I/O pressure gate. The retained 2026-07-19 alpha screenshots now have an explicit stale
+  boundary; recapture them inside the installed-session qualification. A real
+  installed-session recapture remains
+  required before closing the historical
+  descriptor, GTK-critical, and exit-139 observations. `[truth:build,logs,docs]`
 
 ### NCT-123 Experimental Windows host — partial
 

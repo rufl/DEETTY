@@ -75,6 +75,12 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Closed the sustained NCT-106/NCT-121/NCT-122 native boundary with 32 complete Debug/`ReleaseSafe` Wayland/X11 workflows per lane: 256 cycles per phase per lane, 4,096 combined phase cycles, 3,072 deterministic ranking evaluations, process-tree memory, warning-fatal GTK, worker/project drain, Cairo widget captures with sampled nonblack RGB, hot-exit teardown, post-widget callback safety, and clean scratch (`nocted_native_endurance_matrix wayland=true x11=true debug=true release_safe=true rounds_per_lane=32 cycles_per_phase_per_lane=256 total_cycles_per_phase=1024 total_phase_cycles=4096 ranking_evaluations=3072 search_load=true deterministic_ranking=true gtk_batch_bounded=true project_lifecycle=true monitor_bursts=true overflow_recovery=true worker_drained=true process_tree_memory=true screenshots=true warning_fatal=true duration_recorded=true scratch_clean=true`).
 - [x] Ghostty public-ABI/upstream-surface guard
 - [x] Documentation and native-layout truth checks
+- [x] Low-risk native UI/error audit: selected-cwd NoctEd handoff, post-read
+  theme bounds, checked durable profile/theme writes, non-destructive Quick
+  Note load failure, accessible dynamic status/errors, and monitor-bounded
+  compact transients. The smoke binary and native-layout contract pass; mapped
+  narrow-layout recapture remains in NCT-125 after the isolated I/O pressure
+  gate deferred the focused run.
 - [x] Noctalia v4/v5 capability model and Niri/Hyprland/Sway/Scroll/Labwc/Mango binding serializers
 
 ## Native Product Gate
@@ -143,8 +149,21 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Standalone NoctEd transactionally refreshed project tree, reorderable/restorable tabs, lazy translucent minimap, streaming search-result activation, document/project find, reversible folding, bounded multi-selection edits, recent projects, multi-file navigation, clean untitled buffers, native Save As, permission-preserving replacement, atomic first-save, smart-case top-K Quick Open, immutable arena-backed worktree snapshots, coalesced capped structural deltas with conservative fallback, clean-reload/dirty-keep external decisions, two joined/drained filesystem lanes, bounded GTK search backpressure, constant-time document identity, compact model payloads, and Save/Discard/Cancel guards for file/other/all/window close
 - [x] NoctEd discrete/smooth `Ctrl+wheel` editor zoom from 60% through 240%, shared across open documents with ordinary scrolling and minimap scaling preserved
 - [x] Obsolete embedded editor, duplicate document model, legacy CLI surface, and shutdown-only compatibility lane removed; standalone NoctEd remains the sole editor owner
-- [x] Timer-driven autosave, project refresh, and recovery cleanup
+- [x] Timer-driven autosave and recovery cleanup plus demand-driven bounded
+  project refresh when Project / NoctEd opens
+- [ ] Current-build two-hour dogfood recapture after the 2026-08-29 scrollbar,
+  descriptor-churn, popup/timer, persistence-classification, and NoctEd
+  lifecycle fixes; retained historical failures are not current-version proof
 - [x] Workspace layout, selection, focus, pane transfer, and guarded broadcast input: context menu, command palette, and `Ctrl+Shift+B` share explicit enable confirmation with `Keep Off` default and immediate disable
+- [x] Direct paired session-sharing core and native Linux recovery UX:
+  Noise/SAS trust, bounded peer store, pane/tab/session scopes, view-only default,
+  per-pane control, checkpoint/resync/reconnect, 64-row remote history,
+  state-sensitive actions, clearable terminal roles, confirmed revocation,
+  retryable persistence, fail-closed dialog teardown, bounded listener cancel,
+  and 64 KiB explicit remote paste
+- [ ] Retain mapped Linux interaction/accessibility evidence plus physical
+  cross-machine Linux/Windows and routed-VPN qualification; source, loopback,
+  cross-build, or isolated-runner admission failures do not close this boundary
 - [x] Scale-2 font and high-contrast rendering
 - [x] Borderless eight-direction window resizing, native StatusNotifier activation, and right-click `Close NOCTTY` with PTY/menu teardown
 - [x] Consolidated `NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh` for disposable compositor sessions

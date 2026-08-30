@@ -4,6 +4,99 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Removed fractional-row seams from terminal/TUI background fills by snapping
+  colored spans outward to device-pixel boundaries. Drag selection now follows
+  linear terminal text: the first and final rows honor their endpoints and all
+  intervening rows select completely in either drag direction. Clipboard copy
+  uses the same range semantics and grows safely to a bounded 4 MiB instead of
+  silently failing beyond the former 16 KiB stack buffer.
+
+- Preserved terminal history for NOCTTY-generated Codex resume sessions by
+  launching Codex with `--no-alt-screen`; documented Codex's persistent
+  `tui.alternate_screen = "never"` control and the equivalent explicit
+  fullscreen limitation in Pi.
+
+- Removed tracked `dist/` archives, binaries, install trees, and build logs;
+  generated distribution output is now ignored and recreated by package gates.
+
+- Hardened session-sharing recovery and fail-closed UX across the shared core,
+  native Linux dialog, and experimental Windows command surface. Stopped or
+  failed host/viewer objects can now be explicitly cleared; invalid concurrent
+  actions are disabled; revoked peers disappear from actionable selectors and
+  require confirmation; paired-device save failures remain visible and
+  retryable; full stores reclaim revoked capacity; dialog close stops pairing,
+  discovery, hosting, and receiving; and listening pairing workers poll bounded
+  cancellation instead of depending on cross-thread blocking-accept teardown.
+  Remote input/paste failures remain visible for three seconds, bracketed-paste
+  cleanup is best-effort after a failed chunk, and remote paste is capped at
+  64 KiB. The focused paired-device tests pass 3/3, native Linux smoke and
+  experimental Windows Debug binaries compile, and the native source contract
+  passes. The mapped flow remains unclaimed because the isolated runner could
+  not create its private lock/socket namespace in this sandbox.
+
+- Closed another low-risk native UI/accessibility tranche. Workspace restore,
+  encrypted-history password, agent-resume, and sharing controls now expose
+  explicit assistive names, as do terminal-tab rename, workspace-tag,
+  Noctalia-import, and NoctEd language-service controls. Tag input is trimmed
+  without modifying GTK's borrowed entry buffer. Sharing and NoctEd
+  search/status changes publish native status or alert events. The sharing
+  preview request is bounded by the dialog work area instead of forcing its
+  former 480x260 minimum on compact screens. Unchanged timer-driven status is
+  de-duplicated so screen readers are not notified every 200 ms, and the
+  focused sharing smoke now checks those contracts.
+
+- Fixed `Open NoctEd Here` to launch the standalone editor with the selected
+  pane directory as its real process cwd while retaining explicit `.npr`
+  project activation. Failed agent-resume clearing now reports a native error
+  instead of silently doing nothing.
+
+- Made compact transient surfaces responsive to the active monitor work area.
+  Terminal find and command rows stack at narrow widths, Quick Note and the
+  command/shortcut surfaces use bounded scroll geometry, failed Quick Note
+  reads become read-only instead of overwriting prior state, and dynamic
+  note/theme results publish native accessibility status or alert events.
+
+- Hardened durable native settings: theme reads recheck their size after file
+  loading, installed Noctalia imports share the bounded reader, profile and
+  active-theme actions distinguish config-write failure, and theme controls
+  retain visible success/failure feedback.
+
+- Hardened recoverable native actions without turning ordinary user or I/O
+  errors into a hard workspace synchronization failure. Workspace save/open
+  failures now remain visible and retryable, hot-session write-through reports
+  its real result, and theme imports are bounded to regular nonempty files,
+  report success/failure in the owning dialog, refresh live selectors, and
+  redraw the applied theme immediately.
+
+- Improved compact native UI behavior at low width and for assistive
+  technology. Settings can scroll on both axes when its controls exceed the
+  work area, terminal and NoctEd close buttons identify the tab/file they will
+  close, and new split layout no longer queues the same parent resize twice.
+  The reviewed legacy isolated-X11 fallback now also owns a private
+  `XDG_RUNTIME_DIR` instead of inheriting desktop-session sockets.
+
+- Fixed Codex and other mouse-reporting TUIs shadowing NOCTTY's visible pane
+  scrollbar. Wheel events inside the native rail now move Zig-owned history
+  before terminal mouse reporting is considered; wheel events over terminal
+  content still reach the TUI. The focused scrollbar smoke now proves both
+  halves instead of placing its TUI event inside the scrollbar hit target.
+
+- Hardened the dogfood lifecycle paths implicated by retained failures.
+  Terminal-only sessions no longer run git status/log subprocesses every ten
+  seconds; project data refreshes when Project / NoctEd is opened. Sharing
+  refresh sources are explicitly owned and cancelled, menu teardown validates
+  pane contexts before dereferencing them, real pointer menus anchor to the
+  top-level surface, and recoverable config/autosave failures are logged
+  without being misreported as `NativeGridStateSyncFailed` on normal exit.
+  NoctEd window destruction is now idempotent and calls `gtk_main_quit` only
+  while a GTK main loop exists. Current-build multi-hour recapture remains an
+  explicit backlog boundary.
+
+- Opening or closing a split pane now redistributes the resulting split tree by
+  descendant pane count. Split ratios remain proportional while nested 2×2
+  allocations and fullscreen window geometry settle, while subsequent manual
+  divider resizing remains unconstrained and becomes the new resize ratio.
+
 - TUI applications such as Pi and OMP now receive a visible blinking caret
   drawn above field backgrounds and text, with input and cursor movement
   restarting the visible blink phase. The caret color is theme-configurable.
@@ -14,10 +107,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   `Ctrl+Alt+B`, `Ctrl+Shift+B`, the pane menu, or the command palette now shows
   an explicit `Broadcast mode disabled.` confirmation.
 
-- Fixed background translucency disappearing when Settings closed by installing
-  RGBA visuals and transparent root/container styles before the first Wayland
-  surface commit. The terminal window, resize overlay, revealer, notebook
-  stack, pages, and split containers remain transparent without a modal.
+- Fixed background translucency disappearing when Settings closes under Niri.
+  The managed dropdown rule now disables Niri's opaque focus-ring backing
+  rectangle with `draw-border-with-background false`, while preserving the
+  focused ring and all NOCTTY layout/input behavior.
 
 - Every application-close origin—including window controls, toolbar, tray, and
   natural last-session exit—now requires explicit **Close Anyway** confirmation,
@@ -27,10 +120,18 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   split, restored, and profile-launched sessions. Persisted or imported zero
   values migrate to 10,000 instead of disabling scrollback.
 
+- The pane-information footer now uses an opaque black background. The old
+  default side/bottom resize targets migrate from 3px/18px to 2px/2px;
+  customized thickness values remain unchanged.
+
 - The dropdown bottom dragger now toggles exactly once between full and
   half-screen height on double-click. The terminal context menu now offers
   Split Down, Up, Left, and Right under **Split Pane**, and labels new preset
   tabs as **New Split Tab**.
+
+- Theme Library now discovers installed Noctalia colorschemes under the user
+  configuration directory, lists them alphabetically, and applies either the
+  Dark or Light variant with explicit status and safe empty/error states.
 
 - Added Noctalia JSON theme import for active `colors.json` material colors and
   complete dark/light colorscheme variants, including terminal foreground,
@@ -52,8 +153,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   session scrollback defaults to 10,000 lines, and synchronized live, restored,
   split, profile, context-menu layout, and legacy two-pane session limits.
   Scrolled viewports preserve their logical rows as output arrives; keyboard
-  and paste input return them to the live bottom, and wheel events over the
-  scrollbar rail reach mouse-reporting applications with bounded coordinates.
+  and paste input return them to the live bottom. Wheel events over terminal
+  content reach mouse-reporting applications with bounded coordinates, while
+  the visible native scrollbar rail always retains history-navigation priority.
 
 - Uncolored tab titles now inherit GTK's theme text color instead of forcing
   white text, restoring readable titles with light desktop themes while

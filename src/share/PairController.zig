@@ -73,8 +73,8 @@ pub const Controller = struct {
         self.mutex.lock();
         self.reject_requested = true;
         self.mutex.unlock();
-        if (self.listener) |*listener| listener.close();
         if (self.thread) |thread| thread.join();
+        if (self.listener) |*listener| listener.close();
         self.identity.deinit();
         self.allocator.destroy(self);
     }
@@ -125,14 +125,33 @@ pub const Controller = struct {
 
     fn worker(self: *Controller) void {
         var session = switch (self.mode) {
-            .listen => Pairing.accept(
-                &(self.listener.?),
-                self.io,
-                self.identity,
-                self.alias[0..self.alias_length],
-                self.endpoint[0..self.endpoint_length],
-                self.port_value,
-            ),
+            .listen => incoming: {
+                // Poll in short bounded intervals so explicit cancellation can
+                // join this worker without relying on cross-thread close()
+                // behavior for a blocking accept call.
+                while (true) {
+                    self.mutex.lock();
+                    const reject_now = self.reject_requested;
+                    self.mutex.unlock();
+                    if (reject_now) {
+                        self.setStatus(.rejected);
+                        return;
+                    }
+                    const readable = self.listener.?.readable(50) catch {
+                        self.setStatus(.failed);
+                        return;
+                    };
+                    if (readable) break;
+                }
+                break :incoming Pairing.accept(
+                    &(self.listener.?),
+                    self.io,
+                    self.identity,
+                    self.alias[0..self.alias_length],
+                    self.endpoint[0..self.endpoint_length],
+                    self.port_value,
+                );
+            },
             .connect => Pairing.connect(
                 self.allocator,
                 self.io,
@@ -217,4 +236,20 @@ test "pair controllers wait for explicit SAS confirmation" {
     }
     try std.testing.expect(listener.takePeer() != null);
     try std.testing.expect(connector.takePeer() != null);
+}
+
+test "listening pair controller cancellation joins without a peer" {
+    const io = Crypto.testingRandomContext();
+    const identity = Crypto.Identity.generate(io);
+    const controller = try Controller.listen(
+        std.testing.allocator,
+        io,
+        identity,
+        "127.0.0.1",
+        0,
+        "remote",
+        "127.0.0.1",
+        49330,
+    );
+    controller.destroy();
 }

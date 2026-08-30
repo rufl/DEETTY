@@ -138,6 +138,39 @@ pub fn writeAutostartForVersion(writer: anytype, compositor: Backend.WaylandComp
     try writeAutostart(writer, compositor);
 }
 
+fn addManagedNiriTransparencyRuleAlloc(
+    allocator: std.mem.Allocator,
+    source: []const u8,
+) ![]u8 {
+    const property = "draw-border-with-background false";
+    if (std.mem.indexOf(u8, source, property) != null)
+        return allocator.dupe(u8, source);
+
+    const anchor = "open-floating true";
+    const anchor_start = std.mem.indexOf(u8, source, anchor) orelse
+        return allocator.dupe(u8, source);
+    const line_end = anchor_start + (std.mem.indexOfScalar(
+        u8,
+        source[anchor_start..],
+        '\n',
+    ) orelse source.len - anchor_start);
+    var line_start = anchor_start;
+    while (line_start > 0 and source[line_start - 1] != '\n')
+        line_start -= 1;
+    var indent_end = line_start;
+    while (indent_end < anchor_start and
+        (source[indent_end] == ' ' or source[indent_end] == '\t'))
+        indent_end += 1;
+    const indent = source[line_start..indent_end];
+    return std.mem.concat(allocator, u8, &.{
+        source[0..line_end],
+        "\n",
+        indent,
+        property,
+        source[line_end..],
+    });
+}
+
 pub fn rewriteManagedBindingAlloc(
     allocator: std.mem.Allocator,
     source: []const u8,
@@ -175,7 +208,13 @@ pub fn rewriteManagedBindingAlloc(
             @memcpy(replacement[line_start .. line_start + indent_len], line[0..indent_len]);
             @memcpy(replacement[line_start + indent_len .. line_start + indent_len + binding.len], binding);
             @memcpy(replacement[line_start + indent_len + binding.len ..], source[line_end..]);
-            return replacement;
+            if (compositor != .niri) return replacement;
+            defer allocator.free(replacement);
+            const updated = try addManagedNiriTransparencyRuleAlloc(
+                allocator,
+                replacement,
+            );
+            return @as(?[]u8, updated);
         }
         if (line_end == source.len) break;
         line_start = line_end + 1;
@@ -400,6 +439,50 @@ test "rewrites only a managed Noctalia binding" {
         .niri,
         .{},
     )) == null);
+}
+
+test "managed Niri integration disables opaque focus-ring backing" {
+    const source =
+        \\// NOCTTY integration for Noctalia on Niri.
+        \\binds {
+        \\    F10 { spawn "noctty" "--toggle"; }
+        \\}
+        \\window-rule {
+        \\    match app-id=r#"^com\\.noctty\\.NOCTTY$"# title=r#"^NOCTTY Dropdown(?: —|$)"#
+        \\    open-floating true
+        \\    default-floating-position x=0 y=0 relative-to="top"
+        \\}
+    ;
+    const rewritten = (try rewriteManagedBindingAlloc(
+        std.testing.allocator,
+        source,
+        .niri,
+        .{},
+    )).?;
+    defer std.testing.allocator.free(rewritten);
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(
+        u8,
+        rewritten,
+        "draw-border-with-background false",
+    ));
+    try std.testing.expect(std.mem.indexOf(
+        u8,
+        rewritten,
+        "    open-floating true\n    draw-border-with-background false\n",
+    ) != null);
+
+    const idempotent = (try rewriteManagedBindingAlloc(
+        std.testing.allocator,
+        rewritten,
+        .niri,
+        .{},
+    )).?;
+    defer std.testing.allocator.free(idempotent);
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(
+        u8,
+        idempotent,
+        "draw-border-with-background false",
+    ));
 }
 
 test "Noctalia v4 plan keeps Hyprland conf syntax" {

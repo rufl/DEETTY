@@ -69,6 +69,103 @@ installed-launcher receipts and legacy logs on host `chopper`:
   terminal use, pane count, agent use, editor actions, or other dogfood quota
   criteria
 
+## Reliability remediation snapshot — 2026-08-29
+
+The current audit inspected all retained launcher receipts and failure logs on
+host `chopper`:
+
+- NOCTTY: 106 observed launches, 98 finished, eight incomplete, seven failed,
+  75,401 seconds / 20.945 runtime-only hours
+- NoctEd: 80 observed launches, 75 finished, five incomplete, two failed,
+  29,094 seconds / 8.082 runtime-only hours
+- one clean 2.699-hour NOCTTY runtime candidate and one clean 3.203-hour NoctEd
+  runtime candidate exist, but neither is counted without the required work
+  context in this log
+- five retained NOCTTY failures ended in descriptor exhaustion/display flush
+  failure; separate retained logs exposed popup-parent warnings, stale-widget
+  draw criticals, one exit 139, and one `NativeGridStateSyncFailed`
+- retained NoctEd failures exposed `gtk_main_quit` outside a live main loop and
+  later notebook work after teardown
+- live Codex dogfood exposed a visible scrollbar whose wheel path was shadowed
+  by terminal mouse reporting
+
+The 2026-08-29 source slice fixes the reproducible event-order and lifecycle
+defects: the native scrollbar owns its rail before TUI mouse reporting;
+terminal-only sessions stop launching periodic git subprocesses; project data
+refreshes on demand; popup/menu contexts and sharing timers are ownership
+guarded; recoverable persistence errors no longer poison normal exit as a hard
+model-sync failure; and NoctEd destruction is idempotent and main-loop guarded.
+An initial aggregate check passed all 418 tests. After the final patch, the
+current-source rerun passed 411 tests, skipped one, and failed only the six
+loopback-sharing cases for sandbox-denied socket creation; fresh production
+NOCTTY and both smoke binaries compile. The focused graphical proof was not
+executed because the managed sandbox could not create the fail-closed private
+display namespace. These are local source/build facts, not a clean multi-hour
+runtime receipt. NCT-125 remains open until a newly installed build completes
+the two-hour recapture without descriptor, GTK-critical, or nonzero-exit
+markers.
+
+A follow-on low-risk source/behavior audit on the same date closed additional
+error and compact-UI gaps. Recoverable user actions no longer set the hard
+model-sync failure bit; immediate hot-session persistence returns its true
+status; workspace save/open failures display a retryable dialog; and theme
+imports require bounded regular nonempty files, publish status, refresh open
+selectors, and queue a live redraw. Narrow Settings content can scroll on both
+axes, terminal and NoctEd tab close controls expose the exact target to
+assistive technology, and split creation avoids a duplicate resize request.
+The reviewed legacy X11 runner now owns a private `XDG_RUNTIME_DIR`. Focused
+source contracts, formatting, static C analysis, seven theme tests, and fresh
+NOCTTY/NoctEd compilation pass. A current screenshot/interaction audit remains
+unavailable here because the managed sandbox denies the private D-Bus socket;
+the runner failed closed and did not contact the active desktop. This is still
+not counted runtime evidence.
+
+The final contained pass fixes the discovered `Open NoctEd Here` mismatch by
+using the selected pane directory as the child process cwd while retaining
+NoctEd's explicit-project/no-scan policy. Theme reads now recheck their bound
+after loading, profile/theme actions distinguish config-write failure, Quick
+Note cannot overwrite a note after a failed read, dynamic note/theme failures
+publish ATK alerts, and failed agent-reference clearing is visible. Find,
+Quick Note, shortcut help, and the command palette now derive bounded geometry
+from the active monitor; narrow find and command content stacks vertically.
+The smoke binary and source contract pass. A focused 520x420 compact run used
+only the reviewed isolated-display wrapper and deferred fail-closed at its I/O
+pressure gate (`I/O full PSI=31.28%`); it did not contact the active desktop and
+does not add mapped or runtime evidence.
+
+A final low-effort UI/accessibility sweep labels the workspace restore mode,
+encrypted-history password, agent-resume fields, and session-sharing form for
+assistive technology. Sharing and NoctEd's main/find/project-search/Quick Open
+status changes now emit native ATK status or alert notifications, and the
+sharing preview request follows the bounded dialog work area instead of forcing
+480x260 logical pixels. Inline tab rename, workspace-tag, Noctalia-import, and
+NoctEd language-service inputs are explicitly named as well; tag trimming no
+longer modifies GTK's borrowed text, and unchanged timed sharing state does not
+repeat announcements. Fresh NOCTTY and NoctEd smoke binaries plus the native
+source contract pass. The focused sharing-scope run failed closed before GTK
+mapping because the shared runner lock was read-only in this sandbox and its
+private legacy fallback could not bind a D-Bus socket. No active display was
+contacted, and this is source/build evidence rather than a counted dogfood
+session or current screenshot.
+
+The next source/state-machine sharing pass found and fixed recovery defects that
+the blocked visual lane could not expose: stopped/failed host and viewer objects
+had no enabled clear action, revoked records stayed selectable, persistence
+errors vanished on the next 200 ms refresh, closing the dialog left network
+roles alive, and a listening pairing worker depended on cross-thread close of a
+blocking accept. Terminal states are now clearable, action availability follows
+the actual role, revocation is confirmed and removed from actionable choices,
+paired-device saves can be retried, dialog close stops all sharing roles, and
+listener cancellation polls in bounded intervals. Input/paste failure feedback
+is retained for three seconds; remote paste is capped at 64 KiB and attempts a
+bracket terminator after partial failure. Three identity-store tests, both
+native platform compiles used by this slice, Zig formatting, and the source
+contract pass. The focused cancel regression is retained in the repository test
+graph, but its ad hoc test executable could not link against this host's
+`.sframe` CRT and was not executed; the earlier isolated mapped-flow
+blocker remains. This entry therefore
+adds no screenshot, compositor, physical network, or screen-reader receipt.
+
 ## Sessions
 
 ## 2026-08-05 — retained 4.466-hour runtime candidate (not counted pending work-context confirmation)
