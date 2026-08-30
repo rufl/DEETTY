@@ -207,7 +207,7 @@ Tab right-click  Tab Color          Default plus eight presets
 Tab right-click  Close Tab          stop that tab's sessions
 Pane right-click Close Terminal     stop and remove that terminal
 Pane right-click Profile            five exact-pane profile presets
-Pane right-click Layout 1×1/2×2/3×3/4×4 materializes live PTY grids; shrinking cancels by default or moves surplus sessions to an overflow tab
+Pane right-click **New Split Tab** 2×2/4×2/3×3/4×4 materializes live PTY grids; the redundant 1×1 entry is removed, while internal shrink qualification cancels by default or moves surplus sessions to an overflow tab
 ```
 
 The interaction and chrome budget is documented in [docs/COMPACT_UX.md](COMPACT_UX.md).

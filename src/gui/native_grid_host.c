@@ -503,6 +503,7 @@ typedef struct NocttyGridContextTag {
     int compact_palette_shown;
     int compact_palette_context_opened;
     int compact_context_submenus;
+    int compact_new_1x1_removed;
     int compact_palette_rename_suppressed;
     int compact_palette_previous_shortcut;
     int compact_find_shown;
@@ -10137,6 +10138,7 @@ static gboolean rebuild_grid_preset_page(
     }
     gtk_widget_show_all(page);
     gtk_widget_queue_resize(page);
+    schedule_even_pane_distribution(source, grid_root);
     schedule_grid_preset_settle(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
@@ -14926,6 +14928,8 @@ static gboolean request_compact_palette_smoke(gpointer user_data) {
         "Clear Terminal", "View", "Tools",
     };
     root->compact_context_submenus = 1;
+    root->compact_new_1x1_removed =
+        find_workspace_menu_item(root->workspace_menu, "New 1×1") == NULL;
     for (guint index = 0; index < G_N_ELEMENTS(submenu_labels); index++) {
         GtkWidget *parent = find_workspace_menu_item(
             root->workspace_menu, submenu_labels[index]);
@@ -18156,7 +18160,6 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     append_workspace_menu_item(split_menu, "Split Right", 27, context);
 
     GtkWidget *layout_menu = append_workspace_submenu(menu, "New Split Tab");
-    append_workspace_menu_item(layout_menu, "New 1×1", 50, context);
     append_workspace_menu_item(layout_menu, "New 2×2", 51, context);
     append_workspace_menu_item(layout_menu, "New 4×2", 61, context);
     append_workspace_menu_item(layout_menu, "New 3×3", 52, context);
@@ -18931,8 +18934,12 @@ static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
     guint target_count = rows * cols;
     guint x_bands = preset_unique_band_count(centers_x, count);
     guint y_bands = preset_unique_band_count(centers_y, count);
-    gboolean balanced = max_width - min_width <= MAX(16, max_width / 5) &&
-        max_height - min_height <= MAX(16, max_height / 5);
+    gint width_tolerance = rows == 2 && cols == 2
+        ? 8 : MAX(16, max_width / 5);
+    gint height_tolerance = rows == 2 && cols == 2
+        ? 8 : MAX(16, max_height / 5);
+    gboolean balanced = max_width - min_width <= width_tolerance &&
+        max_height - min_height <= height_tolerance;
     gboolean valid = mapped && io_ready && count == target_count &&
         x_bands == cols && y_bands == rows && balanced;
     if (!valid && (root->workspace_smoke == 21 ||
@@ -19255,10 +19262,8 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
     GtkWidget *layout_4x4 = menu_ready
         ? find_workspace_menu_item(menu, "New 4×4") : NULL;
     gboolean routes_ready =
-        layout_1x1 != NULL && layout_2x2 != NULL && layout_4x2 != NULL &&
+        layout_1x1 == NULL && layout_2x2 != NULL && layout_4x2 != NULL &&
         layout_3x3 != NULL && layout_4x4 != NULL &&
-        GPOINTER_TO_INT(g_object_get_data(
-            G_OBJECT(layout_1x1), "noctty-workspace-event")) == 50 &&
         GPOINTER_TO_INT(g_object_get_data(
             G_OBJECT(layout_2x2), "noctty-workspace-event")) == 51 &&
         GPOINTER_TO_INT(g_object_get_data(
@@ -21122,6 +21127,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         (context.compact_palette_shown &&
          context.compact_palette_context_opened &&
          context.compact_context_submenus &&
+         context.compact_new_1x1_removed &&
          context.compact_palette_rename_suppressed &&
          context.compact_find_shown && context.compact_note_shown &&
          context.compact_accessibility_mask == 7u &&
@@ -21571,8 +21577,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.settings_stacking_ready);
     }
     if (!host_ok && workspace_smoke == 15) {
-        g_printerr("native_grid_compact_new_flags submenus=%d caret=%d dragger=%d height=%d toggled=%d hyperlink_open=%d hyperlink_tui=%d hyperlink_underline=%d linear_selection=%d linear_selection_copy=%d seamless_background=%d\n",
+        g_printerr("native_grid_compact_new_flags submenus=%d new_1x1_removed=%d caret=%d dragger=%d height=%d toggled=%d hyperlink_open=%d hyperlink_tui=%d hyperlink_underline=%d linear_selection=%d linear_selection_copy=%d seamless_background=%d\n",
                    context.compact_context_submenus,
+                   context.compact_new_1x1_removed,
                    context.compact_terminal_caret_drawn,
                    context.compact_dragger_height_toggle,
                    context.dropdown_height_percent,

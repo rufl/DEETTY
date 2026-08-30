@@ -4,6 +4,12 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Removed the redundant **New 1×1** split-tab action; **New Tab** remains the
+  single-terminal path. Newly materialized preset grids now receive a bounded
+  post-map equalization pass in addition to resize-ratio tracking, and the 2×2
+  geometry gate requires pane dimensions to remain within eight pixels after
+  GTK spacing and divider rounding.
+
 - Removed fractional-row seams from terminal/TUI background fills by snapping
   colored spans outward to device-pixel boundaries. Drag selection now follows
   linear terminal text: the first and final rows honor their endpoints and all
