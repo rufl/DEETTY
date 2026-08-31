@@ -19965,34 +19965,28 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
 
     double horizontal = 0.0;
-    if (index == 0 || index == 3 || index == 5)
-        horizontal = root->window_resize_drag_start_x - event->x_root;
-    else if (index == 2 || index == 4 || index == 7)
-        horizontal = event->x_root - root->window_resize_drag_start_x;
     double vertical = 0.0;
-    if (index == 0 || index == 1 || index == 2)
-        vertical = root->window_resize_drag_start_y - event->y_root;
-    else if (index == 5 || index == 6 || index == 7)
-        vertical = event->y_root - root->window_resize_drag_start_y;
+    noctty_grid_resize_delta(
+        index, root->window_resize_drag_start_x,
+        root->window_resize_drag_start_y, event->x_root, event->y_root,
+        &horizontal, &vertical);
 
     if (root->mode == 1 && root->layer_shell_active) {
-        int width = MAX(320, root->window_resize_drag_start_width +
-            (int)horizontal);
-        int height = MAX(180, root->window_resize_drag_start_height +
-            (int)vertical);
+        int width = noctty_grid_clamp_resize(
+            root->window_resize_drag_start_width, horizontal, 320, G_MAXINT);
+        int height = noctty_grid_clamp_resize(
+            root->window_resize_drag_start_height, vertical, 180, G_MAXINT);
         gtk_widget_set_size_request(root->window, width, height);
         gtk_window_resize(GTK_WINDOW(root->window), width, height);
         return TRUE;
     }
     if (root->mode != 0) return FALSE;
-    int width = CLAMP(root->window_resize_drag_start_width +
-                          (int)horizontal,
-                      MIN(NOCTTY_DROPDOWN_MIN_WIDTH_PX, geometry.width),
-                      geometry.width);
-    int height = CLAMP(root->window_resize_drag_start_height +
-                           (int)vertical,
-                       MIN(NOCTTY_DROPDOWN_MIN_HEIGHT_PX, geometry.height),
-                       geometry.height);
+    int width = noctty_grid_clamp_resize(
+        root->window_resize_drag_start_width, horizontal,
+        MIN(NOCTTY_DROPDOWN_MIN_WIDTH_PX, geometry.width), geometry.width);
+    int height = noctty_grid_clamp_resize(
+        root->window_resize_drag_start_height, vertical,
+        MIN(NOCTTY_DROPDOWN_MIN_HEIGHT_PX, geometry.height), geometry.height);
     gboolean changed = FALSE;
     if (horizontal != 0.0 && width != root->dropdown_width_px) {
         sync_compact_setting(root, 14, width);

@@ -68,6 +68,8 @@ grep -F 'pub export fn noctty_grid_scroll_steps(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_keyboard_scroll_target(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_auto_fit(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_dimensions(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_resize_delta(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_clamp_resize(' "$grid_logic" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
 grep -F 'const NativeGridAbi = noctty.gui.NativeGridAbi;' "$main" >/dev/null

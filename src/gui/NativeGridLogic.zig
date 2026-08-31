@@ -205,6 +205,50 @@ pub export fn noctty_grid_dimensions(
     return 1;
 }
 
+pub export fn noctty_grid_resize_delta(
+    handle: c_int,
+    start_x: f64,
+    start_y: f64,
+    pointer_x: f64,
+    pointer_y: f64,
+    horizontal_output: ?*f64,
+    vertical_output: ?*f64,
+) callconv(.c) void {
+    const horizontal = horizontal_output orelse return;
+    const vertical = vertical_output orelse return;
+    horizontal.* = switch (handle) {
+        0, 3, 5 => start_x - pointer_x,
+        2, 4, 7 => pointer_x - start_x,
+        else => 0,
+    };
+    vertical.* = switch (handle) {
+        0, 1, 2 => start_y - pointer_y,
+        5, 6, 7 => pointer_y - start_y,
+        else => 0,
+    };
+}
+
+pub export fn noctty_grid_clamp_resize(
+    start: c_int,
+    delta: f64,
+    minimum: c_int,
+    maximum: c_int,
+) callconv(.c) c_int {
+    if (minimum > maximum or !std.math.isFinite(delta)) return start;
+    const candidate = @as(i64, start) + @as(i64, @intFromFloat(delta));
+    return @intCast(std.math.clamp(candidate, @as(i64, minimum), @as(i64, maximum)));
+}
+
+test "resize handles preserve directional deltas and bounds" {
+    var horizontal: f64 = 0;
+    var vertical: f64 = 0;
+    noctty_grid_resize_delta(0, 100, 100, 90, 80, &horizontal, &vertical);
+    try std.testing.expectEqual(@as(f64, 10), horizontal);
+    try std.testing.expectEqual(@as(f64, 20), vertical);
+    try std.testing.expectEqual(@as(c_int, 320), noctty_grid_clamp_resize(300, -50, 320, 900));
+    try std.testing.expectEqual(@as(c_int, 900), noctty_grid_clamp_resize(850, 100, 320, 900));
+}
+
 test "auto-fit and grid dimensions remain bounded" {
     var size: f64 = 0;
     var zoom: c_int = 0;
