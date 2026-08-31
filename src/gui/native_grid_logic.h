@@ -39,5 +39,12 @@ int noctty_grid_scroll_steps(int configured_lines, int smooth_enabled,
 uint64_t noctty_grid_keyboard_scroll_target(uint64_t history_lines,
                                             uint64_t viewport_offset,
                                             uint32_t visible_rows, int action);
+void noctty_grid_auto_fit(double base_size, int fit_width, int fit_height,
+                          int enabled, double *next_size, int *zoom_percent,
+                          int *floor_reached);
+int noctty_grid_dimensions(int allocation_width, int allocation_height,
+                           double scrollbar_width, double cell_width,
+                           double cell_height, int *terminal_width,
+                           int *columns, int *rows);
 
 #endif

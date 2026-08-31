@@ -37,8 +37,8 @@ zig build run-nocted -- --project . --open README.md
   pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
   and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral scrollbar geometry,
-  wheel accumulation, keyboard scroll targets, linear selection hit testing,
-  and pixel-snapped colored-span policy consumed
+  wheel accumulation, keyboard scroll targets, grid sizing/auto-fit, linear
+  selection hit testing, and pixel-snapped colored-span policy consumed
   by the shrinking GTK adapter through `native_grid_logic.h`.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color

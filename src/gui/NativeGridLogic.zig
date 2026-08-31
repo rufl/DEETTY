@@ -155,6 +155,81 @@ pub export fn noctty_grid_keyboard_scroll_target(
     };
 }
 
+pub export fn noctty_grid_auto_fit(
+    base_size: f64,
+    fit_width: c_int,
+    fit_height: c_int,
+    enabled: c_int,
+    next_size_output: ?*f64,
+    zoom_percent_output: ?*c_int,
+    floor_reached_output: ?*c_int,
+) callconv(.c) void {
+    const next_size = next_size_output orelse return;
+    const zoom_percent = zoom_percent_output orelse return;
+    const floor_reached = floor_reached_output orelse return;
+    var value = base_size;
+    var fit_min = std.math.inf(f64);
+    if (enabled != 0 and fit_width > 0 and fit_height > 0) {
+        const width_fit = @as(f64, @floatFromInt(fit_width)) / (80 * (96.0 / 72.0) * 0.64);
+        const height_fit = @as(f64, @floatFromInt(fit_height)) / (24 * (96.0 / 72.0) * 1.28);
+        fit_min = @min(width_fit, height_fit);
+        value = @min(base_size, @floor(fit_min * 4) / 4);
+        value = @max(3, value);
+    }
+    next_size.* = value;
+    zoom_percent.* = if (base_size > 0)
+        std.math.clamp(@as(c_int, @intFromFloat(@round(value * 100 / base_size))), 1, 100)
+    else
+        100;
+    floor_reached.* = @intFromBool(enabled != 0 and fit_min < 3);
+}
+
+pub export fn noctty_grid_dimensions(
+    allocation_width: c_int,
+    allocation_height: c_int,
+    scrollbar_width: f64,
+    cell_width: f64,
+    cell_height: f64,
+    terminal_width_output: ?*c_int,
+    columns_output: ?*c_int,
+    rows_output: ?*c_int,
+) callconv(.c) c_int {
+    const terminal_width = terminal_width_output orelse return 0;
+    const columns = columns_output orelse return 0;
+    const rows = rows_output orelse return 0;
+    if (allocation_width <= 0 or allocation_height <= 0) return 0;
+    if (scrollbar_width < 0 or cell_width <= 0 or cell_height <= 0) return 0;
+    terminal_width.* = @max(1, allocation_width - @as(c_int, @intFromFloat(scrollbar_width)));
+    columns.* = @max(2, @as(c_int, @intFromFloat(@as(f64, @floatFromInt(terminal_width.*)) / cell_width)));
+    rows.* = @max(2, @as(c_int, @intFromFloat(@as(f64, @floatFromInt(allocation_height)) / cell_height)));
+    return 1;
+}
+
+test "auto-fit and grid dimensions remain bounded" {
+    var size: f64 = 0;
+    var zoom: c_int = 0;
+    var floor_reached: c_int = 0;
+    noctty_grid_auto_fit(13, 320, 180, 1, &size, &zoom, &floor_reached);
+    try std.testing.expect(size >= 3 and size <= 13);
+    try std.testing.expect(zoom >= 1 and zoom <= 100);
+    var width: c_int = 0;
+    var columns: c_int = 0;
+    var rows: c_int = 0;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dimensions(
+        800,
+        600,
+        10,
+        10,
+        20,
+        &width,
+        &columns,
+        &rows,
+    ));
+    try std.testing.expectEqual(@as(c_int, 790), width);
+    try std.testing.expectEqual(@as(c_int, 79), columns);
+    try std.testing.expectEqual(@as(c_int, 30), rows);
+}
+
 test "scroll steps preserve discrete and smooth accumulation" {
     var accumulator: f64 = 0;
     try std.testing.expectEqual(@as(c_int, 3), noctty_grid_scroll_steps(3, 0, -1, 0, &accumulator));

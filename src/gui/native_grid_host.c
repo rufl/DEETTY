@@ -22,7 +22,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include <float.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <time.h>
@@ -19693,14 +19692,16 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     double base_size = context->requested_font_size > 0
         ? context->requested_font_size : context->font_size;
     double next_size = base_size;
-    double width_fit = DBL_MAX;
-    double height_fit = DBL_MAX;
+    int zoom_percent = 100;
+    int floor_reached = 0;
+    int fit_width = allocation->width;
+    int fit_height = allocation->height;
     NocttyGridContext *root = root_grid_context(context);
-    if (root->workspace_smoke == 21 && context->page != NULL &&
+    int auto_fit_enabled = root->workspace_smoke == 21 &&
+        context->page != NULL &&
         grid_contexts_on_page(root, context->page) >= 4 &&
-        allocation->width > 0 && allocation->height > 0) {
-        int fit_width = allocation->width;
-        int fit_height = allocation->height;
+        allocation->width > 0 && allocation->height > 0;
+    if (auto_fit_enabled) {
         for (guint index = 0; root->contexts != NULL &&
              index < root->contexts->len; index++) {
             NocttyGridContext *candidate =
@@ -19715,17 +19716,11 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
             if (candidate_allocation.height > 1)
                 fit_height = MIN(fit_height, candidate_allocation.height);
         }
-        width_fit = fit_width / (80.0 * (96.0 / 72.0) * 0.64);
-        height_fit = fit_height / (24.0 * (96.0 / 72.0) * 1.28);
-        next_size = MIN(base_size, floor(MIN(width_fit, height_fit) * 4.0) / 4.0);
-        next_size = MAX(3.0, next_size);
     }
-    int zoom_percent = base_size > 0
-        ? CLAMP((int)round(next_size * 100.0 / base_size), 1, 100) : 100;
-    context->resize_overlay_floor_reached =
-        root->workspace_smoke == 21 && context->page != NULL &&
-        grid_contexts_on_page(root, context->page) >= 4 &&
-        MIN(width_fit, height_fit) < 3.0;
+    noctty_grid_auto_fit(
+        base_size, fit_width, fit_height, auto_fit_enabled, &next_size,
+        &zoom_percent, &floor_reached);
+    context->resize_overlay_floor_reached = floor_reached;
     gboolean font_changed = fabs(context->font_size - next_size) > 0.01;
     if (font_changed) {
         for (guint index = 0; root->contexts != NULL &&
@@ -19743,10 +19738,14 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     }
     context->resize_overlay_zoom_percent = zoom_percent;
 
-    int terminal_width = MAX(
-        1, allocation->width - NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX);
-    int columns = MAX(2, (int)(terminal_width / grid_cell_width(context)));
-    int rows = MAX(2, (int)(allocation->height / grid_cell_height(context)));
+    int terminal_width = 0;
+    int columns = 0;
+    int rows = 0;
+    if (!noctty_grid_dimensions(
+            allocation->width, allocation->height,
+            NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX, grid_cell_width(context),
+            grid_cell_height(context), &terminal_width, &columns, &rows))
+        return;
     if (columns == context->columns && rows == context->rows) {
         if (font_changed) show_resize_overlay(context, columns, rows);
         if (context->resize_commit_source != 0) {
