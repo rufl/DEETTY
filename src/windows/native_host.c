@@ -1,3 +1,11 @@
+/*
+ * Win32/GDI and ConPTY adapter for the experimental Windows host.
+ *
+ * Zig owns terminal/workspace state through native_host.h. This file owns all
+ * Win32 HANDLE, HWND, timer, clipboard, and rendering lifetimes; every handle
+ * acquired here must be released here so platform concerns do not cross the
+ * shared terminal boundary.
+ */
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 

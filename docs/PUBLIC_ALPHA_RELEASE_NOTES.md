@@ -38,7 +38,7 @@ Current result:
 
 ```text
 19/19 steps succeeded
-343/343 tests passed
+421/421 tests passed
 ```
 
 A fresh 2026-08-03 source copy without `.git`, `.zig-cache`, `zig-out`, or
@@ -55,7 +55,7 @@ Bounded public-source-alpha gate:
 Current result:
 
 ```text
-public_alpha_verify passed=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
+public_alpha_verify passed=true source_hygiene=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
 ```
 
 Additional public-alpha guards currently pass individually:

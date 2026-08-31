@@ -88,7 +88,12 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_SESSION_TYPE=wayland
     export XDG_CURRENT_DESKTOP=noctty-isolated
     export XDG_SESSION_DESKTOP=noctty-isolated
-    unset KDE_FULL_SESSION DESKTOP_SESSION
+    # Host Qt/GTK theme/plugin variables can load desktop-session modules before
+    # the private compositor exists. Clear them so isolation fails or succeeds
+    # based only on the reviewed virtual-session environment.
+    unset KDE_FULL_SESSION DESKTOP_SESSION QT_QPA_PLATFORM \
+      QT_QPA_PLATFORMTHEME QT_STYLE_OVERRIDE QT_PLUGIN_PATH GTK_PATH \
+      GTK_MODULES
     export WAYLAND_DISPLAY=noctty-isolated-wayland
     export GDK_BACKEND=wayland
     export NO_AT_BRIDGE=1

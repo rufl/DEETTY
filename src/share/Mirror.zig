@@ -235,11 +235,12 @@ pub const Grid = struct {
         return self.history_rows;
     }
 
-
     pub fn packedCell(self: *const Grid, column: usize, row: usize) u64 {
         if (column >= self.columns) return ' ';
-        const source = &self.row_data[self.displayedRowIndex(row) orelse
-            return ' '];
+        const source = &self.row_data[
+            self.displayedRowIndex(row) orelse
+                return ' '
+        ];
         if (source.cells.len != self.columns) return ' ';
         const cell = source.cells[column];
         const style = @as(u32, if (cell.flags.bold) 1 else 0) |
@@ -257,8 +258,10 @@ pub const Grid = struct {
 
     pub fn cellText(self: *const Grid, column: usize, row: usize, output: []u8) usize {
         if (column >= self.columns) return 0;
-        const source = &self.row_data[self.displayedRowIndex(row) orelse
-            return 0];
+        const source = &self.row_data[
+            self.displayedRowIndex(row) orelse
+                return 0
+        ];
         if (source.cells.len != self.columns) return 0;
         const cell = source.cells[column];
         if (cell.flags.continuation or cell.text_length > output.len) return 0;
@@ -471,7 +474,6 @@ test "remote mirror retains bounded history and preserves scrolled view" {
         text[0..receiver.grid.cellText(0, 0, &text)],
     );
 }
-
 
 test "remote mirror rejects incomplete snapshots and input" {
     var receiver = try Receiver.init(std.testing.allocator, 1);

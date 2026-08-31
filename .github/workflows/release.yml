@@ -57,6 +57,7 @@ jobs:
           grep -F 'redistribution_ready=true' "$archive.manifest" >/dev/null
           grep -F 'all_copied_host_libraries_accounted=true' "$archive.manifest" >/dev/null
           grep -F 'bundle_license_payload_complete=true' "$archive.manifest" >/dev/null
+          grep -F 'gtk_layer_shell_source=system' "$archive.manifest" >/dev/null
           tar -tzf "$archive" | grep -F './bin/noctty' >/dev/null
           tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/noctty/noctty' >/dev/null

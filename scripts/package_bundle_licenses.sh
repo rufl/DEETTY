@@ -165,65 +165,34 @@ register_package() {
   printf '%s\n' "$package" >>"$seen_packages"
 }
 
-register_vendor_layer_shell() {
-  package=gtk-layer-shell-vendored
-  if grep -Fx "$package" "$seen_packages" >/dev/null; then
-    return
-  fi
-  for source_file in \
-    vendor/gtk-layer-shell/.PKGINFO \
-    vendor/gtk-layer-shell/README.md \
-    vendor/gtk-layer-shell/LICENSE_MIT.txt; do
-    test -f "$source_file"
-    copy_notice "$source_file" "packages/$package/$(basename "$source_file")"
-  done
-  test -f /usr/share/licenses/spdx/LGPL-3.0-or-later.txt
-  copy_notice /usr/share/licenses/spdx/LGPL-3.0-or-later.txt \
-    spdx/LGPL-3.0-or-later.txt
-  printf '%s version=0.10.1-1 license_expression="LGPL-3.0-or-later" package_license_files=3 canonical_spdx_files=1 custom_tokens_covered_by_package_files=0 license_source=arch_pkginfo_upstream_readme_and_vendored_provenance\n' \
-    "$package" >>"$package_inventory"
-  printf '%s|%s|%s|%s\n' "$package" 0.10.1-1 LGPL-3.0-or-later \
-    arch_pkginfo_upstream_readme_and_vendored_provenance >>"$package_records"
-  printf '%s\n' "$package" >>"$seen_packages"
-}
-
 while IFS= read -r library; do
   [ -n "$library" ] || continue
   test -f "$library"
   name=$(basename "$library")
-  case "$library" in
-    vendor/gtk-layer-shell/*)
-      package=gtk-layer-shell-vendored
-      register_vendor_layer_shell
-      source_kind=vendor_arch_pkg
+  owners="$work/owners.txt"
+  case "$package_backend" in
+    arch)
+      pacman -Qqo "$library" 2>/dev/null | sort -u >"$owners" || true
       ;;
-    *)
-      owners="$work/owners.txt"
-      case "$package_backend" in
-        arch)
-          pacman -Qqo "$library" 2>/dev/null | sort -u >"$owners" || true
-          ;;
-        debian)
-          {
-            dpkg-query -S "$library" 2>/dev/null || true
-            case "$library" in
-              /usr/lib/*|/usr/bin/*|/usr/sbin/*)
-                dpkg-query -S "${library#/usr}" 2>/dev/null || true
-                ;;
-            esac
-          } | sed 's/: \/.*$//' | sort -u >"$owners"
-          ;;
-      esac
-      owner_count=$(wc -l <"$owners" | tr -d ' ')
-      if [ "$owner_count" -ne 1 ]; then
-        echo "package_bundle_license library owner unresolved: $library" >&2
-        exit 1
-      fi
-      package=$(sed -n '1p' "$owners")
-      register_package "$package"
-      source_kind=system
+    debian)
+      {
+        dpkg-query -S "$library" 2>/dev/null || true
+        case "$library" in
+          /usr/lib/*|/usr/bin/*|/usr/sbin/*)
+            dpkg-query -S "${library#/usr}" 2>/dev/null || true
+            ;;
+        esac
+      } | sed 's/: \/.*$//' | sort -u >"$owners"
       ;;
   esac
+  owner_count=$(wc -l <"$owners" | tr -d ' ')
+  if [ "$owner_count" -ne 1 ]; then
+    echo "package_bundle_license library owner unresolved: $library" >&2
+    exit 1
+  fi
+  package=$(sed -n '1p' "$owners")
+  register_package "$package"
+  source_kind=system
 
   record=$(grep -F "$package|" "$package_records")
   package_version=$(printf '%s\n' "$record" | cut -d '|' -f 2)

@@ -50,6 +50,7 @@ run_pressure_gated_display() {
   done
 }
 
+./scripts/check_public_source_hygiene.sh
 ./scripts/check_terminal_unicode.sh
 ./scripts/check_signal_traps.sh
 # Admit isolated graphical proof before process/build qualification raises the

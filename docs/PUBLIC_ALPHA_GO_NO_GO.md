@@ -18,7 +18,9 @@ Reason: source/docs/gates are ready enough for a bounded public-source alpha, bu
 - public alpha plan
 - code map
 - draft release notes
-- issue/PR templates
+- issue/PR templates, contributor licensing terms, conduct/support policies, and private security-reporting instructions
+- pinned read-only GitHub Actions source CI plus a source-publication runbook
+- tracked-source hygiene guard plus a full-history Gitleaks scan reporting zero findings
 - real local Git history
 - clean source-copy fast build/check
 - bounded public-alpha gate
@@ -37,7 +39,7 @@ Current bounded gate:
 Current retained result:
 
 ```text
-public_alpha_verify passed=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
+public_alpha_verify passed=true source_hygiene=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false
 ```
 
 ## Red now

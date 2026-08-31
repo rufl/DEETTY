@@ -1,3 +1,10 @@
+//! Bounded VT grid, scrollback, styling, selection, and parser-application model.
+//!
+//! This module contains no GUI objects. Renderers consume packed cell/state
+//! snapshots, while PTY/session code owns I/O. Preserve explicit limits and use
+//! caller-provided allocators: malformed escape streams are untrusted input and
+//! must not create unbounded replies, history, hyperlinks, or grapheme storage.
+
 const std = @import("std");
 const VtParser = @import("VtParser.zig");
 const Unicode = @import("Unicode.zig");

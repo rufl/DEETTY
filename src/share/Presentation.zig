@@ -139,7 +139,6 @@ pub const HistoryDelta = union(enum) {
     reset,
 };
 
-
 pub const Publisher = struct {
     stream_id: u32,
     sequence: Protocol.Sequence = .{},
@@ -239,7 +238,6 @@ pub const Publisher = struct {
             .bytes = bytes,
         };
     }
-
 
     pub fn snapshotEnd(self: *Publisher) !Protocol.Frame {
         return .{

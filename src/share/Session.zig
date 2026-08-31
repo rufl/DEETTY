@@ -31,7 +31,6 @@ pub const HostPeer = struct {
         };
     }
 
-
     // UI-thread observation only records bounded damage. Encoding and socket
     // writes happen later on the network worker via flush().
     pub fn observe(self: *HostPeer, session: anytype) void {

@@ -1,6 +1,6 @@
 # Public Alpha Code Review
 
-Review date: 2026-07-31.
+Review date: 2026-08-31.
 
 Scope: source-level public-alpha review of NOCTTY and NoctEd, focused on what is
 still needed before publishing an honest open-source alpha. This is not a formal
@@ -14,7 +14,7 @@ main public-alpha risk is not missing features; it is complexity and
 maintainability. Several production and smoke paths are large enough that a new
 contributor will need a simpler map before they can help confidently.
 
-The project is now source-alpha ready except for the deliberately unfilled dogfood evidence. The public promise must stay small: Linux-native terminal workspace plus companion editor, not a mature IDE or universal terminal replacement.
+The tracked source is now prepared for GitHub review: required community and security policies, pinned read-only source CI, publication instructions, a tracked-source hygiene gate, full-history secret-scan evidence, and module ownership comments are present. A public-alpha announcement remains blocked by deliberately unfilled dogfood evidence and stale screenshots. The public promise must stay small: Linux-native terminal workspace plus companion editor, not a mature IDE or universal terminal replacement.
 
 ## What looks strong
 
@@ -36,22 +36,22 @@ The project is now source-alpha ready except for the deliberately unfilled dogfo
 
 Largest current surfaces include:
 
-- `src/gui/native_grid_host.c` (~15k lines)
-- `src/main.zig` (~7k lines)
-- `src/nocted/main.zig` (~6k lines)
-- `src/app/App.zig` (~4k lines)
-- `src/workspace/Workspace.zig` (~3.7k lines)
-- `src/terminal/Vt.zig` (~3.6k lines)
+- `src/gui/native_grid_host.c` (~21.8k lines)
+- `src/main.zig` (~8.6k lines)
+- `src/nocted/main.zig` (~8.2k lines)
+- `src/terminal/Vt.zig` (~4.9k lines)
+- `src/workspace/Workspace.zig` (~3.9k lines)
+- `src/app/App.zig` (~3.2k lines)
 
 This is not automatically wrong, but public readers will struggle. For alpha,
 do not rewrite these. Instead add architecture maps and extract only the most
 obvious low-risk seams later.
 
-Recommended alpha action:
+Current mitigation:
 
-- Add `docs/CODE_MAP.md` with module responsibilities and entry points.
-- Add short comments at top of the largest files explaining their ownership.
-- Defer large refactors until after dogfood.
+- `docs/CODE_MAP.md` identifies module responsibilities and entry points.
+- The largest production files now start with concise ownership/boundary comments.
+- Large refactors remain deferred until a real change justifies an extraction.
 
 ### 2. Smoke/qualification code is mixed into production entry surfaces
 
@@ -120,7 +120,7 @@ Recommended alpha action:
 2. Keep package/signing language clearly incomplete.
 3. Keep the fresh full `./scripts/verify.sh` receipt green when changing shared runtime, package, or proof surfaces.
 
-Already closed for source-alpha prep: screenshots, `docs/CODE_MAP.md`, clean source-copy fast build/check, public alpha release notes, no-surprise network guard, GitHub issue/PR templates, local Git baseline, and the bounded `./scripts/public_alpha_verify.sh` gate.
+Already closed for source-alpha prep: baseline screenshots with an explicit stale warning, `docs/CODE_MAP.md`, clean source-copy fast build/check, public alpha release notes, no-surprise network and source-hygiene guards, GitHub issue/PR templates and source CI, contribution/conduct/support/security policies, local Git baseline, and the bounded `./scripts/public_alpha_verify.sh` gate.
 
 ### Should do before announcing broadly
 
@@ -150,6 +150,6 @@ Already closed for source-alpha prep: screenshots, `docs/CODE_MAP.md`, clean sou
 
 ## Alpha grade
 
-Current grade: **yellow / source-alpha ready except dogfood**.
+Current grade: **yellow / source can be published for review; announcement remains no-go**.
 
-Reason: docs, screenshots, code map, local Git baseline, bounded gates, release wording, and no-surprise network checks are in place. The remaining honest blocker is counted dogfood evidence; do not mark public announcement green while `./scripts/dogfood_status.sh` reports `counted_sessions=0`.
+Reason: policy docs, source CI, publication instructions, code map, local Git baseline, bounded gates, release wording, full-history Gitleaks evidence, and no-surprise network/source-hygiene checks are in place. Current screenshots and counted dogfood are still missing; do not mark the public alpha announcement green while `./scripts/dogfood_status.sh` reports `counted_sessions=0`.

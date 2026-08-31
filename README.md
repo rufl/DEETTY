@@ -17,7 +17,7 @@ UI runtime, telemetry, update pings, crash uploaders, or remote feature flags.
 
 ## Status
 
-Current public-readiness status: **pre-public Linux alpha**.
+Current public-readiness status: **early source alpha; public announcement not yet approved**.
 
 A separate experimental Windows terminal alpha is now available for testing;
 it is not yet Windows feature parity or physically qualified.
@@ -207,12 +207,12 @@ Bun, or VS Code-parity stack.
 
 Linux requirements:
 
-- Zig 0.16.x or newer
+- Zig 0.16.x (the build intentionally rejects other minor versions)
 - GTK 3 development files discoverable through `pkg-config`
 - GtkSourceView 4 development files discoverable through `pkg-config`
-- `gtk-layer-shell` at runtime for Wayland dropdown placement; distribution
-  packages provide it, while dependency bundles and dogfood installs stage the
-  pinned private runtime
+- system `gtk-layer-shell` at runtime for Wayland dropdown placement;
+  dependency bundles and dogfood installs copy the host package's library into
+  a launcher-owned private runtime after provenance/license checks
 - VTE 2.91 development files only for the optional legacy/fallback binary or the
   complete verification matrix
 
@@ -324,10 +324,10 @@ zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
 The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `420/420` tests in Debug and `ReleaseSafe`. The
-`./scripts/verify.sh` aggregate passes with scoped scratch cleanup; the current
-focused isolation receipt proves private X11/Wayland state and no inherited
-active display.
+`19/19` steps and `421/421` tests in Debug; the experimental Windows
+`ReleaseSafe` cross-compile also passes. The last retained `./scripts/verify.sh`
+aggregate passes with scoped scratch cleanup; the current focused isolation
+receipt proves private X11/Wayland state and no inherited active display.
 
 Bounded public-source-alpha gate:
 
@@ -393,7 +393,7 @@ Before publishing as a Lichforge public alpha, the project should have:
 - package/signing/redistribution status clearly separated from source release
 - a retained no-surprise network/telemetry source scan
 
-See [Public alpha plan](docs/PUBLIC_ALPHA_PLAN.md), [go/no-go sheet](docs/PUBLIC_ALPHA_GO_NO_GO.md), [draft alpha release notes](docs/PUBLIC_ALPHA_RELEASE_NOTES.md), [Roadmap](ROADMAP.md),
+See [Public alpha plan](docs/PUBLIC_ALPHA_PLAN.md), [go/no-go sheet](docs/PUBLIC_ALPHA_GO_NO_GO.md), [GitHub publication runbook](docs/GITHUB_PUBLISHING.md), [draft alpha release notes](docs/PUBLIC_ALPHA_RELEASE_NOTES.md), [Roadmap](ROADMAP.md),
 [project memory](MEMORY.md), the [dogfood runbook](docs/DOGFOOD_RUNBOOK.md), the [dogfood log](docs/DOGFOOD_LOG.md), and the
 historical [pitch audit](docs/PITCH_AUDIT.md). Dogfood progress can be checked with
 `./scripts/dogfood_status.sh`.
@@ -406,6 +406,14 @@ historical [pitch audit](docs/PITCH_AUDIT.md). Dogfood progress can be checked w
 - Small, proof-bounded claims.
 - Prefer a dependable terminal workspace over a half-finished IDE.
 
+## Contributing, support, and security
+
+Focused contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before opening a pull request. Use
+[SUPPORT.md](SUPPORT.md) for support boundaries and [SECURITY.md](SECURITY.md)
+for private vulnerability reporting. Third-party provenance is documented in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Contributions are accepted under the same license.

@@ -1,3 +1,9 @@
+//! Experimental Windows executable and Zig side of the Win32 host ABI.
+//!
+//! The shared VT and sharing models remain platform-neutral. Win32 windows,
+//! ConPTY handles, input, and rendering belong in `native_host.c`; keep GTK and
+//! POSIX-only state out of this build target.
+
 const std = @import("std");
 const windows = std.os.windows;
 const Share = @import("noctty_share");

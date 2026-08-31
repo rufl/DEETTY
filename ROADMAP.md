@@ -41,7 +41,7 @@ Required:
 - [x] Dogfood log template
 - [x] Dogfood runbook
 - [x] Installed `ReleaseFast` dogfood binaries with bounded local logging and a
-  pinned private GTK Layer Shell runtime for undecorated Wayland dropdowns
+  private copy of the provenance-checked system GTK Layer Shell runtime for undecorated Wayland dropdowns
 - [x] Screenshots referenced from README
 
 ## Phase 1 — Dogfood NOCTTY as daily terminal

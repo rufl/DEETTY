@@ -1,3 +1,9 @@
+//! Workspace model for tabs, split trees, pane selection, and project actions.
+//!
+//! Layout nodes store stable pane identifiers and proportional divider ratios,
+//! never GTK widget pointers or pixel positions. Native hosts materialize this
+//! model and report user changes back through the application command boundary.
+
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const Terminal = @import("../terminal/Terminal.zig");
@@ -11,6 +17,7 @@ pub const SplitDirection = enum {
 };
 
 pub const LayoutPreset = enum {
+    // Internal reconciliation target; single-terminal creation uses New Tab.
     one_by_one,
     two_by_two,
     four_by_two,

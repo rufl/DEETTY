@@ -7,6 +7,7 @@ export LC_ALL=C
 
 printf '%s\n' 'public_alpha_verify_begin proof_boundary=bounded_source_alpha full_verify=false'
 
+./scripts/check_public_source_hygiene.sh
 zig build check -j1 --summary all
 ./scripts/check_no_surprise_network.sh
 ./scripts/dogfood_logging_smoke.sh
@@ -14,4 +15,4 @@ zig build check -j1 --summary all
 ./scripts/native_grid_smoke.sh
 ./scripts/nocted_native_smoke.sh
 
-printf '%s\n' 'public_alpha_verify passed=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false'
+printf '%s\n' 'public_alpha_verify passed=true source_hygiene=true build_check=true no_surprise_network=true dogfood_logging_smoke=true docs_truth=true native_grid_smoke=true nocted_native_smoke=true full_verify=false'

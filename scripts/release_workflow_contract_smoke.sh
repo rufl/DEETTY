@@ -39,6 +39,7 @@ grep -F "grep -F 'license_files_begin' \"\$archive.manifest\" >/dev/null" "$work
 grep -F "grep -F 'redistribution_ready=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "grep -F 'all_copied_host_libraries_accounted=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "grep -F 'bundle_license_payload_complete=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
+grep -F "grep -F 'gtk_layer_shell_source=system' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './bin/noctty' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './bin/nocted' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/noctty/noctty' >/dev/null" "$workflow" >/dev/null
@@ -63,4 +64,4 @@ grep -F 'windows-runtime:' "$workflow" >/dev/null
 grep -F 'runs-on: windows-latest' "$workflow" >/dev/null
 grep -F 'WINDOWS-SMOKE.ps1 -AutomatedHost' "$workflow" >/dev/null
 
-echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true gtksourceview=true nocted=true arch_assert=true verify=true bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"
+echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true layer_shell_source=system gtksourceview=true nocted=true arch_assert=true verify=true bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"

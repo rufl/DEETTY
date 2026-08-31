@@ -1,3 +1,10 @@
+//! Product-level application model shared by native presentation adapters.
+//!
+//! `App` owns configuration, themes, workspace state, and command receipts; it
+//! does not own GTK widgets or editor documents. Commands crossing into a host
+//! are explicit so persistence failures and native lifecycle results remain
+//! observable instead of being hidden in callbacks.
+
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const ConfigStorage = @import("../config/Storage.zig");

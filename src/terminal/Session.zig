@@ -1,3 +1,9 @@
+//! PTY plus VT-grid session ownership and nonblocking input/output buffering.
+//!
+//! `TerminalSession` owns its PTY, grid, scratch storage, and pending writes.
+//! Native hosts may schedule pumps but must close through this type so process
+//! groups, descriptors, allocator state, and history storage are released once.
+
 const std = @import("std");
 const Pty = @import("Pty.zig");
 const Vt = @import("Vt.zig");

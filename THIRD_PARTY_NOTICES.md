@@ -22,16 +22,6 @@ lockfiles, and container metadata are intentionally omitted; version and license
 pointers remain in `vendor/tree-sitter/LICENSES.md`, with complete license texts
 beside each vendored source tree.
 
-## GTK Layer Shell
-
-The repo-local same-architecture GTK Layer Shell packaging payload is
-LGPL-3.0-or-later. Its provenance and the distinction between the project
-license and MIT-licensed individual source files are documented in
-`vendor/gtk-layer-shell/README.md` and `vendor/gtk-layer-shell/LICENSE_MIT.txt`.
-Runtime loading uses the system soname; distribution packages provide it, while
-dependency bundles and dogfood installs expose their pinned private copy
-through a launcher-owned library path.
-
 ## Generated Dependency-Bundle Notices
 
 Same-architecture dependency bundles retain Arch/pacman or Debian/dpkg package

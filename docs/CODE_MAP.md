@@ -1,7 +1,9 @@
 # NOCTTY Code Map
 
 This map is for contributors and reviewers who want to understand the public
-alpha source tree without reading the backlog first.
+alpha source tree without reading the backlog first. The largest runtime files
+also carry module-level ownership comments; comments explain boundaries and
+non-obvious lifetime rules rather than restating each function.
 
 ## Product entry points
 
@@ -85,6 +87,9 @@ zig build run-nocted -- --project . --open README.md
 The repo contains a lot of proof code by design. Public alpha reviewers should
 read this as engineering evidence, not as extra product surface.
 
+- `scripts/check_public_source_hygiene.sh` — bounded tracked-source publication
+  guard for required policy files, generated artifacts, sensitive filenames,
+  workstation paths, merge markers, and immutable GitHub Action pins.
 - `scripts/verify.sh` — full maintainer gate. It is intentionally broad and may
   take a long time on contributor machines.
 - `scripts/native_release_smoke.sh` — display-backed native smoke gate; requires an explicitly acknowledged disposable compositor session.
@@ -97,8 +102,8 @@ read this as engineering evidence, not as extra product surface.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path.
 - `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.
 - `scripts/install_dogfood.sh` — atomic local `ReleaseFast` install, bounded
-  logging launchers, desktop-entry rewrite, and pinned private GTK Layer Shell
-  runtime staging for undecorated Wayland dropdowns.
+  logging launchers, desktop-entry rewrite, and private staging of the
+  provenance-checked system GTK Layer Shell runtime for Wayland dropdowns.
 - `scripts/package_windows.sh` — experimental Windows `ReleaseFast` ZIP,
   checksum, and manifest packaging with PE/ConPTY/no-GTK contract checks.
 - `scripts/terminal_*_qualification.sh` — terminal compatibility and PTY/TUI

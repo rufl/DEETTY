@@ -107,7 +107,7 @@ while IFS= read -r document; do
   done
 done
 
-grep -F 'Current public-readiness status: **pre-public Linux alpha**.' README.md >/dev/null
+grep -F 'Current public-readiness status: **early source alpha; public announcement not yet approved**.' README.md >/dev/null
 grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood, the' \
   docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
 grep -F 'full_verify=false' scripts/public_alpha_verify.sh \

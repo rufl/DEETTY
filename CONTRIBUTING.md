@@ -1,7 +1,9 @@
 # Contributing to NOCTTY
 
-Thank you for considering a contribution. NOCTTY is pre-public Linux alpha, so
+Thank you for considering a contribution. NOCTTY is an early source alpha, so
 small, focused improvements are much more valuable than broad feature pushes.
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); support
+expectations are documented in [SUPPORT.md](SUPPORT.md).
 
 ## Project shape
 
@@ -31,24 +33,31 @@ without discussion.
 3. Keep claims proof-bounded.
 4. Run the smallest relevant local gate.
 
-Main gate:
+Fast contributor gate:
 
 ```sh
-./scripts/verify.sh
+zig fmt --check build.zig src
+zig build check -j1 --summary all
 ```
 
-On constrained hosts:
+Bounded source-alpha gate:
 
 ```sh
-NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
+./scripts/public_alpha_verify.sh
 ```
 
-For docs-only changes, at minimum check links and formatting manually. If the
-full gate fails due to local toolchain/compositor constraints, include the exact
-command and failure in your report.
+The maintainer gate is `./scripts/verify.sh`. It includes isolated graphical and
+broader qualification lanes, can be environment-heavy, and is not required for
+every focused pull request. Never run display tests against an active desktop;
+use the repository's fail-closed isolated-display wrappers. If a gate cannot run
+because of toolchain/compositor constraints, include the exact command and
+failure in the pull request.
 
 ## Coding guidelines
 
+- Follow `.editorconfig`; run `zig fmt` for Zig sources.
+- Add comments for ownership, invariants, and surprising lifetime rules, not for
+  code that is already self-explanatory.
 - Keep runtime dependencies native and minimal.
 - Prefer small functions and explicit ownership over clever abstractions.
 - Do not add telemetry, analytics, update checks, crash uploaders, or feature
@@ -56,6 +65,15 @@ command and failure in your report.
 - Do not require users to hand-edit config files for normal behavior.
 - Keep Ghostty/libghostty behind the adapter boundary.
 - Keep WIZP's WebView/Bun/VS Code-parity stack out of NOCTTY.
+
+## Contribution license
+
+By submitting a contribution, you agree that it is licensed under this
+repository's [MIT License](LICENSE) and confirm that you have the right to
+submit it. Do not contribute copied code, generated parser updates, fonts,
+icons, screenshots, or other assets without compatible provenance and notices.
+Update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) when a contribution adds
+redistributed third-party material.
 
 ## Commit/PR style
 

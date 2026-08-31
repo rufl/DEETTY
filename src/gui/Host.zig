@@ -1,3 +1,9 @@
+//! Platform-neutral native-host contracts and presentation state.
+//!
+//! These types describe requests and receipts; they do not call GTK, Win32, or
+//! compositor APIs directly. Keep backend side effects in adapters so model
+//! tests can cover lifecycle, geometry, accessibility, and failure reporting.
+
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const Paste = @import("../terminal/Paste.zig");

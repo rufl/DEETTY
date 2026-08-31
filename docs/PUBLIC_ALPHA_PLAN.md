@@ -145,8 +145,9 @@ Before public alpha tag:
 - [ ] Recapture NOCTTY and NoctEd screenshots from the current installed build
   in a disposable compositor session; the retained 2026-07-19 images are
   baseline evidence only.
-- [x] contribution and security notes present
-- [x] public bug/dogfood issue templates and PR template present
+- [x] contribution licensing, conduct, support, and private security-reporting notes present
+- [x] public bug/dogfood/feature issue templates and PR template present
+- [x] pinned read-only source CI, tracked-source hygiene guard, and GitHub publication runbook present
 - [x] local Git boundary and first public source baseline commit
 - [x] draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`
 - [x] go/no-go sheet in `docs/PUBLIC_ALPHA_GO_NO_GO.md`

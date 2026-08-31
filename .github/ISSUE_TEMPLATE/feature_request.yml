@@ -1,0 +1,47 @@
+name: Feature request
+description: Propose a bounded improvement to NOCTTY or NoctEd
+title: "proposal: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem before the implementation. Broad rewrites, plugin systems, telemetry, browser runtimes, and IDE-parity proposals are outside the alpha scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What task is difficult or impossible today, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not an internal architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing shortcuts, terminal tools, or smaller changes you tried.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - NOCTTY terminal/workspace
+        - NoctEd editor
+        - Windows experimental host
+        - packaging/install
+        - documentation
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Acceptance evidence
+      description: What focused test or observable result would prove this complete?
+    validations:
+      required: true

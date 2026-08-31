@@ -73,17 +73,11 @@ while IFS= read -r library; do
   cp -L "$library" "$stage/libexec/noctty/lib/"
 done < "$library_sources"
 layer_shell="$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')"
-layer_shell_source=system
 if [ -n "$layer_shell" ] && [ -f "$layer_shell" ]; then
   layer_shell=$(readlink -f "$layer_shell")
   cp -L "$layer_shell" "$stage/libexec/noctty/lib/"
-elif [ "$(uname -m)" = "x86_64" ]; then
-  cp -L vendor/gtk-layer-shell/usr/lib/libgtk-layer-shell.so.0.10.1 \
-    "$stage/libexec/noctty/lib/libgtk-layer-shell.so.0"
-  layer_shell="vendor/gtk-layer-shell/usr/lib/libgtk-layer-shell.so.0.10.1"
-  layer_shell_source=vendor_arch_pkg
 else
-  echo "package_bundle missing libgtk-layer-shell.so.0 for $(uname -m)" >&2
+  echo "package_bundle missing system libgtk-layer-shell.so.0 for $(uname -m)" >&2
   exit 1
 fi
 printf '%s\n' "$layer_shell" >> "$library_sources"
@@ -136,8 +130,9 @@ license_file_count=$(wc -l < "$license_files" | tr -d ' ')
   printf 'bundle_license_payload_complete=true\n'
   printf 'dependency_package_count=%s\n' "$package_count"
   printf 'dependency_license_file_count=%s\n' "$license_file_count"
+  printf 'gtk_layer_shell_source=system\n'
   printf 'gtk_layer_shell_license=LGPL-3.0-or-later\n'
-  printf 'gtk_layer_shell_license_source=Arch .PKGINFO and upstream README; LICENSE_MIT.txt applies to many individual source files, not the project/package as a whole\n'
+  printf 'gtk_layer_shell_license_source=host_package_inventory_and_retained_notice_payload\n'
   printf 'installed_files_begin\n'
   cat "$installed_files"
   printf 'installed_files_end\n'

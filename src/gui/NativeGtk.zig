@@ -425,7 +425,7 @@ fn settingsHeadingNew(
 pub export fn noctty_settings_grid_new() ?*GtkWidget {
     const grid = gtk_grid_new() orelse return null;
     gtk_grid_set_row_spacing(@ptrCast(grid), 12);
-    gtk_grid_set_column_spacing(@ptrCast(grid), 16);
+    gtk_grid_set_column_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_homogeneous(@ptrCast(grid), FALSE);
     gtk_widget_set_hexpand(grid, TRUE);
     gtk_widget_set_halign(grid, GTK_ALIGN_FILL);
@@ -443,11 +443,11 @@ pub export fn noctty_settings_grid_attach_control(
     const label = gtk_label_new(text orelse return) orelse return;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_label_set_line_wrap(@ptrCast(label), TRUE);
-    gtk_label_set_max_width_chars(@ptrCast(label), 18);
+    gtk_label_set_max_width_chars(@ptrCast(label), 14);
     gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(label, 144, -1);
+    gtk_widget_set_size_request(label, 112, -1);
     gtk_widget_set_hexpand(control_widget, TRUE);
     gtk_widget_set_halign(control_widget, GTK_ALIGN_FILL);
     gtk_grid_attach(@ptrCast(grid_widget), label, 0, row, 1, 1);
@@ -484,7 +484,7 @@ pub export fn noctty_settings_page_new(
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
-        GTK_POLICY_AUTOMATIC,
+        GTK_POLICY_NEVER,
         GTK_POLICY_AUTOMATIC,
     );
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);

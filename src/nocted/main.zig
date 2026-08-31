@@ -1,3 +1,10 @@
+//! Standalone NoctEd GTK application and UI-thread lifecycle owner.
+//!
+//! Reusable document, indexing, search, session, and worker behavior belongs in
+//! sibling modules. This file coordinates widgets and callbacks; worker jobs
+//! may compute off-thread but must return ownership through the bounded GLib
+//! completion path before mutating GTK state.
+
 const std = @import("std");
 const core = @import("nocted_core");
 const build_options = @import("build_options");

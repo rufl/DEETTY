@@ -1,3 +1,13 @@
+/*
+ * Native Linux GTK/Cairo host for the production terminal grid.
+ *
+ * Zig owns terminal, workspace, configuration, and persistence state. This
+ * file owns GTK widgets, Cairo rendering, GLib main-loop sources, and the C
+ * side of native_grid_abi.h. Keep model decisions behind that ABI so GTK
+ * object lifetimes and terminal-session lifetimes remain independently
+ * testable. NOCTTY_ENABLE_SMOKE adds qualification orchestration; it must not
+ * alter production behavior.
+ */
 #include <gtk/gtk.h>
 #include <gtk/gtk-a11y.h>
 #include <gdk/gdkwayland.h>
@@ -504,6 +514,7 @@ typedef struct NocttyGridContextTag {
     int compact_palette_context_opened;
     int compact_context_submenus;
     int compact_new_1x1_removed;
+    int compact_even_distribution_cancelled;
     int compact_palette_rename_suppressed;
     int compact_palette_previous_shortcut;
     int compact_find_shown;
@@ -9292,14 +9303,34 @@ static void apply_even_pane_positions(GtkWidget *widget) {
 typedef struct {
     NocttyGridContext *root;
     GtkWidget *layout;
+    guint source_id;
+    gulong layout_destroy_handler_id;
     guint attempts_remaining;
     gboolean resize_ratios_bound;
+    gboolean layout_destroyed;
 } NocttyEvenPaneRequest;
 
 static void destroy_even_pane_request(gpointer user_data) {
     NocttyEvenPaneRequest *request = user_data;
+    if (!request->layout_destroyed &&
+        request->layout_destroy_handler_id != 0) {
+        g_signal_handler_disconnect(request->layout,
+                                    request->layout_destroy_handler_id);
+    }
     g_object_unref(request->layout);
     g_free(request);
+}
+
+static void stop_even_pane_distribution_on_layout_destroy(
+    GtkWidget *layout, gpointer user_data) {
+    (void)layout;
+    NocttyEvenPaneRequest *request = user_data;
+    request->layout_destroyed = TRUE;
+    request->root->compact_even_distribution_cancelled = TRUE;
+    request->layout_destroy_handler_id = 0;
+    guint source_id = request->source_id;
+    request->source_id = 0;
+    if (source_id != 0) g_source_remove(source_id);
 }
 
 static gboolean apply_even_pane_distribution(gpointer user_data) {
@@ -9327,10 +9358,16 @@ static void schedule_even_pane_distribution(NocttyGridContext *context,
     request->root = root_grid_context(context);
     request->layout = g_object_ref(layout);
     request->attempts_remaining = 4;
-    guint source = g_timeout_add_full(
+    /* GTK can report provisional allocations for several frames after a split
+     * tree is mapped. Retry briefly, but bind cancellation to widget teardown
+     * so an early tab/window close cannot leave a source holding the layout. */
+    request->layout_destroy_handler_id = g_signal_connect(
+        layout, "destroy",
+        G_CALLBACK(stop_even_pane_distribution_on_layout_destroy), request);
+    request->source_id = g_timeout_add_full(
         G_PRIORITY_LOW, 16, apply_even_pane_distribution,
         request, destroy_even_pane_request);
-    if (source == 0) destroy_even_pane_request(request);
+    if (request->source_id == 0) destroy_even_pane_request(request);
 }
 
 static gboolean attach_grid_context(NocttyGridContext *source,
@@ -12519,6 +12556,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     GdkMonitor *settings_monitor = grid_monitor_for_window(context->window);
     if (settings_monitor != NULL)
         gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
+    gboolean compact_settings = settings_workarea.width < 800;
     int settings_width = MIN(980, MAX(720, settings_workarea.width - 96));
     int settings_height = MIN(720, MAX(560, settings_workarea.height - 96));
     settings_width = MIN(settings_width, MAX(1, settings_workarea.width - 32));
@@ -12529,8 +12567,10 @@ static void open_grid_settings(NocttyGridContext *context) {
     GdkGeometry settings_geometry = {
         .min_width = MIN(720, settings_width),
         .min_height = MIN(560, settings_height),
-        .max_width = MAX(1, settings_workarea.width - 16),
-        .max_height = MAX(1, settings_workarea.height - 16),
+        /* GTK decorations can add a few logical pixels beyond the requested
+         * client size at HiDPI. The work area itself is the hard boundary. */
+        .max_width = MAX(1, settings_workarea.width),
+        .max_height = MAX(1, settings_workarea.height),
     };
     gtk_window_set_geometry_hints(
         GTK_WINDOW(dialog), NULL, &settings_geometry,
@@ -12548,7 +12588,8 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *categories = gtk_list_box_new();
     gtk_list_box_set_selection_mode(GTK_LIST_BOX(categories),
                                     GTK_SELECTION_BROWSE);
-    gtk_widget_set_size_request(categories, 184, -1);
+    gtk_widget_set_size_request(categories,
+                                compact_settings ? 136 : 184, -1);
     gtk_widget_set_hexpand(categories, FALSE);
     gtk_widget_set_vexpand(categories, TRUE);
     gtk_style_context_add_class(gtk_widget_get_style_context(categories),
@@ -12584,6 +12625,8 @@ static void open_grid_settings(NocttyGridContext *context) {
         "Window",
         "Choose how NOCTTY opens and size the drop-down terminal in real time.",
         &window_page_body);
+    if (compact_settings)
+        gtk_container_set_border_width(GTK_CONTAINER(window_page_body), 12);
     GtkWidget *window_grid = settings_grid_new();
     settings_grid_attach_control(window_grid, "Presentation mode", mode, 0);
     settings_grid_attach_control(window_grid, "Open / retract shortcut",
@@ -12628,6 +12671,8 @@ static void open_grid_settings(NocttyGridContext *context) {
         "Behavior",
         "Control focus, session defaults, and unobtrusive desktop feedback.",
         &behavior_page_body);
+    if (compact_settings)
+        gtk_container_set_border_width(GTK_CONTAINER(behavior_page_body), 12);
     GtkWidget *focus_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_box_pack_start(GTK_BOX(focus_box), hide_focus, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(focus_box), focus_pointer, FALSE, FALSE, 0);
@@ -12856,6 +12901,8 @@ static void open_grid_settings(NocttyGridContext *context) {
         "Appearance",
         "Keep terminal text readable while tuning the small amount of client chrome.",
         &appearance_page_body);
+    if (compact_settings)
+        gtk_container_set_border_width(GTK_CONTAINER(appearance_page_body), 12);
     GtkWidget *terminal_grid = settings_grid_new();
     settings_grid_attach_control(terminal_grid, "Theme", theme, 0);
     settings_grid_attach_control(terminal_grid, "Theme library", theme_library, 1);
@@ -13126,6 +13173,15 @@ static void open_grid_settings(NocttyGridContext *context) {
         rendered_height >= settings_geometry.min_height &&
         rendered_width <= settings_geometry.max_width &&
         rendered_height <= settings_geometry.max_height;
+    if (!context->settings_geometry_sane && context->workspace_smoke == 6) {
+        g_printerr(
+            "native_grid_settings_geometry workarea=%dx%d requested=%dx%d rendered=%dx%d bounds=%dx%d..%dx%d scale=%d\n",
+            settings_workarea.width, settings_workarea.height,
+            settings_width, settings_height, rendered_width, rendered_height,
+            settings_geometry.min_width, settings_geometry.min_height,
+            settings_geometry.max_width, settings_geometry.max_height,
+            gtk_widget_get_scale_factor(dialog));
+    }
     if (first != NULL) gtk_widget_grab_focus(GTK_WIDGET(first));
 }
 
@@ -14930,6 +14986,12 @@ static gboolean request_compact_palette_smoke(gpointer user_data) {
     root->compact_context_submenus = 1;
     root->compact_new_1x1_removed =
         find_workspace_menu_item(root->workspace_menu, "New 1×1") == NULL;
+    /* Exercise source ownership without waiting for a real tab teardown. */
+    GtkWidget *distribution_probe = g_object_ref_sink(gtk_paned_new(
+        GTK_ORIENTATION_HORIZONTAL));
+    schedule_even_pane_distribution(root, distribution_probe);
+    gtk_widget_destroy(distribution_probe);
+    g_object_unref(distribution_probe);
     for (guint index = 0; index < G_N_ELEMENTS(submenu_labels); index++) {
         GtkWidget *parent = find_workspace_menu_item(
             root->workspace_menu, submenu_labels[index]);
@@ -15537,6 +15599,12 @@ static gboolean request_settings_smoke(gpointer user_data) {
                 GTK_LIST_BOX(context->settings_categories), 1);
             gtk_list_box_select_row(GTK_LIST_BOX(context->settings_categories),
                                     behavior);
+            /* Selection changes stack visibility immediately but GTK may defer
+             * the new page allocation. Force this smoke-only resize check so
+             * the adjustment reflects the user-visible page, not stale zero
+             * geometry from the previously visible category. */
+            gtk_container_check_resize(
+                GTK_CONTAINER(context->settings_dialog));
             GtkAdjustment *behavior_horizontal_adjustment =
                 gtk_scrolled_window_get_hadjustment(
                     GTK_SCROLLED_WINDOW(behavior_page));
@@ -15549,6 +15617,19 @@ static gboolean request_settings_smoke(gpointer user_data) {
                 window_vertical == GTK_POLICY_AUTOMATIC &&
                 behavior_horizontal == GTK_POLICY_NEVER &&
                 behavior_vertical == GTK_POLICY_AUTOMATIC && behavior_fits;
+            if (!context->settings_narrow_access) {
+                g_printerr(
+                    "native_grid_settings_narrow window=%d/%d behavior=%d/%d upper=%.1f page=%.1f fits=%d\n",
+                    window_horizontal, window_vertical,
+                    behavior_horizontal, behavior_vertical,
+                    behavior_horizontal_adjustment != NULL
+                        ? gtk_adjustment_get_upper(
+                              behavior_horizontal_adjustment) : -1.0,
+                    behavior_horizontal_adjustment != NULL
+                        ? gtk_adjustment_get_page_size(
+                              behavior_horizontal_adjustment) : -1.0,
+                    behavior_fits);
+            }
         }
         GtkListBoxRow *appearance = gtk_list_box_get_row_at_index(
             GTK_LIST_BOX(context->settings_categories), 2);
@@ -21128,6 +21209,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.compact_palette_context_opened &&
          context.compact_context_submenus &&
          context.compact_new_1x1_removed &&
+         context.compact_even_distribution_cancelled &&
          context.compact_palette_rename_suppressed &&
          context.compact_find_shown && context.compact_note_shown &&
          context.compact_accessibility_mask == 7u &&
@@ -21538,7 +21620,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.nocted_directory_resolved);
     }
     if (!host_ok && workspace_smoke == 6) {
-        g_printerr("native_grid_settings_flags toolbar=%d order=%d button_pointer=%d button_tooltips=%d settings_activated=%d close_activated=%d session_stopped=%d settings_opened=%d categories=%d category_accessible=%d category_focusable=%d category_initial_focus=%d category_tooltips=%d narrow_access=%d page_switch=%d mode_recreated=%d settings_reopened=%d tab_position=%d shortcut_shown=%d shortcut_recorded=%d launch_control=%d launch_applied=%d library_control=%d library_saved=%d library_selected=%d library_removed=%d\n",
+        g_printerr("native_grid_settings_flags toolbar=%d order=%d button_pointer=%d button_tooltips=%d settings_activated=%d close_activated=%d session_stopped=%d settings_opened=%d categories=%d category_accessible=%d category_focusable=%d category_initial_focus=%d category_tooltips=%d support_notice=%d translucent=%d metric=%d narrow_access=%d geometry=%d page_switch=%d mode_recreated=%d settings_reopened=%d tab_position=%d shortcut_shown=%d shortcut_recorded=%d handoff=%d restored=%d labels=%d/%d pane_info=%d/%d launch_control=%d launch_applied=%d library_control=%d library_saved=%d library_selected=%d library_removed=%d\n",
                    context.window_toolbar_visible,
                    context.window_toolbar_yakuake_order,
                    context.action_button_pointer_normal,
@@ -21552,13 +21634,23 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.settings_category_focusable,
                    context.settings_category_focus_initial,
                    context.settings_category_tooltips,
+                   context.settings_background_support_notice,
+                   context.translucent_surface_ready,
+                   context.settings_metric_thickness_live,
                    context.settings_narrow_access,
+                   context.settings_geometry_sane,
                    context.settings_page_switched,
                    context.window_mode_surface_recreated,
                    context.settings_reopened_after_mode_change,
                    context.tab_position,
                    context.shortcut_recorder_shown,
                    context.shortcut_recorded,
+                   context.shortcut_recorder_settings_handoff,
+                   context.shortcut_recorder_settings_restored,
+                   context.settings_shortcut_label_current,
+                   context.settings_shortcut_label_updated,
+                   context.pane_info_setting_control,
+                   context.pane_info_setting_toggled,
                    context.launch_profile_setting_control,
                    context.launch_profile_setting_applied,
                    context.launch_profile_library_control,
@@ -21577,9 +21669,10 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    context.settings_stacking_ready);
     }
     if (!host_ok && workspace_smoke == 15) {
-        g_printerr("native_grid_compact_new_flags submenus=%d new_1x1_removed=%d caret=%d dragger=%d height=%d toggled=%d hyperlink_open=%d hyperlink_tui=%d hyperlink_underline=%d linear_selection=%d linear_selection_copy=%d seamless_background=%d\n",
+        g_printerr("native_grid_compact_new_flags submenus=%d new_1x1_removed=%d distribution_cancelled=%d caret=%d dragger=%d height=%d toggled=%d hyperlink_open=%d hyperlink_tui=%d hyperlink_underline=%d linear_selection=%d linear_selection_copy=%d seamless_background=%d\n",
                    context.compact_context_submenus,
                    context.compact_new_1x1_removed,
+                   context.compact_even_distribution_cancelled,
                    context.compact_terminal_caret_drawn,
                    context.compact_dragger_height_toggle,
                    context.dropdown_height_percent,

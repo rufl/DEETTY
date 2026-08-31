@@ -209,7 +209,7 @@ Aggregate proof orchestration is state-driven for the prerequisite tab lanes: ba
 - [x] Architecture-local x86_64/aarch64 release workflow definition
 - [x] Pinned Zig and self-sufficient x86_64/aarch64 workflow dependency/architecture contract (NCT-076)
 - [x] Native `gtk-layer-shell` package dependency/bundle copy and installed Noctalia integration fragments
-- [x] Scoped package parser/architecture receipts plus fail-closed bundled-library provenance and embedded license inventory, including authoritative reconciliation of the vendored `gtk-layer-shell` `.PKGINFO` `LGPL-3.0-or-later` vs `LICENSE_MIT.txt` boundary (NCT-077 follow-through)
+- [x] Scoped package parser/architecture receipts plus fail-closed bundled-library provenance and embedded license inventory; the prebuilt `gtk-layer-shell` fallback was removed from source publication, and packaging now requires an attributable system library (NCT-077 follow-through)
 
 The dependency-bundle manifest now reports `redistribution_ready=true` only after every copied host library resolves to one package or pinned vendored payload and package notices/canonical SPDX texts are embedded with digests. Missing ownership or text fails the build. This closes the source/tooling payload gap; it is not legal advice, independent review, a retained redistribution receipt, signing, or publication.
 

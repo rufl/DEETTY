@@ -160,7 +160,7 @@ Requirements:
 - Zig 0.16.x or newer.
 - GTK 3 and GtkSourceView 4 development packages discoverable through `pkg-config`.
 - VTE 2.91 development files only when compiling the optional fallback or the complete verification matrix.
-- `gtk-layer-shell` at runtime for Wayland dropdown placement (bundles and dogfood installs include a pinned private runtime).
+- system `gtk-layer-shell` at runtime for Wayland dropdown placement (bundles and dogfood installs privately stage the provenance-checked host-package library).
 - A Plasma Wayland/X11 or Noctalia-compatible Wayland session for display-backed product gates.
 
 ```sh

@@ -22,11 +22,8 @@ mv -f "$runtime_dir/nocted-bin.new" "$runtime_dir/nocted-bin"
 rm -f "$runtime_dir/noctty" "$runtime_dir/nocted"
 
 layer_shell=$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')
-if [ -z "$layer_shell" ] && [ "$(uname -m)" = "x86_64" ]; then
-  layer_shell=vendor/gtk-layer-shell/usr/lib/libgtk-layer-shell.so.0.10.1
-fi
 test -f "$layer_shell" || {
-  echo "dogfood install requires libgtk-layer-shell.so.0" >&2
+  echo "dogfood install requires system libgtk-layer-shell.so.0" >&2
   exit 1
 }
 install -m 0644 "$layer_shell" "$runtime_dir/lib/libgtk-layer-shell.so.0.new"

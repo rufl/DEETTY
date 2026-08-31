@@ -4,6 +4,36 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Prepared the tracked source for GitHub review with pinned read-only Linux and
+  Windows source CI, a deterministic publication-hygiene guard,
+  feature-request/community templates, contributor licensing terms,
+  conduct/support policies, private vulnerability-reporting instructions, an
+  operator-owned GitHub publication runbook, and removal of unreferenced
+  placeholder screenshot SVGs. Source publication remains separate from the blocked
+  public-alpha announcement and binary-release evidence.
+
+- Removed the repository's prebuilt LGPL GTK Layer Shell fallback and unused
+  GIR/header payload. Runtime, dogfood, and bundle paths now require the system
+  `libgtk-layer-shell.so.0`; private bundle staging remains fail-closed on host
+  package ownership and retained license notices instead of redistributing an
+  inadequately sourced binary in the MIT repository.
+
+- Repaired native renderer qualification: X11 and Wayland now run in separate
+  private display/session namespaces, ABI assertions use current ABI v6, and
+  the Wayland wrapper clears inherited Qt/GTK plugin variables that could crash
+  its virtual compositor before the test. The bounded public-source gate now
+  passes both backends instead of printing an X11 receipt before failing.
+
+- Restored vertical-only Settings scrolling and made the category rail, label
+  columns, page padding, and geometry bounds fit a 1440×900 display at 2× GTK
+  scale. The HiDPI smoke now checks stable behavior fields instead of one stale
+  full-line receipt and proves `geometry=sane horizontal_scroll=false`.
+
+- Documented ownership boundaries at the largest native, model, terminal, and
+  editor entry points. The bounded pane-equalization timeout now cancels when
+  its GTK layout is destroyed, preventing an early tab/window teardown from
+  retaining the layout until a later main-loop iteration.
+
 - Removed the redundant **New 1×1** split-tab action; **New Tab** remains the
   single-terminal path. Newly materialized preset grids now receive a bounded
   post-map equalization pass in addition to resize-ratio tracking, and the 2×2

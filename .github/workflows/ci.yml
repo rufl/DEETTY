@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libvte-2.91-dev libgtksourceview-4-dev libgtk-layer-shell0
+      - name: Check source hygiene
+        run: ./scripts/check_public_source_hygiene.sh
+      - name: Check formatting
+        run: zig fmt --check build.zig src
+      - name: Check documentation and network boundaries
+        run: |
+          ./scripts/check_docs_truth.sh
+          ./scripts/check_no_surprise_network.sh
+      - name: Build and test Linux source
+        run: zig build check -j1 --summary all
+
+  windows-cross-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Compile experimental Windows host
+        run: zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --summary all

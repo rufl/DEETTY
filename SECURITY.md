@@ -1,7 +1,7 @@
 # Security Policy
 
-NOCTTY is pre-public Linux alpha. Security handling is intentionally simple and
-local-first until public project infrastructure exists.
+NOCTTY is an early source alpha. Security reports use GitHub private
+vulnerability reporting so sensitive details do not enter public issues.
 
 ## Supported versions
 
@@ -10,8 +10,13 @@ work-in-progress.
 
 ## Reporting a vulnerability
 
-Until Lichforge public security channels are created, report privately to the
-maintainer through the private contact channel used for the repository. Do not
+Report privately through:
+
+<https://github.com/lichforge/noctty/security/advisories/new>
+
+Repository maintainers must keep GitHub private vulnerability reporting enabled.
+If that form is unavailable, do not open a public fallback issue; retry after
+contacting the LichForge organization without vulnerability details. Do not
 open a public issue for vulnerabilities involving:
 
 - command execution
@@ -22,8 +27,10 @@ open a public issue for vulnerabilities involving:
 - unexpected network behavior
 - dependency-bundle or packaging trust issues
 
-Once the GitHub organization is public, this file should be updated with a real
-security contact or GitHub private vulnerability reporting instructions.
+Include the affected commit/version, platform, impact, minimal reproduction,
+and suggested remediation when known. Remove credentials and unrelated private
+terminal content. Maintainers will acknowledge reports on a best-effort basis;
+no response-time SLA exists during alpha.
 
 ## Security boundaries
 
