@@ -18,6 +18,30 @@ typedef struct {
     int content_bottom;
 } NocttyWindowsPaneGeometry;
 
+typedef struct {
+    int theme;
+    int font_size_pt;
+    int launch_profile;
+    int restore_workspace;
+} NocttyWindowsPreferences;
+
+typedef struct {
+    int kind;
+    int value;
+} NocttyWindowsMenuAction;
+#define NOCTTY_WINDOWS_MENU_PREFERENCE_THEME 1
+#define NOCTTY_WINDOWS_MENU_PREFERENCE_FONT 2
+#define NOCTTY_WINDOWS_MENU_PREFERENCE_PROFILE 3
+#define NOCTTY_WINDOWS_MENU_PREFERENCE_RESTORE 4
+#define NOCTTY_WINDOWS_MENU_WORKSPACE_SAVE 5
+#define NOCTTY_WINDOWS_MENU_WORKSPACE_RESTORE 6
+#define NOCTTY_WINDOWS_MENU_LAUNCH_NOCTED 7
+
+int noctty_windows_decode_menu_command(
+    uint32_t command, int restore_workspace, NocttyWindowsMenuAction *output);
+int noctty_windows_normalize_preferences(
+    int theme, int font_size_pt, int launch_profile, int restore_workspace,
+    NocttyWindowsPreferences *output);
 uint32_t noctty_windows_blend_rgb(uint32_t foreground, uint32_t background,
                                   uint32_t foreground_weight);
 uint32_t noctty_windows_rgb_from_colorref(uint32_t color);
@@ -48,6 +72,31 @@ size_t noctty_windows_special_key_sequence(uintptr_t key,
 int noctty_windows_diagnostics_init(void);
 void noctty_windows_diagnostics_write(const uint8_t *bytes, size_t length);
 void noctty_windows_diagnostics_deinit(void);
+
+typedef struct NocttyWindowsPty NocttyWindowsPty;
+NocttyWindowsPty *noctty_windows_pty_create(
+    int index, int columns, int rows, int launch_profile, HWND window,
+    UINT output_message);
+void noctty_windows_pty_destroy(NocttyWindowsPty *pty);
+int noctty_windows_pty_write(NocttyWindowsPty *pty, const uint8_t *bytes,
+                             size_t length);
+size_t noctty_windows_pty_drain(NocttyWindowsPty *pty, uint8_t *output,
+                                size_t capacity);
+int noctty_windows_pty_resize(NocttyWindowsPty *pty, int columns, int rows);
+int noctty_windows_pty_poll_exit(NocttyWindowsPty *pty, uint32_t *exit_code);
+int noctty_windows_pty_exited(const NocttyWindowsPty *pty);
+uint32_t noctty_windows_pty_exit_code(const NocttyWindowsPty *pty);
+int noctty_windows_launch_nocted(void);
+typedef struct NocttyWindowsMenu NocttyWindowsMenu;
+NocttyWindowsMenu *noctty_windows_menu_create(HWND window);
+void noctty_windows_menu_update(NocttyWindowsMenu *menu, int theme,
+                                int font_size_pt, int launch_profile,
+                                int restore_workspace, int remote_mode);
+void noctty_windows_menu_deinit(NocttyWindowsMenu *menu);
+int noctty_windows_fonts_update(HWND window, int font_size_pt, UINT dpi,
+                                HFONT *normal, HFONT *bold, int *cell_width,
+                                int *cell_height);
+void noctty_windows_fonts_deinit(HFONT *normal, HFONT *bold);
 
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
@@ -88,6 +137,11 @@ typedef int (*NocttyWindowsPaneMouseEncode)(void *, int, int, int, int, int,
                                             int, uint8_t *, size_t);
 typedef int (*NocttyWindowsPaneCopy)(void *, int, uint8_t *, size_t, int, int,
                                     int, int);
+int noctty_windows_clipboard_paste(HWND owner, void *userdata,
+                                    NocttyWindowsWrite write);
+int noctty_windows_clipboard_copy(
+    HWND owner, void *userdata, int pane_index, NocttyWindowsPaneCopy copy,
+    int anchor_column, int anchor_row, int extent_column, int extent_row);
 
 #define NOCTTY_WINDOWS_MOUSE_TRACKING_MASK 0x3u
 #define NOCTTY_WINDOWS_MOUSE_ENCODING_SGR 0x100u

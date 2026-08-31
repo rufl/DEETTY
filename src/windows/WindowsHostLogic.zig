@@ -18,6 +18,76 @@ pub const PaneGeometry = extern struct {
     content_bottom: c_int,
 };
 
+pub const Preferences = extern struct {
+    theme: c_int,
+    font_size_pt: c_int,
+    launch_profile: c_int,
+    restore_workspace: c_int,
+};
+
+pub const menu_theme_dark: u32 = 40001;
+pub const menu_theme_high_contrast: u32 = 40002;
+pub const menu_font_11: u32 = 40011;
+pub const menu_font_13: u32 = 40013;
+pub const menu_font_16: u32 = 40016;
+pub const menu_font_18: u32 = 40018;
+pub const menu_profile_powershell: u32 = 40021;
+pub const menu_profile_command: u32 = 40022;
+pub const menu_restore_startup: u32 = 40031;
+pub const menu_workspace_save: u32 = 40041;
+pub const menu_workspace_restore: u32 = 40042;
+pub const menu_open_nocted: u32 = 40051;
+
+pub const MenuAction = extern struct {
+    kind: c_int,
+    value: c_int,
+};
+
+pub export fn noctty_windows_decode_menu_command(
+    command: u32,
+    restore_workspace: c_int,
+    output: ?*MenuAction,
+) callconv(.c) c_int {
+    const action = output orelse return 0;
+    action.* = switch (command) {
+        menu_theme_dark => .{ .kind = 1, .value = 0 },
+        menu_theme_high_contrast => .{ .kind = 1, .value = 1 },
+        menu_font_11 => .{ .kind = 2, .value = 11 },
+        menu_font_13 => .{ .kind = 2, .value = 13 },
+        menu_font_16 => .{ .kind = 2, .value = 16 },
+        menu_font_18 => .{ .kind = 2, .value = 18 },
+        menu_profile_powershell => .{ .kind = 3, .value = 0 },
+        menu_profile_command => .{ .kind = 3, .value = 1 },
+        menu_restore_startup => .{ .kind = 4, .value = @intFromBool(restore_workspace == 0) },
+        menu_workspace_save => .{ .kind = 5, .value = 0 },
+        menu_workspace_restore => .{ .kind = 6, .value = 0 },
+        menu_open_nocted => .{ .kind = 7, .value = 0 },
+        else => return 0,
+    };
+    return 1;
+}
+
+pub export fn noctty_windows_normalize_preferences(
+    theme: c_int,
+    font_size_pt: c_int,
+    launch_profile: c_int,
+    restore_workspace: c_int,
+    output: ?*Preferences,
+) callconv(.c) c_int {
+    const result = output orelse return 0;
+    const valid = (theme == 0 or theme == 1) and
+        (font_size_pt >= 10 and font_size_pt <= 24) and
+        (launch_profile == 0 or launch_profile == 1) and
+        (restore_workspace == 0 or restore_workspace == 1);
+    result.* = .{
+        .theme = @intFromBool(theme == 1),
+        .font_size_pt = if (font_size_pt >= 10 and font_size_pt <= 24) font_size_pt else 13,
+        .launch_profile = @intFromBool(launch_profile == 1),
+        .restore_workspace = @intFromBool(restore_workspace != 0),
+    };
+    return @intFromBool(valid);
+}
+
 pub export fn noctty_windows_blend_rgb(
     foreground: u32,
     background: u32,
@@ -284,6 +354,51 @@ test "grid sizing and UTF-16 input stay bounded" {
     const count = noctty_windows_encode_utf16_input(0xde00, &pending, &bytes, bytes.len);
     try std.testing.expectEqualStrings("😀", bytes[0..count]);
     try std.testing.expectEqual(@as(u16, 0), pending);
+}
+
+test "Windows menu commands decode to bounded actions" {
+    var action: MenuAction = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_decode_menu_command(
+        menu_font_16,
+        0,
+        &action,
+    ));
+    try std.testing.expectEqual(@as(c_int, 2), action.kind);
+    try std.testing.expectEqual(@as(c_int, 16), action.value);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_decode_menu_command(
+        menu_restore_startup,
+        1,
+        &action,
+    ));
+    try std.testing.expectEqual(@as(c_int, 4), action.kind);
+    try std.testing.expectEqual(@as(c_int, 0), action.value);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_decode_menu_command(
+        999,
+        0,
+        &action,
+    ));
+}
+
+test "Windows preferences normalize invalid persisted values" {
+    var preferences: Preferences = undefined;
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(
+        7,
+        100,
+        -1,
+        7,
+        &preferences,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), preferences.theme);
+    try std.testing.expectEqual(@as(c_int, 13), preferences.font_size_pt);
+    try std.testing.expectEqual(@as(c_int, 0), preferences.launch_profile);
+    try std.testing.expectEqual(@as(c_int, 1), preferences.restore_workspace);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_normalize_preferences(
+        1,
+        16,
+        1,
+        0,
+        &preferences,
+    ));
 }
 
 test "selection and special keys preserve Win32 host policy" {

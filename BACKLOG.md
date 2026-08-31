@@ -100,11 +100,14 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   present; it exposed and closed a pseudo-HMENU alignment panic, then passed
   post-fix mapped control/message-loop runs in isolated Wine for Debug and
   `ReleaseSafe`. Remaining C translation units are the GTK
-  native-grid adapter and the experimental Win32 terminal/ConPTY host. The
-  latter now delegates geometry, pointer cells, selection, color conversion,
-  grid sizing, special keys, and UTF-16 assembly to tested Zig exports; Zig now
-  also owns local logs and minidumps. C still owns ConPTY/process, GDI renderer,
-  clipboard, menu, and main-window handles.
+  native-grid adapter and the experimental Win32 terminal host. The latter now
+  delegates geometry, pointer cells, selection, color conversion, grid sizing,
+  special keys, and UTF-16 assembly to tested Zig exports. Zig also owns ConPTY
+  pipes/process/thread teardown, the bounded output ring, Unicode clipboard
+  memory, sibling-process launch, native-menu construction/state, DPI-aware GDI
+  fonts/metrics, preference normalization, local logs, and minidumps. C still
+  owns cell drawing, timer objects, command/window-message dispatch, and the
+  main HWND.
   Migrate those incrementally behind their existing ABI contracts; keep
   generated vendored Tree-sitter parsers, system headers, and display-isolation
   shell orchestration outside the source-percentage target. Physical Windows

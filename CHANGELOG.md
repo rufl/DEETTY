@@ -7,10 +7,13 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Began the Win32 terminal-host migration with a pure, tested Zig policy
   boundary for pane geometry, pointer-to-cell mapping, selection hit testing,
   RGB/COLORREF conversion, bounded grid sizing, special-key sequences, and
-  UTF-16 input assembly. The existing ConPTY/GDI adapter now consumes those
-  exports. The version dialog plus local-only launch logging and minidump
-  ownership are also Zig-owned; ConPTY, GDI renderer, clipboard, menu, and
-  window-message lifetimes remain in the shrinking C adapter.
+  UTF-16 input assembly. Zig now also owns ConPTY pipe/process/thread lifetimes,
+  the synchronized bounded output ring, resize and exit polling, Unicode
+  clipboard transfers, sibling NoctEd process launch, native-menu
+  construction/state, DPI-aware GDI font creation/metrics, persisted-preference
+  normalization, the version dialog, local-only logging, and minidumps. The
+  shrinking C adapter retains cell drawing, main HWND/timer ownership, and
+  window-message/command dispatch.
 
 - Ported the complete experimental Windows NoctEd controls adapter from C to
   Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab

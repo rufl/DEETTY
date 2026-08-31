@@ -80,6 +80,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    const windows_pty_logic_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/WindowsPtyLogic.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
@@ -541,6 +547,11 @@ pub fn build(b: *std.Build) void {
         .use_llvm = true,
     });
     const run_windows_host_logic_tests = b.addRunArtifact(windows_host_logic_tests);
+    const windows_pty_logic_tests = b.addTest(.{
+        .root_module = windows_pty_logic_mod,
+        .use_llvm = true,
+    });
+    const run_windows_pty_logic_tests = b.addRunArtifact(windows_pty_logic_tests);
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
@@ -549,6 +560,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_vte_host_tests.step);
     test_step.dependOn(&run_unicode_generator_tests.step);
     test_step.dependOn(&run_windows_host_logic_tests.step);
+    test_step.dependOn(&run_windows_pty_logic_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -563,6 +575,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_unicode_generator_tests.step);
     check_step.dependOn(&unicode_generator_exe.step);
     check_step.dependOn(&run_windows_host_logic_tests.step);
+    check_step.dependOn(&run_windows_pty_logic_tests.step);
 }
 
 fn addWindowsBuild(
@@ -635,7 +648,6 @@ fn addWindowsBuild(
     windows_mod.linkSystemLibrary("kernel32", .{});
     windows_mod.linkSystemLibrary("user32", .{});
     windows_mod.linkSystemLibrary("gdi32", .{});
-    windows_mod.linkSystemLibrary("shell32", .{});
     windows_mod.linkSystemLibrary("ws2_32", .{});
     windows_mod.linkSystemLibrary("dbghelp", .{});
     windows_mod.linkSystemLibrary("crypt32", .{});

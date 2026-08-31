@@ -1,8 +1,9 @@
 //! Experimental Windows executable and Zig side of the Win32 host ABI.
 //!
 //! The shared VT and sharing models remain platform-neutral. Win32 windows,
-//! ConPTY handles, input, and rendering belong in `native_host.c`; keep GTK and
-//! POSIX-only state out of this build target.
+//! ConPTY and clipboard handles belong to focused Zig adapters; the remaining
+//! GDI/window adapter stays isolated in `native_host.c`. Keep GTK and POSIX-only
+//! state out of this build target.
 
 const std = @import("std");
 const windows = std.os.windows;
@@ -12,9 +13,16 @@ const Crypto = Share.crypto;
 const Release = @import("noctty_release");
 const WindowsHostLogic = @import("WindowsHostLogic.zig");
 const WindowsDiagnostics = @import("WindowsDiagnostics.zig");
+const WindowsPty = @import("WindowsPty.zig");
+const WindowsClipboard = @import("WindowsClipboard.zig");
+const WindowsProcess = @import("WindowsProcess.zig");
+const WindowsMenu = @import("WindowsMenu.zig");
+const WindowsFonts = @import("WindowsFonts.zig");
 const Dpapi = @import("Dpapi.zig");
 
 comptime {
+    _ = WindowsHostLogic.noctty_windows_decode_menu_command;
+    _ = WindowsHostLogic.noctty_windows_normalize_preferences;
     _ = WindowsHostLogic.noctty_windows_blend_rgb;
     _ = WindowsHostLogic.noctty_windows_rgb_from_colorref;
     _ = WindowsHostLogic.noctty_windows_colorref_from_rgb;
@@ -27,6 +35,22 @@ comptime {
     _ = WindowsDiagnostics.noctty_windows_diagnostics_init;
     _ = WindowsDiagnostics.noctty_windows_diagnostics_write;
     _ = WindowsDiagnostics.noctty_windows_diagnostics_deinit;
+    _ = WindowsPty.noctty_windows_pty_create;
+    _ = WindowsPty.noctty_windows_pty_destroy;
+    _ = WindowsPty.noctty_windows_pty_write;
+    _ = WindowsPty.noctty_windows_pty_drain;
+    _ = WindowsPty.noctty_windows_pty_resize;
+    _ = WindowsPty.noctty_windows_pty_poll_exit;
+    _ = WindowsPty.noctty_windows_pty_exited;
+    _ = WindowsPty.noctty_windows_pty_exit_code;
+    _ = WindowsClipboard.noctty_windows_clipboard_paste;
+    _ = WindowsClipboard.noctty_windows_clipboard_copy;
+    _ = WindowsProcess.noctty_windows_launch_nocted;
+    _ = WindowsMenu.noctty_windows_menu_create;
+    _ = WindowsMenu.noctty_windows_menu_update;
+    _ = WindowsMenu.noctty_windows_menu_deinit;
+    _ = WindowsFonts.noctty_windows_fonts_update;
+    _ = WindowsFonts.noctty_windows_fonts_deinit;
 }
 
 const host_abi_version: u32 = 9;
