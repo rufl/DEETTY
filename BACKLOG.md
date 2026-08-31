@@ -110,8 +110,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   owns timer objects, input/workspace-session orchestration,
   command/window-message dispatch, and the main HWND. The GTK adapter now
   delegates scrollbar geometry, wheel accumulation, keyboard scroll targets,
-  grid sizing/auto-fit, window-resize deltas/bounds, linear selection hit
-  testing, and pixel-snapped spans to tested Zig policy.
+  grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
+  linear selection hit testing, and pixel-snapped spans to tested Zig policy.
   Migrate those incrementally behind their existing ABI contracts; keep
   generated vendored Tree-sitter parsers, system headers, and display-isolation
   shell orchestration outside the source-percentage target. Physical Windows

@@ -10733,27 +10733,29 @@ static void clear_grid_selection(NocttyGridContext *context) {
 }
 
 static int grid_column_at_pointer(NocttyGridContext *context, double x) {
-    return CLAMP((int)floor((x - 4.0) / grid_cell_width(context)),
-                 0, MAX(0, context->columns - 1));
+    int column = 0;
+    int row = 0;
+    (void)noctty_grid_pointer_cell(
+        x, 2.0, grid_cell_width(context), grid_cell_height(context),
+        context->columns, context->rows, 1, &column, &row);
+    return column;
 }
 
 static int grid_row_at_pointer(NocttyGridContext *context, double y) {
-    return CLAMP((int)floor((y - 2.0) / grid_cell_height(context)),
-                 0, MAX(0, context->rows - 1));
+    int column = 0;
+    int row = 0;
+    (void)noctty_grid_pointer_cell(
+        4.0, y, grid_cell_width(context), grid_cell_height(context),
+        context->columns, context->rows, 1, &column, &row);
+    return row;
 }
 
 static gboolean grid_cell_at_point(NocttyGridContext *context,
                                    double x, double y,
                                    int *column, int *row) {
-    if (x < 4.0 || y < 2.0 || column == NULL || row == NULL) return FALSE;
-    int candidate_column = (int)floor((x - 4.0) / grid_cell_width(context));
-    int candidate_row = (int)floor((y - 2.0) / grid_cell_height(context));
-    if (candidate_column < 0 || candidate_column >= context->columns ||
-        candidate_row < 0 || candidate_row >= context->rows)
-        return FALSE;
-    *column = candidate_column;
-    *row = candidate_row;
-    return TRUE;
+    return noctty_grid_pointer_cell(
+        x, y, grid_cell_width(context), grid_cell_height(context),
+        context->columns, context->rows, 0, column, row) != 0;
 }
 
 static gboolean open_grid_hyperlink(NocttyGridContext *context,

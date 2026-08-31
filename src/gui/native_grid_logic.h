@@ -51,5 +51,8 @@ void noctty_grid_resize_delta(int handle, double start_x, double start_y,
                               double *horizontal, double *vertical);
 int noctty_grid_clamp_resize(int start, double delta, int minimum,
                              int maximum);
+int noctty_grid_pointer_cell(double x, double y, double cell_width,
+                             double cell_height, int columns, int rows,
+                             int clamp, int *column, int *row);
 
 #endif

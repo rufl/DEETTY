@@ -239,6 +239,75 @@ pub export fn noctty_grid_clamp_resize(
     return @intCast(std.math.clamp(candidate, @as(i64, minimum), @as(i64, maximum)));
 }
 
+pub export fn noctty_grid_pointer_cell(
+    x: f64,
+    y: f64,
+    cell_width: f64,
+    cell_height: f64,
+    columns: c_int,
+    rows: c_int,
+    clamp: c_int,
+    column_output: ?*c_int,
+    row_output: ?*c_int,
+) callconv(.c) c_int {
+    const column = column_output orelse return 0;
+    const row = row_output orelse return 0;
+    if (cell_width <= 0 or cell_height <= 0 or columns <= 0 or rows <= 0) return 0;
+    if (!std.math.isFinite(x) or !std.math.isFinite(y)) return 0;
+    const integer_min: f64 = @floatFromInt(std.math.minInt(c_int));
+    const integer_max: f64 = @floatFromInt(std.math.maxInt(c_int));
+    const column_value = std.math.clamp(@floor((x - 4) / cell_width), integer_min, integer_max);
+    const row_value = std.math.clamp(@floor((y - 2) / cell_height), integer_min, integer_max);
+    const raw_column: c_int = @intFromFloat(column_value);
+    const raw_row: c_int = @intFromFloat(row_value);
+    if (clamp == 0 and
+        (x < 4 or y < 2 or raw_column < 0 or raw_column >= columns or
+            raw_row < 0 or raw_row >= rows)) return 0;
+    column.* = std.math.clamp(raw_column, 0, columns - 1);
+    row.* = std.math.clamp(raw_row, 0, rows - 1);
+    return 1;
+}
+
+test "pointer mapping distinguishes bounded hits from clamped drags" {
+    var column: c_int = 0;
+    var row: c_int = 0;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pointer_cell(
+        13.9,
+        21.9,
+        10,
+        20,
+        80,
+        24,
+        0,
+        &column,
+        &row,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), column);
+    try std.testing.expectEqual(@as(c_int, 0), row);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pointer_cell(
+        -10,
+        -10,
+        10,
+        20,
+        80,
+        24,
+        0,
+        &column,
+        &row,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pointer_cell(
+        -10,
+        -10,
+        10,
+        20,
+        80,
+        24,
+        1,
+        &column,
+        &row,
+    ));
+}
+
 test "resize handles preserve directional deltas and bounds" {
     var horizontal: f64 = 0;
     var vertical: f64 = 0;

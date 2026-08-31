@@ -23,6 +23,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_dimensions;
     _ = NativeGridLogic.noctty_grid_resize_delta;
     _ = NativeGridLogic.noctty_grid_clamp_resize;
+    _ = NativeGridLogic.noctty_grid_pointer_cell;
     _ = NativeGtk.noctty_pane_info_strip_new;
     _ = NativeGtk.noctty_pane_info_strip_set_enabled;
     _ = NativeGtk.noctty_pane_info_strip_update;

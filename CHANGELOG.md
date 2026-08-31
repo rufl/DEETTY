@@ -20,8 +20,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   Zig now owns bounded scrollbar/thumb geometry, discrete and smooth wheel
   accumulation, saturating keyboard scroll targets, bounded grid dimensions,
   qualification auto-fit sizing, directional window-resize deltas and bounds,
-  direction-independent linear selection hit testing, and pixel-snapped
-  cell/selection spans behind a
+  bounded pointer-to-cell mapping, direction-independent linear selection hit
+  testing, and pixel-snapped cell/selection spans behind a
   narrow C ABI with native unit coverage.
 
 - Ported the complete experimental Windows NoctEd controls adapter from C to
