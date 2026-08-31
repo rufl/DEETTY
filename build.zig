@@ -70,7 +70,6 @@ pub fn build(b: *std.Build) void {
     });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
-    addShareSources(b, root_mod);
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -601,22 +600,8 @@ fn addWindowsBuild(
     share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     windows_mod.addImport("noctty_share", share_mod);
     windows_mod.addImport("noctty_release", release_mod);
-    addShareSources(b, windows_mod);
     windows_mod.addCSourceFile(.{
         .file = b.path("src/windows/native_host.c"),
-        .flags = &.{
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Wconversion",
-            "-Wsign-conversion",
-            "-Wshadow",
-            "-Wformat",
-            "-Werror",
-        },
-    });
-    windows_mod.addCSourceFile(.{
-        .file = b.path("src/windows/dpapi.c"),
         .flags = &.{
             "-std=c11",
             "-Wall",
@@ -691,24 +676,6 @@ fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
         "vendor/tree-sitter-markdown/tree-sitter-markdown-inline/src/scanner.c",
         "vendor/tree-sitter-zig/src/parser.c",
     }) |file| module.addCSourceFile(.{ .file = b.path(file), .flags = &.{"-std=c11"} });
-}
-
-fn addShareSources(b: *std.Build, module: *std.Build.Module) void {
-    module.addIncludePath(b.path("src/share"));
-    module.addCSourceFile(.{
-        .file = b.path("src/share/net.c"),
-        .flags = &.{
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Wconversion",
-            "-Wsign-conversion",
-            "-Wshadow",
-            "-Wformat",
-            "-Wno-macro-redefined",
-            "-Werror",
-        },
-    });
 }
 
 fn addNativeGridSources(

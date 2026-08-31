@@ -3,7 +3,7 @@ set -eu
 
 # Static alpha guard: production NOCTTY/NoctEd must not grow telemetry,
 # update pings, crash uploaders, remote flags, or hidden network clients.
-# Session sharing is the sole explicit network boundary: src/share/net.c.
+# Session sharing is the sole explicit network boundary: src/share/Net.zig.
 # This is not a firewall or legal audit; it is a cheap source/build scan.
 
 roots="build.zig build.zig.zon src resources"
@@ -34,15 +34,14 @@ for pattern in \
   'SOCK_STREAM|SOCK_DGRAM' \
   'http_client|HttpClient'
  do
-  if rg -n --glob '!src/share/net.c' --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >"$hit_file" 2>/dev/null; then
+  if rg -n --glob '!src/share/Net.zig' --glob '!src/terminal/fixtures/**' --glob '!resources/**/*.svg' "$pattern" $roots >"$hit_file" 2>/dev/null; then
     echo "surprise network API found: $pattern" >&2
     cat "$hit_file" >&2
     exit 1
   fi
 done
 
-if ! rg -q 'noctty_share_tcp_listen|noctty_share_discovery_open' \
-    src/share/net.c src/share/net.h; then
+if ! rg -q 'pub fn tcpListen|pub fn discoveryOpen' src/share/Net.zig; then
   echo "explicit session-sharing network boundary is missing" >&2
   exit 1
 fi

@@ -32,10 +32,9 @@ for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$v
   test -s "$path"
 done
 
-test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 5
+test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 3
 test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" \
-  ! -path src/windows/nocted_host.c ! -path src/windows/dpapi.c \
-  ! -path src/share/net.c | wc -l | tr -d ' ')" -eq 0
+  ! -path src/windows/nocted_host.c | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
 
 grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 6u' "$grid_abi" >/dev/null

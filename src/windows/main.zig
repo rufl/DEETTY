@@ -10,6 +10,7 @@ const Share = @import("noctty_share");
 const Vt = Share.vt;
 const Crypto = Share.crypto;
 const Release = @import("noctty_release");
+const Dpapi = @import("Dpapi.zig");
 
 const host_abi_version: u32 = 9;
 const columns_initial: usize = 120;
@@ -880,13 +881,6 @@ extern fn noctty_windows_host_run(
     show_command: c_int,
     callbacks: *const Callbacks,
 ) c_int;
-extern fn noctty_windows_identity_load([*]u8, usize) c_int;
-extern fn noctty_windows_identity_save([*]const u8, usize) c_int;
-extern fn noctty_windows_random([*]u8, usize) c_int;
-extern fn noctty_windows_pairs_load([*]u8, usize, *usize) c_int;
-extern fn noctty_windows_pairs_save([*]const u8, usize) c_int;
-extern fn noctty_windows_state_load([*]u8, usize, *usize) c_int;
-extern fn noctty_windows_state_save([*]const u8, usize) c_int;
 extern "user32" fn MessageBoxW(
     ?windows.HWND,
     [*:0]const u16,
@@ -900,12 +894,8 @@ extern fn noctty_windows_show_version(
 
 fn readPersistedWindowsState() !?PersistedWindowsState {
     var bytes: [persisted_state_capacity]u8 = undefined;
-    var length: usize = 0;
-    return switch (noctty_windows_state_load(&bytes, bytes.len, &length)) {
-        0 => null,
-        1 => try decodePersistedWindowsState(bytes[0..length]),
-        else => error.WindowsStateLoadFailed,
-    };
+    const length = Dpapi.stateLoad(&bytes) catch return error.WindowsStateLoadFailed;
+    return try decodePersistedWindowsState(bytes[0..(length orelse return null)]);
 }
 
 fn writePersistedWindowsState(state: *const State) !void {
@@ -914,8 +904,7 @@ fn writePersistedWindowsState(state: *const State) !void {
         .preferences = state.preferences,
         .workspace = state.saved_workspace,
     }, &bytes);
-    if (noctty_windows_state_save(&bytes, length) != 0)
-        return error.WindowsStateSaveFailed;
+    Dpapi.stateSave(bytes[0..length]) catch return error.WindowsStateSaveFailed;
 }
 
 fn applyPersistedWindowsState(state: *State) void {
@@ -1129,29 +1118,24 @@ pub export fn wWinMain(
 fn loadOrCreateIdentity() !Crypto.Identity {
     var secret: [Crypto.secret_key_length]u8 = undefined;
     defer std.crypto.secureZero(u8, &secret);
-    switch (noctty_windows_identity_load(&secret, secret.len)) {
-        1 => return Crypto.Identity.fromSecret(secret),
-        0 => {
-            if (noctty_windows_random(&secret, secret.len) != 0)
-                return error.WindowsRandomFailed;
-            const identity = try Crypto.Identity.fromSecret(secret);
-            if (noctty_windows_identity_save(&identity.secret_key, identity.secret_key.len) != 0)
-                return error.WindowsIdentitySaveFailed;
-            return identity;
-        },
-        else => return error.WindowsIdentityLoadFailed,
-    }
+    const loaded = Dpapi.identityLoad(&secret) catch
+        return error.WindowsIdentityLoadFailed;
+    if (loaded) return Crypto.Identity.fromSecret(secret);
+
+    Dpapi.random(&secret) catch return error.WindowsRandomFailed;
+    const identity = try Crypto.Identity.fromSecret(secret);
+    Dpapi.identitySave(&identity.secret_key) catch
+        return error.WindowsIdentitySaveFailed;
+    return identity;
 }
 
 fn loadOrCreateStore() !Share.identity.Store {
     var bytes: [Share.identity.max_file_bytes]u8 = undefined;
     defer std.crypto.secureZero(u8, &bytes);
-    var length: usize = 0;
-    switch (noctty_windows_pairs_load(&bytes, bytes.len, &length)) {
-        1 => return Share.identity.import(bytes[0..length]),
-        0 => return Share.identity.Store.init(try loadOrCreateIdentity()),
-        else => return error.WindowsPeerStoreLoadFailed,
-    }
+    const length = Dpapi.peersLoad(&bytes) catch
+        return error.WindowsPeerStoreLoadFailed;
+    if (length) |count| return Share.identity.import(bytes[0..count]);
+    return Share.identity.Store.init(try loadOrCreateIdentity());
 }
 
 fn saveStore(store: *const Share.identity.Store) !void {
@@ -1160,8 +1144,7 @@ fn saveStore(store: *const Share.identity.Store) !void {
         std.crypto.secureZero(u8, bytes);
         std.heap.page_allocator.free(bytes);
     }
-    if (noctty_windows_pairs_save(bytes.ptr, bytes.len) != 0)
-        return error.WindowsPeerStoreSaveFailed;
+    Dpapi.peersSave(bytes) catch return error.WindowsPeerStoreSaveFailed;
 }
 
 const ShareMode = struct {

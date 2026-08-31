@@ -4,6 +4,14 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Ported the first-party session-sharing socket implementation and Windows
+  DPAPI/state persistence from C to Zig. The transport now uses typed slices
+  and explicit socket ownership while retaining bounded connect/I/O timeouts,
+  loopback pairing, multicast discovery, atomic Windows writes, current-user
+  encryption, and Linux/Windows build coverage. The obsolete C translation
+  units and private headers were removed; native GTK/Win32 UI adapters remain
+  explicit platform boundaries.
+
 - Prepared the tracked source for GitHub review with pinned read-only Linux and
   Windows source CI, a deterministic publication-hygiene guard,
   feature-request/community templates, contributor licensing terms,

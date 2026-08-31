@@ -1,6 +1,7 @@
 const std = @import("std");
 const Protocol = @import("Protocol.zig");
 const Crypto = @import("Crypto.zig");
+const Net = @import("Net.zig");
 
 pub const discovery_port: u16 = 49330;
 pub const discovery_magic = "NCTD";
@@ -8,19 +9,8 @@ pub const discovery_version: u8 = 1;
 pub const max_discovery_bytes: usize = 1024;
 pub const max_endpoint_host_bytes: usize = 253;
 
-const Socket = isize;
-const invalid_socket: Socket = -1;
-
-extern fn noctty_share_tcp_listen(host: ?[*:0]const u8, port: u16, bound_port: *u16) Socket;
-extern fn noctty_share_tcp_accept(listener: Socket) Socket;
-extern fn noctty_share_tcp_connect(host: [*:0]const u8, port: u16) Socket;
-extern fn noctty_share_socket_read(socket: Socket, output: [*]u8, capacity: usize) c_int;
-extern fn noctty_share_socket_write(socket: Socket, bytes: [*]const u8, length: usize) c_int;
-extern fn noctty_share_socket_close(socket: Socket) void;
-extern fn noctty_share_socket_readable(socket: Socket, timeout_milliseconds: u32) c_int;
-extern fn noctty_share_discovery_open(port: u16) Socket;
-extern fn noctty_share_discovery_announce(socket: Socket, port: u16, bytes: [*]const u8, length: usize) c_int;
-extern fn noctty_share_discovery_receive(socket: Socket, output: [*]u8, capacity: usize, source: [*]u8, source_capacity: usize) c_int;
+const Socket = Net.Socket;
+const invalid_socket = Net.invalid_socket;
 
 pub const Announcement = struct {
     instance_id: [16]u8,
@@ -89,30 +79,30 @@ pub const Discovery = struct {
     socket: Socket = invalid_socket,
 
     pub fn open() !Discovery {
-        const socket = noctty_share_discovery_open(discovery_port);
+        const socket = Net.discoveryOpen(discovery_port);
         if (socket == invalid_socket) return error.ShareDiscoveryUnavailable;
         return .{ .socket = socket };
     }
 
     pub fn close(self: *Discovery) void {
-        if (self.socket != invalid_socket) noctty_share_socket_close(self.socket);
+        if (self.socket != invalid_socket) Net.socketClose(self.socket);
         self.socket = invalid_socket;
     }
 
     pub fn announce(self: *Discovery, announcement: Announcement) !void {
         var bytes: [max_discovery_bytes]u8 = undefined;
         const count = try encodeAnnouncement(&bytes, announcement);
-        if (noctty_share_discovery_announce(self.socket, discovery_port, bytes[0..count].ptr, count) != @as(c_int, @intCast(count)))
+        if (Net.discoveryAnnounce(self.socket, discovery_port, bytes[0..count]) != @as(c_int, @intCast(count)))
             return error.ShareDiscoverySendFailed;
     }
     pub fn readable(self: *Discovery, timeout_milliseconds: u32) !bool {
-        const result = noctty_share_socket_readable(self.socket, timeout_milliseconds);
+        const result = Net.socketReadable(self.socket, timeout_milliseconds);
         if (result < 0) return error.ShareDiscoveryPollFailed;
         return result == 1;
     }
 
     pub fn receive(self: *Discovery, packet: *[max_discovery_bytes]u8, source: *[64]u8) !struct { announcement: ParsedAnnouncement, source: []const u8 } {
-        const count = noctty_share_discovery_receive(self.socket, packet, packet.len, source, source.len);
+        const count = Net.discoveryReceive(self.socket, packet, source);
         if (count <= 0) return error.ShareDiscoveryReceiveFailed;
         const source_end = std.mem.indexOfScalar(u8, source, 0) orelse source.len;
         return .{
@@ -150,15 +140,15 @@ pub const Listener = struct {
             break :value_z @ptrCast(host_buffer[0..value.len :0]);
         } else null;
         var bound_port: u16 = port;
-        const socket = noctty_share_tcp_listen(host_z, port, &bound_port);
+        const socket = Net.tcpListen(host_z, port, &bound_port);
         if (socket == invalid_socket) return error.ShareListenFailed;
         return .{ .socket = socket, .port = bound_port };
     }
 
     pub fn accept(self: *Listener, io: Crypto.RandomContext, identity: Crypto.Identity, pinned_remote: ?[Crypto.public_key_length]u8) !PendingConnection {
-        const socket = noctty_share_tcp_accept(self.socket);
+        const socket = Net.tcpAccept(self.socket);
         if (socket == invalid_socket) return error.ShareAcceptFailed;
-        errdefer noctty_share_socket_close(socket);
+        errdefer Net.socketClose(socket);
         var responder = Crypto.Responder.init(identity, io);
         defer responder.deinit();
         var message1: [Crypto.message1_length]u8 = undefined;
@@ -174,7 +164,7 @@ pub const Listener = struct {
     }
 
     pub fn readable(self: *Listener, timeout_milliseconds: u32) !bool {
-        const result = noctty_share_socket_readable(
+        const result = Net.socketReadable(
             self.socket,
             timeout_milliseconds,
         );
@@ -183,7 +173,7 @@ pub const Listener = struct {
     }
 
     pub fn close(self: *Listener) void {
-        if (self.socket != invalid_socket) noctty_share_socket_close(self.socket);
+        if (self.socket != invalid_socket) Net.socketClose(self.socket);
         self.socket = invalid_socket;
         self.port = 0;
     }
@@ -195,9 +185,9 @@ pub fn connect(allocator: std.mem.Allocator, io: Crypto.RandomContext, host: []c
         return error.InvalidShareEndpoint;
     const host_z = try allocator.dupeZ(u8, host);
     defer allocator.free(host_z);
-    const socket = noctty_share_tcp_connect(host_z.ptr, port);
+    const socket = Net.tcpConnect(host_z.ptr, port);
     if (socket == invalid_socket) return error.ShareConnectFailed;
-    errdefer noctty_share_socket_close(socket);
+    errdefer Net.socketClose(socket);
     var initiator = Crypto.Initiator.init(identity, io);
     defer initiator.deinit();
     const message1 = try initiator.writeMessage1();
@@ -256,7 +246,7 @@ pub const SecureConnection = struct {
         try writeExact(self.socket, ciphertext[0..count]);
     }
     pub fn readable(self: *SecureConnection, timeout_milliseconds: u32) !bool {
-        const result = noctty_share_socket_readable(self.socket, timeout_milliseconds);
+        const result = Net.socketReadable(self.socket, timeout_milliseconds);
         if (result < 0) return error.ShareSocketPollFailed;
         return result == 1;
     }
@@ -280,7 +270,7 @@ pub const SecureConnection = struct {
     }
 
     pub fn close(self: *SecureConnection) void {
-        if (self.socket != invalid_socket) noctty_share_socket_close(self.socket);
+        if (self.socket != invalid_socket) Net.socketClose(self.socket);
         self.socket = invalid_socket;
         self.transport.deinit();
     }
@@ -290,7 +280,7 @@ fn readExact(socket: Socket, output: []u8) !void {
     var offset: usize = 0;
     while (offset < output.len) {
         const request = @min(output.len - offset, @as(usize, std.math.maxInt(u16)));
-        const count = noctty_share_socket_read(socket, output[offset..].ptr, request);
+        const count = Net.socketRead(socket, output[offset..][0..request]);
         if (count <= 0) return error.ShareConnectionClosed;
         offset += @intCast(count);
     }
@@ -300,7 +290,7 @@ fn writeExact(socket: Socket, bytes: []const u8) !void {
     var offset: usize = 0;
     while (offset < bytes.len) {
         const request = @min(bytes.len - offset, @as(usize, std.math.maxInt(u16)));
-        const count = noctty_share_socket_write(socket, bytes[offset..].ptr, request);
+        const count = Net.socketWrite(socket, bytes[offset..][0..request]);
         if (count <= 0 or count > @as(c_int, @intCast(request)))
             return error.ShareWriteFailed;
         offset += @intCast(count);

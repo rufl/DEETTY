@@ -13,6 +13,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 | NCT-112 | Multi-day terminal stability |
 | NCT-123 | Experimental Windows host parity and physical qualification |
 | NCT-125 | Current-build dogfood defect recapture |
+| NCT-126 | First-party native-adapter migration to Zig |
 | Release operations | Signed artifacts, publication, independent redistribution review, compositor and HID acceptance |
 
 ## Active
@@ -86,6 +87,20 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   installer lifecycle smoke pass, but Wine does not prove physical ConPTY/GDI,
   input, installer, or editor behavior on supported Windows releases.
   `[truth:build,test,docs]`
+
+### NCT-126 First-party native-adapter migration to Zig — partial
+
+- [ ] [status:yellow] Move first-party platform behavior into Zig without
+  replacing stable, focused native qualifications with percentage-driven
+  rewrites. Session-sharing sockets and Windows DPAPI/state persistence are now
+  Zig-owned and retain Linux loopback/discovery tests plus Windows
+  `ReleaseSafe` cross-compilation. Remaining C translation units are the GTK
+  native-grid adapter and the experimental Win32 terminal and NoctEd UI hosts.
+  Migrate those incrementally behind their existing ABI contracts; keep
+  generated vendored Tree-sitter parsers, system headers, and display-isolation
+  shell orchestration outside the source-percentage target. Physical Windows
+  behavior and isolated mapped GTK proof remain required before retiring each
+  adapter. `[truth:build,test,docs]`
 
 ## Release Operations
 
