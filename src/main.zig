@@ -17,6 +17,8 @@ comptime {
     _ = NativeGridLogic.noctty_grid_scrollbar_geometry;
     _ = NativeGridLogic.noctty_grid_cell_selected;
     _ = NativeGridLogic.noctty_grid_cell_span;
+    _ = NativeGridLogic.noctty_grid_scroll_steps;
+    _ = NativeGridLogic.noctty_grid_keyboard_scroll_target;
     _ = NativeGtk.noctty_pane_info_strip_new;
     _ = NativeGtk.noctty_pane_info_strip_set_enabled;
     _ = NativeGtk.noctty_pane_info_strip_update;

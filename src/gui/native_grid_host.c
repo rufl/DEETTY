@@ -1320,16 +1320,14 @@ static gboolean scroll_terminal_from_keyboard(
     if (!terminal_scrollbar_geometry(context, allocation, &geometry))
         return TRUE;
 
-    uint64_t target = geometry.viewport_offset;
-    uint64_t page = MAX((uint64_t)geometry.visible_rows, 1u);
-    if (keyval == GDK_KEY_Page_Up)
-        target = MIN(geometry.history_lines, target + page);
-    else if (keyval == GDK_KEY_Page_Down)
-        target = target > page ? target - page : 0;
-    else if (keyval == GDK_KEY_Home)
-        target = geometry.history_lines;
-    else if (keyval == GDK_KEY_End)
-        target = 0;
+    int action = keyval == GDK_KEY_Page_Up
+        ? 1
+        : keyval == GDK_KEY_Page_Down
+            ? 2
+            : keyval == GDK_KEY_Home ? 3 : keyval == GDK_KEY_End ? 4 : 0;
+    uint64_t target = noctty_grid_keyboard_scroll_target(
+        geometry.history_lines, geometry.viewport_offset,
+        geometry.visible_rows, action);
     (void)scroll_terminal_to_offset(context, target);
     return TRUE;
 }
@@ -19429,30 +19427,14 @@ static gboolean on_grid_area_leave(GtkWidget *widget, GdkEventCrossing *event,
 
 static int terminal_scroll_steps(NocttyGridContext *context,
                                  GdkEventScroll *event) {
-    int lines = CLAMP(context->terminal_scroll_lines, 1, 20);
-    if (event->direction == GDK_SCROLL_UP) {
-        context->terminal_scroll_accumulator = 0.0;
-        return lines;
-    }
-    if (event->direction == GDK_SCROLL_DOWN) {
-        context->terminal_scroll_accumulator = 0.0;
-        return -lines;
-    }
-    if (event->direction != GDK_SCROLL_SMOOTH) return 0;
-
-    double scale = context->terminal_smooth_scroll ? lines : 1.0;
-    context->terminal_scroll_accumulator -= event->delta_y * scale;
-    if (context->terminal_scroll_accumulator > -1.0 &&
-        context->terminal_scroll_accumulator < 1.0)
-        return 0;
-    if (!context->terminal_smooth_scroll) {
-        int direction = context->terminal_scroll_accumulator > 0.0 ? 1 : -1;
-        context->terminal_scroll_accumulator -= direction;
-        return direction * lines;
-    }
-    int steps = CLAMP((int)context->terminal_scroll_accumulator, -64, 64);
-    context->terminal_scroll_accumulator -= steps;
-    return steps;
+    int direction = event->direction == GDK_SCROLL_UP
+        ? -1
+        : event->direction == GDK_SCROLL_DOWN
+            ? 1
+            : event->direction == GDK_SCROLL_SMOOTH ? 0 : 2;
+    return noctty_grid_scroll_steps(
+        context->terminal_scroll_lines, context->terminal_smooth_scroll,
+        direction, event->delta_y, &context->terminal_scroll_accumulator);
 }
 
 static gboolean report_terminal_mouse_wheel(

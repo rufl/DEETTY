@@ -111,6 +111,64 @@ pub export fn noctty_grid_cell_span(
     };
 }
 
+pub export fn noctty_grid_scroll_steps(
+    configured_lines: c_int,
+    smooth_enabled: c_int,
+    direction: c_int,
+    delta_y: f64,
+    accumulator_output: ?*f64,
+) callconv(.c) c_int {
+    const accumulator = accumulator_output orelse return 0;
+    const lines = std.math.clamp(configured_lines, 1, 20);
+    if (direction == -1 or direction == 1) {
+        accumulator.* = 0;
+        return if (direction < 0) lines else -lines;
+    }
+    if (direction != 0 or !std.math.isFinite(delta_y)) return 0;
+    const scale: f64 = if (smooth_enabled != 0) @floatFromInt(lines) else 1;
+    accumulator.* -= delta_y * scale;
+    if (accumulator.* > -1 and accumulator.* < 1) return 0;
+    if (smooth_enabled == 0) {
+        const step: c_int = if (accumulator.* > 0) 1 else -1;
+        accumulator.* -= @floatFromInt(step);
+        return step * lines;
+    }
+    const steps: c_int = std.math.clamp(@as(c_int, @intFromFloat(accumulator.*)), -64, 64);
+    accumulator.* -= @floatFromInt(steps);
+    return steps;
+}
+
+pub export fn noctty_grid_keyboard_scroll_target(
+    history_lines: u64,
+    viewport_offset: u64,
+    visible_rows: u32,
+    action: c_int,
+) callconv(.c) u64 {
+    const current = @min(viewport_offset, history_lines);
+    const page = @max(@as(u64, visible_rows), 1);
+    return switch (action) {
+        1 => @min(history_lines, current +| page),
+        2 => current -| page,
+        3 => history_lines,
+        4 => 0,
+        else => current,
+    };
+}
+
+test "scroll steps preserve discrete and smooth accumulation" {
+    var accumulator: f64 = 0;
+    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_scroll_steps(3, 0, -1, 0, &accumulator));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_scroll_steps(3, 1, 0, 0.2, &accumulator));
+    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_scroll_steps(3, 1, 0, 0.8, &accumulator));
+}
+
+test "keyboard scroll targets saturate at history boundaries" {
+    try std.testing.expectEqual(@as(u64, 100), noctty_grid_keyboard_scroll_target(100, 90, 20, 1));
+    try std.testing.expectEqual(@as(u64, 0), noctty_grid_keyboard_scroll_target(100, 10, 20, 2));
+    try std.testing.expectEqual(@as(u64, 100), noctty_grid_keyboard_scroll_target(100, 10, 20, 3));
+    try std.testing.expectEqual(@as(u64, 0), noctty_grid_keyboard_scroll_target(100, 90, 20, 4));
+}
+
 test "scrollbar geometry clamps offset and thumb" {
     var geometry: ScrollbarGeometry = undefined;
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_scrollbar_geometry(

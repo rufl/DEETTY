@@ -109,8 +109,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   double-buffered GDI terminal renderer, local logs, and minidumps. C still
   owns timer objects, input/workspace-session orchestration,
   command/window-message dispatch, and the main HWND. The GTK adapter now
-  delegates scrollbar geometry, linear selection hit testing, and pixel-snapped
-  cell spans to tested Zig policy.
+  delegates scrollbar geometry, wheel accumulation, keyboard scroll targets,
+  linear selection hit testing, and pixel-snapped cell spans to tested Zig
+  policy.
   Migrate those incrementally behind their existing ABI contracts; keep
   generated vendored Tree-sitter parsers, system headers, and display-isolation
   shell orchestration outside the source-percentage target. Physical Windows

@@ -33,5 +33,11 @@ int noctty_grid_cell_selected(int selecting, int start_column, int start_row,
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,
                            NocttyGridRectangle *rectangle);
+int noctty_grid_scroll_steps(int configured_lines, int smooth_enabled,
+                             int direction, double delta_y,
+                             double *accumulator);
+uint64_t noctty_grid_keyboard_scroll_target(uint64_t history_lines,
+                                            uint64_t viewport_offset,
+                                            uint32_t visible_rows, int action);
 
 #endif

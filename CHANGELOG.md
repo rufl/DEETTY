@@ -17,9 +17,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   workspace-session, and window-message/command dispatch.
 
 - Began extracting platform-neutral policy from the GTK native-grid adapter.
-  Zig now owns bounded scrollbar/thumb geometry, direction-independent linear
-  selection hit testing, and pixel-snapped cell/selection spans behind a narrow
-  C ABI with native unit coverage.
+  Zig now owns bounded scrollbar/thumb geometry, discrete and smooth wheel
+  accumulation, saturating keyboard scroll targets, direction-independent
+  linear selection hit testing, and pixel-snapped cell/selection spans behind a
+  narrow C ABI with native unit coverage.
 
 - Ported the complete experimental Windows NoctEd controls adapter from C to
   Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab
