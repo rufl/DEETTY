@@ -74,6 +74,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    const native_grid_logic_mod = b.createModule(.{
+        .root_source_file = b.path("src/gui/NativeGridLogic.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
     const windows_host_logic_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsHostLogic.zig"),
         .target = target,
@@ -542,6 +548,11 @@ pub fn build(b: *std.Build) void {
         .root_module = unicode_generator_mod,
         .use_llvm = true,
     });
+    const native_grid_logic_tests = b.addTest(.{
+        .root_module = native_grid_logic_mod,
+        .use_llvm = true,
+    });
+    const run_native_grid_logic_tests = b.addRunArtifact(native_grid_logic_tests);
     const windows_host_logic_tests = b.addTest(.{
         .root_module = windows_host_logic_mod,
         .use_llvm = true,
@@ -559,6 +570,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_ghostty_vt_public_tests.step);
     test_step.dependOn(&run_vte_host_tests.step);
     test_step.dependOn(&run_unicode_generator_tests.step);
+    test_step.dependOn(&run_native_grid_logic_tests.step);
     test_step.dependOn(&run_windows_host_logic_tests.step);
     test_step.dependOn(&run_windows_pty_logic_tests.step);
 
@@ -574,6 +586,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_vte_host_tests.step);
     check_step.dependOn(&run_unicode_generator_tests.step);
     check_step.dependOn(&unicode_generator_exe.step);
+    check_step.dependOn(&run_native_grid_logic_tests.step);
     check_step.dependOn(&run_windows_host_logic_tests.step);
     check_step.dependOn(&run_windows_pty_logic_tests.step);
 }

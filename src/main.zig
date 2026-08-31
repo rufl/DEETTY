@@ -10,9 +10,13 @@ const noctty = @import("noctty");
 const build_options = @import("build_options");
 const NativeGridAbi = noctty.gui.NativeGridAbi;
 const NativeGtk = @import("gui/NativeGtk.zig");
+const NativeGridLogic = @import("gui/NativeGridLogic.zig");
 const VteHost = @import("gui/VteHost.zig");
 
 comptime {
+    _ = NativeGridLogic.noctty_grid_scrollbar_geometry;
+    _ = NativeGridLogic.noctty_grid_cell_selected;
+    _ = NativeGridLogic.noctty_grid_cell_span;
     _ = NativeGtk.noctty_pane_info_strip_new;
     _ = NativeGtk.noctty_pane_info_strip_set_enabled;
     _ = NativeGtk.noctty_pane_info_strip_update;

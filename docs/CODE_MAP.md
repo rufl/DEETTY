@@ -36,6 +36,9 @@ zig build run-nocted -- --project . --open README.md
   large C boundary that owns the current production grid window/dropdown UI,
   pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
   and bridge calls into Zig.
+- `src/gui/NativeGridLogic.zig` — tested platform-neutral scrollbar geometry,
+  linear selection hit testing, and pixel-snapped colored-span policy consumed
+  by the shrinking GTK adapter through `native_grid_logic.h`.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
   styling, and settings-page composition behind the narrow `native_gtk.h` ABI.

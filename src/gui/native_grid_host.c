@@ -30,6 +30,7 @@
 
 #include "native_gtk.h"
 #include "native_grid_abi.h"
+#include "native_grid_logic.h"
 
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
@@ -1270,18 +1271,6 @@ static void refresh_terminal_accessible_text(NocttyGridContext *context) {
 #endif
 }
 
-typedef struct {
-    double x;
-    double y;
-    double width;
-    double height;
-    double thumb_y;
-    double thumb_height;
-    uint64_t history_lines;
-    uint64_t viewport_offset;
-    uint32_t visible_rows;
-} NocttyTerminalScrollbarGeometry;
-
 static gboolean terminal_scrollbar_geometry(
     NocttyGridContext *context, GtkAllocation allocation,
     NocttyTerminalScrollbarGeometry *geometry) {
@@ -1299,31 +1288,11 @@ static gboolean terminal_scrollbar_geometry(
             &visible_rows) != 0)
         return FALSE;
 
-    geometry->x =
-        allocation.width - NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX;
-    geometry->y = 2.0;
-    geometry->width = NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX;
-    geometry->height = MAX(1.0, allocation.height - 4.0);
-    geometry->history_lines = history_lines;
-    geometry->viewport_offset = MIN(viewport_offset, history_lines);
-    geometry->visible_rows = MAX(visible_rows, 1u);
-
-    double total_rows =
-        (double)history_lines + (double)geometry->visible_rows;
-    geometry->thumb_height = history_lines == 0
-        ? geometry->height
-        : CLAMP(
-              geometry->height * geometry->visible_rows / total_rows,
-              MIN((double)NOCTTY_TERMINAL_SCROLLBAR_MIN_THUMB_PX,
-                  geometry->height),
-              geometry->height);
-    double travel = geometry->height - geometry->thumb_height;
-    double position = history_lines > 0
-        ? (double)(history_lines - geometry->viewport_offset) /
-              (double)history_lines
-        : 1.0;
-    geometry->thumb_y = geometry->y + travel * position;
-    return TRUE;
+    return noctty_grid_scrollbar_geometry(
+        allocation.width, allocation.height,
+        NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX,
+        NOCTTY_TERMINAL_SCROLLBAR_MIN_THUMB_PX, history_lines,
+        viewport_offset, visible_rows, geometry) != 0;
 }
 
 static gboolean scroll_terminal_to_offset(
@@ -1374,47 +1343,29 @@ static double grid_text_baseline(const NocttyGridContext *context, int row,
 static void grid_cell_span_rectangle(cairo_t *cr, int first, int end,
                                      int row, double cell_width,
                                      double cell_height) {
-    double left = floor(4.0 + first * cell_width);
-    double right = ceil(4.0 + end * cell_width);
-    double top = floor(2.0 + row * cell_height);
-    double bottom = ceil(2.0 + (row + 1) * cell_height);
-    cairo_rectangle(cr, left, top, MAX(1.0, right - left),
-                    MAX(1.0, bottom - top));
+    NocttyGridRectangle rectangle;
+    noctty_grid_cell_span(first, end, row, cell_width, cell_height, 1,
+                          &rectangle);
+    cairo_rectangle(cr, rectangle.x, rectangle.y, rectangle.width,
+                    rectangle.height);
 }
 
 static void grid_selection_span_rectangle(cairo_t *cr, int first, int end,
                                           int row, double cell_width,
                                           double cell_height) {
-    double left = 4.0 + first * cell_width;
-    double right = 4.0 + end * cell_width;
-    double top = floor(2.0 + row * cell_height);
-    double bottom = ceil(2.0 + (row + 1) * cell_height);
-    cairo_rectangle(cr, left, top, MAX(1.0, right - left),
-                    MAX(1.0, bottom - top));
+    NocttyGridRectangle rectangle;
+    noctty_grid_cell_span(first, end, row, cell_width, cell_height, 0,
+                          &rectangle);
+    cairo_rectangle(cr, rectangle.x, rectangle.y, rectangle.width,
+                    rectangle.height);
 }
 
 static gboolean grid_cell_is_selected(const NocttyGridContext *context,
                                       int column, int row) {
-    if (!context->selecting) return FALSE;
-    int first_column = context->selection_start_column;
-    int first_row = context->selection_start_row;
-    int last_column = context->selection_end_column;
-    int last_row = context->selection_end_row;
-    if (first_row > last_row ||
-        (first_row == last_row && first_column > last_column)) {
-        int swap_column = first_column;
-        int swap_row = first_row;
-        first_column = last_column;
-        first_row = last_row;
-        last_column = swap_column;
-        last_row = swap_row;
-    }
-    if (row < first_row || row > last_row) return FALSE;
-    if (first_row == last_row)
-        return column >= first_column && column <= last_column;
-    if (row == first_row) return column >= first_column;
-    if (row == last_row) return column <= last_column;
-    return TRUE;
+    return noctty_grid_cell_selected(
+        context->selecting, context->selection_start_column,
+        context->selection_start_row, context->selection_end_column,
+        context->selection_end_row, column, row) != 0;
 }
 
 static void apply_terminal_font_options(NocttyGridContext *context,
