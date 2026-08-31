@@ -41,11 +41,14 @@ zig build run-nocted -- --project . --open README.md
   styling, and settings-page composition behind the narrow `native_gtk.h` ABI.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
-- `src/windows/main.zig`, `src/windows/Dpapi.zig`, and
-  `src/windows/native_host.c` — experimental Windows boundary: shared Zig VT
-  callbacks plus Zig-owned DPAPI/state persistence and the Win32/GDI, ConPTY,
-  input, clipboard, local logging, and local minidump adapter. No GTK/POSIX
-  host state is compiled into the Windows executable.
+- `src/windows/main.zig`, `src/windows/Dpapi.zig`,
+  `src/windows/WindowsHostLogic.zig`, and `src/windows/native_host.c` —
+  experimental Windows boundary: shared Zig VT callbacks plus Zig-owned
+  DPAPI/state persistence and tested geometry, selection, color, grid-sizing,
+  special-key, and UTF-16 input policy. `src/windows/WindowsDiagnostics.zig`
+  owns local-only launch logs and minidumps. The shrinking C adapter still owns
+  Win32/GDI, ConPTY, clipboard, menus, and its main HWND. No GTK/POSIX host
+  state is compiled into the Windows executable.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
   structures.

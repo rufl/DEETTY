@@ -23,6 +23,8 @@ auth_agent=scripts/native_grid_authenticated_agent_qualification.sh
 installed_continuity=scripts/native_grid_installed_continuity_qualification.sh
 stability=scripts/native_grid_stability_qualification.sh
 windows_host=src/windows/native_host.c
+windows_logic=src/windows/WindowsHostLogic.zig
+windows_diagnostics=src/windows/WindowsDiagnostics.zig
 windows_main=src/windows/main.zig
 windows_nocted=src/windows/nocted_main.zig
 windows_nocted_host=src/windows/NoctedHost.zig
@@ -31,7 +33,7 @@ windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
   test -s "$path"
 done
 
@@ -178,6 +180,13 @@ grep -F 'CreatePseudoConsole(size, input_read, output_write' "$windows_host" >/d
 grep -F 'const Vt = Share.vt;' "$windows_main" >/dev/null
 grep -F 'self.next_untitled = next_untitled;' "$windows_nocted" >/dev/null
 grep -F 'telemetry=false uploads=false' "$windows_host" >/dev/null
+grep -F 'pub export fn noctty_windows_compute_pane_geometry(' "$windows_logic" >/dev/null
+grep -F 'pub export fn noctty_windows_pointer_cell(' "$windows_logic" >/dev/null
+grep -F 'pub export fn noctty_windows_special_key_sequence(' "$windows_logic" >/dev/null
+grep -F 'noctty_windows_compute_pane_geometry(' "$windows_host" >/dev/null
+grep -F 'pub export fn noctty_windows_diagnostics_init()' "$windows_diagnostics" >/dev/null
+grep -F 'pub export fn noctty_windows_diagnostics_deinit()' "$windows_diagnostics" >/dev/null
+grep -F 'noctty_windows_diagnostics_write(' "$windows_host" >/dev/null
 grep -F -- '-Dtarget=x86_64-windows-gnu' "$windows_package" >/dev/null
 grep -F 'physical_windows_validation=false' "$windows_package" >/dev/null
 grep -F 'windows_smoke self_test=true' "$windows_smoke" >/dev/null

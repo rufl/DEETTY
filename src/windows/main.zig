@@ -10,7 +10,24 @@ const Share = @import("noctty_share");
 const Vt = Share.vt;
 const Crypto = Share.crypto;
 const Release = @import("noctty_release");
+const WindowsHostLogic = @import("WindowsHostLogic.zig");
+const WindowsDiagnostics = @import("WindowsDiagnostics.zig");
 const Dpapi = @import("Dpapi.zig");
+
+comptime {
+    _ = WindowsHostLogic.noctty_windows_blend_rgb;
+    _ = WindowsHostLogic.noctty_windows_rgb_from_colorref;
+    _ = WindowsHostLogic.noctty_windows_colorref_from_rgb;
+    _ = WindowsHostLogic.noctty_windows_grid_dimensions;
+    _ = WindowsHostLogic.noctty_windows_encode_utf16_input;
+    _ = WindowsHostLogic.noctty_windows_compute_pane_geometry;
+    _ = WindowsHostLogic.noctty_windows_pointer_cell;
+    _ = WindowsHostLogic.noctty_windows_cell_selected;
+    _ = WindowsHostLogic.noctty_windows_special_key_sequence;
+    _ = WindowsDiagnostics.noctty_windows_diagnostics_init;
+    _ = WindowsDiagnostics.noctty_windows_diagnostics_write;
+    _ = WindowsDiagnostics.noctty_windows_diagnostics_deinit;
+}
 
 const host_abi_version: u32 = 9;
 const columns_initial: usize = 120;
@@ -887,10 +904,6 @@ extern "user32" fn MessageBoxW(
     [*:0]const u16,
     windows.UINT,
 ) callconv(.winapi) c_int;
-extern fn noctty_windows_show_version(
-    instance: windows.HINSTANCE,
-    version: [*:0]const u16,
-) void;
 
 fn readPersistedWindowsState() !?PersistedWindowsState {
     var bytes: [persisted_state_capacity]u8 = undefined;
@@ -935,7 +948,12 @@ pub export fn wWinMain(
         const version_text = std.unicode.utf8ToUtf16LeStringLiteral(
             "NOCTTY " ++ Release.version ++ " Windows alpha",
         );
-        noctty_windows_show_version(instance, version_text);
+        _ = MessageBoxW(
+            null,
+            version_text,
+            std.unicode.utf8ToUtf16LeStringLiteral("NOCTTY"),
+            0x40,
+        );
         return 0;
     }
     const self_test_requested = firstAsciiTokenIs(command, "--self-test");

@@ -159,9 +159,10 @@ current size, which is restored from
 The Win32 controls adapter is Zig-owned. Its focused isolated Wine
 qualification cross-compiles a mock-callback host and is designed to map the
 real RichEdit/tree/tab controls, enter the message loop, and perform a
-controlled close in Debug and `ReleaseSafe`. The current-source mapped rerun
-was pressure-deferred, so only cross-compilation is retained here; physical
-Windows input, rendering, file dialogs, and persistence remain unproved.
+controlled close in Debug and `ReleaseSafe`. Its first mapped run exposed and
+closed a pseudo-HMENU alignment panic; post-fix mapped runs pass under isolated
+Wine in both modes. Physical Windows input, rendering, file dialogs, and
+persistence remain unproved.
 
 ## Pair and share a terminal
 

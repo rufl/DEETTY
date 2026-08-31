@@ -27,6 +27,24 @@ zig build windows-nocted-host-qualification \
   --global-cache-dir "$scratch/global-cache" >/dev/null
 
 test -s "$scratch/stage/bin/nocted-host-qualification.exe"
+
+# The private cross-build can briefly raise I/O PSI above the display wrapper's
+# fail-closed threshold. Wait at most two minutes for that self-induced pressure
+# to settle; the wrapper still performs the authoritative pressure/lock checks.
+attempt=0
+while :; do
+  io_full=$(awk '/^full / { for (i = 1; i <= NF; i++) if ($i ~ /^avg10=/) { sub(/^avg10=/, "", $i); print $i; exit } }' /proc/pressure/io 2>/dev/null || printf '100\n')
+  if awk -v value="$io_full" 'BEGIN { exit !(value < 8) }'; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 24 ]; then
+    echo "windows_nocted_zig_smoke deferred: I/O full PSI=${io_full}%" >&2
+    exit 75
+  fi
+  sleep 5
+done
+
 cat >"$scratch/run.sh" <<'RUNNER'
 #!/usr/bin/env sh
 set -eu

@@ -4,14 +4,22 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Began the Win32 terminal-host migration with a pure, tested Zig policy
+  boundary for pane geometry, pointer-to-cell mapping, selection hit testing,
+  RGB/COLORREF conversion, bounded grid sizing, special-key sequences, and
+  UTF-16 input assembly. The existing ConPTY/GDI adapter now consumes those
+  exports. The version dialog plus local-only launch logging and minidump
+  ownership are also Zig-owned; ConPTY, GDI renderer, clipboard, menu, and
+  window-message lifetimes remain in the shrinking C adapter.
+
 - Ported the complete experimental Windows NoctEd controls adapter from C to
   Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab
   HWNDs, GDI fonts, menus, accelerators, settings/find dialogs, DPI layout,
   document-close confirmation, UTF conversion, and the Win32 message loop. A
-  dedicated mock-callback qualification builds the real controls and is ready
-  to perform a controlled close under isolated Wine; its current-source mapped
-  run deferred fail-closed at the display wrapper's I/O-pressure gate, and
-  physical Windows behavior remains a separate acceptance boundary.
+  dedicated mock-callback qualification found and fixed Zig's stricter
+  pseudo-HMENU alignment at Win32 control creation. Post-fix mapped runs pass
+  under isolated Wine in Debug and `ReleaseSafe`; physical Windows behavior
+  remains a separate acceptance boundary.
 
 - Replaced the Python Unicode table generator with a bounded, hash-verifying
   Zig tool and added its parser/merge/hash tests to `zig build check`. The

@@ -74,6 +74,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    const windows_host_logic_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/WindowsHostLogic.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
@@ -530,6 +536,11 @@ pub fn build(b: *std.Build) void {
         .root_module = unicode_generator_mod,
         .use_llvm = true,
     });
+    const windows_host_logic_tests = b.addTest(.{
+        .root_module = windows_host_logic_mod,
+        .use_llvm = true,
+    });
+    const run_windows_host_logic_tests = b.addRunArtifact(windows_host_logic_tests);
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
@@ -537,6 +548,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_ghostty_vt_public_tests.step);
     test_step.dependOn(&run_vte_host_tests.step);
     test_step.dependOn(&run_unicode_generator_tests.step);
+    test_step.dependOn(&run_windows_host_logic_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -550,6 +562,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_vte_host_tests.step);
     check_step.dependOn(&run_unicode_generator_tests.step);
     check_step.dependOn(&unicode_generator_exe.step);
+    check_step.dependOn(&run_windows_host_logic_tests.step);
 }
 
 fn addWindowsBuild(

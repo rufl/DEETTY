@@ -61,6 +61,22 @@ const editor_class = std.unicode.utf8ToUtf16LeStringLiteral("NoctEdWindowsEditor
 const settings_class = std.unicode.utf8ToUtf16LeStringLiteral("NoctEdWindowsSettings");
 const title_nocted = std.unicode.utf8ToUtf16LeStringLiteral("NoctEd");
 
+const CreateWindowExW = *const fn (
+    c.DWORD,
+    c.LPCWSTR,
+    c.LPCWSTR,
+    c.DWORD,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c.HWND,
+    ?*align(1) anyopaque,
+    c.HINSTANCE,
+    c.LPVOID,
+) callconv(.winapi) c.HWND;
+const createWindowExW: CreateWindowExW = @ptrCast(&c.CreateWindowExW);
+
 const tcm_first: c.UINT = 0x1300;
 const tcm_delete_all_items: c.UINT = tcm_first + 9;
 const tcm_get_current_selection: c.UINT = tcm_first + 11;
@@ -191,7 +207,7 @@ fn longFromPointer(pointer: anytype) c.LPARAM {
     return @bitCast(@as(usize, @intFromPtr(pointer)));
 }
 
-fn menuFromId(id: u16) c.HMENU {
+fn menuFromId(id: u16) ?*align(1) anyopaque {
     return @ptrFromInt(id);
 }
 
@@ -303,7 +319,7 @@ fn openSettings(host: *Host) void {
     }
     const width = c.MulDiv(360, @intCast(host.dpi), 96);
     const height = c.MulDiv(180, @intCast(host.dpi), 96);
-    host.settings_window = c.CreateWindowExW(
+    host.settings_window = createWindowExW(
         c.WS_EX_DLGMODALFRAME | c.WS_EX_CONTROLPARENT,
         settings_class,
         std.unicode.utf8ToUtf16LeStringLiteral("NoctEd Settings"),
@@ -374,7 +390,7 @@ fn settingsWindowProc(
             const left = c.MulDiv(20, @intCast(state.dpi), 96);
             const top = c.MulDiv(22, @intCast(state.dpi), 96);
             const row_height = c.MulDiv(26, @intCast(state.dpi), 96);
-            const label = c.CreateWindowExW(
+            const label = createWindowExW(
                 0,
                 std.unicode.utf8ToUtf16LeStringLiteral("STATIC"),
                 std.unicode.utf8ToUtf16LeStringLiteral("Editor font size (8–32 pt):"),
@@ -388,7 +404,7 @@ fn settingsWindowProc(
                 state.instance,
                 null,
             );
-            state.settings_size_edit = c.CreateWindowExW(
+            state.settings_size_edit = createWindowExW(
                 c.WS_EX_CLIENTEDGE,
                 std.unicode.utf8ToUtf16LeStringLiteral("EDIT"),
                 std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -402,7 +418,7 @@ fn settingsWindowProc(
                 state.instance,
                 null,
             );
-            const spin = c.CreateWindowExW(
+            const spin = createWindowExW(
                 0,
                 std.unicode.utf8ToUtf16LeStringLiteral("msctls_updown32"),
                 std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -417,7 +433,7 @@ fn settingsWindowProc(
                 state.instance,
                 null,
             );
-            const ok = c.CreateWindowExW(
+            const ok = createWindowExW(
                 0,
                 std.unicode.utf8ToUtf16LeStringLiteral("BUTTON"),
                 std.unicode.utf8ToUtf16LeStringLiteral("OK"),
@@ -431,7 +447,7 @@ fn settingsWindowProc(
                 state.instance,
                 null,
             );
-            const cancel = c.CreateWindowExW(
+            const cancel = createWindowExW(
                 0,
                 std.unicode.utf8ToUtf16LeStringLiteral("BUTTON"),
                 std.unicode.utf8ToUtf16LeStringLiteral("Cancel"),
@@ -1058,7 +1074,7 @@ fn createAccelerators() c.HACCEL {
 }
 
 fn createControls(host: *Host) bool {
-    host.tabs = c.CreateWindowExW(
+    host.tabs = createWindowExW(
         0,
         std.unicode.utf8ToUtf16LeStringLiteral("SysTabControl32"),
         std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -1072,7 +1088,7 @@ fn createControls(host: *Host) bool {
         host.instance,
         null,
     );
-    host.tree = c.CreateWindowExW(
+    host.tree = createWindowExW(
         c.WS_EX_CLIENTEDGE,
         std.unicode.utf8ToUtf16LeStringLiteral("SysTreeView32"),
         std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -1087,7 +1103,7 @@ fn createControls(host: *Host) bool {
         host.instance,
         null,
     );
-    host.editor = c.CreateWindowExW(
+    host.editor = createWindowExW(
         c.WS_EX_CLIENTEDGE,
         std.unicode.utf8ToUtf16LeStringLiteral("RICHEDIT50W"),
         std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -1103,7 +1119,7 @@ fn createControls(host: *Host) bool {
         host.instance,
         null,
     );
-    host.status = c.CreateWindowExW(
+    host.status = createWindowExW(
         0,
         std.unicode.utf8ToUtf16LeStringLiteral("STATIC"),
         std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -1117,7 +1133,7 @@ fn createControls(host: *Host) bool {
         host.instance,
         null,
     );
-    host.find_edit = c.CreateWindowExW(
+    host.find_edit = createWindowExW(
         c.WS_EX_CLIENTEDGE,
         std.unicode.utf8ToUtf16LeStringLiteral("EDIT"),
         std.unicode.utf8ToUtf16LeStringLiteral(""),
@@ -1131,7 +1147,7 @@ fn createControls(host: *Host) bool {
         host.instance,
         null,
     );
-    host.find_button = c.CreateWindowExW(
+    host.find_button = createWindowExW(
         0,
         std.unicode.utf8ToUtf16LeStringLiteral("BUTTON"),
         std.unicode.utf8ToUtf16LeStringLiteral("Find next"),
@@ -1338,7 +1354,7 @@ pub fn run(
     if (c.RegisterClassExW(&window_class) == 0) return 1;
     defer _ = c.UnregisterClassW(settings_class, native_instance);
 
-    const window = c.CreateWindowExW(
+    const window = createWindowExW(
         0,
         editor_class,
         title_nocted,

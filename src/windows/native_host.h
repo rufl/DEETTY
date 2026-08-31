@@ -7,6 +7,48 @@
 
 #define NOCTTY_WINDOWS_HOST_ABI_VERSION 9u
 
+typedef struct {
+    int pane_left;
+    int pane_top;
+    int pane_right;
+    int pane_bottom;
+    int content_left;
+    int content_top;
+    int content_right;
+    int content_bottom;
+} NocttyWindowsPaneGeometry;
+
+uint32_t noctty_windows_blend_rgb(uint32_t foreground, uint32_t background,
+                                  uint32_t foreground_weight);
+uint32_t noctty_windows_rgb_from_colorref(uint32_t color);
+uint32_t noctty_windows_colorref_from_rgb(uint32_t rgb);
+int noctty_windows_grid_dimensions(int pixel_width, int pixel_height,
+                                   int cell_width, int cell_height,
+                                   int *columns, int *rows);
+size_t noctty_windows_encode_utf16_input(uint16_t character,
+                                         uint16_t *pending_high_surrogate,
+                                         uint8_t *output, size_t capacity);
+int noctty_windows_compute_pane_geometry(
+    int client_left, int client_top, int client_right, int client_bottom,
+    uint32_t x_millionths, uint32_t y_millionths,
+    uint32_t width_millionths, uint32_t height_millionths, int inset,
+    NocttyWindowsPaneGeometry *output);
+int noctty_windows_pointer_cell(
+    int content_left, int content_top, int content_right, int content_bottom,
+    int columns, int rows, int pointer_x, int pointer_y, int clamp,
+    int *column, int *row, int *inside);
+int noctty_windows_cell_selected(
+    int selection_active, int selection_pane, int pane_index,
+    int anchor_column, int anchor_row, int extent_column, int extent_row,
+    int column, int row);
+size_t noctty_windows_special_key_sequence(uintptr_t key,
+                                           int application_cursor,
+                                           uint8_t *output,
+                                           size_t capacity);
+int noctty_windows_diagnostics_init(void);
+void noctty_windows_diagnostics_write(const uint8_t *bytes, size_t length);
+void noctty_windows_diagnostics_deinit(void);
+
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsTakeReply)(void *, uint8_t *, size_t);
@@ -113,6 +155,5 @@ typedef struct {
 
 int noctty_windows_host_run(HINSTANCE instance, int show_command,
                             const NocttyWindowsCallbacks *callbacks);
-void noctty_windows_show_version(HINSTANCE instance, const wchar_t *version);
 
 #endif

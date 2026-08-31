@@ -11,7 +11,6 @@
 
 #include "native_host.h"
 
-#include <dbghelp.h>
 #include <shellapi.h>
 #include <windowsx.h>
 #include <limits.h>
@@ -141,9 +140,6 @@ struct NocttyWindowsHost {
     int smoke_clipboard;
 };
 
-static HANDLE noctty_log_file = INVALID_HANDLE_VALUE;
-static WCHAR noctty_dump_path[MAX_PATH * 2];
-
 static void noctty_log(const char *format, ...);
 static void noctty_update_title(NocttyWindowsHost *host);
 static void noctty_resize_terminal(NocttyWindowsHost *host, int width, int height);
@@ -151,25 +147,6 @@ static void noctty_drain_output(NocttyWindowsHost *host, int session_index);
 static void noctty_drain_remote_input(NocttyWindowsHost *host);
 static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                                            WPARAM word, LPARAM long_value);
-
-static COLORREF noctty_color_ref(uint32_t rgb) {
-    return RGB((rgb >> 16u) & 0xffu, (rgb >> 8u) & 0xffu, rgb & 0xffu);
-}
-
-static uint32_t noctty_blend(uint32_t foreground, uint32_t background,
-                             unsigned foreground_weight) {
-    unsigned background_weight = 255u - foreground_weight;
-    unsigned red = (((foreground >> 16u) & 0xffu) * foreground_weight +
-                    ((background >> 16u) & 0xffu) * background_weight) /
-                   255u;
-    unsigned green = (((foreground >> 8u) & 0xffu) * foreground_weight +
-                      ((background >> 8u) & 0xffu) * background_weight) /
-                     255u;
-    unsigned blue = ((foreground & 0xffu) * foreground_weight +
-                     (background & 0xffu) * background_weight) /
-                    255u;
-    return (red << 16u) | (green << 8u) | blue;
-}
 
 static uint32_t noctty_terminal_color(NocttyWindowsHost *host, int pane_index,
                                       uint32_t color_id,
@@ -191,71 +168,8 @@ static void noctty_close_handle(HANDLE *handle) {
     }
 }
 
-static LONG WINAPI noctty_unhandled_exception(EXCEPTION_POINTERS *exception) {
-    HANDLE dump;
-    MINIDUMP_EXCEPTION_INFORMATION information;
-
-    noctty_log("crash exception_code=0x%08lx address=%p\r\n",
-               exception->ExceptionRecord->ExceptionCode,
-               exception->ExceptionRecord->ExceptionAddress);
-    dump = CreateFileW(noctty_dump_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-                       FILE_ATTRIBUTE_NORMAL, NULL);
-    if (dump != INVALID_HANDLE_VALUE) {
-        information.ThreadId = GetCurrentThreadId();
-        information.ExceptionPointers = exception;
-        information.ClientPointers = FALSE;
-        MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), dump,
-                          MiniDumpNormal, &information, NULL, NULL);
-        CloseHandle(dump);
-    }
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-
 static void noctty_initialize_logging(void) {
-    WCHAR base[MAX_PATH];
-    WCHAR app_directory[MAX_PATH * 2];
-    WCHAR log_directory[MAX_PATH * 2];
-    WCHAR log_path[MAX_PATH * 2];
-    SYSTEMTIME time;
-    DWORD length;
-    int count;
-
-    length = GetEnvironmentVariableW(L"LOCALAPPDATA", base, MAX_PATH);
-    if (length == 0 || length >= MAX_PATH) {
-        length = GetTempPathW(MAX_PATH, base);
-        if (length == 0 || length >= MAX_PATH) return;
-    }
-    count = swprintf(app_directory, sizeof(app_directory) / sizeof(WCHAR),
-                     L"%ls\\NOCTTY", base);
-    if (count < 0 || (size_t)count >= sizeof(app_directory) / sizeof(WCHAR))
-        return;
-    CreateDirectoryW(app_directory, NULL);
-    count = swprintf(log_directory, sizeof(log_directory) / sizeof(WCHAR),
-                     L"%ls\\logs", app_directory);
-    if (count < 0 || (size_t)count >= sizeof(log_directory) / sizeof(WCHAR))
-        return;
-    CreateDirectoryW(log_directory, NULL);
-
-    GetLocalTime(&time);
-    count = swprintf(
-        log_path, sizeof(log_path) / sizeof(WCHAR),
-        L"%ls\\noctty-%04u%02u%02u-%02u%02u%02u-%lu.log", log_directory,
-        time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute,
-        time.wSecond, GetCurrentProcessId());
-    if (count < 0 || (size_t)count >= sizeof(log_path) / sizeof(WCHAR)) return;
-    noctty_log_file = CreateFileW(log_path, FILE_APPEND_DATA, FILE_SHARE_READ,
-                                  NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-                                  NULL);
-    count = swprintf(
-        noctty_dump_path, sizeof(noctty_dump_path) / sizeof(WCHAR),
-        L"%ls\\noctty-%04u%02u%02u-%02u%02u%02u-%lu.dmp", log_directory,
-        time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute,
-        time.wSecond, GetCurrentProcessId());
-    if (count < 0 ||
-        (size_t)count >= sizeof(noctty_dump_path) / sizeof(WCHAR)) {
-        noctty_dump_path[0] = L'\0';
-    }
-    SetUnhandledExceptionFilter(noctty_unhandled_exception);
+    (void)noctty_windows_diagnostics_init();
     noctty_log("windows_launch pid=%lu conpty=true renderer=win32_gdi "
                "telemetry=false uploads=false\r\n",
                GetCurrentProcessId());
@@ -263,17 +177,15 @@ static void noctty_initialize_logging(void) {
 
 static void noctty_log(const char *format, ...) {
     char buffer[2048];
-    DWORD written = 0;
     int length;
     va_list arguments;
-
-    if (noctty_log_file == INVALID_HANDLE_VALUE) return;
     va_start(arguments, format);
     length = vsnprintf(buffer, sizeof(buffer), format, arguments);
     va_end(arguments);
     if (length <= 0) return;
     if ((size_t)length > sizeof(buffer)) length = (int)sizeof(buffer);
-    WriteFile(noctty_log_file, buffer, (DWORD)length, &written, NULL);
+    noctty_windows_diagnostics_write((const uint8_t *)buffer,
+                                     (size_t)length);
 }
 
 static int noctty_create_fonts(NocttyWindowsHost *host, UINT dpi) {
@@ -311,16 +223,12 @@ static int noctty_create_fonts(NocttyWindowsHost *host, UINT dpi) {
     return 1;
 }
 
-static uint32_t noctty_rgb_from_colorref(COLORREF color) {
-    return ((color & 0xffu) << 16u) | (color & 0xff00u) |
-           ((color >> 16u) & 0xffu);
-}
-
 static void noctty_apply_theme(NocttyWindowsHost *host) {
     if (host->theme == 1) {
         host->foreground =
-            noctty_rgb_from_colorref(GetSysColor(COLOR_WINDOWTEXT));
-        host->background = noctty_rgb_from_colorref(GetSysColor(COLOR_WINDOW));
+            noctty_windows_rgb_from_colorref(GetSysColor(COLOR_WINDOWTEXT));
+        host->background =
+            noctty_windows_rgb_from_colorref(GetSysColor(COLOR_WINDOW));
     } else {
         host->foreground = NOCTTY_DEFAULT_FOREGROUND;
         host->background = NOCTTY_DEFAULT_BACKGROUND;
@@ -459,8 +367,6 @@ static int noctty_pane_geometry(NocttyWindowsHost *host, int pane_index,
     uint16_t columns = 0;
     uint16_t rows = 0;
     const int inset = 3;
-    int client_width = client->right - client->left;
-    int client_height = client->bottom - client->top;
     if (host->callbacks->pane_layout(
             host->callbacks->userdata, pane_index, &x, &y, &width, &height,
             &selected, &host_active) <= 0 ||
@@ -468,22 +374,20 @@ static int noctty_pane_geometry(NocttyWindowsHost *host, int pane_index,
             host->callbacks->userdata, pane_index, &columns, &rows) <= 0 ||
         columns == 0 || rows == 0)
         return 0;
-    result->pane_index = pane_index;
-    result->pane.left =
-        client->left + (int)((int64_t)client_width * x / 1000000);
-    result->pane.top =
-        client->top + (int)((int64_t)client_height * y / 1000000);
-    result->pane.right =
-        client->left +
-        (int)((int64_t)client_width * (x + width) / 1000000);
-    result->pane.bottom =
-        client->top +
-        (int)((int64_t)client_height * (y + height) / 1000000);
-    if (result->pane.right - result->pane.left <= inset * 2 ||
-        result->pane.bottom - result->pane.top <= inset * 2)
+    NocttyWindowsPaneGeometry geometry;
+    if (!noctty_windows_compute_pane_geometry(
+            client->left, client->top, client->right, client->bottom,
+            x, y, width, height, inset, &geometry))
         return 0;
-    result->content = result->pane;
-    InflateRect(&result->content, -inset, -inset);
+    result->pane_index = pane_index;
+    result->pane.left = geometry.pane_left;
+    result->pane.top = geometry.pane_top;
+    result->pane.right = geometry.pane_right;
+    result->pane.bottom = geometry.pane_bottom;
+    result->content.left = geometry.content_left;
+    result->content.top = geometry.content_top;
+    result->content.right = geometry.content_right;
+    result->content.bottom = geometry.content_bottom;
     result->columns = (int)columns;
     result->rows = (int)rows;
     result->column = 0;
@@ -498,29 +402,13 @@ static int noctty_cell_for_pane(NocttyWindowsHost *host, int pane_index,
                                 int pointer_x, int pointer_y, int clamp,
                                 NocttyPaneHit *result) {
     RECT client;
-    int x;
-    int y;
-    int width;
-    int height;
     GetClientRect(host->window, &client);
     if (!noctty_pane_geometry(host, pane_index, &client, result)) return 0;
-    result->inside_content =
-        pointer_x >= result->content.left && pointer_x < result->content.right &&
-        pointer_y >= result->content.top && pointer_y < result->content.bottom;
-    if (!result->inside_content && !clamp) return 1;
-    x = pointer_x;
-    y = pointer_y;
-    if (x < result->content.left) x = result->content.left;
-    if (x >= result->content.right) x = result->content.right - 1;
-    if (y < result->content.top) y = result->content.top;
-    if (y >= result->content.bottom) y = result->content.bottom - 1;
-    width = result->content.right - result->content.left;
-    height = result->content.bottom - result->content.top;
-    result->column = (int)((int64_t)(x - result->content.left) *
-                           result->columns / width);
-    result->row = (int)((int64_t)(y - result->content.top) *
-                        result->rows / height);
-    return 1;
+    return noctty_windows_pointer_cell(
+        result->content.left, result->content.top, result->content.right,
+        result->content.bottom, result->columns, result->rows, pointer_x,
+        pointer_y, clamp, &result->column, &result->row,
+        &result->inside_content);
 }
 
 static int noctty_hit_test_pane_cell(NocttyWindowsHost *host, int pointer_x,
@@ -559,28 +447,11 @@ static void noctty_clear_selection(NocttyWindowsHost *host) {
 
 static int noctty_cell_selected(const NocttyWindowsHost *host, int pane_index,
                                 int column, int row) {
-    int first_column;
-    int last_column;
-    int first_row;
-    int last_row;
-    if (!host->selection_active || host->selection_pane != pane_index)
-        return 0;
-    first_column =
-        host->selection_anchor_column < host->selection_extent_column
-            ? host->selection_anchor_column
-            : host->selection_extent_column;
-    last_column =
-        host->selection_anchor_column > host->selection_extent_column
-            ? host->selection_anchor_column
-            : host->selection_extent_column;
-    first_row = host->selection_anchor_row < host->selection_extent_row
-                    ? host->selection_anchor_row
-                    : host->selection_extent_row;
-    last_row = host->selection_anchor_row > host->selection_extent_row
-                   ? host->selection_anchor_row
-                   : host->selection_extent_row;
-    return column >= first_column && column <= last_column &&
-           row >= first_row && row <= last_row;
+    return noctty_windows_cell_selected(
+        host->selection_active, host->selection_pane, pane_index,
+        host->selection_anchor_column, host->selection_anchor_row,
+        host->selection_extent_column, host->selection_extent_row,
+        column, row);
 }
 static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
                              int pane_index, int origin_x, int origin_y,
@@ -612,19 +483,21 @@ static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
         background = temporary;
     }
     if ((style & 32u) != 0u)
-        foreground = noctty_blend(foreground, background, 150u);
+        foreground = noctty_windows_blend_rgb(foreground, background, 150u);
     if (pane_index >= 0 &&
         noctty_cell_selected(host, pane_index, column, row)) {
-        foreground = noctty_rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHTTEXT));
-        background = noctty_rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHT));
+        foreground = noctty_windows_rgb_from_colorref(
+            GetSysColor(COLOR_HIGHLIGHTTEXT));
+        background = noctty_windows_rgb_from_colorref(
+            GetSysColor(COLOR_HIGHLIGHT));
     }
 
     rectangle.left = origin_x + column * content_width / columns;
     rectangle.top = origin_y + row * content_height / rows;
     rectangle.right = origin_x + (column + 1) * content_width / columns;
     rectangle.bottom = origin_y + (row + 1) * content_height / rows;
-    SetTextColor(device, noctty_color_ref(foreground));
-    SetBkColor(device, noctty_color_ref(background));
+    SetTextColor(device, noctty_windows_colorref_from_rgb(foreground));
+    SetBkColor(device, noctty_windows_colorref_from_rgb(background));
     old_mode = SetBkMode(device, OPAQUE);
 
     if ((style & 128u) != 0u) {
@@ -673,7 +546,8 @@ static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
                 &rectangle, text_utf16, (UINT)wide_length, NULL);
     SelectObject(device, previous_font);
     if ((style & 8u) != 0u) {
-        HPEN pen = CreatePen(PS_SOLID, 1, noctty_color_ref(foreground));
+        HPEN pen = CreatePen(
+            PS_SOLID, 1, noctty_windows_colorref_from_rgb(foreground));
         HPEN previous_pen = SelectObject(device, pen);
         MoveToEx(device, rectangle.left, rectangle.bottom - 2, NULL);
         LineTo(device, rectangle.right, rectangle.bottom - 2);
@@ -681,7 +555,8 @@ static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
         DeleteObject(pen);
     }
     if ((style & 16u) != 0u) {
-        HPEN pen = CreatePen(PS_SOLID, 1, noctty_color_ref(foreground));
+        HPEN pen = CreatePen(
+            PS_SOLID, 1, noctty_windows_colorref_from_rgb(foreground));
         HPEN previous_pen = SelectObject(device, pen);
         MoveToEx(device, rectangle.left,
                  rectangle.top + (rectangle.bottom - rectangle.top) / 2, NULL);
@@ -730,9 +605,10 @@ static void noctty_draw_shared_pane(NocttyWindowsHost *host, HDC device,
             InvertRect(device, &cursor_rectangle);
         }
     }
-    HPEN border = CreatePen(PS_SOLID, geometry.selected ? 3 : 1,
-                            noctty_color_ref(geometry.selected ? 0x94e2d5u
-                                                              : 0x45475au));
+    HPEN border = CreatePen(
+        PS_SOLID, geometry.selected ? 3 : 1,
+        noctty_windows_colorref_from_rgb(
+            geometry.selected ? 0x94e2d5u : 0x45475au));
     HPEN previous_pen = SelectObject(device, border);
     HGDIOBJ previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
     Rectangle(device, geometry.pane.left + 1, geometry.pane.top + 1,
@@ -742,7 +618,8 @@ static void noctty_draw_shared_pane(NocttyWindowsHost *host, HDC device,
     DeleteObject(border);
     if (geometry.host_active) {
         HPEN active_border =
-            CreatePen(PS_SOLID, 1, noctty_color_ref(0xf9e2afu));
+            CreatePen(PS_SOLID, 1,
+                      noctty_windows_colorref_from_rgb(0xf9e2afu));
         previous_pen = SelectObject(device, active_border);
         previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
         Rectangle(device, geometry.pane.left + 3, geometry.pane.top + 3,
@@ -777,7 +654,8 @@ static void noctty_paint(NocttyWindowsHost *host) {
         return;
     }
     previous_bitmap = SelectObject(buffer_device, buffer_bitmap);
-    background = CreateSolidBrush(noctty_color_ref(host->background));
+    background = CreateSolidBrush(
+        noctty_windows_colorref_from_rgb(host->background));
     FillRect(buffer_device, &client, background);
     DeleteObject(background);
 
@@ -1174,13 +1052,10 @@ static void noctty_update_title(NocttyWindowsHost *host) {
 
 static void noctty_resize_terminal(NocttyWindowsHost *host, int width,
                                    int height) {
-    if (host->cell_width <= 0 || host->cell_height <= 0) return;
-    host->columns = width / host->cell_width;
-    host->rows = height / host->cell_height;
-    if (host->columns < 1) host->columns = 1;
-    if (host->rows < 1) host->rows = 1;
-    if (host->columns > 1000) host->columns = 1000;
-    if (host->rows > 500) host->rows = 500;
+    if (!noctty_windows_grid_dimensions(
+            width, height, host->cell_width, host->cell_height,
+            &host->columns, &host->rows))
+        return;
     if (!host->remote_mode) {
         int pane_count =
             host->callbacks->pane_count(host->callbacks->userdata);
@@ -1201,12 +1076,12 @@ static void noctty_resize_terminal(NocttyWindowsHost *host, int width,
                 (int)((int64_t)width * pane_width / 1000000) - 6;
             int pixel_height =
                 (int)((int64_t)height * pane_height / 1000000) - 6;
-            int columns = pixel_width / host->cell_width;
-            int rows = pixel_height / host->cell_height;
-            if (columns < 1) columns = 1;
-            if (rows < 1) rows = 1;
-            if (columns > 1000) columns = 1000;
-            if (rows > 500) rows = 500;
+            int columns = 0;
+            int rows = 0;
+            if (!noctty_windows_grid_dimensions(
+                    pixel_width, pixel_height, host->cell_width,
+                    host->cell_height, &columns, &rows))
+                continue;
             if (host->callbacks->pane_resize(host->callbacks->userdata, index,
                                               columns, rows) < 0)
                 continue;
@@ -1229,108 +1104,22 @@ static void noctty_resize_terminal(NocttyWindowsHost *host, int width,
 }
 
 static void noctty_send_special_key(NocttyWindowsHost *host, WPARAM key) {
-    const char *sequence = NULL;
-    int application = host->callbacks->cursor_mode(host->callbacks->userdata);
-    switch (key) {
-        case VK_UP:
-            sequence = application ? "\x1bOA" : "\x1b[A";
-            break;
-        case VK_DOWN:
-            sequence = application ? "\x1bOB" : "\x1b[B";
-            break;
-        case VK_RIGHT:
-            sequence = application ? "\x1bOC" : "\x1b[C";
-            break;
-        case VK_LEFT:
-            sequence = application ? "\x1bOD" : "\x1b[D";
-            break;
-        case VK_HOME:
-            sequence = "\x1b[H";
-            break;
-        case VK_END:
-            sequence = "\x1b[F";
-            break;
-        case VK_PRIOR:
-            sequence = "\x1b[5~";
-            break;
-        case VK_NEXT:
-            sequence = "\x1b[6~";
-            break;
-        case VK_INSERT:
-            sequence = "\x1b[2~";
-            break;
-        case VK_DELETE:
-            sequence = "\x1b[3~";
-            break;
-        case VK_F1:
-            sequence = "\x1bOP";
-            break;
-        case VK_F2:
-            sequence = "\x1bOQ";
-            break;
-        case VK_F3:
-            sequence = "\x1bOR";
-            break;
-        case VK_F4:
-            sequence = "\x1bOS";
-            break;
-        case VK_F5:
-            sequence = "\x1b[15~";
-            break;
-        case VK_F6:
-            sequence = "\x1b[17~";
-            break;
-        case VK_F7:
-            sequence = "\x1b[18~";
-            break;
-        case VK_F8:
-            sequence = "\x1b[19~";
-            break;
-        case VK_F9:
-            sequence = "\x1b[20~";
-            break;
-        case VK_F10:
-            sequence = "\x1b[21~";
-            break;
-        case VK_F11:
-            sequence = "\x1b[23~";
-            break;
-        case VK_F12:
-            sequence = "\x1b[24~";
-            break;
-        default:
-            break;
-    }
-    if (sequence != NULL)
-        noctty_write_terminal(host, (const uint8_t *)sequence,
-                              strlen(sequence));
+    uint8_t sequence[16];
+    size_t length = noctty_windows_special_key_sequence(
+        (uintptr_t)key,
+        host->callbacks->cursor_mode(host->callbacks->userdata),
+        sequence, sizeof(sequence));
+    if (length != 0)
+        (void)noctty_write_terminal(host, sequence, length);
 }
 
 static void noctty_send_wide_character(NocttyWindowsHost *host,
                                        WCHAR character) {
-    WCHAR source[2];
-    int source_count = 1;
     uint8_t utf8[8];
-    int count;
-
-    if (character >= 0xd800u && character <= 0xdbffu) {
-        host->pending_high_surrogate = character;
-        return;
-    }
-    if (character >= 0xdc00u && character <= 0xdfffu &&
-        host->pending_high_surrogate != 0) {
-        source[0] = host->pending_high_surrogate;
-        source[1] = character;
-        source_count = 2;
-        host->pending_high_surrogate = 0;
-    } else {
-        host->pending_high_surrogate = 0;
-        source[0] = character;
-    }
-    count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, source,
-                                source_count, (char *)utf8, sizeof(utf8), NULL,
-                                NULL);
-    if (count > 0) noctty_write_terminal(host, utf8, (size_t)count);
+    size_t count = noctty_windows_encode_utf16_input(
+        (uint16_t)character, (uint16_t *)&host->pending_high_surrogate,
+        utf8, sizeof(utf8));
+    if (count != 0) (void)noctty_write_terminal(host, utf8, count);
 }
 
 static void noctty_paste_clipboard(NocttyWindowsHost *host) {
@@ -2161,7 +1950,7 @@ static void noctty_cleanup(NocttyWindowsHost *host) {
     if (host->font_normal != NULL) DeleteObject(host->font_normal);
     if (host->font_bold != NULL) DeleteObject(host->font_bold);
     noctty_log("windows_exit clean=true\r\n");
-    noctty_close_handle(&noctty_log_file);
+    noctty_windows_diagnostics_deinit();
 }
 
 static void noctty_drain_remote_input(NocttyWindowsHost *host) {
@@ -2359,9 +2148,4 @@ finished:
     noctty_cleanup(host);
     HeapFree(GetProcessHeap(), 0, host);
     return exit_code;
-}
-
-void noctty_windows_show_version(HINSTANCE instance, const wchar_t *version) {
-    (void)instance;
-    MessageBoxW(NULL, version, L"NOCTTY", MB_OK | MB_ICONINFORMATION);
 }
