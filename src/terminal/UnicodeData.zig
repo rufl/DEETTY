@@ -1,5 +1,5 @@
 //! Generated from pinned Unicode 17.0.0 data. Do not edit.
-//! Regenerate with tools/generate_terminal_unicode.py.
+//! Regenerate with tools/generate_terminal_unicode.zig.
 
 pub const unicode_version = "17.0.0";
 

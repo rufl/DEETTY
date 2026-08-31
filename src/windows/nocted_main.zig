@@ -418,9 +418,27 @@ const Callbacks = extern struct {
 };
 
 extern fn nocted_windows_host_run(windows.HINSTANCE, c_int, *const Callbacks) c_int;
-extern fn nocted_windows_session_path([*]u8, usize) c_int;
-extern fn nocted_windows_has_argument([*:0]const u16) c_int;
-extern fn nocted_windows_show_message([*:0]const u16, c_int) void;
+extern "user32" fn MessageBoxW(
+    ?windows.HWND,
+    [*:0]const u16,
+    [*:0]const u16,
+    windows.UINT,
+) callconv(.winapi) c_int;
+extern "shell32" fn CommandLineToArgvW([*:0]const u16, *c_int) callconv(.winapi) ?[*][*:0]u16;
+extern "kernel32" fn GetCommandLineW() callconv(.winapi) [*:0]const u16;
+extern "kernel32" fn GetEnvironmentVariableW(
+    [*:0]const u16,
+    [*]u16,
+    windows.DWORD,
+) callconv(.winapi) windows.DWORD;
+extern "kernel32" fn CreateDirectoryW([*:0]const u16, ?*anyopaque) callconv(.winapi) windows.BOOL;
+extern "kernel32" fn GetLastError() callconv(.winapi) windows.DWORD;
+extern "kernel32" fn LocalFree(?*anyopaque) callconv(.winapi) ?*anyopaque;
+
+const error_already_exists: windows.DWORD = 183;
+const message_ok: windows.UINT = 0;
+const message_icon_error: windows.UINT = 0x10;
+const windows_path_capacity: usize = 32_768;
 
 fn appFromOpaque(raw: ?*anyopaque) *EditorApp {
     return @ptrCast(@alignCast(raw.?));
@@ -618,10 +636,126 @@ fn setEditorFontSizeCallback(raw: ?*anyopaque, value: c_int) callconv(.c) c_int 
 }
 
 fn windowsSessionPathAlloc() ![]u8 {
-    var buffer: [std.fs.max_path_bytes]u8 = undefined;
-    const length = nocted_windows_session_path(&buffer, buffer.len);
-    if (length <= 0) return error.SessionPathUnavailable;
-    return allocator.dupe(u8, buffer[0..@intCast(length)]);
+    var path: [windows_path_capacity:0]u16 = undefined;
+    const local_app_data = std.unicode.utf8ToUtf16LeStringLiteral("LOCALAPPDATA");
+    const directory_name = std.unicode.utf8ToUtf16LeStringLiteral("\\NOCTTY");
+    const editor_name = std.unicode.utf8ToUtf16LeStringLiteral("\\NoctEd");
+    const session_name = std.unicode.utf8ToUtf16LeStringLiteral("\\session.conf");
+    const base_length = GetEnvironmentVariableW(local_app_data, &path, path.len);
+    if (base_length == 0 or base_length >= path.len) return error.SessionPathUnavailable;
+
+    var length: usize = base_length;
+    try appendWindowsPath(&path, &length, directory_name);
+    if (!CreateDirectoryW(&path, null).toBool() and GetLastError() != error_already_exists)
+        return error.SessionDirectoryUnavailable;
+    try appendWindowsPath(&path, &length, editor_name);
+    if (!CreateDirectoryW(&path, null).toBool() and GetLastError() != error_already_exists)
+        return error.SessionDirectoryUnavailable;
+    try appendWindowsPath(&path, &length, session_name);
+
+    const output = try allocator.alloc(u8, length * 3);
+    const output_length = std.unicode.wtf16LeToWtf8(output, path[0..length]);
+    return allocator.realloc(output, output_length);
+}
+
+fn appendWindowsPath(
+    path: *[windows_path_capacity:0]u16,
+    length: *usize,
+    suffix: []const u16,
+) !void {
+    if (length.* + suffix.len + 1 >= path.len) return error.SessionPathTooLong;
+    @memcpy(path[length.*..][0..suffix.len], suffix);
+    length.* += suffix.len;
+    path[length.*] = 0;
+}
+
+fn hasWindowsArgument(expected: []const u16) bool {
+    var count: c_int = 0;
+    const arguments = CommandLineToArgvW(GetCommandLineW(), &count) orelse return false;
+    defer _ = LocalFree(@ptrCast(arguments));
+    if (count <= 1) return false;
+    for (arguments[1..@intCast(count)]) |argument| {
+        if (std.mem.eql(u16, std.mem.span(argument), expected)) return true;
+    }
+    return false;
+}
+
+fn showWindowsMessage(message: [*:0]const u16, is_error: bool) void {
+    _ = MessageBoxW(
+        null,
+        message,
+        std.unicode.utf8ToUtf16LeStringLiteral("NoctEd"),
+        message_ok | if (is_error) message_icon_error else 0,
+    );
+}
+
+fn wideToWtf8Alloc(wide: []const u16) ![]u8 {
+    const output = try allocator.alloc(u8, @max(wide.len * 3, 1));
+    const length = std.unicode.wtf16LeToWtf8(output, wide);
+    return allocator.realloc(output, length);
+}
+
+fn applyWindowsLaunchArguments(app: *EditorApp) void {
+    var count: c_int = 0;
+    const arguments = CommandLineToArgvW(GetCommandLineW(), &count) orelse return;
+    defer _ = LocalFree(@ptrCast(arguments));
+
+    var index: usize = 1;
+    const count_usize: usize = @intCast(@max(count, 0));
+    while (index < count_usize) : (index += 1) {
+        const argument = std.mem.span(arguments[index]);
+        if (std.mem.eql(u16, argument, std.unicode.utf8ToUtf16LeStringLiteral("--self-test")))
+            continue;
+
+        var project = false;
+        if (std.mem.eql(u16, argument, std.unicode.utf8ToUtf16LeStringLiteral("--project"))) {
+            project = true;
+            index += 1;
+            if (index >= count_usize) {
+                showWindowsMessage(
+                    std.unicode.utf8ToUtf16LeStringLiteral("--project requires a project path."),
+                    true,
+                );
+                return;
+            }
+        } else if (std.mem.eql(u16, argument, std.unicode.utf8ToUtf16LeStringLiteral("--open"))) {
+            index += 1;
+            if (index >= count_usize) {
+                showWindowsMessage(
+                    std.unicode.utf8ToUtf16LeStringLiteral("--open requires a file path."),
+                    true,
+                );
+                return;
+            }
+        } else if (argument.len != 0 and argument[0] == '-') {
+            showWindowsMessage(
+                std.unicode.utf8ToUtf16LeStringLiteral("Unknown NoctEd command-line option."),
+                true,
+            );
+            return;
+        }
+
+        const path = wideToWtf8Alloc(std.mem.span(arguments[index])) catch continue;
+        defer allocator.free(path);
+        if (project) {
+            app.openProjectFile(path) catch |err| {
+                app.setError("Could not open the project", err);
+                showWindowsMessage(
+                    std.unicode.utf8ToUtf16LeStringLiteral("The project could not be opened."),
+                    true,
+                );
+            };
+        } else {
+            _ = app.openDocument(path) catch |err| {
+                app.setError("Could not open the file", err);
+                showWindowsMessage(
+                    std.unicode.utf8ToUtf16LeStringLiteral("The file could not be opened."),
+                    true,
+                );
+                continue;
+            };
+        }
+    }
 }
 
 fn selfTest(io: std.Io, session_path: []const u8) !void {
@@ -675,21 +809,30 @@ pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.
     defer threaded.deinit();
     const io = threaded.io();
 
-    if (nocted_windows_has_argument(std.unicode.utf8ToUtf16LeStringLiteral("--self-test")) != 0) {
+    if (hasWindowsArgument(std.unicode.utf8ToUtf16LeStringLiteral("--self-test"))) {
         const session_path = windowsSessionPathAlloc() catch return 1;
         defer allocator.free(session_path);
         selfTest(io, session_path) catch {
-            nocted_windows_show_message(std.unicode.utf8ToUtf16LeStringLiteral("NoctEd document bridge self-test failed."), 1);
+            showWindowsMessage(
+                std.unicode.utf8ToUtf16LeStringLiteral("NoctEd document bridge self-test failed."),
+                true,
+            );
             return 1;
         };
         return 0;
     }
 
     var app = EditorApp.init(io) catch {
-        nocted_windows_show_message(std.unicode.utf8ToUtf16LeStringLiteral("NoctEd could not initialize its document session."), 1);
+        showWindowsMessage(
+            std.unicode.utf8ToUtf16LeStringLiteral(
+                "NoctEd could not initialize its document session.",
+            ),
+            true,
+        );
         return 1;
     };
     defer app.deinit();
+    applyWindowsLaunchArguments(&app);
     const callbacks = Callbacks{
         .userdata = &app,
         .new_document = newDocumentCallback,

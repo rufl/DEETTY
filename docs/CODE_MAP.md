@@ -62,6 +62,8 @@ zig build run-nocted -- --project . --open README.md
   screen state.
 - `src/terminal/VtParser.zig` — terminal escape/control parser.
 - `src/terminal/Unicode.zig` — Unicode width/encoding helpers used by the grid.
+- `tools/generate_terminal_unicode.zig` — offline bounded Unicode 17 table
+  generator with pinned input/output SHA-256 verification.
 - `src/terminal/Pty.zig`: PTY/session wrapper plus foreground `/proc` metadata
   and shared app/pane process-tree resource sampling; fixed-argv fork/exec,
   descriptor I/O, resize, wait, and process-group teardown are Zig-owned.
@@ -73,6 +75,10 @@ zig build run-nocted -- --project . --open README.md
 - `src/nocted/main.zig` — standalone GTK app wiring. It is intentionally large
   today: GUI construction, callbacks, file/project actions, smoke flows, and
   app lifecycle live together for alpha.
+- `src/windows/nocted_main.zig` and `src/windows/nocted_host.c` — experimental
+  Windows NoctEd model/bootstrap and Win32 control adapter. Session-path,
+  command-line, UTF-16/WTF-8 bootstrap, and bootstrap error dialogs are Zig;
+  native RichEdit/tree/tab control lifetimes remain in the adapter.
 - `src/nocted/root.zig` — import root for reusable NoctEd core modules.
 - `src/nocted/Worker.zig` — GLib worker-job model for project scans,
   searches, document load/save, cancellation, lane admission, queue limits, and

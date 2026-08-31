@@ -68,6 +68,12 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    const unicode_generator_mod = b.createModule(.{
+        .root_source_file = b.path("tools/generate_terminal_unicode.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
@@ -514,12 +520,23 @@ pub fn build(b: *std.Build) void {
         .use_llvm = true,
     });
     const run_vte_host_tests = b.addRunArtifact(vte_host_tests);
+    const unicode_generator_tests = b.addTest(.{
+        .root_module = unicode_generator_mod,
+        .use_llvm = true,
+    });
+    const run_unicode_generator_tests = b.addRunArtifact(unicode_generator_tests);
+    const unicode_generator_exe = b.addExecutable(.{
+        .name = "noctty-unicode-generator",
+        .root_module = unicode_generator_mod,
+        .use_llvm = true,
+    });
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
     test_step.dependOn(&run_nocted_tests.step);
     test_step.dependOn(&run_ghostty_vt_public_tests.step);
     test_step.dependOn(&run_vte_host_tests.step);
+    test_step.dependOn(&run_unicode_generator_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -531,6 +548,8 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_nocted_tests.step);
     check_step.dependOn(&run_ghostty_vt_public_tests.step);
     check_step.dependOn(&run_vte_host_tests.step);
+    check_step.dependOn(&run_unicode_generator_tests.step);
+    check_step.dependOn(&unicode_generator_exe.step);
 }
 
 fn addWindowsBuild(

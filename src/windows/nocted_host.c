@@ -9,8 +9,6 @@
 #include <commctrl.h>
 #include <commdlg.h>
 #include <richedit.h>
-#include <shellapi.h>
-#include <shlobj.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -142,44 +140,6 @@ static void show_error(NoctedHost *host, const wchar_t *fallback) {
                 detail != NULL && detail[0] != L'\0' ? detail : fallback,
                 L"NoctEd", MB_OK | MB_ICONERROR);
     free(detail);
-}
-
-void nocted_windows_show_message(const wchar_t *message, int is_error) {
-    MessageBoxW(NULL, message, L"NoctEd",
-                MB_OK | (is_error ? MB_ICONERROR : MB_ICONINFORMATION));
-}
-
-int nocted_windows_has_argument(const wchar_t *argument) {
-    int count = 0, index, found = 0;
-    LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &count);
-    if (arguments == NULL) return 0;
-    for (index = 1; index < count; index++)
-        if (wcscmp(arguments[index], argument) == 0) { found = 1; break; }
-    LocalFree(arguments);
-    return found;
-}
-
-int nocted_windows_session_path(uint8_t *output, size_t capacity) {
-    wchar_t base[32768], directory[32768], editor[32768], session[32768];
-    DWORD length;
-    int count;
-    length = GetEnvironmentVariableW(L"LOCALAPPDATA", base,
-                                     (DWORD)(sizeof(base) / sizeof(base[0])));
-    if (length == 0 || length >= (DWORD)(sizeof(base) / sizeof(base[0]))) return 0;
-    if (wcslen(base) + 8u >= sizeof(directory) / sizeof(directory[0])) return 0;
-    wcscpy(directory, base); wcscat(directory, L"\\NOCTTY");
-    if (!CreateDirectoryW(directory, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return 0;
-    if (wcslen(directory) + 9u >= sizeof(editor) / sizeof(editor[0])) return 0;
-    wcscpy(editor, directory); wcscat(editor, L"\\NoctEd");
-    if (!CreateDirectoryW(editor, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) return 0;
-    if (wcslen(editor) + 14u >= sizeof(session) / sizeof(session[0])) return 0;
-    wcscpy(session, editor); wcscat(session, L"\\session.conf");
-    count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, session, -1,
-                                NULL, 0, NULL, NULL);
-    if (count <= 1 || (size_t)count > capacity) return 0;
-    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, session, -1,
-                            (char *)output, count, NULL, NULL) != count) return 0;
-    return count - 1;
 }
 
 static UINT window_dpi(HWND window) {
@@ -714,29 +674,6 @@ static void open_tree_selection(NoctedHost *host) {
     nocted_sync(host);
 }
 
-static void parse_launch(NoctedHost *host) {
-    int count = 0, index; LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &count);
-    if (arguments == NULL) return;
-    for (index = 1; index < count; index++) {
-        int project = 0, result; const wchar_t *path; uint8_t *utf8; size_t length;
-        if (wcscmp(arguments[index], L"--self-test") == 0) continue;
-        if (wcscmp(arguments[index], L"--project") == 0) {
-            project = 1; if (++index >= count) { MessageBoxW(host->window,
-                L"--project requires a folder path.", L"NoctEd", MB_OK | MB_ICONERROR); break; }
-        } else if (wcscmp(arguments[index], L"--open") == 0) {
-            if (++index >= count) { MessageBoxW(host->window,
-                L"--open requires a file path.", L"NoctEd", MB_OK | MB_ICONERROR); break; }
-        } else if (arguments[index][0] == L'-') {
-            MessageBoxW(host->window, L"Unknown NoctEd command-line option.", L"NoctEd", MB_OK | MB_ICONERROR); break;
-        }
-        path = arguments[index]; utf8 = wide_to_utf8(path, &length); if (utf8 == NULL) continue;
-        result = project ? host->callbacks->open_project(host->callbacks->userdata, utf8, length)
-                         : host->callbacks->open_document(host->callbacks->userdata, utf8, length);
-        free(utf8); if (result < 0) show_error(host, project ? L"The folder could not be opened." : L"The file could not be opened.");
-    }
-    LocalFree(arguments); nocted_sync(host);
-}
-
 static int create_menu(NoctedHost *host) {
     HMENU menu = CreateMenu();
     HMENU file = CreatePopupMenu();
@@ -979,7 +916,6 @@ int nocted_windows_host_run(HINSTANCE instance, int show_command,
     }
     host.accelerators = create_accelerators();
     nocted_sync(&host);
-    parse_launch(&host);
     ShowWindow(window, show_command == 0 ? SW_SHOWNORMAL : show_command);
     UpdateWindow(window);
     while ((result = GetMessageW(&message, NULL, 0, 0)) > 0) {

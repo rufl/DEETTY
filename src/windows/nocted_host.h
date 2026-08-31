@@ -42,8 +42,5 @@ typedef struct {
 
 int nocted_windows_host_run(HINSTANCE instance, int show_command,
                             const NoctedWindowsCallbacks *callbacks);
-int nocted_windows_session_path(uint8_t *output, size_t capacity);
-int nocted_windows_has_argument(const wchar_t *argument);
-void nocted_windows_show_message(const wchar_t *message, int error_message);
 
 #endif

@@ -4,6 +4,13 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Replaced the Python Unicode table generator with a bounded, hash-verifying
+  Zig tool and added its parser/merge/hash tests to `zig build check`. The
+  generated table now records the Zig regeneration command while retaining its
+  pinned Unicode 17 input/output contract. Windows NoctEd startup also moved
+  session-path creation, command-line handling, UTF-16/WTF-8 conversion, and
+  bootstrap error dialogs from its C host into Zig.
+
 - Ported the first-party session-sharing socket implementation and Windows
   DPAPI/state persistence from C to Zig. The transport now uses typed slices
   and explicit socket ownership while retaining bounded connect/I/O timeouts,
