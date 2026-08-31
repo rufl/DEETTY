@@ -25,17 +25,26 @@ stability=scripts/native_grid_stability_qualification.sh
 windows_host=src/windows/native_host.c
 windows_main=src/windows/main.zig
 windows_nocted=src/windows/nocted_main.zig
+windows_nocted_host=src/windows/NoctedHost.zig
+windows_nocted_qualification=src/windows/NoctedHostQualification.zig
 windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
+windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_nocted" "$windows_package" "$windows_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
   test -s "$path"
 done
 
-test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 3
-test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" \
-  ! -path src/windows/nocted_host.c | wc -l | tr -d ' ')" -eq 0
+test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 2
+test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
+test ! -e src/windows/nocted_host.c
+test ! -e src/windows/nocted_host.h
+grep -F 'pub const Callbacks = extern struct {' "$windows_nocted_host" >/dev/null
+grep -F 'pub fn run(' "$windows_nocted_host" >/dev/null
+grep -F 'instance: windows.HINSTANCE' "$windows_nocted_host" >/dev/null
+grep -F 'return NoctedHost.run(instance, show_command, &callbacks, false);' "$windows_nocted" >/dev/null
+grep -F 'return Host.run(instance, show_command, &callbacks, true);' "$windows_nocted_qualification" >/dev/null
 
 grep -F '#define NOCTTY_NATIVE_GRID_ABI_VERSION 6u' "$grid_abi" >/dev/null
 grep -F 'pub const version: u32 = 6;' "$grid_abi_zig" >/dev/null
@@ -172,6 +181,7 @@ grep -F 'telemetry=false uploads=false' "$windows_host" >/dev/null
 grep -F -- '-Dtarget=x86_64-windows-gnu' "$windows_package" >/dev/null
 grep -F 'physical_windows_validation=false' "$windows_package" >/dev/null
 grep -F 'windows_smoke self_test=true' "$windows_smoke" >/dev/null
+grep -F 'windows_nocted_zig_smoke cross_compile=true wine=true mapped=true' "$windows_nocted_zig_smoke" >/dev/null
 
 grep -F 'setAccessibleName(self.notebook, "Open files");' "$nocted" >/dev/null
 grep -F 'setAccessibleName(self.window, "NoctEd editor window");' "$nocted" >/dev/null
@@ -213,4 +223,4 @@ grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_conpty=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_abi=true'
+echo 'native_layout gtk_host_c=true windows_host_c=true windows_nocted_zig=true windows_conpty=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_abi=true'

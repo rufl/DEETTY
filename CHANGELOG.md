@@ -4,6 +4,15 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Ported the complete experimental Windows NoctEd controls adapter from C to
+  Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab
+  HWNDs, GDI fonts, menus, accelerators, settings/find dialogs, DPI layout,
+  document-close confirmation, UTF conversion, and the Win32 message loop. A
+  dedicated mock-callback qualification builds the real controls and is ready
+  to perform a controlled close under isolated Wine; its current-source mapped
+  run deferred fail-closed at the display wrapper's I/O-pressure gate, and
+  physical Windows behavior remains a separate acceptance boundary.
+
 - Replaced the Python Unicode table generator with a bounded, hash-verifying
   Zig tool and added its parser/merge/hash tests to `zig build check`. The
   generated table now records the Zig regeneration command while retaining its

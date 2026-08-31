@@ -75,10 +75,12 @@ zig build run-nocted -- --project . --open README.md
 - `src/nocted/main.zig` — standalone GTK app wiring. It is intentionally large
   today: GUI construction, callbacks, file/project actions, smoke flows, and
   app lifecycle live together for alpha.
-- `src/windows/nocted_main.zig` and `src/windows/nocted_host.c` — experimental
-  Windows NoctEd model/bootstrap and Win32 control adapter. Session-path,
-  command-line, UTF-16/WTF-8 bootstrap, and bootstrap error dialogs are Zig;
-  native RichEdit/tree/tab control lifetimes remain in the adapter.
+- `src/windows/nocted_main.zig` and `src/windows/NoctedHost.zig` — fully Zig
+  experimental Windows NoctEd model/bootstrap and Win32 controls adapter. The
+  adapter owns RichEdit/tree/tab HWNDs, GDI fonts, menus, accelerators, dialogs,
+  DPI layout, UTF conversion, and the message loop behind bounded callbacks.
+  `src/windows/NoctedHostQualification.zig` supplies the isolated mapped
+  mock-callback lifecycle harness; current proof status remains in the backlog.
 - `src/nocted/root.zig` — import root for reusable NoctEd core modules.
 - `src/nocted/Worker.zig` — GLib worker-job model for project scans,
   searches, document load/save, cancellation, lane admission, queue limits, and

@@ -93,15 +93,18 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
 - [ ] [status:yellow] Move first-party platform behavior into Zig without
   replacing stable, focused native qualifications with percentage-driven
   rewrites. Session-sharing sockets, Windows DPAPI/state persistence, the
-  pinned offline Unicode generator, and Windows NoctEd bootstrap/session-path/
-  command-line handling are now Zig-owned. They retain Linux
+  pinned offline Unicode generator, and the complete Windows NoctEd model plus
+  Win32 controls/message-loop host are now Zig-owned. They retain Linux
   loopback/discovery plus generator tests and Windows `ReleaseSafe`
-  cross-compilation. Remaining C translation units are the GTK
-  native-grid adapter and the experimental Win32 terminal and NoctEd UI hosts.
-  Migrate those incrementally behind their existing ABI contracts; keep
+  cross-compilation. A dedicated isolated Wine controls/message-loop smoke is
+  present, but the current-source rerun deferred fail-closed at the display
+  wrapper's I/O-pressure gate. Remaining C translation units are the GTK
+  native-grid adapter and the experimental Win32 terminal/ConPTY host. Migrate those
+  incrementally behind their existing ABI contracts; keep
   generated vendored Tree-sitter parsers, system headers, and display-isolation
   shell orchestration outside the source-percentage target. Physical Windows
-  behavior and isolated mapped GTK proof remain required before retiring each
+  behavior, a current-source mapped Wine rerun, and isolated mapped GTK proof
+  remain required before retiring each
   adapter. `[truth:build,test,docs]`
 
 ## Release Operations

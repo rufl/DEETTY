@@ -1,6 +1,7 @@
 const std = @import("std");
 const windows = std.os.windows;
 const core = @import("nocted_core");
+const NoctedHost = @import("NoctedHost.zig");
 const log = std.log.scoped(.nocted_windows);
 
 const allocator = std.heap.page_allocator;
@@ -374,50 +375,7 @@ const EditorApp = struct {
     }
 };
 
-const NewDocument = *const fn (?*anyopaque) callconv(.c) c_int;
-const PathCommand = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
-const ProjectEntryCommand = *const fn (?*anyopaque, usize) callconv(.c) c_int;
-const SaveDocument = *const fn (?*anyopaque, ?[*]const u8, usize) callconv(.c) c_int;
-const CloseDocument = *const fn (?*anyopaque, usize, c_int) callconv(.c) c_int;
-const DiscardDocument = *const fn (?*anyopaque, usize) callconv(.c) c_int;
-const ActivateDocument = *const fn (?*anyopaque, usize) callconv(.c) c_int;
-const ReplaceContents = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
-const Count = *const fn (?*anyopaque) callconv(.c) usize;
-const TabTitle = *const fn (?*anyopaque, usize, [*]u8, usize, *c_int, *c_int) callconv(.c) usize;
-const CopyBytes = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) usize;
-const ProjectEntry = *const fn (?*anyopaque, usize, [*]u8, usize, *usize, *c_int) callconv(.c) usize;
-const Persist = *const fn (?*anyopaque) callconv(.c) c_int;
-const GetInt = *const fn (?*anyopaque) callconv(.c) c_int;
-const SetInt = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
-
-const Callbacks = extern struct {
-    abi_version: u32 = 3,
-    userdata: ?*anyopaque,
-    new_document: NewDocument,
-    open_document: PathCommand,
-    open_project: PathCommand,
-    open_project_entry: ProjectEntryCommand,
-    save_document: SaveDocument,
-    close_document: CloseDocument,
-    discard_document: DiscardDocument,
-    activate_document: ActivateDocument,
-    replace_contents: ReplaceContents,
-    tab_count: Count,
-    active_tab: Count,
-    tab_title: TabTitle,
-    active_content_length: Count,
-    active_content: CopyBytes,
-    active_path: CopyBytes,
-    project_name: CopyBytes,
-    project_entry_count: Count,
-    project_entry: ProjectEntry,
-    last_error: CopyBytes,
-    persist_session: Persist,
-    editor_font_size: GetInt,
-    set_editor_font_size: SetInt,
-};
-
-extern fn nocted_windows_host_run(windows.HINSTANCE, c_int, *const Callbacks) c_int;
+const Callbacks = NoctedHost.Callbacks;
 extern "user32" fn MessageBoxW(
     ?windows.HWND,
     [*:0]const u16,
@@ -669,15 +627,11 @@ fn appendWindowsPath(
     path[length.*] = 0;
 }
 
-fn hasWindowsArgument(expected: []const u16) bool {
-    var count: c_int = 0;
-    const arguments = CommandLineToArgvW(GetCommandLineW(), &count) orelse return false;
-    defer _ = LocalFree(@ptrCast(arguments));
-    if (count <= 1) return false;
-    for (arguments[1..@intCast(count)]) |argument| {
-        if (std.mem.eql(u16, std.mem.span(argument), expected)) return true;
+fn windowsCommandEquals(command_line: [*:0]const u16, expected: []const u16) bool {
+    for (expected, 0..) |unit, index| {
+        if (command_line[index] != unit) return false;
     }
-    return false;
+    return command_line[expected.len] == 0;
 }
 
 fn showWindowsMessage(message: [*:0]const u16, is_error: bool) void {
@@ -704,8 +658,11 @@ fn applyWindowsLaunchArguments(app: *EditorApp) void {
     const count_usize: usize = @intCast(@max(count, 0));
     while (index < count_usize) : (index += 1) {
         const argument = std.mem.span(arguments[index]);
-        if (std.mem.eql(u16, argument, std.unicode.utf8ToUtf16LeStringLiteral("--self-test")))
-            continue;
+        if (std.mem.eql(
+            u16,
+            argument,
+            std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
+        )) continue;
 
         var project = false;
         if (std.mem.eql(u16, argument, std.unicode.utf8ToUtf16LeStringLiteral("--project"))) {
@@ -802,39 +759,13 @@ fn selfTest(io: std.Io, session_path: []const u8) !void {
         return error.EditorFontSettingsMismatch;
 }
 
-pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.HINSTANCE, command_line: [*:0]u16, show_command: c_int) callconv(.c) c_int {
-    _ = previous_instance;
-    _ = command_line;
-    var threaded: std.Io.Threaded = .init(allocator, .{});
-    defer threaded.deinit();
-    const io = threaded.io();
-
-    if (hasWindowsArgument(std.unicode.utf8ToUtf16LeStringLiteral("--self-test"))) {
-        const session_path = windowsSessionPathAlloc() catch return 1;
-        defer allocator.free(session_path);
-        selfTest(io, session_path) catch {
-            showWindowsMessage(
-                std.unicode.utf8ToUtf16LeStringLiteral("NoctEd document bridge self-test failed."),
-                true,
-            );
-            return 1;
-        };
-        return 0;
-    }
-
-    var app = EditorApp.init(io) catch {
-        showWindowsMessage(
-            std.unicode.utf8ToUtf16LeStringLiteral(
-                "NoctEd could not initialize its document session.",
-            ),
-            true,
-        );
-        return 1;
-    };
-    defer app.deinit();
-    applyWindowsLaunchArguments(&app);
+fn runWindowsHost(
+    instance: windows.HINSTANCE,
+    show_command: c_int,
+    app: *EditorApp,
+) c_int {
     const callbacks = Callbacks{
-        .userdata = &app,
+        .userdata = app,
         .new_document = newDocumentCallback,
         .open_document = openDocumentCallback,
         .open_project = openProjectCallback,
@@ -858,5 +789,40 @@ pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.
         .editor_font_size = editorFontSizeCallback,
         .set_editor_font_size = setEditorFontSizeCallback,
     };
-    return nocted_windows_host_run(instance, show_command, &callbacks);
+    return NoctedHost.run(instance, show_command, &callbacks, false);
+}
+
+pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.HINSTANCE, command_line: [*:0]u16, show_command: c_int) callconv(.c) c_int {
+    _ = previous_instance;
+    var threaded: std.Io.Threaded = .init(allocator, .{});
+    defer threaded.deinit();
+    const io = threaded.io();
+    if (windowsCommandEquals(
+        command_line,
+        std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
+    )) {
+        const session_path = windowsSessionPathAlloc() catch return 1;
+        defer allocator.free(session_path);
+        selfTest(io, session_path) catch {
+            showWindowsMessage(
+                std.unicode.utf8ToUtf16LeStringLiteral("NoctEd document bridge self-test failed."),
+                true,
+            );
+            return 1;
+        };
+        return 0;
+    }
+
+    var app = EditorApp.init(io) catch {
+        showWindowsMessage(
+            std.unicode.utf8ToUtf16LeStringLiteral(
+                "NoctEd could not initialize its document session.",
+            ),
+            true,
+        );
+        return 1;
+    };
+    defer app.deinit();
+    applyWindowsLaunchArguments(&app);
+    return runWindowsHost(instance, show_command, &app);
 }

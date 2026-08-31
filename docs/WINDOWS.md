@@ -156,6 +156,13 @@ Size…** accepts an exact size from 8 to 32 points. The status bar reports the
 current size, which is restored from
 `%LOCALAPPDATA%\NOCTTY\NoctEd\settings.conf` on the next launch.
 
+The Win32 controls adapter is Zig-owned. Its focused isolated Wine
+qualification cross-compiles a mock-callback host and is designed to map the
+real RichEdit/tree/tab controls, enter the message loop, and perform a
+controlled close in Debug and `ReleaseSafe`. The current-source mapped rerun
+was pressure-deferred, so only cross-compilation is retained here; physical
+Windows input, rendering, file dialogs, and persistence remain unproved.
+
 ## Pair and share a terminal
 
 Pairing is explicit on both devices. The first command listens on `PORT` and

@@ -583,19 +583,6 @@ fn addWindowsBuild(
         .strip = strip,
     });
     nocted_windows_mod.addImport("nocted_core", nocted_core_mod);
-    nocted_windows_mod.addCSourceFile(.{
-        .file = b.path("src/windows/nocted_host.c"),
-        .flags = &.{
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Wconversion",
-            "-Wsign-conversion",
-            "-Wshadow",
-            "-Wformat",
-            "-Werror",
-        },
-    });
     nocted_windows_mod.linkSystemLibrary("kernel32", .{});
     nocted_windows_mod.linkSystemLibrary("user32", .{});
     nocted_windows_mod.linkSystemLibrary("gdi32", .{});
@@ -656,6 +643,30 @@ fn addWindowsBuild(
     nocted_executable.subsystem = .windows;
     nocted_executable.mingw_unicode_entry_point = true;
     b.installArtifact(nocted_executable);
+
+    const nocted_host_qualification_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/NoctedHostQualification.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .strip = strip,
+    });
+    nocted_host_qualification_mod.linkSystemLibrary("kernel32", .{});
+    nocted_host_qualification_mod.linkSystemLibrary("user32", .{});
+    nocted_host_qualification_mod.linkSystemLibrary("gdi32", .{});
+    nocted_host_qualification_mod.linkSystemLibrary("comctl32", .{});
+    nocted_host_qualification_mod.linkSystemLibrary("comdlg32", .{});
+    nocted_host_qualification_mod.linkSystemLibrary("ole32", .{});
+    const nocted_host_qualification_executable = b.addExecutable(.{
+        .name = "nocted-host-qualification",
+        .root_module = nocted_host_qualification_mod,
+    });
+    nocted_host_qualification_executable.subsystem = .windows;
+    nocted_host_qualification_executable.mingw_unicode_entry_point = true;
+    const install_nocted_host_qualification = b.addInstallArtifact(
+        nocted_host_qualification_executable,
+        .{},
+    );
     b.installFile("LICENSE", "share/licenses/noctty/LICENSE");
     b.installFile(
         "THIRD_PARTY_NOTICES.md",
@@ -668,12 +679,19 @@ fn addWindowsBuild(
     );
     check_step.dependOn(&executable.step);
     check_step.dependOn(&nocted_executable.step);
+    check_step.dependOn(&nocted_host_qualification_executable.step);
 
     const windows_step = b.step(
         "windows",
         "Build the experimental native Windows NOCTTY host",
     );
     windows_step.dependOn(b.getInstallStep());
+
+    const nocted_host_qualification_step = b.step(
+        "windows-nocted-host-qualification",
+        "Build the mapped Zig Win32 NoctEd host qualification",
+    );
+    nocted_host_qualification_step.dependOn(&install_nocted_host_qualification.step);
 }
 
 fn addTreeSitterSources(b: *std.Build, module: *std.Build.Module) void {
