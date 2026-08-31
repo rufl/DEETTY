@@ -55,10 +55,11 @@ parity with the current Linux workspace.
 
 ConPTY pipes, the shell process, reader thread, synchronized 1 MiB output ring,
 resize/exit polling, Unicode clipboard global memory, native-menu state,
-DPI-aware font creation/metrics, preference normalization, local diagnostics,
-and sibling NoctEd launch are Zig-owned platform adapters. The remaining C host
-is limited to GDI cell drawing, HWND/timer ownership, and window-message/command
-dispatch behind the existing ABI.
+DPI-aware font creation/metrics, preference normalization, bounded window
+titles, the double-buffered GDI renderer, local diagnostics, and sibling NoctEd
+launch are Zig-owned platform adapters. The remaining C host is limited to
+HWND/timer ownership, input/workspace-session orchestration, and
+window-message/command dispatch behind the existing ABI.
 
 ## Requirements
 

@@ -105,9 +105,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   special keys, and UTF-16 assembly to tested Zig exports. Zig also owns ConPTY
   pipes/process/thread teardown, the bounded output ring, Unicode clipboard
   memory, sibling-process launch, native-menu construction/state, DPI-aware GDI
-  fonts/metrics, preference normalization, local logs, and minidumps. C still
-  owns cell drawing, timer objects, command/window-message dispatch, and the
-  main HWND.
+  fonts/metrics, preference normalization, bounded window titles, the complete
+  double-buffered GDI terminal renderer, local logs, and minidumps. C still
+  owns timer objects, input/workspace-session orchestration,
+  command/window-message dispatch, and the main HWND.
   Migrate those incrementally behind their existing ABI contracts; keep
   generated vendored Tree-sitter parsers, system headers, and display-isolation
   shell orchestration outside the source-percentage target. Physical Windows

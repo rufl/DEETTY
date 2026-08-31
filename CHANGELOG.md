@@ -11,9 +11,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   the synchronized bounded output ring, resize and exit polling, Unicode
   clipboard transfers, sibling NoctEd process launch, native-menu
   construction/state, DPI-aware GDI font creation/metrics, persisted-preference
-  normalization, the version dialog, local-only logging, and minidumps. The
-  shrinking C adapter retains cell drawing, main HWND/timer ownership, and
-  window-message/command dispatch.
+  normalization, bounded UTF-8 window titles, the complete double-buffered GDI
+  terminal renderer, the version dialog, local-only logging, and minidumps. The
+  shrinking C adapter retains main HWND/timer ownership plus input,
+  workspace-session, and window-message/command dispatch.
 
 - Ported the complete experimental Windows NoctEd controls adapter from C to
   Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab

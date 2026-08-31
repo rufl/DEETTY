@@ -1,9 +1,9 @@
 //! Experimental Windows executable and Zig side of the Win32 host ABI.
 //!
 //! The shared VT and sharing models remain platform-neutral. Win32 windows,
-//! ConPTY and clipboard handles belong to focused Zig adapters; the remaining
-//! GDI/window adapter stays isolated in `native_host.c`. Keep GTK and POSIX-only
-//! state out of this build target.
+//! ConPTY, clipboard, menu, font, title, and GDI rendering belong to focused
+//! Zig adapters. The shrinking C boundary retains HWND/message orchestration;
+//! keep GTK and POSIX-only state out of this build target.
 
 const std = @import("std");
 const windows = std.os.windows;
@@ -18,9 +18,12 @@ const WindowsClipboard = @import("WindowsClipboard.zig");
 const WindowsProcess = @import("WindowsProcess.zig");
 const WindowsMenu = @import("WindowsMenu.zig");
 const WindowsFonts = @import("WindowsFonts.zig");
+const WindowsTitle = @import("WindowsTitle.zig");
+const WindowsRenderer = @import("WindowsRenderer.zig");
 const Dpapi = @import("Dpapi.zig");
 
 comptime {
+    _ = WindowsHostLogic.noctty_windows_decode_key_action;
     _ = WindowsHostLogic.noctty_windows_decode_menu_command;
     _ = WindowsHostLogic.noctty_windows_normalize_preferences;
     _ = WindowsHostLogic.noctty_windows_blend_rgb;
@@ -51,6 +54,9 @@ comptime {
     _ = WindowsMenu.noctty_windows_menu_deinit;
     _ = WindowsFonts.noctty_windows_fonts_update;
     _ = WindowsFonts.noctty_windows_fonts_deinit;
+    _ = WindowsTitle.noctty_windows_update_title;
+    _ = WindowsRenderer.noctty_windows_theme_colors;
+    _ = WindowsRenderer.noctty_windows_render;
 }
 
 const host_abi_version: u32 = 9;

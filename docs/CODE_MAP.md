@@ -44,13 +44,16 @@ zig build run-nocted -- --project . --open README.md
 - `src/windows/main.zig`, `src/windows/Dpapi.zig`,
   `src/windows/WindowsHostLogic.zig`, `src/windows/WindowsPty.zig`,
   `src/windows/WindowsClipboard.zig`, `src/windows/WindowsProcess.zig`,
-  `src/windows/WindowsMenu.zig`, `src/windows/WindowsFonts.zig`, and
+  `src/windows/WindowsMenu.zig`, `src/windows/WindowsFonts.zig`,
+  `src/windows/WindowsTitle.zig`, `src/windows/WindowsRenderer.zig`, and
   `src/windows/native_host.c` — experimental
   Windows boundary: shared Zig VT callbacks plus Zig-owned persistence, host
   policy, ConPTY/process/thread and output-ring lifetimes, Unicode clipboard
   memory, sibling launch, local logs, native-menu construction/state,
-  DPI-aware fonts/metrics, and minidumps. The shrinking C adapter retains GDI
-  cell rendering, timers, command/message dispatch, and its main HWND. No GTK/POSIX host state is
+  DPI-aware fonts/metrics, bounded window titles, the double-buffered GDI
+  renderer, and minidumps. The shrinking C adapter retains timers,
+  input/workspace-session orchestration, command/message dispatch, and its main
+  HWND. No GTK/POSIX host state is
   compiled into the Windows executable.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace

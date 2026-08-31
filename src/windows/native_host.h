@@ -36,7 +36,20 @@ typedef struct {
 #define NOCTTY_WINDOWS_MENU_WORKSPACE_SAVE 5
 #define NOCTTY_WINDOWS_MENU_WORKSPACE_RESTORE 6
 #define NOCTTY_WINDOWS_MENU_LAUNCH_NOCTED 7
+#define NOCTTY_WINDOWS_KEY_DEFAULT 0
+#define NOCTTY_WINDOWS_KEY_COPY 1
+#define NOCTTY_WINDOWS_KEY_PASTE 2
+#define NOCTTY_WINDOWS_KEY_NEW_TAB 3
+#define NOCTTY_WINDOWS_KEY_SPLIT_DOWN 4
+#define NOCTTY_WINDOWS_KEY_SPLIT_LEFT 5
+#define NOCTTY_WINDOWS_KEY_CLOSE_TAB 6
+#define NOCTTY_WINDOWS_KEY_CLOSE_PANE 7
+#define NOCTTY_WINDOWS_KEY_CYCLE 8
+#define NOCTTY_WINDOWS_KEY_SPECIAL 9
 
+int noctty_windows_decode_key_action(uint32_t key, int control, int shift,
+                                     int alt, int remote_mode,
+                                     int *suppress_character);
 int noctty_windows_decode_menu_command(
     uint32_t command, int restore_workspace, NocttyWindowsMenuAction *output);
 int noctty_windows_normalize_preferences(
@@ -97,6 +110,8 @@ int noctty_windows_fonts_update(HWND window, int font_size_pt, UINT dpi,
                                 HFONT *normal, HFONT *bold, int *cell_width,
                                 int *cell_height);
 void noctty_windows_fonts_deinit(HFONT *normal, HFONT *bold);
+int noctty_windows_update_title(HWND window, const uint8_t *title,
+                                size_t title_length, int process_exited);
 
 typedef int (*NocttyWindowsFeed)(void *, const uint8_t *, size_t);
 typedef int (*NocttyWindowsWrite)(void *, const uint8_t *, size_t);
@@ -206,6 +221,29 @@ typedef struct {
     NocttyWindowsPaneMouseEncode pane_mouse_encode;
     NocttyWindowsPaneCopy pane_copy;
 } NocttyWindowsCallbacks;
+
+typedef struct {
+    HWND window;
+    const NocttyWindowsCallbacks *callbacks;
+    HFONT font_normal;
+    HFONT font_bold;
+    int cell_width;
+    int cell_height;
+    int columns;
+    int rows;
+    uint32_t foreground;
+    uint32_t background;
+    int selection_active;
+    int selection_pane;
+    int selection_anchor_column;
+    int selection_anchor_row;
+    int selection_extent_column;
+    int selection_extent_row;
+} NocttyWindowsRenderState;
+void noctty_windows_theme_colors(int theme, uint32_t *foreground,
+                                  uint32_t *background);
+void noctty_windows_render(const NocttyWindowsRenderState *state,
+                           uint32_t *paint_count);
 
 int noctty_windows_host_run(HINSTANCE instance, int show_command,
                             const NocttyWindowsCallbacks *callbacks);

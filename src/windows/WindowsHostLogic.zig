@@ -43,6 +43,69 @@ pub const MenuAction = extern struct {
     value: c_int,
 };
 
+pub const key_action_default: c_int = 0;
+pub const key_action_copy: c_int = 1;
+pub const key_action_paste: c_int = 2;
+pub const key_action_new_tab: c_int = 3;
+pub const key_action_split_down: c_int = 4;
+pub const key_action_split_left: c_int = 5;
+pub const key_action_close_tab: c_int = 6;
+pub const key_action_close_pane: c_int = 7;
+pub const key_action_cycle: c_int = 8;
+pub const key_action_special: c_int = 9;
+
+pub export fn noctty_windows_decode_key_action(
+    key: u32,
+    control: c_int,
+    shift: c_int,
+    alt: c_int,
+    remote_mode: c_int,
+    suppress_character: ?*c_int,
+) callconv(.c) c_int {
+    const suppress = suppress_character orelse return key_action_default;
+    suppress.* = 0;
+    if (alt != 0 and key == 0x73) return key_action_default; // VK_F4.
+    if (control != 0 and shift != 0 and key == 'C') {
+        suppress.* = 1;
+        return key_action_copy;
+    }
+    if (control != 0 and shift != 0 and key == 'V') {
+        suppress.* = 1;
+        return key_action_paste;
+    }
+    if (remote_mode == 0 and control != 0 and shift != 0) {
+        suppress.* = 1;
+        return switch (key) {
+            'T' => key_action_new_tab,
+            'S' => key_action_split_down,
+            'L' => key_action_split_left,
+            'W' => key_action_close_tab,
+            else => blk: {
+                suppress.* = 0;
+                break :blk key_action_default;
+            },
+        };
+    }
+    if (remote_mode == 0 and control != 0 and shift == 0 and key == 'D') {
+        suppress.* = 1;
+        return key_action_close_pane;
+    }
+    if (control != 0 and key == 0x09) { // VK_TAB.
+        suppress.* = 1;
+        return key_action_cycle;
+    }
+    if (shift != 0 and key == 0x2d) return key_action_paste; // VK_INSERT.
+    if (isSpecialKey(key)) return key_action_special;
+    return key_action_default;
+}
+
+fn isSpecialKey(key: u32) bool {
+    return switch (key) {
+        0x21...0x28, 0x2d, 0x2e, 0x70...0x7b => true,
+        else => false,
+    };
+}
+
 pub export fn noctty_windows_decode_menu_command(
     command: u32,
     restore_workspace: c_int,
@@ -354,6 +417,45 @@ test "grid sizing and UTF-16 input stay bounded" {
     const count = noctty_windows_encode_utf16_input(0xde00, &pending, &bytes, bytes.len);
     try std.testing.expectEqualStrings("😀", bytes[0..count]);
     try std.testing.expectEqual(@as(u16, 0), pending);
+}
+
+test "Windows key commands preserve local and remote policy" {
+    var suppress: c_int = 0;
+    try std.testing.expectEqual(key_action_new_tab, noctty_windows_decode_key_action(
+        'T',
+        1,
+        1,
+        0,
+        0,
+        &suppress,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), suppress);
+    try std.testing.expectEqual(key_action_default, noctty_windows_decode_key_action(
+        'T',
+        1,
+        1,
+        0,
+        1,
+        &suppress,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), suppress);
+    try std.testing.expectEqual(key_action_paste, noctty_windows_decode_key_action(
+        0x2d,
+        0,
+        1,
+        0,
+        0,
+        &suppress,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), suppress);
+    try std.testing.expectEqual(key_action_special, noctty_windows_decode_key_action(
+        0x70,
+        0,
+        0,
+        0,
+        0,
+        &suppress,
+    ));
 }
 
 test "Windows menu commands decode to bounded actions" {

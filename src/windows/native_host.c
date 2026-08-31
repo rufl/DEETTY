@@ -2,9 +2,9 @@
  * Win32/GDI and ConPTY adapter for the experimental Windows host.
  *
  * Zig owns terminal/workspace state, ConPTY, clipboard, diagnostics, and child
- * launch services through native_host.h. This shrinking adapter retains HWND,
- * timers, GDI cell rendering, and message dispatch; each retained Win32 object
- * is still released here.
+ * launch and rendering services through native_host.h. This shrinking adapter
+ * retains the main HWND, timer/input orchestration, and message dispatch; each
+ * retained Win32 object is still released here.
  */
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -29,9 +29,6 @@
 #define NOCTTY_WINDOW_MIN_WIDTH 640
 #define NOCTTY_WINDOW_MIN_HEIGHT 360
 #define NOCTTY_WM_OUTPUT (WM_APP + 1u)
-#define NOCTTY_DEFAULT_FOREGROUND 0xd8dee9u
-#define NOCTTY_DEFAULT_BACKGROUND 0x0b0d12u
-#define NOCTTY_DEFAULT_COLOR_ID 0x0fffu
 #define NOCTTY_PREF_THEME 1
 #define NOCTTY_PREF_FONT_SIZE 2
 #define NOCTTY_PREF_LAUNCH_PROFILE 3
@@ -115,19 +112,6 @@ static void noctty_drain_remote_input(NocttyWindowsHost *host);
 static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
                                            WPARAM word, LPARAM long_value);
 
-static uint32_t noctty_terminal_color(NocttyWindowsHost *host, int pane_index,
-                                      uint32_t color_id,
-                                      uint32_t fallback) {
-    uint32_t value;
-    if (color_id == NOCTTY_DEFAULT_COLOR_ID) return fallback;
-    value = pane_index >= 0
-                ? host->callbacks->pane_color_rgb(
-                      host->callbacks->userdata, pane_index, color_id)
-                : host->callbacks->color_rgb(
-                      host->callbacks->userdata, color_id);
-    return value == 0xffffffffu ? fallback : value;
-}
-
 static void noctty_initialize_logging(void) {
     (void)noctty_windows_diagnostics_init();
     noctty_log("windows_launch pid=%lu conpty=true renderer=win32_gdi "
@@ -155,15 +139,8 @@ static int noctty_create_fonts(NocttyWindowsHost *host, UINT dpi) {
 }
 
 static void noctty_apply_theme(NocttyWindowsHost *host) {
-    if (host->theme == 1) {
-        host->foreground =
-            noctty_windows_rgb_from_colorref(GetSysColor(COLOR_WINDOWTEXT));
-        host->background =
-            noctty_windows_rgb_from_colorref(GetSysColor(COLOR_WINDOW));
-    } else {
-        host->foreground = NOCTTY_DEFAULT_FOREGROUND;
-        host->background = NOCTTY_DEFAULT_BACKGROUND;
-    }
+    noctty_windows_theme_colors(
+        host->theme, &host->foreground, &host->background);
 }
 
 static int noctty_load_preferences(NocttyWindowsHost *host) {
@@ -298,250 +275,27 @@ static int noctty_cell_selected(const NocttyWindowsHost *host, int pane_index,
         host->selection_extent_column, host->selection_extent_row,
         column, row);
 }
-static void noctty_draw_cell(NocttyWindowsHost *host, HDC device,
-                             int pane_index, int origin_x, int origin_y,
-                             int content_width, int content_height,
-                             int columns, int rows, int column, int row) {
-    uint64_t packed =
-        pane_index >= 0
-            ? host->callbacks->pane_cell(host->callbacks->userdata, pane_index,
-                                         column, row)
-            : host->callbacks->cell(host->callbacks->userdata, column, row);
-    uint32_t style = (uint32_t)(packed >> 32u);
-    uint32_t foreground_id = (style >> 8u) & 0x0fffu;
-    uint32_t background_id = (style >> 20u) & 0x0fffu;
-    uint32_t foreground = noctty_terminal_color(
-        host, pane_index, foreground_id, host->foreground);
-    uint32_t background = noctty_terminal_color(
-        host, pane_index, background_id, host->background);
-    RECT rectangle;
-    uint8_t text_utf8[128];
-    WCHAR text_utf16[128];
-    int text_length;
-    int wide_length;
-    int old_mode;
-    HFONT previous_font;
-
-    if ((style & 2u) != 0u) {
-        uint32_t temporary = foreground;
-        foreground = background;
-        background = temporary;
-    }
-    if ((style & 32u) != 0u)
-        foreground = noctty_windows_blend_rgb(foreground, background, 150u);
-    if (pane_index >= 0 &&
-        noctty_cell_selected(host, pane_index, column, row)) {
-        foreground = noctty_windows_rgb_from_colorref(
-            GetSysColor(COLOR_HIGHLIGHTTEXT));
-        background = noctty_windows_rgb_from_colorref(
-            GetSysColor(COLOR_HIGHLIGHT));
-    }
-
-    rectangle.left = origin_x + column * content_width / columns;
-    rectangle.top = origin_y + row * content_height / rows;
-    rectangle.right = origin_x + (column + 1) * content_width / columns;
-    rectangle.bottom = origin_y + (row + 1) * content_height / rows;
-    SetTextColor(device, noctty_windows_colorref_from_rgb(foreground));
-    SetBkColor(device, noctty_windows_colorref_from_rgb(background));
-    old_mode = SetBkMode(device, OPAQUE);
-
-    if ((style & 128u) != 0u) {
-        ExtTextOutW(device, rectangle.left, rectangle.top, ETO_OPAQUE,
-                    &rectangle, L"", 0, NULL);
-        SetBkMode(device, old_mode);
-        return;
-    }
-
-    text_length =
-        pane_index >= 0
-            ? host->callbacks->pane_cell_text(
-                  host->callbacks->userdata, pane_index, column, row, text_utf8,
-                  sizeof(text_utf8))
-            : host->callbacks->cell_text(host->callbacks->userdata, column, row,
-                                         text_utf8, sizeof(text_utf8));
-    if (text_length <= 0) {
-        ExtTextOutW(device, rectangle.left, rectangle.top, ETO_OPAQUE,
-                    &rectangle, L"", 0, NULL);
-        SetBkMode(device, old_mode);
-        return;
-    }
-    wide_length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-                                      (const char *)text_utf8, text_length,
-                                      text_utf16,
-                                      (int)(sizeof(text_utf16) / sizeof(WCHAR)));
-    if (wide_length <= 0) {
-        text_utf16[0] = 0xfffdu;
-        wide_length = 1;
-    }
-    if (column + 1 < columns) {
-        uint64_t next =
-            pane_index >= 0
-                ? host->callbacks->pane_cell(
-                      host->callbacks->userdata, pane_index, column + 1, row)
-                : host->callbacks->cell(host->callbacks->userdata, column + 1,
-                                        row);
-        if ((((uint32_t)(next >> 32u)) & 128u) != 0u)
-            rectangle.right =
-                origin_x + (column + 2) * content_width / columns;
-    }
-    previous_font = SelectObject(device,
-                                 (style & 1u) != 0u ? host->font_bold
-                                                   : host->font_normal);
-    ExtTextOutW(device, rectangle.left, rectangle.top, ETO_OPAQUE | ETO_CLIPPED,
-                &rectangle, text_utf16, (UINT)wide_length, NULL);
-    SelectObject(device, previous_font);
-    if ((style & 8u) != 0u) {
-        HPEN pen = CreatePen(
-            PS_SOLID, 1, noctty_windows_colorref_from_rgb(foreground));
-        HPEN previous_pen = SelectObject(device, pen);
-        MoveToEx(device, rectangle.left, rectangle.bottom - 2, NULL);
-        LineTo(device, rectangle.right, rectangle.bottom - 2);
-        SelectObject(device, previous_pen);
-        DeleteObject(pen);
-    }
-    if ((style & 16u) != 0u) {
-        HPEN pen = CreatePen(
-            PS_SOLID, 1, noctty_windows_colorref_from_rgb(foreground));
-        HPEN previous_pen = SelectObject(device, pen);
-        MoveToEx(device, rectangle.left,
-                 rectangle.top + (rectangle.bottom - rectangle.top) / 2, NULL);
-        LineTo(device, rectangle.right,
-               rectangle.top + (rectangle.bottom - rectangle.top) / 2);
-        SelectObject(device, previous_pen);
-        DeleteObject(pen);
-    }
-    SetBkMode(device, old_mode);
-}
-
-static void noctty_draw_shared_pane(NocttyWindowsHost *host, HDC device,
-                                    const RECT *client, int pane_index) {
-    NocttyPaneHit geometry;
-    if (!noctty_pane_geometry(host, pane_index, client, &geometry)) return;
-    int content_width = geometry.content.right - geometry.content.left;
-    int content_height = geometry.content.bottom - geometry.content.top;
-    for (int row = 0; row < geometry.rows; row++) {
-        for (int column = 0; column < geometry.columns; column++) {
-            noctty_draw_cell(host, device, pane_index, geometry.content.left,
-                             geometry.content.top, content_width,
-                             content_height, geometry.columns, geometry.rows,
-                             column, row);
-        }
-    }
-    if (geometry.host_active) {
-        uint32_t cursor = host->callbacks->pane_cursor(
-            host->callbacks->userdata, pane_index);
-        int cursor_column = (int)(cursor & 0xffffu);
-        int cursor_row = (int)(cursor >> 16u);
-        if (cursor != 0xffffffffu && cursor_column < geometry.columns &&
-            cursor_row < geometry.rows) {
-            RECT cursor_rectangle;
-            cursor_rectangle.left =
-                geometry.content.left +
-                cursor_column * content_width / geometry.columns;
-            cursor_rectangle.top =
-                geometry.content.top +
-                cursor_row * content_height / geometry.rows;
-            cursor_rectangle.right =
-                geometry.content.left +
-                (cursor_column + 1) * content_width / geometry.columns;
-            cursor_rectangle.bottom =
-                geometry.content.top +
-                (cursor_row + 1) * content_height / geometry.rows;
-            InvertRect(device, &cursor_rectangle);
-        }
-    }
-    HPEN border = CreatePen(
-        PS_SOLID, geometry.selected ? 3 : 1,
-        noctty_windows_colorref_from_rgb(
-            geometry.selected ? 0x94e2d5u : 0x45475au));
-    HPEN previous_pen = SelectObject(device, border);
-    HGDIOBJ previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
-    Rectangle(device, geometry.pane.left + 1, geometry.pane.top + 1,
-              geometry.pane.right - 1, geometry.pane.bottom - 1);
-    SelectObject(device, previous_brush);
-    SelectObject(device, previous_pen);
-    DeleteObject(border);
-    if (geometry.host_active) {
-        HPEN active_border =
-            CreatePen(PS_SOLID, 1,
-                      noctty_windows_colorref_from_rgb(0xf9e2afu));
-        previous_pen = SelectObject(device, active_border);
-        previous_brush = SelectObject(device, GetStockObject(NULL_BRUSH));
-        Rectangle(device, geometry.pane.left + 3, geometry.pane.top + 3,
-                  geometry.pane.right - 3, geometry.pane.bottom - 3);
-        SelectObject(device, previous_brush);
-        SelectObject(device, previous_pen);
-        DeleteObject(active_border);
-    }
-}
 
 static void noctty_paint(NocttyWindowsHost *host) {
-    PAINTSTRUCT paint;
-    RECT client;
-    HDC target;
-    HDC buffer_device;
-    HBITMAP buffer_bitmap;
-    HBITMAP previous_bitmap;
-    HBRUSH background;
-    uint32_t cursor;
-    int cursor_column;
-    int cursor_row;
-
-    target = BeginPaint(host->window, &paint);
-    if (target == NULL) return;
-    GetClientRect(host->window, &client);
-    buffer_device = CreateCompatibleDC(target);
-    buffer_bitmap = CreateCompatibleBitmap(target, client.right, client.bottom);
-    if (buffer_device == NULL || buffer_bitmap == NULL) {
-        if (buffer_device != NULL) DeleteDC(buffer_device);
-        if (buffer_bitmap != NULL) DeleteObject(buffer_bitmap);
-        EndPaint(host->window, &paint);
-        return;
-    }
-    previous_bitmap = SelectObject(buffer_device, buffer_bitmap);
-    background = CreateSolidBrush(
-        noctty_windows_colorref_from_rgb(host->background));
-    FillRect(buffer_device, &client, background);
-    DeleteObject(background);
-
-    int pane_count = host->callbacks->pane_count(host->callbacks->userdata);
-    if (pane_count > 0) {
-        for (int pane_index = 0; pane_index < pane_count; pane_index++)
-            noctty_draw_shared_pane(host, buffer_device, &client, pane_index);
-    } else {
-        for (int row = 0; row < host->rows; row++) {
-            for (int column = 0; column < host->columns; column++)
-                noctty_draw_cell(
-                    host, buffer_device, -1, 0, 0,
-                    host->columns * host->cell_width,
-                    host->rows * host->cell_height, host->columns, host->rows,
-                    column, row);
-        }
-        cursor = host->callbacks->cursor(host->callbacks->userdata);
-        if (cursor != 0xffffffffu && GetFocus() == host->window) {
-            RECT cursor_rectangle;
-            cursor_column = (int)(cursor & 0xffffu);
-            cursor_row = (int)(cursor >> 16u);
-            if (cursor_column >= 0 && cursor_column < host->columns &&
-                cursor_row >= 0 && cursor_row < host->rows) {
-                cursor_rectangle.left = cursor_column * host->cell_width;
-                cursor_rectangle.top = cursor_row * host->cell_height;
-                cursor_rectangle.right =
-                    cursor_rectangle.left + host->cell_width;
-                cursor_rectangle.bottom =
-                    cursor_rectangle.top + host->cell_height;
-                InvertRect(buffer_device, &cursor_rectangle);
-            }
-        }
-    }
-
-    BitBlt(target, 0, 0, client.right, client.bottom, buffer_device, 0, 0,
-           SRCCOPY);
-    host->paint_count++;
-    SelectObject(buffer_device, previous_bitmap);
-    DeleteObject(buffer_bitmap);
-    DeleteDC(buffer_device);
-    EndPaint(host->window, &paint);
+    NocttyWindowsRenderState state;
+    ZeroMemory(&state, sizeof(state));
+    state.window = host->window;
+    state.callbacks = host->callbacks;
+    state.font_normal = host->font_normal;
+    state.font_bold = host->font_bold;
+    state.cell_width = host->cell_width;
+    state.cell_height = host->cell_height;
+    state.columns = host->columns;
+    state.rows = host->rows;
+    state.foreground = host->foreground;
+    state.background = host->background;
+    state.selection_active = host->selection_active;
+    state.selection_pane = host->selection_pane;
+    state.selection_anchor_column = host->selection_anchor_column;
+    state.selection_anchor_row = host->selection_anchor_row;
+    state.selection_extent_column = host->selection_extent_column;
+    state.selection_extent_row = host->selection_extent_row;
+    noctty_windows_render(&state, &host->paint_count);
 }
 
 static NocttyWindowsSession *noctty_active_session(
@@ -639,33 +393,14 @@ static int noctty_start_session(NocttyWindowsHost *host, int session_index) {
 
 static void noctty_update_title(NocttyWindowsHost *host) {
     uint8_t title_utf8[512];
-    WCHAR title_utf16[640];
-    static const WCHAR suffix[] = L" — NOCTTY Windows alpha";
-    int count;
-    int wide_count;
-    size_t suffix_length;
-
-    count = host->callbacks->title(host->callbacks->userdata, title_utf8,
-                                   sizeof(title_utf8));
-    if (count <= 0) {
-        NocttyWindowsSession *active = noctty_active_session(host);
-        SetWindowTextW(host->window,
-                       active != NULL && noctty_windows_pty_exited(active->pty)
-                           ? L"NOCTTY Windows alpha — exited"
-                           : L"NOCTTY Windows alpha");
-        return;
-    }
-    wide_count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-                                     (const char *)title_utf8, count,
-                                     title_utf16, 511);
-    if (wide_count <= 0) return;
-    suffix_length = wcslen(suffix);
-    if ((size_t)wide_count + suffix_length >=
-        sizeof(title_utf16) / sizeof(WCHAR))
-        return;
-    memcpy(title_utf16 + wide_count, suffix,
-           (suffix_length + 1) * sizeof(WCHAR));
-    SetWindowTextW(host->window, title_utf16);
+    int count = host->callbacks->title(
+        host->callbacks->userdata, title_utf8, sizeof(title_utf8));
+    NocttyWindowsSession *active = noctty_active_session(host);
+    int exited = active != NULL && noctty_windows_pty_exited(active->pty);
+    (void)noctty_windows_update_title(
+        host->window, count > 0 ? title_utf8 : NULL,
+        count > 0 && count <= (int)sizeof(title_utf8) ? (size_t)count : 0,
+        exited);
 }
 
 static void noctty_resize_terminal(NocttyWindowsHost *host, int width,
@@ -1253,88 +988,72 @@ static LRESULT CALLBACK noctty_window_proc(HWND window, UINT message,
             int control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
             int shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
             int alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-            if (alt && word == VK_F4)
-                return DefWindowProcW(window, message, word, long_value);
-            if (control && shift && word == 'C') {
-                host->suppress_character = 1;
-                noctty_copy_terminal(host);
-                return 0;
-            }
-            if (control && shift && word == 'V') {
-                host->suppress_character = 1;
-                noctty_paste_clipboard(host);
-                return 0;
-            }
-            if (!host->remote_mode && control && shift && word == 'T') {
-                host->suppress_character = 1;
-                noctty_workspace_action(host, NOCTTY_WINDOWS_ACTION_NEW_TAB);
-                return 0;
-            }
-            if (!host->remote_mode && control && shift && word == 'S') {
-                host->suppress_character = 1;
-                noctty_workspace_action(host,
-                                        NOCTTY_WINDOWS_ACTION_SPLIT_DOWN);
-                return 0;
-            }
-            if (!host->remote_mode && control && shift && word == 'L') {
-                host->suppress_character = 1;
-                noctty_workspace_action(host,
-                                        NOCTTY_WINDOWS_ACTION_SPLIT_LEFT);
-                return 0;
-            }
-            if (!host->remote_mode && control && shift && word == 'W') {
-                host->suppress_character = 1;
-                noctty_workspace_close(host, NOCTTY_WINDOWS_CLOSE_TAB,
-                                       NOCTTY_WINDOWS_QUERY_CLOSE_TAB);
-                return 0;
-            }
-            if (!host->remote_mode && control && !shift && word == 'D') {
-                host->suppress_character = 1;
-                noctty_workspace_close(host, NOCTTY_WINDOWS_CLOSE_PANE,
-                                       NOCTTY_WINDOWS_QUERY_CLOSE_PANE);
-                return 0;
-            }
-            if (control && word == VK_TAB) {
-                int changed;
-                host->suppress_character = 1;
-                if (host->remote_mode) {
-                    changed = shift
-                        ? host->callbacks->next_stream(
-                              host->callbacks->userdata)
-                        : host->callbacks->next_tab(
-                              host->callbacks->userdata);
-                } else {
-                    changed = shift
-                        ? host->callbacks->next_tab(
-                              host->callbacks->userdata)
-                        : host->callbacks->next_stream(
-                              host->callbacks->userdata);
-                }
-                if (changed > 0) {
-                    noctty_clear_selection(host);
-                    if (!host->remote_mode) {
-                        RECT client;
-                        GetClientRect(window, &client);
-                        noctty_resize_terminal(host, client.right,
-                                               client.bottom);
+            int suppress_character = 0;
+            int action = noctty_windows_decode_key_action(
+                (uint32_t)word, control, shift, alt, host->remote_mode,
+                &suppress_character);
+            if (suppress_character) host->suppress_character = 1;
+            switch (action) {
+                case NOCTTY_WINDOWS_KEY_COPY:
+                    noctty_copy_terminal(host);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_PASTE:
+                    noctty_paste_clipboard(host);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_NEW_TAB:
+                    noctty_workspace_action(
+                        host, NOCTTY_WINDOWS_ACTION_NEW_TAB);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_SPLIT_DOWN:
+                    noctty_workspace_action(
+                        host, NOCTTY_WINDOWS_ACTION_SPLIT_DOWN);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_SPLIT_LEFT:
+                    noctty_workspace_action(
+                        host, NOCTTY_WINDOWS_ACTION_SPLIT_LEFT);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_CLOSE_TAB:
+                    noctty_workspace_close(
+                        host, NOCTTY_WINDOWS_CLOSE_TAB,
+                        NOCTTY_WINDOWS_QUERY_CLOSE_TAB);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_CLOSE_PANE:
+                    noctty_workspace_close(
+                        host, NOCTTY_WINDOWS_CLOSE_PANE,
+                        NOCTTY_WINDOWS_QUERY_CLOSE_PANE);
+                    return 0;
+                case NOCTTY_WINDOWS_KEY_CYCLE: {
+                    int changed = host->remote_mode
+                        ? (shift
+                               ? host->callbacks->next_stream(
+                                     host->callbacks->userdata)
+                               : host->callbacks->next_tab(
+                                     host->callbacks->userdata))
+                        : (shift
+                               ? host->callbacks->next_tab(
+                                     host->callbacks->userdata)
+                               : host->callbacks->next_stream(
+                                     host->callbacks->userdata));
+                    if (changed > 0) {
+                        noctty_clear_selection(host);
+                        if (!host->remote_mode) {
+                            RECT client;
+                            GetClientRect(window, &client);
+                            noctty_resize_terminal(
+                                host, client.right, client.bottom);
+                        }
+                        noctty_update_title(host);
+                        InvalidateRect(window, NULL, FALSE);
                     }
-                    noctty_update_title(host);
-                    InvalidateRect(window, NULL, FALSE);
+                    return 0;
                 }
-                return 0;
+                case NOCTTY_WINDOWS_KEY_SPECIAL:
+                    noctty_send_special_key(host, word);
+                    return 0;
+                default:
+                    return DefWindowProcW(
+                        window, message, word, long_value);
             }
-            if (shift && word == VK_INSERT) {
-                noctty_paste_clipboard(host);
-                return 0;
-            }
-            if (word == VK_UP || word == VK_DOWN || word == VK_LEFT ||
-                word == VK_RIGHT || word == VK_HOME || word == VK_END ||
-                word == VK_PRIOR || word == VK_NEXT || word == VK_INSERT ||
-                word == VK_DELETE || (word >= VK_F1 && word <= VK_F12)) {
-                noctty_send_special_key(host, word);
-                return 0;
-            }
-            return DefWindowProcW(window, message, word, long_value);
         }
         case WM_CHAR:
             if (host->suppress_character) {
