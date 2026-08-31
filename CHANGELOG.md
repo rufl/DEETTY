@@ -4,6 +4,11 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Fixed Codex inline-mode scrollback retention by treating explicit zero
+  DECSTBM parameters as terminal defaults. Codex emits `CSI 1;0 r`; NOCTTY now
+  resets the full-screen scroll region and cursor like xterm instead of ignoring
+  the sequence, allowing subsequent line feeds to enter bounded history.
+
 - Began the Win32 terminal-host migration with a pure, tested Zig policy
   boundary for pane geometry, pointer-to-cell mapping, selection hit testing,
   RGB/COLORREF conversion, bounded grid sizing, special-key sequences, and

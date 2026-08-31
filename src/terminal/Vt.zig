@@ -2982,8 +2982,10 @@ pub const Grid = struct {
                     @memset(self.tab_stops, false);
             },
             'r' => {
-                const top = @as(usize, csi.valueOr(0, 1));
-                const bottom = @as(usize, csi.valueOr(1, @intCast(self.rows)));
+                const top_parameter = @as(usize, csi.valueOr(0, 1));
+                const bottom_parameter = @as(usize, csi.valueOr(1, @intCast(self.rows)));
+                const top = if (top_parameter == 0) 1 else top_parameter;
+                const bottom = if (bottom_parameter == 0) self.rows else bottom_parameter;
                 if (top >= 1 and bottom > top and bottom <= self.rows) {
                     self.margin_top = top - 1;
                     self.margin_bottom = bottom - 1;
@@ -4431,6 +4433,18 @@ test "terminal grid erases scrollback with ED 3" {
     try std.testing.expectEqual(@as(u21, 't'), grid.cell(0, 0).codepoint);
 }
 
+test "terminal grid treats zero DECSTBM bottom as the viewport default" {
+    var grid = try Grid.init(std.testing.allocator, 4, 4);
+    defer grid.deinit();
+    try grid.feed("\x1b[4;4H\x1b[1;0r");
+    try std.testing.expectEqual(@as(usize, 0), grid.margin_top);
+    try std.testing.expectEqual(@as(usize, 3), grid.margin_bottom);
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_column);
+    try grid.feed("a\r\nb\r\nc\r\nd\r\ne");
+    try std.testing.expectEqual(@as(usize, 1), grid.history.items.len);
+}
+
 test "terminal grid scrolls only inside configured margins" {
     var grid = try Grid.init(std.testing.allocator, 4, 4);
     defer grid.deinit();
@@ -4493,8 +4507,9 @@ test "terminal grid honors origin mode and validates scroll margins" {
 
     try grid.feed("\x1b[?6l\x1b[0;0r");
     try std.testing.expect(!grid.origin_mode);
-    try std.testing.expectEqual(@as(usize, 1), grid.margin_top);
-    try std.testing.expectEqual(@as(usize, 2), grid.margin_bottom);
+    try std.testing.expectEqual(@as(usize, 0), grid.margin_top);
+    try std.testing.expectEqual(@as(usize, 3), grid.margin_bottom);
+    try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
 
     try grid.feed("\x1b[r");
     try std.testing.expectEqual(@as(usize, 0), grid.margin_top);
