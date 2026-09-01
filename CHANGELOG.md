@@ -4,6 +4,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Fixed optimized Linux builds against fortified glibc headers by disabling
+  `_FORTIFY_SOURCE` inside the bounded socket C import; native C compilation
+  keeps the repository's normal hardening flags.
+
 - Fixed Codex inline-mode scrollback retention by treating explicit zero
   DECSTBM parameters as terminal defaults. Codex emits `CSI 1;0 r`; NOCTTY now
   resets the full-screen scroll region and cursor like xterm instead of ignoring

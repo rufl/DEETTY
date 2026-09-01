@@ -13,6 +13,7 @@ const c = if (is_windows) @cImport({
     @cInclude("winsock2.h");
     @cInclude("ws2tcpip.h");
 }) else @cImport({
+    @cDefine("_FORTIFY_SOURCE", "0");
     @cDefine("_POSIX_C_SOURCE", "200112L");
     @cDefine("_DEFAULT_SOURCE", "1");
     @cInclude("arpa/inet.h");
