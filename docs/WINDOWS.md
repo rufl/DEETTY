@@ -296,6 +296,48 @@ installer, and emits a separate signed installer plus a verification receipt.
 NOCTTY contains no credentials and makes no signed-release claim without that
 operator receipt.
 
+## Windows dogfood delivery
+
+Build one checksum-bound dogfood bundle:
+
+```sh
+./scripts/package_windows_dogfood.sh
+./scripts/windows_dogfood_bundle_smoke.sh
+```
+
+The default output is
+`dist/noctty-windows-x86_64-dogfood.zip` with matching `.sha256` and
+`.manifest` sidecars. The ZIP contains the per-user NSIS installer, its
+checksum and manifest, and `Install-NOCTTY-Dogfood.ps1`.
+
+PI WEB QOL already discovers Windows artifacts under project `dist/`
+directories. When its artifact service is bound to an explicit trusted LAN or
+tailnet address, select NOCTTY's **Builds** tab and download the dogfood ZIP on
+the Windows machine. Do not bind the artifact service to a wildcard address.
+ZWEB is the dashboard bundle rather than the transfer owner; ZNAP's embedded
+service is loopback-only; OVERZEER deployment requires a separately managed
+target service. The existing token-scoped PI WEB QOL download path is therefore
+the smallest delivery boundary.
+After copying or downloading the ZIP, verify its externally communicated
+SHA-256, extract it, fully close NOCTTY and NoctEd, and run from PowerShell:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\Install-NOCTTY-Dogfood.ps1
+
+# Current-user unattended install:
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\Install-NOCTTY-Dogfood.ps1 -Silent
+```
+
+The script verifies the adjacent installer sidecar before execution, confirms
+the installer registration and payload, runs both installed self-tests, and
+atomically writes `%LOCALAPPDATA%\NOCTTY\dogfood-install.receipt`. It does not
+upload logs, dumps, or receipts. These dogfood artifacts remain unsigned;
+checksum verification proves the received bytes match the operator's build but
+does not establish publisher identity. Self-tests and Wine execution do not
+replace physical Windows UI qualification.
+
 ## Run and choose a shell
 
 Double-click `noctty.exe` or start it from PowerShell. NOCTTY attempts

@@ -8,6 +8,33 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   `_FORTIFY_SOURCE` inside the bounded socket C import; native C compilation
   keeps the repository's normal hardening flags.
 
+- Fixed the remaining Linux dogfood popup-stack warning by dismissing stale
+  process-local GTK popup windows before opening terminal or tab menus. The
+  logging launcher now counts Wayland's exact non-topmost-parent warning and
+  makes it fail the multi-OMP clean-log contract instead of silently recording
+  zero warnings.
+
+- Made repeat dogfood installation survive later removal of the host GTK Layer
+  Shell package without accepting an arbitrary library: the installer
+  preflights and reuses only the private runtime whose SHA-256 matches the
+  previous `0600` build receipt, and otherwise fails before replacing installed
+  files. Both NOCTTY and NoctEd `--version` calls now bypass session receipts as
+  documented. An isolated fake-prefix smoke proves both retained-runtime
+  admission and rejection-before-mutation.
+
+- Added a checksum-bound Windows dogfood delivery ZIP containing the existing
+  per-user NSIS installer and a PowerShell verifier/installer. Successful
+  physical installs verify both installed self-tests and retain an atomic local
+  install receipt. The artifact is discovered by PI WEB QOL's existing
+  token-scoped Builds service; unsigned and physical-qualification boundaries
+  remain explicit. The Wine installer lifecycle smoke now bounds and identifies
+  each external step plus cleanup instead of hanging until its outer display
+  timeout.
+
+- Hardened the shared isolated-X11 launcher against an inherited Wayland GTK
+  preference by forcing `XDG_SESSION_TYPE=x11` and `GDK_BACKEND=x11`; its smoke
+  now injects the conflicting parent environment and proves the override.
+
 - Fixed Codex inline-mode scrollback retention by treating explicit zero
   DECSTBM parameters as terminal defaults. Codex emits `CSI 1;0 r`; NOCTTY now
   resets the full-screen scroll region and cursor like xterm instead of ignoring

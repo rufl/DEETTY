@@ -27,18 +27,26 @@ exit 0
 EOF
 cat >"$runtime/nocted-bin" <<'EOF'
 #!/usr/bin/env sh
+if [ "${1:-}" = --version ]; then
+  printf 'stub_nocted_version\n'
+  exit 0
+fi
 printf '%s\n' 'Gtk-CRITICAL fixture' >&2
 printf '%s\n' 'Gdk-CRITICAL fixture' >&2
 printf '%s\n' 'GLib-CRITICAL fixture' >&2
 printf '%s\n' 'GObject-CRITICAL fixture' >&2
 printf '%s\n' 'native_grid_fixture_failed' >&2
 printf '%s\n' 'thread 7 panic: fixture' >&2
+printf '%s\n' 'Gdk-WARNING **: Tried to map a popup with a non-top most parent' >&2
 exit 7
 EOF
 chmod +x "$runtime/noctty-bin" "$runtime/nocted-bin"
 
 fast_status=$(XDG_STATE_HOME="$state" "$runtime/noctty" --status)
 printf '%s\n' "$fast_status" | grep -F 'stub_noctty_output' >/dev/null
+[ ! -d "$state/noctty/dogfood-sessions" ]
+fast_version=$(XDG_STATE_HOME="$state" "$runtime/nocted" --version)
+printf '%s\n' "$fast_version" | grep -F 'stub_nocted_version' >/dev/null
 [ ! -d "$state/noctty/dogfood-sessions" ]
 
 home="$scratch/home"
@@ -87,7 +95,7 @@ grep -E '^binary_sha256=([0-9a-f]{64}|unknown)$' "$noctty_receipt" >/dev/null
 grep -Fx 'backend=wayland' "$noctty_receipt" >/dev/null
 grep -Fx 'state=finished' "$nocted_receipt" >/dev/null
 grep -Fx 'exit_status=7' "$nocted_receipt" >/dev/null
-grep -Fx 'runtime_warning_markers=6' "$nocted_receipt" >/dev/null
+grep -Fx 'runtime_warning_markers=7' "$nocted_receipt" >/dev/null
 grep -Fx 'gtk_critical_markers=1' "$nocted_receipt" >/dev/null
 grep -Fx 'gdk_critical_markers=1' "$nocted_receipt" >/dev/null
 grep -Fx 'glib_critical_markers=1' "$nocted_receipt" >/dev/null

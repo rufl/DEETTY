@@ -17814,7 +17814,7 @@ static void popup_menu_at_toplevel_pointer(
 static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
                           GdkEventButton *event) {
     NocttyGridContext *root = root_grid_context(context);
-    dismiss_workspace_menu(root);
+    dismiss_grid_popup_windows(root);
     GtkWidget *menu = gtk_menu_new();
     GtkWidget *color = gtk_menu_item_new_with_label("Tab Color");
     GtkWidget *close = gtk_menu_item_new_with_label("Close Tab");
@@ -18174,7 +18174,7 @@ static GtkWidget *append_workspace_submenu(GtkWidget *menu,
 
 static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *event) {
     NocttyGridContext *root = root_grid_context(context);
-    dismiss_workspace_menu(root);
+    dismiss_grid_popup_windows(root);
     GtkWidget *menu = gtk_menu_new();
     root->workspace_menu = menu;
     root->context_menu_opened = 1;
@@ -18446,7 +18446,7 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(choice), TRUE);
-    gtk_menu_popdown(GTK_MENU(submenu));
+    if (submenu != NULL) gtk_menu_popdown(GTK_MENU(submenu));
     if (menu != NULL && root->workspace_menu == menu)
         gtk_widget_destroy(menu);
     g_timeout_add(240, check_profile_preset_smoke, target);
@@ -18472,16 +18472,24 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
     }
     root->profile_smoke_attempts = 0;
     gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), profile);
-    GdkEventButton trigger = {0};
-    trigger.type = GDK_BUTTON_PRESS;
-    trigger.window = gtk_widget_get_window(profile);
-    trigger.send_event = TRUE;
-    trigger.time = GDK_CURRENT_TIME;
-    trigger.button = 3;
+    GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
+    GdkWindow *window = gtk_widget_get_window(profile);
+    trigger->button.window = window != NULL ? g_object_ref(window) : NULL;
+    trigger->button.send_event = TRUE;
+    trigger->button.time = GDK_CURRENT_TIME;
+    trigger->button.button = 3;
+    GdkDisplay *display = gtk_widget_get_display(profile);
+    GdkSeat *seat = display != NULL
+        ? gdk_display_get_default_seat(display) : NULL;
+    GdkDevice *pointer = seat != NULL
+        ? gdk_seat_get_pointer(seat) : NULL;
+    if (pointer != NULL)
+        gdk_event_set_device(trigger, pointer);
     gtk_menu_popup_at_widget(GTK_MENU(submenu), profile,
                              GDK_GRAVITY_NORTH_EAST,
                              GDK_GRAVITY_NORTH_WEST,
-                             (GdkEvent *)&trigger);
+                             trigger);
+    gdk_event_free(trigger);
     g_timeout_add(140, activate_profile_preset_smoke, target);
     return G_SOURCE_REMOVE;
 }

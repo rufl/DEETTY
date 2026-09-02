@@ -13,6 +13,27 @@ trap 'exit 143' TERM
 zig build -Doptimize="$optimize" --prefix "$stage"
 
 runtime_dir="$prefix/libexec/noctty-dogfood"
+layer_shell=$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')
+if [ ! -f "$layer_shell" ]; then
+  retained_layer_shell="$runtime_dir/lib/libgtk-layer-shell.so.0"
+  retained_receipt="${XDG_STATE_HOME:-"$HOME/.local/state"}/noctty/dogfood-build.receipt"
+  retained_expected=$(awk -F= '$1 == "layer_shell_sha256" { print $2; exit }' \
+    "$retained_receipt" 2>/dev/null || true)
+  retained_actual=$(sha256sum "$retained_layer_shell" 2>/dev/null |
+    awk 'NR == 1 { print $1; exit }' || true)
+  case "$retained_expected" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+      if [ "${#retained_expected}" -eq 64 ] &&
+         [ "$retained_actual" = "$retained_expected" ]; then
+        layer_shell=$retained_layer_shell
+      fi
+      ;;
+  esac
+fi
+test -f "$layer_shell" || {
+  echo "dogfood install requires a system libgtk-layer-shell.so.0 or the checksum-matching runtime from the previous dogfood receipt" >&2
+  exit 1
+}
 mkdir -p "$prefix/bin" "$runtime_dir/lib"
 cp -a "$stage/share" "$prefix/"
 install -m 0755 "$stage/bin/noctty" "$runtime_dir/noctty-bin.new"
@@ -21,11 +42,6 @@ mv -f "$runtime_dir/noctty-bin.new" "$runtime_dir/noctty-bin"
 mv -f "$runtime_dir/nocted-bin.new" "$runtime_dir/nocted-bin"
 rm -f "$runtime_dir/noctty" "$runtime_dir/nocted"
 
-layer_shell=$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')
-test -f "$layer_shell" || {
-  echo "dogfood install requires system libgtk-layer-shell.so.0" >&2
-  exit 1
-}
 install -m 0644 "$layer_shell" "$runtime_dir/lib/libgtk-layer-shell.so.0.new"
 mv -f "$runtime_dir/lib/libgtk-layer-shell.so.0.new" \
   "$runtime_dir/lib/libgtk-layer-shell.so.0"

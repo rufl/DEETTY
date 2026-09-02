@@ -27,10 +27,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
 
 ### NCT-125 Current-build dogfood defect recapture — partial
 
-- [ ] [status:yellow] Install the 2026-08-29 dogfood reliability build and
-  retain a clean two-hour Plasma Wayland session that uses Codex scrollbar
-  wheel/drag navigation, opens and closes native menus/dialogs, exercises
-  Project / NoctEd once, and exits both NOCTTY and NoctEd normally. The source
+- [ ] [status:yellow] Retain a clean two-hour Plasma Wayland session on the
+  current installed dogfood build that uses Codex scrollbar wheel/drag
+  navigation, opens and closes native menus/dialogs, exercises Project / NoctEd
+  once, and exits both NOCTTY and NoctEd normally. The source
   slice fixes the Codex mouse-mode scrollbar priority, bounds project refresh
   to its visible GUI, owns sharing refresh timers, rejects retired menu
   contexts, anchors popups to the top-level surface, makes NoctEd teardown
@@ -70,7 +70,15 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   the private display namespace. The current visual-flow audit likewise stopped
   at sandbox-denied private D-Bus socket creation and did not touch the active
   desktop; a later 520x420 compact run deferred fail-closed at the isolated
-  runner's I/O pressure gate. The retained 2026-07-19 alpha screenshots now have an explicit stale
+  runner's I/O pressure gate. A 2026-09-02 installed-log follow-through closes
+  the recurring Wayland non-topmost popup-parent warning by clearing stale
+  process-local popups before opening terminal/tab menus and makes that exact
+  warning fail clean-log qualification. Repeat installation now also reuses a
+  previously staged GTK Layer Shell runtime only when it matches the prior
+  private build receipt; the current `ReleaseFast` dogfood install completed
+  through that fail-closed path. The launcher smoke and isolated Wayland
+  tab/profile menu lanes pass without the popup-parent warning. The retained
+  2026-07-19 alpha screenshots now have an explicit stale
   boundary; recapture them inside the installed-session qualification. A real
   installed-session recapture remains
   required before closing the historical
@@ -83,9 +91,12 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   tabs/splits and per-pane ConPTY/VT state, supports native selection and DEC
   mouse reporting, ships the separate native NoctEd editor, and produces a
   reproducible per-user NSIS installer with reversible shortcuts/Open-With
-  registration and an operator-owned signing hook. Wine-hosted self-tests and
-  installer lifecycle smoke pass, but Wine does not prove physical ConPTY/GDI,
-  input, installer, or editor behavior on supported Windows releases.
+  registration and an operator-owned signing hook. A checksum-bound dogfood ZIP
+  is discoverable through PI WEB QOL's existing token-scoped artifact service;
+  its PowerShell installer verifies the payload, runs both installed self-tests,
+  and retains a local receipt. Wine-hosted self-tests and installer lifecycle
+  smoke pass, but Wine does not prove physical ConPTY/GDI, input, installer, or
+  editor behavior on supported Windows releases.
   `[truth:build,test,docs]`
 
 ### NCT-126 First-party native-adapter migration to Zig — partial

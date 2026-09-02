@@ -30,21 +30,41 @@ command -v "$wine" >/dev/null
 command -v "$wineboot" >/dev/null
 command -v "$winepath" >/dev/null
 command -v "$wineserver" >/dev/null
+command -v timeout >/dev/null
 
 wine_prefix=$(mktemp -d "${TMPDIR:-/tmp}/noctty-installer-wine.XXXXXX")
 cleanup() {
-  WINEPREFIX=$wine_prefix "$wineboot" -e >/dev/null 2>&1 || true
+  timeout --kill-after=5 "${NOCTTY_WINE_CLEANUP_TIMEOUT_SECONDS:-15}" \
+    env WINEPREFIX="$wine_prefix" "$wineboot" -e >/dev/null 2>&1 || true
   rm -rf "$wine_prefix"
 }
 trap cleanup EXIT HUP INT TERM
 export WINEPREFIX=$wine_prefix
 export WINEDEBUG=${WINEDEBUG:--all}
-"$wineboot" -u >/dev/null 2>&1
-"$wine" "$installer_path" /S
+step_timeout=${NOCTTY_WINE_STEP_TIMEOUT_SECONDS:-90}
+case "$step_timeout" in
+  ''|*[!0-9]*|0)
+    echo 'windows_installer_smoke error=invalid_step_timeout' >&2
+    exit 2
+    ;;
+esac
+run_step() {
+  stage=$1
+  shift
+  if timeout --kill-after=5 "$step_timeout" "$@"; then
+    return 0
+  else
+    status=$?
+  fi
+  echo "windows_installer_smoke error=step_failed stage=$stage status=$status" >&2
+  exit "$status"
+}
+run_step wineboot "$wineboot" -u >/dev/null
+run_step install "$wine" "$installer_path" /S
 
-local_appdata_win=$("$wine" cmd /d /c 'echo %LOCALAPPDATA%' | tr -d '\r' | sed -n '$p')
-appdata_win=$("$wine" cmd /d /c 'echo %APPDATA%' | tr -d '\r' | sed -n '$p')
-userprofile_win=$("$wine" cmd /d /c 'echo %USERPROFILE%' | tr -d '\r' | sed -n '$p')
+local_appdata_win=$(run_step local_appdata "$wine" cmd /d /c 'echo %LOCALAPPDATA%' | tr -d '\r' | sed -n '$p')
+appdata_win=$(run_step appdata "$wine" cmd /d /c 'echo %APPDATA%' | tr -d '\r' | sed -n '$p')
+userprofile_win=$(run_step userprofile "$wine" cmd /d /c 'echo %USERPROFILE%' | tr -d '\r' | sed -n '$p')
 install_dir=$("$winepath" -u "$local_appdata_win\\Programs\\NOCTTY")
 user_data_dir=$("$winepath" -u "$local_appdata_win\\NOCTTY")
 start_menu_dir=$("$winepath" -u "$appdata_win\\Microsoft\\Windows\\Start Menu\\Programs\\NOCTTY")
@@ -61,20 +81,22 @@ test ! -e "$("$winepath" -u "$userprofile_win\\Desktop\\NoctEd.lnk")"
 uninstall_key='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\NOCTTY'
 application_key='HKCU\Software\Classes\Applications\nocted.exe\shell\open\command'
 progid_key='HKCU\Software\Classes\NoctEd.Text\shell\open\command'
-"$wine" reg query "$uninstall_key" /v QuietUninstallString >/dev/null
-"$wine" reg query "$application_key" /ve >/dev/null
-"$wine" reg query "$progid_key" /ve >/dev/null
+run_step uninstall_registry "$wine" reg query "$uninstall_key" /v QuietUninstallString >/dev/null
+run_step application_registry "$wine" reg query "$application_key" /ve >/dev/null
+run_step progid_registry "$wine" reg query "$progid_key" /ve >/dev/null
 for extension in .txt .c .h .cc .cpp .cxx .hh .hpp .py .json; do
-  "$wine" reg query "HKCU\\Software\\Classes\\${extension}\\OpenWithProgids" /v NoctEd.Text >/dev/null
+  run_step "extension_registry_$extension" "$wine" reg query \
+    "HKCU\\Software\\Classes\\${extension}\\OpenWithProgids" \
+    /v NoctEd.Text >/dev/null
 done
 
 mkdir -p "$user_data_dir"
 printf 'preserve user state\n' > "$user_data_dir/installer-smoke-user-state"
 printf 'preserve non-installer file\n' > "$install_dir/operator-owned-file"
-"$wine" "$install_dir/noctty.exe" --self-test
-"$wine" "$install_dir/nocted.exe" --self-test
-"$wine" "$install_dir/Uninstall.exe" /S
-"$wineserver" -w
+run_step noctty_self_test "$wine" "$install_dir/noctty.exe" --self-test
+run_step nocted_self_test "$wine" "$install_dir/nocted.exe" --self-test
+run_step uninstall "$wine" "$install_dir/Uninstall.exe" /S
+run_step wineserver_wait "$wineserver" -w
 
 test ! -e "$install_dir/noctty.exe"
 test ! -e "$install_dir/nocted.exe"

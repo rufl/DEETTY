@@ -166,6 +166,34 @@ graph, but its ad hoc test executable could not link against this host's
 blocker remains. This entry therefore
 adds no screenshot, compositor, physical network, or screen-reader receipt.
 
+## Reliability follow-through — 2026-09-02
+
+The latest retained installed Wayland logs exposed one source defect not closed
+by the 2026-08-29 pass: terminal and tab menus repeatedly attempted to map
+against the main toplevel while an older process-local popup remained at the
+head of GTK's Wayland popup stack. Those logs also contain selection-transfer
+broken-pipe warnings when an external clipboard consumer closes its request;
+the GTK-owned cancellation does not alter NOCTTY state and remains outside the
+hard-failure marker set.
+
+The current source dismisses stale process-local popup windows before opening a
+terminal or tab menu. The logging launcher now counts the exact
+`Tried to map a popup with a non-top most parent` warning and rejects it from a
+clean multi-OMP receipt. The focused logging smoke passes, and isolated Wayland
+tab-color plus profile-submenu lanes complete without that warning.
+
+The same install attempt found that a dogfood refresh failed after the system
+GTK Layer Shell package had been removed even though the previous installer
+retained the provenance-checked runtime and its SHA-256. Refresh now preflights
+and accepts only that private library when it still matches the previous `0600`
+build receipt; a missing or changed file fails before installed files are
+replaced. The launcher also bypasses receipt creation for NoctEd `--version`,
+matching its existing NOCTTY version behavior and documentation. The current
+`ReleaseFast` dogfood install completed through this retained-runtime path. A
+fresh two-hour
+installed session is still required; source, smoke, and installation results do
+not close NCT-125 by themselves.
+
 ## Sessions
 
 ## 2026-08-05 — retained 4.466-hour runtime candidate (not counted pending work-context confirmation)

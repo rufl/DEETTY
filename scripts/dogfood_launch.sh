@@ -11,13 +11,17 @@ launcher=$(readlink -f "$0")
 runtime_dir=$(dirname "$launcher")
 export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 umask 077
+if [ "$#" -eq 1 ] && [ "$1" = --version ]; then
+  exec "$runtime_dir/$app-bin" "$@"
+fi
+
 
 # Existing-instance controls are latency-sensitive and do not represent a new
 # dogfood session. Bypass receipt/log setup, but retain it when Show or Toggle
 # must cold-start the GUI.
 if [ "$app" = noctty ] && [ "$#" -eq 1 ]; then
   case "$1" in
-    --version|--status|--hide)
+    --status|--hide)
       exec "$runtime_dir/noctty-bin" "$@"
       ;;
     --show|--toggle)
@@ -213,7 +217,7 @@ if grep -F ' event=omp_detected ' "$log" >/dev/null 2>&1; then
   if [ "$status" -eq 0 ]; then
     omp_log_clean=1
     omp_log_detail=clean
-    if grep -E '(\*\* .*(ERROR|CRITICAL) \*\*|native_grid_[A-Za-z0-9_]*failed|dogfood_event_error)' \
+    if grep -E '(\*\* .*(ERROR|CRITICAL) \*\*|Tried to map a popup with a non-top most parent|native_grid_[A-Za-z0-9_]*failed|dogfood_event_error)' \
         "$log" >/dev/null 2>&1; then
       omp_log_clean=0
       omp_log_detail=error_detected
@@ -230,7 +234,7 @@ bounded_marker_count() {
   printf '%s' "$marker_count"
 }
 runtime_warning_markers=$(bounded_marker_count \
-  '(Gtk|Gdk|GLib|GObject)-CRITICAL|native_grid_[A-Za-z0-9_]*failed|thread [0-9]+ panic')
+  '(Gtk|Gdk|GLib|GObject)-CRITICAL|Tried to map a popup with a non-top most parent|native_grid_[A-Za-z0-9_]*failed|thread [0-9]+ panic')
 gtk_critical_markers=$(bounded_marker_count 'Gtk-CRITICAL')
 gdk_critical_markers=$(bounded_marker_count 'Gdk-CRITICAL')
 glib_critical_markers=$(bounded_marker_count 'GLib-CRITICAL')

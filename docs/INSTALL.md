@@ -12,9 +12,14 @@ Building requires:
 - `pkg-config`;
 - GTK 3 development files;
 - GtkSourceView 4 development files;
-- system `gtk-layer-shell` is required for dogfood/bundle creation and Plasma layer-shell dropdown placement; Noctalia sessions can use the ordinary Wayland toplevel path.
+- system `gtk-layer-shell` is required for the first dogfood install, dependency
+  bundle creation, and Plasma layer-shell dropdown placement; a later dogfood
+  refresh may reuse only the checksum-matching private copy recorded by the
+  previous install receipt. Noctalia sessions can use the ordinary Wayland
+  toplevel path.
 
-Install `gtk-layer-shell` on Arch Linux or `libgtk-layer-shell0` on Debian/Ubuntu before running dogfood or bundle scripts.
+Install `gtk-layer-shell` on Arch Linux or `libgtk-layer-shell0` on
+Debian/Ubuntu before the first dogfood install or any bundle build.
 
 VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. Production `noctty` links neither VTE nor Tree-sitter. Production `nocted` statically includes its vendored Tree-sitter parsers and adds no Tree-sitter runtime package; distribution manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
 
@@ -53,7 +58,10 @@ GTK/GLib warnings, exit status, crash-log capture, and atomic duration receipts:
 This installs logging launchers as `~/.local/bin/noctty` and
 `~/.local/bin/nocted`, keeps the staged binaries under
 `~/.local/libexec/noctty-dogfood/`, copies the installed system GTK Layer Shell runtime into its private library directory for undecorated Wayland dropdowns, and updates the installed desktop
-entries. It retains the newest 100 verbose logs per app under
+entries. If the system package is later removed, a refresh accepts only that
+private library when its SHA-256 still matches the previous private build
+receipt; missing or modified retained runtimes fail closed. It retains the
+newest 100 verbose logs per app under
 `~/.local/state/noctty/logs/` and 500 compact `0600` duration receipts per app
 under `~/.local/state/noctty/dogfood-sessions/`. Existing-instance control and
 version calls bypass receipt setup so external shortcuts do not pay the roughly
@@ -143,7 +151,7 @@ It remains architecture-local and still expects Linux, a compatible kernel/displ
 
 The reproducible tarball and same-architecture dependency bundle both compile `ReleaseSafe` with `-Dstrip=true`. This removes debug/symbol sections from shipped executables. The bundle's `redistribution_ready=true` field is separately fail-closed on exact library ownership plus a complete embedded license payload.
 
-The repository does not redistribute a prebuilt `gtk-layer-shell` fallback. Dogfood and bundle creation require the system `libgtk-layer-shell.so.0`; bundles privately copy that exact host-package library. For every copied host library, the Arch/pacman or Debian/dpkg backend stores the owning package/version/expression/source and copies package-installed notices/copyright files plus available canonical SPDX license/exception texts into `share/licenses/noctty/dependencies`. A package with no resolvable ownership or retained text aborts the bundle. The synthetic Debian backend smoke validates multiarch ownership, version, copyright, inventory, and unowned-library rejection; the Ubuntu release workflow validates the actual bundle payload before upload. This automated readiness gate is not legal advice or an independent release review.
+The repository does not redistribute a prebuilt `gtk-layer-shell` fallback. A first dogfood install and every bundle build require the system `libgtk-layer-shell.so.0`; a later dogfood refresh may reuse only the checksum-matching private copy from its previous install receipt. Bundles always copy the current host-package library. For every copied host library, the Arch/pacman or Debian/dpkg backend stores the owning package/version/expression/source and copies package-installed notices/copyright files plus available canonical SPDX license/exception texts into `share/licenses/noctty/dependencies`. A package with no resolvable ownership or retained text aborts the bundle. The synthetic Debian backend smoke validates multiarch ownership, version, copyright, inventory, and unowned-library rejection; the Ubuntu release workflow validates the actual bundle payload before upload. This automation does not replace an independent redistribution review.
 
 The release workflow is configured for x86_64 and aarch64 runners, pinned to Zig `0.16.0`, and locally guarded by `scripts/release_workflow_contract_smoke.sh`. Each job provisions `libgtk-layer-shell.so.0`, asserts the runner architecture matches the artifact label, and validates the generated archive plus SHA-256 sidecar before upload. Tagged architecture artifacts, checksums, manifests, and signatures must still be run and retained before release.
 

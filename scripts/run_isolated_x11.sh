@@ -48,7 +48,8 @@ if [ "${NOCTTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
   fi
   exec env TMPDIR=/tmp \
     "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" --wm none -- \
-    env NOCTTY_ISOLATED_DISPLAY=x11 NOCTTY_SHARED_ISOLATION=1 \
+    env XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 NO_AT_BRIDGE=1 \
+      NOCTTY_ISOLATED_DISPLAY=x11 NOCTTY_SHARED_ISOLATION=1 \
     sh -eu -c '
       root=$(mktemp -d /tmp/noctty-isolated-home.XXXXXX)
       mkdir -p "$root/home" "$root/config" "$root/state" \

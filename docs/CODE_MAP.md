@@ -128,9 +128,18 @@ read this as engineering evidence, not as extra product surface.
 - `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.
 - `scripts/install_dogfood.sh` — atomic local `ReleaseFast` install, bounded
   logging launchers, desktop-entry rewrite, and private staging of the
-  provenance-checked system GTK Layer Shell runtime for Wayland dropdowns.
+  provenance-checked system GTK Layer Shell runtime; refreshes can reuse only
+  the checksum-matching copy from the previous install receipt.
+- `scripts/install_dogfood_smoke.sh` — isolated fake-prefix proof for retained
+  runtime checksum admission and failure-before-install mutation.
+- `scripts/windows_installer_timeout_smoke.sh` — fake-Wine proof for
+  per-step failure attribution and bounded cleanup.
 - `scripts/package_windows.sh` — experimental Windows `ReleaseFast` ZIP,
   checksum, and manifest packaging with PE/ConPTY/no-GTK contract checks.
+- `scripts/package_windows_dogfood.sh` and
+  `scripts/install_windows_dogfood.ps1` — PI WEB QOL-discoverable Windows
+  dogfood bundle, checksum-gated per-user install, installed self-tests, and
+  local install receipt.
 - `scripts/terminal_*_qualification.sh` — terminal compatibility and PTY/TUI
   qualification lanes.
 - `src/*Qualification*.zig` — focused qualification runners built by `build.zig`.

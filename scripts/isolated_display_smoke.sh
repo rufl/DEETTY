@@ -10,12 +10,13 @@ else
 fi
 
 x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
-  NOCTTY_ACTIVE_HOME_FIXTURE="$HOME" \
+  GDK_BACKEND=wayland NOCTTY_ACTIVE_HOME_FIXTURE="$HOME" \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
   ./scripts/run_isolated_x11.sh sh -eu -c '
     ./scripts/require_isolated_display.sh
     [ "$NOCTTY_ISOLATED_DISPLAY" = x11 ]
     [ "$XDG_SESSION_TYPE" = x11 ]
+    [ "$GDK_BACKEND" = x11 ]
     [ "${DISPLAY:-}" != :active-fixture ]
     [ -z "${WAYLAND_DISPLAY:-}" ]
     [ "$HOME" != "$NOCTTY_ACTIVE_HOME_FIXTURE" ]

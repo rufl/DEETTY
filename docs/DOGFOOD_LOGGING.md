@@ -23,9 +23,11 @@ The commands and installed desktop entries run the staged binaries from:
 ```
 
 The installer also stages `libgtk-layer-shell.so.0` in the same private runtime
-tree and the launcher exposes that exact directory to the binaries. Dropdown
-mode therefore uses an undecorated Wayland layer surface even when the host has
-not installed GTK Layer Shell system-wide.
+tree and the launcher exposes that exact directory to the binaries. The first
+install requires the system library. Later refreshes may reuse the staged copy
+only when its SHA-256 matches the previous private build receipt; otherwise the
+installer fails closed. Dropdown mode therefore remains an undecorated Wayland
+layer surface if the system package is later removed.
 
 Override the default optimization mode when debugging a local issue:
 
