@@ -63,6 +63,8 @@ grep -F 'pub const version: u32 = 6;' "$grid_abi_zig" >/dev/null
 grep -F 'pub const Paste = *const fn (?*anyopaque, [*]const u8, usize)' "$grid_abi_zig" >/dev/null
 grep -F 'pub export fn noctty_grid_scrollbar_geometry(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_selected(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_cell(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_run_end(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_scroll_steps(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_keyboard_scroll_target(' "$grid_logic" >/dev/null

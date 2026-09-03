@@ -330,6 +330,77 @@ pub export fn noctty_grid_cell_selected(
     return 1;
 }
 
+pub const RenderCell = extern struct {
+    codepoint: u32,
+    style: u32,
+    foreground: u32,
+    background: u32,
+    face: c_int,
+    alpha: f64,
+    drawable: c_int,
+    ascii: c_int,
+    grapheme: c_int,
+    decorated: c_int,
+};
+
+/// Decodes the packed terminal-cell ABI once so renderer paths cannot diverge
+/// on inverse colors, font face, concealment, or dim opacity.
+pub export fn noctty_grid_render_cell(
+    packed_cell: u64,
+    output: ?*RenderCell,
+) callconv(.c) void {
+    const cell = output orelse return;
+    const codepoint: u32 = @truncate(packed_cell);
+    const style: u32 = @truncate(packed_cell >> 32);
+    var foreground = (style >> 8) & 0xfff;
+    var background = (style >> 20) & 0xfff;
+    if (style & 2 != 0) std.mem.swap(u32, &foreground, &background);
+    const renderable = style & 128 == 0 and codepoint >= 0x20;
+    const visible = renderable and codepoint != ' ';
+    cell.* = .{
+        .codepoint = codepoint,
+        .style = style,
+        .foreground = foreground,
+        .background = background,
+        .face = @as(c_int, @intFromBool(style & 1 != 0)) |
+            (@as(c_int, @intFromBool(style & 4 != 0)) << 1),
+        .alpha = if (style & 32 != 0) 0.55 else 1.0,
+        .drawable = @intFromBool(visible),
+        .ascii = @intFromBool(renderable and codepoint <= 0x7e and style & 64 == 0),
+        .grapheme = @intFromBool(visible and style & 64 != 0),
+        .decorated = @intFromBool(style & (8 | 16) != 0),
+    };
+}
+
+pub export fn noctty_grid_render_run_end(
+    cells_raw: ?[*]const u64,
+    start: c_int,
+    end: c_int,
+    kind: c_int,
+) callconv(.c) c_int {
+    const cells = cells_raw orelse return start;
+    if (start < 0 or end <= start) return start;
+    var reference: RenderCell = undefined;
+    noctty_grid_render_cell(cells[@intCast(start)], &reference);
+    var index = start + 1;
+    while (index < end) : (index += 1) {
+        var candidate: RenderCell = undefined;
+        noctty_grid_render_cell(cells[@intCast(index)], &candidate);
+        const matches = switch (kind) {
+            1 => candidate.background == reference.background,
+            2 => candidate.ascii != 0 and
+                (candidate.style & (1 | 4 | 32)) == (reference.style & (1 | 4 | 32)) and
+                candidate.foreground == reference.foreground,
+            3 => candidate.decorated != 0 and
+                (candidate.style & (8 | 16 | 32)) == (reference.style & (8 | 16 | 32)) and
+                candidate.foreground == reference.foreground,
+            else => false,
+        };
+        if (!matches) break;
+    }
+    return index;
+}
+
 pub export fn noctty_grid_cell_span(
     first: c_int,
     end: c_int,
@@ -1066,6 +1137,32 @@ test "preflight rejection resets while retaining modal nesting" {
         true,
         noctty_grid_close_modal_end(&coordinator),
     );
+}
+
+test "renderer cell decoding keeps inverse and style policy coherent" {
+    var cell: RenderCell = undefined;
+    const style: u32 = 1 | 2 | 4 | 8 | 32 | (@as(u32, 7) << 8) |
+        (@as(u32, 12) << 20);
+    noctty_grid_render_cell((@as(u64, style) << 32) | 'A', &cell);
+    try std.testing.expectEqual(@as(u32, 'A'), cell.codepoint);
+    try std.testing.expectEqual(@as(u32, 12), cell.foreground);
+    try std.testing.expectEqual(@as(u32, 7), cell.background);
+    try std.testing.expectEqual(@as(c_int, 3), cell.face);
+    try std.testing.expectEqual(@as(f64, 0.55), cell.alpha);
+    try std.testing.expectEqual(@as(c_int, 1), cell.ascii);
+    try std.testing.expectEqual(@as(c_int, 1), cell.decorated);
+}
+
+test "renderer runs stop at the first policy change" {
+    const plain: u32 = (@as(u32, 2) << 8) | (@as(u32, 4) << 20);
+    const dim: u32 = plain | 32;
+    const cells = [_]u64{
+        (@as(u64, plain) << 32) | 'a',
+        (@as(u64, plain) << 32) | 'b',
+        (@as(u64, dim) << 32) | 'c',
+    };
+    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_render_run_end(&cells, 0, 3, 1));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_render_run_end(&cells, 0, 3, 2));
 }
 
 test "accepted preflight commits once and rejects all reentrancy" {

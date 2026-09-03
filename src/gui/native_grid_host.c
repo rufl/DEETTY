@@ -2080,15 +2080,12 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
             for (int column = first_column; column < end_column; column++) {
                 uint64_t packed_cell = context->cell(
                     context->userdata, column, row);
-                uint32_t codepoint = (uint32_t)packed_cell;
-                uint32_t style = (uint32_t)(packed_cell >> 32);
-                uint32_t foreground = (style >> 8) & 0xfff;
-                uint32_t background = (style >> 20) & 0xfff;
-                if (style & 2) {
-                    uint32_t swap = foreground;
-                    foreground = background;
-                    background = swap;
-                }
+                NocttyGridRenderCell render_cell;
+                noctty_grid_render_cell(packed_cell, &render_cell);
+                uint32_t codepoint = render_cell.codepoint;
+                uint32_t style = render_cell.style;
+                uint32_t foreground = render_cell.foreground;
+                uint32_t background = render_cell.background;
                 if (background != 0xfff) {
                     set_terminal_color(context, cr, background,
                                        0.043, 0.051, 0.071, 1.0);
@@ -2103,9 +2100,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                         cr, column, column + 1, row, cell_width, cell_height);
                     cairo_fill(cr);
                 }
-                if ((style & 128) == 0 && codepoint >= 0x20 && codepoint != ' ') {
-                    int face = ((style & 1) ? 1 : 0) |
-                        ((style & 4) ? 2 : 0);
+                if (render_cell.drawable) {
+                    int face = render_cell.face;
                     if (face != selected_face) {
                         cairo_select_font_face(
                             cr,
@@ -2119,7 +2115,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                     }
                     set_terminal_color(context, cr, foreground,
                                        0.84, 0.87, 0.91,
-                                       (style & 32) ? 0.55 : 1.0);
+                                       render_cell.alpha);
                     if (style & 64)
                         draw_grid_cell_text(
                             context, cr, column, row,
@@ -2142,24 +2138,16 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
 
         int column = first_column;
         while (column < end_column) {
-            uint64_t packed_cell = context->row_cells[column];
-            uint32_t style = (uint32_t)(packed_cell >> 32);
-            uint32_t background = (style & 2)
-                ? ((style >> 8) & 0xfff) : ((style >> 20) & 0xfff);
+            NocttyGridRenderCell render_cell;
+            noctty_grid_render_cell(
+                context->row_cells[column], &render_cell);
+            uint32_t background = render_cell.background;
             if (background == 0xfff) {
                 column++;
                 continue;
             }
-            int background_end = column + 1;
-            while (background_end < end_column) {
-                uint32_t next_style = (uint32_t)(
-                    context->row_cells[background_end] >> 32);
-                uint32_t next_background = (next_style & 2)
-                    ? ((next_style >> 8) & 0xfff)
-                    : ((next_style >> 20) & 0xfff);
-                if (next_background != background) break;
-                background_end++;
-            }
+            int background_end = noctty_grid_render_run_end(
+                context->row_cells, column, end_column, 1);
             set_terminal_color(context, cr, background,
                                0.043, 0.051, 0.071, 1.0);
             grid_cell_span_rectangle(
@@ -2188,31 +2176,16 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
 
         column = first_column;
         while (column < end_column) {
-            uint64_t packed_cell = context->row_cells[column];
-            uint32_t codepoint = (uint32_t)packed_cell;
-            uint32_t style = (uint32_t)(packed_cell >> 32);
-            uint32_t foreground = (style & 2)
-                ? ((style >> 20) & 0xfff) : ((style >> 8) & 0xfff);
-            if ((style & (64 | 128)) == 0 &&
-                codepoint >= 0x20 && codepoint <= 0x7e) {
-                int face = ((style & 1) ? 1 : 0) |
-                    ((style & 4) ? 2 : 0);
-                int run_end = column + 1;
-                while (run_end < end_column) {
-                    uint64_t next_cell = context->row_cells[run_end];
-                    uint32_t next_codepoint = (uint32_t)next_cell;
-                    uint32_t next_style = (uint32_t)(next_cell >> 32);
-                    uint32_t next_foreground = (next_style & 2)
-                        ? ((next_style >> 20) & 0xfff)
-                        : ((next_style >> 8) & 0xfff);
-                    if ((next_style & (64 | 128)) != 0 ||
-                        next_codepoint < 0x20 || next_codepoint > 0x7e ||
-                        (next_style & (1 | 4 | 32)) !=
-                            (style & (1 | 4 | 32)) ||
-                        next_foreground != foreground)
-                        break;
-                    run_end++;
-                }
+            NocttyGridRenderCell render_cell;
+            noctty_grid_render_cell(
+                context->row_cells[column], &render_cell);
+            uint32_t codepoint = render_cell.codepoint;
+            uint32_t style = render_cell.style;
+            uint32_t foreground = render_cell.foreground;
+            if (render_cell.ascii) {
+                int face = render_cell.face;
+                int run_end = noctty_grid_render_run_end(
+                    context->row_cells, column, end_column, 2);
                 if (face != selected_face) {
                     cairo_select_font_face(
                         cr,
@@ -2226,7 +2199,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                 }
                 set_terminal_color(context, cr, foreground,
                                    0.84, 0.87, 0.91,
-                                   (style & 32) ? 0.55 : 1.0);
+                                   render_cell.alpha);
                 int batched = draw_ascii_run(
                     context, cr, context->row_cells, column, run_end,
                     4.0 + text_inset, cell_width,
@@ -2240,9 +2213,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                 column = run_end;
                 continue;
             }
-            if ((style & 128) == 0 && codepoint >= 0x20 && codepoint != ' ') {
-                int face = ((style & 1) ? 1 : 0) |
-                    ((style & 4) ? 2 : 0);
+            if (render_cell.drawable) {
+                int face = render_cell.face;
                 if (face != selected_face) {
                     cairo_select_font_face(
                         cr,
@@ -2256,8 +2228,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                 }
                 set_terminal_color(context, cr, foreground,
                                    0.84, 0.87, 0.91,
-                                   (style & 32) ? 0.55 : 1.0);
-                if (style & 64)
+                                   render_cell.alpha);
+                if (render_cell.grapheme)
                     draw_grid_cell_text(
                         context, cr, column, row,
                         4.0 + text_inset + column * cell_width,
@@ -2275,26 +2247,17 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
 
         column = first_column;
         while (column < end_column) {
-            uint32_t style = (uint32_t)(context->row_cells[column] >> 32);
-            if ((style & (8 | 16)) == 0) {
+            NocttyGridRenderCell render_cell;
+            noctty_grid_render_cell(
+                context->row_cells[column], &render_cell);
+            if (!render_cell.decorated) {
                 column++;
                 continue;
             }
-            uint32_t foreground = (style & 2)
-                ? ((style >> 20) & 0xfff) : ((style >> 8) & 0xfff);
-            int decoration_end = column + 1;
-            while (decoration_end < end_column) {
-                uint32_t next_style =
-                    (uint32_t)(context->row_cells[decoration_end] >> 32);
-                uint32_t next_foreground = (next_style & 2)
-                    ? ((next_style >> 20) & 0xfff)
-                    : ((next_style >> 8) & 0xfff);
-                if ((next_style & (8 | 16 | 32)) !=
-                        (style & (8 | 16 | 32)) ||
-                    next_foreground != foreground)
-                    break;
-                decoration_end++;
-            }
+            uint32_t style = render_cell.style;
+            uint32_t foreground = render_cell.foreground;
+            int decoration_end = noctty_grid_render_run_end(
+                context->row_cells, column, end_column, 3);
             draw_text_decorations(context, cr, style, foreground,
                                   row, column, decoration_end,
                                   cell_width, cell_height);

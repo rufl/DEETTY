@@ -115,6 +115,24 @@ int noctty_grid_scrollbar_geometry(
 int noctty_grid_cell_selected(int selecting, int start_column, int start_row,
                               int end_column, int end_row, int column,
                               int row);
+typedef struct {
+    uint32_t codepoint;
+    uint32_t style;
+    uint32_t foreground;
+    uint32_t background;
+    int face;
+    double alpha;
+    int drawable;
+    int ascii;
+    int grapheme;
+    int decorated;
+} NocttyGridRenderCell;
+
+void noctty_grid_render_cell(uint64_t packed_cell,
+                             NocttyGridRenderCell *output);
+int noctty_grid_render_run_end(const uint64_t *cells, int start, int end,
+                               int kind);
+
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,
                            NocttyGridRectangle *rectangle);
