@@ -119,6 +119,36 @@ gboolean noctty_project_contents_new(
     NocttyProjectContents *contents_out);
 
 typedef struct {
+    const char *shell;
+    const char *command;
+    const char *cwd;
+    const char *environment;
+    const char *ssh_target;
+    int kind;
+    int scrollback;
+} NocttyLaunchProfileOptions;
+
+typedef struct {
+    GtkWidget *library;
+    GtkWidget *name;
+    GtkWidget *kind;
+    GtkWidget *shell;
+    GtkWidget *command;
+    GtkWidget *cwd;
+    GtkWidget *environment;
+    GtkWidget *ssh_target;
+    GtkWidget *scrollback;
+    GtkWidget *apply;
+    GtkWidget *save;
+    GtkWidget *delete_button;
+    GtkWidget *status;
+} NocttyLaunchProfileContents;
+
+gboolean noctty_launch_profile_contents_new(
+    GtkWidget *parent_body, const NocttyLaunchProfileOptions *options,
+    NocttyLaunchProfileContents *contents_out);
+
+typedef struct {
     GCallback action;
     GCallback tab_changed;
     GCallback stream_changed;

@@ -163,7 +163,7 @@ grep -F 'gtk_window_set_icon_name(GTK_WINDOW(window), "com.noctty.NOCTTY");' "$g
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
 grep -F 'static void configure_overlay_window_geometry(' "$grid" >/dev/null
 grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' "$grid" >/dev/null
-grep -F 'GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);' "$grid" >/dev/null
+grep -F 'const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6)' "$native_gtk" >/dev/null
 grep -F 'if (!gtk_widget_get_mapped(widget)) {' "$grid" >/dev/null
 grep -F 'resize_grid_to_allocation(context, &allocation);' "$grid" >/dev/null
 grep -F 'g_idle_add(focus_grid_area_idle, g_object_ref(context->area));' "$grid" >/dev/null

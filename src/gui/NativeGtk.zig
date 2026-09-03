@@ -95,6 +95,7 @@ extern fn gtk_label_set_mnemonic_widget(*GtkLabel, *GtkWidget) void;
 extern fn gtk_dialog_get_content_area(*GtkDialog) *GtkWidget;
 extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
+extern fn gtk_entry_set_max_length(*GtkEntry, c_int) void;
 extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
@@ -1211,6 +1212,154 @@ pub export fn noctty_project_contents_new(
         .editor = editor,
         .summary = summary,
         .summary_scroll = summary_scroll,
+    };
+    return TRUE;
+}
+
+const LaunchProfileOptions = extern struct {
+    shell: ?[*:0]const u8,
+    command: ?[*:0]const u8,
+    cwd: ?[*:0]const u8,
+    environment: ?[*:0]const u8,
+    ssh_target: ?[*:0]const u8,
+    kind: c_int,
+    scrollback: c_int,
+};
+
+const LaunchProfileContents = extern struct {
+    library: ?*GtkWidget,
+    name: ?*GtkWidget,
+    kind: ?*GtkWidget,
+    shell: ?*GtkWidget,
+    command: ?*GtkWidget,
+    cwd: ?*GtkWidget,
+    environment: ?*GtkWidget,
+    ssh_target: ?*GtkWidget,
+    scrollback: ?*GtkWidget,
+    apply: ?*GtkWidget,
+    save: ?*GtkWidget,
+    delete: ?*GtkWidget,
+    status: ?*GtkWidget,
+};
+
+fn textEntry(text: [*:0]const u8, placeholder: [*:0]const u8) ?*GtkWidget {
+    const entry = gtk_entry_new() orelse return null;
+    gtk_entry_set_text(@ptrCast(entry), text);
+    gtk_entry_set_placeholder_text(@ptrCast(entry), placeholder);
+    return entry;
+}
+
+pub export fn noctty_launch_profile_contents_new(
+    parent_body: ?*GtkWidget,
+    options_raw: ?*const LaunchProfileOptions,
+    contents_out: ?*LaunchProfileContents,
+) c_int {
+    const body = parent_body orelse return FALSE;
+    const options = options_raw orelse return FALSE;
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(LaunchProfileContents);
+
+    const library = gtk_combo_box_text_new() orelse return FALSE;
+    gtk_combo_box_text_append_text(@ptrCast(library), "Custom current");
+    gtk_combo_box_set_active(@ptrCast(library), 0);
+    const name = gtk_entry_new() orelse return FALSE;
+    gtk_entry_set_max_length(@ptrCast(name), 64);
+    gtk_entry_set_placeholder_text(@ptrCast(name), "Name this launch profile");
+    const kind = gtk_combo_box_text_new() orelse return FALSE;
+    for ([_][*:0]const u8{
+        "Shell",
+        "Command",
+        "SSH",
+        "Persistent tmux",
+        "Persistent Zellij",
+    }) |label| gtk_combo_box_text_append_text(@ptrCast(kind), label);
+    gtk_combo_box_set_active(@ptrCast(kind), @max(0, @min(4, options.kind)));
+
+    const shell = textEntry(
+        options.shell orelse "",
+        "Use $SHELL when blank",
+    ) orelse return FALSE;
+    const command = textEntry(
+        options.command orelse "",
+        "One command line for new sessions",
+    ) orelse return FALSE;
+    const cwd = textEntry(
+        options.cwd orelse "",
+        "Inherit pane directory when blank",
+    ) orelse return FALSE;
+    const environment = textEntry(
+        options.environment orelse "",
+        "NAME=value;SECOND=value",
+    ) orelse return FALSE;
+    const ssh_target = textEntry(
+        options.ssh_target orelse "",
+        "user@example.com or session-name",
+    ) orelse return FALSE;
+    const scrollback = gtk_spin_button_new_with_range(100, 100000, 100) orelse return FALSE;
+    gtk_spin_button_set_value(@ptrCast(scrollback), @floatFromInt(options.scrollback));
+
+    const apply = gtk_button_new_with_label("Apply to new sessions") orelse return FALSE;
+    noctty_configure_action_button(
+        apply,
+        "Validate and save this profile; running sessions are unchanged.",
+    );
+    const save = gtk_button_new_with_label("Save named profile") orelse return FALSE;
+    noctty_configure_action_button(
+        save,
+        "Add or replace a named profile and select it for new sessions.",
+    );
+    const delete = gtk_button_new_with_label("Delete selected profile") orelse return FALSE;
+    noctty_configure_action_button(
+        delete,
+        "Remove the selected name; the current launch values stay active.",
+    );
+    gtk_widget_set_sensitive(delete, FALSE);
+    const status = gtk_label_new("") orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(status), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(status), TRUE);
+    gtk_widget_set_no_show_all(status, TRUE);
+    gtk_widget_set_visible(status, FALSE);
+    setAccessibleName(status, "Launch profile save status");
+
+    const grid = noctty_settings_grid_new() orelse return FALSE;
+    const controls = [_]struct { [*:0]const u8, *GtkWidget }{
+        .{ "Saved profile", library },
+        .{ "Profile name", name },
+        .{ "Launch type", kind },
+        .{ "Shell", shell },
+        .{ "Command", command },
+        .{ "Working directory", cwd },
+        .{ "Environment overrides", environment },
+        .{ "SSH / session target", ssh_target },
+        .{ "New-session scrollback", scrollback },
+    };
+    for (controls, 0..) |control, row| {
+        noctty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
+    }
+    const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6) orelse return FALSE;
+    gtk_widget_set_halign(buttons, GTK_ALIGN_FILL);
+    gtk_box_pack_start(@ptrCast(buttons), apply, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(buttons), save, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(buttons), delete, FALSE, FALSE, 0);
+    gtk_grid_attach(@ptrCast(grid), buttons, 1, 9, 1, 1);
+    gtk_grid_attach(@ptrCast(grid), status, 1, 10, 1, 1);
+    const group = noctty_settings_group_new("Launch profiles", grid) orelse return FALSE;
+    gtk_box_pack_start(@ptrCast(body), group, FALSE, FALSE, 0);
+
+    output.* = .{
+        .library = library,
+        .name = name,
+        .kind = kind,
+        .shell = shell,
+        .command = command,
+        .cwd = cwd,
+        .environment = environment,
+        .ssh_target = ssh_target,
+        .scrollback = scrollback,
+        .apply = apply,
+        .save = save,
+        .delete = delete,
+        .status = status,
     };
     return TRUE;
 }

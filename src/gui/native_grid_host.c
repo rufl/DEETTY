@@ -12669,103 +12669,34 @@ static void open_grid_settings(NocttyGridContext *context) {
         launch_scrollback_value = noctty_grid_launch_profile(
             context->event_data, 6, launch_shell, sizeof(launch_shell));
     }
-    GtkWidget *launch_library = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_library),
-                                   "Custom current");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(launch_library), 0);
-    GtkWidget *launch_name_entry = gtk_entry_new();
-    gtk_entry_set_max_length(GTK_ENTRY(launch_name_entry), 64);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_name_entry),
-                                   "Name this launch profile");
-    GtkWidget *launch_kind = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_kind), "Shell");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_kind), "Command");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_kind), "SSH");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_kind),
-                                   "Persistent tmux");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(launch_kind),
-                                   "Persistent Zellij");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(launch_kind),
-                             CLAMP(launch_kind_value, 0, 4));
-    GtkWidget *launch_shell_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(launch_shell_entry), launch_shell);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_shell_entry),
-                                   "Use $SHELL when blank");
-    GtkWidget *launch_command_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(launch_command_entry), launch_command);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_command_entry),
-                                   "One command line for new sessions");
-    GtkWidget *launch_cwd_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(launch_cwd_entry), launch_cwd);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_cwd_entry),
-                                   "Inherit pane directory when blank");
-    GtkWidget *launch_environment_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(launch_environment_entry),
-                       launch_environment);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_environment_entry),
-                                   "NAME=value;SECOND=value");
-    GtkWidget *launch_ssh_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(launch_ssh_entry), launch_ssh_target);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(launch_ssh_entry),
-                                   "user@example.com or session-name");
-    GtkWidget *launch_scrollback = gtk_spin_button_new_with_range(
-        100, 100000, 100);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(launch_scrollback),
-                              launch_scrollback_value);
-    GtkWidget *launch_apply = gtk_button_new_with_label(
-        "Apply to new sessions");
-    configure_action_button(
-        launch_apply,
-        "Validate and save this profile; running sessions are unchanged.");
-    GtkWidget *launch_save = gtk_button_new_with_label(
-        "Save named profile");
-    configure_action_button(
-        launch_save,
-        "Add or replace a named profile and select it for new sessions.");
-    GtkWidget *launch_delete = gtk_button_new_with_label(
-        "Delete selected profile");
-    configure_action_button(
-        launch_delete,
-        "Remove the selected name; the current launch values stay active.");
-    gtk_widget_set_sensitive(launch_delete, FALSE);
-    GtkWidget *launch_status = gtk_label_new("");
-    gtk_label_set_xalign(GTK_LABEL(launch_status), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(launch_status), TRUE);
-    gtk_widget_set_no_show_all(launch_status, TRUE);
-    gtk_widget_set_visible(launch_status, FALSE);
-    set_widget_accessible_name(
-        launch_status, "Launch profile save status");
-    GtkWidget *launch_grid = settings_grid_new();
-    settings_grid_attach_control(launch_grid, "Saved profile", launch_library,
-                                 0);
-    settings_grid_attach_control(launch_grid, "Profile name",
-                                 launch_name_entry, 1);
-    settings_grid_attach_control(launch_grid, "Launch type", launch_kind, 2);
-    settings_grid_attach_control(launch_grid, "Shell", launch_shell_entry, 3);
-    settings_grid_attach_control(launch_grid, "Command", launch_command_entry,
-                                 4);
-    settings_grid_attach_control(launch_grid, "Working directory",
-                                 launch_cwd_entry, 5);
-    settings_grid_attach_control(launch_grid, "Environment overrides",
-                                 launch_environment_entry, 6);
-    settings_grid_attach_control(launch_grid, "SSH / session target",
-                                 launch_ssh_entry, 7);
-    settings_grid_attach_control(launch_grid, "New-session scrollback",
-                                 launch_scrollback, 8);
-    GtkWidget *launch_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_widget_set_halign(launch_buttons, GTK_ALIGN_FILL);
-    gtk_box_pack_start(GTK_BOX(launch_buttons), launch_apply,
-                       FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(launch_buttons), launch_save,
-                       FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(launch_buttons), launch_delete,
-                       FALSE, FALSE, 0);
-    gtk_grid_attach(GTK_GRID(launch_grid), launch_buttons, 1, 9, 1, 1);
-    gtk_grid_attach(GTK_GRID(launch_grid), launch_status, 1, 10, 1, 1);
-    gtk_box_pack_start(GTK_BOX(behavior_page_body),
-                       settings_group_new("Launch profiles",
-                                          launch_grid),
-                       FALSE, FALSE, 0);
+    const NocttyLaunchProfileOptions launch_options = {
+        .shell = launch_shell,
+        .command = launch_command,
+        .cwd = launch_cwd,
+        .environment = launch_environment,
+        .ssh_target = launch_ssh_target,
+        .kind = launch_kind_value,
+        .scrollback = launch_scrollback_value,
+    };
+    NocttyLaunchProfileContents launch_contents = {0};
+    if (!noctty_launch_profile_contents_new(
+            behavior_page_body, &launch_options, &launch_contents)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *launch_library = launch_contents.library;
+    GtkWidget *launch_name_entry = launch_contents.name;
+    GtkWidget *launch_kind = launch_contents.kind;
+    GtkWidget *launch_shell_entry = launch_contents.shell;
+    GtkWidget *launch_command_entry = launch_contents.command;
+    GtkWidget *launch_cwd_entry = launch_contents.cwd;
+    GtkWidget *launch_environment_entry = launch_contents.environment;
+    GtkWidget *launch_ssh_entry = launch_contents.ssh_target;
+    GtkWidget *launch_scrollback = launch_contents.scrollback;
+    GtkWidget *launch_apply = launch_contents.apply;
+    GtkWidget *launch_save = launch_contents.save;
+    GtkWidget *launch_delete = launch_contents.delete_button;
+    GtkWidget *launch_status = launch_contents.status;
     GtkWidget *notification_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_box_pack_start(GTK_BOX(notification_box), notifications,
                        FALSE, FALSE, 0);
