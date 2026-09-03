@@ -6378,6 +6378,7 @@ fn nativeGridSharingScopeSmoke(io: std.Io, out: anytype) !void {
         host.port(),
         1,
     );
+    try share_state.store.addOrUpdate(viewer_peer);
     share_state.live_viewer = try noctty.share.live_viewer.LiveViewer.create(
         allocator,
         random,
