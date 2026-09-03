@@ -2,8 +2,9 @@
  * Native Linux GTK/Cairo host for the production terminal grid.
  *
  * Zig owns terminal, workspace, configuration, and persistence state. This
- * file owns GTK widgets, Cairo rendering, GLib main-loop sources, and the C
- * side of native_grid_abi.h. Keep model decisions behind that ABI so GTK
+ * file owns GTK object lifetimes, Pango glyph caches, GLib main-loop sources,
+ * and the C side of native_grid_abi.h. Zig owns extracted Cairo primitives and
+ * model policy. Keep decisions behind those ABIs so GTK
  * object lifetimes and terminal-session lifetimes remain independently
  * testable. NOCTTY_ENABLE_SMOKE adds qualification orchestration; it must not
  * alter production behavior.
@@ -30,6 +31,7 @@
 #include "native_gtk.h"
 #include "native_grid_abi.h"
 #include "native_grid_logic.h"
+#include "native_grid_render.h"
 
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
@@ -1354,25 +1356,9 @@ static gboolean grid_cell_is_selected(const NocttyGridContext *context,
 
 static void apply_terminal_font_options(NocttyGridContext *context,
                                         cairo_t *cr) {
-    cairo_font_options_t *options = cairo_font_options_create();
-    if (options == NULL) return;
-    cairo_get_font_options(cr, options);
-    const cairo_antialias_t antialias[] = {
-        CAIRO_ANTIALIAS_DEFAULT, CAIRO_ANTIALIAS_GRAY,
-        CAIRO_ANTIALIAS_SUBPIXEL,
-    };
-    const cairo_hint_style_t hinting[] = {
-        CAIRO_HINT_STYLE_NONE, CAIRO_HINT_STYLE_SLIGHT,
-        CAIRO_HINT_STYLE_FULL,
-    };
     NocttyGridContext *root = root_grid_context(context);
-    cairo_font_options_set_antialias(
-        options, antialias[CLAMP(root->font_antialias, 0, 2)]);
-    cairo_font_options_set_hint_style(
-        options, hinting[CLAMP(root->font_hinting, 0, 2)]);
-    cairo_font_options_set_hint_metrics(options, CAIRO_HINT_METRICS_ON);
-    cairo_set_font_options(cr, options);
-    cairo_font_options_destroy(options);
+    noctty_grid_render_apply_font_options(
+        cr, root->font_antialias, root->font_hinting);
 }
 
 static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
@@ -1380,37 +1366,13 @@ static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
                                      double x, double baseline,
                                      uint32_t style) {
     if (text == NULL || length <= 0) return;
-    PangoLayout *layout = pango_cairo_create_layout(cr);
-    if (layout == NULL) return;
-    const int face = ((style & 1) != 0) | (((style & 4) != 0) << 1);
-    PangoFontDescription *description = context->terminal_font_descriptions[face];
-    if (description == NULL) {
-        description = pango_font_description_new();
-        if (description != NULL) {
-            pango_font_description_set_family(
-                description,
-                context != NULL && context->font_family != NULL
-                    ? context->font_family : "monospace");
-            pango_font_description_set_absolute_size(
-                description, terminal_font_px(context) * PANGO_SCALE);
-            pango_font_description_set_style(
-                description, (face & 2) ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
-            pango_font_description_set_weight(
-                description, (face & 1) ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-            context->terminal_font_descriptions[face] = description;
-        }
-    }
-    if (description != NULL)
-        pango_layout_set_font_description(layout, description);
-    pango_layout_set_single_paragraph_mode(layout, TRUE);
-    pango_layout_set_text(layout, text, length);
-    const int pango_baseline = pango_layout_get_baseline(layout);
-    const double top = baseline -
-        (pango_baseline > 0 ? pango_baseline / (double)PANGO_SCALE
-                            : terminal_font_px(context) * 0.82);
-    cairo_move_to(cr, x, top);
-    pango_cairo_show_layout(cr, layout);
-    g_object_unref(layout);
+    const NocttyGridTerminalFont font = {
+        .descriptions = context->terminal_font_descriptions,
+        .family = context->font_family,
+        .size_px = terminal_font_px(context),
+    };
+    (void)noctty_grid_render_terminal_text(
+        cr, &font, text, length, x, baseline, style);
 }
 
 static void draw_codepoint(NocttyGridContext *context, cairo_t *cr,
@@ -1626,126 +1588,44 @@ static void set_terminal_color(NocttyGridContext *context, cairo_t *cr,
                           alpha);
 }
 
-static void rounded_rectangle(cairo_t *cr, double x, double y,
-                              double width, double height, double radius) {
-    double right = x + width;
-    double bottom = y + height;
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, right - radius, y + radius, radius, -G_PI / 2.0, 0.0);
-    cairo_arc(cr, right - radius, bottom - radius, radius, 0.0, G_PI / 2.0);
-    cairo_arc(cr, x + radius, bottom - radius, radius, G_PI / 2.0, G_PI);
-    cairo_arc(cr, x + radius, y + radius, radius, G_PI, 3.0 * G_PI / 2.0);
-    cairo_close_path(cr);
-}
-
 static void draw_resize_overlay(NocttyGridContext *context, cairo_t *cr,
                                 GtkAllocation allocation) {
-    if (!context->resize_overlay_visible ||
-        context->resize_overlay_columns <= 0 ||
-        context->resize_overlay_rows <= 0) return;
-    char label[64];
-    if (context->resize_overlay_floor_reached)
-        g_snprintf(label, sizeof(label), "Min 3pt · %d × %d",
-                   context->resize_overlay_columns,
-                   context->resize_overlay_rows);
-    else if (context->resize_overlay_zoom_percent > 0 &&
-             context->resize_overlay_zoom_percent < 100)
-        g_snprintf(label, sizeof(label), "Zoom %d%% · %d × %d",
-                   context->resize_overlay_zoom_percent,
-                   context->resize_overlay_columns,
-                   context->resize_overlay_rows);
-    else
-        g_snprintf(label, sizeof(label), "%d × %d",
-                   context->resize_overlay_columns,
-                   context->resize_overlay_rows);
-    cairo_save(cr);
-    cairo_select_font_face(cr,
-                           context->font_family != NULL
-                               ? context->font_family : "monospace",
-                           CAIRO_FONT_SLANT_NORMAL,
-                           CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 16.0);
-    cairo_text_extents_t extents;
-    cairo_text_extents(cr, label, &extents);
-    double width = MAX(88.0, extents.width + 30.0);
-    double height = 42.0;
-    double x = (allocation.width - width) / 2.0;
-    double y = (allocation.height - height) / 2.0;
-    x = MAX(6.0, x);
-    y = MAX(6.0, y);
-    rounded_rectangle(cr, x, y, width, height, 9.0);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BACKGROUND,
-                 0x12151d, 0.94);
-    cairo_fill_preserve(cr);
-    cairo_set_line_width(cr, context->overlay_border_px);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BORDER,
-                 0xf2b82e, context->high_contrast ? 0.95 : 0.20);
-    cairo_stroke(cr);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_FOREGROUND,
-                 0xf7f8ff, 0.98);
-    double text_x = x + (width - extents.width) / 2.0 - extents.x_bearing;
-    double text_y = y + (height - extents.height) / 2.0 - extents.y_bearing;
-    cairo_move_to(cr, text_x, text_y);
-    cairo_show_text(cr, label);
-    cairo_restore(cr);
-    context->resize_overlay_drawn = 1;
+    if (!context->resize_overlay_visible) return;
+    const NocttyGridResizeOverlay options = {
+        .palette = { context->event_data, context->ui_color_rgb },
+        .font_family = context->font_family,
+        .allocation_width = allocation.width,
+        .allocation_height = allocation.height,
+        .columns = context->resize_overlay_columns,
+        .rows = context->resize_overlay_rows,
+        .floor_reached = context->resize_overlay_floor_reached,
+        .zoom_percent = context->resize_overlay_zoom_percent,
+        .border_width = context->overlay_border_px,
+        .high_contrast = context->high_contrast,
+    };
+    if (noctty_grid_render_resize_overlay(cr, &options))
+        context->resize_overlay_drawn = 1;
 }
 
 static void draw_quick_note_overlay(NocttyGridContext *context, cairo_t *cr,
                                     GtkAllocation allocation) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!root->note_overlay_visible || root->note_overlay_label == NULL ||
-        root->note_overlay_label[0] == '\0' || allocation.width < 48 ||
-        allocation.height < 32) return;
-
-    double available_width = MAX(32.0, allocation.width - 16.0);
-    double max_width = MIN(320.0, available_width);
-    if (root->note_overlay_font == NULL)
-        root->note_overlay_font = pango_font_description_from_string("Sans 9");
-    PangoLayout *layout = pango_cairo_create_layout(cr);
-    pango_layout_set_font_description(layout, root->note_overlay_font);
-    pango_layout_set_text(layout, root->note_overlay_label, -1);
-    pango_layout_set_width(layout,
-                           (int)(MAX(12.0, max_width - 20.0) * PANGO_SCALE));
-    pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
-    pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
-    pango_layout_set_height(layout, -3);
-    pango_layout_set_spacing(layout, PANGO_SCALE);
-
-    int text_width = 0;
-    int text_height = 0;
-    pango_layout_get_pixel_size(layout, &text_width, &text_height);
-    double min_width = MIN(96.0, max_width);
-    double width = MIN(max_width, MAX(min_width, text_width + 20.0));
-    double max_height = MAX(24.0, MIN(92.0, allocation.height - 16.0));
-    double height = MIN(max_height, MAX(30.0, text_height + 14.0));
-    double x = MAX(8.0, allocation.width - width - 8.0);
-    double y = 8.0;
-
-    cairo_save(cr);
-    rounded_rectangle(cr, x, y, width, height, 7.0);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BACKGROUND,
-                 0x12151d, 0.94);
-    cairo_fill_preserve(cr);
-    cairo_set_line_width(cr, context->overlay_border_px);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BORDER,
-                 0xf2b82e, context->high_contrast ? 0.98 : 0.78);
-    cairo_stroke(cr);
-    cairo_rectangle(cr, x + 8.0, y + 5.0,
-                    MAX(1.0, width - 16.0), MAX(1.0, height - 10.0));
-    cairo_clip(cr);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_FOREGROUND,
-                 0xf7f8ff, 0.98);
-    cairo_move_to(cr, x + 10.0, y + 7.0);
-    pango_cairo_show_layout(cr, layout);
-    cairo_restore(cr);
-
-    context->note_overlay_drawn = 1;
-    context->note_overlay_compact =
-        width <= 320.0 && height <= 92.0 && x >= 0.0 && y >= 0.0 &&
-        x + width <= allocation.width + 0.5 &&
-        y + height <= allocation.height + 0.5;
-    g_object_unref(layout);
+    if (!root->note_overlay_visible || root->note_overlay_label == NULL)
+        return;
+    const NocttyGridTextOverlay options = {
+        .palette = { context->event_data, context->ui_color_rgb },
+        .text = root->note_overlay_label,
+        .font_cache = &root->note_overlay_font,
+        .allocation_width = allocation.width,
+        .allocation_height = allocation.height,
+        .border_width = context->overlay_border_px,
+        .high_contrast = context->high_contrast,
+    };
+    int compact = 0;
+    if (noctty_grid_render_quick_note(cr, &options, &compact)) {
+        context->note_overlay_drawn = 1;
+        context->note_overlay_compact = compact;
+    }
 }
 
 static gboolean clear_status_feedback(gpointer user_data) {
@@ -1778,80 +1658,36 @@ static void draw_status_feedback(NocttyGridContext *context, cairo_t *cr,
     if (root->status_feedback_text == NULL ||
         focused_grid_context(root) != context)
         return;
-    double max_width = MAX(120.0, allocation.width - 40.0);
-    PangoLayout *layout = pango_cairo_create_layout(cr);
-    pango_layout_set_text(layout, root->status_feedback_text, -1);
-    pango_layout_set_width(layout, (int)(MIN(560.0, max_width) * PANGO_SCALE));
-    pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
-    pango_layout_set_alignment(layout, PANGO_ALIGN_CENTER);
-    PangoFontDescription *font = pango_font_description_from_string(
-        "Sans Bold 11");
-    pango_layout_set_font_description(layout, font);
-    int text_width = 0;
-    int text_height = 0;
-    pango_layout_get_pixel_size(layout, &text_width, &text_height);
-    double width = MIN(max_width, MAX(160.0, text_width + 28.0));
-    double height = MAX(38.0, text_height + 20.0);
-    double x = MAX(8.0, (allocation.width - width) / 2.0);
-    double y = 16.0;
-    cairo_save(cr);
-    rounded_rectangle(cr, x, y, width, height, 8.0);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BACKGROUND,
-                 0x12151d, 0.96);
-    cairo_fill_preserve(cr);
-    cairo_set_line_width(cr, context->overlay_border_px);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BORDER,
-                 0xf2b82e, 0.92);
-    cairo_stroke(cr);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_FOREGROUND,
-                 0xf7f8ff, 1.0);
-    cairo_move_to(cr, x + (width - text_width) / 2.0,
-                  y + (height - text_height) / 2.0);
-    pango_cairo_show_layout(cr, layout);
-    cairo_restore(cr);
-    pango_font_description_free(font);
-    g_object_unref(layout);
-    root->status_feedback_drawn = 1;
+    const NocttyGridTextOverlay options = {
+        .palette = { context->event_data, context->ui_color_rgb },
+        .text = root->status_feedback_text,
+        .font_cache = NULL,
+        .allocation_width = allocation.width,
+        .allocation_height = allocation.height,
+        .border_width = context->overlay_border_px,
+        .high_contrast = context->high_contrast,
+    };
+    if (noctty_grid_render_status_feedback(cr, &options))
+        root->status_feedback_drawn = 1;
 }
 
 static void draw_cycle_feedback(NocttyGridContext *context, cairo_t *cr,
                                 GtkAllocation allocation, const char *label,
                                 double red, double green, double blue) {
-    cairo_save(cr);
-    cairo_set_line_width(cr, context->pane_border_focused_px);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_PANE_BORDER_ACTIVE,
-                 ((uint32_t)(red * 255.0) << 16) |
-                 ((uint32_t)(green * 255.0) << 8) |
-                 (uint32_t)(blue * 255.0), 1.0);
-    cairo_rectangle(cr, 3.0, 3.0, MAX(1, allocation.width - 6),
-                    MAX(1, allocation.height - 6));
-    cairo_stroke(cr);
-
-    cairo_select_font_face(cr, "sans", CAIRO_FONT_SLANT_NORMAL,
-                           CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 12.0);
-    cairo_text_extents_t extents;
-    cairo_text_extents(cr, label, &extents);
-    double width = MIN(MAX(88.0, extents.width + 24.0),
-                       MAX(24.0, allocation.width - 16.0));
-    double height = 28.0;
-    rounded_rectangle(cr, 9.0, 9.0, width, height, 6.0);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BACKGROUND,
-                 0x12151d, 0.94);
-    cairo_fill_preserve(cr);
-    cairo_set_line_width(cr, context->overlay_border_px);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_BORDER,
-                 ((uint32_t)(red * 255.0) << 16) |
-                 ((uint32_t)(green * 255.0) << 8) |
-                 (uint32_t)(blue * 255.0), 1.0);
-    cairo_stroke(cr);
-    cairo_rectangle(cr, 11.0, 11.0, MAX(1.0, width - 4.0), height - 4.0);
-    cairo_clip(cr);
-    cairo_move_to(cr, 21.0, 28.0);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_OVERLAY_FOREGROUND,
-                 0xf7f8ff, 1.0);
-    cairo_show_text(cr, label);
-    cairo_restore(cr);
+    const uint32_t accent =
+        ((uint32_t)(red * 255.0) << 16) |
+        ((uint32_t)(green * 255.0) << 8) |
+        (uint32_t)(blue * 255.0);
+    const NocttyGridCycleOverlay options = {
+        .palette = { context->event_data, context->ui_color_rgb },
+        .label = label,
+        .allocation_width = allocation.width,
+        .allocation_height = allocation.height,
+        .pane_border_width = context->pane_border_focused_px,
+        .overlay_border_width = context->overlay_border_px,
+        .accent_rgb = accent,
+    };
+    (void)noctty_grid_render_cycle_overlay(cr, &options);
 }
 
 static void draw_pane_cycle_feedback(NocttyGridContext *context, cairo_t *cr,
@@ -1937,30 +1773,18 @@ static void draw_terminal_scrollbar(
     NocttyGridContext *context, cairo_t *cr, GtkAllocation allocation) {
     NocttyTerminalScrollbarGeometry geometry;
     if (!terminal_scrollbar_geometry(context, allocation, &geometry)) return;
-
-    cairo_save(cr);
-    cairo_rectangle(
-        cr, geometry.x, 0.0, geometry.width, allocation.height);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_SCROLLBAR_TRACK,
-                 0x0e1016, 1.0);
-    cairo_fill(cr);
-
-    double thumb_x = geometry.x + 2.0;
-    double thumb_width = MAX(4.0, geometry.width - 4.0);
-    rounded_rectangle(
-        cr, thumb_x, geometry.thumb_y, thumb_width,
-        geometry.thumb_height, thumb_width / 2.0);
-    set_ui_color(context, cr,
-                 context->scrollbar_dragging || context->scrollbar_hovered
-                     ? NOCTTY_UI_COLOR_SCROLLBAR_THUMB_HOVER
-                     : NOCTTY_UI_COLOR_SCROLLBAR_THUMB,
-                 context->scrollbar_dragging || context->scrollbar_hovered
-                     ? 0xf2b82e : 0x8c96aa,
-                 context->scrollbar_dragging ? 0.95 : 0.88);
-    cairo_fill(cr);
-    cairo_restore(cr);
-
-    root_grid_context(context)->compact_scrollbar_drawn = 1;
+    const NocttyGridRenderScrollbar options = {
+        .palette = { context->event_data, context->ui_color_rgb },
+        .allocation_height = allocation.height,
+        .x = geometry.x,
+        .width = geometry.width,
+        .thumb_y = geometry.thumb_y,
+        .thumb_height = geometry.thumb_height,
+        .dragging = context->scrollbar_dragging,
+        .hovered = context->scrollbar_hovered,
+    };
+    if (noctty_grid_render_scrollbar(cr, &options))
+        root_grid_context(context)->compact_scrollbar_drawn = 1;
 }
 
 static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,

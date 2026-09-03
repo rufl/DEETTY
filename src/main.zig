@@ -11,6 +11,7 @@ const build_options = @import("build_options");
 const NativeGridAbi = noctty.gui.NativeGridAbi;
 const NativeGtk = @import("gui/NativeGtk.zig");
 const NativeGridLogic = @import("gui/NativeGridLogic.zig");
+const NativeGridRender = @import("gui/NativeGridRender.zig");
 const VteHost = @import("gui/VteHost.zig");
 
 comptime {
@@ -36,6 +37,13 @@ comptime {
     _ = NativeGridLogic.noctty_grid_close_modal_end;
     _ = NativeGridLogic.noctty_grid_close_source_fired;
     _ = NativeGridLogic.noctty_grid_close_preflight_result;
+    _ = NativeGridRender.noctty_grid_render_apply_font_options;
+    _ = NativeGridRender.noctty_grid_render_terminal_text;
+    _ = NativeGridRender.noctty_grid_render_resize_overlay;
+    _ = NativeGridRender.noctty_grid_render_cycle_overlay;
+    _ = NativeGridRender.noctty_grid_render_quick_note;
+    _ = NativeGridRender.noctty_grid_render_status_feedback;
+    _ = NativeGridRender.noctty_grid_render_scrollbar;
     _ = NativeGtk.noctty_pane_info_strip_new;
     _ = NativeGtk.noctty_pane_info_strip_set_enabled;
     _ = NativeGtk.noctty_pane_info_strip_update;

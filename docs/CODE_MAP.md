@@ -33,17 +33,20 @@ zig build run-nocted -- --project . --open README.md
   windows, dropdown behavior, shortcuts, notifications, status UI, project panel
   presentation, clipboard/paste flow, and related status structs.
 - `src/gui/native_grid_host.c` — GTK native-grid implementation. This is the
-  large C boundary that owns the current production grid window/dropdown UI,
-  pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
-  and bridge calls into Zig.
+  shrinking C boundary that owns the production grid window/dropdown GTK
+  lifetimes, callback dispatch, Pango glyph caches, and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
   precedence, scrollbar geometry, wheel accumulation, keyboard scroll targets,
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
-  linear selection hit testing, and pixel-snapped colored-span policy consumed
-  by the shrinking GTK adapter through `native_grid_logic.h`.
+  linear selection hit testing, pixel-snapped spans, packed-cell/run decoding,
+  UTF-8 encoding, clipping, pane chrome, and caret policy consumed through
+  `native_grid_logic.h`.
+- `src/gui/NativeGridRender.zig` — Cairo-owned resize/cycle overlays and terminal
+  scrollbar rendering behind the narrow `native_grid_render.h` ABI.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
-  styling, and settings-page composition behind the narrow `native_gtk.h` ABI.
+  styling, settings surfaces, context menus, compact dialogs, theme library,
+  project tools, and sharing controls behind the narrow `native_gtk.h` ABI.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
 - `src/windows/main.zig`, `src/windows/WindowsHost.zig`,

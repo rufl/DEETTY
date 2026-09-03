@@ -9,6 +9,8 @@ grid_abi=src/gui/native_grid_abi.h
 grid_abi_zig=src/gui/NativeGridAbi.zig
 grid_logic=src/gui/NativeGridLogic.zig
 grid_logic_header=src/gui/native_grid_logic.h
+grid_render=src/gui/NativeGridRender.zig
+grid_render_header=src/gui/native_grid_render.h
 native_gtk=src/gui/NativeGtk.zig
 main=src/main.zig
 pty=src/terminal/Pty.zig
@@ -43,7 +45,7 @@ windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
   test -s "$path"
 done
 
@@ -68,6 +70,14 @@ grep -F 'pub export fn noctty_grid_render_viewport(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_chrome(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_run_end(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_apply_font_options(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_terminal_text(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_resize_overlay(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_cycle_overlay(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_quick_note(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_status_feedback(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_scrollbar(' "$grid_render" >/dev/null
+grep -F '#include "native_grid_render.h"' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_scroll_steps(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_keyboard_scroll_target(' "$grid_logic" >/dev/null
