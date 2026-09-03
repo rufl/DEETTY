@@ -4,6 +4,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Reordered the Split Pane menu by daily-use frequency: Split Right, Split Down,
+  Split Up, then Split Left. The compact UI smoke now verifies this order.
+
 - Fixed optimized Linux builds against fortified glibc headers by disabling
   `_FORTIFY_SOURCE` inside the bounded socket C import; native C compilation
   keeps the repository's normal hardening flags.

@@ -14012,6 +14012,29 @@ static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
     return match;
 }
 
+static gboolean workspace_split_menu_has_order(GtkWidget *menu) {
+    GtkWidget *split_parent = find_workspace_menu_item(menu, "Split Pane");
+    if (split_parent == NULL) return FALSE;
+    GtkWidget *split_menu = gtk_menu_item_get_submenu(
+        GTK_MENU_ITEM(split_parent));
+    if (split_menu == NULL) return FALSE;
+    const gchar *expected[] = {
+        "Split Right", "Split Down", "Split Up", "Split Left",
+    };
+    GList *items = gtk_container_get_children(GTK_CONTAINER(split_menu));
+    gboolean matches = g_list_length(items) == (gint)G_N_ELEMENTS(expected);
+    guint index = 0;
+    for (GList *item = items; matches && item != NULL;
+         item = item->next, index++) {
+        if (!GTK_IS_MENU_ITEM(item->data) ||
+            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(item->data)),
+                      expected[index]) != 0)
+            matches = FALSE;
+    }
+    g_list_free(items);
+    return matches;
+}
+
 static gboolean finish_project_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
     open_project_tools(context);
@@ -14956,6 +14979,8 @@ static gboolean request_compact_palette_smoke(gpointer user_data) {
         if (find_workspace_menu_item(root->workspace_menu,
                                      split_labels[index]) == NULL)
             root->compact_context_submenus = 0;
+    if (!workspace_split_menu_has_order(root->workspace_menu))
+        root->compact_context_submenus = 0;
     GtkWidget *item = find_workspace_menu_item(
         root->workspace_menu, "Command Palette…");
     if (item == NULL) {
@@ -18185,10 +18210,10 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     append_workspace_menu_item(menu, "New Tab", 20, context);
 
     GtkWidget *split_menu = append_workspace_submenu(menu, "Split Pane");
+    append_workspace_menu_item(split_menu, "Split Right", 27, context);
     append_workspace_menu_item(split_menu, "Split Down", 21, context);
     append_workspace_menu_item(split_menu, "Split Up", 28, context);
     append_workspace_menu_item(split_menu, "Split Left", 22, context);
-    append_workspace_menu_item(split_menu, "Split Right", 27, context);
 
     GtkWidget *layout_menu = append_workspace_submenu(menu, "New Split Tab");
     append_workspace_menu_item(layout_menu, "New 2×2", 51, context);
