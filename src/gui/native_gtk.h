@@ -119,6 +119,43 @@ gboolean noctty_project_contents_new(
     NocttyProjectContents *contents_out);
 
 typedef struct {
+    GtkWidget *shortcut;
+    int mode;
+    int dropdown_width;
+    int dropdown_height;
+    int animation_ms;
+    gboolean hide_focus;
+    gboolean focus_pointer;
+    gboolean notifications;
+    int preset;
+    int scrollback;
+    int scroll_lines;
+    gboolean smooth_scroll;
+    gboolean compact;
+} NocttySettingsCoreOptions;
+
+typedef struct {
+    GtkWidget *window_page;
+    GtkWidget *behavior_page;
+    GtkWidget *behavior_body;
+    GtkWidget *mode;
+    GtkWidget *dropdown_width;
+    GtkWidget *dropdown_height;
+    GtkWidget *animation;
+    GtkWidget *hide_focus;
+    GtkWidget *focus_pointer;
+    GtkWidget *notifications;
+    GtkWidget *preset;
+    GtkWidget *scrollback;
+    GtkWidget *scroll_lines;
+    GtkWidget *smooth_scroll;
+} NocttySettingsCoreContents;
+
+gboolean noctty_settings_core_contents_new(
+    const NocttySettingsCoreOptions *options,
+    NocttySettingsCoreContents *contents_out);
+
+typedef struct {
     const char *shell;
     const char *command;
     const char *cwd;

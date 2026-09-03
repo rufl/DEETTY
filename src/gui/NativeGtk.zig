@@ -26,6 +26,7 @@ const GtkTextBuffer = opaque {};
 const GtkComboBox = opaque {};
 const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
+const GtkToggleButton = opaque {};
 const GtkFlowBox = opaque {};
 const GtkMenuItem = opaque {};
 const GtkMenuShell = opaque {};
@@ -97,6 +98,8 @@ extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_set_max_length(*GtkEntry, c_int) void;
 extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
+extern fn gtk_check_button_new_with_label([*:0]const u8) ?*GtkWidget;
+extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_spin_button_new_with_range(f64, f64, f64) ?*GtkWidget;
@@ -1212,6 +1215,154 @@ pub export fn noctty_project_contents_new(
         .editor = editor,
         .summary = summary,
         .summary_scroll = summary_scroll,
+    };
+    return TRUE;
+}
+
+const SettingsCoreOptions = extern struct {
+    shortcut: ?*GtkWidget,
+    mode: c_int,
+    dropdown_width: c_int,
+    dropdown_height: c_int,
+    animation_ms: c_int,
+    hide_focus: c_int,
+    focus_pointer: c_int,
+    notifications: c_int,
+    preset: c_int,
+    scrollback: c_int,
+    scroll_lines: c_int,
+    smooth_scroll: c_int,
+    compact: c_int,
+};
+
+const SettingsCoreContents = extern struct {
+    window_page: ?*GtkWidget,
+    behavior_page: ?*GtkWidget,
+    behavior_body: ?*GtkWidget,
+    mode: ?*GtkWidget,
+    dropdown_width: ?*GtkWidget,
+    dropdown_height: ?*GtkWidget,
+    animation: ?*GtkWidget,
+    hide_focus: ?*GtkWidget,
+    focus_pointer: ?*GtkWidget,
+    notifications: ?*GtkWidget,
+    preset: ?*GtkWidget,
+    scrollback: ?*GtkWidget,
+    scroll_lines: ?*GtkWidget,
+    smooth_scroll: ?*GtkWidget,
+};
+
+fn comboText(labels: []const [*:0]const u8, active: c_int) ?*GtkWidget {
+    const combo = gtk_combo_box_text_new() orelse return null;
+    for (labels) |label| gtk_combo_box_text_append_text(@ptrCast(combo), label);
+    gtk_combo_box_set_active(@ptrCast(combo), active);
+    return combo;
+}
+
+fn spinButton(minimum: f64, maximum: f64, step: f64, value: f64) ?*GtkWidget {
+    const spin = gtk_spin_button_new_with_range(minimum, maximum, step) orelse return null;
+    gtk_spin_button_set_value(@ptrCast(spin), value);
+    return spin;
+}
+
+fn packSettingsGroup(body: *GtkWidget, title: [*:0]const u8, child: *GtkWidget) bool {
+    const group = noctty_settings_group_new(title, child) orelse return false;
+    gtk_box_pack_start(@ptrCast(body), group, FALSE, FALSE, 0);
+    return true;
+}
+
+pub export fn noctty_settings_core_contents_new(
+    options_raw: ?*const SettingsCoreOptions,
+    contents_out: ?*SettingsCoreContents,
+) c_int {
+    const options = options_raw orelse return FALSE;
+    const shortcut = options.shortcut orelse return FALSE;
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(SettingsCoreContents);
+
+    const mode = comboText(&.{ "Dropdown", "Windowed", "Zen fullscreen" }, options.mode) orelse
+        return FALSE;
+    var window_page_body: *GtkWidget = undefined;
+    const window_page = noctty_settings_page_new(
+        "Window",
+        "Choose how NOCTTY opens and size the drop-down terminal in real time.",
+        &window_page_body,
+    ) orelse return FALSE;
+    if (options.compact != 0) gtk_container_set_border_width(@ptrCast(window_page_body), 12);
+    const window_grid = noctty_settings_grid_new() orelse return FALSE;
+    noctty_settings_grid_attach_control(window_grid, "Presentation mode", mode, 0);
+    noctty_settings_grid_attach_control(window_grid, "Open / retract shortcut", shortcut, 1);
+    if (!packSettingsGroup(window_page_body, "Window", window_grid)) return FALSE;
+
+    const dropdown_width = spinButton(1, 100, 1, @floatFromInt(options.dropdown_width)) orelse
+        return FALSE;
+    const dropdown_height = spinButton(1, 100, 1, @floatFromInt(options.dropdown_height)) orelse
+        return FALSE;
+    const animation = spinButton(0, 2000, 10, @floatFromInt(options.animation_ms)) orelse
+        return FALSE;
+    const dropdown_grid = noctty_settings_grid_new() orelse return FALSE;
+    noctty_settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
+    noctty_settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
+    noctty_settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)", animation, 2);
+    if (!packSettingsGroup(window_page_body, "Drop-down geometry", dropdown_grid)) return FALSE;
+
+    const hide_focus = gtk_check_button_new_with_label("Hide dropdown when focus leaves") orelse
+        return FALSE;
+    const focus_pointer = gtk_check_button_new_with_label("Focus pane on pointer hover") orelse
+        return FALSE;
+    const notifications = gtk_check_button_new_with_label("Desktop notifications") orelse
+        return FALSE;
+    gtk_toggle_button_set_active(@ptrCast(hide_focus), options.hide_focus);
+    gtk_toggle_button_set_active(@ptrCast(focus_pointer), options.focus_pointer);
+    gtk_toggle_button_set_active(@ptrCast(notifications), options.notifications);
+    const preset = comboText(
+        &.{ "Global default", "Compact", "Readable", "High contrast", "Mono no ligatures" },
+        options.preset,
+    ) orelse return FALSE;
+    var body: *GtkWidget = undefined;
+    const behavior_page = noctty_settings_page_new(
+        "Behavior",
+        "Control focus, session defaults, and unobtrusive desktop feedback.",
+        &body,
+    ) orelse return FALSE;
+    if (options.compact != 0) gtk_container_set_border_width(@ptrCast(body), 12);
+    const focus_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
+    gtk_box_pack_start(@ptrCast(focus_box), hide_focus, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(focus_box), focus_pointer, FALSE, FALSE, 0);
+    if (!packSettingsGroup(body, "Focus", focus_box)) return FALSE;
+
+    const scrollback = spinButton(100, 100000, 100, @floatFromInt(options.scrollback)) orelse
+        return FALSE;
+    const scroll_lines = spinButton(1, 20, 1, @floatFromInt(options.scroll_lines)) orelse
+        return FALSE;
+    const smooth_scroll = gtk_check_button_new_with_label("Enable") orelse return FALSE;
+    gtk_widget_set_tooltip_text(
+        smooth_scroll,
+        "Use smooth touchpad and high-resolution wheel scrolling.",
+    );
+    gtk_toggle_button_set_active(@ptrCast(smooth_scroll), options.smooth_scroll);
+    const session_grid = noctty_settings_grid_new() orelse return FALSE;
+    noctty_settings_grid_attach_control(session_grid, "Active pane profile", preset, 0);
+    noctty_settings_grid_attach_control(session_grid, "Scrollback lines", scrollback, 1);
+    noctty_settings_grid_attach_control(session_grid, "Lines per wheel step", scroll_lines, 2);
+    noctty_settings_grid_attach_control(session_grid, "Smooth scrolling", smooth_scroll, 3);
+    if (!packSettingsGroup(body, "Sessions", session_grid)) return FALSE;
+
+    output.* = .{
+        .window_page = window_page,
+        .behavior_page = behavior_page,
+        .behavior_body = body,
+        .mode = mode,
+        .dropdown_width = dropdown_width,
+        .dropdown_height = dropdown_height,
+        .animation = animation,
+        .hide_focus = hide_focus,
+        .focus_pointer = focus_pointer,
+        .notifications = notifications,
+        .preset = preset,
+        .scrollback = scrollback,
+        .scroll_lines = scroll_lines,
+        .smooth_scroll = smooth_scroll,
     };
     return TRUE;
 }

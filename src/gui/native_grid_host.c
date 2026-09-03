@@ -12548,99 +12548,48 @@ static void open_grid_settings(NocttyGridContext *context) {
     gtk_widget_set_hexpand(stack, TRUE);
     gtk_widget_set_vexpand(stack, TRUE);
 
-    GtkWidget *mode = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), "Dropdown");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), "Windowed");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode), "Zen fullscreen");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(mode), context->mode);
     gchar *shortcut_button_label =
         grid_settings_shortcut_button_label_alloc(context);
     GtkWidget *shortcut = gtk_button_new_with_label(shortcut_button_label);
     g_free(shortcut_button_label);
     configure_grid_settings_shortcut_button(context, shortcut);
-
-    GtkWidget *window_page_body = NULL;
-    GtkWidget *window_page = settings_page_new(
-        "Window",
-        "Choose how NOCTTY opens and size the drop-down terminal in real time.",
-        &window_page_body);
-    if (compact_settings)
-        gtk_container_set_border_width(GTK_CONTAINER(window_page_body), 12);
-    GtkWidget *window_grid = settings_grid_new();
-    settings_grid_attach_control(window_grid, "Presentation mode", mode, 0);
-    settings_grid_attach_control(window_grid, "Open / retract shortcut",
-                                 shortcut, 1);
-    gtk_box_pack_start(GTK_BOX(window_page_body),
-                       settings_group_new("Window", window_grid),
-                       FALSE, FALSE, 0);
-
-    GtkWidget *dropdown_grid = settings_grid_new();
-    GtkWidget *dropdown_width = gtk_spin_button_new_with_range(1, 100, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_width),
-                              context->dropdown_width_percent);
-    GtkWidget *dropdown_height = gtk_spin_button_new_with_range(1, 100, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(dropdown_height),
-                              context->dropdown_height_percent);
-    GtkWidget *animation = gtk_spin_button_new_with_range(0, 2000, 10);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(animation), context->dropdown_animation_ms);
-    settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
-    settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
-    settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)",
-                                 animation, 2);
-    gtk_box_pack_start(GTK_BOX(window_page_body),
-                       settings_group_new("Drop-down geometry", dropdown_grid),
-                       FALSE, FALSE, 0);
-
-    GtkWidget *hide_focus = gtk_check_button_new_with_label("Hide dropdown when focus leaves");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hide_focus), context->hide_on_focus_loss);
-    GtkWidget *focus_pointer = gtk_check_button_new_with_label("Focus pane on pointer hover");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(focus_pointer), context->focus_follows_pointer);
-    GtkWidget *notifications = gtk_check_button_new_with_label("Desktop notifications");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(notifications), context->enable_notifications);
-    GtkWidget *preset = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(preset), "Global default");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(preset), "Compact");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(preset), "Readable");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(preset), "High contrast");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(preset), "Mono no ligatures");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(preset), target->profile_preset);
-
-    GtkWidget *behavior_page_body = NULL;
-    GtkWidget *behavior_page = settings_page_new(
-        "Behavior",
-        "Control focus, session defaults, and unobtrusive desktop feedback.",
-        &behavior_page_body);
-    if (compact_settings)
-        gtk_container_set_border_width(GTK_CONTAINER(behavior_page_body), 12);
-    GtkWidget *focus_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_box_pack_start(GTK_BOX(focus_box), hide_focus, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(focus_box), focus_pointer, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(behavior_page_body),
-                       settings_group_new("Focus", focus_box),
-                       FALSE, FALSE, 0);
-    GtkWidget *session_grid = settings_grid_new();
-    settings_grid_attach_control(session_grid, "Active pane profile", preset, 0);
-    GtkWidget *scrollback = gtk_spin_button_new_with_range(100, 100000, 100);
     int scrollback_lines = context->event_data != NULL
         ? noctty_grid_compact_setting(context->event_data, 10) : 10000;
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(scrollback), scrollback_lines);
-    settings_grid_attach_control(session_grid, "Scrollback lines", scrollback, 1);
-    GtkWidget *scroll_lines = gtk_spin_button_new_with_range(1, 20, 1);
-    gtk_spin_button_set_value(
-        GTK_SPIN_BUTTON(scroll_lines), context->terminal_scroll_lines);
-    GtkWidget *smooth_scroll = gtk_check_button_new_with_label("Enable");
-    gtk_widget_set_tooltip_text(
-        smooth_scroll,
-        "Use smooth touchpad and high-resolution wheel scrolling.");
-    gtk_toggle_button_set_active(
-        GTK_TOGGLE_BUTTON(smooth_scroll), context->terminal_smooth_scroll);
-    settings_grid_attach_control(session_grid, "Lines per wheel step",
-                                 scroll_lines, 2);
-    settings_grid_attach_control(session_grid, "Smooth scrolling",
-                                 smooth_scroll, 3);
-    gtk_box_pack_start(GTK_BOX(behavior_page_body),
-                       settings_group_new("Sessions", session_grid),
-                       FALSE, FALSE, 0);
+    const NocttySettingsCoreOptions core_options = {
+        .shortcut = shortcut,
+        .mode = context->mode,
+        .dropdown_width = context->dropdown_width_percent,
+        .dropdown_height = context->dropdown_height_percent,
+        .animation_ms = context->dropdown_animation_ms,
+        .hide_focus = context->hide_on_focus_loss,
+        .focus_pointer = context->focus_follows_pointer,
+        .notifications = context->enable_notifications,
+        .preset = target->profile_preset,
+        .scrollback = scrollback_lines,
+        .scroll_lines = context->terminal_scroll_lines,
+        .smooth_scroll = context->terminal_smooth_scroll,
+        .compact = compact_settings,
+    };
+    NocttySettingsCoreContents core_contents = {0};
+    if (!noctty_settings_core_contents_new(
+            &core_options, &core_contents)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *window_page = core_contents.window_page;
+    GtkWidget *behavior_page = core_contents.behavior_page;
+    GtkWidget *behavior_page_body = core_contents.behavior_body;
+    GtkWidget *mode = core_contents.mode;
+    GtkWidget *dropdown_width = core_contents.dropdown_width;
+    GtkWidget *dropdown_height = core_contents.dropdown_height;
+    GtkWidget *animation = core_contents.animation;
+    GtkWidget *hide_focus = core_contents.hide_focus;
+    GtkWidget *focus_pointer = core_contents.focus_pointer;
+    GtkWidget *notifications = core_contents.notifications;
+    GtkWidget *preset = core_contents.preset;
+    GtkWidget *scrollback = core_contents.scrollback;
+    GtkWidget *scroll_lines = core_contents.scroll_lines;
+    GtkWidget *smooth_scroll = core_contents.smooth_scroll;
 
     char launch_shell[257] = {0};
     char launch_command[1025] = {0};
