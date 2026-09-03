@@ -37,6 +37,7 @@ pub const ChromeColor = enum(u8) {
     status_warning,
     status_error,
     terminal_cursor,
+    pane_gap,
 
     pub const count = @typeInfo(ChromeColor).@"enum".fields.len;
 };
@@ -91,6 +92,7 @@ pub const Theme = struct {
                 Color.fromHex(0xf5b82e),
                 Color.fromHex(0xe64040),
                 Color.fromHex(0x8fb8ff),
+                Color.fromHex(0x0b0d12),
             },
         };
     }
@@ -110,7 +112,7 @@ pub const Theme = struct {
             Color.fromHex(0xffffff), Color.fromHex(0xffff00),
             Color.fromHex(0xffffff), Color.fromHex(0xffffff),
             Color.fromHex(0xffffff), Color.fromHex(0xffffff),
-            Color.fromHex(0xffffff),
+            Color.fromHex(0xffffff), Color.fromHex(0x000000),
         };
         return theme;
     }
@@ -211,6 +213,7 @@ pub fn importTheme(
             theme.setChromeColor(.overlay_background, theme.background);
             theme.setChromeColor(.overlay_foreground, theme.foreground);
             theme.setChromeColor(.terminal_cursor, theme.cursor);
+            theme.setChromeColor(.pane_gap, theme.background);
         },
     }
     return theme;
@@ -345,6 +348,7 @@ fn applyNoctaliaTheme(
     theme.setChromeColor(.workspace_background, theme.background);
     theme.setChromeColor(.overlay_foreground, theme.foreground);
     theme.setChromeColor(.terminal_cursor, theme.cursor);
+    theme.setChromeColor(.pane_gap, theme.background);
 }
 
 fn applyGhosttyLine(theme: *Theme, line: []const u8) !void {

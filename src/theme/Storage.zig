@@ -5,7 +5,7 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const theme_magic = "NOCTTYTHM";
-const theme_version: u8 = 3;
+const theme_version: u8 = 4;
 const max_theme_count: usize = 1024;
 
 pub const max_theme_file_bytes: usize = 4 * 1024 * 1024;
@@ -311,12 +311,19 @@ const ThemeReader = struct {
         if (self.version >= 2) {
             for (chrome[0..cursor_index]) |*color| color.* = try self.readColor();
             if (self.version >= 3) chrome[cursor_index] = try self.readColor();
+            if (self.version >= 4) {
+                chrome[@intFromEnum(ThemeMod.ChromeColor.pane_gap)] =
+                    try self.readColor();
+            }
         } else {
             chrome[@intFromEnum(ThemeMod.ChromeColor.workspace_background)] = background;
             chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_background)] = background;
             chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_foreground)] = foreground;
         }
         if (self.version < 3) chrome[cursor_index] = cursor;
+        if (self.version < 4) {
+            chrome[@intFromEnum(ThemeMod.ChromeColor.pane_gap)] = background;
+        }
 
         return .{
             .theme = .{
@@ -439,7 +446,7 @@ test "version two themes carry terminal cursor color into chrome" {
 
     const current = try exportThemeLibraryAlloc(allocator, &.{legacy_theme});
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 8]);
     defer allocator.free(legacy);
     legacy[theme_magic.len] = 2;
 
@@ -448,6 +455,25 @@ test "version two themes carry terminal cursor color into chrome" {
     try std.testing.expectEqual(
         legacy_theme.cursor,
         loaded.entries[0].theme.chromeColor(.terminal_cursor),
+    );
+}
+
+test "version three themes use their background for pane gaps" {
+    const allocator = std.testing.allocator;
+    var legacy_theme = ThemeMod.Theme.builtinDark();
+    legacy_theme.background = ThemeMod.Color.fromHex(0x123456);
+
+    const current = try exportThemeLibraryAlloc(allocator, &.{legacy_theme});
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4]);
+    defer allocator.free(legacy);
+    legacy[theme_magic.len] = 3;
+
+    var loaded = try importThemeLibraryAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expectEqual(
+        legacy_theme.background,
+        loaded.entries[0].theme.chromeColor(.pane_gap),
     );
 }
 
