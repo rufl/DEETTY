@@ -912,8 +912,6 @@ static gboolean on_window_resize_handle_button(
 static void queue_grid_cursor_cell(NocttyGridContext *context,
                                    uint32_t packed_cursor);
 static void apply_panel_layout_metrics(NocttyGridContext *root);
-static void apply_pane_divider_thickness(NocttyGridContext *root,
-                                         GtkWidget *widget);
 static void resize_grid_to_allocation(NocttyGridContext *context,
                                       GtkAllocation *allocation);
 static void emit_dogfood_event(NocttyGridContext *context,
@@ -924,6 +922,8 @@ static void emit_dogfood_event(NocttyGridContext *context,
 static guint dogfood_active_omp_count(NocttyGridContext *context);
 static void show_resize_overlay(NocttyGridContext *context,
                                 int columns, int rows);
+static void show_status_feedback(NocttyGridContext *context,
+                                 const char *message);
 static void schedule_grid_hot_session_flush(NocttyGridContext *context);
 static void bind_preset_max_positions(NocttyGridContext *root,
                                       GtkWidget *widget);
@@ -1244,6 +1244,17 @@ static gboolean terminal_scrollbar_geometry(
         viewport_offset, visible_rows, geometry) != 0;
 }
 
+static gboolean scroll_terminal_by_lines(
+    NocttyGridContext *context, int lines) {
+    if (lines == 0) return TRUE;
+    int result = context->scroll(context->userdata, lines);
+    if (result != 0) {
+        show_status_feedback(context, "Could not scroll the terminal history.");
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static gboolean scroll_terminal_to_offset(
     NocttyGridContext *context, uint64_t target_offset) {
     GtkAllocation allocation;
@@ -1257,7 +1268,7 @@ static gboolean scroll_terminal_to_offset(
         (int64_t)geometry.viewport_offset;
     if (delta == 0) return FALSE;
     int lines = (int)CLAMP(delta, (int64_t)G_MININT, (int64_t)G_MAXINT);
-    if (context->scroll(context->userdata, lines) != 0) return FALSE;
+    if (!scroll_terminal_by_lines(context, lines)) return FALSE;
     gtk_widget_queue_draw(context->area);
     return TRUE;
 }
@@ -1281,8 +1292,7 @@ static gboolean scroll_terminal_from_keyboard(
     return TRUE;
 }
 
-
-static gboolean grid_cell_is_selected(const NocttyGridContext *context,
+static int grid_cell_is_selected(const NocttyGridContext *context,
                                       int column, int row) {
     return noctty_grid_cell_selected(
         context->selecting, context->selection_start_column,
@@ -1535,7 +1545,11 @@ static uint32_t resolve_pane_terminal_color(void *userdata,
 }
 
 static int grid_cell_selected_bridge(void *userdata, int column, int row) {
-    return grid_cell_is_selected(userdata, column, row);
+    const NocttyGridContext *context = userdata;
+    return noctty_grid_cell_selected(
+        context->selecting, context->selection_start_column,
+        context->selection_start_row, context->selection_end_column,
+        context->selection_end_row, column, row) != 0;
 }
 
 static void draw_grid_cell_text_bridge(
@@ -1690,6 +1704,9 @@ static void on_clipboard_text(GtkClipboard *clipboard, const gchar *text, gpoint
         if (delivered > 0) {
             context->clipboard_pasted = 1;
             if (context->workspace_smoke == 4) (void)deliver_grid_input(context, "\r", 1);
+        } else {
+            show_status_feedback(
+                context, "Could not paste into every target terminal.");
         }
     }
 }
@@ -1724,15 +1741,20 @@ static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
         text[copied_length] = '\0';
         gtk_clipboard_set_text(
             gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, copied_length);
+    } else if (copied_length < 0 ||
+               (gsize)copied_length >= NOCTTY_SELECTION_COPY_MAX_BYTES) {
+        show_status_feedback(context, "Could not copy the terminal selection.");
     }
     g_free(text);
 }
 
 static void apply_terminal_control(NocttyGridContext *context,
                                    const char *bytes, size_t length) {
-    if (!grid_context_session_available(context) ||
-        noctty_grid_control(context->userdata, bytes, length) != (int)length)
+    if (!grid_context_session_available(context)) return;
+    if (noctty_grid_control(context->userdata, bytes, length) != (int)length) {
+        show_status_feedback(context, "Could not update the terminal state.");
         return;
+    }
     gtk_widget_queue_draw(context->area);
 }
 
@@ -4044,42 +4066,14 @@ static const char *grid_shortcut_description(
 }
 static gchar *grid_shortcut_label_alloc(
     const NocttyGridContext *root) {
+    uint8_t label[64] = {0};
     uint32_t encoded = root != NULL
         ? (uint32_t)root->requested_shortcut_key : 0;
-    if (encoded == 0) return g_strdup("Unassigned");
-    uint32_t key = encoded & 0x01ffffffu;
-    GString *label = g_string_new("");
-    if ((encoded & 0x04000000u) != 0) g_string_append(label, "Ctrl+");
-    if ((encoded & 0x02000000u) != 0) g_string_append(label, "Shift+");
-    if ((encoded & 0x08000000u) != 0) g_string_append(label, "Alt+");
-    if ((encoded & 0x10000000u) != 0) g_string_append(label, "Super+");
-
-    if ((key >= 'A' && key <= 'Z') ||
-        (key >= '0' && key <= '9')) {
-        g_string_append_c(label, (gchar)key);
-    } else if (key >= 0x01000030u && key <= 0x0100003bu) {
-        g_string_append_printf(
-            label, "F%u", (unsigned)(key - 0x01000030u + 1u));
-    } else {
-        const char *name = key == '`' ? "`" :
-            key == 0x20u ? "Space" :
-            key == 0x01000000u ? "Escape" :
-            key == 0x01000001u ? "Tab" :
-            key == 0x01000003u ? "Backspace" :
-            key == 0x01000004u || key == 0x01000005u ? "Enter" :
-            key == 0x01000006u ? "Insert" :
-            key == 0x01000007u ? "Delete" :
-            key == 0x01000010u ? "Home" :
-            key == 0x01000011u ? "End" :
-            key == 0x01000012u ? "Left" :
-            key == 0x01000013u ? "Up" :
-            key == 0x01000014u ? "Right" :
-            key == 0x01000015u ? "Down" :
-            key == 0x01000016u ? "Page Up" :
-            key == 0x01000017u ? "Page Down" : "Unknown";
-        g_string_append(label, name);
-    }
-    return g_string_free(label, FALSE);
+    int length = noctty_grid_shortcut_label(
+        encoded, label, G_N_ELEMENTS(label));
+    return length > 0
+        ? g_strndup((const gchar *)label, (gsize)length)
+        : g_strdup("Unknown");
 }
 
 static gchar *grid_settings_shortcut_button_label_alloc(
@@ -4728,6 +4722,8 @@ static gboolean on_grid_write_flush(gpointer user_data) {
     int flushed = noctty_grid_flush_write(context->userdata);
     if (flushed > 0 || flushed < 0) {
         context->write_flush_source = 0;
+        if (flushed < 0)
+            show_status_feedback(context, "Terminal input flush failed.");
         return G_SOURCE_REMOVE;
     }
     return G_SOURCE_CONTINUE;
@@ -4859,23 +4855,6 @@ static NocttyGridContext *grid_context_for_page(NocttyGridContext *context,
         if (candidate->active && candidate->page == page) return candidate;
     }
     return NULL;
-}
-
-static const gchar *tab_color_preset_name(int preset) {
-    static const gchar *names[] = {
-        "Red", "Orange", "Yellow", "Green",
-        "Cyan", "Blue", "Purple", "Pink",
-    };
-    return preset >= 0 && preset < (int)G_N_ELEMENTS(names)
-        ? names[preset] : "Default";
-}
-
-static const gchar *tab_color_shade_name(int shade) {
-    if (shade <= -3) return "much darker";
-    if (shade < 0) return "darker";
-    if (shade >= 3) return "much lighter";
-    if (shade > 0) return "lighter";
-    return "base shade";
 }
 
 static gchar *current_tab_title_alloc(NocttyGridContext *context) {
@@ -5028,8 +5007,8 @@ static void update_compact_tab(NocttyGridContext *context) {
     if (tab_color_rgb != 0)
         g_snprintf(tab_color_tooltip, sizeof(tab_color_tooltip),
                    " · tab color %s, %s",
-                   tab_color_preset_name(tab_color_preset),
-                   tab_color_shade_name(tab_color_shade));
+                   noctty_grid_tab_color_preset_name(tab_color_preset),
+                   noctty_grid_tab_color_shade_name(tab_color_shade));
     gchar *tooltip = g_strdup_printf("%s · %u pane%s%s%s%s%s%s%s", title, panes,
                                      panes == 1 ? "" : "s",
                                      attention ? " · attention requested" : "",
@@ -5802,76 +5781,6 @@ static gboolean request_tab_rename_smoke(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
-static void apply_pane_divider_thickness(NocttyGridContext *root,
-                                         GtkWidget *widget) {
-    if (!GTK_IS_WIDGET(widget)) return;
-    if (GTK_IS_PANED(widget)) {
-        GtkCssProvider *provider = g_object_get_data(
-            G_OBJECT(widget), "noctty-divider-provider");
-        if (provider == NULL) {
-            provider = gtk_css_provider_new();
-            g_object_set_data_full(G_OBJECT(widget),
-                                   "noctty-divider-provider", provider,
-                                   g_object_unref);
-            gtk_style_context_add_provider(
-                gtk_widget_get_style_context(widget),
-                GTK_STYLE_PROVIDER(provider),
-                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-        }
-        char css[96];
-        g_snprintf(css, sizeof(css),
-                   "paned > separator { min-width: %dpx; min-height: %dpx; }",
-                   root->pane_divider_px, root->pane_divider_px);
-        gtk_css_provider_load_from_data(provider, css, -1, NULL);
-    }
-    if (!GTK_IS_CONTAINER(widget)) return;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
-    for (GList *item = children; item != NULL; item = item->next)
-        apply_pane_divider_thickness(root, GTK_WIDGET(item->data));
-    g_list_free(children);
-}
-
-static void set_pane_gap_background(GtkWidget *widget,
-                                    uint32_t rgb, double alpha) {
-    GtkCssProvider *provider = g_object_get_data(
-        G_OBJECT(widget), "noctty-pane-gap-provider");
-    if (provider == NULL) {
-        provider = gtk_css_provider_new();
-        g_object_set_data_full(
-            G_OBJECT(widget), "noctty-pane-gap-provider", provider,
-            g_object_unref);
-        gtk_style_context_add_provider(
-            gtk_widget_get_style_context(widget),
-            GTK_STYLE_PROVIDER(provider),
-            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    }
-    gtk_style_context_add_class(
-        gtk_widget_get_style_context(widget), "noctty-pane-gap-surface");
-    char css[160];
-    if (alpha > 0.5)
-        g_snprintf(
-            css, sizeof(css),
-            ".noctty-pane-gap-surface { background-color: rgb(%u,%u,%u); }",
-            (rgb >> 16) & 0xffu, (rgb >> 8) & 0xffu, rgb & 0xffu);
-    else
-        g_snprintf(
-            css, sizeof(css),
-            ".noctty-pane-gap-surface { background-color: rgba(0,0,0,0); }");
-    gtk_css_provider_load_from_data(provider, css, -1, NULL);
-}
-
-static void apply_pane_gap_background(GtkWidget *widget,
-                                      uint32_t rgb, double alpha) {
-    if (!GTK_IS_WIDGET(widget)) return;
-    if (GTK_IS_PANED(widget))
-        set_pane_gap_background(widget, rgb, alpha);
-    if (!GTK_IS_CONTAINER(widget)) return;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
-    for (GList *item = children; item != NULL; item = item->next)
-        apply_pane_gap_background(GTK_WIDGET(item->data), rgb, alpha);
-    g_list_free(children);
-}
-
 static void apply_panel_layout_metrics(NocttyGridContext *root) {
     if (GTK_IS_NOTEBOOK(root->notebook)) {
         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
@@ -5888,13 +5797,12 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
                 ? noctty_grid_pane_gap_rgb(
                       root->event_data, representative->pane_id)
                 : 0x0b0d12u;
-            double gap_alpha = root->pane_gaps_enabled &&
-                    !root->pane_gaps_transparent
-                ? 1.0 : 0.0;
-            set_pane_gap_background(page, gap_rgb, gap_alpha);
-            apply_pane_gap_background(page, gap_rgb, gap_alpha);
+            gboolean gap_opaque = root->pane_gaps_enabled &&
+                !root->pane_gaps_transparent;
+            noctty_apply_pane_gap_style(page, gap_rgb, gap_opaque);
         }
-        apply_pane_divider_thickness(root, root->notebook);
+        noctty_apply_pane_divider_style(
+            root->notebook, root->pane_divider_px);
     }
     int gap_width = root->pane_gaps_enabled ? root->pane_spacing_px : 0;
     int spacing_leading = gap_width / 2;
@@ -6943,7 +6851,7 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         ? GTK_ORIENTATION_VERTICAL
         : GTK_ORIENTATION_HORIZONTAL;
     GtkWidget *split = gtk_paned_new(orientation);
-    apply_pane_divider_thickness(root, split);
+    noctty_apply_pane_divider_style(split, root->pane_divider_px);
     g_object_ref(source->area);
     gtk_container_remove(GTK_CONTAINER(parent), source->area);
     if (parent_is_paned) {
@@ -7010,8 +6918,10 @@ static NocttyGridContext *grid_context_for_pane(NocttyGridContext *context,
 static gboolean flush_grid_layout_hot_session(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->layout_save_source = 0;
-    if (!root->control_name_conflict && root->event_data != NULL)
-        (void)noctty_grid_flush_hot_session(root->event_data);
+    if (!root->control_name_conflict && root->event_data != NULL &&
+        noctty_grid_flush_hot_session(root->event_data) != 0)
+        show_status_feedback(
+            root, "Could not save the workspace recovery snapshot.");
     return G_SOURCE_REMOVE;
 }
 
@@ -7182,7 +7092,7 @@ static GtkWidget *build_hot_session_layout_node(
     if (first_widget == NULL || second_widget == NULL) return NULL;
     GtkWidget *split = gtk_paned_new(
         axis == 0 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);
-    apply_pane_divider_thickness(root, split);
+    noctty_apply_pane_divider_style(split, root->pane_divider_px);
     gtk_paned_pack1(GTK_PANED(split), first_widget, TRUE, FALSE);
     gtk_paned_pack2(GTK_PANED(split), second_widget, TRUE, FALSE);
     g_object_set_data(G_OBJECT(split), "noctty-preset-ratio",
@@ -7442,40 +7352,6 @@ static gboolean detach_grid_context(NocttyGridContext *source) {
     return TRUE;
 }
 
-static guint count_pane_widgets(GtkWidget *widget) {
-    if (!GTK_IS_PANED(widget)) return widget != NULL ? 1 : 0;
-    return count_pane_widgets(gtk_paned_get_child1(GTK_PANED(widget))) +
-        count_pane_widgets(gtk_paned_get_child2(GTK_PANED(widget)));
-}
-
-static void apply_even_pane_positions(GtkWidget *widget) {
-    if (!GTK_IS_PANED(widget)) return;
-    GtkWidget *first = gtk_paned_get_child1(GTK_PANED(widget));
-    GtkWidget *second = gtk_paned_get_child2(GTK_PANED(widget));
-    guint first_count = count_pane_widgets(first);
-    guint second_count = count_pane_widgets(second);
-    guint total = first_count + second_count;
-    if (total == 0) return;
-
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-    gint handle_size = 0;
-    gtk_widget_style_get(widget, "handle-size", &handle_size, NULL);
-    GtkOrientation orientation = gtk_orientable_get_orientation(
-        GTK_ORIENTABLE(widget));
-    gint extent = orientation == GTK_ORIENTATION_VERTICAL
-        ? allocation.height : allocation.width;
-    gint available = MAX(1, extent - MAX(0, handle_size));
-    gint position = (gint)(
-        ((gint64)available * first_count + total / 2) / total);
-    guint ratio_permille = (first_count * 1000 + total / 2) / total;
-    g_object_set_data(G_OBJECT(widget), "noctty-preset-ratio",
-                      GUINT_TO_POINTER(ratio_permille));
-    gtk_paned_set_position(GTK_PANED(widget), position);
-    apply_even_pane_positions(first);
-    apply_even_pane_positions(second);
-}
-
 typedef struct {
     NocttyGridContext *root;
     GtkWidget *layout;
@@ -7514,7 +7390,7 @@ static gboolean apply_even_pane_distribution(gpointer user_data) {
     if (gtk_widget_in_destruction(request->layout) ||
         gtk_widget_get_parent(request->layout) == NULL)
         return G_SOURCE_REMOVE;
-    apply_even_pane_positions(request->layout);
+    (void)noctty_apply_even_pane_positions(request->layout);
     if (!request->resize_ratios_bound) {
         bind_preset_max_positions(request->root, request->layout);
         request->resize_ratios_bound = TRUE;
@@ -7558,7 +7434,8 @@ static gboolean attach_grid_context(NocttyGridContext *source,
         g_object_ref(content_root);
         gtk_container_remove(GTK_CONTAINER(target->page), content_root);
         GtkWidget *split = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-        apply_pane_divider_thickness(root_grid_context(target), split);
+        noctty_apply_pane_divider_style(
+            split, root_grid_context(target)->pane_divider_px);
         gtk_paned_pack1(GTK_PANED(split), content_root, TRUE, FALSE);
         gtk_paned_pack2(GTK_PANED(split), source->area, TRUE, FALSE);
         gtk_box_pack_start(GTK_BOX(target->page), split, TRUE, TRUE, 0);
@@ -8342,7 +8219,7 @@ static gboolean rebuild_grid_preset_page(
     GtkWidget *grid_root = build_preset_line(
         row_widgets, rows, GTK_ORIENTATION_VERTICAL);
     if (grid_root == NULL) return FALSE;
-    apply_pane_divider_thickness(root, grid_root);
+    noctty_apply_pane_divider_style(grid_root, root->pane_divider_px);
     bind_preset_max_positions(root, grid_root);
     gtk_box_pack_start(GTK_BOX(page), grid_root, TRUE, TRUE, 0);
     for (guint index = 0; index < count; index++) {
@@ -8876,68 +8753,28 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         if (context->write(context->userdata, "\x03", 1) == 1) {
             schedule_grid_write_flush(context);
             root->ctrl_c_local_interrupt = 1;
+        } else {
+            show_status_feedback(context, "Could not interrupt the terminal.");
         }
         return TRUE;
     }
     if (context->im_context != NULL &&
         gtk_im_context_filter_keypress(context->im_context, event)) return TRUE;
     gunichar unicode = gdk_keyval_to_unicode(event->keyval);
-    if (unicode >= 0x20 && unicode <= 0x7e) {
-        bytes[0] = (char)unicode;
-        length = 1;
-    } else if (unicode >= 0x80 && unicode <= 0x7ff) {
-        bytes[0] = (char)(0xc0 | (unicode >> 6));
-        bytes[1] = (char)(0x80 | (unicode & 0x3f));
-        length = 2;
-    } else if (unicode >= 0x800 && unicode <= 0xffff) {
-        bytes[0] = (char)(0xe0 | (unicode >> 12));
-        bytes[1] = (char)(0x80 | ((unicode >> 6) & 0x3f));
-        bytes[2] = (char)(0x80 | (unicode & 0x3f));
-        length = 3;
-    } else if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
-        bytes[0] = '\r'; length = 1;
-    } else if (event->keyval == GDK_KEY_BackSpace) {
-        bytes[0] = '\x7f'; length = 1;
-    } else if (event->keyval == GDK_KEY_Tab) {
-        bytes[0] = '\t'; length = 1;
-    } else if (event->keyval == GDK_KEY_Escape) {
-        bytes[0] = '\x1b'; length = 1;
-    } else if (event->keyval == GDK_KEY_Up) {
-        memcpy(bytes, context->cursor_mode(context->userdata) ? "\x1bOA" : "\x1b[A", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_Down) {
-        memcpy(bytes, context->cursor_mode(context->userdata) ? "\x1bOB" : "\x1b[B", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_Right) {
-        memcpy(bytes, context->cursor_mode(context->userdata) ? "\x1bOC" : "\x1b[C", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_Left) {
-        memcpy(bytes, context->cursor_mode(context->userdata) ? "\x1bOD" : "\x1b[D", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_Home) {
-        memcpy(bytes, "\x1b[H", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_End) {
-        memcpy(bytes, "\x1b[F", 3); length = 3;
-    } else if (event->keyval == GDK_KEY_Insert) {
-        memcpy(bytes, "\x1b[2~", 4); length = 4;
-    } else if (event->keyval == GDK_KEY_Delete) {
-        memcpy(bytes, "\x1b[3~", 4); length = 4;
-    } else if (event->keyval == GDK_KEY_Page_Up) {
-        memcpy(bytes, "\x1b[5~", 4); length = 4;
-    } else if (event->keyval == GDK_KEY_Page_Down) {
-        memcpy(bytes, "\x1b[6~", 4); length = 4;
-    } else {
-        (void)widget;
-        return FALSE;
-    }
-    if (unicode >= 'A' && unicode <= 'Z' && (event->state & GDK_CONTROL_MASK)) {
-        bytes[0] = (char)(unicode - 'A' + 1);
-        length = 1;
-    } else if (unicode >= 'a' && unicode <= 'z' && (event->state & GDK_CONTROL_MASK)) {
-        bytes[0] = (char)(unicode - 'a' + 1);
-        length = 1;
-    } else if (unicode >= 0x20 && unicode <= 0x7e && (event->state & GDK_MOD1_MASK) && length == 1) {
-        bytes[1] = bytes[0];
-        bytes[0] = '\x1b';
-        length = 2;
-    }
-    (void)deliver_grid_input(context, bytes, length);
+    uint32_t modifiers = 0;
+    if ((event->state & GDK_CONTROL_MASK) != 0)
+        modifiers |= NOCTTY_GRID_MODIFIER_CONTROL;
+    if ((event->state & GDK_MOD1_MASK) != 0)
+        modifiers |= NOCTTY_GRID_MODIFIER_ALT;
+    int encoded = noctty_grid_terminal_key_sequence(
+        event->keyval, unicode, modifiers,
+        context->cursor_mode(context->userdata),
+        (uint8_t *)bytes, sizeof(bytes));
+    if (encoded <= 0) return FALSE;
+    length = (size_t)encoded;
+    if (deliver_grid_input(context, bytes, length) < 0)
+        show_status_feedback(
+            context, "Could not deliver input to every target terminal.");
     return TRUE;
 }
 
@@ -9243,8 +9080,14 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
     }
     if (route != NOCTTY_GRID_ROUTE_APPLICATION_MOUSE) return TRUE;
     acknowledge_grid_attention(context);
-    (void)context->mouse(context->userdata, column, row, button, pressed);
-    schedule_grid_write_flush(context);
+    int delivered = context->mouse(
+        context->userdata, column, row, button, pressed);
+    if (delivered <= 0) {
+        show_status_feedback(
+            context, "The application did not accept pointer input.");
+    } else {
+        schedule_grid_write_flush(context);
+    }
     return TRUE;
 }
 
@@ -14251,7 +14094,7 @@ static GtkWidget *create_tab_color_menu(NocttyGridContext *context,
     GSList *group = NULL;
     for (int preset = -1; preset < 8; preset++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(
-            group, tab_color_preset_name(preset));
+            group, noctty_grid_tab_color_preset_name(preset));
         group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
         g_object_set_data(G_OBJECT(item), "noctty-tab-page", page);
         g_object_set_data(G_OBJECT(item), "noctty-tab-color-preset",
@@ -15593,12 +15436,14 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         root->layout_preset_smoke_stage = 5;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 5) {
+        gboolean geometry = verify_layout_preset_geometry(root, 4, 4);
+        gboolean auto_fit = verify_layout_auto_fit(root);
+        gboolean terminals = verify_layout_terminals_ready(root, 16);
+        gboolean tui = verify_layout_tui(root);
+        gboolean floor = verify_layout_floor_feedback(root);
         root->layout_preset_4x4_rendered =
-            root->layout_preset_4x4_applied &&
-            verify_layout_preset_geometry(root, 4, 4) &&
-            verify_layout_auto_fit(root) &&
-            verify_layout_terminals_ready(root, 16) &&
-            verify_layout_tui(root) && verify_layout_floor_feedback(root);
+            root->layout_preset_4x4_applied && geometry && auto_fit &&
+            terminals && tui && floor;
         root->layout_preset_finalizing = 1;
         root->layout_preset_smoke_stage = 6;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
@@ -15614,11 +15459,25 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             GTK_NOTEBOOK(root->notebook));
         GtkWidget *production_page = gtk_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook), current_index);
+        gboolean geometry = verify_layout_preset_geometry(root, 4, 4);
+        gboolean terminals = verify_layout_terminals_ready(root, 16);
+        gboolean auto_fit = verify_layout_auto_fit(root);
+        gboolean tui = geometry && terminals && verify_layout_tui(root);
         root->layout_preset_4x4_rendered =
-            root->layout_preset_4x4_rendered &&
-            verify_layout_preset_geometry(root, 4, 4) &&
-            verify_layout_terminals_ready(root, 16) &&
-            verify_layout_auto_fit(root) && verify_layout_tui(root);
+            root->layout_preset_4x4_applied && geometry && terminals &&
+            auto_fit && tui;
+        if (!root->layout_preset_4x4_rendered &&
+            root->layout_preset_smoke_attempts++ < 40) {
+            GtkWidget *page = gtk_notebook_get_nth_page(
+                GTK_NOTEBOOK(root->notebook),
+                gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+            if (page != NULL) {
+                gtk_widget_queue_resize(page);
+                queue_grid_preset_widget_draw(page, NULL);
+            }
+            g_timeout_add(50, check_layout_preset_smoke, root);
+            return G_SOURCE_REMOVE;
+        }
         if (production_page != NULL && production_page != root->page)
             (void)close_grid_tab(root, production_page);
         finish_layout_preset_smoke_sessions(root);
@@ -15853,19 +15712,11 @@ static gboolean on_grid_area_leave(GtkWidget *widget, GdkEventCrossing *event,
     return FALSE;
 }
 
-static int grid_scroll_direction(GdkEventScroll *event) {
-    return event->direction == GDK_SCROLL_UP
-        ? -1
-        : event->direction == GDK_SCROLL_DOWN
-            ? 1
-            : event->direction == GDK_SCROLL_SMOOTH ? 0 : 2;
-}
-
 static int terminal_scroll_steps(NocttyGridContext *context,
                                  GdkEventScroll *event) {
     return noctty_grid_scroll_steps(
         context->terminal_scroll_lines, context->terminal_smooth_scroll,
-        grid_scroll_direction(event), event->delta_y,
+        noctty_grid_scroll_direction((int)event->direction), event->delta_y,
         &context->terminal_scroll_accumulator);
 }
 
@@ -15948,7 +15799,7 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     if (route == NOCTTY_GRID_ROUTE_SCROLLBAR) {
         int steps = terminal_scroll_steps(context, event);
         if (steps != 0)
-            (void)context->scroll(context->userdata, steps);
+            (void)scroll_terminal_by_lines(context, steps);
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
@@ -15963,7 +15814,8 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
                 : &context->font_scroll_accumulator;
         NocttyGridWheelActionPlan plan;
         noctty_grid_wheel_action_plan(
-            route, grid_scroll_direction(event), event->delta_y, accumulator,
+            route, noctty_grid_scroll_direction((int)event->direction),
+            event->delta_y, accumulator,
             &plan);
         if (route == NOCTTY_GRID_ROUTE_TAB_CYCLE) {
             for (int step = 0; step < plan.steps; step++) {
@@ -15984,7 +15836,7 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     int steps = terminal_scroll_steps(context, event);
     if (route == NOCTTY_GRID_ROUTE_TERMINAL_SCROLL) {
         if (steps != 0)
-            (void)context->scroll(context->userdata, steps);
+            (void)scroll_terminal_by_lines(context, steps);
         if (context->workspace_smoke == 15 && steps != 0)
             root_grid_context(context)->compact_plain_scroll_preserved = 1;
         gtk_widget_queue_draw(context->area);
@@ -16590,8 +16442,10 @@ static void on_im_commit(GtkIMContext *im_context, const gchar *text,
     (void)im_context;
     NocttyGridContext *context = user_data;
     if (grid_context_session_available(context) && !context->exited &&
-        text != NULL && text[0] != '\0')
-        (void)deliver_grid_input(context, text, strlen(text));
+        text != NULL && text[0] != '\0' &&
+        deliver_grid_input(context, text, strlen(text)) < 0)
+        show_status_feedback(
+            context, "Could not deliver composed text to every terminal.");
 }
 
 static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {

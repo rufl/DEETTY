@@ -296,6 +296,179 @@ pub export fn noctty_grid_wheel_key_sequence(
     return @intCast(length);
 }
 
+const gdk_key_backspace: u32 = 0xff08;
+const gdk_key_tab: u32 = 0xff09;
+const gdk_key_return: u32 = 0xff0d;
+const gdk_key_escape: u32 = 0xff1b;
+const gdk_key_home: u32 = 0xff50;
+const gdk_key_end: u32 = 0xff57;
+const gdk_key_left: u32 = 0xff51;
+const gdk_key_up: u32 = 0xff52;
+const gdk_key_right: u32 = 0xff53;
+const gdk_key_down: u32 = 0xff54;
+const gdk_key_page_up: u32 = 0xff55;
+const gdk_key_page_down: u32 = 0xff56;
+const gdk_key_insert: u32 = 0xff63;
+const gdk_key_kp_enter: u32 = 0xff8d;
+const gdk_key_f1: u32 = 0xffbe;
+const gdk_key_f12: u32 = 0xffc9;
+const gdk_key_delete: u32 = 0xffff;
+
+fn terminalSpecialKeySequence(keyval: u32, application_cursor: bool) ?[]const u8 {
+    return switch (keyval) {
+        gdk_key_up => if (application_cursor) "\x1bOA" else "\x1b[A",
+        gdk_key_down => if (application_cursor) "\x1bOB" else "\x1b[B",
+        gdk_key_right => if (application_cursor) "\x1bOC" else "\x1b[C",
+        gdk_key_left => if (application_cursor) "\x1bOD" else "\x1b[D",
+        gdk_key_home => "\x1b[H",
+        gdk_key_end => "\x1b[F",
+        gdk_key_insert => "\x1b[2~",
+        gdk_key_delete => "\x1b[3~",
+        gdk_key_page_up => "\x1b[5~",
+        gdk_key_page_down => "\x1b[6~",
+        gdk_key_f1 => "\x1bOP",
+        gdk_key_f1 + 1 => "\x1bOQ",
+        gdk_key_f1 + 2 => "\x1bOR",
+        gdk_key_f1 + 3 => "\x1bOS",
+        gdk_key_f1 + 4 => "\x1b[15~",
+        gdk_key_f1 + 5 => "\x1b[17~",
+        gdk_key_f1 + 6 => "\x1b[18~",
+        gdk_key_f1 + 7 => "\x1b[19~",
+        gdk_key_f1 + 8 => "\x1b[20~",
+        gdk_key_f1 + 9 => "\x1b[21~",
+        gdk_key_f1 + 10 => "\x1b[23~",
+        gdk_key_f12 => "\x1b[24~",
+        gdk_key_return, gdk_key_kp_enter => "\r",
+        gdk_key_backspace => "\x7f",
+        gdk_key_tab => "\t",
+        gdk_key_escape => "\x1b",
+        else => null,
+    };
+}
+
+pub export fn noctty_grid_terminal_key_sequence(
+    keyval: u32,
+    codepoint: u32,
+    modifier_flags: u32,
+    application_cursor: c_int,
+    output_optional: ?[*]u8,
+    capacity: u32,
+) callconv(.c) c_int {
+    const output = output_optional orelse return 0;
+    const control = modifier_flags & modifier_control != 0;
+    const alt = modifier_flags & modifier_alt != 0;
+
+    var encoded: [4]u8 = undefined;
+    var sequence: []const u8 = undefined;
+    var meta_prefix = false;
+    if (control and ((codepoint >= 'A' and codepoint <= 'Z') or
+        (codepoint >= 'a' and codepoint <= 'z')))
+    {
+        encoded[0] = @intCast((codepoint & 0x1f));
+        sequence = encoded[0..1];
+    } else if (codepoint >= 0x20 and codepoint != 0x7f and
+        codepoint <= 0x10ffff and !(codepoint >= 0xd800 and codepoint <= 0xdfff))
+    {
+        const length = std.unicode.utf8Encode(@intCast(codepoint), &encoded) catch return 0;
+        sequence = encoded[0..length];
+        meta_prefix = alt and codepoint <= 0x7e;
+    } else {
+        sequence = terminalSpecialKeySequence(
+            keyval,
+            application_cursor != 0,
+        ) orelse return 0;
+    }
+
+    const prefix_length: u32 = @intFromBool(meta_prefix and !control);
+    const total_length: u32 = prefix_length + @as(u32, @intCast(sequence.len));
+    if (capacity < total_length) return 0;
+    if (prefix_length != 0) output[0] = 0x1b;
+    @memcpy(output[prefix_length..][0..sequence.len], sequence);
+    return @intCast(total_length);
+}
+
+pub export fn noctty_grid_shortcut_label(
+    encoded: u32,
+    output_optional: ?[*]u8,
+    capacity: u32,
+) callconv(.c) c_int {
+    const output = output_optional orelse return 0;
+    if (capacity == 0) return 0;
+    var buffer: [64]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    if (encoded == 0) {
+        writer.writeAll("Unassigned") catch return 0;
+    } else {
+        const key = encoded & 0x01ffffff;
+        if (encoded & 0x04000000 != 0) writer.writeAll("Ctrl+") catch return 0;
+        if (encoded & 0x02000000 != 0) writer.writeAll("Shift+") catch return 0;
+        if (encoded & 0x08000000 != 0) writer.writeAll("Alt+") catch return 0;
+        if (encoded & 0x10000000 != 0) writer.writeAll("Super+") catch return 0;
+        if ((key >= 'A' and key <= 'Z') or (key >= '0' and key <= '9')) {
+            writer.writeByte(@intCast(key)) catch return 0;
+        } else if (key >= 0x01000030 and key <= 0x0100003b) {
+            writer.print("F{d}", .{key - 0x01000030 + 1}) catch return 0;
+        } else {
+            const name = switch (key) {
+                '`' => "`",
+                0x20 => "Space",
+                0x01000000 => "Escape",
+                0x01000001 => "Tab",
+                0x01000003 => "Backspace",
+                0x01000004, 0x01000005 => "Enter",
+                0x01000006 => "Insert",
+                0x01000007 => "Delete",
+                0x01000010 => "Home",
+                0x01000011 => "End",
+                0x01000012 => "Left",
+                0x01000013 => "Up",
+                0x01000014 => "Right",
+                0x01000015 => "Down",
+                0x01000016 => "Page Up",
+                0x01000017 => "Page Down",
+                else => "Unknown",
+            };
+            writer.writeAll(name) catch return 0;
+        }
+    }
+    const label = writer.buffered();
+    if (label.len + 1 > capacity) return 0;
+    @memcpy(output[0..label.len], label);
+    output[label.len] = 0;
+    return @intCast(label.len);
+}
+
+pub export fn noctty_grid_scroll_direction(direction: c_int) callconv(.c) c_int {
+    return switch (direction) {
+        0 => -1,
+        1 => 1,
+        2 => 0,
+        else => 2,
+    };
+}
+
+pub export fn noctty_grid_tab_color_preset_name(preset: c_int) callconv(.c) [*:0]const u8 {
+    return switch (preset) {
+        0 => "Red",
+        1 => "Orange",
+        2 => "Yellow",
+        3 => "Green",
+        4 => "Cyan",
+        5 => "Blue",
+        6 => "Purple",
+        7 => "Pink",
+        else => "Default",
+    };
+}
+
+pub export fn noctty_grid_tab_color_shade_name(shade: c_int) callconv(.c) [*:0]const u8 {
+    if (shade <= -3) return "much darker";
+    if (shade < 0) return "darker";
+    if (shade >= 3) return "much lighter";
+    if (shade > 0) return "lighter";
+    return "base shade";
+}
+
 pub export fn noctty_grid_hyperlink_valid(
     uri_pointer: ?[*]const u8,
     length: u32,
@@ -1354,6 +1527,113 @@ test "alternate-screen wheel keys honor direction cursor mode and bounds" {
         @as(c_int, 192),
         noctty_grid_wheel_key_sequence(0, std.math.maxInt(c_int), &output, output.len),
     );
+}
+
+test "terminal key encoding covers Unicode navigation and function keys" {
+    var output: [8]u8 = undefined;
+    var length = noctty_grid_terminal_key_sequence(
+        'x',
+        'x',
+        modifier_alt,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 2), length);
+    try std.testing.expectEqualStrings("\x1bx", output[0..@intCast(length)]);
+
+    length = noctty_grid_terminal_key_sequence(
+        'C',
+        'C',
+        modifier_control | modifier_alt,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 1), length);
+    try std.testing.expectEqualSlices(u8, &.{3}, output[0..@intCast(length)]);
+
+    length = noctty_grid_terminal_key_sequence(
+        0,
+        0x1f680,
+        0,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 4), length);
+    try std.testing.expectEqualStrings("🚀", output[0..@intCast(length)]);
+
+    length = noctty_grid_terminal_key_sequence(
+        gdk_key_up,
+        0,
+        0,
+        1,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 3), length);
+    try std.testing.expectEqualStrings("\x1bOA", output[0..@intCast(length)]);
+
+    length = noctty_grid_terminal_key_sequence(
+        gdk_key_f12,
+        0,
+        0,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 5), length);
+    try std.testing.expectEqualStrings("\x1b[24~", output[0..@intCast(length)]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_terminal_key_sequence(0, 0xd800, 0, 0, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_terminal_key_sequence(gdk_key_f12, 0, 0, 0, &output, 4),
+    );
+}
+
+test "shortcut labels are bounded and name supported keys" {
+    var output: [64]u8 = undefined;
+    var length = noctty_grid_shortcut_label(0, &output, output.len);
+    try std.testing.expectEqualStrings("Unassigned", output[0..@intCast(length)]);
+    length = noctty_grid_shortcut_label(
+        0x04000000 | 0x02000000 | 'K',
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings("Ctrl+Shift+K", output[0..@intCast(length)]);
+    length = noctty_grid_shortcut_label(
+        0x08000000 | 0x0100003b,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings("Alt+F12", output[0..@intCast(length)]);
+    length = noctty_grid_shortcut_label(0x01000016, &output, output.len);
+    try std.testing.expectEqualStrings("Page Up", output[0..@intCast(length)]);
+    length = noctty_grid_shortcut_label(1, &output, output.len);
+    try std.testing.expectEqualStrings("Unknown", output[0..@intCast(length)]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_shortcut_label(0x04000000 | 'A', &output, 2),
+    );
+}
+
+test "scroll direction and tab color names handle every boundary" {
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_scroll_direction(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_scroll_direction(1));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_scroll_direction(2));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_scroll_direction(3));
+    try std.testing.expectEqualStrings("Red", std.mem.span(noctty_grid_tab_color_preset_name(0)));
+    try std.testing.expectEqualStrings("Pink", std.mem.span(noctty_grid_tab_color_preset_name(7)));
+    try std.testing.expectEqualStrings("Default", std.mem.span(noctty_grid_tab_color_preset_name(-1)));
+    try std.testing.expectEqualStrings("much darker", std.mem.span(noctty_grid_tab_color_shade_name(-3)));
+    try std.testing.expectEqualStrings("darker", std.mem.span(noctty_grid_tab_color_shade_name(-1)));
+    try std.testing.expectEqualStrings("base shade", std.mem.span(noctty_grid_tab_color_shade_name(0)));
+    try std.testing.expectEqualStrings("lighter", std.mem.span(noctty_grid_tab_color_shade_name(1)));
+    try std.testing.expectEqualStrings("much lighter", std.mem.span(noctty_grid_tab_color_shade_name(3)));
 }
 
 test "hyperlink validation accepts safe browser schemes and rejects controls" {

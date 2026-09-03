@@ -37,9 +37,10 @@ zig build run-nocted -- --project . --open README.md
   lifetimes, callback dispatch, Pango glyph caches, and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
   precedence, scrollbar geometry, wheel accumulation and fallback keys,
-  keyboard scroll targets, hyperlink validation, command-palette fuzzy
-  matching, dropdown dimension clamping, sharing-status actions, grid
-  sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping, linear
+  terminal key encoding and shortcut labels, keyboard scroll targets,
+  hyperlink validation, command-palette fuzzy matching, dropdown dimension
+  clamping, sharing-status actions, grid sizing/auto-fit, window-resize
+  deltas/bounds, pointer-to-cell mapping, linear
   selection hit testing, pixel-snapped spans, packed-cell/run decoding, UTF-8
   encoding, clipping, pane chrome, and caret policy consumed through
   `include/noctty/native_grid_logic.h`.
@@ -53,9 +54,9 @@ zig build run-nocted -- --project . --open README.md
   qualification included only in smoke builds; production host source contains
   no qualification implementation.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
-  bounded nested split-branch visibility traversal, action-button affordances,
-  compact-tab styling, tab-child lookup, color
-  styling, settings surfaces, context menus, compact dialogs, theme library,
+  bounded nested split-branch visibility traversal, divider/gap styling,
+  balanced split positioning, action-button affordances, compact-tab styling,
+  tab-child lookup, color styling, settings surfaces, context menus, compact dialogs, theme library,
   project tools, and sharing controls behind the narrow
   `include/noctty/native_gtk.h` ABI.
 - `include/noctty/` — published narrow C ABI declarations; these remain counted

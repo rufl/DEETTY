@@ -112,6 +112,12 @@ void noctty_grid_wheel_action_plan(
     NocttyGridWheelActionPlan *plan);
 int noctty_grid_wheel_key_sequence(int application_cursor, int steps,
                                    uint8_t *output, uint32_t capacity);
+int noctty_grid_terminal_key_sequence(uint32_t keyval, uint32_t codepoint,
+                                      uint32_t modifier_flags,
+                                      int application_cursor, uint8_t *output,
+                                      uint32_t capacity);
+int noctty_grid_shortcut_label(uint32_t encoded, uint8_t *output,
+                               uint32_t capacity);
 int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
 int noctty_grid_fuzzy_match_ascii(const uint8_t *haystack,
                                   uint32_t haystack_length,
@@ -128,6 +134,9 @@ enum {
 };
 uint32_t noctty_grid_sharing_status_actions(int status);
 
+int noctty_grid_scroll_direction(int direction);
+const char *noctty_grid_tab_color_preset_name(int preset);
+const char *noctty_grid_tab_color_shade_name(int shade);
 int noctty_grid_scrollbar_geometry(
     int allocation_width, int allocation_height, double scrollbar_width,
     double thumb_height_min, uint64_t history_lines,

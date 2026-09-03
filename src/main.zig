@@ -5447,7 +5447,7 @@ fn terminalPipelineQualification(
 }
 
 export fn noctty_grid_pump(raw: ?*anyopaque) callconv(.c) c_int {
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     return switch (session.pump() catch return -1) {
         .bytes => |count| @intCast(count),
         .would_block => -2,
@@ -5471,9 +5471,9 @@ export fn noctty_grid_compact_idle_history(raw: ?*anyopaque) callconv(.c) c_int 
 }
 
 export fn noctty_grid_write(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     session.write(bytes[0..length]) catch return -1;
-    return @intCast(length);
+    return std.math.cast(c_int, length) orelse -1;
 }
 export fn noctty_grid_control(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
     var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
@@ -5704,12 +5704,13 @@ export fn noctty_grid_cell_hyperlink(raw: ?*anyopaque, column: c_int, row: c_int
 }
 
 export fn noctty_grid_poll_exit(raw: ?*anyopaque) callconv(.c) c_int {
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -2));
     return if (session.pollExit() catch return -2) |code| @intCast(code) else -1;
 }
 
 export fn noctty_grid_resize(raw: ?*anyopaque, columns: c_int, rows: c_int, width_px: c_int, height_px: c_int) callconv(.c) c_int {
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
+    if (columns <= 0 or rows <= 0 or width_px <= 0 or height_px <= 0) return -1;
     session.resize(@intCast(columns), @intCast(rows), @intCast(width_px), @intCast(height_px)) catch return -1;
     return 0;
 }
@@ -5737,7 +5738,7 @@ export fn noctty_grid_mouse(raw: ?*anyopaque, column: c_int, row: c_int, button:
 export fn noctty_grid_paste(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
     if (length > noctty.terminal_session.TerminalSession.max_pending_write_bytes - 12)
         return -1;
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     const prepared = noctty.paste.preparePasteAlloc(session.allocator, bytes[0..length], .{ .bracketed_paste = session.grid.bracketed_paste }) catch return -1;
     defer prepared.deinit(session.allocator);
     session.write(prepared.bytes) catch return -1;
@@ -5969,7 +5970,7 @@ export fn noctty_grid_broadcast_enabled(raw: ?*anyopaque) callconv(.c) c_int {
 }
 
 export fn noctty_grid_scroll(raw: ?*anyopaque, lines: c_int) callconv(.c) c_int {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     session.grid.scrollViewport(lines);
     return 0;
 }
@@ -5987,7 +5988,7 @@ export fn noctty_grid_scroll_state(
 }
 
 export fn noctty_grid_cursor(raw: ?*anyopaque) callconv(.c) u32 {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
     // Full-screen TUIs can leave DECTCEM disabled while moving the active
     // input cursor. The native renderer owns the blink phase, so always
     // expose the live grid position unless the viewport is in scrollback.
@@ -5996,7 +5997,7 @@ export fn noctty_grid_cursor(raw: ?*anyopaque) callconv(.c) u32 {
 }
 
 export fn noctty_grid_title(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     const title = session.grid.titleSlice();
     const length = @min(title.len, capacity);
     @memcpy(output[0..length], title[0..length]);
@@ -6004,18 +6005,18 @@ export fn noctty_grid_title(raw: ?*anyopaque, output: [*]u8, capacity: usize) ca
 }
 
 export fn noctty_grid_cursor_mode(raw: ?*anyopaque) callconv(.c) c_int {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
     return if (session.grid.application_cursor_keys) 1 else 0;
 }
 
 export fn noctty_grid_mouse_mode(raw: ?*anyopaque) callconv(.c) c_int {
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return 0));
     return @as(c_int, @intFromBool(session.grid.mouse_tracking != .none)) |
         (@as(c_int, @intFromBool(session.grid.alternate_cells != null)) << 1);
 }
 
 export fn noctty_grid_focus(raw: ?*anyopaque, focused: c_int) callconv(.c) c_int {
-    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
+    var session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
     if (!session.grid.focus_reporting) return 0;
     const sequence = if (focused != 0) "\x1b[I" else "\x1b[O";
     session.write(sequence) catch return -1;

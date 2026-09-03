@@ -100,7 +100,10 @@ grep -F 'pub export fn noctty_grid_resize_delta(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_clamp_resize(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_pointer_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_input_route(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_terminal_key_sequence(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_shortcut_label(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
+grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
 grep -F 'const NativeGridAbi = noctty.gui.NativeGridAbi;' "$main" >/dev/null
@@ -115,6 +118,9 @@ grep -F '"--native-grid-installed-continuity-qualification"' "$main" >/dev/null
 ! grep -F 'fn noctty_native_grid_host_run(' "$main" >/dev/null
 
 grep -F 'pub export fn noctty_grid_sync_split_visibility(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null
 grep -F 'const split_walk_max: usize = 31;' "$native_gtk" >/dev/null
 ! grep -F 'gtk_widget_is_ancestor' "$grid" >/dev/null
 grep -F 'pub export fn noctty_settings_page_new' "$native_gtk" >/dev/null
@@ -181,8 +187,8 @@ grep -F '"Could not save the workspace"' "$grid" >/dev/null
   grep -F 'callback_failed = true' >/dev/null
 grep -F 'context.full_stack_idle_ticks == 0' tests/native_grid_smoke_results.inc >/dev/null
 grep -F 'context.stability_hidden_draws == 0' tests/native_grid_smoke_results.inc >/dev/null
-grep -F "bytes[0] = '\\r'; length = 1;" "$grid" >/dev/null
-! grep -F "bytes[0] = '\\n'; length = 1;" "$grid" >/dev/null
+grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
+grep -F 'noctty_grid_shortcut_label(' "$grid" >/dev/null
 grep -F 'poll_installed_continuity_detach_smoke' "$grid_qualification" >/dev/null
 grep -F 'g_dbus_connection_call_sync(' "$grid" >/dev/null
 grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 2' "$grid" >/dev/null

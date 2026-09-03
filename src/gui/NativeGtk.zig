@@ -33,12 +33,19 @@ const GtkFlowBox = opaque {};
 const GtkMenuItem = opaque {};
 const GtkMenuShell = opaque {};
 const GtkPaned = opaque {};
+const GtkOrientable = opaque {};
 const GObject = opaque {};
 const AtkObject = opaque {};
 const GdkWindow = opaque {};
 const GdkDisplay = opaque {};
 const GdkCursor = opaque {};
 const GdkScreen = opaque {};
+const GtkAllocation = extern struct {
+    x: c_int,
+    y: c_int,
+    width: c_int,
+    height: c_int,
+};
 const GType = usize;
 const GTypeInstance = extern struct { g_class: ?*anyopaque };
 const GError = extern struct {
@@ -156,9 +163,13 @@ extern fn gtk_widget_set_tooltip_text(*GtkWidget, ?[*:0]const u8) void;
 extern fn gtk_widget_get_tooltip_text(*GtkWidget) ?[*:0]u8;
 extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
 extern fn gtk_widget_get_visible(*GtkWidget) c_int;
+extern fn gtk_widget_get_allocation(*GtkWidget, *GtkAllocation) void;
+extern fn gtk_widget_style_get(*GtkWidget, [*:0]const u8, ...) void;
 extern fn gtk_widget_is_ancestor(*GtkWidget, *GtkWidget) c_int;
 extern fn gtk_paned_get_child1(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_get_child2(*GtkPaned) ?*GtkWidget;
+extern fn gtk_paned_set_position(*GtkPaned, c_int) void;
+extern fn gtk_orientable_get_orientation(*GtkOrientable) c_int;
 extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
@@ -449,6 +460,151 @@ pub export fn noctty_show_all_with_action_affordances(widget: ?*GtkWidget) void 
     const current = widget orelse return;
     noctty_prepare_action_button_tree(current);
     gtk_widget_show_all(current);
+}
+
+fn widgetCssProvider(
+    widget: *GtkWidget,
+    key: [*:0]const u8,
+) ?*GtkCssProvider {
+    if (g_object_get_data(object(widget), key)) |value| return @ptrCast(value);
+    const provider = gtk_css_provider_new() orelse return null;
+    g_object_set_data_full(object(widget), key, provider, g_object_unref);
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(widget),
+        @ptrCast(provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+    return provider;
+}
+
+fn applyPaneDividerStyle(widget: *GtkWidget, width_px: c_int) void {
+    if (isA(widget, gtk_paned_get_type)) {
+        const provider = widgetCssProvider(widget, "noctty-divider-provider") orelse return;
+        var css_buffer: [96]u8 = undefined;
+        const width = std.math.clamp(width_px, 1, 64);
+        const css = std.fmt.bufPrintZ(
+            &css_buffer,
+            "paned > separator {{ min-width: {d}px; min-height: {d}px; }}",
+            .{ width, width },
+        ) catch return;
+        _ = gtk_css_provider_load_from_data(provider, css, -1, null);
+    }
+    if (!isA(widget, gtk_container_get_type)) return;
+    const children = gtk_container_get_children(@ptrCast(widget));
+    defer g_list_free(children);
+    var item = children;
+    while (item) |child| : (item = child.next) {
+        const current: *GtkWidget = @ptrCast(child.data orelse continue);
+        applyPaneDividerStyle(current, width_px);
+    }
+}
+
+pub export fn noctty_apply_pane_divider_style(
+    widget: ?*GtkWidget,
+    width_px: c_int,
+) void {
+    applyPaneDividerStyle(widget orelse return, width_px);
+}
+
+fn paneWidgetCount(widget_optional: ?*GtkWidget) u32 {
+    const widget = widget_optional orelse return 0;
+    if (!isA(widget, gtk_paned_get_type)) return 1;
+    const paned: *GtkPaned = @ptrCast(widget);
+    return paneWidgetCount(gtk_paned_get_child1(paned)) +
+        paneWidgetCount(gtk_paned_get_child2(paned));
+}
+
+fn applyEvenPanePositions(widget_optional: ?*GtkWidget) bool {
+    const widget = widget_optional orelse return false;
+    if (!isA(widget, gtk_paned_get_type)) return true;
+    const paned: *GtkPaned = @ptrCast(widget);
+    const first = gtk_paned_get_child1(paned);
+    const second = gtk_paned_get_child2(paned);
+    const first_count = paneWidgetCount(first);
+    const second_count = paneWidgetCount(second);
+    const total = first_count + second_count;
+    if (total == 0) return false;
+
+    var allocation: GtkAllocation = undefined;
+    gtk_widget_get_allocation(widget, &allocation);
+    var handle_size: c_int = 0;
+    gtk_widget_style_get(
+        widget,
+        "handle-size",
+        &handle_size,
+        @as(?*anyopaque, null),
+    );
+    const orientation = gtk_orientable_get_orientation(@ptrCast(widget));
+    const extent = if (orientation == GTK_ORIENTATION_VERTICAL)
+        allocation.height
+    else
+        allocation.width;
+    const available: i64 = @max(1, @as(i64, extent) - @max(0, handle_size));
+    const position: c_int = @intCast(
+        @divTrunc(
+            available * @as(i64, first_count) + @divTrunc(total, 2),
+            total,
+        ),
+    );
+    const ratio_permille: usize = @intCast(
+        @divTrunc(first_count * 1000 + @divTrunc(total, 2), total),
+    );
+    g_object_set_data(
+        object(widget),
+        "noctty-preset-ratio",
+        @ptrFromInt(ratio_permille),
+    );
+    gtk_paned_set_position(paned, position);
+    if (first != null) _ = applyEvenPanePositions(first);
+    if (second != null) _ = applyEvenPanePositions(second);
+    return true;
+}
+
+pub export fn noctty_apply_even_pane_positions(widget: ?*GtkWidget) c_int {
+    return @intFromBool(applyEvenPanePositions(widget));
+}
+
+fn setPaneGapStyle(widget: *GtkWidget, rgb: u32, is_opaque: bool) void {
+    const provider = widgetCssProvider(widget, "noctty-pane-gap-provider") orelse return;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(widget),
+        "noctty-pane-gap-surface",
+    );
+    var css_buffer: [160]u8 = undefined;
+    const css = if (is_opaque)
+        std.fmt.bufPrintZ(
+            &css_buffer,
+            ".noctty-pane-gap-surface {{ background-color: rgb({d},{d},{d}); }}",
+            .{ (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff },
+        ) catch return
+    else
+        std.fmt.bufPrintZ(
+            &css_buffer,
+            ".noctty-pane-gap-surface {{ background-color: rgba(0,0,0,0); }}",
+            .{},
+        ) catch return;
+    _ = gtk_css_provider_load_from_data(provider, css, -1, null);
+}
+
+fn applyPaneGapStyle(widget: *GtkWidget, rgb: u32, is_opaque: bool, root: bool) void {
+    if (root or isA(widget, gtk_paned_get_type))
+        setPaneGapStyle(widget, rgb, is_opaque);
+    if (!isA(widget, gtk_container_get_type)) return;
+    const children = gtk_container_get_children(@ptrCast(widget));
+    defer g_list_free(children);
+    var item = children;
+    while (item) |child| : (item = child.next) {
+        const current: *GtkWidget = @ptrCast(child.data orelse continue);
+        applyPaneGapStyle(current, rgb, is_opaque, false);
+    }
+}
+
+pub export fn noctty_apply_pane_gap_style(
+    widget: ?*GtkWidget,
+    rgb: u32,
+    is_opaque: c_int,
+) void {
+    applyPaneGapStyle(widget orelse return, rgb, is_opaque != 0, true);
 }
 
 pub export fn noctty_install_compact_tab_styles(target: ?*GtkWidget) void {
