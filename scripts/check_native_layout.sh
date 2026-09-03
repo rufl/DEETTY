@@ -85,12 +85,15 @@ grep -F 'pub export fn noctty_grid_render_cycle_overlay(' "$grid_render" >/dev/n
 grep -F 'pub export fn noctty_grid_render_quick_note(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_status_feedback(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_sharing_preview(' "$grid_render" >/dev/null
+grep -F 'cursor_rgb: u32,' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_text_decoration(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_scrollbar(' "$grid_render" >/dev/null
 grep -F '#include "../../include/noctty/native_grid_render.h"' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_scroll_steps(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_keyboard_scroll_target(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_scale_brightness(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_adapt_window_geometry(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_auto_fit(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_dimensions(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_resize_delta(' "$grid_logic" >/dev/null
@@ -149,8 +152,8 @@ grep -F '"Noctalia import variant");' "$grid" >/dev/null
 grep -F 'setAccessibleName(peers, "Paired device");' "$native_gtk" >/dev/null
 grep -F 'atk_object_set_name(status_accessible, "Session sharing status");' "$native_gtk" >/dev/null
 grep -F '@max(1, @min(480, width - 64))' "$native_gtk" >/dev/null
-grep -F 'sharing_status_can_clear_host(205)' "$grid" >/dev/null
-grep -F 'sharing_status_can_clear_viewer(306)' "$grid" >/dev/null
+grep -F 'sharing_status_can_clear_host(205)' tests/native_grid_sharing_scope_smoke.inc >/dev/null
+grep -F 'sharing_status_can_clear_viewer(306)' tests/native_grid_sharing_scope_smoke.inc >/dev/null
 grep -F '"Close sharing session"' "$grid" >/dev/null
 grep -F '"Close remote session"' "$grid" >/dev/null
 grep -F '.{ .label = "Retry saving devices", .action = 18 },' "$native_gtk" >/dev/null
@@ -179,6 +182,10 @@ grep -F 'poll_installed_continuity_detach_smoke' "$grid_qualification" >/dev/nul
 grep -F 'g_dbus_connection_call_sync(' "$grid" >/dev/null
 grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 2' "$grid" >/dev/null
 grep -F '#define NOCTTY_PANE_INFO_HEIGHT_PX 18' "$grid" >/dev/null
+grep -F '"Open Link in Browser"' "$grid" >/dev/null
+grep -F 'inactive_pane_brightness_percent' "$grid" >/dev/null
+grep -F 'pane_gaps_transparent' "$grid" >/dev/null
+grep -F 'on_window_resolution_configure' "$grid" >/dev/null
 grep -F 'return index == 3 || index == 4 ? "ew-resize" : "ns-resize";' "$grid" >/dev/null
 ! grep -F 'nwse-resize' "$grid" >/dev/null
 ! grep -F 'nesw-resize' "$grid" >/dev/null

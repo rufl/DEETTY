@@ -665,6 +665,80 @@ pub export fn noctty_grid_dimensions(
     return 1;
 }
 
+pub export fn noctty_grid_scale_brightness(
+    rgb: u32,
+    enabled: c_int,
+    active: c_int,
+    percent_raw: c_int,
+) callconv(.c) u32 {
+    if (enabled == 0 or active != 0) return rgb & 0xffffff;
+    const percent: u32 = @intCast(std.math.clamp(percent_raw, 20, 100));
+    const red = ((rgb >> 16) & 0xff) * percent / 100;
+    const green = ((rgb >> 8) & 0xff) * percent / 100;
+    const blue = (rgb & 0xff) * percent / 100;
+    return (red << 16) | (green << 8) | blue;
+}
+
+pub const AdaptiveWindowGeometry = extern struct {
+    x: c_int,
+    y: c_int,
+    width: c_int,
+    height: c_int,
+};
+
+pub export fn noctty_grid_adapt_window_geometry(
+    mode: c_int,
+    current_x: c_int,
+    current_y: c_int,
+    current_width: c_int,
+    current_height: c_int,
+    workarea_x: c_int,
+    workarea_y: c_int,
+    workarea_width: c_int,
+    workarea_height: c_int,
+    dropdown_width: c_int,
+    dropdown_height: c_int,
+    output_raw: ?*AdaptiveWindowGeometry,
+) callconv(.c) c_int {
+    const output = output_raw orelse return 0;
+    if (mode < 0 or mode > 2 or workarea_width <= 0 or workarea_height <= 0) {
+        return 0;
+    }
+    const width = switch (mode) {
+        0 => std.math.clamp(dropdown_width, 1, workarea_width),
+        1 => std.math.clamp(current_width, 1, workarea_width),
+        2 => workarea_width,
+        else => unreachable,
+    };
+    const height = switch (mode) {
+        0 => std.math.clamp(dropdown_height, 1, workarea_height),
+        1 => std.math.clamp(current_height, 1, workarea_height),
+        2 => workarea_height,
+        else => unreachable,
+    };
+    const x = switch (mode) {
+        0 => workarea_x + @divFloor(workarea_width - width, 2),
+        1 => std.math.clamp(
+            current_x,
+            workarea_x,
+            workarea_x + workarea_width - width,
+        ),
+        2 => workarea_x,
+        else => unreachable,
+    };
+    const y = switch (mode) {
+        0, 2 => workarea_y,
+        1 => std.math.clamp(
+            current_y,
+            workarea_y,
+            workarea_y + workarea_height - height,
+        ),
+        else => unreachable,
+    };
+    output.* = .{ .x = x, .y = y, .width = width, .height = height };
+    return 1;
+}
+
 pub export fn noctty_grid_resize_delta(
     handle: c_int,
     start_x: f64,
@@ -766,6 +840,79 @@ test "pointer mapping distinguishes bounded hits from clamped drags" {
         &column,
         &row,
     ));
+}
+
+test "inactive pane brightness scales every channel and preserves active panes" {
+    try std.testing.expectEqual(
+        @as(u32, 0x703818),
+        noctty_grid_scale_brightness(0xa05023, 1, 0, 70),
+    );
+    try std.testing.expectEqual(
+        @as(u32, 0xa05023),
+        noctty_grid_scale_brightness(0xa05023, 1, 1, 70),
+    );
+    try std.testing.expectEqual(
+        @as(u32, 0xa05023),
+        noctty_grid_scale_brightness(0xa05023, 0, 0, 70),
+    );
+}
+
+test "resolution adaptation preserves window intent within every workarea" {
+    var geometry: AdaptiveWindowGeometry = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_adapt_window_geometry(
+        0,
+        0,
+        0,
+        800,
+        600,
+        100,
+        40,
+        1200,
+        800,
+        1000,
+        500,
+        &geometry,
+    ));
+    try std.testing.expectEqualDeep(
+        AdaptiveWindowGeometry{ .x = 200, .y = 40, .width = 1000, .height = 500 },
+        geometry,
+    );
+    _ = noctty_grid_adapt_window_geometry(
+        1,
+        900,
+        700,
+        1400,
+        900,
+        100,
+        40,
+        1200,
+        800,
+        0,
+        0,
+        &geometry,
+    );
+    try std.testing.expectEqualDeep(
+        AdaptiveWindowGeometry{ .x = 100, .y = 40, .width = 1200, .height = 800 },
+        geometry,
+    );
+    _ = noctty_grid_adapt_window_geometry(
+        2,
+        900,
+        700,
+        400,
+        300,
+        100,
+        40,
+        1200,
+        800,
+        0,
+        0,
+        &geometry,
+    );
+    try std.testing.expectEqualDeep(
+        AdaptiveWindowGeometry{ .x = 100, .y = 40, .width = 1200, .height = 800 },
+        geometry,
+    );
 }
 
 test "resize handles preserve directional deltas and bounds" {

@@ -128,6 +128,7 @@ pub const GridCells = extern struct {
     cell_width: f64,
     cell_height: f64,
     status_border_width: f64,
+    cursor_rgb: u32,
     chrome: GridLogic.RenderChrome,
 };
 
@@ -898,7 +899,20 @@ pub export fn noctty_grid_render_cells(
     }
 
     if (options.chrome.caret_draw != 0) {
-        setColor(cr, options.ui_palette, color_terminal_cursor, 0x8fb8ff, 1);
+        const cursor_rgb = if (options.cursor_rgb <= 0xffffff)
+            options.cursor_rgb
+        else
+            resolvedRGB(
+                options.ui_palette,
+                color_terminal_cursor,
+                0x8fb8ff,
+            );
+        cairo_set_source_rgb(
+            cr,
+            @as(f64, @floatFromInt((cursor_rgb >> 16) & 0xff)) / 255,
+            @as(f64, @floatFromInt((cursor_rgb >> 8) & 0xff)) / 255,
+            @as(f64, @floatFromInt(cursor_rgb & 0xff)) / 255,
+        );
         cairo_rectangle(
             cr,
             options.chrome.caret_x,

@@ -141,6 +141,7 @@ pub const App = struct {
         preview_theme_import: ThemeImport,
         install_theme_import: ThemeImport,
         select_theme: []const u8,
+        set_tab_theme: SetTabTheme,
         set_theme_chrome_color: ThemeChromeColorChange,
         read_quick_note,
         set_quick_note: []const u8,
@@ -259,6 +260,11 @@ pub const App = struct {
     pub const SetTabAccent = struct {
         tab_id: u64,
         preset: ?Workspace.TabColorPreset,
+    };
+
+    pub const SetTabTheme = struct {
+        pane_id: Terminal.PaneId,
+        theme_name: []const u8,
     };
 
     pub const AdjustTabAccent = struct {
@@ -402,6 +408,7 @@ pub const App = struct {
         theme_previewed: Theme.Preview,
         theme_installed: Theme.Preview,
         theme_selected: Theme.Preview,
+        tab_theme_changed: u64,
         quick_note_read: []const u8,
         quick_note_changed: usize,
         paste_prepared: Paste.PreparedPaste,
@@ -861,6 +868,15 @@ pub const App = struct {
         return Theme.Theme.builtinDark();
     }
 
+    pub fn themeForPane(self: *App, pane_id: Terminal.PaneId) Theme.Theme {
+        const pane = self.workspace.findPane(pane_id) orelse return self.activeTheme();
+        if (self.findTheme(pane.profile.theme_name)) |theme| return theme;
+        if (std.mem.eql(u8, pane.profile.theme_name, "noctty-high-contrast")) {
+            return Theme.Theme.builtinHighContrast();
+        }
+        return self.activeTheme();
+    }
+
     pub fn dispatch(self: *App, command: Command) !CommandResult {
         switch (command) {
             .new_tab => {
@@ -1293,6 +1309,21 @@ pub const App = struct {
                 };
                 try self.setOwnedDefaultTheme(theme.name);
                 return .{ .theme_selected = Theme.Preview.fromTheme(theme) };
+            },
+            .set_tab_theme => |change| {
+                const theme_name = std.mem.trim(u8, change.theme_name, " \t\r\n");
+                _ = self.findTheme(theme_name) orelse builtin: {
+                    if (std.mem.eql(u8, theme_name, "noctty-high-contrast")) {
+                        break :builtin Theme.Theme.builtinHighContrast();
+                    }
+                    return error.ThemeNotInstalled;
+                };
+                const tab_id = try self.workspace.setTabTheme(
+                    change.pane_id,
+                    theme_name,
+                );
+                self.markWorkspaceDirtyAt(0);
+                return .{ .tab_theme_changed = tab_id };
             },
             .set_theme_chrome_color => |change| {
                 const theme = try self.setActiveThemeChromeColor(change);
@@ -2231,6 +2262,50 @@ test "app previews installs and selects imported themes" {
     try std.testing.expectEqualStrings("Workspace Night", selected.theme_selected.name);
     try std.testing.expectEqualStrings("Workspace Night", app.config.default_theme);
     try std.testing.expectEqualStrings("Workspace Night", app.host.config.default_theme);
+}
+
+test "app applies installed themes to one tab without changing the default" {
+    const allocator = std.testing.allocator;
+    var app = try App.init(allocator);
+    defer app.deinit();
+    _ = try app.workspace.splitActivePane(.right);
+    const second_tab_id = try app.workspace.addTab("second", "/tmp");
+
+    const result = try app.dispatch(.{ .set_tab_theme = .{
+        .pane_id = 1,
+        .theme_name = "noctty-high-contrast",
+    } });
+    try std.testing.expectEqual(@as(u64, 1), result.tab_theme_changed);
+    try std.testing.expectEqualStrings(
+        "noctty-high-contrast",
+        app.workspace.findPane(1).?.profile.theme_name,
+    );
+    try std.testing.expectEqualStrings(
+        "noctty-high-contrast",
+        app.workspace.findPane(2).?.profile.theme_name,
+    );
+    try std.testing.expectEqualStrings(
+        "noctty-dark",
+        app.workspace.findPane(
+            app.workspace.findTab(second_tab_id).?.active_pane_id,
+        ).?.profile.theme_name,
+    );
+    try std.testing.expectEqualStrings("noctty-dark", app.config.default_theme);
+    try std.testing.expectEqual(
+        Theme.Color.fromHex(0x000000),
+        app.themeForPane(1).background,
+    );
+    try std.testing.expectEqual(
+        Theme.Color.fromHex(0x0b0d12),
+        app.themeForPane(app.workspace.findTab(second_tab_id).?.active_pane_id).background,
+    );
+    try std.testing.expectError(
+        error.ThemeNotInstalled,
+        app.dispatch(.{ .set_tab_theme = .{
+            .pane_id = 1,
+            .theme_name = "missing",
+        } }),
+    );
 }
 
 test "app replaces installed themes by name and rejects missing selection" {

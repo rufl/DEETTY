@@ -7,6 +7,7 @@
 const std = @import("std");
 const Config = @import("../config/Config.zig");
 const Terminal = @import("../terminal/Terminal.zig");
+const Theme = @import("../theme/Theme.zig");
 const Continuity = @import("../terminal/Continuity.zig");
 
 pub const SplitDirection = enum {
@@ -2054,6 +2055,24 @@ pub const Tab = struct {
         return self.zoomed_pane_id;
     }
 
+    pub fn setTheme(self: *Tab, theme_name_raw: []const u8) !void {
+        const theme_name = std.mem.trim(u8, theme_name_raw, " \t\r\n");
+        try Theme.validateName(theme_name);
+        const staged = try self.allocator.alloc(?[]u8, self.panes.items.len);
+        defer self.allocator.free(staged);
+        @memset(staged, null);
+        errdefer for (staged) |owned| {
+            if (owned) |name| self.allocator.free(name);
+        };
+        for (self.panes.items, 0..) |_, index| {
+            staged[index] = try self.allocator.dupe(u8, theme_name);
+        }
+        for (self.panes.items, 0..) |*pane, index| {
+            pane.replaceThemeNameOwned(staged[index].?);
+            staged[index] = null;
+        }
+    }
+
     pub fn findPane(self: *Tab, id: Terminal.PaneId) ?*Terminal.Pane {
         for (self.panes.items) |*pane| {
             if (pane.id == id) return pane;
@@ -2249,6 +2268,15 @@ pub const Workspace = struct {
             if (tab.id == tab_id) return tab;
         }
         return null;
+    }
+
+    pub fn setTabTheme(self: *Workspace, pane_id: Terminal.PaneId, theme_name: []const u8) !u64 {
+        for (self.tabs.items) |*tab| {
+            if (tab.findPane(pane_id) == null) continue;
+            try tab.setTheme(theme_name);
+            return tab.id;
+        }
+        return error.PaneNotFound;
     }
 
     pub fn findPane(self: *Workspace, pane_id: Terminal.PaneId) ?*Terminal.Pane {
@@ -3357,6 +3385,30 @@ test "workspace applies status events by pane id across tabs" {
 
     const done = try ws.applyStatusEvent(2, .{ .exited = .{ .code = 0, .at_ms = 20 } }, 20);
     try std.testing.expectEqual(Terminal.TerminalStatus.done, done.current);
+}
+
+test "workspace applies one owned theme to every pane in one tab" {
+    const allocator = std.testing.allocator;
+    var ws = try Workspace.init(allocator, "/tmp");
+    defer ws.deinit();
+    try ws.applyPresetToActiveTab(.two_by_two);
+    const second_tab_id = try ws.addTab("second", "/repo");
+
+    const first_tab_id = try ws.setTabTheme(2, " Workspace Night ");
+    try std.testing.expectEqual(@as(u64, 1), first_tab_id);
+    const first_tab = ws.findTab(first_tab_id).?;
+    for (first_tab.panes.items) |pane| {
+        try std.testing.expectEqualStrings("Workspace Night", pane.profile.theme_name);
+        try std.testing.expect(pane.owned_profile_theme_name != null);
+    }
+    try std.testing.expectEqualStrings(
+        "noctty-dark",
+        ws.findPane(ws.findTab(second_tab_id).?.active_pane_id).?.profile.theme_name,
+    );
+    try std.testing.expectError(
+        error.PaneNotFound,
+        ws.setTabTheme(999, "Workspace Night"),
+    );
 }
 
 test "workspace applies per-pane profile presets by stable pane id" {

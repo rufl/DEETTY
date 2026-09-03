@@ -183,6 +183,22 @@ int noctty_grid_dimensions(int allocation_width, int allocation_height,
                            double scrollbar_width, double cell_width,
                            double cell_height, int *terminal_width,
                            int *columns, int *rows);
+uint32_t noctty_grid_scale_brightness(
+    uint32_t rgb, int enabled, int active, int percent);
+
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} NocttyGridAdaptiveWindowGeometry;
+
+int noctty_grid_adapt_window_geometry(
+    int mode, int current_x, int current_y, int current_width,
+    int current_height, int workarea_x, int workarea_y,
+    int workarea_width, int workarea_height, int dropdown_width,
+    int dropdown_height, NocttyGridAdaptiveWindowGeometry *output);
+
 void noctty_grid_resize_delta(int handle, double start_x, double start_y,
                               double pointer_x, double pointer_y,
                               double *horizontal, double *vertical);

@@ -163,6 +163,10 @@ typedef struct {
     int tab_position;
     int panel_padding;
     int pane_spacing;
+    gboolean pane_gaps_enabled;
+    gboolean pane_gaps_transparent;
+    gboolean inactive_pane_dim_enabled;
+    int inactive_pane_brightness_percent;
     int pane_divider;
     int pane_border;
     int focused_border;
@@ -190,6 +194,11 @@ typedef struct {
     GtkWidget *status;
     GtkWidget *padding;
     GtkWidget *spacing;
+    GtkWidget *pane_gaps_enabled;
+    GtkWidget *pane_gaps_transparent;
+    GtkWidget *inactive_pane_dim_enabled;
+    GtkWidget *inactive_pane_brightness;
+    GtkWidget *theme_scope_tab;
     GtkWidget *divider;
     GtkWidget *pane_border;
     GtkWidget *focused_border;
@@ -245,6 +254,7 @@ gboolean noctty_launch_profile_contents_new(
 
 typedef struct {
     GtkWidget *variant;
+    GtkWidget *scope_tab;
     GtkWidget *apply;
     GtkWidget *status;
     GtkWidget *import_current;

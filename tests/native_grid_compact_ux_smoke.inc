@@ -247,6 +247,10 @@ static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
     (void)on_mouse_button(target->area, &event, target);
     event.type = GDK_BUTTON_RELEASE;
     (void)on_mouse_button(target->area, &event, target);
+    event.type = GDK_BUTTON_PRESS;
+    event.button = 3;
+    event.state = 0;
+    (void)on_mouse_button(target->area, &event, target);
     target->mouse_mode = original_mouse_mode;
     return G_SOURCE_REMOVE;
 }
@@ -560,7 +564,19 @@ static void set_settings_smoke_values(GtkWidget *dialog) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-tabs")), 1);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-status")), 0);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-padding")), 8);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-spacing")), 4);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-spacing")), 6);
+    GtkToggleButton *pane_gaps = GTK_TOGGLE_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-pane-gaps"));
+    gtk_toggle_button_set_active(pane_gaps, FALSE);
+    gtk_toggle_button_set_active(pane_gaps, TRUE);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-gap-transparent")), FALSE);
+    GtkToggleButton *inactive_dim = GTK_TOGGLE_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-inactive-dim"));
+    gtk_toggle_button_set_active(inactive_dim, FALSE);
+    gtk_toggle_button_set_active(inactive_dim, TRUE);
+    gtk_range_set_value(GTK_RANGE(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-inactive-brightness")), 68.0);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
         G_OBJECT(dialog), "noctty-settings-divider")), 5);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
@@ -577,6 +593,8 @@ static void set_settings_smoke_values(GtkWidget *dialog) {
         G_OBJECT(dialog), "noctty-settings-window-border")), 7);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
         G_OBJECT(dialog), "noctty-settings-dragger")), 12);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-theme-scope-tab")), FALSE);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-theme")), 1);
     GtkToggleButton *translucency = GTK_TOGGLE_BUTTON(g_object_get_data(
         G_OBJECT(dialog), "noctty-settings-translucency"));
@@ -721,7 +739,16 @@ static gboolean request_settings_smoke(gpointer user_data) {
         gtk_widget_get_size_request(context->resize_grip, NULL,
                                     &dragger_height);
     context->settings_metric_thickness_live =
-        context->panel_padding_px == 8 && context->pane_spacing_px == 4 &&
+        context->panel_padding_px == 8 && context->pane_spacing_px == 6 &&
+        context->pane_gaps_enabled && !context->pane_gaps_transparent &&
+        context->inactive_pane_dim_enabled &&
+        context->inactive_pane_brightness_percent == 68 &&
+        GTK_IS_TOGGLE_BUTTON(g_object_get_data(
+            G_OBJECT(context->settings_dialog),
+            "noctty-settings-theme-scope-tab")) &&
+        GTK_IS_RANGE(g_object_get_data(
+            G_OBJECT(context->settings_dialog),
+            "noctty-settings-inactive-brightness")) &&
         context->pane_divider_px == 5 && context->pane_border_px == 2 &&
         context->pane_border_focused_px == 6 &&
         context->pane_border_selected_px == 4 &&
@@ -729,8 +756,10 @@ static gboolean request_settings_smoke(gpointer user_data) {
         context->window_border_px == 7 && context->dragger_px == 12 &&
         GTK_IS_CONTAINER(settings_page) &&
         gtk_container_get_border_width(GTK_CONTAINER(settings_page)) == 8 &&
-        gtk_widget_get_margin_start(context->area) == 2 &&
-        gtk_widget_get_margin_end(context->area) == 2 &&
+        gtk_widget_get_margin_start(context->area) == 3 &&
+        gtk_widget_get_margin_end(context->area) == 3 &&
+        g_object_get_data(G_OBJECT(settings_page),
+                          "noctty-pane-gap-provider") != NULL &&
         side_width == 7 && dragger_height == 12;
     if (context->launch_profile_setting_control) {
         gtk_combo_box_set_active(GTK_COMBO_BOX(context->settings_launch_kind),

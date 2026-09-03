@@ -37,4 +37,4 @@ JSON
 
 output=$(XDG_CONFIG_HOME="$fixture_config" zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-theme-smoke)
 printf '%s\n' "$output"
-printf '%s\n' "$output" | grep -q '^native_grid_theme_smoke rendered=true imported=true format=ghostty noctalia=true noctalia_system=true noctalia_dark=true terminal_palette=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true$'
+printf '%s\n' "$output" | grep -q '^native_grid_theme_smoke rendered=true imported=true format=ghostty noctalia=true noctalia_system=true noctalia_dark=true terminal_palette=true tui_palette=true per_tab=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true$'

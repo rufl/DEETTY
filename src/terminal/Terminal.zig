@@ -202,6 +202,15 @@ pub const Pane = struct {
         return self.setProfile(profile);
     }
 
+    /// Takes ownership after the caller has staged every allocation needed for
+    /// an atomic multi-pane theme update.
+    pub fn replaceThemeNameOwned(self: *Pane, theme_name: []u8) void {
+        std.debug.assert(theme_name.len > 0);
+        if (self.owned_profile_theme_name) |old| self.allocator.free(old);
+        self.owned_profile_theme_name = theme_name;
+        self.profile.theme_name = theme_name;
+    }
+
     pub fn setProfile(self: *Pane, profile: TerminalProfile) !TerminalProfile {
         const theme_name = try self.allocator.dupe(u8, profile.theme_name);
         errdefer self.allocator.free(theme_name);

@@ -1382,6 +1382,10 @@ const SettingsAppearanceOptions = extern struct {
     tab_position: c_int,
     panel_padding: c_int,
     pane_spacing: c_int,
+    pane_gaps_enabled: c_int,
+    pane_gaps_transparent: c_int,
+    inactive_pane_dim_enabled: c_int,
+    inactive_pane_brightness_percent: c_int,
     pane_divider: c_int,
     pane_border: c_int,
     focused_border: c_int,
@@ -1409,6 +1413,11 @@ const SettingsAppearanceContents = extern struct {
     status: ?*GtkWidget,
     padding: ?*GtkWidget,
     spacing: ?*GtkWidget,
+    pane_gaps_enabled: ?*GtkWidget,
+    pane_gaps_transparent: ?*GtkWidget,
+    inactive_pane_dim_enabled: ?*GtkWidget,
+    inactive_pane_brightness: ?*GtkWidget,
+    theme_scope_tab: ?*GtkWidget,
     divider: ?*GtkWidget,
     pane_border: ?*GtkWidget,
     focused_border: ?*GtkWidget,
@@ -1454,12 +1463,81 @@ pub export fn noctty_settings_appearance_contents_new(
     const colors = options.color_buttons orelse return FALSE;
     const output = contents_out orelse return FALSE;
     output.* = std.mem.zeroes(SettingsAppearanceContents);
-    if (options.color_count != 16) return FALSE;
+    if (options.color_count != 17) return FALSE;
 
     const tabs = comboText(&.{ "Top", "Bottom", "Left", "Right" }, options.tab_position) orelse return FALSE;
     const status = comboText(&.{ "Background", "Border" }, 1) orelse return FALSE;
     const padding = panelMetricSpin(46, 0, 64, options.panel_padding) orelse return FALSE;
     const spacing = panelMetricSpin(47, 0, 64, options.pane_spacing) orelse return FALSE;
+    const pane_gaps_enabled = gtk_check_button_new_with_label(
+        "Show pixel gaps between panes",
+    ) orelse return FALSE;
+    gtk_toggle_button_set_active(
+        @ptrCast(pane_gaps_enabled),
+        options.pane_gaps_enabled,
+    );
+    g_object_set_data(
+        object(pane_gaps_enabled),
+        "noctty-panel-metric-event",
+        @ptrFromInt(127),
+    );
+    const pane_gaps_transparent = gtk_check_button_new_with_label(
+        "Keep pane gaps transparent",
+    ) orelse return FALSE;
+    gtk_toggle_button_set_active(
+        @ptrCast(pane_gaps_transparent),
+        options.pane_gaps_transparent,
+    );
+    gtk_widget_set_sensitive(
+        pane_gaps_transparent,
+        options.pane_gaps_enabled,
+    );
+    g_object_set_data(
+        object(pane_gaps_transparent),
+        "noctty-panel-metric-event",
+        @ptrFromInt(128),
+    );
+    const inactive_pane_dim_enabled = gtk_check_button_new_with_label(
+        "Dim inactive panes",
+    ) orelse return FALSE;
+    gtk_toggle_button_set_active(
+        @ptrCast(inactive_pane_dim_enabled),
+        options.inactive_pane_dim_enabled,
+    );
+    g_object_set_data(
+        object(inactive_pane_dim_enabled),
+        "noctty-panel-metric-event",
+        @ptrFromInt(129),
+    );
+    const inactive_pane_brightness = gtk_scale_new_with_range(
+        GTK_ORIENTATION_HORIZONTAL,
+        20,
+        100,
+        1,
+    ) orelse return FALSE;
+    gtk_range_set_value(
+        @ptrCast(inactive_pane_brightness),
+        @floatFromInt(options.inactive_pane_brightness_percent),
+    );
+    gtk_scale_set_draw_value(@ptrCast(inactive_pane_brightness), TRUE);
+    gtk_scale_set_value_pos(@ptrCast(inactive_pane_brightness), GTK_POS_RIGHT);
+    gtk_widget_set_sensitive(
+        inactive_pane_brightness,
+        options.inactive_pane_dim_enabled,
+    );
+    setAccessibleName(inactive_pane_brightness, "Inactive pane brightness percent");
+    gtk_widget_set_sensitive(spacing, options.pane_gaps_enabled);
+    g_object_set_data(object(pane_gaps_enabled), "noctty-gap-width", spacing);
+    g_object_set_data(
+        object(pane_gaps_enabled),
+        "noctty-gap-transparent",
+        pane_gaps_transparent,
+    );
+    g_object_set_data(
+        object(inactive_pane_dim_enabled),
+        "noctty-inactive-brightness",
+        inactive_pane_brightness,
+    );
     const divider = panelMetricSpin(119, 1, 16, options.pane_divider) orelse return FALSE;
     const pane_border = panelMetricSpin(120, 0, 12, options.pane_border) orelse return FALSE;
     const focused_border = panelMetricSpin(121, 1, 12, options.focused_border) orelse return FALSE;
@@ -1470,6 +1548,10 @@ pub export fn noctty_settings_appearance_contents_new(
     const dragger = panelMetricSpin(126, 1, 32, options.dragger) orelse return FALSE;
     const pane_info = gtk_check_button_new_with_label("Show bottom pane and resource bar") orelse return FALSE;
     gtk_toggle_button_set_active(@ptrCast(pane_info), options.show_pane_info);
+    const theme_scope_tab = gtk_check_button_new_with_label(
+        "Apply theme to the current tab only",
+    ) orelse return FALSE;
+    gtk_toggle_button_set_active(@ptrCast(theme_scope_tab), TRUE);
     const theme_library = gtk_button_new_with_label("Browse installed themes…") orelse return FALSE;
     noctty_configure_action_button(theme_library, "Open Theme Library and choose an installed Noctalia scheme");
     const family = comboText(&.{ "Monospace", "JetBrains Mono" }, options.family) orelse return FALSE;
@@ -1486,18 +1568,27 @@ pub export fn noctty_settings_appearance_contents_new(
     if (options.compact != 0) gtk_container_set_border_width(@ptrCast(body), 12);
     const terminal_grid = noctty_settings_grid_new() orelse return FALSE;
     attachControls(terminal_grid, &.{
-        .{ "Theme", theme },              .{ "Theme library", theme_library },
-        .{ "Font family", family },       .{ "Font size", font },
-        .{ "Font smoothing", antialias }, .{ "Font hinting", hinting },
+        .{ "Theme", theme },                 .{ "Theme scope", theme_scope_tab },
+        .{ "Theme library", theme_library }, .{ "Font family", family },
+        .{ "Font size", font },              .{ "Font smoothing", antialias },
+        .{ "Font hinting", hinting },
     });
     if (!packSettingsGroup(body, "Terminal", terminal_grid)) return FALSE;
     const chrome_grid = noctty_settings_grid_new() orelse return FALSE;
     attachControls(chrome_grid, &.{
-        .{ "Tab position", tabs },          .{ "Status indicator", status },
-        .{ "Panel padding", padding },      .{ "Pane spacing", spacing },
-        .{ "Pane information", pane_info },
+        .{ "Tab position", tabs },     .{ "Status indicator", status },
+        .{ "Panel padding", padding }, .{ "Pane information", pane_info },
     });
     if (!packSettingsGroup(body, "Client chrome", chrome_grid)) return FALSE;
+    const pane_grid = noctty_settings_grid_new() orelse return FALSE;
+    attachControls(pane_grid, &.{
+        .{ "Pane gaps", pane_gaps_enabled },
+        .{ "Gap width", spacing },
+        .{ "Gap surface", pane_gaps_transparent },
+        .{ "Inactive panes", inactive_pane_dim_enabled },
+        .{ "Inactive brightness", inactive_pane_brightness },
+    });
+    if (!packSettingsGroup(body, "Pane focus and spacing", pane_grid)) return FALSE;
     const thickness_grid = noctty_settings_grid_new() orelse return FALSE;
     attachControls(thickness_grid, &.{
         .{ "Focused pane border", focused_border },
@@ -1539,7 +1630,7 @@ pub export fn noctty_settings_appearance_contents_new(
         "Overlay background",  "Overlay border",       "Overlay text",
         "Text selection",      "Search match",         "Info status",
         "Success status",      "Warning status",       "Error status",
-        "Terminal caret",
+        "Terminal caret",      "Pane gap",
     };
     const color_grid = noctty_settings_grid_new() orelse return FALSE;
     for (color_labels, 0..) |label, index| {
@@ -1553,6 +1644,11 @@ pub export fn noctty_settings_appearance_contents_new(
         .status = status,
         .padding = padding,
         .spacing = spacing,
+        .pane_gaps_enabled = pane_gaps_enabled,
+        .pane_gaps_transparent = pane_gaps_transparent,
+        .inactive_pane_dim_enabled = inactive_pane_dim_enabled,
+        .inactive_pane_brightness = inactive_pane_brightness,
+        .theme_scope_tab = theme_scope_tab,
         .divider = divider,
         .pane_border = pane_border,
         .focused_border = focused_border,
@@ -1724,6 +1820,7 @@ pub export fn noctty_launch_profile_contents_new(
 
 const ThemeLibraryContents = extern struct {
     variant: ?*GtkWidget,
+    scope_tab: ?*GtkWidget,
     apply: ?*GtkWidget,
     status: ?*GtkWidget,
     import_current: ?*GtkWidget,
@@ -1746,6 +1843,11 @@ pub export fn noctty_theme_library_contents_new(
     const preview = gtk_label_new(
         "Preview: foreground · background · cursor · ANSI palette",
     ) orelse return FALSE;
+    const scope_tab = gtk_check_button_new_with_label(
+        "Apply theme to the current tab only",
+    ) orelse return FALSE;
+    gtk_toggle_button_set_active(@ptrCast(scope_tab), FALSE);
+    g_object_set_data(object(theme_combo), "noctty-theme-scope-tab", scope_tab);
     const scheme_label = gtk_label_new("Installed Noctalia scheme") orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(scheme_label), 0.0);
     const variant = comboText(&.{ "Dark", "Light" }, 0) orelse return FALSE;
@@ -1783,6 +1885,7 @@ pub export fn noctty_theme_library_contents_new(
     for ([_]*GtkWidget{
         preview,
         theme_combo,
+        scope_tab,
         scheme_label,
         scheme_combo,
         variant,
@@ -1798,6 +1901,7 @@ pub export fn noctty_theme_library_contents_new(
     setSharingData(target, "noctty-theme-status", status);
     output.* = .{
         .variant = variant,
+        .scope_tab = scope_tab,
         .apply = apply,
         .status = status,
         .import_current = import_current,

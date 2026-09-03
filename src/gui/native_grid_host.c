@@ -72,6 +72,7 @@
 #define NOCTTY_UI_COLOR_STATUS_WARNING 14u
 #define NOCTTY_UI_COLOR_STATUS_ERROR 15u
 #define NOCTTY_UI_COLOR_TERMINAL_CURSOR 16u
+#define NOCTTY_UI_COLOR_PANE_GAP 17u
 
 
 typedef enum {
@@ -105,6 +106,12 @@ extern int noctty_grid_compact_setting(void *, int);
 extern int noctty_grid_theme_count(void *);
 extern int noctty_grid_theme_name(void *, int, char *, size_t);
 extern int noctty_grid_active_theme_name(void *, char *, size_t);
+extern int noctty_grid_pane_theme_name(void *, uint64_t, char *, size_t);
+extern int noctty_grid_set_tab_theme(void *, uint64_t, const char *, size_t);
+extern uint32_t noctty_grid_pane_terminal_color_rgb(void *, uint64_t, uint32_t);
+extern uint32_t noctty_grid_pane_background_rgb(void *, uint64_t);
+extern uint32_t noctty_grid_pane_cursor_rgb(void *, uint64_t);
+extern uint32_t noctty_grid_pane_gap_rgb(void *, uint64_t);
 extern int noctty_grid_launch_profile(void *, int, char *, size_t);
 extern int noctty_grid_launch_profile_library(void *, int, int, char *, size_t);
 extern int noctty_grid_find(void *, const char *, size_t, int, size_t,
@@ -399,6 +406,11 @@ typedef struct NocttyGridContextTag {
     int layer_shell_keyboard_mode;
     int window_presented;
     guint window_mode_recreate_source;
+    guint resolution_adapt_source;
+    int monitor_workarea_x;
+    int monitor_workarea_y;
+    int monitor_workarea_width;
+    int monitor_workarea_height;
     int window_mode_surface_recreated;
     int workspace_smoke;
     int workspace_visual_attempts;
@@ -475,6 +487,7 @@ typedef struct NocttyGridContextTag {
     int pending_notification_action;
     gint64 last_desktop_notification_us;
     uint64_t zoomed_pane_id;
+    uint64_t active_pane_id_for_render;
     size_t find_ordinal;
     int dropdown_width_percent;
     int dropdown_height_percent;
@@ -489,6 +502,10 @@ typedef struct NocttyGridContextTag {
     int translucent_surface_ready;
     int panel_padding_px;
     int pane_spacing_px;
+    int pane_gaps_enabled;
+    int pane_gaps_transparent;
+    int inactive_pane_dim_enabled;
+    int inactive_pane_brightness_percent;
     int pane_divider_px;
     int pane_border_px;
     int pane_border_focused_px;
@@ -544,6 +561,8 @@ typedef struct NocttyGridContextTag {
     int compact_scrollbar_mouse_mode_wheel;
     int compact_scrollbar_tui_forwarded;
     int compact_hyperlink_open_attempted;
+    int compact_hyperlink_context_menu;
+    int compact_hyperlink_context_open;
     int compact_hyperlink_mouse_mode_override;
     int compact_hyperlink_underline_positioned;
     int compact_hyperlink_smoke_attempts;
@@ -1341,16 +1360,6 @@ static void format_ui_color(NocttyGridContext *context, uint32_t color,
     g_snprintf(output, 8, "#%06x", rgb & 0xffffffu);
 }
 
-static void set_ui_color(NocttyGridContext *context, cairo_t *cr,
-                         uint32_t color, uint32_t fallback, double alpha) {
-    uint32_t rgb = ui_color_rgb(context, color, fallback);
-    cairo_set_source_rgba(cr,
-                          ((rgb >> 16) & 0xff) / 255.0,
-                          ((rgb >> 8) & 0xff) / 255.0,
-                          (rgb & 0xff) / 255.0,
-                          alpha);
-}
-
 static void draw_resize_overlay(NocttyGridContext *context, cairo_t *cr,
                                 GtkAllocation allocation) {
     if (!context->resize_overlay_visible) return;
@@ -1499,6 +1508,29 @@ static void draw_terminal_scrollbar(
         root_grid_context(context)->compact_scrollbar_drawn = 1;
 }
 
+static uint32_t scale_pane_brightness(NocttyGridContext *context,
+                                      uint32_t rgb) {
+    NocttyGridContext *root = root_grid_context(context);
+    gboolean active = root->active_pane_id_for_render != 0
+        ? root->active_pane_id_for_render == context->pane_id
+        : context->focused;
+    return noctty_grid_scale_brightness(
+        rgb, context->inactive_pane_dim_enabled, active,
+        context->inactive_pane_brightness_percent);
+}
+
+static uint32_t resolve_pane_terminal_color(void *userdata,
+                                            uint32_t color_id) {
+    NocttyGridContext *context = userdata;
+    uint32_t rgb = context->event_data != NULL
+        ? noctty_grid_pane_terminal_color_rgb(
+              context->event_data, context->pane_id, color_id)
+        : UINT32_MAX;
+    if (rgb == UINT32_MAX && context->color_rgb != NULL)
+        rgb = context->color_rgb(context->userdata, color_id);
+    return rgb == UINT32_MAX ? rgb : scale_pane_brightness(context, rgb);
+}
+
 static int grid_cell_selected_bridge(void *userdata, int column, int row) {
     return grid_cell_is_selected(userdata, column, row);
 }
@@ -1516,8 +1548,18 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         ? context->background_opacity_percent / 100.0 : 1.0;
     cairo_save(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    set_ui_color(context, cr, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND,
-                 0x0b0d12, background_alpha);
+    uint32_t background_rgb = context->event_data != NULL
+        ? noctty_grid_pane_background_rgb(
+              context->event_data, context->pane_id)
+        : ui_color_rgb(
+              context, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND, 0x0b0d12);
+    background_rgb = scale_pane_brightness(context, background_rgb);
+    cairo_set_source_rgba(
+        cr,
+        ((background_rgb >> 16) & 0xffu) / 255.0,
+        ((background_rgb >> 8) & 0xffu) / 255.0,
+        (background_rgb & 0xffu) / 255.0,
+        background_alpha);
     cairo_paint(cr);
     cairo_restore(cr);
     if (!grid_context_session_available(context)) return FALSE;
@@ -1548,7 +1590,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
 
     const NocttyGridCells options = {
         .ui_palette = { context->event_data, context->ui_color_rgb },
-        .terminal_palette = { context->userdata, context->color_rgb },
+        .terminal_palette = { context, resolve_pane_terminal_color },
         .glyph_cache = {
             .scratch = &context->glyph_scratch,
             .capacity = &context->glyph_scratch_capacity,
@@ -1586,6 +1628,12 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         .cell_width = cell_width,
         .cell_height = cell_height,
         .status_border_width = context->status_border_px,
+        .cursor_rgb = scale_pane_brightness(
+            context,
+            context->event_data != NULL
+                ? noctty_grid_pane_cursor_rgb(
+                      context->event_data, context->pane_id)
+                : 0x8fb8ffu),
         .chrome = chrome,
     };
     int render_result = noctty_grid_render_cells(cr, &options);
@@ -5017,6 +5065,7 @@ static void on_notebook_switch_page(GtkNotebook *notebook, GtkWidget *page,
             update_compact_tab(candidate);
     }
     apply_smart_filter(root);
+    apply_panel_layout_metrics(root);
     refresh_active_pane_info(root);
 }
 
@@ -5755,6 +5804,47 @@ static void apply_pane_divider_thickness(NocttyGridContext *root,
     g_list_free(children);
 }
 
+static void set_pane_gap_background(GtkWidget *widget,
+                                    uint32_t rgb, double alpha) {
+    GtkCssProvider *provider = g_object_get_data(
+        G_OBJECT(widget), "noctty-pane-gap-provider");
+    if (provider == NULL) {
+        provider = gtk_css_provider_new();
+        g_object_set_data_full(
+            G_OBJECT(widget), "noctty-pane-gap-provider", provider,
+            g_object_unref);
+        gtk_style_context_add_provider(
+            gtk_widget_get_style_context(widget),
+            GTK_STYLE_PROVIDER(provider),
+            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(widget), "noctty-pane-gap-surface");
+    char css[160];
+    if (alpha > 0.5)
+        g_snprintf(
+            css, sizeof(css),
+            ".noctty-pane-gap-surface { background-color: rgb(%u,%u,%u); }",
+            (rgb >> 16) & 0xffu, (rgb >> 8) & 0xffu, rgb & 0xffu);
+    else
+        g_snprintf(
+            css, sizeof(css),
+            ".noctty-pane-gap-surface { background-color: rgba(0,0,0,0); }");
+    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+}
+
+static void apply_pane_gap_background(GtkWidget *widget,
+                                      uint32_t rgb, double alpha) {
+    if (!GTK_IS_WIDGET(widget)) return;
+    if (GTK_IS_PANED(widget))
+        set_pane_gap_background(widget, rgb, alpha);
+    if (!GTK_IS_CONTAINER(widget)) return;
+    GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
+    for (GList *item = children; item != NULL; item = item->next)
+        apply_pane_gap_background(GTK_WIDGET(item->data), rgb, alpha);
+    g_list_free(children);
+}
+
 static void apply_panel_layout_metrics(NocttyGridContext *root) {
     if (GTK_IS_NOTEBOOK(root->notebook)) {
         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
@@ -5764,11 +5854,24 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
             if (GTK_IS_CONTAINER(page))
                 gtk_container_set_border_width(
                     GTK_CONTAINER(page), (guint)root->panel_padding_px);
+            NocttyGridContext *representative =
+                grid_context_for_page(root, page);
+            uint32_t gap_rgb = representative != NULL &&
+                    root->event_data != NULL
+                ? noctty_grid_pane_gap_rgb(
+                      root->event_data, representative->pane_id)
+                : 0x0b0d12u;
+            double gap_alpha = root->pane_gaps_enabled &&
+                    !root->pane_gaps_transparent
+                ? 1.0 : 0.0;
+            set_pane_gap_background(page, gap_rgb, gap_alpha);
+            apply_pane_gap_background(page, gap_rgb, gap_alpha);
         }
         apply_pane_divider_thickness(root, root->notebook);
     }
-    int spacing_leading = root->pane_spacing_px / 2;
-    int spacing_trailing = root->pane_spacing_px - spacing_leading;
+    int gap_width = root->pane_gaps_enabled ? root->pane_spacing_px : 0;
+    int spacing_leading = gap_width / 2;
+    int spacing_trailing = gap_width - spacing_leading;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
@@ -6313,6 +6416,8 @@ static void stop_grid_context_sources(NocttyGridContext *context) {
     remove_grid_source(&context->resize_commit_source);
     remove_grid_source(&context->pane_cycle_feedback_source);
     remove_grid_source(&context->tab_cycle_feedback_source);
+    if (context == root)
+        remove_grid_source(&root->resolution_adapt_source);
     root->source_cleanup_count++;
 }
 
@@ -6625,6 +6730,11 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->background_alpha_supported = root->background_alpha_supported;
     created->panel_padding_px = root->panel_padding_px;
     created->pane_spacing_px = root->pane_spacing_px;
+    created->pane_gaps_enabled = root->pane_gaps_enabled;
+    created->pane_gaps_transparent = root->pane_gaps_transparent;
+    created->inactive_pane_dim_enabled = root->inactive_pane_dim_enabled;
+    created->inactive_pane_brightness_percent =
+        root->inactive_pane_brightness_percent;
     created->pane_divider_px = root->pane_divider_px;
     created->pane_border_px = root->pane_border_px;
     created->pane_border_focused_px = root->pane_border_focused_px;
@@ -8477,6 +8587,7 @@ static void activate_grid_context(NocttyGridContext *context) {
     gboolean acknowledged_attention = context->attention ||
         context->status_kind == 4;
     context->focused = 1;
+    root->active_pane_id_for_render = context->pane_id;
     context->cursor_visible = 1;
     context->attention = 0;
     if (acknowledged_attention) {
@@ -8835,24 +8946,34 @@ static gboolean grid_cell_at_point(NocttyGridContext *context,
         context->columns, context->rows, 0, column, row) != 0;
 }
 
-static gboolean open_grid_hyperlink(NocttyGridContext *context,
-                                    int column, int row, guint32 time) {
-    char uri[2049];
+static void popup_menu_at_toplevel_pointer(
+    NocttyGridContext *context, GtkWidget *menu, GtkWidget *anchor,
+    GdkEventButton *event);
+
+static int read_grid_hyperlink(NocttyGridContext *context,
+                               int column, int row,
+                               char uri[2049]) {
     int length = context->cell_hyperlink(
-        context->userdata, column, row, uri, sizeof(uri) - 1);
-    if (length <= 0) return FALSE;
-    length = MIN(length, (int)sizeof(uri) - 1);
+        context->userdata, column, row, uri, 2048);
+    if (length <= 0) return 0;
+    length = MIN(length, 2048);
     uri[length] = '\0';
+    if (!g_utf8_validate(uri, length, NULL)) return -1;
+    for (int index = 0; index < length; index++) {
+        unsigned char byte = (unsigned char)uri[index];
+        if (byte < 0x20 || byte == 0x7f) return -1;
+    }
     gchar *scheme = g_uri_parse_scheme(uri);
     gboolean allowed = scheme != NULL &&
         (g_ascii_strcasecmp(scheme, "http") == 0 ||
          g_ascii_strcasecmp(scheme, "https") == 0 ||
          g_ascii_strcasecmp(scheme, "mailto") == 0);
     g_free(scheme);
-    if (!allowed) {
-        show_status_feedback(context, "This link type is not allowed.");
-        return TRUE;
-    }
+    return allowed ? length : -1;
+}
+
+static gboolean open_grid_uri(NocttyGridContext *context,
+                              const char *uri, guint32 time) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->workspace_smoke == 15) {
         root->compact_hyperlink_open_attempted = 1;
@@ -8863,8 +8984,100 @@ static gboolean open_grid_hyperlink(NocttyGridContext *context,
         GTK_WINDOW(context->window), uri, time, &error);
     if (!opened)
         show_status_feedback(
-            context, "Could not open the link with the default application.");
+            context, "Could not open the link in the default browser.");
     if (error != NULL) g_error_free(error);
+    return TRUE;
+}
+
+static gboolean open_grid_hyperlink(NocttyGridContext *context,
+                                    int column, int row, guint32 time) {
+    char uri[2049];
+    int length = read_grid_hyperlink(context, column, row, uri);
+    if (length == 0) return FALSE;
+    if (length < 0) {
+        show_status_feedback(context, "This link type is not allowed.");
+        return TRUE;
+    }
+    return open_grid_uri(context, uri, time);
+}
+
+typedef struct {
+    NocttyGridContext *context;
+    gchar *uri;
+    guint32 time;
+} NocttyHyperlinkMenu;
+
+static void on_hyperlink_menu_open(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    NocttyHyperlinkMenu *menu = user_data;
+    (void)open_grid_uri(menu->context, menu->uri, menu->time);
+}
+
+static void on_hyperlink_menu_copy(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    NocttyHyperlinkMenu *menu = user_data;
+    gtk_clipboard_set_text(
+        gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), menu->uri, -1);
+    show_status_feedback(menu->context, "Link copied.");
+}
+
+static void destroy_hyperlink_menu_data(gpointer user_data) {
+    NocttyHyperlinkMenu *menu = user_data;
+    g_free(menu->uri);
+    g_free(menu);
+}
+
+static void on_hyperlink_menu_destroy(GtkWidget *menu,
+                                      gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    if (root->workspace_menu == menu) root->workspace_menu = NULL;
+}
+
+static gboolean show_hyperlink_menu(
+    NocttyGridContext *context, GdkEventButton *event,
+    int column, int row) {
+    char uri[2049];
+    if (read_grid_hyperlink(context, column, row, uri) <= 0) return FALSE;
+    NocttyGridContext *root = root_grid_context(context);
+    dismiss_grid_popup_windows(root);
+    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *open = gtk_menu_item_new_with_label("Open Link in Browser");
+    GtkWidget *copy = gtk_menu_item_new_with_label("Copy Link");
+    NocttyHyperlinkMenu *data = g_new0(NocttyHyperlinkMenu, 1);
+    data->context = context;
+    data->uri = g_strdup(uri);
+    data->time = event->time;
+    g_object_set_data_full(
+        G_OBJECT(menu), "noctty-hyperlink-menu", data,
+        destroy_hyperlink_menu_data);
+    set_widget_accessible_name(open, "Open link in default browser");
+    set_widget_accessible_name(copy, "Copy hyperlink address");
+    g_signal_connect(open, "activate", G_CALLBACK(on_hyperlink_menu_open), data);
+    g_signal_connect(copy, "activate", G_CALLBACK(on_hyperlink_menu_copy), data);
+    g_signal_connect_swapped(
+        open, "activate", G_CALLBACK(gtk_widget_destroy), menu);
+    g_signal_connect_swapped(
+        copy, "activate", G_CALLBACK(gtk_widget_destroy), menu);
+    g_signal_connect_swapped(
+        menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+    g_signal_connect(menu, "destroy",
+                     G_CALLBACK(on_hyperlink_menu_destroy), root);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), open);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
+    root->workspace_menu = menu;
+    gtk_widget_show_all(menu);
+    if (root->workspace_smoke == 15) {
+        root->compact_hyperlink_context_menu =
+            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(open)),
+                      "Open Link in Browser") == 0 &&
+            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(copy)),
+                      "Copy Link") == 0;
+        gtk_menu_item_activate(GTK_MENU_ITEM(open));
+        root->compact_hyperlink_context_open =
+            root->compact_hyperlink_open_attempted;
+        return TRUE;
+    }
+    popup_menu_at_toplevel_pointer(context, menu, context->area, event);
     return TRUE;
 }
 
@@ -8963,6 +9176,10 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         if (!gtk_widget_has_focus(widget)) gtk_widget_grab_focus(widget);
         activate_grid_context(context);
     }
+    if (pressed && event->button == 3 && hyperlink_point &&
+        show_hyperlink_menu(
+            context, event, hyperlink_column, hyperlink_row))
+        return TRUE;
     if (pressed && event->button == 3) {
         show_workspace_menu(context, event);
         return TRUE;
@@ -9567,6 +9784,75 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
 }
 
+static gboolean adapt_window_to_resolution(gpointer user_data) {
+    NocttyGridContext *root = root_grid_context(user_data);
+    root->resolution_adapt_source = 0;
+    if (!GTK_IS_WINDOW(root->window)) return G_SOURCE_REMOVE;
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
+    if (monitor == NULL) return G_SOURCE_REMOVE;
+    GdkRectangle workarea = {0};
+    gdk_monitor_get_workarea(monitor, &workarea);
+    int current_x = 0;
+    int current_y = 0;
+    int current_width = 1;
+    int current_height = 1;
+    gtk_window_get_position(GTK_WINDOW(root->window), &current_x, &current_y);
+    gtk_window_get_size(GTK_WINDOW(root->window),
+                        &current_width, &current_height);
+    int dropdown_width = dropdown_dimension(
+        root->dropdown_width_px, root->dropdown_width_percent,
+        workarea.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
+    int dropdown_height = dropdown_dimension(
+        root->dropdown_height_px, root->dropdown_height_percent,
+        workarea.height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
+    NocttyGridAdaptiveWindowGeometry geometry;
+    if (!noctty_grid_adapt_window_geometry(
+            root->mode, current_x, current_y, current_width, current_height,
+            workarea.x, workarea.y, workarea.width, workarea.height,
+            dropdown_width, dropdown_height, &geometry))
+        return G_SOURCE_REMOVE;
+    if (root->mode == 0 && root->layer_shell_active) {
+        apply_grid_layer_geometry(root);
+    } else if (root->mode == 2) {
+        gtk_window_fullscreen(GTK_WINDOW(root->window));
+    } else {
+        gtk_window_resize(
+            GTK_WINDOW(root->window), geometry.width, geometry.height);
+        gtk_window_move(GTK_WINDOW(root->window), geometry.x, geometry.y);
+    }
+    for (guint index = 0; root->contexts != NULL &&
+         index < root->contexts->len; index++) {
+        NocttyGridContext *candidate =
+            g_ptr_array_index(root->contexts, index);
+        if (candidate->active && candidate->area != NULL)
+            gtk_widget_queue_resize(candidate->area);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean on_window_resolution_configure(
+    GtkWidget *widget, GdkEventConfigure *event, gpointer user_data) {
+    (void)event;
+    NocttyGridContext *root = root_grid_context(user_data);
+    GdkMonitor *monitor = grid_monitor_for_window(widget);
+    if (monitor == NULL) return FALSE;
+    GdkRectangle workarea = {0};
+    gdk_monitor_get_workarea(monitor, &workarea);
+    gboolean changed = workarea.x != root->monitor_workarea_x ||
+        workarea.y != root->monitor_workarea_y ||
+        workarea.width != root->monitor_workarea_width ||
+        workarea.height != root->monitor_workarea_height;
+    if (!changed) return FALSE;
+    root->monitor_workarea_x = workarea.x;
+    root->monitor_workarea_y = workarea.y;
+    root->monitor_workarea_width = workarea.width;
+    root->monitor_workarea_height = workarea.height;
+    if (root->resolution_adapt_source == 0)
+        root->resolution_adapt_source =
+            g_idle_add(adapt_window_to_resolution, root);
+    return FALSE;
+}
+
 static void on_window_map(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
@@ -9620,6 +9906,8 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     g_signal_connect(window, "focus-out-event",
                      G_CALLBACK(on_window_focus_out), root);
     g_signal_connect(window, "map", G_CALLBACK(on_window_map), root);
+    g_signal_connect(window, "configure-event",
+                     G_CALLBACK(on_window_resolution_configure), root);
     return window;
 }
 
@@ -10028,6 +10316,13 @@ static void apply_panel_metric_setting(NocttyGridContext *context,
             case 124: candidate->overlay_border_px = CLAMP(value, 1, 12); break;
             case 125: candidate->window_border_px = CLAMP(value, 1, 16); break;
             case 126: candidate->dragger_px = CLAMP(value, 1, 32); break;
+            case 127: candidate->pane_gaps_enabled = value != 0; break;
+            case 128: candidate->pane_gaps_transparent = value != 0; break;
+            case 129: candidate->inactive_pane_dim_enabled = value != 0; break;
+            case 130:
+                candidate->inactive_pane_brightness_percent =
+                    CLAMP(value, 20, 100);
+                break;
             default: return;
         }
         if (candidate->active && candidate->area != NULL)
@@ -10048,12 +10343,44 @@ static void on_settings_panel_metric_changed(GtkSpinButton *spin,
         user_data, event_code, gtk_spin_button_get_value_as_int(spin));
 }
 
+static void on_settings_panel_toggle(GtkToggleButton *toggle,
+                                     gpointer user_data) {
+    int event_code = GPOINTER_TO_INT(g_object_get_data(
+        G_OBJECT(toggle), "noctty-panel-metric-event"));
+    gboolean active = gtk_toggle_button_get_active(toggle);
+    apply_panel_metric_setting(user_data, event_code, active);
+    if (event_code == 127) {
+        GtkWidget *width = g_object_get_data(
+            G_OBJECT(toggle), "noctty-gap-width");
+        GtkWidget *transparent = g_object_get_data(
+            G_OBJECT(toggle), "noctty-gap-transparent");
+        if (width != NULL) gtk_widget_set_sensitive(width, active);
+        if (transparent != NULL)
+            gtk_widget_set_sensitive(transparent, active);
+    } else if (event_code == 129) {
+        GtkWidget *brightness = g_object_get_data(
+            G_OBJECT(toggle), "noctty-inactive-brightness");
+        if (brightness != NULL)
+            gtk_widget_set_sensitive(brightness, active);
+    }
+}
+
+static void on_settings_inactive_brightness_changed(GtkRange *range,
+                                                     gpointer user_data) {
+    apply_panel_metric_setting(
+        user_data, 130, (int)gtk_range_get_value(range));
+}
+
 static void populate_theme_combo(NocttyGridContext *context,
                                  GtkComboBoxText *combo) {
     char active[97] = {0};
-    if (context->event_data != NULL)
-        (void)noctty_grid_active_theme_name(
-            context->event_data, active, sizeof(active));
+    if (context->event_data != NULL) {
+        if (noctty_grid_pane_theme_name(
+                context->event_data, context->pane_id,
+                active, sizeof(active)) <= 0)
+            (void)noctty_grid_active_theme_name(
+                context->event_data, active, sizeof(active));
+    }
     int count = context->event_data != NULL
         ? noctty_grid_theme_count(context->event_data) : 0;
     for (int index = 0; index < count; index++) {
@@ -10083,7 +10410,7 @@ static void refresh_theme_combo(NocttyGridContext *context,
 static void refresh_open_theme_selectors(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (GTK_IS_WINDOW(root->settings_dialog))
-        refresh_theme_combo(root, g_object_get_data(
+        refresh_theme_combo(active_grid_context(root), g_object_get_data(
             G_OBJECT(root->settings_dialog), "noctty-settings-theme"));
     if (GTK_IS_WINDOW(root->theme_dialog))
         refresh_theme_combo(root, g_object_get_data(
@@ -10120,11 +10447,19 @@ static gboolean read_theme_file_bounded(const gchar *path, goffset maximum,
 }
 
 static void on_settings_theme_changed(GtkComboBox *combo, gpointer user_data) {
+    NocttyGridContext *target = active_grid_context(user_data);
     NocttyGridContext *context = root_grid_context(user_data);
     const gchar *name = gtk_combo_box_get_active_id(combo);
-    if (name == NULL || context->text_action == NULL) return;
-    int result = context->text_action(
-        context->text_action_data, 21, name, strlen(name), "", 0, 0);
+    if (name == NULL || context->text_action == NULL || target == NULL) return;
+    GtkWidget *scope = g_object_get_data(
+        G_OBJECT(combo), "noctty-theme-scope-tab");
+    gboolean current_tab_only = GTK_IS_TOGGLE_BUTTON(scope) &&
+        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(scope));
+    int result = current_tab_only
+        ? noctty_grid_set_tab_theme(
+              context->event_data, target->pane_id, name, strlen(name))
+        : context->text_action(
+              context->text_action_data, 21, name, strlen(name), "", 0, 0);
     if (result != 0 && result != NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED) {
         g_signal_handlers_block_by_func(
             combo, G_CALLBACK(on_settings_theme_changed), user_data);
@@ -10135,22 +10470,27 @@ static void on_settings_theme_changed(GtkComboBox *combo, gpointer user_data) {
             context, "Theme selection could not be applied.", TRUE);
         return;
     }
-    context->high_contrast = g_strcmp0(name, "noctty-high-contrast") == 0;
     for (guint index = 0; context->contexts != NULL &&
          index < context->contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(context->contexts, index);
-        candidate->high_contrast = context->high_contrast;
+        (void)sync_grid_context_profile(candidate);
         if (candidate->active && candidate->area != NULL)
             gtk_widget_queue_draw(candidate->area);
     }
+    apply_panel_layout_metrics(context);
     if (result == NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED)
         set_theme_library_status(
             context,
             "Theme selected for this session but the selection could not be saved.",
             TRUE);
     else
-        set_theme_library_status(context, "Theme selected and saved.", FALSE);
+        set_theme_library_status(
+            context,
+            current_tab_only
+                ? "Theme applied to the current tab and saved."
+                : "Default theme selected and saved.",
+            FALSE);
 }
 
 typedef struct {
@@ -10207,6 +10547,8 @@ static void on_theme_color_changed(GtkColorButton *button, gpointer user_data) {
         gtk_widget_queue_draw(candidate->area);
         update_compact_tab(candidate);
     }
+    if (control->role == NOCTTY_UI_COLOR_PANE_GAP)
+        apply_panel_layout_metrics(context);
 }
 
 static GtkWidget *theme_color_button_new(NocttyGridContext *context,
@@ -10745,7 +11087,7 @@ static void open_grid_settings(NocttyGridContext *context) {
                        FALSE, FALSE, 0);
 
     GtkWidget *theme = gtk_combo_box_text_new();
-    populate_theme_combo(context, GTK_COMBO_BOX_TEXT(theme));
+    populate_theme_combo(target, GTK_COMBO_BOX_TEXT(theme));
     GtkWidget *background_tint = theme_color_button_new(
         context, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND, "Background tint");
     static const struct {
@@ -10768,6 +11110,7 @@ static void open_grid_settings(NocttyGridContext *context) {
         { "Warning status", NOCTTY_UI_COLOR_STATUS_WARNING },
         { "Error status", NOCTTY_UI_COLOR_STATUS_ERROR },
         { "Terminal caret", NOCTTY_UI_COLOR_TERMINAL_CURSOR },
+        { "Pane gap", NOCTTY_UI_COLOR_PANE_GAP },
     };
     GtkWidget *color_buttons[G_N_ELEMENTS(workspace_colors)] = {0};
     for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
@@ -10785,6 +11128,11 @@ static void open_grid_settings(NocttyGridContext *context) {
         .tab_position = context->tab_position,
         .panel_padding = context->panel_padding_px,
         .pane_spacing = context->pane_spacing_px,
+        .pane_gaps_enabled = context->pane_gaps_enabled,
+        .pane_gaps_transparent = context->pane_gaps_transparent,
+        .inactive_pane_dim_enabled = context->inactive_pane_dim_enabled,
+        .inactive_pane_brightness_percent =
+            context->inactive_pane_brightness_percent,
         .pane_divider = context->pane_divider_px,
         .pane_border = context->pane_border_px,
         .focused_border = context->pane_border_focused_px,
@@ -10816,6 +11164,12 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *status = appearance.status;
     GtkWidget *padding = appearance.padding;
     GtkWidget *spacing = appearance.spacing;
+    GtkWidget *pane_gaps_enabled = appearance.pane_gaps_enabled;
+    GtkWidget *pane_gaps_transparent = appearance.pane_gaps_transparent;
+    GtkWidget *inactive_pane_dim_enabled =
+        appearance.inactive_pane_dim_enabled;
+    GtkWidget *inactive_pane_brightness = appearance.inactive_pane_brightness;
+    GtkWidget *theme_scope_tab = appearance.theme_scope_tab;
     GtkWidget *divider = appearance.divider;
     GtkWidget *pane_border = appearance.pane_border;
     GtkWidget *focused_border = appearance.focused_border;
@@ -10870,6 +11224,18 @@ static void open_grid_settings(NocttyGridContext *context) {
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-status", status);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-padding", padding);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-spacing", spacing);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-pane-gaps",
+                      pane_gaps_enabled);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-gap-transparent",
+                      pane_gaps_transparent);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-inactive-dim",
+                      inactive_pane_dim_enabled);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-inactive-brightness",
+                      inactive_pane_brightness);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-theme-scope-tab",
+                      theme_scope_tab);
+    g_object_set_data(G_OBJECT(theme), "noctty-theme-scope-tab",
+                      theme_scope_tab);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-divider", divider);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-pane-border",
                       pane_border);
@@ -10963,6 +11329,15 @@ static void open_grid_settings(NocttyGridContext *context) {
     for (guint index = 0; index < G_N_ELEMENTS(panel_metric_controls); index++)
         g_signal_connect(panel_metric_controls[index], "value-changed",
                          G_CALLBACK(on_settings_panel_metric_changed), target);
+    g_signal_connect(pane_gaps_enabled, "toggled",
+                     G_CALLBACK(on_settings_panel_toggle), target);
+    g_signal_connect(pane_gaps_transparent, "toggled",
+                     G_CALLBACK(on_settings_panel_toggle), target);
+    g_signal_connect(inactive_pane_dim_enabled, "toggled",
+                     G_CALLBACK(on_settings_panel_toggle), target);
+    g_signal_connect(inactive_pane_brightness, "value-changed",
+                     G_CALLBACK(on_settings_inactive_brightness_changed),
+                     target);
     g_signal_connect(theme, "changed", G_CALLBACK(on_settings_theme_changed), target);
     g_signal_connect(theme_library, "clicked",
                      G_CALLBACK(on_open_theme_library_clicked), target);
@@ -13412,198 +13787,9 @@ static void on_session_sharing_menu_activate(GtkMenuItem *item,
     (void)item;
     show_session_sharing_dialog(user_data);
 }
-static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    GtkWidget *dialog = root->sharing_dialog;
-    GtkWidget *share_pane = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-share-pane")
-        : NULL;
-    GtkWidget *share_tab = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-share-tab")
-        : NULL;
-    GtkWidget *share_session = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-share-session")
-        : NULL;
-    GtkWidget *tabs = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-tabs")
-        : NULL;
-    GtkWidget *streams = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-streams")
-        : NULL;
-    GtkWidget *preview = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-preview")
-        : NULL;
-    GtkWidget *peers = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-peers")
-        : NULL;
-    GtkWidget *alias = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-alias")
-        : NULL;
-    GtkWidget *endpoint = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-endpoint")
-        : NULL;
-    GtkWidget *status = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-status")
-        : NULL;
-    GtkWidget *stop = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-stop")
-        : NULL;
-    GtkWidget *stop_receive = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-stop-receive")
-        : NULL;
-    GtkWidget *retry_save = dialog != NULL
-        ? g_object_get_data(G_OBJECT(dialog), "noctty-sharing-retry-save")
-        : NULL;
-    AtkObject *tabs_accessible = tabs != NULL
-        ? gtk_widget_get_accessible(tabs) : NULL;
-    AtkObject *streams_accessible = streams != NULL
-        ? gtk_widget_get_accessible(streams) : NULL;
-    AtkObject *preview_accessible = preview != NULL
-        ? gtk_widget_get_accessible(preview) : NULL;
-    AtkObject *status_accessible = status != NULL
-        ? gtk_widget_get_accessible(status) : NULL;
-    int preview_request_width = 0;
-    int preview_request_height = 0;
-    if (preview != NULL)
-        gtk_widget_get_size_request(
-            preview, &preview_request_width, &preview_request_height);
-    gboolean form_accessible =
-        peers != NULL && alias != NULL && endpoint != NULL && status != NULL &&
-        widget_has_accessible_name(peers, "Paired device") &&
-        widget_has_accessible_name(alias, "Remote alias") &&
-        widget_has_accessible_name(endpoint, "Other device address") &&
-        widget_has_accessible_name(status, "Session sharing status");
-    gboolean status_accessible_ok =
-        status_accessible != NULL &&
-        atk_object_get_role(status_accessible) == ATK_ROLE_STATUSBAR;
-    gboolean preview_request_bounded =
-        preview_request_width > 0 && preview_request_width <= 480 &&
-        preview_request_height > 0 && preview_request_height <= 260;
-    gboolean recovery_policy =
-        sharing_status_can_clear_host(205) &&
-        sharing_status_can_clear_host(206) &&
-        sharing_status_can_clear_viewer(305) &&
-        sharing_status_can_clear_viewer(306) &&
-        sharing_status_allows_pairing(104) &&
-        sharing_status_allows_pairing(105) &&
-        !sharing_status_allows_pairing(201) &&
-        sharing_status_allows_session_start(106) &&
-        sharing_status_allows_session_start(107) &&
-        !sharing_status_allows_session_start(205) &&
-        stop != NULL && stop_receive != NULL && retry_save != NULL &&
-        gtk_widget_get_sensitive(stop_receive) &&
-        !gtk_widget_get_sensitive(share_pane) &&
-        !gtk_widget_get_sensitive(share_tab) &&
-        !gtk_widget_get_sensitive(share_session) &&
-        GPOINTER_TO_INT(g_object_get_data(
-            G_OBJECT(retry_save), "noctty-sharing-action")) == 18 &&
-        sharing_selected_peer_index(GTK_COMBO_BOX(peers)) >= 0;
-    int pane_click_ok = 0;
-    if (preview != NULL && streams != NULL) {
-        uint32_t x = 0;
-        uint32_t y = 0;
-        uint32_t width = 0;
-        uint32_t height = 0;
-        int selected = 0;
-        int host_active = 0;
-        if (noctty_grid_share_view_pane_layout(
-                root->event_data, 1, &x, &y, &width, &height,
-                &selected, &host_active) > 0) {
-            GdkEventButton click = {0};
-            click.button = GDK_BUTTON_PRIMARY;
-            click.x = (double)gtk_widget_get_allocated_width(preview) *
-                      ((double)x + (double)width / 2.0) / 1000000.0;
-            click.y = (double)gtk_widget_get_allocated_height(preview) *
-                      ((double)y + (double)height / 2.0) / 1000000.0;
-            int clicked = on_sharing_preview_button(preview, &click, root);
-            if (noctty_grid_share_view_pane_layout(
-                    root->event_data, 1, &x, &y, &width, &height,
-                    &selected, &host_active) > 0) {
-                pane_click_ok =
-                    clicked && selected &&
-                    g_strcmp0(gtk_combo_box_get_active_id(
-                                  GTK_COMBO_BOX(streams)),
-                              "1") == 0;
-            }
-        }
-    }
-    root->sharing_scope_smoke_ok =
-        dialog != NULL && gtk_widget_get_mapped(dialog) &&
-        share_pane != NULL && share_tab != NULL && share_session != NULL &&
-        GPOINTER_TO_INT(g_object_get_data(
-            G_OBJECT(share_pane), "noctty-sharing-action")) == 15 &&
-        GPOINTER_TO_INT(g_object_get_data(
-            G_OBJECT(share_tab), "noctty-sharing-action")) == 5 &&
-        GPOINTER_TO_INT(g_object_get_data(
-            G_OBJECT(share_session), "noctty-sharing-action")) == 16 &&
-        tabs_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(tabs_accessible), "Shared tab") == 0 &&
-        streams_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(streams_accessible), "Shared pane") == 0 &&
-        preview_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(preview_accessible),
-                  "Remote terminal workspace") == 0 &&
-        form_accessible && status_accessible_ok && preview_request_bounded &&
-        (root->sharing_layout_pane_mask & UINT64_C(3)) == UINT64_C(3) &&
-        root->sharing_layout_selected_seen &&
-        root->sharing_layout_host_active_seen &&
-        pane_click_ok && recovery_policy;
-    g_print("native_grid_sharing_scope_smoke dialog=%s pane=%s tab=%s "
-            "session=%s selectors=%s preview=%s form_accessible=%s "
-            "status_accessible=%s preview_bounded=%s layout=%s focus=%s "
-            "click=%s recovery=%s passed=%s\n",
-            dialog != NULL && gtk_widget_get_mapped(dialog) ? "true" : "false",
-            share_pane != NULL ? "true" : "false",
-            share_tab != NULL ? "true" : "false",
-            share_session != NULL ? "true" : "false",
-            tabs_accessible != NULL && streams_accessible != NULL
-                ? "true" : "false",
-            preview_accessible != NULL ? "true" : "false",
-            form_accessible ? "true" : "false",
-            status_accessible_ok ? "true" : "false",
-            preview_request_bounded ? "true" : "false",
-            (root->sharing_layout_pane_mask & UINT64_C(3)) == UINT64_C(3)
-                ? "true" : "false",
-            root->sharing_layout_selected_seen &&
-                    root->sharing_layout_host_active_seen
-                ? "true" : "false",
-            pane_click_ok ? "true" : "false",
-            recovery_policy ? "true" : "false",
-            root->sharing_scope_smoke_ok ? "true" : "false");
-    if (dialog != NULL) gtk_widget_destroy(dialog);
-    return finish_title_smoke(root);
-}
-
-static gboolean reveal_sharing_preview_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    GtkWidget *dialog = root->sharing_dialog;
-    if (!GTK_IS_DIALOG(dialog))
-        return finish_title_smoke(root);
-    GtkWidget *scroll = g_object_get_data(
-        G_OBJECT(dialog), "noctty-sharing-scroll");
-    GtkWidget *preview = g_object_get_data(
-        G_OBJECT(dialog), "noctty-sharing-preview");
-    if (GTK_IS_SCROLLED_WINDOW(scroll)) {
-        GtkAdjustment *adjustment =
-            gtk_scrolled_window_get_vadjustment(
-                GTK_SCROLLED_WINDOW(scroll));
-        gtk_adjustment_set_value(
-            adjustment,
-            MAX(gtk_adjustment_get_lower(adjustment),
-                gtk_adjustment_get_upper(adjustment) -
-                    gtk_adjustment_get_page_size(adjustment)));
-    }
-    if (GTK_IS_WIDGET(preview)) gtk_widget_queue_draw(preview);
-    g_timeout_add(200, inspect_sharing_scope_smoke, root);
-    return G_SOURCE_REMOVE;
-}
-
-static gboolean request_sharing_scope_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    show_session_sharing_dialog(root);
-    g_timeout_add(150, reveal_sharing_preview_smoke, root);
-    return G_SOURCE_REMOVE;
-}
+#if NOCTTY_ENABLE_SMOKE
+#include "../../tests/native_grid_sharing_scope_smoke.inc"
+#endif
 
 static gboolean request_window_close_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
@@ -16562,6 +16748,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.mouse_mode = mouse_mode;
     context.focus = focus;
     context.pane_id = pane_id;
+    context.active_pane_id_for_render = pane_id;
     context.event = event;
     context.event_data = event_data;
     context.text_action = text_action;
@@ -16590,6 +16777,14 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         ? noctty_grid_compact_setting(event_data, 20) : 6;
     context.pane_spacing_px = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 21) : 4;
+    context.pane_gaps_enabled = event_data != NULL
+        ? noctty_grid_compact_setting(event_data, 30) : 1;
+    context.pane_gaps_transparent = event_data != NULL
+        ? noctty_grid_compact_setting(event_data, 31) : 1;
+    context.inactive_pane_dim_enabled = event_data != NULL
+        ? noctty_grid_compact_setting(event_data, 32) : 1;
+    context.inactive_pane_brightness_percent = event_data != NULL
+        ? noctty_grid_compact_setting(event_data, 33) : 70;
     context.pane_divider_px = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 22) : 1;
     context.pane_border_px = event_data != NULL
@@ -16608,6 +16803,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         ? noctty_grid_compact_setting(event_data, 29) : 2;
     context.panel_padding_px = CLAMP(context.panel_padding_px, 0, 64);
     context.pane_spacing_px = CLAMP(context.pane_spacing_px, 0, 64);
+    context.inactive_pane_brightness_percent = CLAMP(
+        context.inactive_pane_brightness_percent, 20, 100);
     context.pane_divider_px = CLAMP(context.pane_divider_px, 1, 16);
     context.pane_border_px = CLAMP(context.pane_border_px, 0, 12);
     context.pane_border_focused_px = CLAMP(
@@ -17202,6 +17399,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.compact_plain_scroll_preserved &&
          context.compact_tui_wheel_mapping &&
          context.compact_hyperlink_open_attempted &&
+         context.compact_hyperlink_context_menu &&
+         context.compact_hyperlink_context_open &&
          context.compact_hyperlink_mouse_mode_override &&
          context.compact_hyperlink_underline_positioned &&
          context.compact_linear_selection &&

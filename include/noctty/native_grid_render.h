@@ -94,6 +94,7 @@ typedef struct {
     double cell_width;
     double cell_height;
     double status_border_width;
+    uint32_t cursor_rgb;
     NocttyGridRenderChrome chrome;
 } NocttyGridCells;
 
