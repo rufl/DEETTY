@@ -11,6 +11,7 @@ grid_logic=src/gui/NativeGridLogic.zig
 grid_logic_header=src/gui/native_grid_logic.h
 grid_render=src/gui/NativeGridRender.zig
 grid_render_header=src/gui/native_grid_render.h
+grid_qualification=tests/native_grid_qualification.inc
 native_gtk=src/gui/NativeGtk.zig
 main=src/main.zig
 pty=src/terminal/Pty.zig
@@ -45,7 +46,7 @@ windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$grid_qualification" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
   test -s "$path"
 done
 

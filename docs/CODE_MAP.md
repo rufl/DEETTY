@@ -45,6 +45,9 @@ zig build run-nocted -- --project . --open README.md
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and
   text, text decorations, resize/cycle/note/status overlays, and terminal
   scrollbar rendering behind the narrow `native_grid_render.h` ABI.
+- `tests/native_grid_qualification.inc` — test-only Cairo renderer,
+  presentation, full-stack, and stability qualification included only in smoke
+  builds; production host source contains no qualification implementation.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
   styling, settings surfaces, context menus, compact dialogs, theme library,
