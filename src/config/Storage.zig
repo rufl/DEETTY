@@ -7,13 +7,13 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const config_magic = "NOCTTYCFG";
-const config_version: u8 = 15;
+const config_version: u8 = 16;
 const default_launch_profile_tail_bytes: usize = 1 + (5 * 8) + 4;
 const default_launch_library_tail_bytes: usize = 2;
 const default_recent_workspace_tail_bytes: usize = 1;
 const default_font_rendering_tail_bytes: usize = 2;
 // Legacy test fixtures omit pixel dimensions and all settings added afterward.
-const default_dropdown_pixel_tail_bytes: usize = 20;
+const default_dropdown_pixel_tail_bytes: usize = 24;
 
 pub const ConfigFileRole = enum {
     settings,
@@ -141,6 +141,10 @@ pub fn exportConfigAlloc(allocator: std.mem.Allocator, config: ConfigMod.Config)
     try writer.writeU16(config.panels.overlay_border_px);
     try writer.writeU16(config.panels.window_border_px);
     try writer.writeU16(config.panels.dragger_px);
+    try writer.writeBool(config.panels.gaps_enabled);
+    try writer.writeBool(config.panels.gaps_transparent);
+    try writer.writeBool(config.panels.inactive_dim_enabled);
+    try writer.writeU8(config.panels.inactive_brightness_percent);
 
     return writer.bytes.toOwnedSlice();
 }
@@ -269,6 +273,12 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
             config.panels.window_border_px = 2;
         if (config.panels.dragger_px == 18)
             config.panels.dragger_px = 2;
+    }
+    if (version >= 16) {
+        config.panels.gaps_enabled = try reader.readBool();
+        config.panels.gaps_transparent = try reader.readBool();
+        config.panels.inactive_dim_enabled = try reader.readBool();
+        config.panels.inactive_brightness_percent = try reader.readU8();
     }
 
     if (!reader.finished()) return error.InvalidConfigSnapshot;
@@ -648,6 +658,10 @@ test "config snapshots export and import owned gui settings" {
     config.panels.overlay_border_px = 3;
     config.panels.window_border_px = 9;
     config.panels.dragger_px = 14;
+    config.panels.gaps_enabled = false;
+    config.panels.gaps_transparent = false;
+    config.panels.inactive_dim_enabled = false;
+    config.panels.inactive_brightness_percent = 84;
 
     const bytes = try exportConfigAlloc(allocator, config);
     defer allocator.free(bytes);
@@ -698,6 +712,13 @@ test "config snapshots export and import owned gui settings" {
     try std.testing.expectEqual(@as(u16, 3), loaded.config.panels.overlay_border_px);
     try std.testing.expectEqual(@as(u16, 9), loaded.config.panels.window_border_px);
     try std.testing.expectEqual(@as(u16, 14), loaded.config.panels.dragger_px);
+    try std.testing.expect(!loaded.config.panels.gaps_enabled);
+    try std.testing.expect(!loaded.config.panels.gaps_transparent);
+    try std.testing.expect(!loaded.config.panels.inactive_dim_enabled);
+    try std.testing.expectEqual(
+        @as(u8, 84),
+        loaded.config.panels.inactive_brightness_percent,
+    );
 }
 
 test "version one config snapshots load with pointer focus disabled" {
@@ -871,7 +892,7 @@ test "version eleven config snapshots use safe background defaults" {
     defer allocator.free(current);
     const legacy = try allocator.dupe(
         u8,
-        current[0 .. current.len - 16],
+        current[0 .. current.len - 20],
     );
     defer allocator.free(legacy);
     legacy[config_magic.len] = 11;
@@ -889,7 +910,7 @@ test "version twelve config snapshots use safe scroll defaults" {
     config.terminal.smooth_scroll = false;
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 14]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 18]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 12;
 
@@ -908,7 +929,7 @@ test "version thirteen config snapshots use safe border thickness defaults" {
     config.panels.dragger_px = 15;
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 12]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 16]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 13;
 
@@ -925,7 +946,12 @@ test "version fourteen migrates only the old default dragger thickness" {
     var default_config = ConfigMod.Config.defaults();
     default_config.panels.window_border_px = 3;
     default_config.panels.dragger_px = 18;
-    const default_bytes = try exportConfigAlloc(allocator, default_config);
+    const default_current = try exportConfigAlloc(allocator, default_config);
+    defer allocator.free(default_current);
+    const default_bytes = try allocator.dupe(
+        u8,
+        default_current[0 .. default_current.len - 4],
+    );
     defer allocator.free(default_bytes);
     default_bytes[config_magic.len] = 14;
     var migrated = try importConfigAlloc(allocator, default_bytes);
@@ -936,13 +962,42 @@ test "version fourteen migrates only the old default dragger thickness" {
     var custom_config = ConfigMod.Config.defaults();
     custom_config.panels.window_border_px = 7;
     custom_config.panels.dragger_px = 12;
-    const custom_bytes = try exportConfigAlloc(allocator, custom_config);
+    const custom_current = try exportConfigAlloc(allocator, custom_config);
+    defer allocator.free(custom_current);
+    const custom_bytes = try allocator.dupe(
+        u8,
+        custom_current[0 .. custom_current.len - 4],
+    );
     defer allocator.free(custom_bytes);
     custom_bytes[config_magic.len] = 14;
     var preserved = try importConfigAlloc(allocator, custom_bytes);
     defer preserved.deinit(allocator);
     try std.testing.expectEqual(@as(u16, 7), preserved.config.panels.window_border_px);
     try std.testing.expectEqual(@as(u16, 12), preserved.config.panels.dragger_px);
+}
+
+test "version fifteen config snapshots use safe pane visual defaults" {
+    const allocator = std.testing.allocator;
+    var config = ConfigMod.Config.defaults();
+    config.panels.gaps_enabled = false;
+    config.panels.gaps_transparent = false;
+    config.panels.inactive_dim_enabled = false;
+    config.panels.inactive_brightness_percent = 84;
+    const current = try exportConfigAlloc(allocator, config);
+    defer allocator.free(current);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4]);
+    defer allocator.free(legacy);
+    legacy[config_magic.len] = 15;
+
+    var loaded = try importConfigAlloc(allocator, legacy);
+    defer loaded.deinit(allocator);
+    try std.testing.expect(loaded.config.panels.gaps_enabled);
+    try std.testing.expect(loaded.config.panels.gaps_transparent);
+    try std.testing.expect(loaded.config.panels.inactive_dim_enabled);
+    try std.testing.expectEqual(
+        @as(u8, 70),
+        loaded.config.panels.inactive_brightness_percent,
+    );
 }
 
 test "config snapshots reject invalid bytes" {

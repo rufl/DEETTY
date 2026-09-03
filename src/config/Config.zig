@@ -285,6 +285,10 @@ pub const PanelMetrics = struct {
     overlay_border_px: u16 = 1,
     window_border_px: u16 = 2,
     dragger_px: u16 = 2,
+    gaps_enabled: bool = true,
+    gaps_transparent: bool = true,
+    inactive_dim_enabled: bool = true,
+    inactive_brightness_percent: u8 = 70,
     terminal_titlebar_px: u16 = 0,
     main_titlebar_px: u16 = 0,
 
@@ -299,6 +303,9 @@ pub const PanelMetrics = struct {
         if (self.window_border_px == 0 or self.window_border_px > 16 or
             self.dragger_px == 0 or self.dragger_px > 32)
             return error.InvalidResizeHandleThickness;
+        if (self.inactive_brightness_percent < 20 or
+            self.inactive_brightness_percent > 100)
+            return error.InvalidInactivePaneBrightness;
         if (self.terminal_titlebar_px != 0 or self.main_titlebar_px != 0) return error.ThickTitlebarForbidden;
     }
 };
@@ -490,6 +497,10 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u16, 1), cfg.panels.divider_px);
     try std.testing.expectEqual(@as(u16, 2), cfg.panels.window_border_px);
     try std.testing.expectEqual(@as(u16, 2), cfg.panels.dragger_px);
+    try std.testing.expect(cfg.panels.gaps_enabled);
+    try std.testing.expect(cfg.panels.gaps_transparent);
+    try std.testing.expect(cfg.panels.inactive_dim_enabled);
+    try std.testing.expectEqual(@as(u8, 70), cfg.panels.inactive_brightness_percent);
     try std.testing.expect(cfg.background.translucency);
     try std.testing.expectEqual(@as(u8, 92), cfg.background.opacity_percent);
 }
@@ -561,6 +572,10 @@ test "validation rejects invalid gui settings" {
     cfg = Config.defaults();
     cfg.default_theme = "";
     try std.testing.expectError(error.InvalidThemeName, cfg.validate());
+
+    cfg = Config.defaults();
+    cfg.panels.inactive_brightness_percent = 19;
+    try std.testing.expectError(error.InvalidInactivePaneBrightness, cfg.validate());
 
     cfg = Config.defaults();
     cfg.terminal.scrollback_lines = TerminalConfig.max_scrollback_lines + 1;
