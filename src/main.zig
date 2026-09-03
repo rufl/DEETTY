@@ -45,6 +45,7 @@ comptime {
     _ = NativeGridRender.noctty_grid_render_cycle_overlay;
     _ = NativeGridRender.noctty_grid_render_quick_note;
     _ = NativeGridRender.noctty_grid_render_status_feedback;
+    _ = NativeGridRender.noctty_grid_render_sharing_preview;
     _ = NativeGridRender.noctty_grid_render_text_decoration;
     _ = NativeGridRender.noctty_grid_render_scrollbar;
     _ = NativeGtk.noctty_pane_info_strip_new;

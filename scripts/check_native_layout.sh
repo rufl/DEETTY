@@ -5,14 +5,15 @@ repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)
 cd "$repo_root"
 
 grid=src/gui/native_grid_host.c
-grid_abi=src/gui/native_grid_abi.h
+grid_abi=include/noctty/native_grid_abi.h
 grid_abi_zig=src/gui/NativeGridAbi.zig
 grid_logic=src/gui/NativeGridLogic.zig
-grid_logic_header=src/gui/native_grid_logic.h
+grid_logic_header=include/noctty/native_grid_logic.h
 grid_render=src/gui/NativeGridRender.zig
-grid_render_header=src/gui/native_grid_render.h
+grid_render_header=include/noctty/native_grid_render.h
 grid_qualification=tests/native_grid_qualification.inc
 native_gtk=src/gui/NativeGtk.zig
+native_gtk_header=include/noctty/native_gtk.h
 main=src/main.zig
 pty=src/terminal/Pty.zig
 vt=src/terminal/Vt.zig
@@ -27,6 +28,7 @@ nocted_endurance=scripts/nocted_native_endurance_qualification.sh
 auth_agent=scripts/native_grid_authenticated_agent_qualification.sh
 installed_continuity=scripts/native_grid_installed_continuity_qualification.sh
 stability=scripts/native_grid_stability_qualification.sh
+zig_ownership=scripts/check_zig_ownership.sh
 windows_host=src/windows/WindowsHost.zig
 windows_logic=src/windows/WindowsHostLogic.zig
 windows_diagnostics=src/windows/WindowsDiagnostics.zig
@@ -46,7 +48,10 @@ windows_package=scripts/package_windows.sh
 windows_smoke=scripts/windows_smoke.ps1
 windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 
-for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$grid_qualification" "$native_gtk" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
+for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$grid_qualification" "$native_gtk" "$native_gtk_header" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$zig_ownership" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
+  test -s "$path"
+done
+for path in tests/native_grid_smoke_*.inc; do
   test -s "$path"
 done
 
@@ -79,9 +84,10 @@ grep -F 'pub export fn noctty_grid_render_resize_overlay(' "$grid_render" >/dev/
 grep -F 'pub export fn noctty_grid_render_cycle_overlay(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_quick_note(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_status_feedback(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_sharing_preview(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_text_decoration(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_scrollbar(' "$grid_render" >/dev/null
-grep -F '#include "native_grid_render.h"' "$grid" >/dev/null
+grep -F '#include "../../include/noctty/native_grid_render.h"' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_scroll_steps(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_keyboard_scroll_target(' "$grid_logic" >/dev/null
@@ -165,11 +171,11 @@ grep -F 'pub const ATK_ROLE_STATUSBAR: c_int = 53;' "$nocted_gtk" >/dev/null
 grep -F '"Could not save the workspace"' "$grid" >/dev/null
 ! sed -n '/export fn noctty_grid_text_action/,/^}/p' "$main" | \
   grep -F 'callback_failed = true' >/dev/null
-grep -F 'context.full_stack_idle_ticks == 0' "$grid" >/dev/null
-grep -F 'context.stability_hidden_draws == 0' "$grid" >/dev/null
+grep -F 'context.full_stack_idle_ticks == 0' tests/native_grid_smoke_results.inc >/dev/null
+grep -F 'context.stability_hidden_draws == 0' tests/native_grid_smoke_results.inc >/dev/null
 grep -F "bytes[0] = '\\r'; length = 1;" "$grid" >/dev/null
 ! grep -F "bytes[0] = '\\n'; length = 1;" "$grid" >/dev/null
-grep -F 'poll_installed_continuity_detach_smoke' "$grid" >/dev/null
+grep -F 'poll_installed_continuity_detach_smoke' "$grid_qualification" >/dev/null
 grep -F 'g_dbus_connection_call_sync(' "$grid" >/dev/null
 grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 2' "$grid" >/dev/null
 grep -F '#define NOCTTY_PANE_INFO_HEIGHT_PX 18' "$grid" >/dev/null
@@ -181,7 +187,8 @@ grep -F 'gtk_window_set_default_icon_name("com.noctty.NOCTTY");' "$grid" >/dev/n
 grep -F 'gtk_window_set_icon_name(GTK_WINDOW(window), "com.noctty.NOCTTY");' "$grid" >/dev/null
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
 grep -F 'static void configure_overlay_window_geometry(' "$grid" >/dev/null
-grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' "$grid" >/dev/null
+grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \
+  tests/native_grid_compact_ux_smoke.inc >/dev/null
 grep -F 'const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6)' "$native_gtk" >/dev/null
 grep -F 'if (!gtk_widget_get_mapped(widget)) {' "$grid" >/dev/null
 grep -F 'resize_grid_to_allocation(context, &allocation);' "$grid" >/dev/null
@@ -294,5 +301,7 @@ grep -F 'unset DISPLAY WAYLAND_DISPLAY' "$isolated_wayland" >/dev/null
 grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
+
+"$zig_ownership" >/dev/null
 
 echo 'native_layout gtk_host_c=true windows_host_zig=true windows_nocted_zig=true windows_conpty=true windows_conpty_zig=true windows_clipboard_zig=true windows_process_zig=true windows_menu_zig=true windows_fonts_zig=true windows_renderer_zig=true windows_title_zig=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_logic_zig=true native_grid_abi=true'

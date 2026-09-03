@@ -139,6 +139,12 @@ typedef struct {
 } NocttyGridTextDecoration;
 
 typedef struct {
+    uint64_t pane_mask;
+    int selected_seen;
+    int host_active_seen;
+} NocttyGridSharingPreviewResult;
+
+typedef struct {
     NocttyGridRenderPalette palette;
     int allocation_height;
     double x;
@@ -168,6 +174,9 @@ int noctty_grid_render_status_feedback(
     cairo_t *cr, const NocttyGridTextOverlay *options);
 int noctty_grid_render_text_decoration(
     cairo_t *cr, const NocttyGridTextDecoration *options);
+int noctty_grid_render_sharing_preview(
+    cairo_t *cr, void *event_data, int width, int height,
+    NocttyGridSharingPreviewResult *result);
 int noctty_grid_render_scrollbar(
     cairo_t *cr, const NocttyGridRenderScrollbar *options);
 

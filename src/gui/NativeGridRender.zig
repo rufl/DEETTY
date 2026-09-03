@@ -159,6 +159,12 @@ pub const TextDecoration = extern struct {
     baseline: f64,
 };
 
+pub const SharingPreviewResult = extern struct {
+    pane_mask: u64,
+    selected_seen: c_int,
+    host_active_seen: c_int,
+};
+
 pub const Scrollbar = extern struct {
     palette: Palette,
     allocation_height: c_int,
@@ -223,12 +229,14 @@ extern fn cairo_save(*Cairo) void;
 extern fn cairo_restore(*Cairo) void;
 extern fn cairo_set_operator(*Cairo, c_int) void;
 extern fn cairo_set_source_rgba(*Cairo, f64, f64, f64, f64) void;
+extern fn cairo_set_source_rgb(*Cairo, f64, f64, f64) void;
 extern fn cairo_set_line_width(*Cairo, f64) void;
 extern fn cairo_set_line_cap(*Cairo, c_int) void;
 extern fn cairo_font_extents(*Cairo, *FontExtents) void;
 extern fn cairo_rectangle(*Cairo, f64, f64, f64, f64) void;
 extern fn cairo_clip_extents(*Cairo, *f64, *f64, *f64, *f64) void;
 extern fn cairo_fill(*Cairo) void;
+extern fn cairo_paint(*Cairo) void;
 extern fn cairo_fill_preserve(*Cairo) void;
 extern fn cairo_stroke(*Cairo) void;
 extern fn cairo_new_sub_path(*Cairo) void;
@@ -290,6 +298,37 @@ extern fn pango_layout_set_spacing(*PangoLayout, c_int) void;
 extern fn pango_layout_set_alignment(*PangoLayout, c_int) void;
 extern fn pango_layout_get_pixel_size(*PangoLayout, *c_int, *c_int) void;
 extern fn g_object_unref(?*anyopaque) void;
+extern fn noctty_grid_share_view_stream(
+    ?*anyopaque,
+    c_int,
+    ?[*]u8,
+    usize,
+    ?*u64,
+    ?*u64,
+    ?*c_int,
+) c_int;
+extern fn noctty_grid_share_view_pane_layout(
+    ?*anyopaque,
+    c_int,
+    *u32,
+    *u32,
+    *u32,
+    *u32,
+    *c_int,
+    *c_int,
+) c_int;
+extern fn noctty_grid_share_view_pane_dimensions(?*anyopaque, c_int, *u16, *u16) c_int;
+extern fn noctty_grid_share_view_pane_cell(?*anyopaque, c_int, c_int, c_int) u64;
+extern fn noctty_grid_share_view_pane_cell_text(
+    ?*anyopaque,
+    c_int,
+    c_int,
+    c_int,
+    [*]u8,
+    usize,
+) c_int;
+extern fn noctty_grid_share_view_pane_color(?*anyopaque, c_int, u32) u32;
+extern fn noctty_grid_share_view_pane_cursor(?*anyopaque, c_int) u32;
 
 fn resolvedRGB(palette: Palette, role: u32, fallback: u32) u32 {
     const resolver = palette.resolve orelse return fallback;
@@ -1191,6 +1230,185 @@ pub export fn noctty_grid_render_text_decoration(
         cairo_stroke(cr);
     }
     return result;
+}
+
+fn setSharingColor(cr: *Cairo, rgb: u32) void {
+    cairo_set_source_rgb(
+        cr,
+        @as(f64, @floatFromInt((rgb >> 16) & 0xff)) / 255,
+        @as(f64, @floatFromInt((rgb >> 8) & 0xff)) / 255,
+        @as(f64, @floatFromInt(rgb & 0xff)) / 255,
+    );
+}
+
+fn drawSharingPane(
+    cr: *Cairo,
+    event_data: ?*anyopaque,
+    pane_index: c_int,
+    pane_x: f64,
+    pane_y: f64,
+    pane_width: f64,
+    pane_height: f64,
+    selected: c_int,
+    host_active: c_int,
+    result: *SharingPreviewResult,
+) void {
+    var columns: u16 = 0;
+    var rows: u16 = 0;
+    const inset: f64 = 3;
+    if (noctty_grid_share_view_pane_dimensions(
+        event_data,
+        pane_index,
+        &columns,
+        &rows,
+    ) <= 0 or columns == 0 or rows == 0 or
+        pane_width <= inset * 2 or pane_height <= inset * 2) return;
+    if (pane_index >= 0 and pane_index < 64)
+        result.pane_mask |= @as(u64, 1) << @intCast(pane_index);
+    result.selected_seen |= selected;
+    result.host_active_seen |= host_active;
+
+    const terminal_x = pane_x + inset;
+    const terminal_y = pane_y + inset;
+    const terminal_width = pane_width - inset * 2;
+    const terminal_height = pane_height - inset * 2;
+    const cell_width = terminal_width / @as(f64, @floatFromInt(columns));
+    const cell_height = terminal_height / @as(f64, @floatFromInt(rows));
+    const font_size = @max(4, @min(cell_height * 0.78, cell_width * 1.55));
+    cairo_save(cr);
+    defer cairo_restore(cr);
+    cairo_rectangle(cr, pane_x, pane_y, pane_width, pane_height);
+    cairo_clip(cr);
+    cairo_select_font_face(cr, "monospace", font_slant_normal, font_weight_normal);
+    cairo_set_font_size(cr, font_size);
+
+    for (0..rows) |row| {
+        for (0..columns) |column| {
+            const raw = noctty_grid_share_view_pane_cell(
+                event_data,
+                pane_index,
+                @intCast(column),
+                @intCast(row),
+            );
+            const style: u32 = @truncate(raw >> 32);
+            var foreground = noctty_grid_share_view_pane_color(
+                event_data,
+                pane_index,
+                (style >> 8) & 0xfff,
+            );
+            var background = noctty_grid_share_view_pane_color(
+                event_data,
+                pane_index,
+                (style >> 20) & 0xfff,
+            );
+            if (style & 2 != 0) std.mem.swap(u32, &foreground, &background);
+            const x = terminal_x + @as(f64, @floatFromInt(column)) * cell_width;
+            const y = terminal_y + @as(f64, @floatFromInt(row)) * cell_height;
+            setSharingColor(cr, background);
+            cairo_rectangle(cr, x, y, cell_width + 0.5, cell_height + 0.5);
+            cairo_fill(cr);
+            var text: [65]u8 = @splat(0);
+            const count = noctty_grid_share_view_pane_cell_text(
+                event_data,
+                pane_index,
+                @intCast(column),
+                @intCast(row),
+                &text,
+                text.len - 1,
+            );
+            if (count <= 0 or count >= text.len) continue;
+            text[@intCast(count)] = 0;
+            setSharingColor(cr, foreground);
+            cairo_move_to(cr, x, y + cell_height * 0.82);
+            cairo_show_text(cr, @ptrCast(&text));
+        }
+    }
+    if (host_active != 0) {
+        const cursor = noctty_grid_share_view_pane_cursor(event_data, pane_index);
+        if (cursor != std.math.maxInt(u32)) {
+            const column: u16 = @truncate(cursor);
+            const row: u16 = @truncate(cursor >> 16);
+            setSharingColor(cr, 0xf9e2af);
+            cairo_set_line_width(cr, 1);
+            cairo_rectangle(
+                cr,
+                terminal_x + @as(f64, @floatFromInt(column)) * cell_width,
+                terminal_y + @as(f64, @floatFromInt(row)) * cell_height,
+                cell_width,
+                cell_height,
+            );
+            cairo_stroke(cr);
+        }
+    }
+    setSharingColor(cr, if (selected != 0) 0x94e2d5 else 0x45475a);
+    cairo_set_line_width(cr, if (selected != 0) 2.5 else 1);
+    cairo_rectangle(cr, pane_x + 1, pane_y + 1, pane_width - 2, pane_height - 2);
+    cairo_stroke(cr);
+    if (host_active != 0) {
+        setSharingColor(cr, 0xf9e2af);
+        cairo_set_line_width(cr, 1);
+        cairo_rectangle(cr, pane_x + 3, pane_y + 3, pane_width - 6, pane_height - 6);
+        cairo_stroke(cr);
+    }
+}
+
+pub export fn noctty_grid_render_sharing_preview(
+    cr_raw: ?*Cairo,
+    event_data: ?*anyopaque,
+    width: c_int,
+    height: c_int,
+    result_raw: ?*SharingPreviewResult,
+) callconv(.c) c_int {
+    const cr = cr_raw orelse return 0;
+    const result = result_raw orelse return 0;
+    result.* = .{ .pane_mask = 0, .selected_seen = 0, .host_active_seen = 0 };
+    if (width <= 0 or height <= 0) return 0;
+    var pane_id: u64 = 0;
+    var tab_id: u64 = 0;
+    var ignored: c_int = 0;
+    const count = noctty_grid_share_view_stream(
+        event_data,
+        -1,
+        null,
+        0,
+        &pane_id,
+        &tab_id,
+        &ignored,
+    );
+    setSharingColor(cr, 0x111318);
+    cairo_paint(cr);
+    var pane_index: c_int = 0;
+    while (pane_index < count) : (pane_index += 1) {
+        var x: u32 = 0;
+        var y: u32 = 0;
+        var pane_width: u32 = 0;
+        var pane_height: u32 = 0;
+        var selected: c_int = 0;
+        var host_active: c_int = 0;
+        if (noctty_grid_share_view_pane_layout(
+            event_data,
+            pane_index,
+            &x,
+            &y,
+            &pane_width,
+            &pane_height,
+            &selected,
+            &host_active,
+        ) <= 0) continue;
+        drawSharingPane(
+            cr,
+            event_data,
+            pane_index,
+            @as(f64, @floatFromInt(width)) * @as(f64, @floatFromInt(x)) / 1_000_000,
+            @as(f64, @floatFromInt(height)) * @as(f64, @floatFromInt(y)) / 1_000_000,
+            @as(f64, @floatFromInt(width)) * @as(f64, @floatFromInt(pane_width)) / 1_000_000,
+            @as(f64, @floatFromInt(height)) * @as(f64, @floatFromInt(pane_height)) / 1_000_000,
+            selected,
+            host_active,
+            result,
+        );
+    }
+    return 1;
 }
 
 pub export fn noctty_grid_render_scrollbar(
