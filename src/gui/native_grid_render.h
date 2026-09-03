@@ -6,12 +6,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "native_grid_logic.h"
+
 typedef uint32_t (*NocttyGridRenderColor)(void *, uint32_t);
 
 typedef struct {
     void *userdata;
     NocttyGridRenderColor resolve;
 } NocttyGridRenderPalette;
+
+typedef struct {
+    void *userdata;
+    NocttyGridRenderColor resolve;
+} NocttyGridTerminalPalette;
 
 typedef struct {
     NocttyGridRenderPalette palette;
@@ -51,6 +58,45 @@ typedef struct {
 typedef void (*NocttyGridDrawCodepoint)(
     void *, cairo_t *, uint32_t, double, double, uint32_t);
 
+typedef uint64_t (*NocttyGridCellValue)(void *, int, int);
+typedef int (*NocttyGridRowValue)(void *, int, uint64_t *, size_t);
+typedef int (*NocttyGridCellSelected)(void *, int, int);
+typedef void (*NocttyGridDrawCellText)(
+    void *, cairo_t *, int, int, double, double, uint32_t);
+
+typedef struct {
+    NocttyGridRenderPalette ui_palette;
+    NocttyGridTerminalPalette terminal_palette;
+    NocttyGridGlyphCache glyph_cache;
+    uint64_t **row_cells;
+    size_t *row_capacity;
+    unsigned int *row_allocations;
+    unsigned int *row_batches;
+    unsigned int *glyph_batches;
+    unsigned int *glyph_cells;
+    unsigned int *rich_style_cells;
+    void *source_context;
+    NocttyGridCellValue cell;
+    NocttyGridRowValue row;
+    void *selection_context;
+    NocttyGridCellSelected selected;
+    void *draw_context;
+    NocttyGridDrawCodepoint draw_codepoint;
+    NocttyGridDrawCellText draw_cell_text;
+    const char *font_family;
+    double font_px;
+    int antialias;
+    int hinting;
+    int allocation_width;
+    int allocation_height;
+    int columns;
+    int rows;
+    double cell_width;
+    double cell_height;
+    double status_border_width;
+    NocttyGridRenderChrome chrome;
+} NocttyGridCells;
+
 typedef struct {
     NocttyGridGlyphCache cache;
     const uint64_t *cells;
@@ -81,11 +127,6 @@ typedef struct {
 } NocttyGridTextOverlay;
 
 typedef struct {
-    void *userdata;
-    NocttyGridRenderColor resolve;
-} NocttyGridTerminalPalette;
-
-typedef struct {
     NocttyGridTerminalPalette palette;
     uint32_t style;
     uint32_t foreground;
@@ -110,6 +151,8 @@ typedef struct {
 
 int noctty_grid_render_ascii_run(
     cairo_t *cr, const NocttyGridAsciiRun *options);
+int noctty_grid_render_cells(
+    cairo_t *cr, const NocttyGridCells *options);
 void noctty_grid_render_apply_font_options(
     cairo_t *cr, int antialias, int hinting);
 int noctty_grid_render_terminal_text(

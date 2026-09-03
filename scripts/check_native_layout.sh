@@ -71,6 +71,7 @@ grep -F 'pub export fn noctty_grid_render_chrome(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_run_end(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_ascii_run(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_cells(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_apply_font_options(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_terminal_text(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_resize_overlay(' "$grid_render" >/dev/null
@@ -197,7 +198,7 @@ grep -F 'root->hide_source = g_timeout_add(16, finish_grid_hide, root);' "$grid"
 
 grep -F 'typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);' "$grid_abi" >/dev/null
 grep -F 'int dirty_count = context->dirty_spans(' "$grid" >/dev/null
-grep -F 'static int draw_ascii_run(' "$grid" >/dev/null
+! grep -F 'static int draw_ascii_run(' "$grid" >/dev/null
 grep -F 'gtk_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'g_unix_fd_add_full(' "$grid" >/dev/null
 ! grep -F '*created = *source;' "$grid" >/dev/null

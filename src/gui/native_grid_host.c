@@ -1321,44 +1321,12 @@ static gboolean scroll_terminal_from_keyboard(
 }
 
 
-static double grid_text_baseline(const NocttyGridContext *context, int row,
-                                 double cell_height) {
-    return 2.0 + row * cell_height + terminal_font_px(context) * 1.03;
-}
-
-static void grid_cell_span_rectangle(cairo_t *cr, int first, int end,
-                                     int row, double cell_width,
-                                     double cell_height) {
-    NocttyGridRectangle rectangle;
-    noctty_grid_cell_span(first, end, row, cell_width, cell_height, 1,
-                          &rectangle);
-    cairo_rectangle(cr, rectangle.x, rectangle.y, rectangle.width,
-                    rectangle.height);
-}
-
-static void grid_selection_span_rectangle(cairo_t *cr, int first, int end,
-                                          int row, double cell_width,
-                                          double cell_height) {
-    NocttyGridRectangle rectangle;
-    noctty_grid_cell_span(first, end, row, cell_width, cell_height, 0,
-                          &rectangle);
-    cairo_rectangle(cr, rectangle.x, rectangle.y, rectangle.width,
-                    rectangle.height);
-}
-
 static gboolean grid_cell_is_selected(const NocttyGridContext *context,
                                       int column, int row) {
     return noctty_grid_cell_selected(
         context->selecting, context->selection_start_column,
         context->selection_start_row, context->selection_end_column,
         context->selection_end_row, column, row) != 0;
-}
-
-static void apply_terminal_font_options(NocttyGridContext *context,
-                                        cairo_t *cr) {
-    NocttyGridContext *root = root_grid_context(context);
-    noctty_grid_render_apply_font_options(
-        cr, root->font_antialias, root->font_hinting);
 }
 
 static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
@@ -1421,35 +1389,6 @@ static void draw_codepoint_bridge(
     draw_codepoint(userdata, cr, codepoint, x, y, style);
 }
 
-static int draw_ascii_run(NocttyGridContext *context, cairo_t *cr,
-                          const uint64_t *cells, int first, int end,
-                          double x_origin, double cell_width,
-                          double baseline, int weight_slot) {
-    const NocttyGridAsciiRun options = {
-        .cache = {
-            .scratch = &context->glyph_scratch,
-            .capacity = &context->glyph_scratch_capacity,
-            .scaled_fonts = context->ascii_scaled_fonts,
-            .indices = context->ascii_glyph_indices,
-            .valid = context->ascii_glyph_cache_valid,
-            .scratch_allocations = &context->glyph_scratch_allocations,
-            .cache_builds = &context->glyph_cache_builds,
-            .cache_hits = &context->glyph_cache_hits,
-            .fallback_conversions = &context->glyph_fallback_conversions,
-        },
-        .cells = cells,
-        .first = first,
-        .end = end,
-        .x_origin = x_origin,
-        .cell_width = cell_width,
-        .baseline = baseline,
-        .face = weight_slot,
-        .fallback_context = context,
-        .draw_codepoint = draw_codepoint_bridge,
-    };
-    return noctty_grid_render_ascii_run(cr, &options);
-}
-
 static uint32_t ui_color_rgb(NocttyGridContext *context, uint32_t color,
                              uint32_t fallback) {
     uint32_t rgb = context->ui_color_rgb != NULL
@@ -1466,22 +1405,6 @@ static void format_ui_color(NocttyGridContext *context, uint32_t color,
 static void set_ui_color(NocttyGridContext *context, cairo_t *cr,
                          uint32_t color, uint32_t fallback, double alpha) {
     uint32_t rgb = ui_color_rgb(context, color, fallback);
-    cairo_set_source_rgba(cr,
-                          ((rgb >> 16) & 0xff) / 255.0,
-                          ((rgb >> 8) & 0xff) / 255.0,
-                          (rgb & 0xff) / 255.0,
-                          alpha);
-}
-
-static void set_terminal_color(NocttyGridContext *context, cairo_t *cr,
-                               uint32_t color, double fallback_r,
-                               double fallback_g, double fallback_b,
-                               double alpha) {
-    uint32_t rgb = context->color_rgb(context->userdata, color);
-    if (rgb == UINT32_MAX) {
-        cairo_set_source_rgba(cr, fallback_r, fallback_g, fallback_b, alpha);
-        return;
-    }
     cairo_set_source_rgba(cr,
                           ((rgb >> 16) & 0xff) / 255.0,
                           ((rgb >> 8) & 0xff) / 255.0,
@@ -1619,42 +1542,6 @@ static void draw_tab_cycle_feedback(NocttyGridContext *context, cairo_t *cr,
     root_grid_context(context)->tab_cycle_feedback_drawn = 1;
 }
 
-static gboolean ensure_grid_row_buffer(NocttyGridContext *context) {
-    size_t required = (size_t)MAX(context->columns, 1);
-    if (context->row_cells != NULL && context->row_cell_capacity >= required)
-        return TRUE;
-    uint64_t *cells = g_try_realloc_n(context->row_cells, required,
-                                      sizeof(*cells));
-    if (cells == NULL) return FALSE;
-    context->row_cells = cells;
-    context->row_cell_capacity = required;
-    context->row_buffer_allocations++;
-    return TRUE;
-}
-
-static void draw_text_decorations(NocttyGridContext *context, cairo_t *cr,
-                                  uint32_t style, uint32_t foreground,
-                                  int row, int first, int end,
-                                  double cell_width, double cell_height) {
-    const NocttyGridTextDecoration options = {
-        .palette = { context->userdata, context->color_rgb },
-        .style = style,
-        .foreground = foreground,
-        .row = row,
-        .first = first,
-        .end = end,
-        .cell_width = cell_width,
-        .cell_height = cell_height,
-        .baseline = grid_text_baseline(context, row, cell_height),
-    };
-    int result = noctty_grid_render_text_decoration(cr, &options);
-    if ((result & 1) == 0) return;
-    NocttyGridContext *root = root_grid_context(context);
-    root->rich_style_cells_drawn += (guint)(end - first);
-    if (root->workspace_smoke == 15 && (result & 2) != 0)
-        root->compact_hyperlink_underline_positioned = 1;
-}
-
 static void draw_terminal_scrollbar(
     NocttyGridContext *context, cairo_t *cr, GtkAllocation allocation) {
     NocttyTerminalScrollbarGeometry geometry;
@@ -1673,6 +1560,16 @@ static void draw_terminal_scrollbar(
         root_grid_context(context)->compact_scrollbar_drawn = 1;
 }
 
+static int grid_cell_selected_bridge(void *userdata, int column, int row) {
+    return grid_cell_is_selected(userdata, column, row);
+}
+
+static void draw_grid_cell_text_bridge(
+    void *userdata, cairo_t *cr, int column, int row,
+    double x, double y, uint32_t style) {
+    draw_grid_cell_text(userdata, cr, column, row, x, y, style);
+}
+
 static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                                    GtkAllocation allocation) {
     double background_alpha = context->background_translucency &&
@@ -1685,7 +1582,9 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     cairo_paint(cr);
     cairo_restore(cr);
     if (!grid_context_session_available(context)) return FALSE;
+
     context->saw_draw = 1;
+    NocttyGridContext *root = root_grid_context(context);
     gboolean pane_selected = context->event_data != NULL &&
         noctty_grid_pane_selected(context->event_data, context->pane_id) != 0;
     double cell_width = grid_cell_width(context);
@@ -1704,258 +1603,60 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         context->pane_border_selected_px, context->cursor_visible,
         cursor_at_live_bottom, cursor_column, cursor_row,
         context->columns, context->rows, cell_width, cell_height, &chrome);
-    if (chrome.status_role != 0 && context->status_border_px > 0) {
-        set_ui_color(context, cr, chrome.status_role,
-                     chrome.status_fallback, 1.0);
-        cairo_set_line_width(cr, context->status_border_px);
-        cairo_rectangle(cr, 0.5, 0.5, MAX(1, allocation.width - 1),
-                        MAX(1, allocation.height - 1));
-        cairo_stroke(cr);
-    }
     if (pane_selected && context->contexts != NULL &&
-        context->contexts->len > 0) {
-        NocttyGridContext *root = g_ptr_array_index(context->contexts, 0);
+        context->contexts->len > 0)
         root->selection_border_drawn = 1;
-    }
-    if (chrome.pane_width > 0) {
-        cairo_set_line_width(cr, chrome.pane_width);
-        set_ui_color(context, cr, chrome.pane_role,
-                     chrome.pane_fallback, 1.0);
-        cairo_rectangle(cr, chrome.pane_inset, chrome.pane_inset,
-                        MAX(1, allocation.width - 2.0 * chrome.pane_inset),
-                        MAX(1, allocation.height - 2.0 * chrome.pane_inset));
-        cairo_stroke(cr);
-    }
-    cairo_set_line_width(cr, 1.0);
-    cairo_select_font_face(cr,
-                           context->font_family != NULL
-                               ? context->font_family : "monospace",
-                           CAIRO_FONT_SLANT_NORMAL,
-                           CAIRO_FONT_WEIGHT_NORMAL);
-    apply_terminal_font_options(context, cr);
-    cairo_set_font_size(cr, terminal_font_px(context));
-    double text_inset = MAX(1.0, cell_width * (2.0 / 9.0));
-    int selected_face = -1;
-    double clip_x1 = 0.0;
-    double clip_y1 = 0.0;
-    double clip_x2 = allocation.width;
-    double clip_y2 = allocation.height;
-    cairo_clip_extents(cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
-    NocttyGridRenderViewport viewport;
-    if (!noctty_grid_render_viewport(
-            clip_x1, clip_y1, clip_x2, clip_y2, cell_width, cell_height,
-            context->columns, context->rows, &viewport))
-        return FALSE;
-    int first_row = viewport.first_row;
-    int end_row = viewport.end_row;
-    int first_column = viewport.first_column;
-    int end_column = viewport.end_column;
-    gboolean row_buffer_ready = context->row != NULL &&
-        ensure_grid_row_buffer(context);
-    for (int row = first_row; row < end_row; row++) {
-        gboolean row_ready = row_buffer_ready &&
-            context->row(context->userdata, row, context->row_cells,
-                         (size_t)context->columns) == context->columns;
-        if (row_ready && (size_t)end_column > context->row_cell_capacity)
-            row_ready = FALSE;
-        if (row_ready) root_grid_context(context)->row_batches_drawn++;
-        if (!row_ready) {
-            for (int column = first_column; column < end_column; column++) {
-                uint64_t packed_cell = context->cell(
-                    context->userdata, column, row);
-                NocttyGridRenderCell render_cell;
-                noctty_grid_render_cell(packed_cell, &render_cell);
-                uint32_t codepoint = render_cell.codepoint;
-                uint32_t style = render_cell.style;
-                uint32_t foreground = render_cell.foreground;
-                uint32_t background = render_cell.background;
-                if (background != 0xfff) {
-                    set_terminal_color(context, cr, background,
-                                       0.043, 0.051, 0.071, 1.0);
-                    grid_cell_span_rectangle(
-                        cr, column, column + 1, row, cell_width, cell_height);
-                    cairo_fill(cr);
-                }
-                if (grid_cell_is_selected(context, column, row)) {
-                    set_ui_color(context, cr, NOCTTY_UI_COLOR_SELECTION_BACKGROUND,
-                                 0x3d609f, 0.45);
-                    grid_selection_span_rectangle(
-                        cr, column, column + 1, row, cell_width, cell_height);
-                    cairo_fill(cr);
-                }
-                if (render_cell.drawable) {
-                    int face = render_cell.face;
-                    if (face != selected_face) {
-                        cairo_select_font_face(
-                            cr,
-                            context->font_family != NULL
-                                ? context->font_family : "monospace",
-                            (style & 4) ? CAIRO_FONT_SLANT_ITALIC
-                                        : CAIRO_FONT_SLANT_NORMAL,
-                            (style & 1) ? CAIRO_FONT_WEIGHT_BOLD
-                                        : CAIRO_FONT_WEIGHT_NORMAL);
-                        selected_face = face;
-                    }
-                    set_terminal_color(context, cr, foreground,
-                                       0.84, 0.87, 0.91,
-                                       render_cell.alpha);
-                    if (style & 64)
-                        draw_grid_cell_text(
-                            context, cr, column, row,
-                            4.0 + text_inset + column * cell_width,
-                            grid_text_baseline(context, row, cell_height),
-                            style);
-                    else
-                        draw_codepoint(
-                            context, cr, codepoint,
-                            4.0 + text_inset + column * cell_width,
-                            grid_text_baseline(context, row, cell_height),
-                            style);
-                }
-                draw_text_decorations(context, cr, style, foreground,
-                                      row, column, column + 1,
-                                      cell_width, cell_height);
-            }
-            continue;
-        }
 
-        int column = first_column;
-        while (column < end_column) {
-            NocttyGridRenderCell render_cell;
-            noctty_grid_render_cell(
-                context->row_cells[column], &render_cell);
-            uint32_t background = render_cell.background;
-            if (background == 0xfff) {
-                column++;
-                continue;
-            }
-            int background_end = noctty_grid_render_run_end(
-                context->row_cells, column, end_column, 1);
-            set_terminal_color(context, cr, background,
-                               0.043, 0.051, 0.071, 1.0);
-            grid_cell_span_rectangle(
-                cr, column, background_end, row, cell_width, cell_height);
-            cairo_fill(cr);
-            column = background_end;
-        }
-
-        int selected_start = first_column;
-        while (selected_start < end_column &&
-               !grid_cell_is_selected(context, selected_start, row))
-            selected_start++;
-        if (selected_start < end_column) {
-            int selected_end = selected_start + 1;
-            while (selected_end < end_column &&
-                   grid_cell_is_selected(context, selected_end, row))
-                selected_end++;
-            set_ui_color(context, cr,
-                         NOCTTY_UI_COLOR_SELECTION_BACKGROUND,
-                         0x3d609f, 0.45);
-            grid_selection_span_rectangle(
-                cr, selected_start, selected_end, row,
-                cell_width, cell_height);
-            cairo_fill(cr);
-        }
-
-        column = first_column;
-        while (column < end_column) {
-            NocttyGridRenderCell render_cell;
-            noctty_grid_render_cell(
-                context->row_cells[column], &render_cell);
-            uint32_t codepoint = render_cell.codepoint;
-            uint32_t style = render_cell.style;
-            uint32_t foreground = render_cell.foreground;
-            if (render_cell.ascii) {
-                int face = render_cell.face;
-                int run_end = noctty_grid_render_run_end(
-                    context->row_cells, column, end_column, 2);
-                if (face != selected_face) {
-                    cairo_select_font_face(
-                        cr,
-                        context->font_family != NULL
-                            ? context->font_family : "monospace",
-                        (style & 4) ? CAIRO_FONT_SLANT_ITALIC
-                                    : CAIRO_FONT_SLANT_NORMAL,
-                        (style & 1) ? CAIRO_FONT_WEIGHT_BOLD
-                                    : CAIRO_FONT_WEIGHT_NORMAL);
-                    selected_face = face;
-                }
-                set_terminal_color(context, cr, foreground,
-                                   0.84, 0.87, 0.91,
-                                   render_cell.alpha);
-                int batched = draw_ascii_run(
-                    context, cr, context->row_cells, column, run_end,
-                    4.0 + text_inset, cell_width,
-                    grid_text_baseline(context, row, cell_height),
-                    face);
-                if (batched > 0) {
-                    NocttyGridContext *root = root_grid_context(context);
-                    root->glyph_batches_drawn++;
-                    root->glyph_cells_batched += (guint)batched;
-                }
-                column = run_end;
-                continue;
-            }
-            if (render_cell.drawable) {
-                int face = render_cell.face;
-                if (face != selected_face) {
-                    cairo_select_font_face(
-                        cr,
-                        context->font_family != NULL
-                            ? context->font_family : "monospace",
-                        (style & 4) ? CAIRO_FONT_SLANT_ITALIC
-                                    : CAIRO_FONT_SLANT_NORMAL,
-                        (style & 1) ? CAIRO_FONT_WEIGHT_BOLD
-                                    : CAIRO_FONT_WEIGHT_NORMAL);
-                    selected_face = face;
-                }
-                set_terminal_color(context, cr, foreground,
-                                   0.84, 0.87, 0.91,
-                                   render_cell.alpha);
-                if (render_cell.grapheme)
-                    draw_grid_cell_text(
-                        context, cr, column, row,
-                        4.0 + text_inset + column * cell_width,
-                        grid_text_baseline(context, row, cell_height),
-                        style);
-                else
-                    draw_codepoint(
-                        context, cr, codepoint,
-                        4.0 + text_inset + column * cell_width,
-                        grid_text_baseline(context, row, cell_height),
-                        style);
-            }
-            column++;
-        }
-
-        column = first_column;
-        while (column < end_column) {
-            NocttyGridRenderCell render_cell;
-            noctty_grid_render_cell(
-                context->row_cells[column], &render_cell);
-            if (!render_cell.decorated) {
-                column++;
-                continue;
-            }
-            uint32_t style = render_cell.style;
-            uint32_t foreground = render_cell.foreground;
-            int decoration_end = noctty_grid_render_run_end(
-                context->row_cells, column, end_column, 3);
-            draw_text_decorations(context, cr, style, foreground,
-                                  row, column, decoration_end,
-                                  cell_width, cell_height);
-            column = decoration_end;
-        }
+    const NocttyGridCells options = {
+        .ui_palette = { context->event_data, context->ui_color_rgb },
+        .terminal_palette = { context->userdata, context->color_rgb },
+        .glyph_cache = {
+            .scratch = &context->glyph_scratch,
+            .capacity = &context->glyph_scratch_capacity,
+            .scaled_fonts = context->ascii_scaled_fonts,
+            .indices = context->ascii_glyph_indices,
+            .valid = context->ascii_glyph_cache_valid,
+            .scratch_allocations = &context->glyph_scratch_allocations,
+            .cache_builds = &context->glyph_cache_builds,
+            .cache_hits = &context->glyph_cache_hits,
+            .fallback_conversions = &context->glyph_fallback_conversions,
+        },
+        .row_cells = &context->row_cells,
+        .row_capacity = &context->row_cell_capacity,
+        .row_allocations = &context->row_buffer_allocations,
+        .row_batches = &root->row_batches_drawn,
+        .glyph_batches = &root->glyph_batches_drawn,
+        .glyph_cells = &root->glyph_cells_batched,
+        .rich_style_cells = &root->rich_style_cells_drawn,
+        .source_context = context->userdata,
+        .cell = context->cell,
+        .row = context->row,
+        .selection_context = context,
+        .selected = grid_cell_selected_bridge,
+        .draw_context = context,
+        .draw_codepoint = draw_codepoint_bridge,
+        .draw_cell_text = draw_grid_cell_text_bridge,
+        .font_family = context->font_family,
+        .font_px = terminal_font_px(context),
+        .antialias = root->font_antialias,
+        .hinting = root->font_hinting,
+        .allocation_width = allocation.width,
+        .allocation_height = allocation.height,
+        .columns = context->columns,
+        .rows = context->rows,
+        .cell_width = cell_width,
+        .cell_height = cell_height,
+        .status_border_width = context->status_border_px,
+        .chrome = chrome,
+    };
+    int render_result = noctty_grid_render_cells(cr, &options);
+    if (root->workspace_smoke == 15) {
+        if ((render_result & 2) != 0)
+            root->compact_hyperlink_underline_positioned = 1;
+        if ((render_result & 4) != 0)
+            root->compact_terminal_caret_drawn = 1;
     }
-    if (chrome.caret_draw) {
-        set_ui_color(context, cr, NOCTTY_UI_COLOR_TERMINAL_CURSOR,
-                     0x8fb8ff, 1.0);
-        cairo_rectangle(cr, chrome.caret_x, chrome.caret_y,
-                        chrome.caret_width, chrome.caret_height);
-        cairo_fill(cr);
-        if (root_grid_context(context)->workspace_smoke == 15)
-            root_grid_context(context)->compact_terminal_caret_drawn = 1;
-    }
+
     draw_terminal_scrollbar(context, cr, allocation);
     draw_resize_overlay(context, cr, allocation);
     draw_quick_note_overlay(context, cr, allocation);
@@ -1964,7 +1665,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     draw_tab_cycle_feedback(context, cr, allocation);
     if (context->workspace_smoke == 33 && context->profile_preset == 3 &&
         context->high_contrast)
-        root_grid_context(context)->profile_rendered = 1;
+        root->profile_rendered = 1;
     return FALSE;
 }
 

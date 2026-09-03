@@ -38,6 +38,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_close_source_fired;
     _ = NativeGridLogic.noctty_grid_close_preflight_result;
     _ = NativeGridRender.noctty_grid_render_ascii_run;
+    _ = NativeGridRender.noctty_grid_render_cells;
     _ = NativeGridRender.noctty_grid_render_apply_font_options;
     _ = NativeGridRender.noctty_grid_render_terminal_text;
     _ = NativeGridRender.noctty_grid_render_resize_overlay;

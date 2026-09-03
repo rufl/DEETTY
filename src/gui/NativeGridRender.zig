@@ -1,4 +1,5 @@
 const std = @import("std");
+const GridLogic = @import("NativeGridLogic.zig");
 
 const Cairo = opaque {};
 const PangoLayout = opaque {};
@@ -84,6 +85,52 @@ pub const AsciiRun = extern struct {
     draw_codepoint: ?DrawCodepoint,
 };
 
+pub const CellValue = *const fn (?*anyopaque, c_int, c_int) callconv(.c) u64;
+pub const RowValue = *const fn (?*anyopaque, c_int, [*]u64, usize) callconv(.c) c_int;
+pub const CellSelected = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+pub const DrawCellText = *const fn (
+    ?*anyopaque,
+    ?*Cairo,
+    c_int,
+    c_int,
+    f64,
+    f64,
+    u32,
+) callconv(.c) void;
+
+pub const GridCells = extern struct {
+    ui_palette: Palette,
+    terminal_palette: TerminalPalette,
+    glyph_cache: GlyphCache,
+    row_cells: ?*?[*]u64,
+    row_capacity: ?*usize,
+    row_allocations: ?*c_uint,
+    row_batches: ?*c_uint,
+    glyph_batches: ?*c_uint,
+    glyph_cells: ?*c_uint,
+    rich_style_cells: ?*c_uint,
+    source_context: ?*anyopaque,
+    cell: ?CellValue,
+    row: ?RowValue,
+    selection_context: ?*anyopaque,
+    selected: ?CellSelected,
+    draw_context: ?*anyopaque,
+    draw_codepoint: ?DrawCodepoint,
+    draw_cell_text: ?DrawCellText,
+    font_family: ?[*:0]const u8,
+    font_px: f64,
+    antialias: c_int,
+    hinting: c_int,
+    allocation_width: c_int,
+    allocation_height: c_int,
+    columns: c_int,
+    rows: c_int,
+    cell_width: f64,
+    cell_height: f64,
+    status_border_width: f64,
+    chrome: GridLogic.RenderChrome,
+};
+
 pub const TerminalFont = extern struct {
     descriptions: ?[*]?*PangoFontDescription,
     family: ?[*:0]const u8,
@@ -142,6 +189,8 @@ const TextExtents = extern struct {
 
 const operator_source: c_int = 1;
 const font_slant_normal: c_int = 0;
+const font_slant_italic: c_int = 1;
+const font_weight_normal: c_int = 0;
 const font_weight_bold: c_int = 1;
 const pango_scale: c_int = 1024;
 const pango_wrap_word_char: c_int = 2;
@@ -167,6 +216,8 @@ const color_scrollbar_hover: u32 = 6;
 const color_overlay_background: u32 = 7;
 const color_overlay_border: u32 = 8;
 const color_overlay_foreground: u32 = 9;
+const color_selection_background: u32 = 10;
+const color_terminal_cursor: u32 = 16;
 
 extern fn cairo_save(*Cairo) void;
 extern fn cairo_restore(*Cairo) void;
@@ -176,6 +227,7 @@ extern fn cairo_set_line_width(*Cairo, f64) void;
 extern fn cairo_set_line_cap(*Cairo, c_int) void;
 extern fn cairo_font_extents(*Cairo, *FontExtents) void;
 extern fn cairo_rectangle(*Cairo, f64, f64, f64, f64) void;
+extern fn cairo_clip_extents(*Cairo, *f64, *f64, *f64, *f64) void;
 extern fn cairo_fill(*Cairo) void;
 extern fn cairo_fill_preserve(*Cairo) void;
 extern fn cairo_stroke(*Cairo) void;
@@ -447,6 +499,378 @@ pub export fn noctty_grid_render_ascii_run(
         first += count;
     }
     return drawn;
+}
+
+fn ensureRowBuffer(options: *const GridCells) bool {
+    const row_cells = options.row_cells orelse return false;
+    const capacity = options.row_capacity orelse return false;
+    const required: usize = @intCast(@max(options.columns, 1));
+    if (row_cells.* != null and capacity.* >= required) return true;
+    const allocation = g_try_realloc_n(row_cells.*, required, @sizeOf(u64)) orelse return false;
+    row_cells.* = @ptrCast(@alignCast(allocation));
+    capacity.* = required;
+    if (options.row_allocations) |count| count.* +%= 1;
+    return true;
+}
+
+fn gridBaseline(options: *const GridCells, row: c_int) f64 {
+    return 2 + @as(f64, @floatFromInt(row)) * options.cell_height + options.font_px * 1.03;
+}
+
+fn drawSpan(
+    cr: *Cairo,
+    first: c_int,
+    end: c_int,
+    row: c_int,
+    options: *const GridCells,
+    snap_horizontal: bool,
+) void {
+    var rectangle: GridLogic.Rectangle = undefined;
+    GridLogic.noctty_grid_cell_span(
+        first,
+        end,
+        row,
+        options.cell_width,
+        options.cell_height,
+        @intFromBool(snap_horizontal),
+        &rectangle,
+    );
+    cairo_rectangle(cr, rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+}
+
+fn cellSelected(options: *const GridCells, column: c_int, row: c_int) bool {
+    const selected = options.selected orelse return false;
+    return selected(options.selection_context, column, row) != 0;
+}
+
+fn selectFace(cr: *Cairo, options: *const GridCells, style: u32, selected_face: *c_int) void {
+    const face = @as(c_int, @intFromBool(style & 1 != 0)) |
+        (@as(c_int, @intFromBool(style & 4 != 0)) << 1);
+    if (face == selected_face.*) return;
+    cairo_select_font_face(
+        cr,
+        options.font_family orelse "monospace",
+        if (style & 4 != 0) font_slant_italic else font_slant_normal,
+        if (style & 1 != 0) font_weight_bold else font_weight_normal,
+    );
+    selected_face.* = face;
+}
+
+fn drawDecoration(
+    cr: *Cairo,
+    options: *const GridCells,
+    style: u32,
+    foreground: u32,
+    row: c_int,
+    first: c_int,
+    end: c_int,
+    result: *c_int,
+) void {
+    const decoration: TextDecoration = .{
+        .palette = options.terminal_palette,
+        .style = style,
+        .foreground = foreground,
+        .row = row,
+        .first = first,
+        .end = end,
+        .cell_width = options.cell_width,
+        .cell_height = options.cell_height,
+        .baseline = gridBaseline(options, row),
+    };
+    const decoration_result = noctty_grid_render_text_decoration(cr, &decoration);
+    if (decoration_result & 1 == 0) return;
+    if (options.rich_style_cells) |count| count.* +%= @intCast(end - first);
+    if (decoration_result & 2 != 0) result.* |= 2;
+}
+
+fn drawSingleCell(
+    cr: *Cairo,
+    options: *const GridCells,
+    packed_cell: u64,
+    column: c_int,
+    row: c_int,
+    selected_face: *c_int,
+    result: *c_int,
+) void {
+    var cell: GridLogic.RenderCell = undefined;
+    GridLogic.noctty_grid_render_cell(packed_cell, &cell);
+    if (cell.background != 0xfff) {
+        setTerminalColor(cr, options.terminal_palette, cell.background, 1);
+        drawSpan(cr, column, column + 1, row, options, true);
+        cairo_fill(cr);
+    }
+    if (cellSelected(options, column, row)) {
+        setColor(cr, options.ui_palette, color_selection_background, 0x3d609f, 0.45);
+        drawSpan(cr, column, column + 1, row, options, false);
+        cairo_fill(cr);
+    }
+    if (cell.drawable != 0) {
+        selectFace(cr, options, cell.style, selected_face);
+        setTerminalColor(cr, options.terminal_palette, cell.foreground, cell.alpha);
+        const x = 4 + @max(1, options.cell_width * (2.0 / 9.0)) +
+            @as(f64, @floatFromInt(column)) * options.cell_width;
+        const baseline = gridBaseline(options, row);
+        if (cell.grapheme != 0) {
+            if (options.draw_cell_text) |draw| draw(
+                options.draw_context,
+                cr,
+                column,
+                row,
+                x,
+                baseline,
+                cell.style,
+            );
+        } else if (options.draw_codepoint) |draw| {
+            draw(options.draw_context, cr, cell.codepoint, x, baseline, cell.style);
+        }
+    }
+    drawDecoration(
+        cr,
+        options,
+        cell.style,
+        cell.foreground,
+        row,
+        column,
+        column + 1,
+        result,
+    );
+}
+
+pub export fn noctty_grid_render_cells(
+    cr_raw: ?*Cairo,
+    options_raw: ?*const GridCells,
+) callconv(.c) c_int {
+    const cr = cr_raw orelse return 0;
+    const options = options_raw orelse return 0;
+    if (options.columns <= 0 or options.rows <= 0 or
+        options.allocation_width <= 0 or options.allocation_height <= 0 or
+        !std.math.isFinite(options.cell_width) or options.cell_width <= 0 or
+        !std.math.isFinite(options.cell_height) or options.cell_height <= 0 or
+        !std.math.isFinite(options.font_px) or options.font_px <= 0) return 0;
+
+    if (options.chrome.status_role != 0 and options.status_border_width > 0) {
+        setColor(
+            cr,
+            options.ui_palette,
+            options.chrome.status_role,
+            options.chrome.status_fallback,
+            1,
+        );
+        cairo_set_line_width(cr, options.status_border_width);
+        cairo_rectangle(
+            cr,
+            0.5,
+            0.5,
+            @max(1, @as(f64, @floatFromInt(options.allocation_width)) - 1),
+            @max(1, @as(f64, @floatFromInt(options.allocation_height)) - 1),
+        );
+        cairo_stroke(cr);
+    }
+    if (options.chrome.pane_width > 0) {
+        cairo_set_line_width(cr, @floatFromInt(options.chrome.pane_width));
+        setColor(
+            cr,
+            options.ui_palette,
+            options.chrome.pane_role,
+            options.chrome.pane_fallback,
+            1,
+        );
+        cairo_rectangle(
+            cr,
+            options.chrome.pane_inset,
+            options.chrome.pane_inset,
+            @max(1, @as(f64, @floatFromInt(options.allocation_width)) - 2 * options.chrome.pane_inset),
+            @max(1, @as(f64, @floatFromInt(options.allocation_height)) - 2 * options.chrome.pane_inset),
+        );
+        cairo_stroke(cr);
+    }
+    cairo_set_line_width(cr, 1);
+    cairo_select_font_face(
+        cr,
+        options.font_family orelse "monospace",
+        font_slant_normal,
+        font_weight_normal,
+    );
+    noctty_grid_render_apply_font_options(cr, options.antialias, options.hinting);
+    cairo_set_font_size(cr, options.font_px);
+
+    var clip_x1: f64 = 0;
+    var clip_y1: f64 = 0;
+    var clip_x2: f64 = @floatFromInt(options.allocation_width);
+    var clip_y2: f64 = @floatFromInt(options.allocation_height);
+    cairo_clip_extents(cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
+    var viewport: GridLogic.RenderViewport = undefined;
+    if (GridLogic.noctty_grid_render_viewport(
+        clip_x1,
+        clip_y1,
+        clip_x2,
+        clip_y2,
+        options.cell_width,
+        options.cell_height,
+        options.columns,
+        options.rows,
+        &viewport,
+    ) == 0) return 0;
+
+    var result: c_int = 1;
+    var selected_face: c_int = -1;
+    const row_buffer_ready = options.row != null and ensureRowBuffer(options);
+    var row_index = viewport.first_row;
+    while (row_index < viewport.end_row) : (row_index += 1) {
+        const cells = if (options.row_cells) |field| field.* else null;
+        const row_ready = row_buffer_ready and cells != null and
+            options.row.?(options.source_context, row_index, cells.?, @intCast(options.columns)) == options.columns and
+            options.row_capacity.?.* >= @as(usize, @intCast(viewport.end_column));
+        if (!row_ready) {
+            const cell_value = options.cell orelse continue;
+            var column = viewport.first_column;
+            while (column < viewport.end_column) : (column += 1) {
+                drawSingleCell(
+                    cr,
+                    options,
+                    cell_value(options.source_context, column, row_index),
+                    column,
+                    row_index,
+                    &selected_face,
+                    &result,
+                );
+            }
+            continue;
+        }
+        if (options.row_batches) |count| count.* +%= 1;
+        const row_cells = cells.?;
+
+        var column = viewport.first_column;
+        while (column < viewport.end_column) {
+            var cell: GridLogic.RenderCell = undefined;
+            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            if (cell.background == 0xfff) {
+                column += 1;
+                continue;
+            }
+            const run_end = GridLogic.noctty_grid_render_run_end(
+                row_cells,
+                column,
+                viewport.end_column,
+                1,
+            );
+            setTerminalColor(cr, options.terminal_palette, cell.background, 1);
+            drawSpan(cr, column, run_end, row_index, options, true);
+            cairo_fill(cr);
+            column = run_end;
+        }
+
+        var selected_start = viewport.first_column;
+        while (selected_start < viewport.end_column and
+            !cellSelected(options, selected_start, row_index)) : (selected_start += 1)
+        {}
+        if (selected_start < viewport.end_column) {
+            var selected_end = selected_start + 1;
+            while (selected_end < viewport.end_column and
+                cellSelected(options, selected_end, row_index)) : (selected_end += 1)
+            {}
+            setColor(cr, options.ui_palette, color_selection_background, 0x3d609f, 0.45);
+            drawSpan(cr, selected_start, selected_end, row_index, options, false);
+            cairo_fill(cr);
+        }
+
+        column = viewport.first_column;
+        while (column < viewport.end_column) {
+            var cell: GridLogic.RenderCell = undefined;
+            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            if (cell.ascii != 0) {
+                const run_end = GridLogic.noctty_grid_render_run_end(
+                    row_cells,
+                    column,
+                    viewport.end_column,
+                    2,
+                );
+                selectFace(cr, options, cell.style, &selected_face);
+                setTerminalColor(cr, options.terminal_palette, cell.foreground, cell.alpha);
+                const run: AsciiRun = .{
+                    .cache = options.glyph_cache,
+                    .cells = row_cells,
+                    .first = column,
+                    .end = run_end,
+                    .x_origin = 4 + @max(1, options.cell_width * (2.0 / 9.0)),
+                    .cell_width = options.cell_width,
+                    .baseline = gridBaseline(options, row_index),
+                    .face = cell.face,
+                    .fallback_context = options.draw_context,
+                    .draw_codepoint = options.draw_codepoint,
+                };
+                const batched = noctty_grid_render_ascii_run(cr, &run);
+                if (batched > 0) {
+                    if (options.glyph_batches) |count| count.* +%= 1;
+                    if (options.glyph_cells) |count| count.* +%= @intCast(batched);
+                }
+                column = run_end;
+                continue;
+            }
+            if (cell.drawable != 0) {
+                selectFace(cr, options, cell.style, &selected_face);
+                setTerminalColor(cr, options.terminal_palette, cell.foreground, cell.alpha);
+                const x = 4 + @max(1, options.cell_width * (2.0 / 9.0)) +
+                    @as(f64, @floatFromInt(column)) * options.cell_width;
+                const baseline = gridBaseline(options, row_index);
+                if (cell.grapheme != 0) {
+                    if (options.draw_cell_text) |draw| draw(
+                        options.draw_context,
+                        cr,
+                        column,
+                        row_index,
+                        x,
+                        baseline,
+                        cell.style,
+                    );
+                } else if (options.draw_codepoint) |draw| {
+                    draw(options.draw_context, cr, cell.codepoint, x, baseline, cell.style);
+                }
+            }
+            column += 1;
+        }
+
+        column = viewport.first_column;
+        while (column < viewport.end_column) {
+            var cell: GridLogic.RenderCell = undefined;
+            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            if (cell.decorated == 0) {
+                column += 1;
+                continue;
+            }
+            const run_end = GridLogic.noctty_grid_render_run_end(
+                row_cells,
+                column,
+                viewport.end_column,
+                3,
+            );
+            drawDecoration(
+                cr,
+                options,
+                cell.style,
+                cell.foreground,
+                row_index,
+                column,
+                run_end,
+                &result,
+            );
+            column = run_end;
+        }
+    }
+
+    if (options.chrome.caret_draw != 0) {
+        setColor(cr, options.ui_palette, color_terminal_cursor, 0x8fb8ff, 1);
+        cairo_rectangle(
+            cr,
+            options.chrome.caret_x,
+            options.chrome.caret_y,
+            options.chrome.caret_width,
+            options.chrome.caret_height,
+        );
+        cairo_fill(cr);
+        result |= 4;
+    }
+    return result;
 }
 
 pub export fn noctty_grid_render_apply_font_options(
