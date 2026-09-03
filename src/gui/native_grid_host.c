@@ -1416,29 +1416,11 @@ static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
 static void draw_codepoint(NocttyGridContext *context, cairo_t *cr,
                            uint32_t codepoint, double x, double y,
                            uint32_t style) {
-    char text[8] = {0};
-    int length = 1;
-    if (codepoint < 0x80) {
-        text[0] = codepoint >= 0x20 ? (char)codepoint : ' ';
-    } else if (codepoint <= 0x7ff) {
-        text[0] = (char)(0xc0 | (codepoint >> 6));
-        text[1] = (char)(0x80 | (codepoint & 0x3f));
-        length = 2;
-    } else if (codepoint <= 0xffff) {
-        text[0] = (char)(0xe0 | (codepoint >> 12));
-        text[1] = (char)(0x80 | ((codepoint >> 6) & 0x3f));
-        text[2] = (char)(0x80 | (codepoint & 0x3f));
-        length = 3;
-    } else if (codepoint <= 0x10ffff) {
-        text[0] = (char)(0xf0 | (codepoint >> 18));
-        text[1] = (char)(0x80 | ((codepoint >> 12) & 0x3f));
-        text[2] = (char)(0x80 | ((codepoint >> 6) & 0x3f));
-        text[3] = (char)(0x80 | (codepoint & 0x3f));
-        length = 4;
-    } else {
-        text[0] = '?';
-    }
-    draw_terminal_text_pango(context, cr, text, length, x, y, style);
+    char text[4] = {0};
+    int length = noctty_grid_codepoint_utf8(
+        codepoint, (uint8_t *)text, sizeof(text));
+    if (length > 0)
+        draw_terminal_text_pango(context, cr, text, length, x, y, style);
 }
 
 static void draw_grid_cell_text(NocttyGridContext *context, cairo_t *cr,

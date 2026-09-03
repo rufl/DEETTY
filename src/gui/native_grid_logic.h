@@ -128,6 +128,8 @@ typedef struct {
     int decorated;
 } NocttyGridRenderCell;
 
+int noctty_grid_codepoint_utf8(uint32_t codepoint, uint8_t *output,
+                               uint32_t output_size);
 void noctty_grid_render_cell(uint64_t packed_cell,
                              NocttyGridRenderCell *output);
 int noctty_grid_render_run_end(const uint64_t *cells, int start, int end,

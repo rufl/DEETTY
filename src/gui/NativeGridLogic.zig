@@ -345,6 +345,43 @@ pub const RenderCell = extern struct {
 
 /// Decodes the packed terminal-cell ABI once so renderer paths cannot diverge
 /// on inverse colors, font face, concealment, or dim opacity.
+pub export fn noctty_grid_codepoint_utf8(
+    codepoint: u32,
+    output_raw: ?[*]u8,
+    output_size: u32,
+) callconv(.c) c_int {
+    const output = output_raw orelse return 0;
+    if (output_size < 4) return 0;
+    if (codepoint < 0x80) {
+        output[0] = if (codepoint >= 0x20) @intCast(codepoint) else ' ';
+        return 1;
+    }
+    if (codepoint <= 0x7ff) {
+        output[0] = @intCast(0xc0 | (codepoint >> 6));
+        output[1] = @intCast(0x80 | (codepoint & 0x3f));
+        return 2;
+    }
+    if (codepoint <= 0xffff) {
+        if (codepoint >= 0xd800 and codepoint <= 0xdfff) {
+            output[0] = '?';
+            return 1;
+        }
+        output[0] = @intCast(0xe0 | (codepoint >> 12));
+        output[1] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
+        output[2] = @intCast(0x80 | (codepoint & 0x3f));
+        return 3;
+    }
+    if (codepoint <= 0x10ffff) {
+        output[0] = @intCast(0xf0 | (codepoint >> 18));
+        output[1] = @intCast(0x80 | ((codepoint >> 12) & 0x3f));
+        output[2] = @intCast(0x80 | ((codepoint >> 6) & 0x3f));
+        output[3] = @intCast(0x80 | (codepoint & 0x3f));
+        return 4;
+    }
+    output[0] = '?';
+    return 1;
+}
+
 pub export fn noctty_grid_render_cell(
     packed_cell: u64,
     output: ?*RenderCell,
@@ -1137,6 +1174,18 @@ test "preflight rejection resets while retaining modal nesting" {
         true,
         noctty_grid_close_modal_end(&coordinator),
     );
+}
+
+test "renderer codepoint encoding rejects surrogates and invalid scalars" {
+    var output: [4]u8 = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8('A', &output, 4));
+    try std.testing.expectEqualSlices(u8, "A", output[0..1]);
+    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_codepoint_utf8(0x1f642, &output, 4));
+    try std.testing.expectEqualSlices(u8, "🙂", output[0..4]);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8(0xd800, &output, 4));
+    try std.testing.expectEqual(@as(u8, '?'), output[0]);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8(0x110000, &output, 4));
+    try std.testing.expectEqual(@as(u8, '?'), output[0]);
 }
 
 test "renderer cell decoding keeps inverse and style policy coherent" {
