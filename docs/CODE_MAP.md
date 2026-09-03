@@ -36,10 +36,12 @@ zig build run-nocted -- --project . --open README.md
   shrinking C boundary that owns the production grid window/dropdown GTK
   lifetimes, callback dispatch, Pango glyph caches, and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
-  precedence, scrollbar geometry, wheel accumulation, keyboard scroll targets,
-  grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
-  linear selection hit testing, pixel-snapped spans, packed-cell/run decoding,
-  UTF-8 encoding, clipping, pane chrome, and caret policy consumed through
+  precedence, scrollbar geometry, wheel accumulation and fallback keys,
+  keyboard scroll targets, hyperlink validation, command-palette fuzzy
+  matching, dropdown dimension clamping, sharing-status actions, grid
+  sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping, linear
+  selection hit testing, pixel-snapped spans, packed-cell/run decoding, UTF-8
+  encoding, clipping, pane chrome, and caret policy consumed through
   `include/noctty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and

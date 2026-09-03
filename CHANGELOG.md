@@ -7,6 +7,14 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Fixed pane zoom inside nested split trees: double-click now hides every
   sibling branch up to the page root, giving lower panes the full available
   width and height, then restores all branches without changing split ratios.
+  Smart Tab filtering now uses the same empty-branch collapse and is reapplied
+  after split, move, close, and preset rebuild operations. Tab creation, split,
+  move, close, and preset mutations restore zoom first, keeping GTK visibility
+  synchronized with the Zig workspace model.
+- Moved hyperlink validation, command-palette fuzzy matching, dropdown size
+  clamping, and sharing-status action policy from GTK C into tested Zig. Failed
+  alternate-screen key or mouse-wheel delivery now produces visible feedback
+  rather than becoming a silent no-op.
 
 - Added configurable inactive-pane brightness, disabled/transparent/theme-colored
   pane gaps, monitor-resolution adaptation in every presentation mode, safe

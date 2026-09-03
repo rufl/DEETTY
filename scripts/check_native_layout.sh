@@ -152,8 +152,10 @@ grep -F '"Noctalia import variant");' "$grid" >/dev/null
 grep -F 'setAccessibleName(peers, "Paired device");' "$native_gtk" >/dev/null
 grep -F 'atk_object_set_name(status_accessible, "Session sharing status");' "$native_gtk" >/dev/null
 grep -F '@max(1, @min(480, width - 64))' "$native_gtk" >/dev/null
-grep -F 'sharing_status_can_clear_host(205)' tests/native_grid_sharing_scope_smoke.inc >/dev/null
-grep -F 'sharing_status_can_clear_viewer(306)' tests/native_grid_sharing_scope_smoke.inc >/dev/null
+grep -F 'pub export fn noctty_grid_sharing_status_actions(' "$grid_logic" >/dev/null
+grep -F 'NOCTTY_GRID_SHARING_CLEAR_HOST' tests/native_grid_sharing_scope_smoke.inc >/dev/null
+grep -F 'NOCTTY_GRID_SHARING_CLEAR_VIEWER' tests/native_grid_sharing_scope_smoke.inc >/dev/null
+! grep -F 'static gboolean sharing_status_can_clear_' "$grid" >/dev/null
 grep -F '"Close sharing session"' "$grid" >/dev/null
 grep -F '"Close remote session"' "$grid" >/dev/null
 grep -F '.{ .label = "Retry saving devices", .action = 18 },' "$native_gtk" >/dev/null

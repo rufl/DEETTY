@@ -112,8 +112,21 @@ void noctty_grid_wheel_action_plan(
     NocttyGridWheelActionPlan *plan);
 int noctty_grid_wheel_key_sequence(int application_cursor, int steps,
                                    uint8_t *output, uint32_t capacity);
+int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
+int noctty_grid_fuzzy_match_ascii(const uint8_t *haystack,
+                                  uint32_t haystack_length,
+                                  const uint8_t *needle,
+                                  uint32_t needle_length);
+int noctty_grid_dropdown_dimension(int stored_px, int percent,
+                                   int available_px, int minimum_px);
 
-
+enum {
+    NOCTTY_GRID_SHARING_ALLOW_PAIRING = 1u << 0,
+    NOCTTY_GRID_SHARING_ALLOW_SESSION = 1u << 1,
+    NOCTTY_GRID_SHARING_CLEAR_HOST = 1u << 2,
+    NOCTTY_GRID_SHARING_CLEAR_VIEWER = 1u << 3,
+};
+uint32_t noctty_grid_sharing_status_actions(int status);
 
 int noctty_grid_scrollbar_geometry(
     int allocation_width, int allocation_height, double scrollbar_width,

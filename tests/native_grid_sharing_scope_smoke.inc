@@ -67,16 +67,26 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
         preview_request_width > 0 && preview_request_width <= 480 &&
         preview_request_height > 0 && preview_request_height <= 260;
     gboolean recovery_policy =
-        sharing_status_can_clear_host(205) &&
-        sharing_status_can_clear_host(206) &&
-        sharing_status_can_clear_viewer(305) &&
-        sharing_status_can_clear_viewer(306) &&
-        sharing_status_allows_pairing(104) &&
-        sharing_status_allows_pairing(105) &&
-        !sharing_status_allows_pairing(201) &&
-        sharing_status_allows_session_start(106) &&
-        sharing_status_allows_session_start(107) &&
-        !sharing_status_allows_session_start(205) &&
+        (noctty_grid_sharing_status_actions(205) &
+         NOCTTY_GRID_SHARING_CLEAR_HOST) != 0 &&
+        (noctty_grid_sharing_status_actions(206) &
+         NOCTTY_GRID_SHARING_CLEAR_HOST) != 0 &&
+        (noctty_grid_sharing_status_actions(305) &
+         NOCTTY_GRID_SHARING_CLEAR_VIEWER) != 0 &&
+        (noctty_grid_sharing_status_actions(306) &
+         NOCTTY_GRID_SHARING_CLEAR_VIEWER) != 0 &&
+        (noctty_grid_sharing_status_actions(104) &
+         NOCTTY_GRID_SHARING_ALLOW_PAIRING) != 0 &&
+        (noctty_grid_sharing_status_actions(105) &
+         NOCTTY_GRID_SHARING_ALLOW_PAIRING) != 0 &&
+        (noctty_grid_sharing_status_actions(201) &
+         NOCTTY_GRID_SHARING_ALLOW_PAIRING) == 0 &&
+        (noctty_grid_sharing_status_actions(106) &
+         NOCTTY_GRID_SHARING_ALLOW_SESSION) != 0 &&
+        (noctty_grid_sharing_status_actions(107) &
+         NOCTTY_GRID_SHARING_ALLOW_SESSION) != 0 &&
+        (noctty_grid_sharing_status_actions(205) &
+         NOCTTY_GRID_SHARING_ALLOW_SESSION) == 0 &&
         stop != NULL && stop_receive != NULL && retry_save != NULL &&
         gtk_widget_get_sensitive(stop_receive) &&
         !gtk_widget_get_sensitive(share_pane) &&

@@ -296,6 +296,82 @@ pub export fn noctty_grid_wheel_key_sequence(
     return @intCast(length);
 }
 
+pub export fn noctty_grid_hyperlink_valid(
+    uri_pointer: ?[*]const u8,
+    length: u32,
+) callconv(.c) c_int {
+    const pointer = uri_pointer orelse return 0;
+    if (length == 0 or length > 2048) return 0;
+    const uri = pointer[0..length];
+    if (!std.unicode.utf8ValidateSlice(uri)) return 0;
+    for (uri) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return 0;
+    }
+    const separator = std.mem.indexOfScalar(u8, uri, ':') orelse return 0;
+    const scheme = uri[0..separator];
+    const allowed = std.ascii.eqlIgnoreCase(scheme, "http") or
+        std.ascii.eqlIgnoreCase(scheme, "https") or
+        std.ascii.eqlIgnoreCase(scheme, "mailto");
+    return @intFromBool(allowed);
+}
+
+pub export fn noctty_grid_fuzzy_match_ascii(
+    haystack_pointer: ?[*]const u8,
+    haystack_length: u32,
+    needle_pointer: ?[*]const u8,
+    needle_length: u32,
+) callconv(.c) c_int {
+    if (needle_length == 0) return 1;
+    const haystack = (haystack_pointer orelse return 0)[0..haystack_length];
+    const needle = (needle_pointer orelse return 0)[0..needle_length];
+    var cursor: usize = 0;
+    for (haystack) |byte| {
+        if (std.ascii.toLower(byte) == std.ascii.toLower(needle[cursor]))
+            cursor += 1;
+        if (cursor == needle.len) return 1;
+    }
+    return 0;
+}
+
+pub export fn noctty_grid_dropdown_dimension(
+    stored_px: c_int,
+    percent: c_int,
+    available_px: c_int,
+    minimum_px: c_int,
+) callconv(.c) c_int {
+    if (available_px <= 0) return 0;
+    const lower_bound = std.math.clamp(minimum_px, 0, available_px);
+    const bounded_percent = std.math.clamp(percent, 0, 100);
+    const requested: i64 = if (stored_px >= lower_bound)
+        stored_px
+    else
+        @divFloor(
+            @as(i64, available_px) * @as(i64, bounded_percent),
+            100,
+        );
+    return @intCast(std.math.clamp(
+        requested,
+        @as(i64, lower_bound),
+        @as(i64, available_px),
+    ));
+}
+
+pub const sharing_allow_pairing: u32 = 1 << 0;
+pub const sharing_allow_session: u32 = 1 << 1;
+pub const sharing_clear_host: u32 = 1 << 2;
+pub const sharing_clear_viewer: u32 = 1 << 3;
+
+pub export fn noctty_grid_sharing_status_actions(status: c_int) callconv(.c) u32 {
+    var actions: u32 = 0;
+    if (status == 0 or status == 104 or status == 105 or status == 401)
+        actions |= sharing_allow_pairing;
+    if (status == 0 or status == 106 or status == 107 or status == 401)
+        actions |= sharing_allow_session;
+    if (status >= 201 and status <= 206) actions |= sharing_clear_host;
+    if (status >= 301 and status <= 306) actions |= sharing_clear_viewer;
+    return actions;
+}
+
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -1278,6 +1354,94 @@ test "alternate-screen wheel keys honor direction cursor mode and bounds" {
         @as(c_int, 192),
         noctty_grid_wheel_key_sequence(0, std.math.maxInt(c_int), &output, output.len),
     );
+}
+
+test "hyperlink validation accepts safe browser schemes and rejects controls" {
+    const accepted = [_][]const u8{
+        "https://example.com/docs",
+        "HTTP://example.com",
+        "mailto:user@example.com",
+    };
+    for (accepted) |uri| {
+        try std.testing.expectEqual(
+            @as(c_int, 1),
+            noctty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
+        );
+    }
+    const rejected = [_][]const u8{
+        "",
+        "javascript:alert(1)",
+        "https\x00://example.com",
+        "https://example.com\nnext",
+        "\xffhttps://example.com",
+    };
+    for (rejected) |uri| {
+        try std.testing.expectEqual(
+            @as(c_int, 0),
+            noctty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
+        );
+    }
+    var oversized = [_]u8{'a'} ** 2049;
+    oversized[4] = ':';
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_hyperlink_valid(&oversized, oversized.len),
+    );
+}
+
+test "ASCII fuzzy matching preserves ordered case-insensitive subsequences" {
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "ot".ptr, 2),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_fuzzy_match_ascii("anything".ptr, 8, null, 0),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "tmx".ptr, 3),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_fuzzy_match_ascii(null, 0, "x".ptr, 1),
+    );
+}
+
+test "dropdown dimensions reject invalid space and clamp every input" {
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_dropdown_dimension(0, 50, 0, 480));
+    try std.testing.expectEqual(@as(c_int, 480), noctty_grid_dropdown_dimension(0, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 720), noctty_grid_dropdown_dimension(720, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 900), noctty_grid_dropdown_dimension(1200, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 400), noctty_grid_dropdown_dimension(0, 200, 400, 480));
+}
+
+test "sharing status actions cover only explicit protocol states" {
+    try std.testing.expectEqual(
+        sharing_allow_pairing | sharing_allow_session,
+        noctty_grid_sharing_status_actions(0),
+    );
+    try std.testing.expectEqual(
+        sharing_allow_pairing,
+        noctty_grid_sharing_status_actions(104),
+    );
+    try std.testing.expectEqual(
+        sharing_allow_session,
+        noctty_grid_sharing_status_actions(107),
+    );
+    try std.testing.expectEqual(
+        sharing_clear_host,
+        noctty_grid_sharing_status_actions(201),
+    );
+    try std.testing.expectEqual(
+        sharing_clear_viewer,
+        noctty_grid_sharing_status_actions(306),
+    );
+    for ([_]c_int{ -1, 1, 103, 108, 200, 207, 300, 307, 402 }) |status|
+        try std.testing.expectEqual(
+            @as(u32, 0),
+            noctty_grid_sharing_status_actions(status),
+        );
 }
 
 test "input routing handles scrollbar overrides and invalid boundaries" {
