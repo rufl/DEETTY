@@ -191,6 +191,29 @@ fn setColor(cr: *Cairo, palette: Palette, role: u32, fallback: u32, alpha: f64) 
     );
 }
 
+fn setTerminalColor(
+    cr: *Cairo,
+    palette: TerminalPalette,
+    index: u32,
+    alpha: f64,
+) void {
+    const rgb = if (palette.resolve) |resolver|
+        resolver(palette.userdata, index)
+    else
+        std.math.maxInt(u32);
+    if (rgb == std.math.maxInt(u32)) {
+        cairo_set_source_rgba(cr, 0.84, 0.87, 0.91, alpha);
+        return;
+    }
+    cairo_set_source_rgba(
+        cr,
+        @as(f64, @floatFromInt((rgb >> 16) & 0xff)) / 255,
+        @as(f64, @floatFromInt((rgb >> 8) & 0xff)) / 255,
+        @as(f64, @floatFromInt(rgb & 0xff)) / 255,
+        alpha,
+    );
+}
+
 fn roundedRectangle(cr: *Cairo, x: f64, y: f64, width: f64, height: f64, radius: f64) void {
     const right = x + width;
     const bottom = y + height;
