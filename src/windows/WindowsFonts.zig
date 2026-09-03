@@ -1,4 +1,4 @@
-//! DPI-aware GDI terminal-font creation behind the native host ABI.
+//! DPI-aware GDI terminal-font ownership for the native Zig host.
 
 const std = @import("std");
 

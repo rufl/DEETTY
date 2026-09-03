@@ -1,0 +1,142 @@
+//! Shared callback and Win32 handle types for the native host and renderer.
+//!
+//! These declarations are Zig-owned because no C translation unit consumes
+//! them. Keeping one Windows header import also prevents pseudo-handle types
+//! from diverging across independently translated declarations.
+
+pub const c = @cImport({
+    @cDefine("UNICODE", "1");
+    @cDefine("_UNICODE", "1");
+    @cDefine("WIN32_LEAN_AND_MEAN", "1");
+    @cDefine("NOMINMAX", "1");
+    @cDefine("_FORTIFY_SOURCE", "0");
+    @cInclude("windows.h");
+});
+
+const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
+const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
+const TakeReply = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
+const TakeRemote = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
+const Cell = *const fn (?*anyopaque, c_int, c_int) callconv(.c) u64;
+const CellText = *const fn (?*anyopaque, c_int, c_int, [*]u8, usize) callconv(.c) c_int;
+const ColorRgb = *const fn (?*anyopaque, u32) callconv(.c) u32;
+const Cursor = *const fn (?*anyopaque) callconv(.c) u32;
+const Title = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
+const Resize = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+const Scroll = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+const CursorMode = *const fn (?*anyopaque) callconv(.c) c_int;
+const Unary = *const fn (?*anyopaque) callconv(.c) c_int;
+const PaneLayout = *const fn (
+    ?*anyopaque,
+    c_int,
+    *u32,
+    *u32,
+    *u32,
+    *u32,
+    *c_int,
+    *c_int,
+) callconv(.c) c_int;
+const PaneDimensions = *const fn (?*anyopaque, c_int, *u16, *u16) callconv(.c) c_int;
+const PaneCell = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) u64;
+const PaneCellText = *const fn (
+    ?*anyopaque,
+    c_int,
+    c_int,
+    c_int,
+    [*]u8,
+    usize,
+) callconv(.c) c_int;
+const PaneColorRgb = *const fn (?*anyopaque, c_int, u32) callconv(.c) u32;
+const PaneCursor = *const fn (?*anyopaque, c_int) callconv(.c) u32;
+const PaneSelect = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+const PaneFeed = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
+const PaneTakeReply = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
+const PaneResize = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) c_int;
+const WorkspaceAction = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) c_int;
+const WorkspaceClose = *const fn (?*anyopaque, c_int) callconv(.c) u32;
+const PreferenceGet = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+const PreferenceSet = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+const WorkspacePersistence = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) c_int;
+const PaneMouseMode = *const fn (?*anyopaque, c_int) callconv(.c) u32;
+const PaneMouseEncode = *const fn (
+    ?*anyopaque,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    [*]u8,
+    usize,
+) callconv(.c) c_int;
+const PaneCopy = *const fn (
+    ?*anyopaque,
+    c_int,
+    [*]u8,
+    usize,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+) callconv(.c) c_int;
+
+pub const Callbacks = extern struct {
+    userdata: ?*anyopaque,
+    feed: Feed,
+    write: Write,
+    take_reply: TakeReply,
+    take_remote: TakeRemote,
+    cell: Cell,
+    cell_text: CellText,
+    color_rgb: ColorRgb,
+    cursor: Cursor,
+    title: Title,
+    resize: Resize,
+    scroll: Scroll,
+    cursor_mode: CursorMode,
+    smoke_ready: Unary,
+    start: Unary,
+    stop: Unary,
+    next_stream: Unary,
+    next_tab: Unary,
+    pane_count: Unary,
+    pane_layout: PaneLayout,
+    pane_dimensions: PaneDimensions,
+    pane_cell: PaneCell,
+    pane_cell_text: PaneCellText,
+    pane_color_rgb: PaneColorRgb,
+    pane_cursor: PaneCursor,
+    pane_select: PaneSelect,
+    pane_feed: PaneFeed,
+    pane_take_reply: PaneTakeReply,
+    pane_resize: PaneResize,
+    workspace_action: WorkspaceAction,
+    active_pane: Unary,
+    workspace_close: WorkspaceClose,
+    remote_pane: Unary,
+    preference_get: PreferenceGet,
+    preference_set: PreferenceSet,
+    workspace_persistence: WorkspacePersistence,
+    pane_mouse_mode: PaneMouseMode,
+    pane_mouse_encode: PaneMouseEncode,
+    pane_copy: PaneCopy,
+};
+
+pub const RenderState = extern struct {
+    window: c.HWND,
+    callbacks: *const Callbacks,
+    font_normal: c.HFONT,
+    font_bold: c.HFONT,
+    cell_width: c_int,
+    cell_height: c_int,
+    columns: c_int,
+    rows: c_int,
+    foreground: u32,
+    background: u32,
+    selection_active: c_int,
+    selection_pane: c_int,
+    selection_anchor_column: c_int,
+    selection_anchor_row: c_int,
+    selection_extent_column: c_int,
+    selection_extent_row: c_int,
+};

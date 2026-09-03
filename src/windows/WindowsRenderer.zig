@@ -4,15 +4,10 @@
 //! object acquired during a paint and releases it before EndPaint.
 
 const std = @import("std");
+const Abi = @import("WindowsHostAbi.zig");
 const Logic = @import("WindowsHostLogic.zig");
 
-const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("native_host.h");
-});
+const c = Abi.c;
 
 const color_default: u32 = 0x0fff;
 const color_invalid: u32 = 0xffffffff;
@@ -23,10 +18,10 @@ const style_strikethrough: u32 = 16;
 const style_faint: u32 = 32;
 const style_wide_continuation: u32 = 128;
 
-const State = c.NocttyWindowsRenderState;
+pub const State = Abi.RenderState;
 
-fn callbacks(state: *const State) *const c.NocttyWindowsCallbacks {
-    return @ptrCast(state.callbacks);
+fn callbacks(state: *const State) *const Abi.Callbacks {
+    return state.callbacks;
 }
 
 const Pane = struct {
@@ -61,7 +56,7 @@ pub export fn noctty_windows_theme_colors(
 pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) void {
     const render = state orelse return;
     const counter = paint_count orelse return;
-    if (render.window == null or render.callbacks == null) return;
+    if (render.window == null) return;
     if (callbacks(render).userdata == null) return;
     var paint: c.PAINTSTRUCT = undefined;
     const target = c.BeginPaint(render.window, &paint) orelse return;
@@ -86,7 +81,7 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     defer _ = c.DeleteObject(background);
     _ = c.FillRect(buffer_device, &client, background);
 
-    const pane_count = callbacks(render).pane_count.?(callbacks(render).userdata);
+    const pane_count = callbacks(render).pane_count(callbacks(render).userdata);
     if (pane_count > 0) {
         var pane_index: c_int = 0;
         while (pane_index < pane_count) : (pane_index += 1) {
@@ -130,7 +125,7 @@ fn drawLegacyGrid(state: *const State, device: c.HDC) void {
             );
         }
     }
-    const cursor = callbacks(state).cursor.?(callbacks(state).userdata);
+    const cursor = callbacks(state).cursor(callbacks(state).userdata);
     if (cursor == color_invalid or c.GetFocus() != state.window) return;
     const column: c_int = @intCast(cursor & 0xffff);
     const row_index: c_int = @intCast(cursor >> 16);
@@ -168,7 +163,7 @@ fn drawPane(state: *const State, device: c.HDC, client: c.RECT, pane_index: c_in
         }
     }
     if (pane.host_active) {
-        const cursor = callbacks(state).pane_cursor.?(callbacks(state).userdata, pane_index);
+        const cursor = callbacks(state).pane_cursor(callbacks(state).userdata, pane_index);
         if (cursor != color_invalid) {
             const column: c_int = @intCast(cursor & 0xffff);
             const row_index: c_int = @intCast(cursor >> 16);
@@ -199,7 +194,7 @@ fn paneGeometry(state: *const State, client: c.RECT, pane_index: c_int) ?Pane {
     var height: u32 = 0;
     var selected: c_int = 0;
     var host_active: c_int = 0;
-    if (callbacks(state).pane_layout.?(
+    if (callbacks(state).pane_layout(
         callbacks(state).userdata,
         pane_index,
         &x,
@@ -224,7 +219,7 @@ fn paneGeometry(state: *const State, client: c.RECT, pane_index: c_int) ?Pane {
     ) == 0) return null;
     var columns: u16 = 0;
     var rows: u16 = 0;
-    if (callbacks(state).pane_dimensions.?(
+    if (callbacks(state).pane_dimensions(
         callbacks(state).userdata,
         pane_index,
         &columns,
@@ -264,9 +259,9 @@ fn drawCell(
     row: c_int,
 ) void {
     const cell_value = if (pane_index >= 0)
-        callbacks(state).pane_cell.?(callbacks(state).userdata, pane_index, column, row)
+        callbacks(state).pane_cell(callbacks(state).userdata, pane_index, column, row)
     else
-        callbacks(state).cell.?(callbacks(state).userdata, column, row);
+        callbacks(state).cell(callbacks(state).userdata, column, row);
     const style: u32 = @truncate(cell_value >> 32);
     var foreground = terminalColor(state, pane_index, (style >> 8) & 0x0fff, state.foreground);
     var background = terminalColor(state, pane_index, (style >> 20) & 0x0fff, state.background);
@@ -307,7 +302,7 @@ fn drawCell(
     }
     var text_utf8: [128]u8 = undefined;
     const text_length = if (pane_index >= 0)
-        callbacks(state).pane_cell_text.?(
+        callbacks(state).pane_cell_text(
             callbacks(state).userdata,
             pane_index,
             column,
@@ -316,7 +311,7 @@ fn drawCell(
             text_utf8.len,
         )
     else
-        callbacks(state).cell_text.?(
+        callbacks(state).cell_text(
             callbacks(state).userdata,
             column,
             row,
@@ -378,18 +373,18 @@ fn drawCell(
 
 fn nextCellIsContinuation(state: *const State, pane_index: c_int, column: c_int, row: c_int) bool {
     const cell_value = if (pane_index >= 0)
-        callbacks(state).pane_cell.?(callbacks(state).userdata, pane_index, column + 1, row)
+        callbacks(state).pane_cell(callbacks(state).userdata, pane_index, column + 1, row)
     else
-        callbacks(state).cell.?(callbacks(state).userdata, column + 1, row);
+        callbacks(state).cell(callbacks(state).userdata, column + 1, row);
     return (@as(u32, @truncate(cell_value >> 32)) & style_wide_continuation) != 0;
 }
 
 fn terminalColor(state: *const State, pane_index: c_int, color: u32, fallback: u32) u32 {
     if (color == color_default) return fallback;
     const value = if (pane_index >= 0)
-        callbacks(state).pane_color_rgb.?(callbacks(state).userdata, pane_index, color)
+        callbacks(state).pane_color_rgb(callbacks(state).userdata, pane_index, color)
     else
-        callbacks(state).color_rgb.?(callbacks(state).userdata, color);
+        callbacks(state).color_rgb(callbacks(state).userdata, color);
     return if (value == color_invalid) fallback else value;
 }
 

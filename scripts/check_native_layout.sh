@@ -24,7 +24,7 @@ nocted_endurance=scripts/nocted_native_endurance_qualification.sh
 auth_agent=scripts/native_grid_authenticated_agent_qualification.sh
 installed_continuity=scripts/native_grid_installed_continuity_qualification.sh
 stability=scripts/native_grid_stability_qualification.sh
-windows_host=src/windows/native_host.c
+windows_host=src/windows/WindowsHost.zig
 windows_logic=src/windows/WindowsHostLogic.zig
 windows_diagnostics=src/windows/WindowsDiagnostics.zig
 windows_pty=src/windows/WindowsPty.zig
@@ -47,7 +47,7 @@ for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_heade
   test -s "$path"
 done
 
-test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 2
+test "$(find src -type f -name '*.c' | wc -l | tr -d ' ')" -eq 1
 test "$(find src -type f -name '*.c' ! -path "$grid" ! -path "$windows_host" | wc -l | tr -d ' ')" -eq 0
 test ! -e src/editor
 test ! -e src/windows/nocted_host.c
@@ -71,6 +71,8 @@ grep -F 'pub export fn noctty_grid_dimensions(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_resize_delta(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_clamp_resize(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_pointer_cell(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_input_route(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
 grep -F 'const NativeGridAbi = noctty.gui.NativeGridAbi;' "$main" >/dev/null
@@ -211,6 +213,9 @@ grep -F 'telemetry=false uploads=false' "$windows_host" >/dev/null
 grep -F 'pub export fn noctty_windows_compute_pane_geometry(' "$windows_logic" >/dev/null
 grep -F 'pub export fn noctty_windows_pointer_cell(' "$windows_logic" >/dev/null
 grep -F 'pub export fn noctty_windows_special_key_sequence(' "$windows_logic" >/dev/null
+grep -F 'pub export fn noctty_windows_mouse_route(' "$windows_logic" >/dev/null
+grep -F 'pub export fn noctty_windows_mouse_transition(' "$windows_logic" >/dev/null
+grep -F 'noctty_windows_mouse_transition(' "$windows_host" >/dev/null
 grep -F 'noctty_windows_compute_pane_geometry(' "$windows_host" >/dev/null
 grep -F 'pub export fn noctty_windows_diagnostics_init()' "$windows_diagnostics" >/dev/null
 grep -F 'pub export fn noctty_windows_diagnostics_deinit()' "$windows_diagnostics" >/dev/null
@@ -270,4 +275,4 @@ grep -F '"-Wconversion"' build.zig >/dev/null
 grep -F '"-Wshadow"' build.zig >/dev/null
 grep -F '"-Werror"' build.zig >/dev/null
 
-echo 'native_layout gtk_host_c=true windows_host_c=true windows_nocted_zig=true windows_conpty=true windows_conpty_zig=true windows_clipboard_zig=true windows_process_zig=true windows_menu_zig=true windows_fonts_zig=true windows_renderer_zig=true windows_title_zig=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_logic_zig=true native_grid_abi=true'
+echo 'native_layout gtk_host_c=true windows_host_zig=true windows_nocted_zig=true windows_conpty=true windows_conpty_zig=true windows_clipboard_zig=true windows_process_zig=true windows_menu_zig=true windows_fonts_zig=true windows_renderer_zig=true windows_title_zig=true windows_local_dumps=true windows_untitled_transaction=true zig_state=true named_launch_options=true abi_v6=true length_delimited_paste=true enter_carriage_return=true yakuake_resize_chrome=true terminal_text_cursor=true no_diagonal_cursors=true application_icon=true dialogs_above_terminal=true settings_geometry_bounded=true transient_resize_suppressed=true session_focus_deferred=true deferred_focus_owned=true live_window_mode_switch=true layer_keyboard_on_demand=true staged_layer_unmap=true settings_zig=true settings_accessible=true transient_accessible=true save_errors_visible=true packed_rows=true dirty_spans=true frame_clock=true pty_event_source=true mapped_full_stack=true mapped_stability=true native_renderer=true native_renderer_default=true native_host_override=true native_grid=true native_grid_workspace=true native_grid_clipboard=true native_grid_notification=true native_grid_noctalia_ipc=true native_grid_shortcut=true native_grid_tab_rename=true native_grid_theme=true native_grid_project=true native_grid_maintenance=true native_grid_hot_session=true native_grid_profile_preset=true native_grid_launch_profile=true native_grid_command_palette=true native_grid_tab_color=true native_grid_settings_stacking=true native_grid_note_overlay=true native_grid_tab_navigation=true native_grid_terminal_chords=true native_grid_wayland=true native_grid_x11=true native_grid_sharing_scope=true native_grid_sharing_recovery=true native_grid_pane_scrollbar=true native_grid_reorder=true native_grid_layout=true native_grid_layout_qualification=true native_grid_installed_continuity=true native_grid_authenticated_agent=true native_grid_oom=true native_grid_fairness=true native_grid_network=true native_grid_failure_injection=true native_grid_portability=true native_grid_release=true native_grid_differential=true native_grid_pane_identity=true native_grid_project_actions=true native_grid_launch_profile_gui=true native_grid_command_palette_rename=true native_grid_shortcut_menu=true native_grid_visual_profile=true native_grid_emoji=true native_grid_process_tree=true native_grid_single_instance=true native_grid_state_recovery=true native_grid_recovery_notice=true native_grid_workspace_activation=true native_grid_tab_indicator=true native_grid_focus=true native_grid_close_preflight=true native_grid_share=true native_grid_smart_filter=true native_grid_reflow=true native_grid_resize_osd=true native_grid_pane_scrollbar=true native_grid_gtk=true native_grid_logic_zig=true native_grid_abi=true'

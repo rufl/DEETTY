@@ -14,6 +14,8 @@ const NativeGridLogic = @import("gui/NativeGridLogic.zig");
 const VteHost = @import("gui/VteHost.zig");
 
 comptime {
+    _ = NativeGridLogic.noctty_grid_input_route;
+    _ = NativeGridLogic.noctty_grid_wheel_action_plan;
     _ = NativeGridLogic.noctty_grid_scrollbar_geometry;
     _ = NativeGridLogic.noctty_grid_cell_selected;
     _ = NativeGridLogic.noctty_grid_cell_span;
@@ -24,6 +26,11 @@ comptime {
     _ = NativeGridLogic.noctty_grid_resize_delta;
     _ = NativeGridLogic.noctty_grid_clamp_resize;
     _ = NativeGridLogic.noctty_grid_pointer_cell;
+    _ = NativeGridLogic.noctty_grid_close_request;
+    _ = NativeGridLogic.noctty_grid_close_modal_begin;
+    _ = NativeGridLogic.noctty_grid_close_modal_end;
+    _ = NativeGridLogic.noctty_grid_close_source_fired;
+    _ = NativeGridLogic.noctty_grid_close_preflight_result;
     _ = NativeGtk.noctty_pane_info_strip_new;
     _ = NativeGtk.noctty_pane_info_strip_set_enabled;
     _ = NativeGtk.noctty_pane_info_strip_update;

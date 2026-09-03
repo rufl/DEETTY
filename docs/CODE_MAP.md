@@ -36,30 +36,27 @@ zig build run-nocted -- --project . --open README.md
   large C boundary that owns the current production grid window/dropdown UI,
   pane drawing, GTK callbacks, tab chrome, compact controls, settings surfaces,
   and bridge calls into Zig.
-- `src/gui/NativeGridLogic.zig` — tested platform-neutral scrollbar geometry,
-  wheel accumulation, keyboard scroll targets, grid sizing/auto-fit,
-  window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit
-  testing, and pixel-snapped colored-span policy consumed
+- `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
+  precedence, scrollbar geometry, wheel accumulation, keyboard scroll targets,
+  grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
+  linear selection hit testing, and pixel-snapped colored-span policy consumed
   by the shrinking GTK adapter through `native_grid_logic.h`.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
   styling, and settings-page composition behind the narrow `native_gtk.h` ABI.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
-- `src/windows/main.zig`, `src/windows/Dpapi.zig`,
-  `src/windows/WindowsHostLogic.zig`, `src/windows/WindowsPty.zig`,
-  `src/windows/WindowsClipboard.zig`, `src/windows/WindowsProcess.zig`,
-  `src/windows/WindowsMenu.zig`, `src/windows/WindowsFonts.zig`,
-  `src/windows/WindowsTitle.zig`, `src/windows/WindowsRenderer.zig`, and
-  `src/windows/native_host.c` — experimental
-  Windows boundary: shared Zig VT callbacks plus Zig-owned persistence, host
-  policy, ConPTY/process/thread and output-ring lifetimes, Unicode clipboard
-  memory, sibling launch, local logs, native-menu construction/state,
-  DPI-aware fonts/metrics, bounded window titles, the double-buffered GDI
-  renderer, and minidumps. The shrinking C adapter retains timers,
-  input/workspace-session orchestration, command/message dispatch, and its main
-  HWND. No GTK/POSIX host state is
-  compiled into the Windows executable.
+- `src/windows/main.zig`, `src/windows/WindowsHost.zig`,
+  `src/windows/Dpapi.zig`, `src/windows/WindowsHostLogic.zig`,
+  `src/windows/WindowsPty.zig`, `src/windows/WindowsClipboard.zig`,
+  `src/windows/WindowsProcess.zig`, `src/windows/WindowsMenu.zig`,
+  `src/windows/WindowsFonts.zig`, `src/windows/WindowsTitle.zig`, and
+  `src/windows/WindowsRenderer.zig` — experimental Windows boundary. Zig owns
+  the main HWND/message loop, timers, hit testing, focus/capture, input,
+  workspace-session orchestration, shared VT callbacks, persistence, ConPTY,
+  the bounded output ring, clipboard, sibling launch, menus, fonts, titles,
+  GDI rendering, local logs, and minidumps. No GTK, POSIX host state, or
+  first-party C translation unit enters the Windows executable.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
   structures.

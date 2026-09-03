@@ -1,9 +1,8 @@
-//! Experimental Windows executable and Zig side of the Win32 host ABI.
+//! Experimental native Windows executable.
 //!
-//! The shared VT and sharing models remain platform-neutral. Win32 windows,
-//! ConPTY, clipboard, menu, font, title, and GDI rendering belong to focused
-//! Zig adapters. The shrinking C boundary retains HWND/message orchestration;
-//! keep GTK and POSIX-only state out of this build target.
+//! Shared VT and sharing models remain platform-neutral. Win32 windows,
+//! ConPTY, clipboard, menu, font, title, and GDI rendering are composed by
+//! focused Zig adapters; GTK and POSIX-only state stay out of this target.
 
 const std = @import("std");
 const windows = std.os.windows;
@@ -21,8 +20,23 @@ const WindowsFonts = @import("WindowsFonts.zig");
 const WindowsTitle = @import("WindowsTitle.zig");
 const WindowsRenderer = @import("WindowsRenderer.zig");
 const Dpapi = @import("Dpapi.zig");
+const WindowsHost = @import("WindowsHost.zig");
 
 comptime {
+    _ = WindowsHostLogic.noctty_windows_workspace_state_init;
+    _ = WindowsHostLogic.noctty_windows_workspace_local_operation;
+    _ = WindowsHostLogic.noctty_windows_workspace_startup_plan;
+    _ = WindowsHostLogic.noctty_windows_session_start_plan;
+    _ = WindowsHostLogic.noctty_windows_session_started;
+    _ = WindowsHostLogic.noctty_windows_session_start_failed;
+    _ = WindowsHostLogic.noctty_windows_session_is_live;
+    _ = WindowsHostLogic.noctty_windows_workspace_resize_count;
+    _ = WindowsHostLogic.noctty_windows_session_resize_plan;
+    _ = WindowsHostLogic.noctty_windows_workspace_action_result;
+    _ = WindowsHostLogic.noctty_windows_workspace_rollback_matches;
+    _ = WindowsHostLogic.noctty_windows_workspace_close_plan;
+    _ = WindowsHostLogic.noctty_windows_workspace_close_commit;
+    _ = WindowsHostLogic.noctty_windows_workspace_reset;
     _ = WindowsHostLogic.noctty_windows_decode_key_action;
     _ = WindowsHostLogic.noctty_windows_decode_menu_command;
     _ = WindowsHostLogic.noctty_windows_normalize_preferences;
@@ -34,6 +48,8 @@ comptime {
     _ = WindowsHostLogic.noctty_windows_compute_pane_geometry;
     _ = WindowsHostLogic.noctty_windows_pointer_cell;
     _ = WindowsHostLogic.noctty_windows_cell_selected;
+    _ = WindowsHostLogic.noctty_windows_mouse_route;
+    _ = WindowsHostLogic.noctty_windows_mouse_transition;
     _ = WindowsHostLogic.noctty_windows_special_key_sequence;
     _ = WindowsDiagnostics.noctty_windows_diagnostics_init;
     _ = WindowsDiagnostics.noctty_windows_diagnostics_write;
@@ -59,7 +75,6 @@ comptime {
     _ = WindowsRenderer.noctty_windows_render;
 }
 
-const host_abi_version: u32 = 9;
 const columns_initial: usize = 120;
 const rows_initial: usize = 36;
 const max_tabs: usize = 16;
@@ -770,164 +785,6 @@ fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
     return result;
 }
 
-const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
-const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
-const TakeReply = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
-const TakeRemote = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
-const Cell = *const fn (?*anyopaque, c_int, c_int) callconv(.c) u64;
-const CellText = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    [*]u8,
-    usize,
-) callconv(.c) c_int;
-const ColorRgb = *const fn (?*anyopaque, u32) callconv(.c) u32;
-const Cursor = *const fn (?*anyopaque) callconv(.c) u32;
-const Title = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
-const Resize = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
-const Scroll = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
-const CursorMode = *const fn (?*anyopaque) callconv(.c) c_int;
-const SmokeReady = *const fn (?*anyopaque) callconv(.c) c_int;
-const Start = *const fn (?*anyopaque) callconv(.c) c_int;
-const Stop = *const fn (?*anyopaque) callconv(.c) c_int;
-
-const NextStream = *const fn (?*anyopaque) callconv(.c) c_int;
-const NextTab = *const fn (?*anyopaque) callconv(.c) c_int;
-const PaneCount = *const fn (?*anyopaque) callconv(.c) c_int;
-const PaneLayout = *const fn (
-    ?*anyopaque,
-    c_int,
-    *u32,
-    *u32,
-    *u32,
-    *u32,
-    *c_int,
-    *c_int,
-) callconv(.c) c_int;
-const PaneDimensions = *const fn (
-    ?*anyopaque,
-    c_int,
-    *u16,
-    *u16,
-) callconv(.c) c_int;
-const PaneCell = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) u64;
-const PaneCellText = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    c_int,
-    [*]u8,
-    usize,
-) callconv(.c) c_int;
-const PaneColorRgb = *const fn (?*anyopaque, c_int, u32) callconv(.c) u32;
-const PaneCursor = *const fn (?*anyopaque, c_int) callconv(.c) u32;
-const PaneSelect = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
-const PaneFeed = *const fn (
-    ?*anyopaque,
-    c_int,
-    [*]const u8,
-    usize,
-) callconv(.c) c_int;
-const PaneTakeReply = *const fn (
-    ?*anyopaque,
-    c_int,
-    [*]u8,
-    usize,
-) callconv(.c) c_int;
-const PaneResize = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    c_int,
-) callconv(.c) c_int;
-const PaneMouseMode = *const fn (?*anyopaque, c_int) callconv(.c) u32;
-const PaneMouseEncode = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    c_int,
-    c_int,
-    c_int,
-    c_int,
-    [*]u8,
-    usize,
-) callconv(.c) c_int;
-const PaneCopy = *const fn (
-    ?*anyopaque,
-    c_int,
-    [*]u8,
-    usize,
-    c_int,
-    c_int,
-    c_int,
-    c_int,
-) callconv(.c) c_int;
-const WorkspaceAction = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    c_int,
-) callconv(.c) c_int;
-const ActivePane = *const fn (?*anyopaque) callconv(.c) c_int;
-const WorkspaceClose = *const fn (?*anyopaque, c_int) callconv(.c) u32;
-const PreferenceGet = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
-const PreferenceSet = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
-const WorkspacePersistence = *const fn (
-    ?*anyopaque,
-    c_int,
-    c_int,
-    c_int,
-) callconv(.c) c_int;
-const Callbacks = extern struct {
-    abi_version: u32 = host_abi_version,
-    struct_size: u32 = @sizeOf(Callbacks),
-    userdata: ?*anyopaque,
-    feed: Feed,
-    write: Write,
-    take_reply: TakeReply,
-    take_remote: TakeRemote,
-    cell: Cell,
-    cell_text: CellText,
-    color_rgb: ColorRgb,
-    cursor: Cursor,
-    title: Title,
-    resize: Resize,
-    scroll: Scroll,
-    cursor_mode: CursorMode,
-    smoke_ready: SmokeReady,
-    start: Start,
-    stop: Stop,
-    next_stream: NextStream,
-    next_tab: NextTab,
-    pane_count: PaneCount,
-    pane_layout: PaneLayout,
-    pane_dimensions: PaneDimensions,
-    pane_cell: PaneCell,
-    pane_cell_text: PaneCellText,
-    pane_color_rgb: PaneColorRgb,
-    pane_cursor: PaneCursor,
-    pane_select: PaneSelect,
-    pane_feed: PaneFeed,
-    pane_take_reply: PaneTakeReply,
-    pane_resize: PaneResize,
-    workspace_action: WorkspaceAction,
-    active_pane: ActivePane,
-    workspace_close: WorkspaceClose,
-    remote_pane: ActivePane,
-    preference_get: PreferenceGet,
-    preference_set: PreferenceSet,
-    workspace_persistence: WorkspacePersistence,
-    pane_mouse_mode: PaneMouseMode,
-    pane_mouse_encode: PaneMouseEncode,
-    pane_copy: PaneCopy,
-};
-
-extern fn noctty_windows_host_run(
-    instance: windows.HINSTANCE,
-    show_command: c_int,
-    callbacks: *const Callbacks,
-) c_int;
 extern "user32" fn MessageBoxW(
     ?windows.HWND,
     [*:0]const u16,
@@ -1119,7 +976,7 @@ pub export fn wWinMain(
         };
     }
 
-    const callbacks = Callbacks{
+    const callbacks = WindowsHost.Callbacks{
         .userdata = &state,
         .feed = feed,
         .write = localWrite,
@@ -1160,7 +1017,7 @@ pub export fn wWinMain(
         .pane_mouse_encode = paneMouseEncode,
         .pane_copy = paneCopy,
     };
-    return noctty_windows_host_run(instance, show_command, &callbacks);
+    return WindowsHost.run(@ptrCast(@alignCast(instance)), show_command, &callbacks);
 }
 
 fn loadOrCreateIdentity() !Crypto.Identity {

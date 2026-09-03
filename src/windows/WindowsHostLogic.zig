@@ -1,7 +1,7 @@
-//! Pure, tested policy extracted from the Win32/GDI terminal adapter.
+//! Pure, tested policy consumed by the native Zig Win32 host.
 //!
-//! The C host temporarily consumes these exports while HWND, ConPTY, and GDI
-//! ownership migrates independently. No Windows handles cross this boundary.
+//! Workspace/session and mouse transitions stay independent of Windows
+//! handles so the message adapter composes them without recreating decisions.
 
 const std = @import("std");
 
@@ -25,6 +25,235 @@ pub const Preferences = extern struct {
     restore_workspace: c_int,
 };
 
+pub const workspace_max_sessions: c_int = 32;
+pub const workspace_startup_reject: c_int = 0;
+pub const workspace_startup_remote: c_int = 1;
+pub const workspace_startup_local: c_int = 2;
+pub const session_start_reject: c_int = 0;
+pub const session_start_create: c_int = 1;
+pub const session_start_existing: c_int = 2;
+pub const session_failure_shutdown: c_int = 0;
+pub const session_failure_rollback: c_int = 1;
+pub const session_failure_cleanup: c_int = 2;
+pub const workspace_action_none: c_int = 0;
+pub const workspace_action_start: c_int = 1;
+pub const workspace_action_rollback: c_int = 2;
+pub const workspace_close_shutdown: c_int = -1;
+pub const workspace_close_none: c_int = 0;
+pub const workspace_close_cleanup: c_int = 1;
+
+pub const WorkspaceState = extern struct {
+    live_sessions: u32,
+    pending_close: u32,
+};
+
+pub const SessionPlan = extern struct {
+    session_index: c_int,
+    columns: c_int,
+    rows: c_int,
+};
+
+pub export fn noctty_windows_workspace_state_init(
+    state: ?*WorkspaceState,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    current.* = .{ .live_sessions = 0, .pending_close = 0 };
+    return 1;
+}
+
+pub export fn noctty_windows_workspace_local_operation(
+    remote_mode: c_int,
+) callconv(.c) c_int {
+    return @intFromBool(remote_mode == 0);
+}
+
+pub export fn noctty_windows_workspace_startup_plan(
+    state: ?*WorkspaceState,
+    remote_mode: c_int,
+    pane_count: c_int,
+    session_count: ?*c_int,
+) callconv(.c) c_int {
+    const current = state orelse return workspace_startup_reject;
+    const count = session_count orelse return workspace_startup_reject;
+    count.* = 0;
+    if (remote_mode != 0) return workspace_startup_remote;
+    if (current.live_sessions != 0 or current.pending_close != 0 or
+        pane_count <= 0 or pane_count > workspace_max_sessions)
+        return workspace_startup_reject;
+    count.* = pane_count;
+    return workspace_startup_local;
+}
+
+pub export fn noctty_windows_session_start_plan(
+    state: ?*const WorkspaceState,
+    session_index: c_int,
+    dimensions_valid: c_int,
+    columns: u16,
+    rows: u16,
+    output: ?*SessionPlan,
+) callconv(.c) c_int {
+    const current = state orelse return session_start_reject;
+    const plan = output orelse return session_start_reject;
+    plan.* = .{ .session_index = -1, .columns = 0, .rows = 0 };
+    const bit = sessionBit(session_index) orelse return session_start_reject;
+    if (dimensions_valid <= 0 or columns == 0 or rows == 0)
+        return session_start_reject;
+    plan.* = .{
+        .session_index = session_index,
+        .columns = columns,
+        .rows = rows,
+    };
+    if ((current.live_sessions & bit) != 0) return session_start_existing;
+    return session_start_create;
+}
+
+pub export fn noctty_windows_session_started(
+    state: ?*WorkspaceState,
+    session_index: c_int,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const bit = sessionBit(session_index) orelse return 0;
+    if (current.pending_close != 0 or (current.live_sessions & bit) != 0)
+        return 0;
+    current.live_sessions |= bit;
+    return 1;
+}
+
+pub export fn noctty_windows_session_start_failed(
+    state: ?*WorkspaceState,
+    session_index: c_int,
+    startup: c_int,
+    cleanup_mask: ?*u32,
+) callconv(.c) c_int {
+    const current = state orelse return session_failure_shutdown;
+    const cleanup = cleanup_mask orelse return session_failure_shutdown;
+    cleanup.* = 0;
+    const bit = sessionBit(session_index) orelse return session_failure_shutdown;
+    current.live_sessions &= ~bit;
+    if (startup == 0) return session_failure_rollback;
+    cleanup.* = current.live_sessions;
+    current.* = .{ .live_sessions = 0, .pending_close = 0 };
+    return session_failure_cleanup;
+}
+
+pub export fn noctty_windows_session_is_live(
+    state: ?*const WorkspaceState,
+    session_index: c_int,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const bit = sessionBit(session_index) orelse return 0;
+    return @intFromBool((current.live_sessions & bit) != 0);
+}
+
+pub export fn noctty_windows_workspace_resize_count(
+    remote_mode: c_int,
+    pane_count: c_int,
+) callconv(.c) c_int {
+    if (remote_mode != 0 or pane_count <= 0) return 0;
+    return @min(pane_count, workspace_max_sessions);
+}
+
+pub export fn noctty_windows_session_resize_plan(
+    state: ?*const WorkspaceState,
+    session_index: c_int,
+    columns: c_int,
+    rows: c_int,
+    output: ?*SessionPlan,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const plan = output orelse return 0;
+    plan.* = .{ .session_index = -1, .columns = 0, .rows = 0 };
+    const bit = sessionBit(session_index) orelse return 0;
+    if ((current.live_sessions & bit) == 0 or columns < 1 or columns > 1000 or
+        rows < 1 or rows > 500)
+        return 0;
+    plan.* = .{
+        .session_index = session_index,
+        .columns = columns,
+        .rows = rows,
+    };
+    return 1;
+}
+
+pub export fn noctty_windows_workspace_action_result(
+    remote_mode: c_int,
+    callback_result: c_int,
+    session_index: ?*c_int,
+) callconv(.c) c_int {
+    const index = session_index orelse return workspace_action_none;
+    index.* = -1;
+    if (remote_mode != 0 or callback_result <= 0) return workspace_action_none;
+    const candidate = callback_result - 1;
+    if (sessionBit(candidate) == null) return workspace_action_rollback;
+    index.* = candidate;
+    return workspace_action_start;
+}
+
+pub export fn noctty_windows_workspace_rollback_matches(
+    session_index: c_int,
+    committed_mask: u32,
+) callconv(.c) c_int {
+    const bit = sessionBit(session_index) orelse return 0;
+    return @intFromBool(committed_mask == bit);
+}
+
+pub export fn noctty_windows_workspace_close_plan(
+    state: ?*WorkspaceState,
+    remote_mode: c_int,
+    session_count: c_int,
+    query_mask: u32,
+    cleanup_mask: ?*u32,
+) callconv(.c) c_int {
+    const current = state orelse return workspace_close_shutdown;
+    const cleanup = cleanup_mask orelse return workspace_close_shutdown;
+    cleanup.* = 0;
+    if (remote_mode != 0 or query_mask == 0) return workspace_close_none;
+    if (current.pending_close != 0 or
+        !validSessionMask(query_mask, session_count))
+        return workspace_close_shutdown;
+    current.pending_close = query_mask;
+    cleanup.* = query_mask;
+    return workspace_close_cleanup;
+}
+
+pub export fn noctty_windows_workspace_close_commit(
+    state: ?*WorkspaceState,
+    committed_mask: u32,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const expected = current.pending_close;
+    current.pending_close = 0;
+    if (expected == 0 or committed_mask != expected) return 0;
+    current.live_sessions &= ~expected;
+    return 1;
+}
+
+pub export fn noctty_windows_workspace_reset(
+    state: ?*WorkspaceState,
+    cleanup_mask: ?*u32,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const cleanup = cleanup_mask orelse return 0;
+    cleanup.* = current.live_sessions;
+    current.* = .{ .live_sessions = 0, .pending_close = 0 };
+    return 1;
+}
+
+fn sessionBit(session_index: c_int) ?u32 {
+    if (session_index < 0 or session_index >= workspace_max_sessions) return null;
+    return @as(u32, 1) << @intCast(session_index);
+}
+
+fn validSessionMask(mask: u32, session_count: c_int) bool {
+    if (mask == 0 or session_count <= 0 or session_count > workspace_max_sessions)
+        return false;
+    const valid = if (session_count == workspace_max_sessions)
+        std.math.maxInt(u32)
+    else
+        (@as(u32, 1) << @intCast(session_count)) - 1;
+    return (mask & ~valid) == 0;
+}
+
 pub const menu_theme_dark: u32 = 40001;
 pub const menu_theme_high_contrast: u32 = 40002;
 pub const menu_font_11: u32 = 40011;
@@ -42,6 +271,60 @@ pub const MenuAction = extern struct {
     kind: c_int,
     value: c_int,
 };
+
+pub const MouseState = extern struct {
+    selection_active: c_int,
+    selection_dragging: c_int,
+    selection_pane: c_int,
+    selection_anchor_column: c_int,
+    selection_anchor_row: c_int,
+    selection_extent_column: c_int,
+    selection_extent_row: c_int,
+    pressed_buttons: u32,
+    application_capture: c_int,
+    capture_pane: c_int,
+    capture_last_column: c_int,
+    capture_last_row: c_int,
+};
+
+pub const MouseInput = extern struct {
+    kind: c_int,
+    button: c_int,
+    shift: c_int,
+    tracking_mode: u32,
+    cell_valid: c_int,
+    inside_content: c_int,
+    pane: c_int,
+    column: c_int,
+    row: c_int,
+};
+
+pub const MouseDecision = extern struct {
+    capture: c_int,
+    invalidate: c_int,
+    select_pane: c_int,
+    report_buttons: u32,
+    report_kind: c_int,
+    report_pane: c_int,
+    report_column: c_int,
+    report_row: c_int,
+};
+
+pub const mouse_event_press: c_int = 1;
+pub const mouse_event_release: c_int = 2;
+pub const mouse_event_move: c_int = 3;
+pub const mouse_event_cancel: c_int = 4;
+pub const mouse_event_clear_selection: c_int = 5;
+pub const mouse_route_none: c_int = 0;
+pub const mouse_route_hit_test: c_int = 1;
+pub const mouse_route_selection: c_int = 2;
+pub const mouse_route_application: c_int = 3;
+pub const mouse_capture_unchanged: c_int = 0;
+pub const mouse_capture_set: c_int = 1;
+pub const mouse_capture_release: c_int = 2;
+pub const mouse_press: c_int = 0;
+pub const mouse_release: c_int = 1;
+pub const mouse_motion: c_int = 2;
 
 pub const key_action_default: c_int = 0;
 pub const key_action_copy: c_int = 1;
@@ -309,6 +592,215 @@ pub export fn noctty_windows_cell_selected(
         row >= first_row and row <= last_row);
 }
 
+pub export fn noctty_windows_mouse_route(
+    state: ?*const MouseState,
+    event_kind: c_int,
+    button: c_int,
+    pane: ?*c_int,
+) callconv(.c) c_int {
+    const current = state orelse return mouse_route_none;
+    const target = pane orelse return mouse_route_none;
+    target.* = -1;
+    return switch (event_kind) {
+        mouse_event_press => mouse_route_hit_test,
+        mouse_event_move => if (current.selection_dragging != 0) blk: {
+            target.* = current.selection_pane;
+            break :blk mouse_route_selection;
+        } else if (current.application_capture != 0 and current.pressed_buttons != 0) blk: {
+            target.* = current.capture_pane;
+            break :blk mouse_route_application;
+        } else mouse_route_hit_test,
+        mouse_event_release => if (button == 0 and current.selection_dragging != 0) blk: {
+            target.* = current.selection_pane;
+            break :blk mouse_route_selection;
+        } else if (validButton(button) and
+            (current.pressed_buttons & buttonMask(button)) != 0)
+        blk: {
+            target.* = current.capture_pane;
+            break :blk mouse_route_application;
+        } else mouse_route_none,
+        else => mouse_route_none,
+    };
+}
+
+pub export fn noctty_windows_mouse_transition(
+    state: ?*MouseState,
+    input: ?*const MouseInput,
+    decision: ?*MouseDecision,
+) callconv(.c) c_int {
+    const current = state orelse return 0;
+    const event = input orelse return 0;
+    const effect = decision orelse return 0;
+    effect.* = emptyMouseDecision();
+
+    switch (event.kind) {
+        mouse_event_press => mousePress(current, event, effect),
+        mouse_event_release => mouseRelease(current, event, effect),
+        mouse_event_move => mouseMove(current, event, effect),
+        mouse_event_cancel => cancelMouseCapture(current, effect),
+        mouse_event_clear_selection => clearMouseSelection(current, effect),
+        else => return 0,
+    }
+    return 1;
+}
+
+fn emptyMouseDecision() MouseDecision {
+    return .{
+        .capture = mouse_capture_unchanged,
+        .invalidate = 0,
+        .select_pane = 0,
+        .report_buttons = 0,
+        .report_kind = mouse_press,
+        .report_pane = -1,
+        .report_column = 0,
+        .report_row = 0,
+    };
+}
+
+fn validButton(button: c_int) bool {
+    return button >= 0 and button < 3;
+}
+
+fn buttonMask(button: c_int) u32 {
+    return @as(u32, 1) << @intCast(button);
+}
+
+fn setStoredRelease(current: *const MouseState, effect: *MouseDecision) void {
+    if (current.application_capture == 0 or current.pressed_buttons == 0 or
+        current.capture_pane < 0) return;
+    effect.report_buttons = current.pressed_buttons & 0x7;
+    effect.report_kind = mouse_release;
+    effect.report_pane = current.capture_pane;
+    effect.report_column = current.capture_last_column;
+    effect.report_row = current.capture_last_row;
+}
+
+fn resetCaptureState(current: *MouseState) void {
+    current.selection_dragging = 0;
+    current.application_capture = 0;
+    current.pressed_buttons = 0;
+    current.capture_pane = -1;
+}
+
+fn cancelMouseCapture(current: *MouseState, effect: *MouseDecision) void {
+    setStoredRelease(current, effect);
+    resetCaptureState(current);
+    effect.capture = mouse_capture_release;
+}
+
+fn clearMouseSelection(current: *MouseState, effect: *MouseDecision) void {
+    if (current.selection_active == 0 and current.selection_dragging == 0) return;
+    if (current.selection_dragging != 0) effect.capture = mouse_capture_release;
+    current.selection_active = 0;
+    current.selection_dragging = 0;
+    current.selection_pane = -1;
+    effect.invalidate = 1;
+}
+
+fn mousePress(current: *MouseState, event: *const MouseInput, effect: *MouseDecision) void {
+    if (!validButton(event.button) or event.cell_valid == 0) return;
+    effect.invalidate = 1;
+    if (event.inside_content == 0) return;
+
+    if (event.button == 0 and (event.shift != 0 or event.tracking_mode == 0)) {
+        setStoredRelease(current, effect);
+        resetCaptureState(current);
+        current.selection_active = 1;
+        current.selection_dragging = 1;
+        current.selection_pane = event.pane;
+        current.selection_anchor_column = event.column;
+        current.selection_anchor_row = event.row;
+        current.selection_extent_column = event.column;
+        current.selection_extent_row = event.row;
+        current.capture_pane = event.pane;
+        effect.capture = mouse_capture_set;
+        return;
+    }
+    if (event.tracking_mode == 0) return;
+
+    current.pressed_buttons |= buttonMask(event.button);
+    current.application_capture = 1;
+    current.capture_pane = event.pane;
+    current.capture_last_column = event.column;
+    current.capture_last_row = event.row;
+    effect.capture = mouse_capture_set;
+    effect.report_buttons = buttonMask(event.button);
+    effect.report_kind = mouse_press;
+    effect.report_pane = event.pane;
+    effect.report_column = event.column;
+    effect.report_row = event.row;
+}
+
+fn mouseRelease(current: *MouseState, event: *const MouseInput, effect: *MouseDecision) void {
+    if (!validButton(event.button)) return;
+    if (event.button == 0 and current.selection_dragging != 0) {
+        if (event.cell_valid != 0) {
+            current.selection_extent_column = event.column;
+            current.selection_extent_row = event.row;
+        }
+        cancelMouseCapture(current, effect);
+        effect.invalidate = 1;
+        return;
+    }
+
+    const mask = buttonMask(event.button);
+    if ((current.pressed_buttons & mask) != 0 and event.cell_valid != 0) {
+        effect.report_buttons = mask;
+        effect.report_kind = mouse_release;
+        effect.report_pane = event.pane;
+        effect.report_column = event.column;
+        effect.report_row = event.row;
+        current.pressed_buttons &= ~mask;
+    }
+    if (current.pressed_buttons == 0) {
+        resetCaptureState(current);
+        effect.capture = mouse_capture_release;
+    }
+}
+
+fn mouseMove(current: *MouseState, event: *const MouseInput, effect: *MouseDecision) void {
+    if (current.selection_dragging != 0) {
+        if (event.cell_valid != 0 and
+            (event.column != current.selection_extent_column or
+                event.row != current.selection_extent_row))
+        {
+            current.selection_extent_column = event.column;
+            current.selection_extent_row = event.row;
+            effect.invalidate = 1;
+        }
+        return;
+    }
+    if (current.application_capture != 0 and current.pressed_buttons != 0) {
+        if (event.cell_valid == 0 or
+            (event.column == current.capture_last_column and
+                event.row == current.capture_last_row)) return;
+        current.capture_last_column = event.column;
+        current.capture_last_row = event.row;
+        effect.report_buttons = buttonMask(firstPressedButton(current.pressed_buttons));
+        effect.report_kind = mouse_motion;
+        effect.report_pane = event.pane;
+        effect.report_column = event.column;
+        effect.report_row = event.row;
+        return;
+    }
+    if (event.cell_valid != 0 and event.inside_content != 0 and
+        event.tracking_mode == 3)
+    {
+        effect.select_pane = 1;
+        effect.report_buttons = buttonMask(3);
+        effect.report_kind = mouse_motion;
+        effect.report_pane = event.pane;
+        effect.report_column = event.column;
+        effect.report_row = event.row;
+    }
+}
+
+fn firstPressedButton(mask: u32) c_int {
+    if ((mask & 1) != 0) return 0;
+    if ((mask & 2) != 0) return 1;
+    return 2;
+}
+
 pub export fn noctty_windows_special_key_sequence(
     key: usize,
     application_cursor: c_int,
@@ -529,4 +1021,551 @@ test "selection and special keys preserve Win32 host policy" {
     var bytes: [16]u8 = undefined;
     const count = noctty_windows_special_key_sequence(0x26, 1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1bOA", bytes[0..count]);
+}
+
+fn testMouseState() MouseState {
+    return .{
+        .selection_active = 0,
+        .selection_dragging = 0,
+        .selection_pane = -1,
+        .selection_anchor_column = 0,
+        .selection_anchor_row = 0,
+        .selection_extent_column = 0,
+        .selection_extent_row = 0,
+        .pressed_buttons = 0,
+        .application_capture = 0,
+        .capture_pane = -1,
+        .capture_last_column = 0,
+        .capture_last_row = 0,
+    };
+}
+
+fn testMouseInput(kind: c_int) MouseInput {
+    return .{
+        .kind = kind,
+        .button = 0,
+        .shift = 0,
+        .tracking_mode = 0,
+        .cell_valid = 1,
+        .inside_content = 1,
+        .pane = 2,
+        .column = 4,
+        .row = 3,
+    };
+}
+
+test "mouse routing follows selection and application capture priority" {
+    var state = testMouseState();
+    var pane: c_int = 99;
+    try std.testing.expectEqual(mouse_route_hit_test, noctty_windows_mouse_route(
+        &state,
+        mouse_event_press,
+        0,
+        &pane,
+    ));
+    try std.testing.expectEqual(@as(c_int, -1), pane);
+    try std.testing.expectEqual(mouse_route_hit_test, noctty_windows_mouse_route(
+        &state,
+        mouse_event_move,
+        0,
+        &pane,
+    ));
+
+    state.selection_dragging = 1;
+    state.selection_pane = 4;
+    try std.testing.expectEqual(mouse_route_selection, noctty_windows_mouse_route(
+        &state,
+        mouse_event_move,
+        0,
+        &pane,
+    ));
+    try std.testing.expectEqual(@as(c_int, 4), pane);
+    try std.testing.expectEqual(mouse_route_selection, noctty_windows_mouse_route(
+        &state,
+        mouse_event_release,
+        0,
+        &pane,
+    ));
+
+    state.selection_dragging = 0;
+    state.application_capture = 1;
+    state.pressed_buttons = 0b110;
+    state.capture_pane = 7;
+    try std.testing.expectEqual(mouse_route_application, noctty_windows_mouse_route(
+        &state,
+        mouse_event_move,
+        0,
+        &pane,
+    ));
+    try std.testing.expectEqual(@as(c_int, 7), pane);
+    try std.testing.expectEqual(mouse_route_application, noctty_windows_mouse_route(
+        &state,
+        mouse_event_release,
+        1,
+        &pane,
+    ));
+    try std.testing.expectEqual(mouse_route_none, noctty_windows_mouse_route(
+        &state,
+        mouse_event_release,
+        0,
+        &pane,
+    ));
+    try std.testing.expectEqual(mouse_route_none, noctty_windows_mouse_route(
+        &state,
+        mouse_event_release,
+        -1,
+        &pane,
+    ));
+}
+
+test "mouse press preserves local selection escape and application priority" {
+    var state = testMouseState();
+    var decision: MouseDecision = undefined;
+    var press = testMouseInput(mouse_event_press);
+
+    press.inside_content = 0;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_mouse_transition(
+        &state,
+        &press,
+        &decision,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), decision.invalidate);
+    try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
+
+    press.inside_content = 1;
+    press.tracking_mode = 2;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_mouse_transition(
+        &state,
+        &press,
+        &decision,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), state.application_capture);
+    try std.testing.expectEqual(@as(u32, 1), state.pressed_buttons);
+    try std.testing.expectEqual(mouse_capture_set, decision.capture);
+    try std.testing.expectEqual(mouse_press, decision.report_kind);
+
+    press.shift = 1;
+    press.column = 6;
+    press.row = 5;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_mouse_transition(
+        &state,
+        &press,
+        &decision,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), state.selection_active);
+    try std.testing.expectEqual(@as(c_int, 1), state.selection_dragging);
+    try std.testing.expectEqual(@as(c_int, 6), state.selection_anchor_column);
+    try std.testing.expectEqual(@as(c_int, 5), state.selection_extent_row);
+    try std.testing.expectEqual(@as(u32, 1), decision.report_buttons);
+    try std.testing.expectEqual(mouse_release, decision.report_kind);
+    try std.testing.expectEqual(mouse_capture_set, decision.capture);
+
+    var clear = testMouseInput(mouse_event_clear_selection);
+    _ = noctty_windows_mouse_transition(&state, &clear, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), state.selection_active);
+    try std.testing.expectEqual(@as(c_int, -1), state.selection_pane);
+    try std.testing.expectEqual(mouse_capture_release, decision.capture);
+
+    press = testMouseInput(mouse_event_press);
+    press.tracking_mode = 0;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    try std.testing.expectEqual(@as(c_int, 1), state.selection_dragging);
+
+    state = testMouseState();
+    press.button = 2;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
+    try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
+}
+
+test "application mouse transitions preserve masks motion and release boundaries" {
+    var state = testMouseState();
+    var decision: MouseDecision = undefined;
+    var press = testMouseInput(mouse_event_press);
+    press.tracking_mode = 1;
+    press.button = 1;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    press.button = 0;
+    press.column = 5;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    try std.testing.expectEqual(@as(u32, 0b11), state.pressed_buttons);
+
+    var move = testMouseInput(mouse_event_move);
+    move.column = 5;
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
+    move.column = -9;
+    move.row = 99;
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(u32, 1), decision.report_buttons);
+    try std.testing.expectEqual(mouse_motion, decision.report_kind);
+    try std.testing.expectEqual(@as(c_int, -9), state.capture_last_column);
+    try std.testing.expectEqual(@as(c_int, 99), state.capture_last_row);
+
+    var release = testMouseInput(mouse_event_release);
+    release.button = 1;
+    _ = noctty_windows_mouse_transition(&state, &release, &decision);
+    try std.testing.expectEqual(@as(u32, 1), state.pressed_buttons);
+    try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
+    try std.testing.expectEqual(@as(u32, 2), decision.report_buttons);
+
+    release.button = 0;
+    release.cell_valid = 0;
+    _ = noctty_windows_mouse_transition(&state, &release, &decision);
+    try std.testing.expectEqual(@as(u32, 1), state.pressed_buttons);
+    try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
+    release.cell_valid = 1;
+    _ = noctty_windows_mouse_transition(&state, &release, &decision);
+    try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
+    try std.testing.expectEqual(@as(c_int, 0), state.application_capture);
+    try std.testing.expectEqual(mouse_capture_release, decision.capture);
+}
+
+test "selection drag and hover motion preserve coordinate transitions" {
+    var state = testMouseState();
+    var decision: MouseDecision = undefined;
+    var press = testMouseInput(mouse_event_press);
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+
+    var move = testMouseInput(mouse_event_move);
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), decision.invalidate);
+    move.column = 0;
+    move.row = 35;
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(c_int, 1), decision.invalidate);
+    try std.testing.expectEqual(@as(c_int, 35), state.selection_extent_row);
+
+    var release = testMouseInput(mouse_event_release);
+    release.column = 119;
+    release.row = 0;
+    _ = noctty_windows_mouse_transition(&state, &release, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), state.selection_dragging);
+    try std.testing.expectEqual(@as(c_int, 1), state.selection_active);
+    try std.testing.expectEqual(@as(c_int, 119), state.selection_extent_column);
+    try std.testing.expectEqual(mouse_capture_release, decision.capture);
+
+    state = testMouseState();
+    move = testMouseInput(mouse_event_move);
+    move.tracking_mode = 2;
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
+    move.tracking_mode = 3;
+    _ = noctty_windows_mouse_transition(&state, &move, &decision);
+    try std.testing.expectEqual(@as(c_int, 1), decision.select_pane);
+    try std.testing.expectEqual(@as(u32, 0b1000), decision.report_buttons);
+    try std.testing.expectEqual(mouse_motion, decision.report_kind);
+}
+
+test "capture cancellation reports every button and clears only drag state" {
+    var state = testMouseState();
+    state.selection_active = 1;
+    state.selection_dragging = 1;
+    state.selection_pane = 2;
+    state.application_capture = 1;
+    state.pressed_buttons = 0b101;
+    state.capture_pane = 3;
+    state.capture_last_column = 8;
+    state.capture_last_row = 9;
+    var decision: MouseDecision = undefined;
+    const cancel = testMouseInput(mouse_event_cancel);
+    _ = noctty_windows_mouse_transition(&state, &cancel, &decision);
+    try std.testing.expectEqual(@as(u32, 0b101), decision.report_buttons);
+    try std.testing.expectEqual(mouse_release, decision.report_kind);
+    try std.testing.expectEqual(@as(c_int, 3), decision.report_pane);
+    try std.testing.expectEqual(@as(c_int, 8), decision.report_column);
+    try std.testing.expectEqual(@as(c_int, 9), decision.report_row);
+    try std.testing.expectEqual(mouse_capture_release, decision.capture);
+    try std.testing.expectEqual(@as(c_int, 1), state.selection_active);
+    try std.testing.expectEqual(@as(c_int, 0), state.selection_dragging);
+    try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
+
+    var clear = testMouseInput(mouse_event_clear_selection);
+    _ = noctty_windows_mouse_transition(&state, &clear, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), state.selection_active);
+    try std.testing.expectEqual(@as(c_int, 1), decision.invalidate);
+    try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
+
+    _ = noctty_windows_mouse_transition(&state, &clear, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), decision.invalidate);
+}
+
+test "workspace session plans exhaustively enforce index and dimension bounds" {
+    var state = WorkspaceState{ .live_sessions = 0, .pending_close = 0 };
+    var plan: SessionPlan = undefined;
+    var index: c_int = -2;
+    while (index <= workspace_max_sessions + 1) : (index += 1) {
+        const expected = if (index >= 0 and index < workspace_max_sessions)
+            session_start_create
+        else
+            session_start_reject;
+        try std.testing.expectEqual(expected, noctty_windows_session_start_plan(
+            &state,
+            index,
+            1,
+            120,
+            36,
+            &plan,
+        ));
+        if (expected == session_start_create) {
+            try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_started(
+                &state,
+                index,
+            ));
+            try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_is_live(
+                &state,
+                index,
+            ));
+            try std.testing.expectEqual(session_start_existing, noctty_windows_session_start_plan(
+                &state,
+                index,
+                1,
+                120,
+                36,
+                &plan,
+            ));
+        } else {
+            try std.testing.expectEqual(@as(c_int, 0), noctty_windows_session_is_live(
+                &state,
+                index,
+            ));
+        }
+    }
+    try std.testing.expectEqual(session_start_reject, noctty_windows_session_start_plan(
+        &state,
+        0,
+        0,
+        120,
+        36,
+        &plan,
+    ));
+    try std.testing.expectEqual(session_start_reject, noctty_windows_session_start_plan(
+        &state,
+        0,
+        1,
+        0,
+        36,
+        &plan,
+    ));
+    try std.testing.expectEqual(session_start_reject, noctty_windows_session_start_plan(
+        &state,
+        0,
+        1,
+        120,
+        0,
+        &plan,
+    ));
+}
+
+test "workspace startup resize and action planning preserve all bounds" {
+    var state = WorkspaceState{ .live_sessions = 0, .pending_close = 0 };
+    var session_count: c_int = -1;
+    var count: c_int = -2;
+    while (count <= workspace_max_sessions + 2) : (count += 1) {
+        const expected = if (count >= 1 and count <= workspace_max_sessions)
+            workspace_startup_local
+        else
+            workspace_startup_reject;
+        try std.testing.expectEqual(expected, noctty_windows_workspace_startup_plan(
+            &state,
+            0,
+            count,
+            &session_count,
+        ));
+        try std.testing.expectEqual(
+            if (expected == workspace_startup_local) count else @as(c_int, 0),
+            session_count,
+        );
+        try std.testing.expectEqual(
+            if (count <= 0) @as(c_int, 0) else @min(count, workspace_max_sessions),
+            noctty_windows_workspace_resize_count(0, count),
+        );
+    }
+    try std.testing.expectEqual(workspace_startup_remote, noctty_windows_workspace_startup_plan(
+        &state,
+        1,
+        100,
+        &session_count,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_workspace_resize_count(1, 32));
+
+    var index: c_int = -1;
+    var result: c_int = 1;
+    while (result <= workspace_max_sessions) : (result += 1) {
+        try std.testing.expectEqual(workspace_action_start, noctty_windows_workspace_action_result(
+            0,
+            result,
+            &index,
+        ));
+        try std.testing.expectEqual(result - 1, index);
+    }
+    try std.testing.expectEqual(workspace_action_none, noctty_windows_workspace_action_result(
+        0,
+        0,
+        &index,
+    ));
+    try std.testing.expectEqual(workspace_action_none, noctty_windows_workspace_action_result(
+        1,
+        1,
+        &index,
+    ));
+    try std.testing.expectEqual(workspace_action_rollback, noctty_windows_workspace_action_result(
+        0,
+        workspace_max_sessions + 1,
+        &index,
+    ));
+    try std.testing.expectEqual(@as(c_int, -1), index);
+
+    state.live_sessions = 1;
+    var resize: SessionPlan = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_resize_plan(
+        &state,
+        0,
+        1000,
+        500,
+        &resize,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_session_resize_plan(
+        &state,
+        0,
+        1001,
+        500,
+        &resize,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_session_resize_plan(
+        &state,
+        workspace_max_sessions,
+        80,
+        24,
+        &resize,
+    ));
+}
+
+test "workspace close masks are exhaustively bounded and commits must match" {
+    var session_count: c_int = 1;
+    while (session_count <= workspace_max_sessions) : (session_count += 1) {
+        var bit_index: c_int = 0;
+        while (bit_index < workspace_max_sessions) : (bit_index += 1) {
+            var state = WorkspaceState{
+                .live_sessions = std.math.maxInt(u32),
+                .pending_close = 0,
+            };
+            const mask = sessionBit(bit_index).?;
+            var cleanup: u32 = 99;
+            const expected = if (bit_index < session_count)
+                workspace_close_cleanup
+            else
+                workspace_close_shutdown;
+            try std.testing.expectEqual(expected, noctty_windows_workspace_close_plan(
+                &state,
+                0,
+                session_count,
+                mask,
+                &cleanup,
+            ));
+            if (expected == workspace_close_cleanup) {
+                try std.testing.expectEqual(mask, cleanup);
+                try std.testing.expectEqual(@as(c_int, 1), noctty_windows_workspace_close_commit(
+                    &state,
+                    mask,
+                ));
+                try std.testing.expectEqual(@as(u32, 0), state.live_sessions & mask);
+            } else {
+                try std.testing.expectEqual(@as(u32, 0), cleanup);
+            }
+        }
+    }
+
+    var state = WorkspaceState{
+        .live_sessions = std.math.maxInt(u32),
+        .pending_close = 0,
+    };
+    var cleanup: u32 = 99;
+    try std.testing.expectEqual(workspace_close_none, noctty_windows_workspace_close_plan(
+        &state,
+        0,
+        workspace_max_sessions,
+        0,
+        &cleanup,
+    ));
+    try std.testing.expectEqual(workspace_close_shutdown, noctty_windows_workspace_close_plan(
+        &state,
+        0,
+        0,
+        1,
+        &cleanup,
+    ));
+    try std.testing.expectEqual(workspace_close_shutdown, noctty_windows_workspace_close_plan(
+        &state,
+        0,
+        workspace_max_sessions + 1,
+        1,
+        &cleanup,
+    ));
+
+    var committed: u32 = 0;
+    while (committed < 16) : (committed += 1) {
+        state = .{ .live_sessions = 0b1111, .pending_close = 0 };
+        try std.testing.expectEqual(workspace_close_cleanup, noctty_windows_workspace_close_plan(
+            &state,
+            0,
+            4,
+            0b0101,
+            &cleanup,
+        ));
+        try std.testing.expectEqual(
+            @as(c_int, @intFromBool(committed == 0b0101)),
+            noctty_windows_workspace_close_commit(&state, committed),
+        );
+        if (committed == 0b0101)
+            try std.testing.expectEqual(@as(u32, 0b1010), state.live_sessions)
+        else
+            try std.testing.expectEqual(@as(u32, 0b1111), state.live_sessions);
+    }
+}
+
+test "partial startup cleanup and action rollback decisions remain atomic" {
+    var state = WorkspaceState{ .live_sessions = 0, .pending_close = 0 };
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_started(&state, 0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_started(&state, 2));
+    var cleanup: u32 = 0;
+    try std.testing.expectEqual(session_failure_cleanup, noctty_windows_session_start_failed(
+        &state,
+        3,
+        1,
+        &cleanup,
+    ));
+    try std.testing.expectEqual(@as(u32, 0b0101), cleanup);
+    try std.testing.expectEqual(@as(u32, 0), state.live_sessions);
+
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_session_started(&state, 7));
+    try std.testing.expectEqual(session_failure_rollback, noctty_windows_session_start_failed(
+        &state,
+        8,
+        0,
+        &cleanup,
+    ));
+    try std.testing.expectEqual(@as(u32, 0), cleanup);
+    try std.testing.expectEqual(sessionBit(7).?, state.live_sessions);
+
+    var index: c_int = 0;
+    while (index < workspace_max_sessions) : (index += 1) {
+        const expected = sessionBit(index).?;
+        try std.testing.expectEqual(@as(c_int, 1), noctty_windows_workspace_rollback_matches(
+            index,
+            expected,
+        ));
+        try std.testing.expectEqual(@as(c_int, 0), noctty_windows_workspace_rollback_matches(
+            index,
+            expected ^ 1,
+        ));
+    }
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_workspace_rollback_matches(
+        -1,
+        0,
+    ));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_workspace_rollback_matches(
+        workspace_max_sessions,
+        0,
+    ));
 }

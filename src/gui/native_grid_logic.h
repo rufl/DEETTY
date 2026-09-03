@@ -21,6 +21,91 @@ typedef struct {
     double width;
     double height;
 } NocttyGridRectangle;
+typedef struct {
+    int steps;
+    int direction;
+} NocttyGridWheelActionPlan;
+
+typedef uint32_t NocttyApplicationCloseOrigin;
+
+enum {
+    NOCTTY_CLOSE_ORIGIN_NONE = 0,
+    NOCTTY_CLOSE_ORIGIN_TOOLBAR = 1,
+    NOCTTY_CLOSE_ORIGIN_TRAY = 2,
+    NOCTTY_CLOSE_ORIGIN_WINDOW = 3,
+    NOCTTY_CLOSE_ORIGIN_NATURAL = 4,
+};
+
+typedef struct {
+    uint32_t phase;
+    NocttyApplicationCloseOrigin origin;
+    uint32_t modal_depth;
+} NocttyGridCloseCoordinator;
+
+typedef struct {
+    uint32_t effects;
+    NocttyApplicationCloseOrigin origin;
+    uint32_t accepted;
+} NocttyGridCloseTransition;
+
+enum {
+    NOCTTY_CLOSE_SOURCE_DEFERRED = 1,
+    NOCTTY_CLOSE_SOURCE_PREFLIGHT = 2,
+};
+
+enum {
+    NOCTTY_CLOSE_EFFECT_SCHEDULE_DEFERRED = 1u << 0,
+    NOCTTY_CLOSE_EFFECT_SCHEDULE_PREFLIGHT = 1u << 1,
+    NOCTTY_CLOSE_EFFECT_SCHEDULE_DWELL = 1u << 2,
+    NOCTTY_CLOSE_EFFECT_CANCEL_DEFERRED = 1u << 3,
+    NOCTTY_CLOSE_EFFECT_CANCEL_PREFLIGHT = 1u << 4,
+    NOCTTY_CLOSE_EFFECT_RUN_PREFLIGHT = 1u << 5,
+    NOCTTY_CLOSE_EFFECT_COMMIT = 1u << 6,
+};
+
+NocttyGridCloseTransition noctty_grid_close_request(
+    NocttyGridCloseCoordinator *coordinator,
+    NocttyApplicationCloseOrigin origin);
+NocttyGridCloseTransition noctty_grid_close_modal_begin(
+    NocttyGridCloseCoordinator *coordinator);
+NocttyGridCloseTransition noctty_grid_close_modal_end(
+    NocttyGridCloseCoordinator *coordinator);
+NocttyGridCloseTransition noctty_grid_close_source_fired(
+    NocttyGridCloseCoordinator *coordinator, uint32_t source);
+NocttyGridCloseTransition noctty_grid_close_preflight_result(
+    NocttyGridCloseCoordinator *coordinator, int accepted);
+
+enum {
+    NOCTTY_GRID_INPUT_POINTER = 1,
+    NOCTTY_GRID_INPUT_WHEEL = 2,
+};
+
+enum {
+    NOCTTY_GRID_MODIFIER_SHIFT = 1u << 0,
+    NOCTTY_GRID_MODIFIER_CONTROL = 1u << 1,
+    NOCTTY_GRID_MODIFIER_ALT = 1u << 2,
+};
+
+enum {
+    NOCTTY_GRID_ROUTE_IGNORE = 0,
+    NOCTTY_GRID_ROUTE_SCROLLBAR = 1,
+    NOCTTY_GRID_ROUTE_SELECTION = 2,
+    NOCTTY_GRID_ROUTE_APPLICATION_MOUSE = 3,
+    NOCTTY_GRID_ROUTE_TERMINAL_SCROLL = 4,
+    NOCTTY_GRID_ROUTE_TAB_CYCLE = 5,
+    NOCTTY_GRID_ROUTE_PANE_CYCLE = 6,
+    NOCTTY_GRID_ROUTE_FONT_ZOOM = 7,
+    NOCTTY_GRID_ROUTE_LOCAL_POINTER = 8,
+};
+
+int noctty_grid_input_route(int input_kind, int scrollbar_owned,
+                            int terminal_mouse_mode, int primary_button,
+                            uint32_t modifier_flags);
+void noctty_grid_wheel_action_plan(
+    int route, int scroll_direction, double delta_y, double *accumulator,
+    NocttyGridWheelActionPlan *plan);
+
+
 
 int noctty_grid_scrollbar_geometry(
     int allocation_width, int allocation_height, double scrollbar_width,

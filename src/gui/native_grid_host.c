@@ -71,13 +71,6 @@
 #define NOCTTY_UI_COLOR_STATUS_ERROR 15u
 #define NOCTTY_UI_COLOR_TERMINAL_CURSOR 16u
 
-typedef enum {
-    NOCTTY_CLOSE_ORIGIN_NONE = 0,
-    NOCTTY_CLOSE_ORIGIN_TOOLBAR = 1,
-    NOCTTY_CLOSE_ORIGIN_TRAY = 2,
-    NOCTTY_CLOSE_ORIGIN_WINDOW = 3,
-    NOCTTY_CLOSE_ORIGIN_NATURAL = 4,
-} NocttyApplicationCloseOrigin;
 
 typedef enum {
     NOCTTY_FOCUS_SMOKE_PRIMARY_ACTION = 0,
@@ -395,15 +388,9 @@ typedef struct NocttyGridContextTag {
     int tray_menu_layout_seen;
     int tray_close_seen;
     int tray_close_session_stopped;
-    int application_close_requested;
-    int application_modal_depth;
-    int application_close_preflight_active;
-    int application_close_deferred;
-    NocttyApplicationCloseOrigin application_close_deferred_origin;
+    NocttyGridCloseCoordinator application_close;
     guint application_close_deferred_source;
-    guint application_close_dwell_source;
-    NocttyApplicationCloseOrigin application_close_origin;
-    NocttyApplicationCloseOrigin application_close_accepted_origin;
+    guint application_close_preflight_source;
     void *layer_shell_library;
     int layer_shell_active;
     int layer_shell_allowed;
@@ -9419,76 +9406,29 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     g_free(context);
 }
 
+static void dispatch_grid_application_close_effects(
+    NocttyGridContext *context, NocttyGridCloseTransition transition);
+
 static gboolean dispatch_deferred_grid_application_close(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->application_close_deferred_source = 0;
-    if (!root->application_close_deferred ||
-        root->application_modal_depth > 0 ||
-        root->application_close_preflight_active)
-        return G_SOURCE_REMOVE;
-    NocttyApplicationCloseOrigin origin =
-        root->application_close_deferred_origin;
-    root->application_close_deferred = 0;
-    root->application_close_deferred_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-    (void)request_grid_application_close(root, origin);
+    dispatch_grid_application_close_effects(
+        root, noctty_grid_close_source_fired(
+                  &root->application_close, NOCTTY_CLOSE_SOURCE_DEFERRED));
     return G_SOURCE_REMOVE;
-}
-
-static void queue_deferred_grid_application_close(NocttyGridContext *context) {
-    NocttyGridContext *root = root_grid_context(context);
-    if (!root->application_close_deferred ||
-        root->application_modal_depth > 0 ||
-        root->application_close_preflight_active ||
-        root->application_close_deferred_source != 0)
-        return;
-    root->application_close_deferred_source = g_idle_add(
-        dispatch_deferred_grid_application_close, root);
-}
-
-static void begin_grid_modal(NocttyGridContext *context) {
-    NocttyGridContext *root = root_grid_context(context);
-    root->application_modal_depth++;
-}
-
-static void end_grid_modal(NocttyGridContext *context) {
-    NocttyGridContext *root = root_grid_context(context);
-    if (root->application_modal_depth > 0)
-        root->application_modal_depth--;
-    if (root->application_modal_depth == 0)
-        queue_deferred_grid_application_close(root);
-}
-
-static gint run_grid_modal_dialog(NocttyGridContext *context,
-                                  GtkDialog *dialog) {
-    (void)configure_overlay_window_stacking(
-        context, GTK_WIDGET(dialog), "noctty-dialog");
-    begin_grid_modal(context);
-    gint response = gtk_dialog_run(dialog);
-    end_grid_modal(context);
-    return response;
 }
 
 static gboolean close_grid_application_idle(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    root->application_close_dwell_source = 0;
-    if (root->application_modal_depth > 0) {
-        root->application_close_deferred = 1;
-        root->application_close_deferred_origin =
-            root->application_close_origin;
-        root->application_close_requested = 0;
-        root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-        return G_SOURCE_REMOVE;
-    }
-    root->application_close_preflight_active = 1;
-    gboolean confirmed = confirm_grid_application_close(root);
-    root->application_close_preflight_active = 0;
-    if (!confirmed) {
-        queue_deferred_grid_application_close(root);
-        return G_SOURCE_REMOVE;
-    }
-    root->application_close_accepted_origin = root->application_close_origin;
-    root->application_close_deferred = 0;
-    root->application_close_deferred_origin = NOCTTY_CLOSE_ORIGIN_NONE;
+    root->application_close_preflight_source = 0;
+    dispatch_grid_application_close_effects(
+        root, noctty_grid_close_source_fired(
+                  &root->application_close, NOCTTY_CLOSE_SOURCE_PREFLIGHT));
+    return G_SOURCE_REMOVE;
+}
+
+static void commit_grid_application_close(
+    NocttyGridContext *root, NocttyApplicationCloseOrigin origin) {
     remove_grid_source(&root->application_close_deferred_source);
     dismiss_workspace_menu(root);
     remove_grid_source(&root->cursor_blink_source);
@@ -9525,33 +9465,70 @@ static gboolean close_grid_application_idle(gpointer user_data) {
     gboolean all_sessions_stopped =
         active_sessions > 0 && stopped_sessions == active_sessions;
     root->tray_close_session_stopped =
-        root->application_close_accepted_origin == NOCTTY_CLOSE_ORIGIN_TRAY &&
-        all_sessions_stopped;
+        origin == NOCTTY_CLOSE_ORIGIN_TRAY && all_sessions_stopped;
     root->window_close_session_stopped =
-        root->application_close_accepted_origin ==
-            NOCTTY_CLOSE_ORIGIN_TOOLBAR && all_sessions_stopped;
+        origin == NOCTTY_CLOSE_ORIGIN_TOOLBAR && all_sessions_stopped;
     if (gtk_main_level() > 0) gtk_main_quit();
-    return G_SOURCE_REMOVE;
+}
+
+static void dispatch_grid_application_close_effects(
+    NocttyGridContext *context, NocttyGridCloseTransition transition) {
+    NocttyGridContext *root = root_grid_context(context);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_CANCEL_DEFERRED) != 0)
+        remove_grid_source(&root->application_close_deferred_source);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_CANCEL_PREFLIGHT) != 0)
+        remove_grid_source(&root->application_close_preflight_source);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_SCHEDULE_DEFERRED) != 0 &&
+        root->application_close_deferred_source == 0)
+        root->application_close_deferred_source = g_idle_add(
+            dispatch_deferred_grid_application_close, root);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_SCHEDULE_PREFLIGHT) != 0 &&
+        root->application_close_preflight_source == 0)
+        root->application_close_preflight_source = g_idle_add(
+            close_grid_application_idle, root);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_SCHEDULE_DWELL) != 0 &&
+        root->application_close_preflight_source == 0)
+        root->application_close_preflight_source = g_timeout_add(
+            80, close_grid_application_idle, root);
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_RUN_PREFLIGHT) != 0) {
+        gboolean confirmed = confirm_grid_application_close(root);
+        dispatch_grid_application_close_effects(
+            root, noctty_grid_close_preflight_result(
+                      &root->application_close, confirmed));
+    }
+    if ((transition.effects & NOCTTY_CLOSE_EFFECT_COMMIT) != 0)
+        commit_grid_application_close(root, transition.origin);
+}
+
+static void begin_grid_modal(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    dispatch_grid_application_close_effects(
+        root, noctty_grid_close_modal_begin(&root->application_close));
+}
+
+static void end_grid_modal(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    dispatch_grid_application_close_effects(
+        root, noctty_grid_close_modal_end(&root->application_close));
+}
+
+static gint run_grid_modal_dialog(NocttyGridContext *context,
+                                  GtkDialog *dialog) {
+    (void)configure_overlay_window_stacking(
+        context, GTK_WIDGET(dialog), "noctty-dialog");
+    begin_grid_modal(context);
+    gint response = gtk_dialog_run(dialog);
+    end_grid_modal(context);
+    return response;
 }
 
 static gboolean request_grid_application_close(
     NocttyGridContext *context, NocttyApplicationCloseOrigin origin) {
     NocttyGridContext *root = root_grid_context(context);
-    if (origin == NOCTTY_CLOSE_ORIGIN_NONE) return FALSE;
-    if (root->application_close_requested ||
-        root->application_close_deferred) return FALSE;
-    if (root->application_modal_depth > 0) {
-        root->application_close_deferred = 1;
-        root->application_close_deferred_origin = origin;
-        return TRUE;
-    }
-    root->application_close_requested = 1;
-    root->application_close_origin = origin;
-    root->application_close_dwell_source =
-        origin == NOCTTY_CLOSE_ORIGIN_NATURAL
-            ? g_timeout_add(80, close_grid_application_idle, root)
-            : g_idle_add(close_grid_application_idle, root);
-    return TRUE;
+    NocttyGridCloseTransition transition =
+        noctty_grid_close_request(&root->application_close, origin);
+    dispatch_grid_application_close_effects(root, transition);
+    return transition.accepted != 0;
 }
 
 static guint active_grid_context_count(NocttyGridContext *context) {
@@ -10791,18 +10768,17 @@ static gboolean open_grid_hyperlink(NocttyGridContext *context,
     return TRUE;
 }
 
+static uint32_t grid_input_modifiers(guint state) {
+    uint32_t modifiers = 0;
+    if (state & GDK_SHIFT_MASK) modifiers |= NOCTTY_GRID_MODIFIER_SHIFT;
+    if (state & GDK_CONTROL_MASK) modifiers |= NOCTTY_GRID_MODIFIER_CONTROL;
+    if (state & GDK_MOD1_MASK) modifiers |= NOCTTY_GRID_MODIFIER_ALT;
+    return modifiers;
+}
+
 static gboolean handle_terminal_scrollbar_button(
-    NocttyGridContext *context, GtkWidget *widget, GdkEventButton *event) {
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-    NocttyTerminalScrollbarGeometry geometry;
-    if (!terminal_scrollbar_geometry(context, allocation, &geometry))
-        return FALSE;
-
-    gboolean was_dragging = context->scrollbar_dragging;
-    gboolean inside = event->x >= geometry.x;
-    if (event->button != 1 || (!inside && !was_dragging)) return FALSE;
-
+    NocttyGridContext *context, GtkWidget *widget, GdkEventButton *event,
+    const NocttyTerminalScrollbarGeometry *geometry) {
     if (event->type == GDK_BUTTON_RELEASE) {
         context->scrollbar_dragging = 0;
         gtk_widget_queue_draw(context->area);
@@ -10812,19 +10788,19 @@ static gboolean handle_terminal_scrollbar_button(
 
     if (!gtk_widget_has_focus(widget)) gtk_widget_grab_focus(widget);
     activate_grid_context(context);
-    if (event->y >= geometry.thumb_y &&
-        event->y <= geometry.thumb_y + geometry.thumb_height) {
+    if (event->y >= geometry->thumb_y &&
+        event->y <= geometry->thumb_y + geometry->thumb_height) {
         context->scrollbar_dragging = 1;
-        context->scrollbar_drag_offset = event->y - geometry.thumb_y;
+        context->scrollbar_drag_offset = event->y - geometry->thumb_y;
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
 
-    uint64_t page = MAX((uint64_t)geometry.visible_rows - 1, 1u);
-    uint64_t target = event->y < geometry.thumb_y
-        ? MIN(geometry.history_lines, geometry.viewport_offset + page)
-        : geometry.viewport_offset > page
-            ? geometry.viewport_offset - page
+    uint64_t page = MAX((uint64_t)geometry->visible_rows - 1, 1u);
+    uint64_t target = event->y < geometry->thumb_y
+        ? MIN(geometry->history_lines, geometry->viewport_offset + page)
+        : geometry->viewport_offset > page
+            ? geometry->viewport_offset - page
             : 0;
     if (scroll_terminal_to_offset(context, target))
         root_grid_context(context)->compact_scrollbar_track_scrolled = 1;
@@ -10835,7 +10811,21 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
     NocttyGridContext *context = user_data;
     if (!grid_context_session_available(context) || context->exited)
         return FALSE;
-    if (handle_terminal_scrollbar_button(context, widget, event)) return TRUE;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+    NocttyTerminalScrollbarGeometry scrollbar;
+    gboolean scrollbar_owned =
+        terminal_scrollbar_geometry(context, allocation, &scrollbar) &&
+        event->button == 1 &&
+        (event->x >= scrollbar.x || context->scrollbar_dragging);
+    int terminal_mouse_mode =
+        scrollbar_owned ? 0 : context->mouse_mode(context->userdata);
+    int route = noctty_grid_input_route(
+        NOCTTY_GRID_INPUT_POINTER, scrollbar_owned, terminal_mouse_mode,
+        event->button == 1, grid_input_modifiers(event->state));
+    if (route == NOCTTY_GRID_ROUTE_SCROLLBAR)
+        return handle_terminal_scrollbar_button(
+            context, widget, event, &scrollbar);
     int column = grid_column_at_pointer(context, event->x);
     int row = grid_row_at_pointer(context, event->y);
     int hyperlink_column = 0;
@@ -10844,7 +10834,6 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         context, event->x, event->y, &hyperlink_column, &hyperlink_row);
     int button = event->button >= 1 && event->button <= 3 ? (int)event->button - 1 : 0;
     int pressed = event->type == GDK_BUTTON_PRESS;
-    int terminal_mouse_mode = context->mouse_mode(context->userdata);
     if (event->type == GDK_BUTTON_PRESS && event->button == 1)
         context->suppress_primary_release = 0;
     if (event->type == GDK_2BUTTON_PRESS && event->button == 1 &&
@@ -10878,7 +10867,7 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         show_workspace_menu(context, event);
         return TRUE;
     }
-    if (!terminal_mouse_mode && event->button == 1) {
+    if (route == NOCTTY_GRID_ROUTE_SELECTION) {
         if (pressed) {
             context->selecting = 0;
             context->selection_dragging = 1;
@@ -10897,7 +10886,7 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
-    if (!terminal_mouse_mode) return TRUE;
+    if (route != NOCTTY_GRID_ROUTE_APPLICATION_MOUSE) return TRUE;
     acknowledge_grid_attention(context);
     (void)context->mouse(context->userdata, column, row, button, pressed);
     schedule_grid_write_flush(context);
@@ -13554,13 +13543,8 @@ static gboolean request_theme_smoke(gpointer user_data) {
 static gboolean confirm_grid_application_close(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     guint busy_count = foreground_process_count(root, NULL);
-    if (!confirm_terminal_process_close(root, "application", busy_count,
-                                        TRUE)) {
-        root->application_close_requested = 0;
-        root->application_close_origin = NOCTTY_CLOSE_ORIGIN_NONE;
-        return FALSE;
-    }
-    return TRUE;
+    return confirm_terminal_process_close(root, "application", busy_count,
+                                          TRUE);
 }
 
 static gchar *find_nocted_binary(void) {
@@ -14973,7 +14957,7 @@ static gboolean request_compact_palette_smoke(gpointer user_data) {
             root->compact_context_submenus = 0;
     }
     const gchar *split_labels[] = {
-        "Split Down", "Split Up", "Split Left", "Split Right",
+        "Split Right", "Split Down", "Split Up", "Split Left",
     };
     for (guint index = 0; index < G_N_ELEMENTS(split_labels); index++)
         if (find_workspace_menu_item(root->workspace_menu,
@@ -19459,16 +19443,20 @@ static gboolean on_grid_area_leave(GtkWidget *widget, GdkEventCrossing *event,
     return FALSE;
 }
 
-static int terminal_scroll_steps(NocttyGridContext *context,
-                                 GdkEventScroll *event) {
-    int direction = event->direction == GDK_SCROLL_UP
+static int grid_scroll_direction(GdkEventScroll *event) {
+    return event->direction == GDK_SCROLL_UP
         ? -1
         : event->direction == GDK_SCROLL_DOWN
             ? 1
             : event->direction == GDK_SCROLL_SMOOTH ? 0 : 2;
+}
+
+static int terminal_scroll_steps(NocttyGridContext *context,
+                                 GdkEventScroll *event) {
     return noctty_grid_scroll_steps(
         context->terminal_scroll_lines, context->terminal_smooth_scroll,
-        direction, event->delta_y, &context->terminal_scroll_accumulator);
+        grid_scroll_direction(event), event->delta_y,
+        &context->terminal_scroll_accumulator);
 }
 
 static gboolean report_terminal_mouse_wheel(
@@ -19505,103 +19493,60 @@ static gboolean report_terminal_mouse_wheel(
 
 static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
     NocttyGridContext *context = user_data;
-    (void)widget;
     if (!grid_context_session_available(context) || context->exited)
         return FALSE;
     GtkAllocation allocation;
     gtk_widget_get_allocation(widget, &allocation);
     NocttyTerminalScrollbarGeometry scrollbar;
+    gboolean scrollbar_owned =
+        terminal_scrollbar_geometry(context, allocation, &scrollbar) &&
+        event->x >= scrollbar.x;
+    int terminal_mouse_mode =
+        scrollbar_owned ? 0 : context->mouse_mode(context->userdata);
+    int route = noctty_grid_input_route(
+        NOCTTY_GRID_INPUT_WHEEL, scrollbar_owned, terminal_mouse_mode, 0,
+        grid_input_modifiers(event->state));
     /* The native rail owns pointer events inside its visible hit target even
      * when the foreground TUI enables terminal mouse reporting. Otherwise
      * apps such as Codex consume the wheel before NOCTTY can move history. */
-    if (terminal_scrollbar_geometry(context, allocation, &scrollbar) &&
-        event->x >= scrollbar.x) {
+    if (route == NOCTTY_GRID_ROUTE_SCROLLBAR) {
         int steps = terminal_scroll_steps(context, event);
         if (steps != 0)
             (void)context->scroll(context->userdata, steps);
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
-    if (context->mouse_mode(context->userdata) &&
-        !(event->state &
-          (GDK_SHIFT_MASK | GDK_CONTROL_MASK | GDK_MOD1_MASK))) {
-        int steps = terminal_scroll_steps(context, event);
-        return report_terminal_mouse_wheel(context, event, steps);
-    }
-    if ((event->state & GDK_CONTROL_MASK) &&
-        (event->state & GDK_MOD1_MASK)) {
+    if (route == NOCTTY_GRID_ROUTE_TAB_CYCLE ||
+        route == NOCTTY_GRID_ROUTE_PANE_CYCLE ||
+        route == NOCTTY_GRID_ROUTE_FONT_ZOOM) {
         NocttyGridContext *root = root_grid_context(context);
-        int steps = 0;
-        if (event->direction == GDK_SCROLL_UP) {
-            root->tab_cycle_scroll_accumulator = 0.0;
-            steps = -1;
-        } else if (event->direction == GDK_SCROLL_DOWN) {
-            root->tab_cycle_scroll_accumulator = 0.0;
-            steps = 1;
-        } else if (event->direction == GDK_SCROLL_SMOOTH) {
-            root->tab_cycle_scroll_accumulator += event->delta_y;
-            if (root->tab_cycle_scroll_accumulator >= 1.0 ||
-                root->tab_cycle_scroll_accumulator <= -1.0) {
-                steps = CLAMP((int)root->tab_cycle_scroll_accumulator,
-                              -8, 8);
-                root->tab_cycle_scroll_accumulator -= steps;
+        double *accumulator = route == NOCTTY_GRID_ROUTE_TAB_CYCLE
+            ? &root->tab_cycle_scroll_accumulator
+            : route == NOCTTY_GRID_ROUTE_PANE_CYCLE
+                ? &root->pane_cycle_scroll_accumulator
+                : &context->font_scroll_accumulator;
+        NocttyGridWheelActionPlan plan;
+        noctty_grid_wheel_action_plan(
+            route, grid_scroll_direction(event), event->delta_y, accumulator,
+            &plan);
+        if (route == NOCTTY_GRID_ROUTE_TAB_CYCLE) {
+            for (int step = 0; step < plan.steps; step++) {
+                (void)cycle_grid_tab(context, plan.direction);
+                show_active_tab_cycle_feedback(root);
             }
-        }
-        int direction = steps < 0 ? -1 : 1;
-        for (int step = 0; step < ABS(steps); step++) {
-            (void)cycle_grid_tab(context, direction);
-            show_active_tab_cycle_feedback(root);
-        }
-        return TRUE;
-    }
-    if ((event->state & GDK_MOD1_MASK) &&
-        !(event->state & GDK_CONTROL_MASK)) {
-        NocttyGridContext *root = root_grid_context(context);
-        int steps = 0;
-        if (event->direction == GDK_SCROLL_UP) {
-            root->pane_cycle_scroll_accumulator = 0.0;
-            steps = -1;
-        } else if (event->direction == GDK_SCROLL_DOWN) {
-            root->pane_cycle_scroll_accumulator = 0.0;
-            steps = 1;
-        } else if (event->direction == GDK_SCROLL_SMOOTH) {
-            root->pane_cycle_scroll_accumulator += event->delta_y;
-            if (root->pane_cycle_scroll_accumulator >= 1.0 ||
-                root->pane_cycle_scroll_accumulator <= -1.0) {
-                steps = CLAMP((int)root->pane_cycle_scroll_accumulator,
-                              -8, 8);
-                root->pane_cycle_scroll_accumulator -= steps;
-            }
-        }
-        int direction = steps < 0 ? -1 : 1;
-        for (int step = 0; step < ABS(steps); step++)
-            (void)cycle_grid_pane(context, direction);
-        return TRUE;
-    }
-    if (event->state & GDK_CONTROL_MASK) {
-        int steps = 0;
-        if (event->direction == GDK_SCROLL_UP) {
-            context->font_scroll_accumulator = 0.0;
-            steps = 1;
-        } else if (event->direction == GDK_SCROLL_DOWN) {
-            context->font_scroll_accumulator = 0.0;
-            steps = -1;
-        } else if (event->direction == GDK_SCROLL_SMOOTH) {
-            context->font_scroll_accumulator -= event->delta_y;
-            if (context->font_scroll_accumulator >= 1.0 ||
-                context->font_scroll_accumulator <= -1.0) {
-                steps = CLAMP((int)context->font_scroll_accumulator, -8, 8);
-                context->font_scroll_accumulator -= steps;
-            }
-        }
-        if (steps != 0)
+        } else if (route == NOCTTY_GRID_ROUTE_PANE_CYCLE) {
+            for (int step = 0; step < plan.steps; step++)
+                (void)cycle_grid_pane(context, plan.direction);
+        } else if (plan.steps != 0) {
             (void)apply_pane_font_size(
-                context, context->requested_font_size + steps, TRUE);
+                context,
+                context->requested_font_size + plan.steps * plan.direction,
+                TRUE);
+        }
         return TRUE;
     }
     int steps = terminal_scroll_steps(context, event);
-    if (!context->mouse_mode(context->userdata) ||
-        (event->state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK))) {
+    if (route == NOCTTY_GRID_ROUTE_TERMINAL_SCROLL) {
         if (steps != 0)
             (void)context->scroll(context->userdata, steps);
         if (context->workspace_smoke == 15 && steps != 0)
@@ -19609,7 +19554,9 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
-    return report_terminal_mouse_wheel(context, event, steps);
+    if (route == NOCTTY_GRID_ROUTE_APPLICATION_MOUSE)
+        return report_terminal_mouse_wheel(context, event, steps);
+    return TRUE;
 }
 
 static GtkTargetEntry noctty_pane_drag_targets[] = {{"application/x-noctty-pane", GTK_TARGET_SAME_APP, 0}};
@@ -20847,7 +20794,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     unregister_grid_control(&context);
     cancel_grid_dbus_operations(&context);
     remove_grid_source(&context.application_close_deferred_source);
-    remove_grid_source(&context.application_close_dwell_source);
+    remove_grid_source(&context.application_close_preflight_source);
     remove_grid_source(&context.window_mode_recreate_source);
     remove_grid_source(&context.cursor_blink_source);
     remove_grid_source(&context.maintenance_source);
@@ -20904,7 +20851,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     unregister_grid_control(&context);
     cancel_grid_dbus_operations(&context);
     remove_grid_source(&context.application_close_deferred_source);
-    remove_grid_source(&context.application_close_dwell_source);
+    remove_grid_source(&context.application_close_preflight_source);
     remove_grid_source(&context.window_mode_recreate_source);
     remove_grid_source(&context.cursor_blink_source);
     remove_grid_source(&context.maintenance_source);

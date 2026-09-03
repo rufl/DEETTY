@@ -646,19 +646,6 @@ fn addWindowsBuild(
     windows_mod.addImport("noctty_share", share_mod);
     windows_mod.addImport("noctty_release", release_mod);
     windows_mod.addIncludePath(b.path("src/windows"));
-    windows_mod.addCSourceFile(.{
-        .file = b.path("src/windows/native_host.c"),
-        .flags = &.{
-            "-std=c11",
-            "-Wall",
-            "-Wextra",
-            "-Wconversion",
-            "-Wsign-conversion",
-            "-Wshadow",
-            "-Wformat",
-            "-Werror",
-        },
-    });
     windows_mod.linkSystemLibrary("kernel32", .{});
     windows_mod.linkSystemLibrary("user32", .{});
     windows_mod.linkSystemLibrary("gdi32", .{});

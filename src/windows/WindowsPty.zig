@@ -1,8 +1,8 @@
-//! Win32 ConPTY ownership behind the native host's stable C ABI.
+//! Win32 ConPTY ownership composed by the native Zig host.
 //!
-//! The UI adapter may observe a session only through bounded reads, writes,
-//! resize, and exit polling. This module alone owns every pipe, process,
-//! pseudo-console, reader-thread, lock, and output-ring lifetime.
+//! The host observes a session only through bounded reads, writes, resize, and
+//! exit polling. This module alone owns every pipe, process, pseudo-console,
+//! reader thread, lock, and output-ring lifetime.
 
 const std = @import("std");
 const Diagnostics = @import("WindowsDiagnostics.zig");
@@ -20,7 +20,7 @@ const io_chunk_bytes: usize = 64 * 1024;
 const command_capacity: usize = 2048;
 const write_chunk_bytes: usize = 64 * 1024;
 
-const Pty = struct {
+pub const Pty = struct {
     index: c_int,
     window: c.HWND,
     output_message: c.UINT,

@@ -43,25 +43,20 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   resets the full-screen scroll region and cursor like xterm instead of ignoring
   the sequence, allowing subsequent line feeds to enter bounded history.
 
-- Began the Win32 terminal-host migration with a pure, tested Zig policy
-  boundary for pane geometry, pointer-to-cell mapping, selection hit testing,
-  RGB/COLORREF conversion, bounded grid sizing, special-key sequences, and
-  UTF-16 input assembly. Zig now also owns ConPTY pipe/process/thread lifetimes,
-  the synchronized bounded output ring, resize and exit polling, Unicode
-  clipboard transfers, sibling NoctEd process launch, native-menu
-  construction/state, DPI-aware GDI font creation/metrics, persisted-preference
-  normalization, bounded UTF-8 window titles, the complete double-buffered GDI
-  terminal renderer, the version dialog, local-only logging, and minidumps. The
-  shrinking C adapter retains main HWND/timer ownership plus input,
-  workspace-session, and window-message/command dispatch.
+- Completed the experimental Win32 terminal-host source migration. Zig now owns
+  the main HWND, timers, hit testing, focus/capture, input, workspace-session
+  orchestration, command/message dispatch, ConPTY, GDI rendering, menus,
+  clipboard, fonts, diagnostics, and bounded mouse policy. The retired
+  `native_host.c` translation unit is no longer compiled; physical Windows
+  qualification remains a separate acceptance boundary.
 
-- Began extracting platform-neutral policy from the GTK native-grid adapter.
-  Zig now owns bounded scrollbar/thumb geometry, discrete and smooth wheel
-  accumulation, saturating keyboard scroll targets, bounded grid dimensions,
-  qualification auto-fit sizing, directional window-resize deltas and bounds,
-  bounded pointer-to-cell mapping, direction-independent linear selection hit
-  testing, and pixel-snapped cell/selection spans behind a
-  narrow C ABI with native unit coverage.
+- Continued extracting platform-neutral GTK native-grid policy: Zig now decides
+  scrollbar, local selection, application-mouse, terminal-scroll, tab-cycle,
+  pane-cycle, and font-zoom routing while C retains GTK events, widget/capture
+  lifetimes, callbacks, and rendering. Existing Zig ownership also covers
+  scrollbar/thumb geometry, wheel accumulation, keyboard scroll targets, grid
+  dimensions, auto-fit, resize bounds, pointer mapping, selection hit testing,
+  and pixel-snapped spans.
 
 - Ported the complete experimental Windows NoctEd controls adapter from C to
   Zig and removed its private C ABI header. Zig now owns RichEdit/tree/tab

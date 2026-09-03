@@ -26,7 +26,7 @@ const id_workspace_save = Logic.menu_workspace_save;
 const id_workspace_restore = Logic.menu_workspace_restore;
 const id_open_nocted = Logic.menu_open_nocted;
 
-const Menu = struct {
+pub const Menu = struct {
     window: c.HWND,
     root: c.HMENU,
     settings: c.HMENU,

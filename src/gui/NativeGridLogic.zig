@@ -1,4 +1,4 @@
-//! Pure geometry and selection policy extracted from the GTK grid adapter.
+//! Pure close coordination, geometry, selection, and input policy for GTK.
 
 const std = @import("std");
 
@@ -20,6 +20,249 @@ pub const Rectangle = extern struct {
     width: f64,
     height: f64,
 };
+pub const WheelActionPlan = extern struct {
+    steps: c_int,
+    direction: c_int,
+};
+
+pub const CloseCoordinator = extern struct {
+    phase: u32 = close_phase_idle,
+    origin: u32 = close_origin_none,
+    modal_depth: u32 = 0,
+};
+
+pub const CloseTransition = extern struct {
+    effects: u32 = 0,
+    origin: u32 = close_origin_none,
+    accepted: u32 = 0,
+};
+
+pub const close_origin_none: u32 = 0;
+pub const close_origin_toolbar: u32 = 1;
+pub const close_origin_tray: u32 = 2;
+pub const close_origin_window: u32 = 3;
+pub const close_origin_natural: u32 = 4;
+
+pub const close_source_deferred: u32 = 1;
+pub const close_source_preflight: u32 = 2;
+
+pub const close_effect_schedule_deferred: u32 = 1 << 0;
+pub const close_effect_schedule_preflight: u32 = 1 << 1;
+pub const close_effect_schedule_dwell: u32 = 1 << 2;
+pub const close_effect_cancel_deferred: u32 = 1 << 3;
+pub const close_effect_cancel_preflight: u32 = 1 << 4;
+pub const close_effect_run_preflight: u32 = 1 << 5;
+pub const close_effect_commit: u32 = 1 << 6;
+
+const close_phase_idle: u32 = 0;
+const close_phase_deferred: u32 = 1;
+const close_phase_deferred_scheduled: u32 = 2;
+const close_phase_preflight_scheduled: u32 = 3;
+const close_phase_dwell_scheduled: u32 = 4;
+const close_phase_preflight_active: u32 = 5;
+const close_phase_committed: u32 = 6;
+
+fn closeTransition(
+    effects: u32,
+    origin: u32,
+    accepted: bool,
+) CloseTransition {
+    return .{
+        .effects = effects,
+        .origin = origin,
+        .accepted = @intFromBool(accepted),
+    };
+}
+
+fn closeSchedulePreflight(coordinator: *CloseCoordinator) CloseTransition {
+    if (coordinator.origin == close_origin_natural) {
+        coordinator.phase = close_phase_dwell_scheduled;
+        return closeTransition(close_effect_schedule_dwell, coordinator.origin, true);
+    }
+    coordinator.phase = close_phase_preflight_scheduled;
+    return closeTransition(close_effect_schedule_preflight, coordinator.origin, true);
+}
+
+pub export fn noctty_grid_close_request(
+    coordinator_output: ?*CloseCoordinator,
+    origin: u32,
+) callconv(.c) CloseTransition {
+    const coordinator = coordinator_output orelse return .{};
+    if (origin < close_origin_toolbar or origin > close_origin_natural)
+        return .{};
+    if (coordinator.phase != close_phase_idle)
+        return closeTransition(0, coordinator.origin, false);
+
+    coordinator.origin = origin;
+    if (coordinator.modal_depth != 0) {
+        coordinator.phase = close_phase_deferred;
+        return closeTransition(0, origin, true);
+    }
+    return closeSchedulePreflight(coordinator);
+}
+
+pub export fn noctty_grid_close_modal_begin(
+    coordinator_output: ?*CloseCoordinator,
+) callconv(.c) CloseTransition {
+    const coordinator = coordinator_output orelse return .{};
+    if (coordinator.modal_depth != std.math.maxInt(u32))
+        coordinator.modal_depth += 1;
+
+    const cancellation = switch (coordinator.phase) {
+        close_phase_deferred_scheduled => close_effect_cancel_deferred,
+        close_phase_preflight_scheduled, close_phase_dwell_scheduled => close_effect_cancel_preflight,
+        else => return closeTransition(0, coordinator.origin, true),
+    };
+    coordinator.phase = close_phase_deferred;
+    return closeTransition(cancellation, coordinator.origin, true);
+}
+
+pub export fn noctty_grid_close_modal_end(
+    coordinator_output: ?*CloseCoordinator,
+) callconv(.c) CloseTransition {
+    const coordinator = coordinator_output orelse return .{};
+    if (coordinator.modal_depth == 0)
+        return closeTransition(0, coordinator.origin, false);
+    coordinator.modal_depth -= 1;
+    if (coordinator.modal_depth != 0 or coordinator.phase != close_phase_deferred)
+        return closeTransition(0, coordinator.origin, true);
+
+    coordinator.phase = close_phase_deferred_scheduled;
+    return closeTransition(
+        close_effect_schedule_deferred,
+        coordinator.origin,
+        true,
+    );
+}
+
+pub export fn noctty_grid_close_source_fired(
+    coordinator_output: ?*CloseCoordinator,
+    source: u32,
+) callconv(.c) CloseTransition {
+    const coordinator = coordinator_output orelse return .{};
+    if (source == close_source_deferred and
+        coordinator.phase == close_phase_deferred_scheduled)
+    {
+        return closeSchedulePreflight(coordinator);
+    }
+    if (source == close_source_preflight and
+        (coordinator.phase == close_phase_preflight_scheduled or
+            coordinator.phase == close_phase_dwell_scheduled))
+    {
+        coordinator.phase = close_phase_preflight_active;
+        return closeTransition(
+            close_effect_run_preflight,
+            coordinator.origin,
+            true,
+        );
+    }
+    return closeTransition(0, coordinator.origin, false);
+}
+
+pub export fn noctty_grid_close_preflight_result(
+    coordinator_output: ?*CloseCoordinator,
+    accepted: c_int,
+) callconv(.c) CloseTransition {
+    const coordinator = coordinator_output orelse return .{};
+    if (coordinator.phase != close_phase_preflight_active)
+        return closeTransition(0, coordinator.origin, false);
+
+    const origin = coordinator.origin;
+    if (accepted == 0) {
+        coordinator.phase = close_phase_idle;
+        coordinator.origin = close_origin_none;
+        return closeTransition(0, origin, true);
+    }
+    coordinator.phase = close_phase_committed;
+    return closeTransition(close_effect_commit, origin, true);
+}
+
+pub const input_pointer: c_int = 1;
+pub const input_wheel: c_int = 2;
+
+pub const modifier_shift: u32 = 1 << 0;
+pub const modifier_control: u32 = 1 << 1;
+pub const modifier_alt: u32 = 1 << 2;
+const known_modifiers = modifier_shift | modifier_control | modifier_alt;
+
+pub const route_ignore: c_int = 0;
+pub const route_scrollbar: c_int = 1;
+pub const route_selection: c_int = 2;
+pub const route_application_mouse: c_int = 3;
+pub const route_terminal_scroll: c_int = 4;
+pub const route_tab_cycle: c_int = 5;
+pub const route_pane_cycle: c_int = 6;
+pub const route_font_zoom: c_int = 7;
+pub const route_local_pointer: c_int = 8;
+
+pub export fn noctty_grid_input_route(
+    input_kind: c_int,
+    scrollbar_owned: c_int,
+    terminal_mouse_mode: c_int,
+    primary_button: c_int,
+    modifier_flags: u32,
+) callconv(.c) c_int {
+    if (input_kind != input_pointer and input_kind != input_wheel)
+        return route_ignore;
+    if (scrollbar_owned != 0) return route_scrollbar;
+
+    if (input_kind == input_pointer) {
+        if (terminal_mouse_mode != 0) return route_application_mouse;
+        return if (primary_button != 0) route_selection else route_local_pointer;
+    }
+
+    const modifiers = modifier_flags & known_modifiers;
+    if (terminal_mouse_mode != 0 and modifiers == 0)
+        return route_application_mouse;
+    if (modifiers & modifier_control != 0 and modifiers & modifier_alt != 0)
+        return route_tab_cycle;
+    if (modifiers & modifier_alt != 0)
+        return route_pane_cycle;
+    if (modifiers & modifier_control != 0)
+        return route_font_zoom;
+    if (terminal_mouse_mode == 0 or modifiers & modifier_shift != 0)
+        return route_terminal_scroll;
+    return route_application_mouse;
+}
+pub export fn noctty_grid_wheel_action_plan(
+    route: c_int,
+    scroll_direction: c_int,
+    delta_y: f64,
+    accumulator_output: ?*f64,
+    output: ?*WheelActionPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{ .steps = 0, .direction = 0 };
+    const accumulator = accumulator_output orelse return;
+    const polarity: f64 = switch (route) {
+        route_tab_cycle, route_pane_cycle => 1,
+        route_font_zoom => -1,
+        else => return,
+    };
+    if (scroll_direction == -1 or scroll_direction == 1) {
+        accumulator.* = 0;
+        plan.steps = 1;
+        plan.direction = if (polarity > 0)
+            scroll_direction
+        else
+            -scroll_direction;
+        return;
+    }
+    if (scroll_direction != 0 or
+        !std.math.isFinite(delta_y) or
+        !std.math.isFinite(accumulator.*)) return;
+
+    const accumulated = accumulator.* + delta_y * polarity;
+    if (!std.math.isFinite(accumulated)) return;
+    accumulator.* = accumulated;
+    if (accumulated > -1 and accumulated < 1) return;
+
+    const bounded = std.math.clamp(accumulated, -8, 8);
+    const signed_steps: c_int = @intFromFloat(bounded);
+    accumulator.* -= @floatFromInt(signed_steps);
+    plan.steps = if (signed_steps < 0) -signed_steps else signed_steps;
+    plan.direction = if (signed_steps < 0) -1 else 1;
+}
 
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
@@ -349,6 +592,126 @@ test "scroll steps preserve discrete and smooth accumulation" {
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_scroll_steps(3, 1, 0, 0.2, &accumulator));
     try std.testing.expectEqual(@as(c_int, -3), noctty_grid_scroll_steps(3, 1, 0, 0.8, &accumulator));
 }
+test "routed wheel actions preserve every discrete direction convention" {
+    const cases = [_]struct {
+        modifiers: u32,
+        route: c_int,
+    }{
+        .{ .modifiers = modifier_control | modifier_alt, .route = route_tab_cycle },
+        .{ .modifiers = modifier_alt, .route = route_pane_cycle },
+        .{ .modifiers = modifier_control, .route = route_font_zoom },
+    };
+    for (cases) |case| {
+        const route = noctty_grid_input_route(
+            input_wheel,
+            0,
+            0,
+            0,
+            case.modifiers,
+        );
+        try std.testing.expectEqual(case.route, route);
+        for ([_]c_int{ -1, 1 }) |scroll_direction| {
+            var accumulator: f64 = 0.75;
+            var plan: WheelActionPlan = undefined;
+            noctty_grid_wheel_action_plan(
+                route,
+                scroll_direction,
+                std.math.nan(f64),
+                &accumulator,
+                &plan,
+            );
+            try std.testing.expectEqual(@as(c_int, 1), plan.steps);
+            const expected_direction = if (route == route_font_zoom)
+                -scroll_direction
+            else
+                scroll_direction;
+            try std.testing.expectEqual(expected_direction, plan.direction);
+            try std.testing.expectEqual(@as(f64, 0), accumulator);
+        }
+    }
+}
+
+test "wheel action plans accumulate fractions and cross both thresholds" {
+    var accumulator: f64 = 0;
+    var plan: WheelActionPlan = undefined;
+
+    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0.4, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.steps);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), accumulator, 1e-12);
+    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0.6, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.steps);
+    try std.testing.expectEqual(@as(c_int, 1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), accumulator, 1e-12);
+
+    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -0.25, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.steps);
+    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -0.75, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.steps);
+    try std.testing.expectEqual(@as(c_int, -1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), accumulator, 1e-12);
+
+    noctty_grid_wheel_action_plan(route_font_zoom, 0, 1.25, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.steps);
+    try std.testing.expectEqual(@as(c_int, -1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.25), accumulator, 1e-12);
+}
+
+test "wheel action plans saturate each event while retaining overflow" {
+    var accumulator: f64 = 0;
+    var plan: WheelActionPlan = undefined;
+    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 12.75, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 8), plan.steps);
+    try std.testing.expectEqual(@as(c_int, 1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.75), accumulator, 1e-12);
+    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 4), plan.steps);
+    try std.testing.expectEqual(@as(c_int, 1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), accumulator, 1e-12);
+
+    accumulator = 0;
+    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -12.75, &accumulator, &plan);
+    try std.testing.expectEqual(@as(c_int, 8), plan.steps);
+    try std.testing.expectEqual(@as(c_int, -1), plan.direction);
+    try std.testing.expectApproxEqAbs(@as(f64, -4.75), accumulator, 1e-12);
+}
+
+test "wheel action plans reject invalid and non-finite smooth inputs" {
+    const routes = [_]c_int{
+        route_ignore,
+        route_scrollbar,
+        route_selection,
+        route_application_mouse,
+        route_terminal_scroll,
+        route_local_pointer,
+        std.math.maxInt(c_int),
+    };
+    for (routes) |route| {
+        var accumulator: f64 = 0.5;
+        var plan = WheelActionPlan{ .steps = 7, .direction = -1 };
+        noctty_grid_wheel_action_plan(route, 0, 2, &accumulator, &plan);
+        try std.testing.expectEqual(@as(c_int, 0), plan.steps);
+        try std.testing.expectEqual(@as(c_int, 0), plan.direction);
+        try std.testing.expectEqual(@as(f64, 0.5), accumulator);
+    }
+
+    for ([_]f64{ std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64) }) |delta| {
+        var accumulator: f64 = 0.5;
+        var plan: WheelActionPlan = undefined;
+        noctty_grid_wheel_action_plan(route_tab_cycle, 0, delta, &accumulator, &plan);
+        try std.testing.expectEqual(@as(c_int, 0), plan.steps);
+        try std.testing.expectEqual(@as(c_int, 0), plan.direction);
+        try std.testing.expectEqual(@as(f64, 0.5), accumulator);
+    }
+
+    for ([_]c_int{ -2, 2, std.math.maxInt(c_int) }) |direction| {
+        var accumulator: f64 = 0.5;
+        var plan: WheelActionPlan = undefined;
+        noctty_grid_wheel_action_plan(route_font_zoom, direction, 2, &accumulator, &plan);
+        try std.testing.expectEqual(@as(c_int, 0), plan.steps);
+        try std.testing.expectEqual(@as(c_int, 0), plan.direction);
+        try std.testing.expectEqual(@as(f64, 0.5), accumulator);
+    }
+}
 
 test "keyboard scroll targets saturate at history boundaries" {
     try std.testing.expectEqual(@as(u64, 100), noctty_grid_keyboard_scroll_target(100, 90, 20, 1));
@@ -387,4 +750,373 @@ test "cell spans preserve seamless pixel bounds" {
     try std.testing.expectEqual(@as(f64, 20), rectangle.width);
     try std.testing.expectEqual(@as(f64, 38), rectangle.y);
     try std.testing.expectEqual(@as(f64, 19), rectangle.height);
+}
+
+test "pointer routing exhaustively preserves scrollbar selection and mouse precedence" {
+    const expected = [_]c_int{
+        route_local_pointer,
+        route_selection,
+        route_application_mouse,
+        route_application_mouse,
+        route_scrollbar,
+        route_scrollbar,
+        route_scrollbar,
+        route_scrollbar,
+    };
+    for (0..2) |scrollbar_owned| {
+        for (0..2) |mouse_mode| {
+            for (0..2) |primary| {
+                const index = scrollbar_owned * 4 + mouse_mode * 2 + primary;
+                for (0..8) |modifiers| {
+                    try std.testing.expectEqual(expected[index], noctty_grid_input_route(
+                        input_pointer,
+                        @intCast(scrollbar_owned),
+                        @intCast(mouse_mode),
+                        @intCast(primary),
+                        @intCast(modifiers),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+test "wheel routing exhaustively preserves modifier and mouse mode precedence" {
+    const expected_without_mouse = [_]c_int{
+        route_terminal_scroll,
+        route_terminal_scroll,
+        route_font_zoom,
+        route_font_zoom,
+        route_pane_cycle,
+        route_pane_cycle,
+        route_tab_cycle,
+        route_tab_cycle,
+    };
+    const expected_with_mouse = [_]c_int{
+        route_application_mouse,
+        route_terminal_scroll,
+        route_font_zoom,
+        route_font_zoom,
+        route_pane_cycle,
+        route_pane_cycle,
+        route_tab_cycle,
+        route_tab_cycle,
+    };
+    for (0..8) |modifiers| {
+        const flags: u32 = @intCast(modifiers);
+        try std.testing.expectEqual(
+            expected_without_mouse[modifiers],
+            noctty_grid_input_route(input_wheel, 0, 0, 0, flags),
+        );
+        try std.testing.expectEqual(
+            expected_with_mouse[modifiers],
+            noctty_grid_input_route(input_wheel, 0, 1, 0, flags),
+        );
+    }
+}
+
+test "input routing handles scrollbar overrides and invalid boundaries" {
+    for (0..2) |mouse_mode| {
+        for (0..8) |modifiers| {
+            try std.testing.expectEqual(
+                route_scrollbar,
+                noctty_grid_input_route(
+                    input_wheel,
+                    -1,
+                    @intCast(mouse_mode),
+                    0,
+                    @intCast(modifiers),
+                ),
+            );
+        }
+    }
+    try std.testing.expectEqual(
+        route_application_mouse,
+        noctty_grid_input_route(input_wheel, 0, -1, 0, 1 << 31),
+    );
+    try std.testing.expectEqual(
+        route_ignore,
+        noctty_grid_input_route(std.math.maxInt(c_int), 1, 1, 1, std.math.maxInt(u32)),
+    );
+}
+
+fn expectCloseTransition(
+    expected_effects: u32,
+    expected_origin: u32,
+    expected_accepted: bool,
+    actual: CloseTransition,
+) !void {
+    try std.testing.expectEqual(expected_effects, actual.effects);
+    try std.testing.expectEqual(expected_origin, actual.origin);
+    try std.testing.expectEqual(@as(u32, @intFromBool(expected_accepted)), actual.accepted);
+}
+
+test "close requests preserve every first origin and natural-only dwell" {
+    const origins = [_]u32{
+        close_origin_toolbar,
+        close_origin_tray,
+        close_origin_window,
+        close_origin_natural,
+    };
+    for (origins) |origin| {
+        var coordinator: CloseCoordinator = .{};
+        const schedule = if (origin == close_origin_natural)
+            close_effect_schedule_dwell
+        else
+            close_effect_schedule_preflight;
+        try expectCloseTransition(
+            schedule,
+            origin,
+            true,
+            noctty_grid_close_request(&coordinator, origin),
+        );
+        try expectCloseTransition(
+            0,
+            origin,
+            false,
+            noctty_grid_close_request(&coordinator, close_origin_tray),
+        );
+        try std.testing.expectEqual(origin, coordinator.origin);
+
+        try expectCloseTransition(
+            close_effect_run_preflight,
+            origin,
+            true,
+            noctty_grid_close_source_fired(&coordinator, close_source_preflight),
+        );
+        try expectCloseTransition(
+            0,
+            origin,
+            false,
+            noctty_grid_close_request(&coordinator, close_origin_window),
+        );
+        try expectCloseTransition(
+            0,
+            origin,
+            true,
+            noctty_grid_close_preflight_result(&coordinator, 0),
+        );
+        try std.testing.expectEqual(close_phase_idle, coordinator.phase);
+        try std.testing.expectEqual(close_origin_none, coordinator.origin);
+    }
+}
+
+test "close requests reject invalid origins and null state" {
+    var coordinator: CloseCoordinator = .{};
+    for ([_]u32{ close_origin_none, close_origin_natural + 1, std.math.maxInt(u32) }) |origin| {
+        try expectCloseTransition(
+            0,
+            close_origin_none,
+            false,
+            noctty_grid_close_request(&coordinator, origin),
+        );
+    }
+    try expectCloseTransition(
+        0,
+        close_origin_none,
+        false,
+        noctty_grid_close_request(null, close_origin_toolbar),
+    );
+    try std.testing.expectEqual(close_phase_idle, coordinator.phase);
+}
+
+test "nested modals defer once at zero depth without underflow" {
+    var coordinator: CloseCoordinator = .{};
+    try expectCloseTransition(
+        0,
+        close_origin_none,
+        true,
+        noctty_grid_close_modal_begin(&coordinator),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_none,
+        true,
+        noctty_grid_close_modal_begin(&coordinator),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        true,
+        noctty_grid_close_request(&coordinator, close_origin_toolbar),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        false,
+        noctty_grid_close_request(&coordinator, close_origin_tray),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        true,
+        noctty_grid_close_modal_end(&coordinator),
+    );
+    try expectCloseTransition(
+        close_effect_schedule_deferred,
+        close_origin_toolbar,
+        true,
+        noctty_grid_close_modal_end(&coordinator),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        false,
+        noctty_grid_close_modal_end(&coordinator),
+    );
+    try std.testing.expectEqual(@as(u32, 0), coordinator.modal_depth);
+}
+
+test "deferred source restores origin-specific scheduling exactly once" {
+    const origins = [_]u32{ close_origin_toolbar, close_origin_natural };
+    for (origins) |origin| {
+        var coordinator: CloseCoordinator = .{};
+        _ = noctty_grid_close_modal_begin(&coordinator);
+        _ = noctty_grid_close_request(&coordinator, origin);
+        _ = noctty_grid_close_modal_end(&coordinator);
+
+        const expected = if (origin == close_origin_natural)
+            close_effect_schedule_dwell
+        else
+            close_effect_schedule_preflight;
+        try expectCloseTransition(
+            expected,
+            origin,
+            true,
+            noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+        );
+        try expectCloseTransition(
+            0,
+            origin,
+            false,
+            noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+        );
+    }
+}
+
+test "modal interruption cancels every pending source and preserves dwell origin" {
+    var natural: CloseCoordinator = .{};
+    _ = noctty_grid_close_request(&natural, close_origin_natural);
+    try expectCloseTransition(
+        close_effect_cancel_preflight,
+        close_origin_natural,
+        true,
+        noctty_grid_close_modal_begin(&natural),
+    );
+    try expectCloseTransition(
+        close_effect_schedule_deferred,
+        close_origin_natural,
+        true,
+        noctty_grid_close_modal_end(&natural),
+    );
+    try expectCloseTransition(
+        close_effect_schedule_dwell,
+        close_origin_natural,
+        true,
+        noctty_grid_close_source_fired(&natural, close_source_deferred),
+    );
+
+    var deferred: CloseCoordinator = .{};
+    _ = noctty_grid_close_modal_begin(&deferred);
+    _ = noctty_grid_close_request(&deferred, close_origin_tray);
+    _ = noctty_grid_close_modal_end(&deferred);
+    try expectCloseTransition(
+        close_effect_cancel_deferred,
+        close_origin_tray,
+        true,
+        noctty_grid_close_modal_begin(&deferred),
+    );
+    try expectCloseTransition(
+        close_effect_schedule_deferred,
+        close_origin_tray,
+        true,
+        noctty_grid_close_modal_end(&deferred),
+    );
+
+    _ = noctty_grid_close_source_fired(&deferred, close_source_deferred);
+    try expectCloseTransition(
+        close_effect_cancel_preflight,
+        close_origin_tray,
+        true,
+        noctty_grid_close_modal_begin(&deferred),
+    );
+}
+
+test "preflight rejection resets while retaining modal nesting" {
+    var coordinator: CloseCoordinator = .{};
+    _ = noctty_grid_close_request(&coordinator, close_origin_window);
+    _ = noctty_grid_close_source_fired(&coordinator, close_source_preflight);
+    _ = noctty_grid_close_modal_begin(&coordinator);
+    try expectCloseTransition(
+        0,
+        close_origin_window,
+        true,
+        noctty_grid_close_preflight_result(&coordinator, 0),
+    );
+    try std.testing.expectEqual(@as(u32, 1), coordinator.modal_depth);
+    try expectCloseTransition(
+        0,
+        close_origin_tray,
+        true,
+        noctty_grid_close_request(&coordinator, close_origin_tray),
+    );
+    try expectCloseTransition(
+        close_effect_schedule_deferred,
+        close_origin_tray,
+        true,
+        noctty_grid_close_modal_end(&coordinator),
+    );
+}
+
+test "accepted preflight commits once and rejects all reentrancy" {
+    var coordinator: CloseCoordinator = .{};
+    _ = noctty_grid_close_request(&coordinator, close_origin_toolbar);
+    _ = noctty_grid_close_source_fired(&coordinator, close_source_preflight);
+    try expectCloseTransition(
+        close_effect_commit,
+        close_origin_toolbar,
+        true,
+        noctty_grid_close_preflight_result(&coordinator, 1),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        false,
+        noctty_grid_close_preflight_result(&coordinator, 1),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        false,
+        noctty_grid_close_request(&coordinator, close_origin_natural),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_toolbar,
+        false,
+        noctty_grid_close_source_fired(&coordinator, close_source_preflight),
+    );
+}
+
+test "stale and mismatched close sources never advance state" {
+    var coordinator: CloseCoordinator = .{};
+    try expectCloseTransition(
+        0,
+        close_origin_none,
+        false,
+        noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+    );
+    _ = noctty_grid_close_request(&coordinator, close_origin_tray);
+    try expectCloseTransition(
+        0,
+        close_origin_tray,
+        false,
+        noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+    );
+    try expectCloseTransition(
+        0,
+        close_origin_tray,
+        false,
+        noctty_grid_close_source_fired(&coordinator, std.math.maxInt(u32)),
+    );
 }
