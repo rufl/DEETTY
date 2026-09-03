@@ -32,6 +32,7 @@ const GtkScale = opaque {};
 const GtkFlowBox = opaque {};
 const GtkMenuItem = opaque {};
 const GtkMenuShell = opaque {};
+const GtkPaned = opaque {};
 const GObject = opaque {};
 const AtkObject = opaque {};
 const GdkWindow = opaque {};
@@ -154,6 +155,10 @@ extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_tooltip_text(*GtkWidget, ?[*:0]const u8) void;
 extern fn gtk_widget_get_tooltip_text(*GtkWidget) ?[*:0]u8;
 extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
+extern fn gtk_widget_get_visible(*GtkWidget) c_int;
+extern fn gtk_widget_is_ancestor(*GtkWidget, *GtkWidget) c_int;
+extern fn gtk_paned_get_child1(*GtkPaned) ?*GtkWidget;
+extern fn gtk_paned_get_child2(*GtkPaned) ?*GtkWidget;
 extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
@@ -167,6 +172,7 @@ extern fn gtk_box_get_type() GType;
 extern fn gtk_container_get_type() GType;
 extern fn gtk_label_get_type() GType;
 extern fn gtk_notebook_get_type() GType;
+extern fn gtk_paned_get_type() GType;
 extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
 extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
 extern fn gtk_box_pack_end(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
@@ -260,6 +266,76 @@ fn object(widget: *GtkWidget) *GObject {
 
 fn isA(widget: *GtkWidget, get_type: *const fn () callconv(.c) GType) bool {
     return g_type_check_instance_is_a(@ptrCast(@alignCast(widget)), get_type()) != 0;
+}
+
+const pane_count_max: u32 = 16;
+const split_count_max: usize = 15;
+const split_walk_max: usize = 31;
+
+fn branchHasVisiblePane(
+    branch: *GtkWidget,
+    panes: []const ?*GtkWidget,
+) bool {
+    for (panes) |pane_optional| {
+        const pane = pane_optional orelse continue;
+        if (gtk_widget_get_visible(pane) == 0) continue;
+        if (pane == branch or gtk_widget_is_ancestor(pane, branch) != 0)
+            return true;
+    }
+    return false;
+}
+
+pub export fn noctty_grid_sync_split_visibility(
+    content_optional: ?*GtkWidget,
+    panes_optional: ?[*]const ?*GtkWidget,
+    pane_count: u32,
+) callconv(.c) c_int {
+    const content = content_optional orelse return FALSE;
+    const pane_pointer = panes_optional orelse return FALSE;
+    if (pane_count == 0 or pane_count > pane_count_max) return FALSE;
+    const panes = pane_pointer[0..pane_count];
+
+    var pending: [split_walk_max]?*GtkWidget = [_]?*GtkWidget{null} ** split_walk_max;
+    var splits: [split_count_max]?*GtkWidget = [_]?*GtkWidget{null} ** split_count_max;
+    var pending_count: usize = 1;
+    var split_count: usize = 0;
+    pending[0] = content;
+    while (pending_count > 0) {
+        pending_count -= 1;
+        const branch = pending[pending_count] orelse continue;
+        if (!isA(branch, gtk_paned_get_type)) continue;
+        if (split_count == splits.len) return FALSE;
+        splits[split_count] = branch;
+        split_count += 1;
+        const paned: *GtkPaned = @ptrCast(branch);
+        for ([_]?*GtkWidget{
+            gtk_paned_get_child1(paned),
+            gtk_paned_get_child2(paned),
+        }) |child_optional| {
+            const child = child_optional orelse continue;
+            if (pending_count == pending.len) return FALSE;
+            pending[pending_count] = child;
+            pending_count += 1;
+        }
+    }
+
+    var index = split_count;
+    while (index > 0) {
+        index -= 1;
+        const branch = splits[index] orelse continue;
+        const paned: *GtkPaned = @ptrCast(branch);
+        for ([_]?*GtkWidget{
+            gtk_paned_get_child1(paned),
+            gtk_paned_get_child2(paned),
+        }) |child_optional| {
+            const child = child_optional orelse continue;
+            gtk_widget_set_visible(
+                child,
+                @intFromBool(branchHasVisiblePane(child, panes)),
+            );
+        }
+    }
+    return TRUE;
 }
 
 fn compactTabProvider() ?*GtkCssProvider {

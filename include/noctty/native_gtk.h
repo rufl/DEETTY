@@ -13,6 +13,8 @@ guint noctty_pane_info_strip_revision(GtkWidget *strip);
 void noctty_configure_action_button(GtkWidget *button, const char *tooltip);
 void noctty_prepare_action_button_tree(GtkWidget *widget);
 void noctty_show_all_with_action_affordances(GtkWidget *widget);
+gboolean noctty_grid_sync_split_visibility(
+    GtkWidget *content, GtkWidget *const *panes, guint pane_count);
 void noctty_install_compact_tab_styles(GtkWidget *notebook);
 GdkWindow *noctty_action_button_event_window(GtkWidget *widget);
 gboolean noctty_action_button_enter(GtkWidget *widget);

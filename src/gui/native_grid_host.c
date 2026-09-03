@@ -1791,47 +1791,27 @@ static void apply_smart_filter(NocttyGridContext *context);
 static int populate_tag_suggestions(NocttyGridContext *context,
                                     GtkComboBoxText *combo);
 
-static gboolean grid_branch_has_visible_pane(
-    NocttyGridContext *root, GtkWidget *page, GtkWidget *branch) {
+static void sync_grid_page_branch_visibility(
+    NocttyGridContext *root, GtkWidget *page) {
+    GtkWidget *panes[16] = {0};
+    guint pane_count = 0;
+    NocttyGridContext *representative = NULL;
     for (guint index = 0; root->contexts != NULL &&
-         index < root->contexts->len; index++) {
+         index < root->contexts->len && pane_count < G_N_ELEMENTS(panes);
+         index++) {
         NocttyGridContext *candidate = g_ptr_array_index(
             root->contexts, index);
         if (!candidate->active || candidate->exited ||
-            candidate->page != page || candidate->area == NULL ||
-            !gtk_widget_get_visible(candidate->area))
+            candidate->page != page || candidate->area == NULL)
             continue;
-        if (candidate->area == branch ||
-            gtk_widget_is_ancestor(candidate->area, branch))
-            return TRUE;
+        if (representative == NULL) representative = candidate;
+        panes[pane_count++] = candidate->area;
     }
-    return FALSE;
-}
-
-static void sync_grid_split_branch_visibility(
-    NocttyGridContext *root, GtkWidget *page, GtkWidget *branch) {
-    if (!GTK_IS_PANED(branch)) return;
-    GtkWidget *first = gtk_paned_get_child1(GTK_PANED(branch));
-    GtkWidget *second = gtk_paned_get_child2(GTK_PANED(branch));
-    if (first != NULL)
-        sync_grid_split_branch_visibility(root, page, first);
-    if (second != NULL)
-        sync_grid_split_branch_visibility(root, page, second);
-    if (first != NULL)
-        gtk_widget_set_visible(
-            first, grid_branch_has_visible_pane(root, page, first));
-    if (second != NULL)
-        gtk_widget_set_visible(
-            second, grid_branch_has_visible_pane(root, page, second));
-}
-
-static void sync_grid_page_branch_visibility(
-    NocttyGridContext *root, GtkWidget *page) {
-    NocttyGridContext *pane = grid_context_for_page(root, page);
-    GtkWidget *content = pane != NULL
-        ? grid_page_content_root(pane, page) : NULL;
+    GtkWidget *content = representative != NULL
+        ? grid_page_content_root(representative, page) : NULL;
     if (content != NULL)
-        sync_grid_split_branch_visibility(root, page, content);
+        (void)noctty_grid_sync_split_visibility(
+            content, panes, pane_count);
 }
 
 static gboolean clear_smart_filter(NocttyGridContext *context) {

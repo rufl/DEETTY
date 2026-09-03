@@ -53,7 +53,8 @@ zig build run-nocted -- --project . --open README.md
   qualification included only in smoke builds; production host source contains
   no qualification implementation.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
-  action-button affordances, compact-tab styling, tab-child lookup, color
+  bounded nested split-branch visibility traversal, action-button affordances,
+  compact-tab styling, tab-child lookup, color
   styling, settings surfaces, context menus, compact dialogs, theme library,
   project tools, and sharing controls behind the narrow
   `include/noctty/native_gtk.h` ABI.

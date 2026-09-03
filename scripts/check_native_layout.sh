@@ -114,6 +114,9 @@ grep -F '"--native-grid-authenticated-agent-qualification"' "$main" >/dev/null
 grep -F '"--native-grid-installed-continuity-qualification"' "$main" >/dev/null
 ! grep -F 'fn noctty_native_grid_host_run(' "$main" >/dev/null
 
+grep -F 'pub export fn noctty_grid_sync_split_visibility(' "$native_gtk" >/dev/null
+grep -F 'const split_walk_max: usize = 31;' "$native_gtk" >/dev/null
+! grep -F 'gtk_widget_is_ancestor' "$grid" >/dev/null
 grep -F 'pub export fn noctty_settings_page_new' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_settings_grid_attach_control' "$native_gtk" >/dev/null
 grep -F 'gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);' "$native_gtk" >/dev/null
