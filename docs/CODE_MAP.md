@@ -40,18 +40,23 @@ zig build run-nocted -- --project . --open README.md
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
   linear selection hit testing, pixel-snapped spans, packed-cell/run decoding,
   UTF-8 encoding, clipping, pane chrome, and caret policy consumed through
-  `native_grid_logic.h`.
+  `include/noctty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and
   text, text decorations, resize/cycle/note/status overlays, and terminal
-  scrollbar rendering behind the narrow `native_grid_render.h` ABI.
-- `tests/native_grid_qualification.inc` — test-only Cairo renderer,
-  presentation, full-stack, and stability qualification included only in smoke
-  builds; production host source contains no qualification implementation.
+  scrollbar rendering behind the narrow
+  `include/noctty/native_grid_render.h` ABI.
+- `tests/native_grid_qualification.inc` and `tests/native_grid_*_smoke.inc` —
+  test-only renderer, compact UX, presentation, full-stack, and stability
+  qualification included only in smoke builds; production host source contains
+  no qualification implementation.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
   styling, settings surfaces, context menus, compact dialogs, theme library,
-  project tools, and sharing controls behind the narrow `native_gtk.h` ABI.
+  project tools, and sharing controls behind the narrow
+  `include/noctty/native_gtk.h` ABI.
+- `include/noctty/` — published narrow C ABI declarations; these remain counted
+  by the Zig ownership gate.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
 - `src/windows/main.zig`, `src/windows/WindowsHost.zig`,

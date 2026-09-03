@@ -25,6 +25,7 @@ is not a VS Code, Zed, Sublime, Ghostty, or Yakuake replacement.
 - The experimental x86_64 Windows host now cross-compiles without GTK, uses Win32/GDI plus independent ConPTY/Zig-VT sessions behind bounded native tabs and recursive splits, retains local logs/minidumps without upload, passes a Wine-hosted no-window VT/workspace self-test, and emits a checksummed `ReleaseFast` ZIP. Physical Windows behavior and broader feature parity remain open.
 - A 2026-09-02 installed-log audit closed the remaining repeated Wayland popup-stack warning and made that exact warning fail the dogfood clean-log contract. Repeat Linux dogfood installs now accept a retained GTK Layer Shell runtime only when it matches the prior private build receipt; the current `ReleaseFast` install passed after the host system package had been removed.
 - Windows dogfood delivery now has a checksum-bound PI WEB QOL-discoverable ZIP containing the per-user NSIS installer and a PowerShell verifier/installer. Successful physical installation runs both installed self-tests and retains a local install receipt; the artifact remains unsigned and physical Windows qualification remains open.
+- NCT-126 now exceeds the 80% core Zig ownership target (first-party nonblank `src/` plus `include/noctty/`, excluding test/display orchestration). The Linux grid delegates its cell pipeline, row/glyph buffers, Cairo/Pango text, overlays, decorations, scrollbar, and sharing preview to Zig; GTK C retains native objects, event dispatch, focus/capture calls, callback I/O, and host lifetimes. Test-only smoke/qualification callbacks live under `tests/`. Adapter retirement still requires mapped and physical evidence.
 - Native Linux terminal VT, PTY, grid, renderer, history, session lifecycle, continuity, settings, tab/chrome, NoctEd, and package gates are implemented for the current 0.1.0 slice.
 - NoctEd project-task detection now matches its documented surface: Zig, Cargo, Go, Flutter, Dart, validated npm scripts, .NET, Python, and Make use bounded regular-manifest/root scans and fixed argv without shell evaluation; unavailable generic actions are not guessed. The focused nine-ecosystem worker smoke passes with local shims. Running tasks own a process group, retain 120-second and independently enforced 1 MiB stream caps, remove desktop activation variables from child environments, and poll cancellation within 50 ms while idle, give the process group a bounded 100 ms TERM grace, then kill remaining descendants and free the foreground worker. GUI syntax-path imports now roll back additions when language-manager activation fails, and teardown session-save failures enter local logs instead of disappearing. Exhaustive allocator-failure sweeps retain ownership across syntax paths/candidates, recent sessions, LSP workspace edits, pane tags, workspace/tab construction, and preset layout replacement; IDs and prior layout state remain unchanged on failed mutations.
 - Native pane retirement now owns and removes its deferred-focus source before releasing a heap context. The focused pane-close smoke passes inside a private D-Bus + Xvfb session. The default X11 helper delegates to the shared pressure-gated mount/PID/IPC/network namespace runner while adding private HOME/XDG/TMP paths; the virtual-KWin Wayland helper likewise clears inherited display state, serializes runs, enforces timeouts, and fails closed. The aggregate admits isolated graphical proof before heavy process/build qualification and retries status-75 pressure deferrals for at most one minute without weakening thresholds or retrying test failures. Source-tree single-instance/recovery binaries use the shared bubble; scoped `/dev/shm` package artifacts use the reviewed private-socket fallback because the bubble intentionally masks that mount. Verification, installation, packaging, signing, benchmark, and display wrappers exit with canonical signal statuses after one EXIT cleanup instead of resuming after signal-triggered scratch removal. The maintained guard inventories 38 self-isolating focused wrappers and 20 broad compositor, screenshot, physical-shortcut, endurance, installed-activation, and post-upgrade lanes that require `NOCTTY_DEDICATED_DISPLAY=1` in a disposable session. Single-instance and damaged-state smokes no longer create a nested second X server, and the split-terminal benchmark now requires shared offscreen isolation or explicit disposable-session acknowledgement.
@@ -46,25 +47,47 @@ is not a VS Code, Zed, Sublime, Ghostty, or Yakuake replacement.
 
 ## Open boundaries
 
-The backlog remains partial for:
+Priority tiers are:
 
-- NCT-112: the elapsed 48-hour authenticated mapped agent/resource run;
-- NCT-123: physical Windows qualification and Windows workspace/NoctEd parity;
-- release operations: retained architecture artifacts/signatures, publication, independent redistribution review, compositor acceptance, and consented Wayland HID.
+- **P1 — public-alpha/dogfood:** current-build evidence and reproduced blockers
+  only.
+- **P2 — post-alpha:** architecture migration, physical-platform proof, and
+  long-duration stability work.
+- **P3 — release operations:** signing, publication, redistribution review, and
+  final operator acceptance.
 
-These are evidence/operator boundaries, not reasons to invent local claims.
+| Tier | Bundle | Open boundary |
+|---|---|---|
+| P1 | NCT-125 current-build dogfood defect recapture | Blocked on operator evidence: retain a clean current installed two-hour session and recapture the stale screenshots; source fixes do not close the historical observations. |
+| P2 | NCT-112 terminal stability and agent-resource qualification | Blocked on elapsed evidence: retain the 48-hour authenticated mapped run. |
+| P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify Windows 10/11 behavior and workspace/NoctEd parity. |
+| P2 | NCT-126 first-party native-adapter migration | The Win32 terminal host is Zig-owned; source-ready work remains in the GTK native-grid adapter. Isolated GTK and physical Windows evidence remain separate acceptance gates. |
+| P3 | Release Operations | Blocked on operator/external evidence: retain architecture artifacts/signatures, publication, independent redistribution review, compositor acceptance, and consented Wayland HID. |
+
+Every open bundle appears once in this map. Source-ready work may proceed
+locally; elapsed, physical, and operator evidence cannot be inferred from source
+completion.
 
 ## Immediate priorities
 
-1. Complete one current-version four-session OMP preflight, then record counted
-   daily-driver dogfood sessions in `docs/DOGFOOD_LOG.md`;
-   `dogfood_status.sh` qualifies only one automatically correlated, complete
-   workspace trace and never accepts manual step claims.
-2. Run the checksummed Windows alpha on physical Windows 10/11 and retain launch, input, resize, shell-exit, log, and crash-dump receipts before expanding claims.
-3. Fix only P0/P1 dogfood blockers.
-4. Run `./scripts/native_grid_stability_qualification.sh --run` when 48 hours of uninterrupted compositor access are available.
-5. Keep `./scripts/check_docs_truth.sh`, `./scripts/check_no_surprise_network.sh`, and the full verifier green.
-6. Keep release wording below signing/publication evidence.
+1. **P1 operator recapture:** complete one current-version four-session OMP
+   preflight, then record counted daily-driver dogfood sessions in
+   `docs/DOGFOOD_LOG.md`; `dogfood_status.sh` qualifies only one automatically
+   correlated, complete workspace trace and never accepts manual step claims.
+2. **P2 source-ready work:** migrate the remaining first-party adapters
+   incrementally behind their existing ABI contracts; do not retire an adapter
+   before its mapped or physical evidence is retained.
+3. **P2 physical evidence:** run the checksummed Windows alpha on physical
+   Windows 10/11 and retain launch, input, resize, shell-exit, log, and
+   crash-dump receipts before expanding claims.
+4. **P2 elapsed evidence:** run
+   `./scripts/native_grid_stability_qualification.sh --run` when 48 hours of
+   uninterrupted compositor access are available.
+5. **P3 operator work:** keep release wording below signing/publication
+   evidence.
+6. During public alpha, fix only reproduced P0/P1 dogfood blockers. Keep
+   `./scripts/check_docs_truth.sh`, `./scripts/check_no_surprise_network.sh`,
+   and the full verifier green.
 
 ## Verification
 

@@ -1,31 +1,36 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-08-29.
+Last refreshed: 2026-09-02.
 
 ## Source Of Truth Policy
 
 Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced but not closed; `[truth:*]` names that evidence. Archive completed or retired work.
 
-## Completion Index
+## Priority and Completion Index
 
-| ID | Open boundary |
-|---|---|
-| NCT-112 | Multi-day terminal stability |
-| NCT-123 | Experimental Windows host parity and physical qualification |
-| NCT-125 | Current-build dogfood defect recapture |
-| NCT-126 | First-party native-adapter migration to Zig |
-| Release operations | Signed artifacts, publication, independent redistribution review, compositor and HID acceptance |
+- **P1 — public-alpha/dogfood:** current-build evidence and reproduced blockers
+  only.
+- **P2 — post-alpha:** architecture migration, physical-platform proof, and
+  long-duration stability work.
+- **P3 — release operations:** signing, publication, redistribution review, and
+  final operator acceptance.
+
+| Tier | Bundle | Executable boundary |
+|---|---|---|
+| P1 | NCT-125 current-build dogfood defect recapture | Blocked on operator evidence: retain the clean installed two-hour session; source work alone cannot close it. |
+| P2 | NCT-112 terminal stability and agent-resource qualification | Blocked on elapsed evidence: retain the uninterrupted 48-hour run. |
+| P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
+| P2 | NCT-126 first-party native-adapter migration | Source-ready incremental migration plus mapped/physical retirement gates. |
+| P3 | Release Operations | Blocked on operator/external evidence: retain signing, publication, redistribution review, compositor, and consented HID acceptance. |
+
+Every open bundle is listed once above. Source-ready work is locally executable;
+elapsed, physical, and operator evidence is not implied by source completion.
 
 ## Active
 
-### NCT-112 Terminal stability and agent-resource qualification — partial
+### P1 — Public-alpha/dogfood
 
-- [ ] [status:yellow] Complete the retained 48-hour `ReleaseSafe` Wayland/X11 hidden/visible matrix. The mode-40 runner, exact phase/resource receipts, 64 MiB root-growth guard, compositor capture, and four-lane Debug/`ReleaseSafe` shakedown pass; elapsed authenticated execution remains open. `[truth:test,measurement]`
-
-Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
-`docs/RELEASE_CHECKLIST.md`, and the linked qualification records.
-
-### NCT-125 Current-build dogfood defect recapture — partial
+#### NCT-125 Current-build dogfood defect recapture — partial
 
 - [ ] [status:yellow] Retain a clean two-hour Plasma Wayland session on the
   current installed dogfood build that uses Codex scrollbar wheel/drag
@@ -84,7 +89,16 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   required before closing the historical
   descriptor, GTK-critical, and exit-139 observations. `[truth:build,logs,docs]`
 
-### NCT-123 Experimental Windows host — partial
+### P2 — Post-alpha architecture, physical proof, and stability
+
+#### NCT-112 Terminal stability and agent-resource qualification — partial
+
+- [ ] [status:yellow] Complete the retained 48-hour `ReleaseSafe` Wayland/X11 hidden/visible matrix. The mode-40 runner, exact phase/resource receipts, 64 MiB root-growth guard, compositor capture, and four-lane Debug/`ReleaseSafe` shakedown pass; elapsed authenticated execution remains open. `[truth:test,measurement]`
+
+Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
+`docs/RELEASE_CHECKLIST.md`, and the linked qualification records.
+
+#### NCT-123 Experimental Windows host — partial
 
 - [ ] [status:yellow] Physically qualify the x86_64 Win32/GDI + ConPTY host on
   Windows 10/11. The source tranche now cross-compiles without GTK, owns bounded
@@ -99,7 +113,7 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   editor behavior on supported Windows releases.
   `[truth:build,test,docs]`
 
-### NCT-126 First-party native-adapter migration to Zig — partial
+#### NCT-126 First-party native-adapter migration to Zig — partial
 
 - [ ] [status:yellow] Move first-party platform behavior into Zig without
   replacing stable, focused native qualifications with percentage-driven
@@ -110,26 +124,26 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   cross-compilation. A dedicated isolated Wine controls/message-loop smoke is
   present; it exposed and closed a pseudo-HMENU alignment panic, then passed
   post-fix mapped control/message-loop runs in isolated Wine for Debug and
-  `ReleaseSafe`. Remaining C translation units are the GTK
-  native-grid adapter and the experimental Win32 terminal host. The latter now
-  delegates geometry, pointer cells, selection, color conversion, grid sizing,
-  special keys, and UTF-16 assembly to tested Zig exports. Zig also owns ConPTY
-  pipes/process/thread teardown, the bounded output ring, Unicode clipboard
-  memory, sibling-process launch, native-menu construction/state, DPI-aware GDI
-  fonts/metrics, preference normalization, bounded window titles, the complete
-  double-buffered GDI terminal renderer, local logs, and minidumps. C still
-  owns timer objects, input/workspace-session orchestration,
-  command/window-message dispatch, and the main HWND. The GTK adapter now
-  delegates scrollbar geometry, wheel accumulation, keyboard scroll targets,
-  grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
-  linear selection hit testing, and pixel-snapped spans to tested Zig policy.
-  Migrate those incrementally behind their existing ABI contracts; keep
-  generated vendored Tree-sitter parsers, system headers, and display-isolation
-  shell orchestration outside the source-percentage target. Physical Windows
-  behavior, a current-source mapped Wine rerun, and isolated mapped GTK proof
-  remain required before retiring each
-  adapter. `[truth:build,test,docs]`
+  `ReleaseSafe`. The experimental Win32 terminal host is now fully Zig-owned:
+  `WindowsHost.zig` owns the main HWND, timers, hit testing, focus/capture,
+  input, workspace-session orchestration, and command/message dispatch alongside
+  the existing Zig ConPTY, rendering, clipboard, menu, font, title, diagnostics,
+  and persistence modules. Its former C translation unit and private header are
+  retired. The only remaining first-party C translation unit is the GTK
+  native-grid adapter. Core first-party ownership now exceeds the 80% Zig
+  target. The adapter delegates input-routing precedence, scrollbar geometry,
+  wheel accumulation, keyboard scroll targets, grid sizing/auto-fit,
+  window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit
+  testing, and the Cairo/Pango cell, glyph, overlay, scrollbar, and sharing
+  preview pipeline to Zig. Continue migrating that adapter incrementally behind
+  its existing ABI contracts; keep generated vendored Tree-sitter parsers,
+  system headers, and
+  display-isolation shell orchestration outside the source-percentage target.
+  Physical Windows behavior and isolated mapped GTK proof remain required
+  acceptance boundaries. `[truth:build,test,docs]`
 
-## Release Operations
+### P3 — Release operations
+
+#### Release Operations
 
 - [ ] [status:yellow] Retain both architecture artifacts/signatures, publication, independent dependency-bundle redistribution review and receipts, final compositor acceptance, and consented Wayland HID capture. The NCT-077 follow-through is locally closed; external evidence remains operator-owned. `[truth:build,docs,external]`

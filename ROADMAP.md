@@ -24,6 +24,27 @@ Public alpha does **not** mean mature IDE, VS Code parity, Windows feature
 parity or physical qualification, macOS support, or universal terminal
 compatibility.
 
+## Priority tiers and execution bundles
+
+- **P1 — public-alpha/dogfood:** current-build evidence and fixes for reproduced
+  blockers only.
+- **P2 — post-alpha:** architecture migration, physical-platform proof, and
+  long-duration stability work.
+- **P3 — release operations:** signing, publication, redistribution review, and
+  final operator acceptance.
+
+| Tier | Bundle | Executable boundary |
+|---|---|---|
+| P1 | NCT-125 current-build dogfood recapture | Blocked on operator evidence: source fixes are retained, but closure requires a clean installed-session recapture. |
+| P2 | NCT-112 terminal stability | Blocked on elapsed evidence: run and retain the uninterrupted 48-hour qualification. |
+| P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
+| P2 | NCT-126 native-adapter migration | The 80% core Zig ownership target is met; continue shrinking the GTK object/event adapter, then retain required mapped and physical retirement proof. |
+| P3 | Release Operations | Blocked on operator/external evidence: retain signatures, publication, review, compositor, and consented HID acceptance. |
+
+Source-ready work may be implemented locally; elapsed, physical, and operator
+evidence cannot be claimed from source completion. The tier records execution
+order, not completion.
+
 ## Phase 0 — Public-readiness docs
 
 Status: complete.
@@ -105,7 +126,7 @@ Required before tagging alpha:
 - [x] fast source build/check path confirmed with `zig build check -j1 --summary all`
 - [x] fast build/check path confirmed from a clean source copy
 - [x] full `./scripts/verify.sh` status recorded
-- [x] README screenshots current
+- [ ] README screenshots current
 - [x] limitations current
 - [x] changelog has alpha note
 - [x] license present
@@ -117,6 +138,10 @@ Required before tagging alpha:
 - [x] draft public source-alpha release notes
 - [x] public alpha go/no-go sheet
 - [x] bounded public-source-alpha gate: `./scripts/public_alpha_verify.sh`
+
+The checked items record source-release hygiene, not a completed public
+release. Signing, publication, redistribution review, and final operator
+acceptance remain P3 Release Operations.
 
 ## Phase 4 — Packaging and broader proof
 
