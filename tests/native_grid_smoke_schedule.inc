@@ -34,6 +34,7 @@
         g_timeout_add(250, emit_workspace_smoke_split, &context);
         g_timeout_add(500, emit_workspace_smoke_split, &context);
         g_timeout_add(750, emit_workspace_smoke_split_left, &context);
+        g_timeout_add(900, request_recursive_zoom_smoke, &context);
     } else if (workspace_smoke == 12) {
         g_timeout_add(250, emit_workspace_smoke_split, &context);
         g_timeout_add(350, drive_focus_click_smoke, &context);

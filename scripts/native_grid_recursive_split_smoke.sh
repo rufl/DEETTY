@@ -15,4 +15,4 @@ else
   exit "$status"
 fi
 printf '%s\n' "$output"
-printf '%s\n' "$output" | grep -q '^native_grid_recursive_split_smoke panes=4 sessions=4 split_down=vertical split_left=horizontal recursive=true dynamic_sessions=true exited=true$'
+printf '%s\n' "$output" | grep -q '^native_grid_recursive_split_smoke panes=4 sessions=4 split_down=vertical split_left=horizontal recursive=true dynamic_sessions=true nested_zoom=true full_page=true restored=true exited=true$'

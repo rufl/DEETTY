@@ -7148,7 +7148,7 @@ fn nativeGridRecursiveSplitSmoke(out: anytype) !void {
     if (bridge.created_session_count != 3 or tab.panes.items.len != 4) return error.NativeGridRecursiveSplitCountMismatch;
     if (!bridge.saw_split_down_vertical or !bridge.saw_split_left_horizontal) return error.NativeGridRecursiveSplitOrientationMismatch;
     if (!bridge.saw_secondary_started or !bridge.saw_secondary_output or !bridge.saw_secondary_exited) return error.NativeGridRecursiveSplitLifecycleMissing;
-    try out.print("native_grid_recursive_split_smoke panes=4 sessions=4 split_down=vertical split_left=horizontal recursive=true dynamic_sessions=true exited=true\n", .{});
+    try out.print("native_grid_recursive_split_smoke panes=4 sessions=4 split_down=vertical split_left=horizontal recursive=true dynamic_sessions=true nested_zoom=true full_page=true restored=true exited=true\n", .{});
 }
 
 fn nativeGridClickFocusSmoke(out: anytype) !void {

@@ -479,6 +479,8 @@ typedef struct NocttyGridContextTag {
     int focus_double_click_zoom_clean;
     int focus_double_click_restore_clean;
     int focus_drag_selection_preserved;
+    int recursive_zoom_full_page;
+    int recursive_zoom_restored;
     int tab_position;
     int pane_move_applied;
     int attention;
@@ -7572,6 +7574,7 @@ static void restore_zoomed_page(NocttyGridContext *root) {
     if (root->zoomed_pane_id == 0) return;
     NocttyGridContext *zoomed = grid_context_for_pane(root, root->zoomed_pane_id);
     GtkWidget *page = zoomed != NULL ? zoomed->page : NULL;
+    if (page != NULL) gtk_widget_show_all(page);
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->page != page) continue;
@@ -7580,6 +7583,22 @@ static void restore_zoomed_page(NocttyGridContext *root) {
     }
     root->zoomed_pane_id = 0;
     update_notebook_chrome(root);
+}
+
+static void hide_grid_zoom_sibling_branches(NocttyGridContext *context) {
+    GtkWidget *child = context->area;
+    GtkWidget *parent = gtk_widget_get_parent(child);
+    while (parent != NULL && parent != context->page) {
+        if (GTK_IS_PANED(parent)) {
+            GtkWidget *first = gtk_paned_get_child1(GTK_PANED(parent));
+            GtkWidget *second = gtk_paned_get_child2(GTK_PANED(parent));
+            GtkWidget *sibling = child == first ? second :
+                child == second ? first : NULL;
+            if (sibling != NULL) gtk_widget_hide(sibling);
+        }
+        child = parent;
+        parent = gtk_widget_get_parent(parent);
+    }
 }
 
 static void destroy_retired_grid_context(NocttyGridContext *root,
@@ -8069,6 +8088,7 @@ static void toggle_grid_zoom(NocttyGridContext *context) {
             if (candidate == context) gtk_widget_show(candidate->area);
             else gtk_widget_hide(candidate->area);
         }
+        hide_grid_zoom_sibling_branches(context);
         gtk_notebook_set_show_tabs(GTK_NOTEBOOK(root->notebook), FALSE);
         root->zoomed_pane_id = context->pane_id;
         gchar *session_name = pane_session_name_alloc(context);
@@ -12946,6 +12966,7 @@ static void open_command_palette(NocttyGridContext *context) {
 
 #if NOCTTY_ENABLE_SMOKE
 #include "../../tests/native_grid_compact_ux_smoke.inc"
+#include "../../tests/native_grid_zoom_smoke.inc"
 #endif
 
 static gboolean draw_sharing_preview(GtkWidget *widget, cairo_t *cr,
@@ -17400,6 +17421,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.control_show_seen && context.control_hide_seen &&
          context.control_toggle_seen &&
          resize_grip_request_height == context.dragger_px);
+    int recursive_zoom_ok = workspace_smoke != 11 ||
+        (context.recursive_zoom_full_page &&
+         context.recursive_zoom_restored);
     int focus_ok = workspace_smoke != 12 ||
         (context.focus_click_primary && context.focus_click_secondary &&
          context.focus_click_controlled_exit &&
@@ -17673,7 +17697,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         if (candidate->heap_allocated) g_free(candidate);
     }
     g_ptr_array_free(context.contexts, TRUE);
-    int host_ok = contexts_ok && clipboard_ok && broadcast_safety_ok &&
+    int host_ok = recursive_zoom_ok && contexts_ok && clipboard_ok && broadcast_safety_ok &&
         notification_ok && sharing_scope_ok && settings_ok &&
         settings_stacking_ok && note_overlay_ok && navigation_ok &&
         terminal_chords_ok && hot_session_ok &&

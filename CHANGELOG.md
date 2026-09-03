@@ -4,6 +4,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Fixed pane zoom inside nested split trees: double-click now hides every
+  sibling branch up to the page root, giving lower panes the full available
+  width and height, then restores all branches without changing split ratios.
+
 - Added configurable inactive-pane brightness, disabled/transparent/theme-colored
   pane gaps, monitor-resolution adaptation in every presentation mode, safe
   default-browser hyperlink actions and link menus, TUI-aware theme palettes,
