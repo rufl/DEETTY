@@ -55,6 +55,13 @@ comptime {
     _ = NativeGtk.noctty_settings_category_row_new;
     _ = NativeGtk.noctty_settings_category_selected;
     _ = NativeGtk.noctty_settings_response;
+    _ = NativeGtk.noctty_workspace_menu_new;
+    _ = NativeGtk.noctty_terminal_find_contents_new;
+    _ = NativeGtk.noctty_quick_note_contents_new;
+    _ = NativeGtk.noctty_shortcuts_contents_new;
+    _ = NativeGtk.noctty_command_palette_contents_new;
+    _ = NativeGtk.noctty_project_contents_new;
+    _ = NativeGtk.noctty_sharing_contents_new;
 }
 
 const NativeHostEvent = VteHost.Event;

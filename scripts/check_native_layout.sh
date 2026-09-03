@@ -96,7 +96,7 @@ grep -A4 -F 'gtk_scrolled_window_set_policy(' "$native_gtk" | \
 grep -F 'save failed; keep this window open' "$grid" >/dev/null
 grep -F 'if (save_quick_note(root)) gtk_widget_destroy' "$grid" >/dev/null
 grep -F 'Could not save terminal scrollback' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(entry, "Search terminal scrollback");' "$grid" >/dev/null
+grep -F 'setAccessibleName(entry, "Search terminal scrollback");' "$native_gtk" >/dev/null
 grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
 grep -F '"Close file: {s}"' "$nocted" >/dev/null
 test "$(grep -c 'gtk_widget_queue_resize(parent);' "$grid")" -eq 1
@@ -110,9 +110,10 @@ grep -F 'context->nocted_directory_resolved ? directory : NULL,' "$grid" >/dev/n
 grep -F 'static void set_status_label_feedback(' "$grid" >/dev/null
 grep -F 'if (root->note_load_failed) return TRUE;' "$grid" >/dev/null
 grep -F 'Workspace note could not be loaded; close this window and try again.' "$grid" >/dev/null
-grep -F 'workarea.width < 600 ? GTK_ORIENTATION_VERTICAL' "$grid" >/dev/null
+grep -F 'dialog, dialog_width, workarea.width < 600, &contents' "$grid" >/dev/null
+grep -F 'if (vertical != 0) GTK_ORIENTATION_VERTICAL else GTK_ORIENTATION_HORIZONTAL' "$native_gtk" >/dev/null
 grep -F 'gboolean vertical_rows = workarea.width < 640;' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(label, "NOCTTY keyboard shortcuts");' "$grid" >/dev/null
+grep -F 'setAccessibleName(label, "NOCTTY keyboard shortcuts");' "$native_gtk" >/dev/null
 grep -F 'set_widget_accessible_name(combo, "Workspace restore mode");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(entry, "Screen history password");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(provider, "Agent provider");' "$grid" >/dev/null
@@ -120,14 +121,14 @@ grep -F 'set_widget_accessible_name(entry, "Rename terminal tab");' "$grid" >/de
 grep -F 'set_widget_accessible_name(entry, "Workspace tag");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(noctalia_variant,' "$grid" >/dev/null
 grep -F '"Noctalia import variant");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(peers, "Paired device");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(status, "Session sharing status");' "$grid" >/dev/null
-grep -F 'MAX(1, MIN(480, width - 64))' "$grid" >/dev/null
+grep -F 'setAccessibleName(peers, "Paired device");' "$native_gtk" >/dev/null
+grep -F 'atk_object_set_name(status_accessible, "Session sharing status");' "$native_gtk" >/dev/null
+grep -F '@max(1, @min(480, width - 64))' "$native_gtk" >/dev/null
 grep -F 'sharing_status_can_clear_host(205)' "$grid" >/dev/null
 grep -F 'sharing_status_can_clear_viewer(306)' "$grid" >/dev/null
 grep -F '"Close sharing session"' "$grid" >/dev/null
 grep -F '"Close remote session"' "$grid" >/dev/null
-grep -F '"Retry saving devices", 18' "$grid" >/dev/null
+grep -F '.{ .label = "Retry saving devices", .action = 18 },' "$native_gtk" >/dev/null
 grep -F 'if (revoked) continue;' "$grid" >/dev/null
 grep -F 'text_length > NOCTTY_SHARING_PASTE_MAX_BYTES' "$grid" >/dev/null
 grep -F 'noctty_grid_share_action(root->event_data, 6, -1' "$grid" >/dev/null

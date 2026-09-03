@@ -37,6 +37,101 @@ void noctty_settings_category_selected(GtkListBox *list, GtkListBoxRow *row,
 void noctty_settings_response(GtkDialog *dialog, gint response,
                               gpointer user_data);
 
+typedef struct {
+    GCallback workspace;
+    GCallback terminal;
+    GCallback compact;
+    GCallback tag_selected;
+    GCallback tag_remove;
+    GCallback smart_filter;
+    GCallback broadcast;
+    GCallback theme;
+    GCallback command_palette;
+    GCallback sharing;
+    GCallback project;
+    GCallback pane_close;
+    GCallback settings;
+    GCallback selection_done;
+    GCallback destroy;
+} NocttyWorkspaceMenuCallbacks;
+
+typedef struct {
+    gpointer context;
+    gpointer root;
+    GtkWidget *profile_menu;
+    const char *broadcast_label;
+    gboolean selection_active;
+    gboolean pane_close_sensitive;
+} NocttyWorkspaceMenuOptions;
+
+GtkWidget *noctty_workspace_menu_new(
+    const NocttyWorkspaceMenuOptions *options,
+    const NocttyWorkspaceMenuCallbacks *callbacks);
+
+typedef struct {
+    GtkWidget *entry;
+    GtkWidget *status;
+} NocttyFindContents;
+
+typedef struct {
+    GtkWidget *view;
+    GtkWidget *status;
+} NocttyQuickNoteContents;
+
+typedef struct {
+    int id;
+    const char *label;
+    const char *hint;
+} NocttyPaletteAction;
+
+typedef struct {
+    GtkWidget *search;
+    GtkWidget *list;
+} NocttyPaletteContents;
+
+gboolean noctty_terminal_find_contents_new(
+    GtkWidget *dialog, int dialog_width, gboolean vertical,
+    NocttyFindContents *contents_out);
+gboolean noctty_quick_note_contents_new(
+    GtkWidget *dialog, int dialog_width, int dialog_height,
+    NocttyQuickNoteContents *contents_out);
+gboolean noctty_shortcuts_contents_new(
+    GtkWidget *dialog, const char *shortcuts, int dialog_width,
+    int dialog_height);
+gboolean noctty_command_palette_contents_new(
+    GtkWidget *dialog, int dialog_width, int dialog_height,
+    gboolean vertical_rows, const NocttyPaletteAction *actions,
+    guint action_count, const char *visibility_hint,
+    NocttyPaletteContents *contents_out);
+
+typedef struct {
+    GtkWidget *save;
+    GtkWidget *open;
+    GtkWidget *recent_combo;
+    GtkWidget *recent_open;
+    GtkWidget *editor;
+    GtkWidget *summary;
+    GtkWidget *summary_scroll;
+} NocttyProjectContents;
+
+gboolean noctty_project_contents_new(
+    GtkWidget *dialog, const char *summary_text,
+    NocttyProjectContents *contents_out);
+
+typedef struct {
+    GCallback action;
+    GCallback tab_changed;
+    GCallback stream_changed;
+    GCallback preview_draw;
+    GCallback preview_button;
+    GCallback preview_key;
+    GCallback preview_scroll;
+} NocttySharingCallbacks;
+
+gboolean noctty_sharing_contents_new(
+    GtkWidget *dialog, int width, int height, gpointer context,
+    const NocttySharingCallbacks *callbacks);
+
 #define configure_action_button noctty_configure_action_button
 #define prepare_action_button_tree noctty_prepare_action_button_tree
 #define show_all_with_action_affordances noctty_show_all_with_action_affordances

@@ -13796,48 +13796,29 @@ static void open_project_tools(NocttyGridContext *context) {
         GTK_WINDOW(dialog), MIN(680, MAX(1, project_workarea.width - 32)),
         MIN(520, MAX(1, project_workarea.height - 32)));
     gtk_window_set_resizable(GTK_WINDOW(dialog), TRUE);
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    GtkWidget *save = gtk_button_new_with_label("Save Workspace…");
-    GtkWidget *open = gtk_button_new_with_label("Open Workspace…");
-    GtkWidget *recent_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    GtkWidget *recent_combo = gtk_combo_box_text_new();
-    GtkWidget *recent_open = gtk_button_new_with_label("Open Recent");
-    GtkWidget *editor = gtk_button_new_with_label("Open NoctEd Here…");
-    configure_action_button(save, "Save the current NOCTTY workspace");
-    configure_action_button(open, "Open a saved NOCTTY workspace");
-    configure_action_button(
-        recent_open,
-        "Open the selected workspace in a separate native NOCTTY window");
-    configure_action_button(editor, "Open project files in standalone NoctEd");
-    GtkWidget *summary = gtk_text_view_new();
-    GtkWidget *summary_scroll = gtk_scrolled_window_new(NULL, NULL);
     char summary_text[4096] = "Project data unavailable";
     if (context->text_action != NULL) {
-        int length = context->text_action(context->text_action_data, 6, "", 0, summary_text, sizeof(summary_text) - 1, 0);
-        if (length >= 0 && length < (int)sizeof(summary_text)) summary_text[length] = '\0';
+        int length = context->text_action(context->text_action_data, 6, "", 0,
+                                          summary_text,
+                                          sizeof(summary_text) - 1, 0);
+        if (length >= 0 && length < (int)sizeof(summary_text))
+            summary_text[length] = '\0';
     }
-    gtk_text_view_set_editable(GTK_TEXT_VIEW(summary), FALSE);
-    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(summary), FALSE);
-    gtk_text_view_set_monospace(GTK_TEXT_VIEW(summary), TRUE);
-    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(summary), GTK_WRAP_NONE);
-    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(summary)), summary_text, -1);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(summary_scroll),
-                                   GTK_POLICY_AUTOMATIC,
-                                   GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(summary_scroll),
-                                        GTK_SHADOW_IN);
-    gtk_widget_set_size_request(summary_scroll, -1, 260);
-    gtk_widget_set_hexpand(summary_scroll, TRUE);
-    gtk_widget_set_vexpand(summary_scroll, TRUE);
-    gtk_container_add(GTK_CONTAINER(summary_scroll), summary);
-    AtkObject *summary_accessible = gtk_widget_get_accessible(summary);
-    if (summary_accessible != NULL)
-        atk_object_set_name(summary_accessible, "Workspace summary");
+    NocttyProjectContents contents = {0};
+    if (!noctty_project_contents_new(dialog, summary_text, &contents)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *save = contents.save;
+    GtkWidget *open = contents.open;
+    GtkWidget *recent_combo = contents.recent_combo;
+    GtkWidget *recent_open = contents.recent_open;
+    GtkWidget *editor = contents.editor;
+    AtkObject *summary_accessible =
+        gtk_widget_get_accessible(contents.summary);
     AtkObject *recent_accessible = gtk_widget_get_accessible(recent_combo);
-    if (recent_accessible != NULL)
-        atk_object_set_name(recent_accessible, "Recent workspaces");
     context->project_summary_scrollable =
-        GTK_IS_SCROLLED_WINDOW(summary_scroll);
+        GTK_IS_SCROLLED_WINDOW(contents.summary_scroll);
     context->project_summary_accessible = summary_accessible != NULL &&
         g_strcmp0(atk_object_get_name(summary_accessible),
                   "Workspace summary") == 0 &&
@@ -13864,21 +13845,6 @@ static void open_project_tools(NocttyGridContext *context) {
     gtk_widget_set_sensitive(recent_open, recent_added > 0);
     context->recent_workspace_control = recent_added > 0 &&
         recent_added == recent_count;
-    gtk_box_pack_start(GTK_BOX(recent_row), recent_combo, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(recent_row), recent_open, FALSE, FALSE, 0);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 14);
-    GtkWidget *intro = gtk_label_new(
-        "Native workspace snapshots, project files, and NoctEd");
-    gtk_label_set_xalign(GTK_LABEL(intro), 0.0);
-    gtk_label_set_line_wrap(GTK_LABEL(intro), TRUE);
-    gtk_box_pack_start(GTK_BOX(box), intro, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), summary_scroll, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(box), save, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), open, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Recent Workspaces"), FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), recent_row, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), editor, FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
     context->project_dialog = dialog;
     context->recent_workspace_combo = recent_combo;
     context->recent_workspace_open = recent_open;
@@ -14241,23 +14207,14 @@ static void open_terminal_find(NocttyGridContext *context) {
     int dialog_height = workarea.width < 600 ? 132 : 76;
     dialog_height = MIN(dialog_height, MAX(1, workarea.height - 32));
     GtkWidget *dialog = gtk_dialog_new();
-    GtkWidget *box = gtk_box_new(
-        workarea.width < 600 ? GTK_ORIENTATION_VERTICAL
-                             : GTK_ORIENTATION_HORIZONTAL,
-        10);
-    GtkWidget *entry = gtk_search_entry_new();
-    GtkWidget *status = gtk_label_new("Type to search scrollback");
-    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Find in terminal…");
-    set_widget_accessible_name(entry, "Search terminal scrollback");
-    set_widget_accessible_name(status, "Terminal search status");
-    gtk_label_set_xalign(GTK_LABEL(status), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(status), TRUE);
-    gtk_widget_set_size_request(
-        entry, MIN(330, MAX(1, dialog_width - 16)), -1);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 8);
-    gtk_box_pack_start(GTK_BOX(box), entry, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(box), status, FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    NocttyFindContents contents = {0};
+    if (!noctty_terminal_find_contents_new(
+            dialog, dialog_width, workarea.width < 600, &contents)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *entry = contents.entry;
+    GtkWidget *status = contents.status;
     (void)configure_overlay_window_stacking(
         root, dialog, "noctty-terminal-find");
     configure_overlay_window_geometry(
@@ -14378,21 +14335,14 @@ static void open_quick_note(NocttyGridContext *context) {
         root, dialog, &workarea, dialog_width, dialog_height);
     gtk_window_set_default_size(
         GTK_WINDOW(dialog), dialog_width, dialog_height);
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    GtkWidget *hint = gtk_label_new("Workspace note · saved automatically");
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    GtkWidget *view = gtk_text_view_new();
-    gtk_text_view_set_monospace(GTK_TEXT_VIEW(view), TRUE);
-    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_WORD_CHAR);
-    set_widget_accessible_name(view, "Workspace quick note");
-    set_widget_accessible_name(hint, "Workspace note save status");
-    gtk_widget_set_size_request(
-        scroll, MAX(1, dialog_width - 16), MAX(1, dialog_height - 96));
-    gtk_container_add(GTK_CONTAINER(scroll), view);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 8);
-    gtk_box_pack_start(GTK_BOX(box), hint, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    NocttyQuickNoteContents note_contents = {0};
+    if (!noctty_quick_note_contents_new(
+            dialog, dialog_width, dialog_height, &note_contents)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *view = note_contents.view;
+    GtkWidget *hint = note_contents.status;
     root->note_dialog = dialog;
     root->note_view = view;
     root->note_status = hint;
@@ -14487,23 +14437,15 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
         root, dialog, &workarea, dialog_width, dialog_height);
     gtk_window_set_default_size(
         GTK_WINDOW(dialog), dialog_width, dialog_height);
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    GtkWidget *label = gtk_label_new(shortcuts);
+    if (!noctty_shortcuts_contents_new(
+            dialog, shortcuts, dialog_width, dialog_height)) {
+        g_free(shortcuts);
+        g_free(visibility_shortcut);
+        gtk_widget_destroy(dialog);
+        return;
+    }
     g_free(shortcuts);
     g_free(visibility_shortcut);
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-    gtk_widget_set_margin_start(label, 16);
-    gtk_widget_set_margin_end(label, 16);
-    gtk_widget_set_margin_top(label, 12);
-    gtk_widget_set_margin_bottom(label, 12);
-    set_widget_accessible_name(label, "NOCTTY keyboard shortcuts");
-    gtk_scrolled_window_set_policy(
-        GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(
-        scroll, MAX(1, dialog_width - 16), MAX(1, dialog_height - 72));
-    gtk_container_add(GTK_CONTAINER(scroll), label);
-    gtk_container_add(
-        GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), scroll);
     root->shortcuts_dialog = dialog;
     g_signal_connect(dialog, "response", G_CALLBACK(gtk_widget_destroy), NULL);
     g_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
@@ -14665,13 +14607,7 @@ static void save_grid_scrollback(NocttyGridContext *context) {
     gtk_widget_destroy(chooser);
 }
 
-typedef struct {
-    int id;
-    const char *label;
-    const char *hint;
-} NocttyCompactAction;
-
-static const NocttyCompactAction compact_actions[] = {
+static const NocttyPaletteAction compact_actions[] = {
     {1, "New terminal tab", "Ctrl+Shift+T · same directory"},
     {2, "Split down", "Ctrl+Shift+S"},
     {3, "Split left", "Ctrl+Shift+L"},
@@ -14829,50 +14765,19 @@ static void open_command_palette(NocttyGridContext *context) {
     int dialog_height = MIN(390, MAX(1, workarea.height - 32));
     gboolean vertical_rows = workarea.width < 640;
     GtkWidget *dialog = gtk_dialog_new();
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    GtkWidget *search = gtk_search_entry_new();
-    GtkWidget *list = gtk_list_box_new();
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Type a command…");
-    set_widget_accessible_name(search, "Search commands");
-    set_widget_accessible_name(list, "Available commands");
-    gtk_list_box_set_selection_mode(GTK_LIST_BOX(list), GTK_SELECTION_SINGLE);
-    gtk_list_box_set_activate_on_single_click(GTK_LIST_BOX(list), TRUE);
-    gtk_widget_set_size_request(
-        scroll, MAX(1, dialog_width - 16), MAX(1, dialog_height - 96));
-    gtk_container_add(GTK_CONTAINER(scroll), list);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 8);
-    gtk_box_pack_start(GTK_BOX(box), search, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
-    for (guint index = 0; index < G_N_ELEMENTS(compact_actions); index++) {
-        const NocttyCompactAction *action = &compact_actions[index];
-        GtkWidget *row = gtk_list_box_row_new();
-        GtkWidget *line = gtk_box_new(
-            vertical_rows ? GTK_ORIENTATION_VERTICAL
-                          : GTK_ORIENTATION_HORIZONTAL,
-            vertical_rows ? 2 : 10);
-        GtkWidget *label = gtk_label_new(action->label);
-        gchar *dynamic_hint = action->id == 14
-            ? grid_shortcut_label_alloc(root) : NULL;
-        GtkWidget *hint = gtk_label_new(
-            dynamic_hint != NULL ? dynamic_hint : action->hint);
-        g_free(dynamic_hint);
-        gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-        gtk_label_set_xalign(GTK_LABEL(hint), vertical_rows ? 0.0 : 1.0);
-        gtk_widget_set_opacity(hint, 0.62);
-        gtk_container_set_border_width(GTK_CONTAINER(line), 5);
-        gtk_box_pack_start(GTK_BOX(line), label, TRUE, TRUE, 0);
-        gtk_box_pack_end(GTK_BOX(line), hint, FALSE, FALSE, 0);
-        gtk_container_add(GTK_CONTAINER(row), line);
-        gchar *search_text = g_strdup_printf("%s %s", action->label, action->hint);
-        g_object_set_data_full(G_OBJECT(row), "noctty-palette-search", search_text, g_free);
-        g_object_set_data(G_OBJECT(row), "noctty-palette-action", GINT_TO_POINTER(action->id));
-        if (action->id == 14)
-            g_object_set_data(
-                G_OBJECT(dialog), "noctty-visibility-shortcut-hint", hint);
-        gtk_container_add(GTK_CONTAINER(list), row);
+    gchar *visibility_hint = grid_shortcut_label_alloc(root);
+    NocttyPaletteContents contents = {0};
+    gboolean contents_ready = noctty_command_palette_contents_new(
+        dialog, dialog_width, dialog_height, vertical_rows,
+        compact_actions, G_N_ELEMENTS(compact_actions), visibility_hint,
+        &contents);
+    g_free(visibility_hint);
+    if (!contents_ready) {
+        gtk_widget_destroy(dialog);
+        return;
     }
+    GtkWidget *search = contents.search;
+    GtkWidget *list = contents.list;
     root->palette_dialog = dialog;
     root->palette_search = search;
     root->palette_list = list;
@@ -16783,43 +16688,6 @@ static void on_sharing_action(GtkButton *button, gpointer user_data) {
     (void)refresh_sharing_status(root);
 }
 
-static GtkWidget *sharing_action_button(const char *label, int action,
-                                        NocttyGridContext *context) {
-    GtkWidget *button = gtk_button_new_with_label(label);
-    g_object_set_data(G_OBJECT(button), "noctty-sharing-action",
-                      GINT_TO_POINTER(action));
-    g_signal_connect(button, "clicked", G_CALLBACK(on_sharing_action), context);
-    return button;
-}
-static GtkWidget *sharing_field_label(
-    const char *text, GtkWidget *control) {
-    GtkWidget *label = gtk_label_new(text);
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
-    gtk_label_set_mnemonic_widget(GTK_LABEL(label), control);
-    return label;
-}
-
-static GtkWidget *sharing_action_group(
-    const char *title, GtkWidget **buttons, guint count) {
-    GtkWidget *frame = gtk_frame_new(title);
-    GtkWidget *flow = gtk_flow_box_new();
-    gtk_flow_box_set_selection_mode(
-        GTK_FLOW_BOX(flow), GTK_SELECTION_NONE);
-    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(flow), 1);
-    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(flow), 4);
-    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(flow), 8);
-    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 8);
-    gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(flow), TRUE);
-    gtk_container_set_border_width(GTK_CONTAINER(flow), 8);
-    gtk_widget_set_hexpand(flow, TRUE);
-    for (guint index = 0; index < count; index++)
-        gtk_container_add(GTK_CONTAINER(flow), buttons[index]);
-    gtk_container_add(GTK_CONTAINER(frame), flow);
-    gtk_widget_set_hexpand(frame, TRUE);
-    return frame;
-}
-
-
 static void on_sharing_dialog_destroy(GtkWidget *dialog, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     remove_grid_source(&root->sharing_status_source);
@@ -16861,206 +16729,24 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
         root, dialog, &workarea, width, height);
     gtk_window_set_default_size(GTK_WINDOW(dialog), width, height);
     gtk_window_set_resizable(GTK_WINDOW(dialog), TRUE);
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(
-        GTK_SCROLLED_WINDOW(scroll),
-        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_scrolled_window_set_shadow_type(
-        GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
-    gtk_widget_set_hexpand(scroll, TRUE);
-    gtk_widget_set_vexpand(scroll, TRUE);
-    GtkWidget *grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
-    gtk_container_set_border_width(GTK_CONTAINER(grid), 16);
-    gtk_container_add(GTK_CONTAINER(scroll), grid);
-    gtk_container_add(GTK_CONTAINER(content), scroll);
-
-    GtkWidget *peers = gtk_combo_box_text_new();
-    GtkWidget *alias = gtk_entry_new();
-    GtkWidget *endpoint = gtk_entry_new();
-    GtkWidget *port = gtk_spin_button_new_with_range(1, 65535, 1);
-    gtk_entry_set_text(GTK_ENTRY(alias), "Remote NOCTTY");
-    set_widget_accessible_name(peers, "Paired device");
-    set_widget_accessible_name(alias, "Remote alias");
-    set_widget_accessible_name(endpoint, "Other device address");
-    set_widget_accessible_name(port, "Pairing port");
-    gtk_entry_set_text(GTK_ENTRY(endpoint), "127.0.0.1");
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(port), 49331);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(endpoint),
-                                   "hostname, tailnet IP, or VPN DNS name");
-    GtkWidget *pair_listen = sharing_action_button(
-        "Listen for pairing", 1, root);
-    GtkWidget *pair_connect = sharing_action_button(
-        "Connect to pairing listener", 2, root);
-    GtkWidget *confirm = sharing_action_button("Confirm matching code", 3, root);
-    GtkWidget *cancel_pairing = sharing_action_button("Cancel pairing", 4, root);
-    GtkWidget *discover = sharing_action_button("Discover on LAN", 13, root);
-    GtkWidget *share_pane = sharing_action_button("Share current pane", 15, root);
-    GtkWidget *share_tab = sharing_action_button("Share current tab", 5, root);
-    GtkWidget *share_session = sharing_action_button("Share entire session", 16, root);
-    GtkWidget *stop = sharing_action_button("Stop sharing", 6, root);
-    GtkWidget *grant = sharing_action_button("Grant control", 7, root);
-    GtkWidget *revoke = sharing_action_button("Revoke control", 8, root);
-    GtkWidget *revoke_device = sharing_action_button("Revoke paired device", 9, root);
-    GtkWidget *receive = sharing_action_button(
-        "Receive from selected device", 10, root);
-    GtkWidget *stop_receive = sharing_action_button("Stop receiving", 11, root);
-    GtkWidget *request_control = sharing_action_button(
-        "Request control", 12, root);
-    GtkWidget *reconnect = sharing_action_button(
-        "Reconnect securely", 17, root);
-    GtkWidget *retry_save = sharing_action_button(
-        "Retry saving devices", 18, root);
-    GtkWidget *tabs = gtk_combo_box_text_new();
-    gtk_widget_set_hexpand(tabs, TRUE);
-    g_signal_connect(tabs, "changed",
-                     G_CALLBACK(on_sharing_tab_changed), root);
-    GtkWidget *streams = gtk_combo_box_text_new();
-    gtk_widget_set_hexpand(streams, TRUE);
-    g_signal_connect(streams, "changed",
-                     G_CALLBACK(on_sharing_stream_changed), root);
-    AtkObject *tabs_accessible = gtk_widget_get_accessible(tabs);
-    if (tabs_accessible != NULL)
-        atk_object_set_name(tabs_accessible, "Shared tab");
-    AtkObject *streams_accessible = gtk_widget_get_accessible(streams);
-    if (streams_accessible != NULL)
-        atk_object_set_name(streams_accessible, "Shared pane");
-    GtkWidget *preview = gtk_drawing_area_new();
-    gtk_widget_set_size_request(
-        preview,
-        MAX(1, MIN(480, width - 64)),
-        MAX(1, MIN(260, height / 3)));
-    gtk_widget_set_hexpand(preview, TRUE);
-    gtk_widget_set_vexpand(preview, TRUE);
-    gtk_widget_set_can_focus(preview, TRUE);
-    AtkObject *preview_accessible = gtk_widget_get_accessible(preview);
-    if (preview_accessible != NULL) {
-        atk_object_set_name(preview_accessible, "Remote terminal workspace");
-        atk_object_set_description(
-            preview_accessible,
-            "Shows the selected remote tab with its live split panes. Click a "
-            "pane to select it; focus here to send input after the host grants "
-            "temporary control for that pane.");
+    const NocttySharingCallbacks callbacks = {
+        .action = G_CALLBACK(on_sharing_action),
+        .tab_changed = G_CALLBACK(on_sharing_tab_changed),
+        .stream_changed = G_CALLBACK(on_sharing_stream_changed),
+        .preview_draw = G_CALLBACK(draw_sharing_preview),
+        .preview_button = G_CALLBACK(on_sharing_preview_button),
+        .preview_key = G_CALLBACK(on_sharing_preview_key),
+        .preview_scroll = G_CALLBACK(on_sharing_preview_scroll),
+    };
+    if (!noctty_sharing_contents_new(
+            dialog, width, height, root, &callbacks)) {
+        root->sharing_dialog = NULL;
+        gtk_widget_destroy(dialog);
+        return;
     }
-    gtk_widget_add_events(
-        preview,
-        GDK_KEY_PRESS_MASK | GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK |
-            GDK_SMOOTH_SCROLL_MASK);
-    g_signal_connect(preview, "draw", G_CALLBACK(draw_sharing_preview), root);
-    g_signal_connect(preview, "button-press-event",
-                     G_CALLBACK(on_sharing_preview_button), root);
-    g_signal_connect(preview, "key-press-event",
-                     G_CALLBACK(on_sharing_preview_key), root);
-    g_signal_connect(preview, "scroll-event",
-                     G_CALLBACK(on_sharing_preview_scroll), root);
-    GtkWidget *status = gtk_label_new(
-        "Idle. Pair a device or share with a paired device.");
-    gtk_label_set_xalign(GTK_LABEL(status), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(status), TRUE);
-    set_widget_accessible_name(status, "Session sharing status");
-    set_status_label_feedback(
-        status, "Idle. Pair a device or share with a paired device.", FALSE);
-    GtkWidget *security = gtk_label_new(
-        "Enter the other device's reachable address before pairing; the "
-        "listener does not infer a routed return address. View-only is the "
-        "default. Pairing uses a six-digit code derived from the encrypted "
-        "handshake. Control is temporary and never survives a reconnect.");
-    gtk_label_set_xalign(GTK_LABEL(security), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(security), TRUE);
+    root->sharing_dialog_scrollable = TRUE;
+    root->sharing_dialog_grouped_actions = TRUE;
 
-    GtkWidget *pairing_buttons[] = {
-        discover, pair_listen, pair_connect, confirm, cancel_pairing,
-    };
-    GtkWidget *sharing_buttons[] = {
-        share_pane, share_tab, share_session, stop,
-    };
-    GtkWidget *control_buttons[] = {
-        grant, revoke, revoke_device, reconnect, receive, stop_receive,
-        request_control, retry_save,
-    };
-    GtkWidget *pairing_group = sharing_action_group(
-        "Pairing", pairing_buttons, G_N_ELEMENTS(pairing_buttons));
-    GtkWidget *sharing_group = sharing_action_group(
-        "Sharing scope", sharing_buttons, G_N_ELEMENTS(sharing_buttons));
-    GtkWidget *control_group = sharing_action_group(
-        "Remote control and devices", control_buttons,
-        G_N_ELEMENTS(control_buttons));
-    root->sharing_dialog_scrollable =
-        GTK_IS_SCROLLED_WINDOW(scroll) &&
-        gtk_widget_get_hexpand(scroll) && gtk_widget_get_vexpand(scroll);
-    root->sharing_dialog_grouped_actions =
-        GTK_IS_FRAME(pairing_group) && GTK_IS_FRAME(sharing_group) &&
-        GTK_IS_FRAME(control_group);
-
-    gtk_grid_attach(
-        GTK_GRID(grid), sharing_field_label("Paired device", peers),
-        0, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), peers, 1, 0, 3, 1);
-    gtk_grid_attach(
-        GTK_GRID(grid), sharing_field_label("Remote alias", alias),
-        0, 1, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), alias, 1, 1, 3, 1);
-    gtk_grid_attach(
-        GTK_GRID(grid), sharing_field_label("Other device address", endpoint),
-        0, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), endpoint, 1, 2, 2, 1);
-    gtk_grid_attach(GTK_GRID(grid), port, 3, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), pairing_group, 0, 3, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), sharing_group, 0, 4, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), control_group, 0, 5, 4, 1);
-    gtk_grid_attach(
-        GTK_GRID(grid), sharing_field_label("Shared tab", tabs),
-        0, 6, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), tabs, 1, 6, 3, 1);
-    gtk_grid_attach(
-        GTK_GRID(grid), sharing_field_label("Shared pane", streams),
-        0, 7, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), streams, 1, 7, 3, 1);
-    gtk_grid_attach(GTK_GRID(grid), preview, 0, 8, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), status, 0, 9, 4, 1);
-    gtk_grid_attach(GTK_GRID(grid), security, 0, 10, 4, 1);
-
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peers", peers);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-alias", alias);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-endpoint", endpoint);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-tabs", tabs);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-share-pane",
-                      share_pane);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-share-tab",
-                      share_tab);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-share-session",
-                      share_session);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-streams", streams);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stream-count",
-                      GINT_TO_POINTER(-1));
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-port", port);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-status", status);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-pair-listen",
-                      pair_listen);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-pair-connect",
-                      pair_connect);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-discover", discover);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-confirm", confirm);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-cancel-pairing",
-                      cancel_pairing);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stop", stop);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-grant", grant);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-revoke", revoke);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-revoke-device",
-                      revoke_device);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-receive", receive);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-stop-receive",
-                      stop_receive);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-request-control",
-                      request_control);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-reconnect",
-                      reconnect);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-retry-save",
-                      retry_save);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-preview", preview);
-    g_object_set_data(G_OBJECT(dialog), "noctty-sharing-scroll", scroll);
     g_signal_connect_swapped(dialog, "response",
                              G_CALLBACK(gtk_widget_destroy), dialog);
     g_signal_connect(dialog, "destroy",
@@ -17371,12 +17057,6 @@ static void on_pane_close_menu_activate(GtkWidget *item, gpointer user_data) {
     (void)close_grid_pane(context);
 }
 
-static void append_workspace_menu_item(GtkWidget *menu, const gchar *label, int event_code, NocttyGridContext *context) {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
-    g_object_set_data(G_OBJECT(item), "noctty-workspace-event", GINT_TO_POINTER(event_code));
-    g_signal_connect(item, "activate", G_CALLBACK(on_workspace_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-}
 static void on_terminal_menu_activate(GtkMenuItem *item,
                                       gpointer user_data) {
     NocttyGridContext *context = user_data;
@@ -17413,18 +17093,6 @@ static void on_terminal_menu_activate(GtkMenuItem *item,
     default:
         break;
     }
-}
-
-static void append_terminal_menu_item(GtkWidget *menu, const gchar *label,
-                                       int action, NocttyGridContext *context,
-                                       gboolean sensitive) {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
-    g_object_set_data(G_OBJECT(item), "noctty-terminal-action",
-                      GINT_TO_POINTER(action));
-    gtk_widget_set_sensitive(item, sensitive);
-    g_signal_connect(item, "activate",
-                     G_CALLBACK(on_terminal_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
 
@@ -17552,16 +17220,6 @@ static void on_compact_menu_activate(GtkWidget *item, gpointer user_data) {
     int action = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item),
                                                    "noctty-compact-action"));
     execute_palette_action(context, action);
-}
-
-static void append_compact_menu_item(GtkWidget *menu, const gchar *label,
-                                     int action, NocttyGridContext *context) {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
-    g_object_set_data(G_OBJECT(item), "noctty-compact-action",
-                      GINT_TO_POINTER(action));
-    g_signal_connect(item, "activate", G_CALLBACK(on_compact_menu_activate),
-                     context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
 static const gchar *profile_preset_label(int preset) {
@@ -18172,128 +17830,40 @@ static gboolean cleanup_new_tab_after_close_smoke(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
-static GtkWidget *append_workspace_submenu(GtkWidget *menu,
-                                            const gchar *label) {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
-    GtkWidget *submenu = gtk_menu_new();
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), submenu);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-    return submenu;
-}
-
 static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *event) {
     NocttyGridContext *root = root_grid_context(context);
     dismiss_grid_popup_windows(root);
-    GtkWidget *menu = gtk_menu_new();
+    GtkWidget *profile_menu = create_profile_preset_menu(context);
+    const NocttyWorkspaceMenuOptions options = {
+        .context = context,
+        .root = root,
+        .profile_menu = profile_menu,
+        .broadcast_label = broadcast_menu_label(context),
+        .selection_active = context->selecting,
+        .pane_close_sensitive = active_grid_context_count(root) > 1,
+    };
+    const NocttyWorkspaceMenuCallbacks callbacks = {
+        .workspace = G_CALLBACK(on_workspace_menu_activate),
+        .terminal = G_CALLBACK(on_terminal_menu_activate),
+        .compact = G_CALLBACK(on_compact_menu_activate),
+        .tag_selected = G_CALLBACK(on_tag_selected_menu_activate),
+        .tag_remove = G_CALLBACK(on_tag_remove_menu_activate),
+        .smart_filter = G_CALLBACK(on_smart_filter_menu_activate),
+        .broadcast = G_CALLBACK(on_broadcast_menu_activate),
+        .theme = G_CALLBACK(on_theme_menu_activate),
+        .command_palette = G_CALLBACK(on_command_palette_menu_activate),
+        .sharing = G_CALLBACK(on_session_sharing_menu_activate),
+        .project = G_CALLBACK(on_project_menu_activate),
+        .pane_close = G_CALLBACK(on_pane_close_menu_activate),
+        .settings = G_CALLBACK(on_settings_menu_activate),
+        .selection_done = G_CALLBACK(gtk_widget_destroy),
+        .destroy = G_CALLBACK(on_workspace_menu_destroy),
+    };
+    GtkWidget *menu = noctty_workspace_menu_new(&options, &callbacks);
+    if (menu == NULL) return;
     root->workspace_menu = menu;
     root->context_menu_opened = 1;
-    append_terminal_menu_item(menu, "Copy", 1, context, context->selecting);
-    append_terminal_menu_item(menu, "Paste", 2, context, TRUE);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
-                          gtk_separator_menu_item_new());
-    append_workspace_menu_item(menu, "New Tab", 20, context);
-
-    GtkWidget *split_menu = append_workspace_submenu(menu, "Split Pane");
-    append_workspace_menu_item(split_menu, "Split Right", 27, context);
-    append_workspace_menu_item(split_menu, "Split Down", 21, context);
-    append_workspace_menu_item(split_menu, "Split Up", 28, context);
-    append_workspace_menu_item(split_menu, "Split Left", 22, context);
-
-    GtkWidget *layout_menu = append_workspace_submenu(menu, "New Split Tab");
-    append_workspace_menu_item(layout_menu, "New 2×2", 51, context);
-    append_workspace_menu_item(layout_menu, "New 4×2", 61, context);
-    append_workspace_menu_item(layout_menu, "New 3×3", 52, context);
-    append_workspace_menu_item(layout_menu, "New 4×4", 60, context);
-
-    GtkWidget *selection_menu = append_workspace_submenu(menu,
-                                                          "Selection and Tags");
-    append_terminal_menu_item(selection_menu, "Select All", 3, context, TRUE);
-    append_terminal_menu_item(selection_menu, "Clear Selection", 4, context,
-                              context->selecting);
-    append_workspace_menu_item(selection_menu, "Add Pane to Selection", 53,
-                               context);
-    append_workspace_menu_item(selection_menu, "Toggle Pane Selection", 54,
-                               context);
-    GtkWidget *tag_selected = gtk_menu_item_new_with_label(
-        "Tag Selected Panes…");
-    g_signal_connect(tag_selected, "activate",
-                     G_CALLBACK(on_tag_selected_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(selection_menu), tag_selected);
-    GtkWidget *tag_remove = gtk_menu_item_new_with_label(
-        "Remove Tag from Selected Panes…");
-    g_signal_connect(tag_remove, "activate",
-                     G_CALLBACK(on_tag_remove_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(selection_menu), tag_remove);
-    GtkWidget *smart_filter = gtk_menu_item_new_with_label(
-        "Smart Tab Filter…");
-    g_signal_connect(smart_filter, "activate",
-                     G_CALLBACK(on_smart_filter_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(selection_menu), smart_filter);
-
-    GtkWidget *pane_menu = append_workspace_submenu(menu, "Pane");
-    append_compact_menu_item(pane_menu, "Zoom / Restore Pane", 4, context);
-    GtkWidget *profile = gtk_menu_item_new_with_label("Profile");
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(profile),
-                              create_profile_preset_menu(context));
-    gtk_menu_shell_append(GTK_MENU_SHELL(pane_menu), profile);
-    g_object_set_data(G_OBJECT(menu), "noctty-profile-context", context);
-    GtkWidget *broadcast = gtk_menu_item_new_with_label(
-        broadcast_menu_label(context));
-    g_signal_connect(broadcast, "activate",
-                     G_CALLBACK(on_broadcast_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(pane_menu), broadcast);
-    append_workspace_menu_item(pane_menu, "Move Pane to Other Tab", 56,
-                               context);
-
-    GtkWidget *clear_menu = append_workspace_submenu(menu, "Clear Terminal");
-    append_terminal_menu_item(clear_menu, "Clear Screen", 5, context, TRUE);
-    append_terminal_menu_item(clear_menu, "Clear Scrollback", 6, context,
-                              TRUE);
-    append_terminal_menu_item(clear_menu, "Clear Scrollback and Reset", 7,
-                              context, TRUE);
-
-    GtkWidget *view_menu = append_workspace_submenu(menu, "View");
-    append_compact_menu_item(view_menu, "Find in Scrollback…", 5, context);
-    append_compact_menu_item(view_menu, "Quick Note…", 6, context);
-    append_compact_menu_item(view_menu, "Save Scrollback…", 12, context);
-    GtkWidget *themes = gtk_menu_item_new_with_label("Theme Library…");
-    g_signal_connect(themes, "activate", G_CALLBACK(on_theme_menu_activate),
-                     context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), themes);
-
-    GtkWidget *tools_menu = append_workspace_submenu(menu, "Tools");
-    GtkWidget *command_palette = gtk_menu_item_new_with_label(
-        "Command Palette…");
-    g_signal_connect(command_palette, "activate",
-                     G_CALLBACK(on_command_palette_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(tools_menu), command_palette);
-    GtkWidget *sharing = gtk_menu_item_new_with_label("Session Sharing…");
-    g_signal_connect(sharing, "activate",
-                     G_CALLBACK(on_session_sharing_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(tools_menu), sharing);
-    append_compact_menu_item(tools_menu, "Keyboard Shortcuts…", 13, context);
-    append_compact_menu_item(tools_menu, "Open NoctEd Here", 18, context);
-    GtkWidget *project = gtk_menu_item_new_with_label("Project / NoctEd…");
-    g_signal_connect(project, "activate", G_CALLBACK(on_project_menu_activate),
-                     context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(tools_menu), project);
-
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
-                          gtk_separator_menu_item_new());
-    GtkWidget *close_terminal = gtk_menu_item_new_with_label(
-        "Close Terminal");
     root->pane_close_menu_opened = 1;
-    gtk_widget_set_sensitive(close_terminal,
-                             active_grid_context_count(root) > 1);
-    g_signal_connect(close_terminal, "activate",
-                     G_CALLBACK(on_pane_close_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), close_terminal);
-    GtkWidget *settings = gtk_menu_item_new_with_label("Settings…");
-    g_signal_connect(settings, "activate",
-                     G_CALLBACK(on_settings_menu_activate), context);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings);
-    g_signal_connect(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL);
-    g_signal_connect(menu, "destroy", G_CALLBACK(on_workspace_menu_destroy), root);
     gtk_widget_show_all(menu);
     if (event != NULL && event->send_event) {
         /* Smoke events are constructed in-process rather than dispatched by
