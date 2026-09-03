@@ -1722,6 +1722,90 @@ pub export fn noctty_launch_profile_contents_new(
     return TRUE;
 }
 
+const ThemeLibraryContents = extern struct {
+    variant: ?*GtkWidget,
+    apply: ?*GtkWidget,
+    status: ?*GtkWidget,
+    import_current: ?*GtkWidget,
+    import_file: ?*GtkWidget,
+};
+
+pub export fn noctty_theme_library_contents_new(
+    dialog: ?*GtkWidget,
+    themes: ?*GtkWidget,
+    scheme: ?*GtkWidget,
+    scheme_count: c_uint,
+    contents_out: ?*ThemeLibraryContents,
+) c_int {
+    const target = dialog orelse return FALSE;
+    const theme_combo = themes orelse return FALSE;
+    const scheme_combo = scheme orelse return FALSE;
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(ThemeLibraryContents);
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10) orelse return FALSE;
+    const preview = gtk_label_new(
+        "Preview: foreground · background · cursor · ANSI palette",
+    ) orelse return FALSE;
+    const scheme_label = gtk_label_new("Installed Noctalia scheme") orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(scheme_label), 0.0);
+    const variant = comboText(&.{ "Dark", "Light" }, 0) orelse return FALSE;
+    const apply = gtk_button_new_with_label("Use selected Noctalia theme") orelse return FALSE;
+    noctty_configure_action_button(
+        apply,
+        "Import and select the chosen installed Noctalia colorscheme",
+    );
+    const status = gtk_label_new(if (scheme_count > 0)
+        "Choose a scheme and Dark or Light variant."
+    else
+        "No Noctalia colorschemes were found.") orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(status), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(status), TRUE);
+    setAccessibleName(scheme_combo, "Installed Noctalia scheme");
+    setAccessibleName(variant, "Noctalia theme variant");
+    setAccessibleName(status, "Noctalia theme status");
+    const available: c_int = @intFromBool(scheme_count > 0);
+    gtk_widget_set_sensitive(scheme_combo, available);
+    gtk_widget_set_sensitive(variant, available);
+    gtk_widget_set_sensitive(apply, available);
+    const import_current = gtk_button_new_with_label("Use current Noctalia colors") orelse return FALSE;
+    noctty_configure_action_button(
+        import_current,
+        "Import ~/.config/noctalia/colors.json as terminal and workspace colors",
+    );
+    const import_file = gtk_button_new_with_label(
+        "Import Ghostty / Xresources / Alacritty / Noctalia theme…",
+    ) orelse return FALSE;
+    noctty_configure_action_button(
+        import_file,
+        "Import terminal and workspace colors, including Noctalia JSON schemes",
+    );
+    gtk_container_set_border_width(@ptrCast(box), 14);
+    for ([_]*GtkWidget{
+        preview,
+        theme_combo,
+        scheme_label,
+        scheme_combo,
+        variant,
+        apply,
+        status,
+        import_current,
+        import_file,
+    }) |widget| gtk_box_pack_start(@ptrCast(box), widget, FALSE, FALSE, 0);
+    gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), box);
+    setSharingData(target, "noctty-system-noctalia-scheme", scheme_combo);
+    setSharingData(target, "noctty-system-noctalia-apply", apply);
+    setSharingData(target, "noctty-theme-selector", theme_combo);
+    setSharingData(target, "noctty-theme-status", status);
+    output.* = .{
+        .variant = variant,
+        .apply = apply,
+        .status = status,
+        .import_current = import_current,
+        .import_file = import_file,
+    };
+    return TRUE;
+}
+
 const SharingCallbacks = extern struct {
     action: ?GCallback,
     tab_changed: ?GCallback,

@@ -13211,75 +13211,29 @@ static void open_theme_library(NocttyGridContext *context) {
     root->theme_dialog = dialog;
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-theme-library");
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    GtkWidget *preview = gtk_label_new("Preview: foreground · background · cursor · ANSI palette");
     GtkWidget *themes = gtk_combo_box_text_new();
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(themes));
-    GtkWidget *noctalia_label = gtk_label_new("Installed Noctalia scheme");
-    gtk_label_set_xalign(GTK_LABEL(noctalia_label), 0.0);
     GtkWidget *noctalia_scheme = gtk_combo_box_text_new();
     guint noctalia_count = populate_noctalia_scheme_combo(
         GTK_COMBO_BOX_TEXT(noctalia_scheme));
-    GtkWidget *noctalia_variant = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(noctalia_variant), "Dark");
-    gtk_combo_box_text_append_text(
-        GTK_COMBO_BOX_TEXT(noctalia_variant), "Light");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(noctalia_variant), 0);
-    GtkWidget *use_noctalia = gtk_button_new_with_label(
-        "Use selected Noctalia theme");
-    configure_action_button(
-        use_noctalia,
-        "Import and select the chosen installed Noctalia colorscheme");
-    GtkWidget *noctalia_status = gtk_label_new(
-        noctalia_count > 0
-            ? "Choose a scheme and Dark or Light variant."
-            : "No Noctalia colorschemes were found.");
-    gtk_label_set_xalign(GTK_LABEL(noctalia_status), 0.0);
-    gtk_label_set_line_wrap(GTK_LABEL(noctalia_status), TRUE);
-    set_widget_accessible_name(noctalia_scheme,
-                               "Installed Noctalia scheme");
-    set_widget_accessible_name(noctalia_variant,
-                               "Noctalia theme variant");
-    set_widget_accessible_name(noctalia_status,
-                               "Noctalia theme status");
-    gtk_widget_set_sensitive(noctalia_scheme, noctalia_count > 0);
-    gtk_widget_set_sensitive(noctalia_variant, noctalia_count > 0);
-    gtk_widget_set_sensitive(use_noctalia, noctalia_count > 0);
-    GtkWidget *import_noctalia = gtk_button_new_with_label(
-        "Use current Noctalia colors");
-    configure_action_button(
-        import_noctalia,
-        "Import ~/.config/noctalia/colors.json as terminal and workspace colors");
-    GtkWidget *import = gtk_button_new_with_label(
-        "Import Ghostty / Xresources / Alacritty / Noctalia theme…");
-    configure_action_button(
-        import,
-        "Import terminal and workspace colors, including Noctalia JSON schemes");
-    gtk_container_set_border_width(GTK_CONTAINER(box), 14);
-    gtk_box_pack_start(GTK_BOX(box), preview, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), themes, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), noctalia_label, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), noctalia_scheme, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), noctalia_variant, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), use_noctalia, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), noctalia_status, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), import_noctalia, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), import, FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    NocttyThemeLibraryContents contents = {0};
+    if (!noctty_theme_library_contents_new(
+            dialog, themes, noctalia_scheme, noctalia_count, &contents)) {
+        root->theme_dialog = NULL;
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *noctalia_variant = contents.variant;
+    GtkWidget *use_noctalia = contents.apply;
+    GtkWidget *noctalia_status = contents.status;
+    GtkWidget *import_noctalia = contents.import_current;
+    GtkWidget *import = contents.import_file;
     NocttyNoctaliaThemeControls *noctalia_controls =
         g_new0(NocttyNoctaliaThemeControls, 1);
     noctalia_controls->context = root_grid_context(context);
     noctalia_controls->scheme = noctalia_scheme;
     noctalia_controls->variant = noctalia_variant;
     noctalia_controls->status = noctalia_status;
-    g_object_set_data(G_OBJECT(dialog), "noctty-system-noctalia-scheme",
-                      noctalia_scheme);
-    g_object_set_data(G_OBJECT(dialog), "noctty-system-noctalia-apply",
-                      use_noctalia);
-    g_object_set_data(G_OBJECT(dialog), "noctty-theme-selector", themes);
-    g_object_set_data(G_OBJECT(dialog), "noctty-theme-status",
-                      noctalia_status);
     root->system_noctalia_theme_listed = noctalia_count > 0;
     g_signal_connect(themes, "changed", G_CALLBACK(on_settings_theme_changed), context);
     g_signal_connect(use_noctalia, "clicked",
