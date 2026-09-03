@@ -27,6 +27,8 @@ const GtkComboBox = opaque {};
 const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
 const GtkToggleButton = opaque {};
+const GtkRange = opaque {};
+const GtkScale = opaque {};
 const GtkFlowBox = opaque {};
 const GtkMenuItem = opaque {};
 const GtkMenuShell = opaque {};
@@ -71,6 +73,7 @@ const GTK_SELECTION_SINGLE: c_int = 1;
 const GTK_WRAP_WORD_CHAR: c_int = 3;
 const GTK_SHADOW_IN: c_int = 1;
 const GTK_SELECTION_NONE: c_int = 0;
+const GTK_POS_RIGHT: c_int = 1;
 const ATK_ROLE_STATUSBAR: c_int = 53;
 const GDK_KEY_PRESS_MASK: c_int = 1 << 10;
 const GDK_BUTTON_PRESS_MASK: c_int = 1 << 8;
@@ -104,6 +107,10 @@ extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_spin_button_new_with_range(f64, f64, f64) ?*GtkWidget;
 extern fn gtk_spin_button_set_value(*GtkSpinButton, f64) void;
+extern fn gtk_scale_new_with_range(c_int, f64, f64, f64) ?*GtkWidget;
+extern fn gtk_range_set_value(*GtkRange, f64) void;
+extern fn gtk_scale_set_draw_value(*GtkScale, c_int) void;
+extern fn gtk_scale_set_value_pos(*GtkScale, c_int) void;
 extern fn gtk_drawing_area_new() ?*GtkWidget;
 extern fn gtk_flow_box_new() ?*GtkWidget;
 extern fn gtk_flow_box_set_selection_mode(*GtkFlowBox, c_int) void;
@@ -1363,6 +1370,206 @@ pub export fn noctty_settings_core_contents_new(
         .scrollback = scrollback,
         .scroll_lines = scroll_lines,
         .smooth_scroll = smooth_scroll,
+    };
+    return TRUE;
+}
+
+const SettingsAppearanceOptions = extern struct {
+    theme: ?*GtkWidget,
+    background_tint: ?*GtkWidget,
+    color_buttons: ?[*]const ?*GtkWidget,
+    color_count: c_uint,
+    tab_position: c_int,
+    panel_padding: c_int,
+    pane_spacing: c_int,
+    pane_divider: c_int,
+    pane_border: c_int,
+    focused_border: c_int,
+    selected_border: c_int,
+    status_border: c_int,
+    overlay_border: c_int,
+    window_border: c_int,
+    dragger: c_int,
+    show_pane_info: c_int,
+    family: c_int,
+    font_min: f64,
+    font_max: f64,
+    font_size: f64,
+    antialias: c_int,
+    hinting: c_int,
+    translucency: c_int,
+    alpha_supported: c_int,
+    opacity_percent: f64,
+    compact: c_int,
+};
+
+const SettingsAppearanceContents = extern struct {
+    page: ?*GtkWidget,
+    tabs: ?*GtkWidget,
+    status: ?*GtkWidget,
+    padding: ?*GtkWidget,
+    spacing: ?*GtkWidget,
+    divider: ?*GtkWidget,
+    pane_border: ?*GtkWidget,
+    focused_border: ?*GtkWidget,
+    selected_border: ?*GtkWidget,
+    status_border: ?*GtkWidget,
+    overlay_border: ?*GtkWidget,
+    window_border: ?*GtkWidget,
+    dragger: ?*GtkWidget,
+    pane_info: ?*GtkWidget,
+    theme_library: ?*GtkWidget,
+    family: ?*GtkWidget,
+    font: ?*GtkWidget,
+    antialias: ?*GtkWidget,
+    hinting: ?*GtkWidget,
+    translucency: ?*GtkWidget,
+    opacity: ?*GtkWidget,
+    transparency_status: ?*GtkWidget,
+};
+
+fn panelMetricSpin(event_code: c_int, minimum: f64, maximum: f64, value: c_int) ?*GtkWidget {
+    const spin = spinButton(minimum, maximum, 1, @floatFromInt(value)) orelse return null;
+    g_object_set_data(
+        object(spin),
+        "noctty-panel-metric-event",
+        @ptrFromInt(@as(usize, @intCast(event_code))),
+    );
+    return spin;
+}
+
+fn attachControls(grid: *GtkWidget, controls: []const struct { [*:0]const u8, *GtkWidget }) void {
+    for (controls, 0..) |control, row| {
+        noctty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
+    }
+}
+
+pub export fn noctty_settings_appearance_contents_new(
+    options_raw: ?*const SettingsAppearanceOptions,
+    contents_out: ?*SettingsAppearanceContents,
+) c_int {
+    const options = options_raw orelse return FALSE;
+    const theme = options.theme orelse return FALSE;
+    const tint = options.background_tint orelse return FALSE;
+    const colors = options.color_buttons orelse return FALSE;
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(SettingsAppearanceContents);
+    if (options.color_count != 16) return FALSE;
+
+    const tabs = comboText(&.{ "Top", "Bottom", "Left", "Right" }, options.tab_position) orelse return FALSE;
+    const status = comboText(&.{ "Background", "Border" }, 1) orelse return FALSE;
+    const padding = panelMetricSpin(46, 0, 64, options.panel_padding) orelse return FALSE;
+    const spacing = panelMetricSpin(47, 0, 64, options.pane_spacing) orelse return FALSE;
+    const divider = panelMetricSpin(119, 1, 16, options.pane_divider) orelse return FALSE;
+    const pane_border = panelMetricSpin(120, 0, 12, options.pane_border) orelse return FALSE;
+    const focused_border = panelMetricSpin(121, 1, 12, options.focused_border) orelse return FALSE;
+    const selected_border = panelMetricSpin(122, 1, 12, options.selected_border) orelse return FALSE;
+    const status_border = panelMetricSpin(123, 1, 12, options.status_border) orelse return FALSE;
+    const overlay_border = panelMetricSpin(124, 1, 12, options.overlay_border) orelse return FALSE;
+    const window_border = panelMetricSpin(125, 1, 16, options.window_border) orelse return FALSE;
+    const dragger = panelMetricSpin(126, 1, 32, options.dragger) orelse return FALSE;
+    const pane_info = gtk_check_button_new_with_label("Show bottom pane and resource bar") orelse return FALSE;
+    gtk_toggle_button_set_active(@ptrCast(pane_info), options.show_pane_info);
+    const theme_library = gtk_button_new_with_label("Browse installed themes…") orelse return FALSE;
+    noctty_configure_action_button(theme_library, "Open Theme Library and choose an installed Noctalia scheme");
+    const family = comboText(&.{ "Monospace", "JetBrains Mono" }, options.family) orelse return FALSE;
+    const font = spinButton(options.font_min, options.font_max, 1, options.font_size) orelse return FALSE;
+    const antialias = comboText(&.{ "System default", "Grayscale", "Subpixel (smoothest)" }, options.antialias) orelse return FALSE;
+    const hinting = comboText(&.{ "None", "Slight", "Full" }, options.hinting) orelse return FALSE;
+
+    var body: *GtkWidget = undefined;
+    const page = noctty_settings_page_new(
+        "Appearance",
+        "Keep terminal text readable while tuning the small amount of client chrome.",
+        &body,
+    ) orelse return FALSE;
+    if (options.compact != 0) gtk_container_set_border_width(@ptrCast(body), 12);
+    const terminal_grid = noctty_settings_grid_new() orelse return FALSE;
+    attachControls(terminal_grid, &.{
+        .{ "Theme", theme },              .{ "Theme library", theme_library },
+        .{ "Font family", family },       .{ "Font size", font },
+        .{ "Font smoothing", antialias }, .{ "Font hinting", hinting },
+    });
+    if (!packSettingsGroup(body, "Terminal", terminal_grid)) return FALSE;
+    const chrome_grid = noctty_settings_grid_new() orelse return FALSE;
+    attachControls(chrome_grid, &.{
+        .{ "Tab position", tabs },          .{ "Status indicator", status },
+        .{ "Panel padding", padding },      .{ "Pane spacing", spacing },
+        .{ "Pane information", pane_info },
+    });
+    if (!packSettingsGroup(body, "Client chrome", chrome_grid)) return FALSE;
+    const thickness_grid = noctty_settings_grid_new() orelse return FALSE;
+    attachControls(thickness_grid, &.{
+        .{ "Focused pane border", focused_border },
+        .{ "Selected pane border", selected_border },
+        .{ "Unselected pane border", pane_border },
+        .{ "Status outline", status_border },
+        .{ "Overlay outline", overlay_border },
+        .{ "Split dragger", divider },
+        .{ "Window resize border", window_border },
+        .{ "Bottom dragger", dragger },
+    });
+    if (!packSettingsGroup(body, "Border and drag thickness", thickness_grid)) return FALSE;
+
+    const translucency = gtk_check_button_new_with_label("Show the desktop through terminal backgrounds") orelse return FALSE;
+    gtk_toggle_button_set_active(@ptrCast(translucency), options.translucency);
+    const opacity = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10, 100, 1) orelse return FALSE;
+    gtk_range_set_value(@ptrCast(opacity), options.opacity_percent);
+    gtk_scale_set_draw_value(@ptrCast(opacity), TRUE);
+    gtk_scale_set_value_pos(@ptrCast(opacity), GTK_POS_RIGHT);
+    gtk_widget_set_sensitive(opacity, @intFromBool(options.translucency != 0 and options.alpha_supported != 0));
+    setAccessibleName(opacity, "Terminal background opacity percent");
+    const transparency_status = gtk_label_new(if (options.alpha_supported != 0)
+        "Available through the current compositor"
+    else
+        "Unavailable; NOCTTY is using an opaque background") orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(transparency_status), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(transparency_status), TRUE);
+    g_object_set_data(object(translucency), "noctty-background-opacity", opacity);
+    const background_grid = noctty_settings_grid_new() orelse return FALSE;
+    attachControls(background_grid, &.{
+        .{ "Translucency", translucency }, .{ "Opacity", opacity },
+        .{ "Tint", tint },                 .{ "Compositor support", transparency_status },
+    });
+    if (!packSettingsGroup(body, "Background", background_grid)) return FALSE;
+
+    const color_labels = [_][*:0]const u8{
+        "Focused pane border", "Selected pane border", "Unselected pane border",
+        "Scrollbar track",     "Scrollbar thumb",      "Scrollbar hover / drag",
+        "Overlay background",  "Overlay border",       "Overlay text",
+        "Text selection",      "Search match",         "Info status",
+        "Success status",      "Warning status",       "Error status",
+        "Terminal caret",
+    };
+    const color_grid = noctty_settings_grid_new() orelse return FALSE;
+    for (color_labels, 0..) |label, index| {
+        const button = colors[index] orelse return FALSE;
+        noctty_settings_grid_attach_control(color_grid, label, button, @intCast(index));
+    }
+    if (!packSettingsGroup(body, "Workspace colors", color_grid)) return FALSE;
+    output.* = .{
+        .page = page,
+        .tabs = tabs,
+        .status = status,
+        .padding = padding,
+        .spacing = spacing,
+        .divider = divider,
+        .pane_border = pane_border,
+        .focused_border = focused_border,
+        .selected_border = selected_border,
+        .status_border = status_border,
+        .overlay_border = overlay_border,
+        .window_border = window_border,
+        .dragger = dragger,
+        .pane_info = pane_info,
+        .theme_library = theme_library,
+        .family = family,
+        .font = font,
+        .antialias = antialias,
+        .hinting = hinting,
+        .translucency = translucency,
+        .opacity = opacity,
+        .transparency_status = transparency_status,
     };
     return TRUE;
 }

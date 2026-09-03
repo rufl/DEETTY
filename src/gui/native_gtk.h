@@ -156,6 +156,64 @@ gboolean noctty_settings_core_contents_new(
     NocttySettingsCoreContents *contents_out);
 
 typedef struct {
+    GtkWidget *theme;
+    GtkWidget *background_tint;
+    GtkWidget *const *color_buttons;
+    guint color_count;
+    int tab_position;
+    int panel_padding;
+    int pane_spacing;
+    int pane_divider;
+    int pane_border;
+    int focused_border;
+    int selected_border;
+    int status_border;
+    int overlay_border;
+    int window_border;
+    int dragger;
+    gboolean show_pane_info;
+    int family;
+    double font_min;
+    double font_max;
+    double font_size;
+    int antialias;
+    int hinting;
+    gboolean translucency;
+    gboolean alpha_supported;
+    double opacity_percent;
+    gboolean compact;
+} NocttySettingsAppearanceOptions;
+
+typedef struct {
+    GtkWidget *page;
+    GtkWidget *tabs;
+    GtkWidget *status;
+    GtkWidget *padding;
+    GtkWidget *spacing;
+    GtkWidget *divider;
+    GtkWidget *pane_border;
+    GtkWidget *focused_border;
+    GtkWidget *selected_border;
+    GtkWidget *status_border;
+    GtkWidget *overlay_border;
+    GtkWidget *window_border;
+    GtkWidget *dragger;
+    GtkWidget *pane_info;
+    GtkWidget *theme_library;
+    GtkWidget *family;
+    GtkWidget *font;
+    GtkWidget *antialias;
+    GtkWidget *hinting;
+    GtkWidget *translucency;
+    GtkWidget *opacity;
+    GtkWidget *transparency_status;
+} NocttySettingsAppearanceContents;
+
+gboolean noctty_settings_appearance_contents_new(
+    const NocttySettingsAppearanceOptions *options,
+    NocttySettingsAppearanceContents *contents_out);
+
+typedef struct {
     const char *shell;
     const char *command;
     const char *cwd;

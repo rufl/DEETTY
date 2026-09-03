@@ -11948,15 +11948,6 @@ static void on_settings_panel_metric_changed(GtkSpinButton *spin,
         user_data, event_code, gtk_spin_button_get_value_as_int(spin));
 }
 
-static GtkWidget *panel_metric_spin_new(int event_code, int minimum,
-                                        int maximum, int value) {
-    GtkWidget *spin = gtk_spin_button_new_with_range(minimum, maximum, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), value);
-    g_object_set_data(G_OBJECT(spin), "noctty-panel-metric-event",
-                      GINT_TO_POINTER(event_code));
-    return spin;
-}
-
 static void populate_theme_combo(NocttyGridContext *context,
                                  GtkComboBoxText *combo) {
     char active[97] = {0};
@@ -12653,160 +12644,10 @@ static void open_grid_settings(NocttyGridContext *context) {
                        settings_group_new("Notifications", notification_box),
                        FALSE, FALSE, 0);
 
-    GtkWidget *tabs = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tabs), "Top");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tabs), "Bottom");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tabs), "Left");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(tabs), "Right");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(tabs), context->tab_position);
-    GtkWidget *status = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(status), "Background");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(status), "Border");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(status), 1);
-    GtkWidget *padding = panel_metric_spin_new(
-        46, 0, 64, context->panel_padding_px);
-    GtkWidget *spacing = panel_metric_spin_new(
-        47, 0, 64, context->pane_spacing_px);
-    GtkWidget *divider = panel_metric_spin_new(
-        119, 1, 16, context->pane_divider_px);
-    GtkWidget *pane_border = panel_metric_spin_new(
-        120, 0, 12, context->pane_border_px);
-    GtkWidget *focused_border = panel_metric_spin_new(
-        121, 1, 12, context->pane_border_focused_px);
-    GtkWidget *selected_border = panel_metric_spin_new(
-        122, 1, 12, context->pane_border_selected_px);
-    GtkWidget *status_border = panel_metric_spin_new(
-        123, 1, 12, context->status_border_px);
-    GtkWidget *overlay_border = panel_metric_spin_new(
-        124, 1, 12, context->overlay_border_px);
-    GtkWidget *window_border = panel_metric_spin_new(
-        125, 1, 16, context->window_border_px);
-    GtkWidget *dragger = panel_metric_spin_new(
-        126, 1, 32, context->dragger_px);
-    GtkWidget *pane_info = gtk_check_button_new_with_label(
-        "Show bottom pane and resource bar");
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pane_info),
-                                 context->show_pane_info);
     GtkWidget *theme = gtk_combo_box_text_new();
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(theme));
-    GtkWidget *theme_library = gtk_button_new_with_label(
-        "Browse installed themes…");
-    configure_action_button(
-        theme_library,
-        "Open Theme Library and choose an installed Noctalia scheme");
-    GtkWidget *family = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(family), "Monospace");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(family), "JetBrains Mono");
-    int family_active = g_ascii_strcasecmp(
-        target->font_family != NULL ? target->font_family : "Monospace",
-        "JetBrains Mono") == 0 ? 1 : 0;
-    gtk_combo_box_set_active(GTK_COMBO_BOX(family), family_active);
-    GtkWidget *font = gtk_spin_button_new_with_range(
-        context->font_min_size, context->font_max_size, 1.0);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(font), context->font_size);
-    GtkWidget *antialias = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(antialias), "System default");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(antialias), "Grayscale");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(antialias), "Subpixel (smoothest)");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(antialias), context->font_antialias);
-    GtkWidget *hinting = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(hinting), "None");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(hinting), "Slight");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(hinting), "Full");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(hinting), context->font_hinting);
-
-    GtkWidget *appearance_page_body = NULL;
-    GtkWidget *appearance_page = settings_page_new(
-        "Appearance",
-        "Keep terminal text readable while tuning the small amount of client chrome.",
-        &appearance_page_body);
-    if (compact_settings)
-        gtk_container_set_border_width(GTK_CONTAINER(appearance_page_body), 12);
-    GtkWidget *terminal_grid = settings_grid_new();
-    settings_grid_attach_control(terminal_grid, "Theme", theme, 0);
-    settings_grid_attach_control(terminal_grid, "Theme library", theme_library, 1);
-    settings_grid_attach_control(terminal_grid, "Font family", family, 2);
-    settings_grid_attach_control(terminal_grid, "Font size", font, 3);
-    settings_grid_attach_control(terminal_grid, "Font smoothing", antialias, 4);
-    settings_grid_attach_control(terminal_grid, "Font hinting", hinting, 5);
-    gtk_box_pack_start(GTK_BOX(appearance_page_body),
-                       settings_group_new("Terminal", terminal_grid),
-                       FALSE, FALSE, 0);
-    GtkWidget *chrome_grid = settings_grid_new();
-    settings_grid_attach_control(chrome_grid, "Tab position", tabs, 0);
-    settings_grid_attach_control(chrome_grid, "Status indicator", status, 1);
-    settings_grid_attach_control(chrome_grid, "Panel padding", padding, 2);
-    settings_grid_attach_control(chrome_grid, "Pane spacing", spacing, 3);
-    settings_grid_attach_control(chrome_grid, "Pane information", pane_info, 4);
-    gtk_box_pack_start(GTK_BOX(appearance_page_body),
-                       settings_group_new("Client chrome", chrome_grid),
-                       FALSE, FALSE, 0);
-
-    GtkWidget *thickness_grid = settings_grid_new();
-    settings_grid_attach_control(thickness_grid, "Focused pane border",
-                                 focused_border, 0);
-    settings_grid_attach_control(thickness_grid, "Selected pane border",
-                                 selected_border, 1);
-    settings_grid_attach_control(thickness_grid, "Unselected pane border",
-                                 pane_border, 2);
-    settings_grid_attach_control(thickness_grid, "Status outline",
-                                 status_border, 3);
-    settings_grid_attach_control(thickness_grid, "Overlay outline",
-                                 overlay_border, 4);
-    settings_grid_attach_control(thickness_grid, "Split dragger",
-                                 divider, 5);
-    settings_grid_attach_control(thickness_grid, "Window resize border",
-                                 window_border, 6);
-    settings_grid_attach_control(thickness_grid, "Bottom dragger",
-                                 dragger, 7);
-    gtk_box_pack_start(GTK_BOX(appearance_page_body),
-                       settings_group_new("Border and drag thickness",
-                                          thickness_grid),
-                       FALSE, FALSE, 0);
-
-    GtkWidget *background_grid = settings_grid_new();
-    GtkWidget *translucency = gtk_check_button_new_with_label(
-        "Show the desktop through terminal backgrounds");
-    gtk_toggle_button_set_active(
-        GTK_TOGGLE_BUTTON(translucency), context->background_translucency);
-    GtkWidget *background_opacity = gtk_scale_new_with_range(
-        GTK_ORIENTATION_HORIZONTAL, 10.0, 100.0, 1.0);
-    gtk_range_set_value(GTK_RANGE(background_opacity),
-                        context->background_opacity_percent);
-    gtk_scale_set_draw_value(GTK_SCALE(background_opacity), TRUE);
-    gtk_scale_set_value_pos(GTK_SCALE(background_opacity), GTK_POS_RIGHT);
-    gtk_widget_set_sensitive(
-        background_opacity,
-        context->background_translucency && context->background_alpha_supported);
-    set_widget_accessible_name(background_opacity,
-                               "Terminal background opacity percent");
-    GtkWidget *transparency_status = gtk_label_new(
-        context->background_alpha_supported
-            ? "Available through the current compositor"
-            : "Unavailable; NOCTTY is using an opaque background");
-    gtk_label_set_xalign(GTK_LABEL(transparency_status), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(transparency_status), TRUE);
-    g_object_set_data(G_OBJECT(translucency),
-                      "noctty-background-opacity", background_opacity);
     GtkWidget *background_tint = theme_color_button_new(
         context, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND, "Background tint");
-    g_object_set_data(G_OBJECT(dialog), "noctty-settings-background-tint",
-                      background_tint);
-    g_object_set_data(G_OBJECT(dialog), "noctty-settings-transparency-status",
-                      transparency_status);
-    settings_grid_attach_control(background_grid, "Translucency",
-                                 translucency, 0);
-    settings_grid_attach_control(background_grid, "Opacity",
-                                 background_opacity, 1);
-    settings_grid_attach_control(background_grid, "Tint",
-                                 background_tint, 2);
-    settings_grid_attach_control(background_grid, "Compositor support",
-                                 transparency_status, 3);
-    gtk_box_pack_start(GTK_BOX(appearance_page_body),
-                       settings_group_new("Background", background_grid),
-                       FALSE, FALSE, 0);
-
-    GtkWidget *workspace_colors_grid = settings_grid_new();
     static const struct {
         const char *label;
         uint32_t role;
@@ -12828,17 +12669,74 @@ static void open_grid_settings(NocttyGridContext *context) {
         { "Error status", NOCTTY_UI_COLOR_STATUS_ERROR },
         { "Terminal caret", NOCTTY_UI_COLOR_TERMINAL_CURSOR },
     };
-    for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++) {
-        GtkWidget *button = theme_color_button_new(
-            context, workspace_colors[index].role, workspace_colors[index].label);
-        settings_grid_attach_control(workspace_colors_grid,
-                                     workspace_colors[index].label, button,
-                                     (int)index);
+    GtkWidget *color_buttons[G_N_ELEMENTS(workspace_colors)] = {0};
+    for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
+        color_buttons[index] = theme_color_button_new(
+            context, workspace_colors[index].role,
+            workspace_colors[index].label);
+    int family_active = g_ascii_strcasecmp(
+        target->font_family != NULL ? target->font_family : "Monospace",
+        "JetBrains Mono") == 0 ? 1 : 0;
+    const NocttySettingsAppearanceOptions appearance_options = {
+        .theme = theme,
+        .background_tint = background_tint,
+        .color_buttons = color_buttons,
+        .color_count = G_N_ELEMENTS(color_buttons),
+        .tab_position = context->tab_position,
+        .panel_padding = context->panel_padding_px,
+        .pane_spacing = context->pane_spacing_px,
+        .pane_divider = context->pane_divider_px,
+        .pane_border = context->pane_border_px,
+        .focused_border = context->pane_border_focused_px,
+        .selected_border = context->pane_border_selected_px,
+        .status_border = context->status_border_px,
+        .overlay_border = context->overlay_border_px,
+        .window_border = context->window_border_px,
+        .dragger = context->dragger_px,
+        .show_pane_info = context->show_pane_info,
+        .family = family_active,
+        .font_min = context->font_min_size,
+        .font_max = context->font_max_size,
+        .font_size = context->font_size,
+        .antialias = context->font_antialias,
+        .hinting = context->font_hinting,
+        .translucency = context->background_translucency,
+        .alpha_supported = context->background_alpha_supported,
+        .opacity_percent = context->background_opacity_percent,
+        .compact = compact_settings,
+    };
+    NocttySettingsAppearanceContents appearance = {0};
+    if (!noctty_settings_appearance_contents_new(
+            &appearance_options, &appearance)) {
+        gtk_widget_destroy(dialog);
+        return;
     }
-    gtk_box_pack_start(GTK_BOX(appearance_page_body),
-                       settings_group_new("Workspace colors",
-                                          workspace_colors_grid),
-                       FALSE, FALSE, 0);
+    GtkWidget *appearance_page = appearance.page;
+    GtkWidget *tabs = appearance.tabs;
+    GtkWidget *status = appearance.status;
+    GtkWidget *padding = appearance.padding;
+    GtkWidget *spacing = appearance.spacing;
+    GtkWidget *divider = appearance.divider;
+    GtkWidget *pane_border = appearance.pane_border;
+    GtkWidget *focused_border = appearance.focused_border;
+    GtkWidget *selected_border = appearance.selected_border;
+    GtkWidget *status_border = appearance.status_border;
+    GtkWidget *overlay_border = appearance.overlay_border;
+    GtkWidget *window_border = appearance.window_border;
+    GtkWidget *dragger = appearance.dragger;
+    GtkWidget *pane_info = appearance.pane_info;
+    GtkWidget *theme_library = appearance.theme_library;
+    GtkWidget *family = appearance.family;
+    GtkWidget *font = appearance.font;
+    GtkWidget *antialias = appearance.antialias;
+    GtkWidget *hinting = appearance.hinting;
+    GtkWidget *translucency = appearance.translucency;
+    GtkWidget *background_opacity = appearance.opacity;
+    GtkWidget *transparency_status = appearance.transparency_status;
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-background-tint",
+                      background_tint);
+    g_object_set_data(G_OBJECT(dialog), "noctty-settings-transparency-status",
+                      transparency_status);
 
     gtk_stack_add_named(GTK_STACK(stack), window_page, "window");
     gtk_stack_add_named(GTK_STACK(stack), behavior_page, "behavior");

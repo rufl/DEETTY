@@ -62,6 +62,7 @@ comptime {
     _ = NativeGtk.noctty_command_palette_contents_new;
     _ = NativeGtk.noctty_project_contents_new;
     _ = NativeGtk.noctty_settings_core_contents_new;
+    _ = NativeGtk.noctty_settings_appearance_contents_new;
     _ = NativeGtk.noctty_launch_profile_contents_new;
     _ = NativeGtk.noctty_sharing_contents_new;
 }
