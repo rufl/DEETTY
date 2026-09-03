@@ -4,6 +4,11 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added configurable inactive-pane brightness, disabled/transparent/theme-colored
+  pane gaps, monitor-resolution adaptation in every presentation mode, safe
+  default-browser hyperlink actions and link menus, TUI-aware theme palettes,
+  and independently persisted per-tab themes.
+
 - Crossed the enforced 80% Zig core-ownership threshold by moving the native
   sharing-preview Cairo renderer to Zig, separating smoke-only C from the
   production GTK host, and relocating stable public adapter headers under

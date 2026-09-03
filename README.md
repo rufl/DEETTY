@@ -73,12 +73,14 @@ public announcement. Recaptures must use a disposable compositor session:
 The qualified Linux NOCTTY host provides:
 
 - undecorated, horizontally centered dropdown mode with live percentage sizing,
-  native decorated windowed mode, and zen/fullscreen mode
-- native terminal tabs and recursive splits
+  native decorated windowed mode, and zen/fullscreen mode; every mode reflows
+  and clamps itself when monitor work areas or resolution change
+- native terminal tabs and recursive splits with configurable transparent or
+  theme-colored pixel gaps and optional 70%-by-default inactive-pane dimming
 - guarded broadcast input across selected panes or the active tab, with explicit enable confirmation and immediate disable
 - compact tab chrome inspired by Yakuake/Konsole workflows
 - bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
-- per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation, plus scrollback search, copy/paste, mouse, resize, and Unicode/ANSI handling
+- per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation, plus scrollback search, copy/paste, mouse, resize, Unicode/ANSI handling, and safe `http`/`https`/`mailto` links through the default browser or a link context menu
 - terminal content exposed through native ATK text semantics for Linux screen readers
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
 - retained installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11
@@ -90,7 +92,9 @@ The qualified Linux NOCTTY host provides:
 - opt-in password-protected encrypted screen-history export
 - native settings, command palette, terminal search, Quick Note, shortcut card, and Project Workspace surfaces with keyboard-accessible controls, assistive status/error feedback, and work-area-bounded narrow-window scrolling
 - optional tray/status notifier integration
-- native themes plus Ghostty, Xresources, Alacritty, and Noctalia JSON imports; Noctalia dark/light terminal palettes and Material workspace roles map to NOCTTY chrome, status, selection, and caret colors
+- native themes plus Ghostty, Xresources, Alacritty, and Noctalia JSON imports;
+  each tab can select its own theme, and that theme maps ANSI colors used by TUI
+  applications as well as terminal background, caret, gap, and workspace roles
 - opt-in end-to-end encrypted sharing of the active terminal to one paired
   NOCTTY device, with a native remote preview and separately approved,
   connection-scoped input control, assistive form/status semantics, and a
@@ -292,7 +296,9 @@ Shift+PageUp/PageDown terminal history page up / down
 Shift+Home/End        oldest / live terminal output
 Ctrl+C                 interrupt active pane
 Ctrl+D                 close active pane
-Right-click pane       terminal actions / Open NoctEd Here
+Ctrl+click link         open in the default browser
+Right-click link        open in browser / copy address
+Right-click pane        terminal actions / Open NoctEd Here
 ```
 
 NoctEd:
