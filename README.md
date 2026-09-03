@@ -80,7 +80,7 @@ The qualified Linux NOCTTY host provides:
 - guarded broadcast input across selected panes or the active tab, with explicit enable confirmation and immediate disable
 - compact tab chrome inspired by Yakuake/Konsole workflows
 - bottom active-pane bar with NOCTTY-wide and selected-terminal-tree CPU/memory usage
-- per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation, plus scrollback search, copy/paste, mouse, resize, Unicode/ANSI handling, and safe `http`/`https`/`mailto` links through the default browser or a link context menu
+- per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation; wheel/scrollbar history also works while full-screen TUIs such as Codex occupy the alternate screen, plus scrollback search, copy/paste, mouse, resize, Unicode/ANSI handling, and safe `http`/`https`/`mailto` links through a default-browser action or link context menu
 - terminal content exposed through native ATK text semantics for Linux screen readers
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
 - retained installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11

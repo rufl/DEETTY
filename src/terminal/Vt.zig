@@ -2829,8 +2829,12 @@ pub const Grid = struct {
                 self.scrollRegionWithMeta(next_meta);
                 return;
             }
-            if (self.alternate_cells == null)
-                try self.retainHistoryLine(saved, saved_meta);
+            // Alternate-screen TUIs such as Codex redraw their conversation
+            // without enabling DEC mouse reporting. Retaining full-screen
+            // scroll rows lets the host-owned wheel and scrollbar expose that
+            // content instead of becoming a no-op while the alternate buffer
+            // is active.
+            try self.retainHistoryLine(saved, saved_meta);
             self.scrollRegionWithMeta(next_meta);
         }
     }
@@ -4026,11 +4030,12 @@ test "terminal grid keeps rotated primary screen through alternate resize" {
     const history_count = grid.history.items.len;
 
     try grid.feed("\x1b[?1049halt-1\r\nalt-2\r\nalt-3\r\nalt-4");
-    try std.testing.expectEqual(history_count, grid.history.items.len);
+    try std.testing.expectEqual(history_count + 1, grid.history.items.len);
     try grid.resize(10, 4);
     try grid.feed("\x1b[?1049l");
 
-    try std.testing.expectEqual(@as(usize, 0), grid.screen_origin);
+    // The physical ring origin may change as both active buffers are reflowed;
+    // logical primary-screen content must remain stable.
     try std.testing.expectEqual(@as(u21, 'a'), grid.cell(0, 0).codepoint);
     try std.testing.expectEqual(@as(u21, 'b'), grid.cell(0, 1).codepoint);
     try std.testing.expectEqual(@as(u21, 'c'), grid.cell(0, 2).codepoint);
@@ -4561,6 +4566,22 @@ test "terminal alternate screen has independent saved cursor state" {
     try std.testing.expectEqual(@as(u21, 'X'), grid.cell(0, 2).codepoint);
     try std.testing.expectEqual(@as(usize, 1), grid.cursor_column);
     try std.testing.expectEqual(@as(usize, 2), grid.cursor_row);
+}
+
+test "terminal alternate screen retains rows for host scrollback" {
+    var grid = try Grid.init(std.testing.allocator, 8, 2);
+    defer grid.deinit();
+
+    try grid.feed("\x1b[?1049hA\r\nB\r\nC\r\nD");
+    try std.testing.expectEqual(@as(usize, 2), grid.history.items.len);
+
+    grid.scrollViewport(1);
+    try std.testing.expectEqual(@as(u21, 'B'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'C'), grid.cell(0, 1).codepoint);
+
+    grid.scrollViewport(-1);
+    try std.testing.expectEqual(@as(u21, 'C'), grid.cell(0, 0).codepoint);
+    try std.testing.expectEqual(@as(u21, 'D'), grid.cell(0, 1).codepoint);
 }
 
 test "terminal alternate screen restores primary scroll margins" {
