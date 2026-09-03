@@ -9131,10 +9131,12 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         terminal_scrollbar_geometry(context, allocation, &scrollbar) &&
         event->button == 1 &&
         (event->x >= scrollbar.x || context->scrollbar_dragging);
-    int terminal_mouse_mode =
+    int terminal_mode_flags =
         scrollbar_owned ? 0 : context->mouse_mode(context->userdata);
+    int terminal_mouse_mode =
+        terminal_mode_flags & NOCTTY_GRID_TERMINAL_MODE_MOUSE;
     int route = noctty_grid_input_route(
-        NOCTTY_GRID_INPUT_POINTER, scrollbar_owned, terminal_mouse_mode,
+        NOCTTY_GRID_INPUT_POINTER, scrollbar_owned, terminal_mode_flags, 0,
         event->button == 1, grid_input_modifiers(event->state));
     if (route == NOCTTY_GRID_ROUTE_SCROLLBAR)
         return handle_terminal_scrollbar_button(
@@ -15891,6 +15893,21 @@ static gboolean report_terminal_mouse_wheel(
     return TRUE;
 }
 
+static gboolean report_terminal_wheel_keys(
+    NocttyGridContext *context, int steps) {
+    uint8_t sequence[192];
+    int length = noctty_grid_wheel_key_sequence(
+        context->cursor_mode(context->userdata), steps, sequence,
+        sizeof(sequence));
+    if (length <= 0) return TRUE;
+    acknowledge_grid_attention(context);
+    if (context->write(
+            context->userdata, (const char *)sequence,
+            (size_t)length) == length)
+        schedule_grid_write_flush(context);
+    return TRUE;
+}
+
 static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
     NocttyGridContext *context = user_data;
     if (!grid_context_session_available(context) || context->exited)
@@ -15901,11 +15918,21 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     gboolean scrollbar_owned =
         terminal_scrollbar_geometry(context, allocation, &scrollbar) &&
         event->x >= scrollbar.x;
-    int terminal_mouse_mode =
+    int terminal_mode_flags =
         scrollbar_owned ? 0 : context->mouse_mode(context->userdata);
+    uint64_t history_lines = 0;
+    uint64_t viewport_offset = 0;
+    uint32_t visible_rows = 0;
+    int history_available = 0;
+    if (terminal_mode_flags & NOCTTY_GRID_TERMINAL_MODE_ALTERNATE_SCREEN) {
+        if (noctty_grid_scroll_state(
+                context->userdata, &history_lines, &viewport_offset,
+                &visible_rows) == 0)
+            history_available = history_lines > 0;
+    }
     int route = noctty_grid_input_route(
-        NOCTTY_GRID_INPUT_WHEEL, scrollbar_owned, terminal_mouse_mode, 0,
-        grid_input_modifiers(event->state));
+        NOCTTY_GRID_INPUT_WHEEL, scrollbar_owned, terminal_mode_flags,
+        history_available, 0, grid_input_modifiers(event->state));
     /* The native rail owns pointer events inside its visible hit target even
      * when the foreground TUI enables terminal mouse reporting. Otherwise
      * apps such as Codex consume the wheel before NOCTTY can move history. */
@@ -15956,6 +15983,8 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     }
     if (route == NOCTTY_GRID_ROUTE_APPLICATION_MOUSE)
         return report_terminal_mouse_wheel(context, event, steps);
+    if (route == NOCTTY_GRID_ROUTE_APPLICATION_KEYS)
+        return report_terminal_wheel_keys(context, steps);
     return TRUE;
 }
 

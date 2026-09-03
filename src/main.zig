@@ -5980,7 +5980,7 @@ export fn noctty_grid_scroll_state(
     visible_rows: *u32,
 ) callconv(.c) c_int {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw orelse return -1));
-    history_lines.* = @intCast(session.grid.historyCount());
+    history_lines.* = @intCast(session.grid.viewportHistoryCount());
     viewport_offset.* = @intCast(session.grid.viewport_offset);
     visible_rows.* = @intCast(session.grid.rows);
     return 0;
@@ -6010,7 +6010,8 @@ export fn noctty_grid_cursor_mode(raw: ?*anyopaque) callconv(.c) c_int {
 
 export fn noctty_grid_mouse_mode(raw: ?*anyopaque) callconv(.c) c_int {
     const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    return @intFromBool(session.grid.mouse_tracking != .none);
+    return @as(c_int, @intFromBool(session.grid.mouse_tracking != .none)) |
+        (@as(c_int, @intFromBool(session.grid.alternate_cells != null)) << 1);
 }
 
 export fn noctty_grid_focus(raw: ?*anyopaque, focused: c_int) callconv(.c) c_int {

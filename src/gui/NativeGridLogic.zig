@@ -194,11 +194,16 @@ pub const route_tab_cycle: c_int = 5;
 pub const route_pane_cycle: c_int = 6;
 pub const route_font_zoom: c_int = 7;
 pub const route_local_pointer: c_int = 8;
+pub const route_application_keys: c_int = 9;
+
+pub const terminal_mode_mouse: c_int = 1 << 0;
+pub const terminal_mode_alternate_screen: c_int = 1 << 1;
 
 pub export fn noctty_grid_input_route(
     input_kind: c_int,
     scrollbar_owned: c_int,
-    terminal_mouse_mode: c_int,
+    terminal_mode_flags: c_int,
+    history_available: c_int,
     primary_button: c_int,
     modifier_flags: u32,
 ) callconv(.c) c_int {
@@ -206,13 +211,14 @@ pub export fn noctty_grid_input_route(
         return route_ignore;
     if (scrollbar_owned != 0) return route_scrollbar;
 
+    const terminal_mouse_mode = terminal_mode_flags & terminal_mode_mouse != 0;
     if (input_kind == input_pointer) {
-        if (terminal_mouse_mode != 0) return route_application_mouse;
+        if (terminal_mouse_mode) return route_application_mouse;
         return if (primary_button != 0) route_selection else route_local_pointer;
     }
 
     const modifiers = modifier_flags & known_modifiers;
-    if (terminal_mouse_mode != 0 and modifiers == 0)
+    if (terminal_mouse_mode and modifiers == 0)
         return route_application_mouse;
     if (modifiers & modifier_control != 0 and modifiers & modifier_alt != 0)
         return route_tab_cycle;
@@ -220,8 +226,14 @@ pub export fn noctty_grid_input_route(
         return route_pane_cycle;
     if (modifiers & modifier_control != 0)
         return route_font_zoom;
-    if (terminal_mouse_mode == 0 or modifiers & modifier_shift != 0)
+    if (modifiers & modifier_shift != 0) return route_terminal_scroll;
+    if (!terminal_mouse_mode) {
+        const alternate_screen =
+            terminal_mode_flags & terminal_mode_alternate_screen != 0;
+        if (alternate_screen and history_available == 0)
+            return route_application_keys;
         return route_terminal_scroll;
+    }
     return route_application_mouse;
 }
 pub export fn noctty_grid_wheel_action_plan(
@@ -262,6 +274,26 @@ pub export fn noctty_grid_wheel_action_plan(
     accumulator.* -= @floatFromInt(signed_steps);
     plan.steps = if (signed_steps < 0) -signed_steps else signed_steps;
     plan.direction = if (signed_steps < 0) -1 else 1;
+}
+
+pub export fn noctty_grid_wheel_key_sequence(
+    application_cursor: c_int,
+    steps: c_int,
+    output: ?[*]u8,
+    capacity: u32,
+) callconv(.c) c_int {
+    const destination = output orelse return 0;
+    if (steps == 0) return 0;
+    const count: u32 = @min(@abs(steps), 64);
+    const length = count * 3;
+    if (capacity < length) return 0;
+    const introducer: u8 = if (application_cursor != 0) 'O' else '[';
+    const final: u8 = if (steps > 0) 'A' else 'B';
+    for (0..count) |index| {
+        const start = index * 3;
+        destination[start..][0..3].* = .{ 0x1b, introducer, final };
+    }
+    return @intCast(length);
 }
 
 pub export fn noctty_grid_scrollbar_geometry(
@@ -971,6 +1003,7 @@ test "routed wheel actions preserve every discrete direction convention" {
             0,
             0,
             0,
+            0,
             case.modifiers,
         );
         try std.testing.expectEqual(case.route, route);
@@ -1136,6 +1169,7 @@ test "pointer routing exhaustively preserves scrollbar selection and mouse prece
                         input_pointer,
                         @intCast(scrollbar_owned),
                         @intCast(mouse_mode),
+                        0,
                         @intCast(primary),
                         @intCast(modifiers),
                     ));
@@ -1170,13 +1204,80 @@ test "wheel routing exhaustively preserves modifier and mouse mode precedence" {
         const flags: u32 = @intCast(modifiers);
         try std.testing.expectEqual(
             expected_without_mouse[modifiers],
-            noctty_grid_input_route(input_wheel, 0, 0, 0, flags),
+            noctty_grid_input_route(input_wheel, 0, 0, 0, 0, flags),
         );
         try std.testing.expectEqual(
             expected_with_mouse[modifiers],
-            noctty_grid_input_route(input_wheel, 0, 1, 0, flags),
+            noctty_grid_input_route(input_wheel, 0, 1, 0, 0, flags),
         );
     }
+}
+
+test "alternate-screen wheel falls back to application keys without history" {
+    try std.testing.expectEqual(
+        route_application_keys,
+        noctty_grid_input_route(
+            input_wheel,
+            0,
+            terminal_mode_alternate_screen,
+            0,
+            0,
+            0,
+        ),
+    );
+    try std.testing.expectEqual(
+        route_terminal_scroll,
+        noctty_grid_input_route(
+            input_wheel,
+            0,
+            terminal_mode_alternate_screen,
+            1,
+            0,
+            0,
+        ),
+    );
+    try std.testing.expectEqual(
+        route_terminal_scroll,
+        noctty_grid_input_route(
+            input_wheel,
+            0,
+            terminal_mode_alternate_screen,
+            0,
+            0,
+            modifier_shift,
+        ),
+    );
+    try std.testing.expectEqual(
+        route_application_mouse,
+        noctty_grid_input_route(
+            input_wheel,
+            0,
+            terminal_mode_alternate_screen | terminal_mode_mouse,
+            0,
+            0,
+            0,
+        ),
+    );
+}
+
+test "alternate-screen wheel keys honor direction cursor mode and bounds" {
+    var output: [192]u8 = undefined;
+    var length = noctty_grid_wheel_key_sequence(0, 2, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 6), length);
+    try std.testing.expectEqualStrings("\x1b[A\x1b[A", output[0..@intCast(length)]);
+
+    length = noctty_grid_wheel_key_sequence(1, -2, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 6), length);
+    try std.testing.expectEqualStrings("\x1bOB\x1bOB", output[0..@intCast(length)]);
+
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_wheel_key_sequence(0, 1, &output, 2),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 192),
+        noctty_grid_wheel_key_sequence(0, std.math.maxInt(c_int), &output, output.len),
+    );
 }
 
 test "input routing handles scrollbar overrides and invalid boundaries" {
@@ -1189,6 +1290,7 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
                     -1,
                     @intCast(mouse_mode),
                     0,
+                    0,
                     @intCast(modifiers),
                 ),
             );
@@ -1196,11 +1298,18 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
     }
     try std.testing.expectEqual(
         route_application_mouse,
-        noctty_grid_input_route(input_wheel, 0, -1, 0, 1 << 31),
+        noctty_grid_input_route(input_wheel, 0, -1, 0, 0, 1 << 31),
     );
     try std.testing.expectEqual(
         route_ignore,
-        noctty_grid_input_route(std.math.maxInt(c_int), 1, 1, 1, std.math.maxInt(u32)),
+        noctty_grid_input_route(
+            std.math.maxInt(c_int),
+            1,
+            1,
+            1,
+            1,
+            std.math.maxInt(u32),
+        ),
     );
 }
 

@@ -87,6 +87,11 @@ enum {
 };
 
 enum {
+    NOCTTY_GRID_TERMINAL_MODE_MOUSE = 1u << 0,
+    NOCTTY_GRID_TERMINAL_MODE_ALTERNATE_SCREEN = 1u << 1,
+};
+
+enum {
     NOCTTY_GRID_ROUTE_IGNORE = 0,
     NOCTTY_GRID_ROUTE_SCROLLBAR = 1,
     NOCTTY_GRID_ROUTE_SELECTION = 2,
@@ -96,14 +101,17 @@ enum {
     NOCTTY_GRID_ROUTE_PANE_CYCLE = 6,
     NOCTTY_GRID_ROUTE_FONT_ZOOM = 7,
     NOCTTY_GRID_ROUTE_LOCAL_POINTER = 8,
+    NOCTTY_GRID_ROUTE_APPLICATION_KEYS = 9,
 };
 
 int noctty_grid_input_route(int input_kind, int scrollbar_owned,
-                            int terminal_mouse_mode, int primary_button,
-                            uint32_t modifier_flags);
+                            int terminal_mode_flags, int history_available,
+                            int primary_button, uint32_t modifier_flags);
 void noctty_grid_wheel_action_plan(
     int route, int scroll_direction, double delta_y, double *accumulator,
     NocttyGridWheelActionPlan *plan);
+int noctty_grid_wheel_key_sequence(int application_cursor, int steps,
+                                   uint8_t *output, uint32_t capacity);
 
 
 

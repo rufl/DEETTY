@@ -419,6 +419,7 @@ pub const Grid = struct {
     alternate_saved_margin_top: usize = 0,
     alternate_saved_margin_bottom: usize = 0,
     alternate_saved_origin_mode: bool = false,
+    alternate_history_count: usize = 0,
     saved_origin_mode: bool = false,
     saved_charset_g0_dec_special: bool = false,
     saved_charset_g1_dec_special: bool = false,
@@ -824,7 +825,10 @@ pub const Grid = struct {
             self.alternate_saved_margin_bottom,
             rows - 1,
         );
-        self.viewport_offset = @min(self.viewport_offset, self.history.items.len);
+        self.viewport_offset = @min(
+            self.viewport_offset,
+            self.viewportHistoryCount(),
+        );
         self.wrap_pending = false;
         self.resetGraphemeInput();
     }
@@ -903,6 +907,11 @@ pub const Grid = struct {
         self.cursor_column = @min(active_cursor_column, columns - 1);
         self.cursor_row = @min(active_cursor_row, rows - 1);
         self.wrap_pending = false;
+        // Width-changing primary reflow can change history row counts. Start
+        // a fresh alternate-history viewport rather than exposing mismatched
+        // pre-resize rows.
+        self.alternate_history_count = 0;
+        self.viewport_offset = 0;
         self.markAllDirty();
     }
 
@@ -1756,6 +1765,13 @@ pub const Grid = struct {
         return self.history.items.len;
     }
 
+    pub fn viewportHistoryCount(self: Grid) usize {
+        return if (self.alternate_cells != null)
+            @min(self.alternate_history_count, self.history.items.len)
+        else
+            self.history.items.len;
+    }
+
     pub fn historyRowIdentity(self: Grid, row: usize) ?HistoryIdentity {
         if (row >= self.history.items.len) return null;
         const meta = self.historyMeta(row);
@@ -1783,7 +1799,15 @@ pub const Grid = struct {
 
     pub fn scrollViewport(self: *Grid, lines: isize) void {
         const previous = self.viewport_offset;
-        if (lines > 0) self.viewport_offset = @min(self.history.items.len, self.viewport_offset + @as(usize, @intCast(lines))) else self.viewport_offset -|= @as(usize, @intCast(-lines));
+        const history_count = self.viewportHistoryCount();
+        if (lines > 0) {
+            self.viewport_offset = @min(
+                history_count,
+                self.viewport_offset + @as(usize, @intCast(lines)),
+            );
+        } else {
+            self.viewport_offset -|= @as(usize, @intCast(-lines));
+        }
         if (self.viewport_offset != previous) self.markAllDirty();
     }
 
@@ -2835,6 +2859,12 @@ pub const Grid = struct {
             // content instead of becoming a no-op while the alternate buffer
             // is active.
             try self.retainHistoryLine(saved, saved_meta);
+            if (self.alternate_cells != null) {
+                self.alternate_history_count = @min(
+                    self.alternate_history_count +| 1,
+                    self.history.items.len,
+                );
+            }
             self.scrollRegionWithMeta(next_meta);
         }
     }
@@ -3416,6 +3446,8 @@ pub const Grid = struct {
         self.margin_top = 0;
         self.margin_bottom = self.rows - 1;
         self.origin_mode = false;
+        self.alternate_history_count = 0;
+        self.viewport_offset = 0;
         self.markAllDirty();
     }
 
@@ -3436,6 +3468,8 @@ pub const Grid = struct {
         self.margin_top = self.alternate_saved_margin_top;
         self.margin_bottom = self.alternate_saved_margin_bottom;
         self.origin_mode = self.alternate_saved_origin_mode;
+        self.alternate_history_count = 0;
+        self.viewport_offset = 0;
         self.markAllDirty();
     }
 };
@@ -4572,8 +4606,11 @@ test "terminal alternate screen retains rows for host scrollback" {
     var grid = try Grid.init(std.testing.allocator, 8, 2);
     defer grid.deinit();
 
+    try grid.feed("P1\r\nP2\r\nP3");
+    try std.testing.expectEqual(@as(usize, 1), grid.historyCount());
     try grid.feed("\x1b[?1049hA\r\nB\r\nC\r\nD");
-    try std.testing.expectEqual(@as(usize, 2), grid.history.items.len);
+    try std.testing.expectEqual(@as(usize, 3), grid.historyCount());
+    try std.testing.expectEqual(@as(usize, 2), grid.viewportHistoryCount());
 
     grid.scrollViewport(1);
     try std.testing.expectEqual(@as(u21, 'B'), grid.cell(0, 0).codepoint);
@@ -4582,6 +4619,10 @@ test "terminal alternate screen retains rows for host scrollback" {
     grid.scrollViewport(-1);
     try std.testing.expectEqual(@as(u21, 'C'), grid.cell(0, 0).codepoint);
     try std.testing.expectEqual(@as(u21, 'D'), grid.cell(0, 1).codepoint);
+
+    try grid.feed("\x1b[?1049l");
+    try std.testing.expectEqual(@as(usize, 0), grid.viewport_offset);
+    try std.testing.expectEqual(grid.historyCount(), grid.viewportHistoryCount());
 }
 
 test "terminal alternate screen restores primary scroll margins" {
