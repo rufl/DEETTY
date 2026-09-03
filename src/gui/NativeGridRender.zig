@@ -499,6 +499,53 @@ pub export fn noctty_grid_render_status_feedback(
     return 1;
 }
 
+pub export fn noctty_grid_render_text_decoration(
+    cr_raw: ?*Cairo,
+    options_raw: ?*const TextDecoration,
+) callconv(.c) c_int {
+    const cr = cr_raw orelse return 0;
+    const options = options_raw orelse return 0;
+    if (options.style & (8 | 16) == 0 or options.end <= options.first) return 0;
+    if (!std.math.isFinite(options.cell_width) or
+        !std.math.isFinite(options.cell_height) or
+        !std.math.isFinite(options.baseline) or
+        options.cell_width <= 0 or options.cell_height <= 0) return 0;
+
+    cairo_save(cr);
+    defer cairo_restore(cr);
+    setTerminalColor(
+        cr,
+        options.palette,
+        options.foreground,
+        if (options.style & 32 != 0) 0.55 else 1,
+    );
+    cairo_set_line_width(cr, 1);
+    cairo_set_line_cap(cr, cairo_line_cap_square);
+    var extents: FontExtents = undefined;
+    cairo_font_extents(cr, &extents);
+    const left = 4 + @as(f64, @floatFromInt(options.first)) * options.cell_width;
+    const right = 4 + @as(f64, @floatFromInt(options.end)) * options.cell_width;
+    const top = 2 + @as(f64, @floatFromInt(options.row)) * options.cell_height;
+    var result: c_int = 1;
+    if (options.style & 8 != 0) {
+        const bottom = top + options.cell_height - 1.5;
+        const candidate = options.baseline + @max(1.5, extents.descent * 0.75);
+        const y = @min(bottom, @floor(candidate) + 0.5);
+        cairo_move_to(cr, left, y);
+        cairo_line_to(cr, right, y);
+        cairo_stroke(cr);
+        if (y > options.baseline and y <= bottom) result |= 2;
+    }
+    if (options.style & 16 != 0) {
+        const candidate = options.baseline - extents.ascent * 0.34;
+        const y = @floor(candidate) + 0.5;
+        cairo_move_to(cr, left, y);
+        cairo_line_to(cr, right, y);
+        cairo_stroke(cr);
+    }
+    return result;
+}
+
 pub export fn noctty_grid_render_scrollbar(
     cr_raw: ?*Cairo,
     options_raw: ?*const Scrollbar,

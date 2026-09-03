@@ -52,6 +52,23 @@ typedef struct {
 } NocttyGridTextOverlay;
 
 typedef struct {
+    void *userdata;
+    NocttyGridRenderColor resolve;
+} NocttyGridTerminalPalette;
+
+typedef struct {
+    NocttyGridTerminalPalette palette;
+    uint32_t style;
+    uint32_t foreground;
+    int row;
+    int first;
+    int end;
+    double cell_width;
+    double cell_height;
+    double baseline;
+} NocttyGridTextDecoration;
+
+typedef struct {
     NocttyGridRenderPalette palette;
     int allocation_height;
     double x;
@@ -75,6 +92,8 @@ int noctty_grid_render_quick_note(
     cairo_t *cr, const NocttyGridTextOverlay *options, int *compact_out);
 int noctty_grid_render_status_feedback(
     cairo_t *cr, const NocttyGridTextOverlay *options);
+int noctty_grid_render_text_decoration(
+    cairo_t *cr, const NocttyGridTextDecoration *options);
 int noctty_grid_render_scrollbar(
     cairo_t *cr, const NocttyGridRenderScrollbar *options);
 
