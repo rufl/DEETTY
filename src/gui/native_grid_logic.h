@@ -116,6 +116,38 @@ int noctty_grid_cell_selected(int selecting, int start_column, int start_row,
                               int end_column, int end_row, int column,
                               int row);
 typedef struct {
+    int first_row;
+    int end_row;
+    int first_column;
+    int end_column;
+} NocttyGridRenderViewport;
+
+typedef struct {
+    uint32_t status_role;
+    uint32_t status_fallback;
+    uint32_t pane_role;
+    uint32_t pane_fallback;
+    int pane_width;
+    double pane_inset;
+    int caret_draw;
+    double caret_x;
+    double caret_y;
+    double caret_width;
+    double caret_height;
+} NocttyGridRenderChrome;
+
+int noctty_grid_render_viewport(
+    double clip_x1, double clip_y1, double clip_x2, double clip_y2,
+    double cell_width, double cell_height, int columns, int rows,
+    NocttyGridRenderViewport *output);
+void noctty_grid_render_chrome(
+    int status_kind, int focused, int selected, int pane_width,
+    int focused_width, int selected_width, int cursor_visible,
+    int cursor_live, int cursor_column, int cursor_row, int columns,
+    int rows, double cell_width, double cell_height,
+    NocttyGridRenderChrome *output);
+
+typedef struct {
     uint32_t codepoint;
     uint32_t style;
     uint32_t foreground;

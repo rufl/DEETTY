@@ -64,6 +64,8 @@ grep -F 'pub const Paste = *const fn (?*anyopaque, [*]const u8, usize)' "$grid_a
 grep -F 'pub export fn noctty_grid_scrollbar_geometry(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_selected(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_codepoint_utf8(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_viewport(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_chrome(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_run_end(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null

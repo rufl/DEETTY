@@ -19,6 +19,8 @@ comptime {
     _ = NativeGridLogic.noctty_grid_scrollbar_geometry;
     _ = NativeGridLogic.noctty_grid_cell_selected;
     _ = NativeGridLogic.noctty_grid_codepoint_utf8;
+    _ = NativeGridLogic.noctty_grid_render_viewport;
+    _ = NativeGridLogic.noctty_grid_render_chrome;
     _ = NativeGridLogic.noctty_grid_render_cell;
     _ = NativeGridLogic.noctty_grid_render_run_end;
     _ = NativeGridLogic.noctty_grid_cell_span;

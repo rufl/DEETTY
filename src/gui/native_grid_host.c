@@ -1976,49 +1976,44 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     cairo_restore(cr);
     if (!grid_context_session_available(context)) return FALSE;
     context->saw_draw = 1;
-    if (context->status_kind != 0) {
-        uint32_t status_color = context->status_kind == 1
-            ? NOCTTY_UI_COLOR_STATUS_INFO
-            : context->status_kind == 2
-                ? NOCTTY_UI_COLOR_STATUS_SUCCESS
-                : context->status_kind == 4
-                    ? NOCTTY_UI_COLOR_STATUS_WARNING
-                    : NOCTTY_UI_COLOR_STATUS_ERROR;
-        set_ui_color(context, cr, status_color,
-                     context->status_kind == 1 ? 0x408cf2
-                     : context->status_kind == 2 ? 0x40cc66
-                     : context->status_kind == 4 ? 0xf5b82e : 0xe64040,
-                     1.0);
-        if (context->status_border_px > 0) {
-            cairo_set_line_width(cr, context->status_border_px);
-            cairo_rectangle(cr, 0.5, 0.5, MAX(1, allocation.width - 1),
-                            MAX(1, allocation.height - 1));
-            cairo_stroke(cr);
-        }
-    }
     gboolean pane_selected = context->event_data != NULL &&
         noctty_grid_pane_selected(context->event_data, context->pane_id) != 0;
+    double cell_width = grid_cell_width(context);
+    double cell_height = grid_cell_height(context);
+    uint32_t cursor = context->cursor(context->userdata);
+    int cursor_column = cursor != 0xffffffff ? (int)(cursor & 0xffff) : -1;
+    int cursor_row = cursor != 0xffffffff ? (int)(cursor >> 16) : -1;
+    NocttyTerminalScrollbarGeometry cursor_scrollbar;
+    gboolean cursor_at_live_bottom =
+        !terminal_scrollbar_geometry(context, allocation, &cursor_scrollbar) ||
+        cursor_scrollbar.viewport_offset == 0;
+    NocttyGridRenderChrome chrome;
+    noctty_grid_render_chrome(
+        context->status_kind, context->focused, pane_selected,
+        context->pane_border_px, context->pane_border_focused_px,
+        context->pane_border_selected_px, context->cursor_visible,
+        cursor_at_live_bottom, cursor_column, cursor_row,
+        context->columns, context->rows, cell_width, cell_height, &chrome);
+    if (chrome.status_role != 0 && context->status_border_px > 0) {
+        set_ui_color(context, cr, chrome.status_role,
+                     chrome.status_fallback, 1.0);
+        cairo_set_line_width(cr, context->status_border_px);
+        cairo_rectangle(cr, 0.5, 0.5, MAX(1, allocation.width - 1),
+                        MAX(1, allocation.height - 1));
+        cairo_stroke(cr);
+    }
     if (pane_selected && context->contexts != NULL &&
         context->contexts->len > 0) {
         NocttyGridContext *root = g_ptr_array_index(context->contexts, 0);
         root->selection_border_drawn = 1;
     }
-    int pane_border_px = context->focused
-        ? context->pane_border_focused_px
-        : pane_selected ? context->pane_border_selected_px
-        : context->pane_border_px;
-    if (pane_border_px > 0) {
-        cairo_set_line_width(cr, pane_border_px);
-        set_ui_color(context, cr,
-                     context->focused ? NOCTTY_UI_COLOR_PANE_BORDER_ACTIVE
-                     : pane_selected ? NOCTTY_UI_COLOR_PANE_BORDER_SELECTED
-                     : NOCTTY_UI_COLOR_PANE_BORDER_INACTIVE,
-                     context->focused || pane_selected ? 0xf2b82e : 0x343848,
-                     1.0);
-        double inset = MAX(0.5, pane_border_px / 2.0);
-        cairo_rectangle(cr, inset, inset,
-                        MAX(1, allocation.width - 2.0 * inset),
-                        MAX(1, allocation.height - 2.0 * inset));
+    if (chrome.pane_width > 0) {
+        cairo_set_line_width(cr, chrome.pane_width);
+        set_ui_color(context, cr, chrome.pane_role,
+                     chrome.pane_fallback, 1.0);
+        cairo_rectangle(cr, chrome.pane_inset, chrome.pane_inset,
+                        MAX(1, allocation.width - 2.0 * chrome.pane_inset),
+                        MAX(1, allocation.height - 2.0 * chrome.pane_inset));
         cairo_stroke(cr);
     }
     cairo_set_line_width(cr, 1.0);
@@ -2029,26 +2024,22 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                            CAIRO_FONT_WEIGHT_NORMAL);
     apply_terminal_font_options(context, cr);
     cairo_set_font_size(cr, terminal_font_px(context));
-    double cell_width = grid_cell_width(context);
-    double cell_height = grid_cell_height(context);
     double text_inset = MAX(1.0, cell_width * (2.0 / 9.0));
-    uint32_t cursor = context->cursor(context->userdata);
-    int cursor_column = cursor != 0xffffffff ? (int)(cursor & 0xffff) : -1;
-    int cursor_row = cursor != 0xffffffff ? (int)(cursor >> 16) : -1;
     int selected_face = -1;
     double clip_x1 = 0.0;
     double clip_y1 = 0.0;
     double clip_x2 = allocation.width;
     double clip_y2 = allocation.height;
     cairo_clip_extents(cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
-    int first_row = MAX(0, (int)floor((clip_y1 - 2.0) / cell_height));
-    int end_row = MIN(context->rows,
-                      (int)ceil((clip_y2 - 2.0) / cell_height) + 1);
-    int first_column = MAX(
-        0, (int)floor((clip_x1 - 4.0) / cell_width));
-    int end_column = MIN(
-        context->columns,
-        (int)ceil((clip_x2 - 4.0) / cell_width) + 1);
+    NocttyGridRenderViewport viewport;
+    if (!noctty_grid_render_viewport(
+            clip_x1, clip_y1, clip_x2, clip_y2, cell_width, cell_height,
+            context->columns, context->rows, &viewport))
+        return FALSE;
+    int first_row = viewport.first_row;
+    int end_row = viewport.end_row;
+    int first_column = viewport.first_column;
+    int end_column = viewport.end_column;
     gboolean row_buffer_ready = context->row != NULL &&
         ensure_grid_row_buffer(context);
     for (int row = first_row; row < end_row; row++) {
@@ -2246,20 +2237,11 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
             column = decoration_end;
         }
     }
-    NocttyTerminalScrollbarGeometry cursor_scrollbar;
-    gboolean cursor_at_live_bottom =
-        !terminal_scrollbar_geometry(context, allocation, &cursor_scrollbar) ||
-        cursor_scrollbar.viewport_offset == 0;
-    if (context->cursor_visible && cursor_at_live_bottom &&
-        cursor_column >= 0 && cursor_column < context->columns &&
-        cursor_row >= 0 && cursor_row < context->rows) {
-        double caret_width = CLAMP(cell_width * 0.14, 2.0, 3.0);
+    if (chrome.caret_draw) {
         set_ui_color(context, cr, NOCTTY_UI_COLOR_TERMINAL_CURSOR,
                      0x8fb8ff, 1.0);
-        cairo_rectangle(cr,
-                        4.0 + cursor_column * cell_width + 1.0,
-                        2.0 + cursor_row * cell_height + 1.0,
-                        caret_width, MAX(1.0, cell_height - 2.0));
+        cairo_rectangle(cr, chrome.caret_x, chrome.caret_y,
+                        chrome.caret_width, chrome.caret_height);
         cairo_fill(cr);
         if (root_grid_context(context)->workspace_smoke == 15)
             root_grid_context(context)->compact_terminal_caret_drawn = 1;

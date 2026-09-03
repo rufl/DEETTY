@@ -330,6 +330,115 @@ pub export fn noctty_grid_cell_selected(
     return 1;
 }
 
+pub const RenderViewport = extern struct {
+    first_row: c_int,
+    end_row: c_int,
+    first_column: c_int,
+    end_column: c_int,
+};
+
+pub const RenderChrome = extern struct {
+    status_role: u32,
+    status_fallback: u32,
+    pane_role: u32,
+    pane_fallback: u32,
+    pane_width: c_int,
+    pane_inset: f64,
+    caret_draw: c_int,
+    caret_x: f64,
+    caret_y: f64,
+    caret_width: f64,
+    caret_height: f64,
+};
+
+fn renderViewportIndex(value: f64, maximum: c_int, end: bool) c_int {
+    const rounded = if (end) @ceil(value) + 1 else @floor(value);
+    if (rounded <= 0) return 0;
+    if (rounded >= @as(f64, @floatFromInt(maximum))) return maximum;
+    return @intFromFloat(rounded);
+}
+
+pub export fn noctty_grid_render_viewport(
+    clip_x1: f64,
+    clip_y1: f64,
+    clip_x2: f64,
+    clip_y2: f64,
+    cell_width: f64,
+    cell_height: f64,
+    columns: c_int,
+    rows: c_int,
+    output: ?*RenderViewport,
+) callconv(.c) c_int {
+    const viewport = output orelse return 0;
+    if (!std.math.isFinite(clip_x1) or !std.math.isFinite(clip_y1)) return 0;
+    if (!std.math.isFinite(clip_x2) or !std.math.isFinite(clip_y2)) return 0;
+    if (!std.math.isFinite(cell_width) or !std.math.isFinite(cell_height)) return 0;
+    if (cell_width <= 0 or cell_height <= 0 or columns <= 0 or rows <= 0) return 0;
+    viewport.* = .{
+        .first_row = renderViewportIndex((clip_y1 - 2) / cell_height, rows, false),
+        .end_row = renderViewportIndex((clip_y2 - 2) / cell_height, rows, true),
+        .first_column = renderViewportIndex((clip_x1 - 4) / cell_width, columns, false),
+        .end_column = renderViewportIndex((clip_x2 - 4) / cell_width, columns, true),
+    };
+    return @intFromBool(viewport.end_row > viewport.first_row and viewport.end_column > viewport.first_column);
+}
+
+pub export fn noctty_grid_render_chrome(
+    status_kind: c_int,
+    focused: c_int,
+    selected: c_int,
+    pane_width: c_int,
+    focused_width: c_int,
+    selected_width: c_int,
+    cursor_visible: c_int,
+    cursor_live: c_int,
+    cursor_column: c_int,
+    cursor_row: c_int,
+    columns: c_int,
+    rows: c_int,
+    cell_width: f64,
+    cell_height: f64,
+    output: ?*RenderChrome,
+) callconv(.c) void {
+    const chrome = output orelse return;
+    const status_role: u32 = switch (status_kind) {
+        1 => 12,
+        2 => 13,
+        4 => 14,
+        else => if (status_kind == 0) 0 else 15,
+    };
+    const status_fallback: u32 = switch (status_kind) {
+        1 => 0x408cf2,
+        2 => 0x40cc66,
+        4 => 0xf5b82e,
+        else => if (status_kind == 0) 0 else 0xe64040,
+    };
+    const width = if (focused != 0)
+        focused_width
+    else if (selected != 0)
+        selected_width
+    else
+        pane_width;
+    const cell_metrics_valid = std.math.isFinite(cell_width) and
+        std.math.isFinite(cell_height) and cell_width > 0 and cell_height > 0;
+    const caret_draw = cell_metrics_valid and cursor_visible != 0 and cursor_live != 0 and
+        cursor_column >= 0 and cursor_column < columns and
+        cursor_row >= 0 and cursor_row < rows;
+    chrome.* = .{
+        .status_role = status_role,
+        .status_fallback = status_fallback,
+        .pane_role = if (focused != 0) 1 else if (selected != 0) 2 else 3,
+        .pane_fallback = if (focused != 0 or selected != 0) 0xf2b82e else 0x343848,
+        .pane_width = @max(width, 0),
+        .pane_inset = @max(0.5, @as(f64, @floatFromInt(width)) / 2),
+        .caret_draw = @intFromBool(caret_draw),
+        .caret_x = if (caret_draw) 5 + @as(f64, @floatFromInt(cursor_column)) * cell_width else 0,
+        .caret_y = if (caret_draw) 3 + @as(f64, @floatFromInt(cursor_row)) * cell_height else 0,
+        .caret_width = if (caret_draw) std.math.clamp(cell_width * 0.14, 2, 3) else 0,
+        .caret_height = if (caret_draw) @max(1, cell_height - 2) else 0,
+    };
+}
+
 pub const RenderCell = extern struct {
     codepoint: u32,
     style: u32,
@@ -1174,6 +1283,51 @@ test "preflight rejection resets while retaining modal nesting" {
         true,
         noctty_grid_close_modal_end(&coordinator),
     );
+}
+
+test "renderer viewport and chrome plans clamp every visible boundary" {
+    var viewport: RenderViewport = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_render_viewport(4, 2, 84, 42, 8, 20, 80, 24, &viewport),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), viewport.first_row);
+    try std.testing.expectEqual(@as(c_int, 3), viewport.end_row);
+    try std.testing.expectEqual(@as(c_int, 0), viewport.first_column);
+    try std.testing.expectEqual(@as(c_int, 11), viewport.end_column);
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_render_viewport(-1e300, -1e300, 1e300, 1e300, 8, 20, 80, 24, &viewport),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), viewport.first_row);
+    try std.testing.expectEqual(@as(c_int, 24), viewport.end_row);
+    try std.testing.expectEqual(@as(c_int, 0), viewport.first_column);
+    try std.testing.expectEqual(@as(c_int, 80), viewport.end_column);
+
+    var chrome: RenderChrome = undefined;
+    noctty_grid_render_chrome(
+        4,
+        0,
+        1,
+        1,
+        3,
+        2,
+        1,
+        1,
+        4,
+        3,
+        80,
+        24,
+        8,
+        20,
+        &chrome,
+    );
+    try std.testing.expectEqual(@as(u32, 14), chrome.status_role);
+    try std.testing.expectEqual(@as(u32, 2), chrome.pane_role);
+    try std.testing.expectEqual(@as(c_int, 2), chrome.pane_width);
+    try std.testing.expectEqual(@as(c_int, 1), chrome.caret_draw);
+    try std.testing.expectEqual(@as(f64, 37), chrome.caret_x);
+    try std.testing.expectEqual(@as(f64, 63), chrome.caret_y);
 }
 
 test "renderer codepoint encoding rejects surrogates and invalid scalars" {
