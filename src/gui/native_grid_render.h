@@ -3,6 +3,7 @@
 
 #include <cairo.h>
 #include <pango/pango.h>
+#include <stddef.h>
 #include <stdint.h>
 
 typedef uint32_t (*NocttyGridRenderColor)(void *, uint32_t);
@@ -34,6 +35,34 @@ typedef struct {
     double overlay_border_width;
     uint32_t accent_rgb;
 } NocttyGridCycleOverlay;
+
+typedef struct {
+    cairo_glyph_t **scratch;
+    size_t *capacity;
+    cairo_scaled_font_t **scaled_fonts;
+    unsigned long (*indices)[95];
+    uint8_t *valid;
+    unsigned int *scratch_allocations;
+    unsigned int *cache_builds;
+    unsigned int *cache_hits;
+    unsigned int *fallback_conversions;
+} NocttyGridGlyphCache;
+
+typedef void (*NocttyGridDrawCodepoint)(
+    void *, cairo_t *, uint32_t, double, double, uint32_t);
+
+typedef struct {
+    NocttyGridGlyphCache cache;
+    const uint64_t *cells;
+    int first;
+    int end;
+    double x_origin;
+    double cell_width;
+    double baseline;
+    int face;
+    void *fallback_context;
+    NocttyGridDrawCodepoint draw_codepoint;
+} NocttyGridAsciiRun;
 
 typedef struct {
     PangoFontDescription **descriptions;
@@ -79,6 +108,8 @@ typedef struct {
     int hovered;
 } NocttyGridRenderScrollbar;
 
+int noctty_grid_render_ascii_run(
+    cairo_t *cr, const NocttyGridAsciiRun *options);
 void noctty_grid_render_apply_font_options(
     cairo_t *cr, int antialias, int hinting);
 int noctty_grid_render_terminal_text(

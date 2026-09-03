@@ -1398,23 +1398,6 @@ static void draw_grid_cell_text(NocttyGridContext *context, cairo_t *cr,
     root_grid_context(context)->grapheme_cells_drawn++;
 }
 
-static gboolean ensure_grid_glyph_scratch(NocttyGridContext *context,
-                                          size_t required) {
-    if (context->glyph_scratch != NULL &&
-        context->glyph_scratch_capacity >= required)
-        return TRUE;
-    size_t capacity = MAX((size_t)64, context->glyph_scratch_capacity);
-    while (capacity < required && capacity < 512) capacity *= 2;
-    capacity = MIN((size_t)512, MAX(capacity, required));
-    cairo_glyph_t *scratch = g_try_realloc_n(
-        context->glyph_scratch, capacity, sizeof(*scratch));
-    if (scratch == NULL) return FALSE;
-    context->glyph_scratch = scratch;
-    context->glyph_scratch_capacity = capacity;
-    context->glyph_scratch_allocations++;
-    return TRUE;
-}
-
 static void clear_ascii_glyph_cache(NocttyGridContext *context) {
     for (int face = 0; face < 4; face++) {
         g_clear_pointer(&context->terminal_font_descriptions[face],
@@ -1432,121 +1415,39 @@ static void destroy_grid_glyph_cache(NocttyGridContext *context) {
     context->glyph_scratch_capacity = 0;
 }
 
-static gboolean ensure_ascii_glyph_cache(NocttyGridContext *context,
-                                         cairo_t *cr, int weight_slot) {
-    cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
-    if (scaled_font == NULL || cairo_scaled_font_status(scaled_font) !=
-        CAIRO_STATUS_SUCCESS)
-        return FALSE;
-    if (context->ascii_scaled_fonts[weight_slot] == scaled_font)
-        return context->ascii_glyph_cache_valid[weight_slot] != 0;
-    enum { ASCII_GLYPH_COUNT = 95 };
-    char sample[ASCII_GLYPH_COUNT];
-    for (int index = 0; index < ASCII_GLYPH_COUNT; index++)
-        sample[index] = (char)(' ' + index);
-    if (!ensure_grid_glyph_scratch(context, ASCII_GLYPH_COUNT)) return FALSE;
-
-    cairo_glyph_t *glyphs = context->glyph_scratch;
-    int glyph_count = (int)context->glyph_scratch_capacity;
-    cairo_text_cluster_t *clusters = NULL;
-    int cluster_count = 0;
-    cairo_text_cluster_flags_t cluster_flags = 0;
-    cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-        scaled_font, 0.0, 0.0, sample, ASCII_GLYPH_COUNT,
-        &glyphs, &glyph_count, &clusters, &cluster_count, &cluster_flags);
-    gboolean usable = status == CAIRO_STATUS_SUCCESS &&
-        glyph_count == ASCII_GLYPH_COUNT &&
-        cluster_count == ASCII_GLYPH_COUNT &&
-        cluster_flags == 0;
-    for (int index = 0; usable && index < cluster_count; index++)
-        usable = clusters[index].num_bytes == 1 &&
-            clusters[index].num_glyphs == 1;
-    if (usable) {
-        for (int index = 0; index < ASCII_GLYPH_COUNT; index++)
-            context->ascii_glyph_indices[weight_slot][index] =
-                glyphs[index].index;
-        if (context->ascii_scaled_fonts[weight_slot] != NULL)
-            cairo_scaled_font_destroy(
-                context->ascii_scaled_fonts[weight_slot]);
-        context->ascii_scaled_fonts[weight_slot] =
-            cairo_scaled_font_reference(scaled_font);
-        context->ascii_glyph_cache_valid[weight_slot] = 1;
-        context->glyph_cache_builds++;
-    }
-    if (glyphs != context->glyph_scratch && glyphs != NULL)
-        cairo_glyph_free(glyphs);
-    if (clusters != NULL) cairo_text_cluster_free(clusters);
-    return usable;
+static void draw_codepoint_bridge(
+    void *userdata, cairo_t *cr, uint32_t codepoint,
+    double x, double y, uint32_t style) {
+    draw_codepoint(userdata, cr, codepoint, x, y, style);
 }
 
 static int draw_ascii_run(NocttyGridContext *context, cairo_t *cr,
                           const uint64_t *cells, int first, int end,
                           double x_origin, double cell_width,
                           double baseline, int weight_slot) {
-    int drawn = 0;
-    while (first < end) {
-        enum { ASCII_RUN_CAPACITY = 512 };
-        char text[ASCII_RUN_CAPACITY];
-        int count = MIN(end - first, ASCII_RUN_CAPACITY);
-        gboolean has_visible = FALSE;
-        for (int index = 0; index < count; index++) {
-            uint32_t codepoint = (uint32_t)cells[first + index];
-            text[index] = (char)codepoint;
-            if (codepoint != ' ') has_visible = TRUE;
-        }
-        if (!has_visible) {
-            first += count;
-            continue;
-        }
-
-        if (ensure_grid_glyph_scratch(context, (size_t)count) &&
-            ensure_ascii_glyph_cache(context, cr, weight_slot)) {
-            cairo_glyph_t *glyphs = context->glyph_scratch;
-            for (int index = 0; index < count; index++) {
-                glyphs[index].index =
-                    context->ascii_glyph_indices[weight_slot]
-                        [(unsigned char)text[index] - ' '];
-                glyphs[index].x = x_origin + (first + index) * cell_width;
-                glyphs[index].y = baseline;
-            }
-            cairo_show_glyphs(cr, glyphs, count);
-            context->glyph_cache_hits += (guint)count;
-            drawn += count;
-            first += count;
-            continue;
-        }
-
-        cairo_glyph_t *glyphs = context->glyph_scratch;
-        int glyph_count = context->glyph_scratch != NULL
-            ? (int)context->glyph_scratch_capacity : 0;
-        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            cairo_get_scaled_font(cr), 0.0, baseline, text, count,
-            &glyphs, &glyph_count, NULL, NULL, NULL);
-        context->glyph_fallback_conversions++;
-        if (status == CAIRO_STATUS_SUCCESS && glyph_count == count) {
-            for (int index = 0; index < glyph_count; index++) {
-                glyphs[index].x = x_origin + (first + index) * cell_width;
-                glyphs[index].y = baseline;
-            }
-            cairo_show_glyphs(cr, glyphs, glyph_count);
-            drawn += glyph_count;
-        } else {
-            for (int index = 0; index < count; index++) {
-                uint32_t codepoint = (uint32_t)cells[first + index];
-                if (codepoint == ' ') continue;
-                draw_codepoint(context, cr, codepoint,
-                               x_origin + (first + index) * cell_width,
-                               baseline,
-                               ((weight_slot & 1) ? 1u : 0u) |
-                                   ((weight_slot & 2) ? 4u : 0u));
-                drawn++;
-            }
-        }
-        if (glyphs != context->glyph_scratch && glyphs != NULL)
-            cairo_glyph_free(glyphs);
-        first += count;
-    }
-    return drawn;
+    const NocttyGridAsciiRun options = {
+        .cache = {
+            .scratch = &context->glyph_scratch,
+            .capacity = &context->glyph_scratch_capacity,
+            .scaled_fonts = context->ascii_scaled_fonts,
+            .indices = context->ascii_glyph_indices,
+            .valid = context->ascii_glyph_cache_valid,
+            .scratch_allocations = &context->glyph_scratch_allocations,
+            .cache_builds = &context->glyph_cache_builds,
+            .cache_hits = &context->glyph_cache_hits,
+            .fallback_conversions = &context->glyph_fallback_conversions,
+        },
+        .cells = cells,
+        .first = first,
+        .end = end,
+        .x_origin = x_origin,
+        .cell_width = cell_width,
+        .baseline = baseline,
+        .face = weight_slot,
+        .fallback_context = context,
+        .draw_codepoint = draw_codepoint_bridge,
+    };
+    return noctty_grid_render_ascii_run(cr, &options);
 }
 
 static uint32_t ui_color_rgb(NocttyGridContext *context, uint32_t color,
@@ -1735,38 +1636,23 @@ static void draw_text_decorations(NocttyGridContext *context, cairo_t *cr,
                                   uint32_t style, uint32_t foreground,
                                   int row, int first, int end,
                                   double cell_width, double cell_height) {
-    if ((style & (8 | 16)) == 0 || end <= first) return;
+    const NocttyGridTextDecoration options = {
+        .palette = { context->userdata, context->color_rgb },
+        .style = style,
+        .foreground = foreground,
+        .row = row,
+        .first = first,
+        .end = end,
+        .cell_width = cell_width,
+        .cell_height = cell_height,
+        .baseline = grid_text_baseline(context, row, cell_height),
+    };
+    int result = noctty_grid_render_text_decoration(cr, &options);
+    if ((result & 1) == 0) return;
     NocttyGridContext *root = root_grid_context(context);
     root->rich_style_cells_drawn += (guint)(end - first);
-    cairo_save(cr);
-    set_terminal_color(context, cr, foreground, 0.84, 0.87, 0.91,
-                       (style & 32) ? 0.55 : 1.0);
-    cairo_set_line_width(cr, 1.0);
-    cairo_set_line_cap(cr, CAIRO_LINE_CAP_SQUARE);
-    cairo_font_extents_t extents;
-    cairo_font_extents(cr, &extents);
-    double left = 4.0 + first * cell_width;
-    double right = 4.0 + end * cell_width;
-    double top = 2.0 + row * cell_height;
-    double baseline = grid_text_baseline(context, row, cell_height);
-    if (style & 8) {
-        double bottom = top + cell_height - 1.5;
-        double candidate = baseline + MAX(1.5, extents.descent * 0.75);
-        double y = MIN(bottom, floor(candidate) + 0.5);
-        cairo_move_to(cr, left, y);
-        cairo_line_to(cr, right, y);
-        cairo_stroke(cr);
-        if (root->workspace_smoke == 15 && y > baseline && y <= bottom)
-            root->compact_hyperlink_underline_positioned = 1;
-    }
-    if (style & 16) {
-        double candidate = baseline - extents.ascent * 0.34;
-        double y = floor(candidate) + 0.5;
-        cairo_move_to(cr, left, y);
-        cairo_line_to(cr, right, y);
-        cairo_stroke(cr);
-    }
-    cairo_restore(cr);
+    if (root->workspace_smoke == 15 && (result & 2) != 0)
+        root->compact_hyperlink_underline_positioned = 1;
 }
 
 static void draw_terminal_scrollbar(

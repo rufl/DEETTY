@@ -4,6 +4,16 @@ const Cairo = opaque {};
 const PangoLayout = opaque {};
 const PangoFontDescription = opaque {};
 const CairoFontOptions = opaque {};
+const CairoScaledFont = opaque {};
+const CairoGlyph = extern struct {
+    index: c_ulong,
+    x: f64,
+    y: f64,
+};
+const CairoTextCluster = extern struct {
+    num_bytes: c_int,
+    num_glyphs: c_int,
+};
 
 pub const ColorResolver = *const fn (?*anyopaque, u32) callconv(.c) u32;
 
@@ -38,6 +48,40 @@ pub const CycleOverlay = extern struct {
     pane_border_width: f64,
     overlay_border_width: f64,
     accent_rgb: u32,
+};
+
+pub const GlyphCache = extern struct {
+    scratch: ?*?*CairoGlyph,
+    capacity: ?*usize,
+    scaled_fonts: ?[*]?*CairoScaledFont,
+    indices: ?[*][95]c_ulong,
+    valid: ?[*]u8,
+    scratch_allocations: ?*c_uint,
+    cache_builds: ?*c_uint,
+    cache_hits: ?*c_uint,
+    fallback_conversions: ?*c_uint,
+};
+
+pub const DrawCodepoint = *const fn (
+    ?*anyopaque,
+    ?*Cairo,
+    u32,
+    f64,
+    f64,
+    u32,
+) callconv(.c) void;
+
+pub const AsciiRun = extern struct {
+    cache: GlyphCache,
+    cells: ?[*]const u64,
+    first: c_int,
+    end: c_int,
+    x_origin: f64,
+    cell_width: f64,
+    baseline: f64,
+    face: c_int,
+    fallback_context: ?*anyopaque,
+    draw_codepoint: ?DrawCodepoint,
 };
 
 pub const TerminalFont = extern struct {
@@ -152,6 +196,27 @@ extern fn cairo_set_font_options(*Cairo, *const CairoFontOptions) void;
 extern fn cairo_font_options_set_antialias(*CairoFontOptions, c_int) void;
 extern fn cairo_font_options_set_hint_style(*CairoFontOptions, c_int) void;
 extern fn cairo_font_options_set_hint_metrics(*CairoFontOptions, c_int) void;
+extern fn cairo_get_scaled_font(*Cairo) ?*CairoScaledFont;
+extern fn cairo_scaled_font_status(*CairoScaledFont) c_int;
+extern fn cairo_scaled_font_reference(*CairoScaledFont) ?*CairoScaledFont;
+extern fn cairo_scaled_font_destroy(*CairoScaledFont) void;
+extern fn cairo_scaled_font_text_to_glyphs(
+    *CairoScaledFont,
+    f64,
+    f64,
+    [*]const u8,
+    c_int,
+    *?*CairoGlyph,
+    *c_int,
+    ?*?*CairoTextCluster,
+    ?*c_int,
+    ?*c_int,
+) c_int;
+extern fn cairo_show_glyphs(*Cairo, [*]const CairoGlyph, c_int) void;
+extern fn cairo_glyph_free(?*CairoGlyph) void;
+extern fn cairo_text_cluster_free(?*CairoTextCluster) void;
+extern fn g_try_realloc_n(?*anyopaque, usize, usize) ?*anyopaque;
+extern fn g_free(?*anyopaque) void;
 extern fn pango_cairo_create_layout(*Cairo) ?*PangoLayout;
 extern fn pango_cairo_show_layout(*Cairo, *PangoLayout) void;
 extern fn pango_font_description_from_string([*:0]const u8) ?*PangoFontDescription;
@@ -224,6 +289,164 @@ fn roundedRectangle(cr: *Cairo, x: f64, y: f64, width: f64, height: f64, radius:
     cairo_arc(cr, x + radius, bottom - radius, radius, pi / 2, pi);
     cairo_arc(cr, x + radius, y + radius, radius, pi, 3 * pi / 2);
     cairo_close_path(cr);
+}
+
+fn ensureGlyphScratch(cache: GlyphCache, required: usize) bool {
+    const scratch = cache.scratch orelse return false;
+    const capacity = cache.capacity orelse return false;
+    if (scratch.* != null and capacity.* >= required) return true;
+    var next_capacity = @max(@as(usize, 64), capacity.*);
+    while (next_capacity < required and next_capacity < 512) next_capacity *= 2;
+    next_capacity = @min(@as(usize, 512), @max(next_capacity, required));
+    const allocation = g_try_realloc_n(scratch.*, next_capacity, @sizeOf(CairoGlyph)) orelse
+        return false;
+    scratch.* = @ptrCast(@alignCast(allocation));
+    capacity.* = next_capacity;
+    if (cache.scratch_allocations) |count| count.* +%= 1;
+    return true;
+}
+
+fn ensureAsciiGlyphCache(cache: GlyphCache, cr: *Cairo, face: usize) bool {
+    const scaled_fonts = cache.scaled_fonts orelse return false;
+    const indices = cache.indices orelse return false;
+    const valid = cache.valid orelse return false;
+    const scratch_field = cache.scratch orelse return false;
+    const capacity = cache.capacity orelse return false;
+    const scaled_font = cairo_get_scaled_font(cr) orelse return false;
+    if (cairo_scaled_font_status(scaled_font) != 0) return false;
+    if (scaled_fonts[face] == scaled_font) return valid[face] != 0;
+
+    var sample: [95]u8 = undefined;
+    for (&sample, 0..) |*byte, index| byte.* = @intCast(' ' + index);
+    if (!ensureGlyphScratch(cache, sample.len)) return false;
+    var glyphs = scratch_field.*;
+    var glyph_count: c_int = @intCast(capacity.*);
+    var clusters: ?*CairoTextCluster = null;
+    var cluster_count: c_int = 0;
+    var cluster_flags: c_int = 0;
+    const status = cairo_scaled_font_text_to_glyphs(
+        scaled_font,
+        0,
+        0,
+        &sample,
+        sample.len,
+        &glyphs,
+        &glyph_count,
+        &clusters,
+        &cluster_count,
+        &cluster_flags,
+    );
+    defer if (glyphs != scratch_field.*) cairo_glyph_free(glyphs);
+    defer cairo_text_cluster_free(clusters);
+    const glyph_slice: [*]CairoGlyph = @ptrCast(glyphs orelse return false);
+    const cluster_slice: [*]CairoTextCluster = @ptrCast(clusters orelse return false);
+    var usable = status == 0 and glyph_count == sample.len and
+        cluster_count == sample.len and cluster_flags == 0;
+    var index: usize = 0;
+    while (usable and index < @as(usize, @intCast(cluster_count))) : (index += 1) {
+        usable = cluster_slice[index].num_bytes == 1 and cluster_slice[index].num_glyphs == 1;
+    }
+    if (!usable) return false;
+    for (0..sample.len) |glyph_index| indices[face][glyph_index] = glyph_slice[glyph_index].index;
+    if (scaled_fonts[face]) |previous| cairo_scaled_font_destroy(previous);
+    scaled_fonts[face] = cairo_scaled_font_reference(scaled_font);
+    valid[face] = 1;
+    if (cache.cache_builds) |count| count.* +%= 1;
+    return true;
+}
+
+pub export fn noctty_grid_render_ascii_run(
+    cr_raw: ?*Cairo,
+    options_raw: ?*const AsciiRun,
+) callconv(.c) c_int {
+    const cr = cr_raw orelse return 0;
+    const options = options_raw orelse return 0;
+    const cells = options.cells orelse return 0;
+    const scratch_field = options.cache.scratch orelse return 0;
+    const capacity = options.cache.capacity orelse return 0;
+    const indices = options.cache.indices orelse return 0;
+    if (options.first < 0 or options.end <= options.first) return 0;
+    if (options.face < 0 or options.face >= 4) return 0;
+    const face: usize = @intCast(options.face);
+    var first = options.first;
+    var drawn: c_int = 0;
+    while (first < options.end) {
+        var text: [512]u8 = undefined;
+        const count: c_int = @min(options.end - first, text.len);
+        var has_visible = false;
+        for (0..@intCast(count)) |index| {
+            const codepoint: u32 = @truncate(cells[@intCast(first + @as(c_int, @intCast(index)))]);
+            text[index] = @intCast(codepoint);
+            if (codepoint != ' ') has_visible = true;
+        }
+        if (!has_visible) {
+            first += count;
+            continue;
+        }
+        if (ensureGlyphScratch(options.cache, @intCast(count)) and
+            ensureAsciiGlyphCache(options.cache, cr, face))
+        {
+            const glyphs: [*]CairoGlyph = @ptrCast(scratch_field.* orelse return drawn);
+            for (0..@intCast(count)) |index| {
+                glyphs[index] = .{
+                    .index = indices[face][@as(u8, @intCast(text[index] - ' '))],
+                    .x = options.x_origin + @as(f64, @floatFromInt(first + @as(c_int, @intCast(index)))) * options.cell_width,
+                    .y = options.baseline,
+                };
+            }
+            cairo_show_glyphs(cr, glyphs, count);
+            if (options.cache.cache_hits) |hits| hits.* +%= @intCast(count);
+            drawn += count;
+            first += count;
+            continue;
+        }
+        var glyphs = scratch_field.*;
+        var glyph_count: c_int = if (glyphs != null) @intCast(capacity.*) else 0;
+        const status = if (cairo_get_scaled_font(cr)) |scaled_font|
+            cairo_scaled_font_text_to_glyphs(
+                scaled_font,
+                0,
+                options.baseline,
+                &text,
+                count,
+                &glyphs,
+                &glyph_count,
+                null,
+                null,
+                null,
+            )
+        else
+            -1;
+        if (options.cache.fallback_conversions) |fallbacks| fallbacks.* +%= 1;
+        if (status == 0 and glyph_count == count) {
+            const glyph_slice: [*]CairoGlyph = @ptrCast(glyphs orelse return drawn);
+            for (0..@intCast(glyph_count)) |index| {
+                glyph_slice[index].x = options.x_origin +
+                    @as(f64, @floatFromInt(first + @as(c_int, @intCast(index)))) * options.cell_width;
+                glyph_slice[index].y = options.baseline;
+            }
+            cairo_show_glyphs(cr, glyph_slice, glyph_count);
+            drawn += glyph_count;
+        } else if (options.draw_codepoint) |draw_codepoint| {
+            for (0..@intCast(count)) |index| {
+                const codepoint: u32 = @truncate(cells[@intCast(first + @as(c_int, @intCast(index)))]);
+                if (codepoint == ' ') continue;
+                draw_codepoint(
+                    options.fallback_context,
+                    cr,
+                    codepoint,
+                    options.x_origin + @as(f64, @floatFromInt(first + @as(c_int, @intCast(index)))) * options.cell_width,
+                    options.baseline,
+                    (@as(u32, @intFromBool(face & 1 != 0))) |
+                        (@as(u32, @intFromBool(face & 2 != 0)) << 2),
+                );
+                drawn += 1;
+            }
+        }
+        if (glyphs != scratch_field.*) cairo_glyph_free(glyphs);
+        first += count;
+    }
+    return drawn;
 }
 
 pub export fn noctty_grid_render_apply_font_options(

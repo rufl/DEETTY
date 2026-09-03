@@ -70,12 +70,14 @@ grep -F 'pub export fn noctty_grid_render_viewport(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_chrome(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_render_run_end(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_render_ascii_run(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_apply_font_options(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_terminal_text(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_resize_overlay(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_cycle_overlay(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_quick_note(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_status_feedback(' "$grid_render" >/dev/null
+grep -F 'pub export fn noctty_grid_render_text_decoration(' "$grid_render" >/dev/null
 grep -F 'pub export fn noctty_grid_render_scrollbar(' "$grid_render" >/dev/null
 grep -F '#include "native_grid_render.h"' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_cell_span(' "$grid_logic" >/dev/null

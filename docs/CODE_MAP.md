@@ -41,8 +41,10 @@ zig build run-nocted -- --project . --open README.md
   linear selection hit testing, pixel-snapped spans, packed-cell/run decoding,
   UTF-8 encoding, clipping, pane chrome, and caret policy consumed through
   `native_grid_logic.h`.
-- `src/gui/NativeGridRender.zig` — Cairo-owned resize/cycle overlays and terminal
-  scrollbar rendering behind the narrow `native_grid_render.h` ABI.
+- `src/gui/NativeGridRender.zig` — Cairo/Pango-owned glyph-cache and ASCII-run
+  batching, terminal font setup and text, text decorations,
+  resize/cycle/note/status overlays, and terminal scrollbar rendering behind
+  the narrow `native_grid_render.h` ABI.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   action-button affordances, compact-tab styling, tab-child lookup, color
   styling, settings surfaces, context menus, compact dialogs, theme library,
