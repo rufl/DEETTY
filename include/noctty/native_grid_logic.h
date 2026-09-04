@@ -26,6 +26,24 @@ typedef struct {
     int direction;
 } NocttyGridWheelActionPlan;
 
+typedef struct {
+    double source_center_x;
+    double source_center_y;
+    double best_score;
+    int direction_x;
+    int direction_y;
+    int target_index;
+    int active;
+} NocttyGridDirectionalFocusPlan;
+
+typedef struct {
+    int action;
+    int direction;
+    int dx;
+    int dy;
+    int consume_without_effect;
+} NocttyGridKeyCommandPlan;
+
 typedef uint32_t NocttyApplicationCloseOrigin;
 
 enum {
@@ -87,6 +105,16 @@ enum {
 };
 
 enum {
+    NOCTTY_GRID_KEY_ACTION_NONE = 0,
+    NOCTTY_GRID_KEY_ACTION_SHOW_NOTE_OVERLAYS = 1,
+    NOCTTY_GRID_KEY_ACTION_HIDE_NOTE_OVERLAYS = 2,
+    NOCTTY_GRID_KEY_ACTION_CLEAR_SMART_FILTER = 3,
+    NOCTTY_GRID_KEY_ACTION_CYCLE_TAB = 4,
+    NOCTTY_GRID_KEY_ACTION_CYCLE_PANE = 5,
+    NOCTTY_GRID_KEY_ACTION_FOCUS_DIRECTION = 6,
+};
+
+enum {
     NOCTTY_GRID_TERMINAL_MODE_MOUSE = 1u << 0,
     NOCTTY_GRID_TERMINAL_MODE_ALTERNATE_SCREEN = 1u << 1,
 };
@@ -103,6 +131,19 @@ enum {
     NOCTTY_GRID_ROUTE_LOCAL_POINTER = 8,
     NOCTTY_GRID_ROUTE_APPLICATION_KEYS = 9,
 };
+
+int noctty_grid_cycle_target(int count, int current_index,
+                             int current_found, int direction);
+void noctty_grid_directional_focus_begin(
+    const NocttyGridRectangle *source, int dx, int dy,
+    NocttyGridDirectionalFocusPlan *plan);
+void noctty_grid_directional_focus_consider(
+    NocttyGridDirectionalFocusPlan *plan,
+    const NocttyGridRectangle *candidate, int candidate_index);
+void noctty_grid_key_command_plan(
+    int pressed, int alt_key, int smart_filter_clear_available,
+    uint32_t keyval, uint32_t modifier_flags,
+    NocttyGridKeyCommandPlan *plan);
 
 int noctty_grid_input_route(int input_kind, int scrollbar_owned,
                             int terminal_mode_flags, int history_available,

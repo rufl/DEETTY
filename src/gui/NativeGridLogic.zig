@@ -25,6 +25,24 @@ pub const WheelActionPlan = extern struct {
     direction: c_int,
 };
 
+pub const DirectionalFocusPlan = extern struct {
+    source_center_x: f64,
+    source_center_y: f64,
+    best_score: f64,
+    direction_x: c_int,
+    direction_y: c_int,
+    target_index: c_int,
+    active: c_int,
+};
+
+pub const KeyCommandPlan = extern struct {
+    action: c_int,
+    direction: c_int,
+    dx: c_int,
+    dy: c_int,
+    consume_without_effect: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -185,6 +203,89 @@ pub const modifier_control: u32 = 1 << 1;
 pub const modifier_alt: u32 = 1 << 2;
 const known_modifiers = modifier_shift | modifier_control | modifier_alt;
 
+pub export fn noctty_grid_cycle_target(
+    count: c_int,
+    current_index: c_int,
+    current_found: c_int,
+    direction: c_int,
+) callconv(.c) c_int {
+    if (count <= 0 or direction == 0) return -1;
+    if (current_found == 0) return if (direction < 0) count - 1 else 0;
+    if (current_index < 0 or current_index >= count) return -1;
+    if (direction < 0)
+        return if (current_index == 0) count - 1 else current_index - 1;
+    return if (current_index == count - 1) 0 else current_index + 1;
+}
+
+fn validRectangle(rectangle: *const Rectangle) bool {
+    return std.math.isFinite(rectangle.x) and
+        std.math.isFinite(rectangle.y) and
+        std.math.isFinite(rectangle.width) and
+        std.math.isFinite(rectangle.height) and
+        rectangle.width >= 0 and rectangle.height >= 0;
+}
+
+pub export fn noctty_grid_directional_focus_begin(
+    source_optional: ?*const Rectangle,
+    dx: c_int,
+    dy: c_int,
+    output_optional: ?*DirectionalFocusPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .source_center_x = 0,
+        .source_center_y = 0,
+        .best_score = std.math.inf(f64),
+        .direction_x = dx,
+        .direction_y = dy,
+        .target_index = -1,
+        .active = 0,
+    };
+    const source = source_optional orelse return;
+    const horizontal = (dx == -1 or dx == 1) and dy == 0;
+    const vertical = (dy == -1 or dy == 1) and dx == 0;
+    if ((!horizontal and !vertical) or !validRectangle(source)) return;
+
+    const center_x = source.x + source.width / 2;
+    const center_y = source.y + source.height / 2;
+    if (!std.math.isFinite(center_x) or !std.math.isFinite(center_y)) return;
+    output.source_center_x = center_x;
+    output.source_center_y = center_y;
+    output.active = 1;
+}
+
+pub export fn noctty_grid_directional_focus_consider(
+    plan_optional: ?*DirectionalFocusPlan,
+    candidate_optional: ?*const Rectangle,
+    candidate_index: c_int,
+) callconv(.c) void {
+    const plan = plan_optional orelse return;
+    const candidate = candidate_optional orelse return;
+    if (plan.active == 0 or candidate_index < 0 or
+        !validRectangle(candidate)) return;
+
+    const center_x = candidate.x + candidate.width / 2;
+    const center_y = candidate.y + candidate.height / 2;
+    if (!std.math.isFinite(center_x) or !std.math.isFinite(center_y)) return;
+    const delta_x = center_x - plan.source_center_x;
+    const delta_y = center_y - plan.source_center_y;
+    if (!std.math.isFinite(delta_x) or !std.math.isFinite(delta_y)) return;
+
+    const primary = if (plan.direction_x != 0)
+        delta_x * @as(f64, @floatFromInt(plan.direction_x))
+    else
+        delta_y * @as(f64, @floatFromInt(plan.direction_y));
+    if (primary <= 1) return;
+    const perpendicular = if (plan.direction_x != 0)
+        @abs(delta_y)
+    else
+        @abs(delta_x);
+    const score = primary * 10000 + perpendicular;
+    if (!std.math.isFinite(score) or score >= plan.best_score) return;
+    plan.best_score = score;
+    plan.target_index = candidate_index;
+}
+
 pub const route_ignore: c_int = 0;
 pub const route_scrollbar: c_int = 1;
 pub const route_selection: c_int = 2;
@@ -313,6 +414,113 @@ const gdk_key_kp_enter: u32 = 0xff8d;
 const gdk_key_f1: u32 = 0xffbe;
 const gdk_key_f12: u32 = 0xffc9;
 const gdk_key_delete: u32 = 0xffff;
+const gdk_key_iso_left_tab: u32 = 0xfe20;
+
+pub const key_action_none: c_int = 0;
+pub const key_action_show_note_overlays: c_int = 1;
+pub const key_action_hide_note_overlays: c_int = 2;
+pub const key_action_clear_smart_filter: c_int = 3;
+pub const key_action_cycle_tab: c_int = 4;
+pub const key_action_cycle_pane: c_int = 5;
+pub const key_action_focus_direction: c_int = 6;
+
+fn keyCommandPlan(
+    action: c_int,
+    direction: c_int,
+    dx: c_int,
+    dy: c_int,
+    consume_without_effect: bool,
+) KeyCommandPlan {
+    return .{
+        .action = action,
+        .direction = direction,
+        .dx = dx,
+        .dy = dy,
+        .consume_without_effect = @intFromBool(consume_without_effect),
+    };
+}
+
+pub export fn noctty_grid_key_command_plan(
+    pressed: c_int,
+    alt_key: c_int,
+    smart_filter_clear_available: c_int,
+    keyval: u32,
+    modifier_flags: u32,
+    output_optional: ?*KeyCommandPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = keyCommandPlan(key_action_none, 0, 0, 0, false);
+    if (pressed == 0) {
+        if (alt_key != 0)
+            output.* = keyCommandPlan(
+                key_action_hide_note_overlays,
+                0,
+                0,
+                0,
+                true,
+            );
+        return;
+    }
+    if (alt_key != 0) {
+        output.* = keyCommandPlan(
+            key_action_show_note_overlays,
+            0,
+            0,
+            0,
+            true,
+        );
+        return;
+    }
+    if (keyval == gdk_key_escape and smart_filter_clear_available != 0) {
+        output.* = keyCommandPlan(
+            key_action_clear_smart_filter,
+            0,
+            0,
+            0,
+            false,
+        );
+        return;
+    }
+
+    const modifiers = modifier_flags & known_modifiers;
+    const control = modifiers & modifier_control != 0;
+    const shift = modifiers & modifier_shift != 0;
+    const alt = modifiers & modifier_alt != 0;
+    if (control and shift and
+        (keyval == gdk_key_tab or keyval == gdk_key_iso_left_tab))
+    {
+        output.* = keyCommandPlan(key_action_cycle_tab, 1, 0, 0, true);
+        return;
+    }
+    if (control and !shift and keyval == gdk_key_tab) {
+        output.* = keyCommandPlan(key_action_cycle_pane, 1, 0, 0, false);
+        return;
+    }
+    if (control and !shift and keyval == gdk_key_page_up) {
+        output.* = keyCommandPlan(key_action_cycle_tab, -1, 0, 0, false);
+        return;
+    }
+    if (control and !shift and keyval == gdk_key_page_down) {
+        output.* = keyCommandPlan(key_action_cycle_tab, 1, 0, 0, false);
+        return;
+    }
+    if (alt and !control and !shift) {
+        const direction: [2]c_int = switch (keyval) {
+            gdk_key_left => .{ -1, 0 },
+            gdk_key_right => .{ 1, 0 },
+            gdk_key_up => .{ 0, -1 },
+            gdk_key_down => .{ 0, 1 },
+            else => return,
+        };
+        output.* = keyCommandPlan(
+            key_action_focus_direction,
+            0,
+            direction[0],
+            direction[1],
+            false,
+        );
+    }
+}
 
 fn terminalSpecialKeySequence(keyval: u32, application_cursor: bool) ?[]const u8 {
     return switch (keyval) {
@@ -2119,4 +2327,339 @@ test "stale and mismatched close sources never advance state" {
         false,
         noctty_grid_close_source_fired(&coordinator, std.math.maxInt(u32)),
     );
+}
+
+test "cycle targets exhaustively preserve signed wraparound and missing focus" {
+    for (1..9) |count_raw| {
+        const count: c_int = @intCast(count_raw);
+        for (0..count_raw) |current_raw| {
+            const current: c_int = @intCast(current_raw);
+            for ([_]c_int{ std.math.minInt(c_int), -1 }) |direction| {
+                const expected = if (current == 0) count - 1 else current - 1;
+                try std.testing.expectEqual(
+                    expected,
+                    noctty_grid_cycle_target(count, current, 1, direction),
+                );
+            }
+            for ([_]c_int{ 1, std.math.maxInt(c_int) }) |direction| {
+                const expected = if (current == count - 1) 0 else current + 1;
+                try std.testing.expectEqual(
+                    expected,
+                    noctty_grid_cycle_target(count, current, -1, direction),
+                );
+            }
+        }
+        try std.testing.expectEqual(
+            count - 1,
+            noctty_grid_cycle_target(count, -1, 0, -1),
+        );
+        try std.testing.expectEqual(
+            @as(c_int, 0),
+            noctty_grid_cycle_target(count, count, 0, 1),
+        );
+    }
+    try std.testing.expectEqual(
+        std.math.maxInt(c_int) - 1,
+        noctty_grid_cycle_target(
+            std.math.maxInt(c_int),
+            0,
+            0,
+            std.math.minInt(c_int),
+        ),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_cycle_target(
+            std.math.maxInt(c_int),
+            std.math.maxInt(c_int) - 1,
+            1,
+            std.math.maxInt(c_int),
+        ),
+    );
+}
+
+test "cycle targets reject every invalid boundary" {
+    for ([_]c_int{ std.math.minInt(c_int), -1, 0 }) |count| {
+        try std.testing.expectEqual(
+            @as(c_int, -1),
+            noctty_grid_cycle_target(count, 0, 1, 1),
+        );
+    }
+    for ([_]c_int{ -1, 3, std.math.maxInt(c_int) }) |current| {
+        try std.testing.expectEqual(
+            @as(c_int, -1),
+            noctty_grid_cycle_target(3, current, 1, 1),
+        );
+    }
+    try std.testing.expectEqual(
+        @as(c_int, -1),
+        noctty_grid_cycle_target(3, 1, 1, 0),
+    );
+}
+
+test "directional focus scores every cardinal direction and keeps first ties" {
+    const source = Rectangle{ .x = 0, .y = 0, .width = 0, .height = 0 };
+    const directions = [_][2]c_int{
+        .{ -1, 0 },
+        .{ 1, 0 },
+        .{ 0, -1 },
+        .{ 0, 1 },
+    };
+    for (directions) |direction| {
+        var plan: DirectionalFocusPlan = undefined;
+        noctty_grid_directional_focus_begin(
+            &source,
+            direction[0],
+            direction[1],
+            &plan,
+        );
+        try std.testing.expectEqual(@as(c_int, 1), plan.active);
+
+        const off_direction = Rectangle{
+            .x = @floatFromInt(-2 * direction[0]),
+            .y = @floatFromInt(-2 * direction[1]),
+            .width = 0,
+            .height = 0,
+        };
+        noctty_grid_directional_focus_consider(&plan, &off_direction, 0);
+        const farther_primary = Rectangle{
+            .x = @floatFromInt(3 * direction[0]),
+            .y = @floatFromInt(3 * direction[1]),
+            .width = 0,
+            .height = 0,
+        };
+        noctty_grid_directional_focus_consider(&plan, &farther_primary, 1);
+        const nearer_primary = Rectangle{
+            .x = if (direction[0] != 0)
+                @floatFromInt(2 * direction[0])
+            else
+                100,
+            .y = if (direction[1] != 0)
+                @floatFromInt(2 * direction[1])
+            else
+                100,
+            .width = 0,
+            .height = 0,
+        };
+        noctty_grid_directional_focus_consider(&plan, &nearer_primary, 2);
+        noctty_grid_directional_focus_consider(&plan, &nearer_primary, 3);
+        try std.testing.expectEqual(@as(c_int, 2), plan.target_index);
+
+        const threshold = Rectangle{
+            .x = @floatFromInt(direction[0]),
+            .y = @floatFromInt(direction[1]),
+            .width = 0,
+            .height = 0,
+        };
+        noctty_grid_directional_focus_consider(&plan, &threshold, 4);
+        try std.testing.expectEqual(@as(c_int, 2), plan.target_index);
+    }
+}
+
+test "directional focus rejects invalid directions rectangles and candidates" {
+    const source = Rectangle{ .x = 0, .y = 0, .width = 10, .height = 10 };
+    for ([_][2]c_int{
+        .{ 0, 0 },
+        .{ -2, 0 },
+        .{ 2, 0 },
+        .{ 0, -2 },
+        .{ 0, 2 },
+        .{ -1, -1 },
+        .{ 1, 1 },
+    }) |direction| {
+        var plan: DirectionalFocusPlan = undefined;
+        noctty_grid_directional_focus_begin(
+            &source,
+            direction[0],
+            direction[1],
+            &plan,
+        );
+        try std.testing.expectEqual(@as(c_int, 0), plan.active);
+        try std.testing.expectEqual(@as(c_int, -1), plan.target_index);
+    }
+
+    for ([_]Rectangle{
+        .{ .x = std.math.nan(f64), .y = 0, .width = 1, .height = 1 },
+        .{ .x = 0, .y = std.math.inf(f64), .width = 1, .height = 1 },
+        .{ .x = 0, .y = 0, .width = -1, .height = 1 },
+        .{ .x = 0, .y = 0, .width = 1, .height = -1 },
+    }) |invalid_source| {
+        var plan: DirectionalFocusPlan = undefined;
+        noctty_grid_directional_focus_begin(&invalid_source, 1, 0, &plan);
+        try std.testing.expectEqual(@as(c_int, 0), plan.active);
+    }
+
+    var plan: DirectionalFocusPlan = undefined;
+    noctty_grid_directional_focus_begin(&source, 1, 0, &plan);
+    const valid = Rectangle{ .x = 20, .y = 0, .width = 10, .height = 10 };
+    noctty_grid_directional_focus_consider(&plan, &valid, -1);
+    try std.testing.expectEqual(@as(c_int, -1), plan.target_index);
+    for ([_]Rectangle{
+        .{ .x = std.math.nan(f64), .y = 0, .width = 1, .height = 1 },
+        .{ .x = 20, .y = 0, .width = -1, .height = 1 },
+    }) |invalid_candidate| {
+        noctty_grid_directional_focus_consider(&plan, &invalid_candidate, 1);
+        try std.testing.expectEqual(@as(c_int, -1), plan.target_index);
+    }
+    noctty_grid_directional_focus_begin(null, 1, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.active);
+    noctty_grid_directional_focus_begin(&source, 1, 0, null);
+    noctty_grid_directional_focus_consider(null, &valid, 0);
+    noctty_grid_directional_focus_consider(&plan, null, 0);
+}
+
+fn expectKeyCommandPlan(
+    expected: KeyCommandPlan,
+    pressed: c_int,
+    alt_key: c_int,
+    smart_filter_clear_available: c_int,
+    keyval: u32,
+    modifiers: u32,
+) !void {
+    var actual: KeyCommandPlan = undefined;
+    noctty_grid_key_command_plan(
+        pressed,
+        alt_key,
+        smart_filter_clear_available,
+        keyval,
+        modifiers,
+        &actual,
+    );
+    try std.testing.expectEqual(expected.action, actual.action);
+    try std.testing.expectEqual(expected.direction, actual.direction);
+    try std.testing.expectEqual(expected.dx, actual.dx);
+    try std.testing.expectEqual(expected.dy, actual.dy);
+    try std.testing.expectEqual(
+        expected.consume_without_effect,
+        actual.consume_without_effect,
+    );
+}
+
+test "key command planner exhaustively preserves navigation modifier precedence" {
+    const KeyCase = struct {
+        keyval: u32,
+        actions: [8]c_int,
+        direction: c_int = 0,
+        dx: c_int = 0,
+        dy: c_int = 0,
+    };
+    const none = key_action_none;
+    const tab = key_action_cycle_tab;
+    const pane = key_action_cycle_pane;
+    const focus = key_action_focus_direction;
+    const cases = [_]KeyCase{
+        .{
+            .keyval = gdk_key_tab,
+            .actions = .{ none, none, pane, tab, none, none, pane, tab },
+            .direction = 1,
+        },
+        .{
+            .keyval = gdk_key_iso_left_tab,
+            .actions = .{ none, none, none, tab, none, none, none, tab },
+            .direction = 1,
+        },
+        .{
+            .keyval = gdk_key_page_up,
+            .actions = .{ none, none, tab, none, none, none, tab, none },
+            .direction = -1,
+        },
+        .{
+            .keyval = gdk_key_page_down,
+            .actions = .{ none, none, tab, none, none, none, tab, none },
+            .direction = 1,
+        },
+        .{
+            .keyval = gdk_key_left,
+            .actions = .{ none, none, none, none, focus, none, none, none },
+            .dx = -1,
+        },
+        .{
+            .keyval = gdk_key_right,
+            .actions = .{ none, none, none, none, focus, none, none, none },
+            .dx = 1,
+        },
+        .{
+            .keyval = gdk_key_up,
+            .actions = .{ none, none, none, none, focus, none, none, none },
+            .dy = -1,
+        },
+        .{
+            .keyval = gdk_key_down,
+            .actions = .{ none, none, none, none, focus, none, none, none },
+            .dy = 1,
+        },
+    };
+    for (cases) |case| {
+        for (case.actions, 0..) |action, modifiers| {
+            const modifier_value: u32 = @intCast(modifiers);
+            const consumes = action == key_action_cycle_tab and
+                modifier_value & modifier_shift != 0;
+            try expectKeyCommandPlan(
+                keyCommandPlan(
+                    action,
+                    if (action == tab) case.direction else if (action == pane) 1 else 0,
+                    if (action == focus) case.dx else 0,
+                    if (action == focus) case.dy else 0,
+                    consumes,
+                ),
+                1,
+                0,
+                0,
+                case.keyval,
+                modifier_value,
+            );
+        }
+    }
+}
+
+test "key command planner bounds lifecycle filter and invalid inputs" {
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_hide_note_overlays, 0, 0, 0, true),
+        0,
+        1,
+        1,
+        gdk_key_escape,
+        std.math.maxInt(u32),
+    );
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_none, 0, 0, 0, false),
+        0,
+        0,
+        1,
+        gdk_key_escape,
+        std.math.maxInt(u32),
+    );
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_show_note_overlays, 0, 0, 0, true),
+        std.math.minInt(c_int),
+        -1,
+        1,
+        gdk_key_escape,
+        modifier_control | modifier_shift,
+    );
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_clear_smart_filter, 0, 0, 0, false),
+        1,
+        0,
+        -1,
+        gdk_key_escape,
+        std.math.maxInt(u32),
+    );
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_cycle_pane, 1, 0, 0, false),
+        1,
+        0,
+        0,
+        gdk_key_tab,
+        modifier_control | (1 << 31),
+    );
+    try expectKeyCommandPlan(
+        keyCommandPlan(key_action_none, 0, 0, 0, false),
+        1,
+        0,
+        0,
+        std.math.maxInt(u32),
+        std.math.maxInt(u32),
+    );
+    noctty_grid_key_command_plan(1, 0, 0, gdk_key_tab, modifier_control, null);
 }

@@ -18,7 +18,7 @@ Default `noctty` launch opens the live Zig PTY → Zig VT grid → GTK/Cairo sur
 - multi-pane selection, native tag/remove-tag actions with editable existing-tag suggestions, explicit compact selection/broadcast indicators, and a replaceable or clearable Smart Tab filter over the active live split, including button and keyboard empty-state recovery;
 - Plasma GlobalAccel, compositor-owned Noctalia activation, D-Bus single-instance control, and GUI shortcut recording.
 
-The adapter lives in `src/gui/native_grid_host.c`. It stays thin: terminal/workspace/config/theme semantics remain in Zig and cross the C boundary through narrow callbacks; stable terminal key encoding, shortcut labels, split visibility, divider/gap styling, and balanced split positioning are also Zig-owned; editor document state belongs to the separate Zig `nocted` process.
+The adapter lives in `src/gui/native_grid_host.c`. It stays thin: terminal/workspace/config/theme semantics remain in Zig and cross the C boundary through narrow callbacks; stable terminal key encoding, keyboard navigation plans, shortcut labels, split visibility, divider/gap styling, balanced split positioning, and compact tab/new-tab/window-toolbar construction are also Zig-owned; editor document state belongs to the separate Zig `nocted` process.
 
 Recoverable GUI actions remain distinct from hard model synchronization.
 Workspace save/open/recent failures stay in the current flow with a visible

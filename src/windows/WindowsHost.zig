@@ -998,7 +998,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         output_message => {
-            drainOutput(current, @intCast(word));
+            if (word < max_sessions) drainOutput(current, @intCast(word));
             return 0;
         },
         c.WM_TIMER => {

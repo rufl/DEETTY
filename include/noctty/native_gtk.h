@@ -20,6 +20,56 @@ gboolean noctty_apply_even_pane_positions(GtkWidget *widget);
 void noctty_apply_pane_gap_style(GtkWidget *widget, guint32 rgb,
                                  gboolean opaque);
 void noctty_install_compact_tab_styles(GtkWidget *notebook);
+
+typedef struct {
+    GtkWidget *page;
+    const char *text;
+    gpointer callback_data;
+} NocttyCompactTabOptions;
+
+typedef struct {
+    GCallback button_press;
+    GCallback button_release;
+    GCallback drag_begin;
+    GCallback drag_end;
+    GCallback close_clicked;
+} NocttyCompactTabCallbacks;
+
+typedef struct {
+    GtkWidget *tab;
+    GtkWidget *label;
+    GtkWidget *close_button;
+} NocttyCompactTabContents;
+
+/*
+ * Returned roots keep GTK floating ownership until inserted into a container.
+ * Descendant handles are borrowed. Callback data remains C-owned and must
+ * outlive the corresponding widget tree.
+ */
+gboolean noctty_compact_tab_new(
+    const NocttyCompactTabOptions *options,
+    const NocttyCompactTabCallbacks *callbacks,
+    NocttyCompactTabContents *contents_out);
+GtkWidget *noctty_new_tab_button_new(
+    int extent_px, gpointer callback_data, GCallback clicked);
+
+typedef struct {
+    GCallback settings_clicked;
+    GCallback close_clicked;
+} NocttyWindowToolbarCallbacks;
+
+typedef struct {
+    GtkWidget *controls;
+    GtkWidget *settings;
+    GtkWidget *close_button;
+} NocttyWindowToolbarContents;
+
+gboolean noctty_window_toolbar_new(
+    int extent_px, gpointer callback_data,
+    const NocttyWindowToolbarCallbacks *callbacks,
+    NocttyWindowToolbarContents *contents_out);
+void noctty_window_toolbar_set_close_visible(
+    GtkWidget *close_button, gboolean visible);
 GdkWindow *noctty_action_button_event_window(GtkWidget *widget);
 gboolean noctty_action_button_enter(GtkWidget *widget);
 gboolean noctty_action_button_leave(GtkWidget *widget);

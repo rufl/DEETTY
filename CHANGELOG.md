@@ -17,6 +17,17 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   sharing-status action policy from GTK C into tested Zig. Failed
   alternate-screen key or mouse-wheel delivery now produces visible feedback
   rather than becoming a silent no-op.
+- Moved compact-tab, new-tab, and window-toolbar widget construction into
+  `NativeGtk.zig`, including GTK ownership, callback wiring, accessibility
+  names, and live close-button visibility. Tab/pane cycling, directional focus
+  scoring, and the first keyboard-command routing layer now use exhaustive
+  planners in `NativeGridLogic.zig`; GTK focus, IME, workspace, and terminal
+  effects remain in the C adapter.
+
+- Hardened isolated X11 and virtual-Wayland scratch teardown against the
+  short GVfs directory-creation race seen after private D-Bus shutdown. Cleanup
+  retries once after 100 ms, then still fails closed if the private tree remains.
+
 - Fixed a live layout qualification race: the newly materialized 4×4 page now
   retries bounded geometry, auto-fit, terminal-readiness, and TUI checks before
   teardown instead of treating provisional allocations as a permanent failure.

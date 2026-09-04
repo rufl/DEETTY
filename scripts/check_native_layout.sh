@@ -102,8 +102,19 @@ grep -F 'pub export fn noctty_grid_pointer_cell(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_input_route(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_terminal_key_sequence(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcut_label(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_cycle_target(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_directional_focus_begin(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_directional_focus_consider(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_key_command_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
 grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
+grep -F 'noctty_grid_cycle_target(' "$grid" >/dev/null
+grep -F 'noctty_grid_directional_focus_begin(' "$grid" >/dev/null
+grep -F 'noctty_grid_directional_focus_consider(' "$grid" >/dev/null
+grep -F 'noctty_grid_key_command_plan(' "$grid" >/dev/null
+grep -F 'NocttyGridDirectionalFocusPlan;' "$grid_logic_header" >/dev/null
+grep -F 'NocttyGridKeyCommandPlan;' "$grid_logic_header" >/dev/null
+grep -F 'noctty_grid_key_command_plan(' "$grid_logic_header" >/dev/null
 grep -F 'test "paste callback accepts length-delimited bytes"' "$grid_abi_zig" >/dev/null
 grep -F 'pub const NativeGridAbi = @import("NativeGridAbi.zig");' src/gui/root.zig >/dev/null
 grep -F 'const NativeGridAbi = noctty.gui.NativeGridAbi;' "$main" >/dev/null
@@ -121,6 +132,18 @@ grep -F 'pub export fn noctty_grid_sync_split_visibility(' "$native_gtk" >/dev/n
 grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_compact_tab_new(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_new_tab_button_new(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_window_toolbar_new(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_window_toolbar_set_close_visible(' "$native_gtk" >/dev/null
+grep -F 'noctty_compact_tab_new(' "$grid" >/dev/null
+grep -F 'noctty_new_tab_button_new(' "$grid" >/dev/null
+grep -F 'noctty_window_toolbar_new(' "$grid" >/dev/null
+grep -F 'noctty_window_toolbar_set_close_visible(' "$grid" >/dev/null
+grep -F 'NocttyCompactTabCallbacks;' "$native_gtk_header" >/dev/null
+grep -F 'NocttyWindowToolbarContents;' "$native_gtk_header" >/dev/null
+grep -F 'noctty_compact_tab_new(' "$native_gtk_header" >/dev/null
+grep -F 'noctty_window_toolbar_new(' "$native_gtk_header" >/dev/null
 grep -F 'const split_walk_max: usize = 31;' "$native_gtk" >/dev/null
 ! grep -F 'gtk_widget_is_ancestor' "$grid" >/dev/null
 grep -F 'pub export fn noctty_settings_page_new' "$native_gtk" >/dev/null

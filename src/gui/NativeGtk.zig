@@ -67,6 +67,7 @@ const PANGO_ELLIPSIZE_MIDDLE: c_int = 2;
 const GTK_STYLE_PROVIDER_PRIORITY_APPLICATION: c_uint = 600;
 const GDK_ENTER_NOTIFY_MASK: c_int = 1 << 12;
 const GDK_LEAVE_NOTIFY_MASK: c_int = 1 << 13;
+const GDK_BUTTON_RELEASE_MASK: c_int = 1 << 9;
 const GDK_ARROW: c_int = 2;
 const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
 const GTK_ORIENTATION_VERTICAL: c_int = 1;
@@ -77,6 +78,8 @@ const GTK_POLICY_AUTOMATIC: c_int = 1;
 const GTK_POLICY_NEVER: c_int = 2;
 const GTK_SHADOW_NONE: c_int = 0;
 const GTK_ICON_SIZE_LARGE_TOOLBAR: c_int = 3;
+const GTK_ICON_SIZE_MENU: c_int = 1;
+const GTK_RELIEF_NONE: c_int = 2;
 const GTK_SELECTION_SINGLE: c_int = 1;
 const GTK_WRAP_WORD_CHAR: c_int = 3;
 const GTK_SHADOW_IN: c_int = 1;
@@ -90,6 +93,7 @@ const GDK_SMOOTH_SCROLL_MASK: c_int = 1 << 23;
 
 extern fn gtk_event_box_new() ?*GtkWidget;
 extern fn gtk_event_box_set_visible_window(*GtkEventBox, c_int) void;
+extern fn gtk_event_box_set_above_child(*GtkEventBox, c_int) void;
 extern fn gtk_menu_new() ?*GtkWidget;
 extern fn gtk_menu_item_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_menu_item_set_submenu(*GtkMenuItem, *GtkWidget) void;
@@ -109,6 +113,8 @@ extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_set_max_length(*GtkEntry, c_int) void;
 extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
+extern fn gtk_button_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
+extern fn gtk_button_set_relief(*GtkButton, c_int) void;
 extern fn gtk_check_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
@@ -149,6 +155,7 @@ extern fn gtk_widget_set_size_request(*GtkWidget, c_int, c_int) void;
 extern fn gtk_widget_set_hexpand(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_vexpand(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_can_focus(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_focus_on_click(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_sensitive(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_opacity(*GtkWidget, f64) void;
 extern fn gtk_widget_set_margin_start(*GtkWidget, c_int) void;
@@ -615,6 +622,182 @@ pub export fn noctty_install_compact_tab_styles(target: ?*GtkWidget) void {
     g_object_set_data(object(widget), "noctty-style-provider-installed", @ptrFromInt(1));
     if (isA(widget, gtk_notebook_get_type))
         gtk_style_context_add_class(gtk_widget_get_style_context(widget), "noctty-tab-notebook");
+}
+
+const CompactTabOptions = extern struct {
+    page: ?*GtkWidget,
+    text: ?[*:0]const u8,
+    callback_data: ?*anyopaque,
+};
+
+const CompactTabCallbacks = extern struct {
+    button_press: ?GCallback,
+    button_release: ?GCallback,
+    drag_begin: ?GCallback,
+    drag_end: ?GCallback,
+    close_clicked: ?GCallback,
+};
+
+const CompactTabContents = extern struct {
+    tab: ?*GtkWidget,
+    label: ?*GtkWidget,
+    close_button: ?*GtkWidget,
+};
+
+/// The returned tab keeps its GTK floating reference until C inserts it into a
+/// container. Descendant handles are borrowed and callback data remains C-owned.
+pub export fn noctty_compact_tab_new(
+    options_raw: ?*const CompactTabOptions,
+    callbacks_raw: ?*const CompactTabCallbacks,
+    contents_out: ?*CompactTabContents,
+) c_int {
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(CompactTabContents);
+    const options = options_raw orelse return FALSE;
+    const callbacks = callbacks_raw orelse return FALSE;
+    const page = options.page orelse return FALSE;
+    const text = options.text orelse return FALSE;
+
+    const tab = gtk_event_box_new() orelse return FALSE;
+    const content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1) orelse {
+        g_object_unref(tab);
+        return FALSE;
+    };
+    const label = gtk_label_new(text) orelse {
+        g_object_unref(content);
+        g_object_unref(tab);
+        return FALSE;
+    };
+    const close = gtk_button_new_from_icon_name(
+        "window-close-symbolic",
+        GTK_ICON_SIZE_MENU,
+    ) orelse {
+        g_object_unref(label);
+        g_object_unref(content);
+        g_object_unref(tab);
+        return FALSE;
+    };
+
+    gtk_event_box_set_visible_window(@ptrCast(tab), FALSE);
+    gtk_event_box_set_above_child(@ptrCast(tab), FALSE);
+    gtk_widget_add_events(tab, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+    gtk_button_set_relief(@ptrCast(close), GTK_RELIEF_NONE);
+    gtk_widget_set_focus_on_click(close, FALSE);
+    gtk_widget_set_size_request(close, 28, 24);
+    noctty_configure_action_button(close, "Close Tab");
+    setAccessibleName(close, "Close Tab");
+    gtk_style_context_add_class(gtk_widget_get_style_context(content), "noctty-tab-content");
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "noctty-tab-label");
+    gtk_style_context_add_class(gtk_widget_get_style_context(close), "noctty-tab-close");
+    gtk_style_context_add_class(gtk_widget_get_style_context(close), "flat");
+    gtk_box_pack_start(@ptrCast(content), label, TRUE, TRUE, 0);
+    gtk_box_pack_start(@ptrCast(content), close, FALSE, FALSE, 0);
+    gtk_container_add(@ptrCast(tab), content);
+    g_object_set_data(object(tab), "noctty-tab-page", page);
+    g_object_set_data(object(close), "noctty-tab-page", page);
+    g_object_set_data(object(tab), tab_label_key, label);
+    g_object_set_data(object(tab), tab_close_key, close);
+    connectSignal(tab, "button-press-event", callbacks.button_press, options.callback_data);
+    connectSignal(tab, "button-release-event", callbacks.button_release, options.callback_data);
+    connectSignal(tab, "drag-begin", callbacks.drag_begin, options.callback_data);
+    connectSignal(tab, "drag-end", callbacks.drag_end, options.callback_data);
+    connectSignal(close, "clicked", callbacks.close_clicked, options.callback_data);
+    output.* = .{ .tab = tab, .label = label, .close_button = close };
+    return TRUE;
+}
+
+/// The returned button keeps its GTK floating reference until C inserts it into
+/// the notebook. Callback data remains C-owned for the button's lifetime.
+pub export fn noctty_new_tab_button_new(
+    extent_px: c_int,
+    callback_data: ?*anyopaque,
+    clicked: ?GCallback,
+) ?*GtkWidget {
+    const button = gtk_button_new_from_icon_name(
+        "list-add-symbolic",
+        GTK_ICON_SIZE_MENU,
+    ) orelse return null;
+    gtk_button_set_relief(@ptrCast(button), GTK_RELIEF_NONE);
+    gtk_widget_set_can_focus(button, TRUE);
+    gtk_widget_set_size_request(button, extent_px, extent_px);
+    noctty_configure_action_button(button, "New Tab (Ctrl+Shift+T)");
+    setAccessibleName(button, "New Tab, Ctrl+Shift+T");
+    gtk_style_context_add_class(gtk_widget_get_style_context(button), "noctty-tab-action");
+    gtk_style_context_add_class(gtk_widget_get_style_context(button), "flat");
+    connectSignal(button, "clicked", clicked, callback_data);
+    return button;
+}
+
+const WindowToolbarCallbacks = extern struct {
+    settings_clicked: ?GCallback,
+    close_clicked: ?GCallback,
+};
+
+const WindowToolbarContents = extern struct {
+    controls: ?*GtkWidget,
+    settings: ?*GtkWidget,
+    close_button: ?*GtkWidget,
+};
+
+/// The returned controls box keeps its GTK floating reference until C inserts
+/// it into the notebook. Descendants are borrowed; callback data remains C-owned.
+pub export fn noctty_window_toolbar_new(
+    extent_px: c_int,
+    callback_data: ?*anyopaque,
+    callbacks_raw: ?*const WindowToolbarCallbacks,
+    contents_out: ?*WindowToolbarContents,
+) c_int {
+    const output = contents_out orelse return FALSE;
+    output.* = std.mem.zeroes(WindowToolbarContents);
+    const callbacks = callbacks_raw orelse return FALSE;
+    const controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0) orelse return FALSE;
+    const settings = gtk_button_new_from_icon_name(
+        "preferences-system-symbolic",
+        GTK_ICON_SIZE_MENU,
+    ) orelse {
+        g_object_unref(controls);
+        return FALSE;
+    };
+    const close = gtk_button_new_from_icon_name(
+        "window-close-symbolic",
+        GTK_ICON_SIZE_MENU,
+    ) orelse {
+        g_object_unref(settings);
+        g_object_unref(controls);
+        return FALSE;
+    };
+
+    for (
+        [_]*GtkWidget{ settings, close },
+        [_][*:0]const u8{ "Settings", "Close NOCTTY" },
+    ) |button, text| {
+        gtk_button_set_relief(@ptrCast(button), GTK_RELIEF_NONE);
+        gtk_widget_set_focus_on_click(button, FALSE);
+        gtk_widget_set_size_request(button, extent_px, extent_px);
+        noctty_configure_action_button(button, text);
+        setAccessibleName(button, text);
+        gtk_style_context_add_class(gtk_widget_get_style_context(button), "flat");
+        gtk_style_context_add_class(gtk_widget_get_style_context(button), "noctty-tab-action");
+        gtk_box_pack_start(@ptrCast(controls), button, FALSE, FALSE, 0);
+    }
+    gtk_style_context_add_class(gtk_widget_get_style_context(controls), "noctty-window-controls");
+    connectSignal(settings, "clicked", callbacks.settings_clicked, callback_data);
+    connectSignal(close, "clicked", callbacks.close_clicked, callback_data);
+    output.* = .{
+        .controls = controls,
+        .settings = settings,
+        .close_button = close,
+    };
+    return TRUE;
+}
+
+pub export fn noctty_window_toolbar_set_close_visible(
+    close_button: ?*GtkWidget,
+    visible: c_int,
+) void {
+    const close = close_button orelse return;
+    gtk_widget_set_no_show_all(close, @intFromBool(visible == 0));
+    gtk_widget_set_visible(close, visible);
 }
 
 fn tabChildOfType(tab_widget: *GtkWidget, get_type: *const fn () callconv(.c) GType) ?*GtkWidget {

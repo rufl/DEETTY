@@ -36,13 +36,14 @@ zig build run-nocted -- --project . --open README.md
   shrinking C boundary that owns the production grid window/dropdown GTK
   lifetimes, callback dispatch, Pango glyph caches, and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
-  precedence, scrollbar geometry, wheel accumulation and fallback keys,
+  precedence, keyboard command planning, tab/pane cycle targets, directional
+  pane focus scoring, scrollbar geometry, wheel accumulation and fallback keys,
   terminal key encoding and shortcut labels, keyboard scroll targets,
   hyperlink validation, command-palette fuzzy matching, dropdown dimension
   clamping, sharing-status actions, grid sizing/auto-fit, window-resize
-  deltas/bounds, pointer-to-cell mapping, linear
-  selection hit testing, pixel-snapped spans, packed-cell/run decoding, UTF-8
-  encoding, clipping, pane chrome, and caret policy consumed through
+  deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
+  pixel-snapped spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane
+  chrome, and caret policy consumed through
   `include/noctty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and
@@ -55,9 +56,10 @@ zig build run-nocted -- --project . --open README.md
   no qualification implementation.
 - `src/gui/NativeGtk.zig`: migrated native GTK pane/resource strip,
   bounded nested split-branch visibility traversal, divider/gap styling,
-  balanced split positioning, action-button affordances, compact-tab styling,
-  tab-child lookup, color styling, settings surfaces, context menus, compact dialogs, theme library,
-  project tools, and sharing controls behind the narrow
+  balanced split positioning, action-button affordances, compact-tab styling
+  and construction, new-tab and window-toolbar controls, tab-child lookup,
+  color styling, settings surfaces, context menus, compact dialogs, theme
+  library, project tools, and sharing controls behind the narrow
   `include/noctty/native_gtk.h` ABI.
 - `include/noctty/` — published narrow C ABI declarations; these remain counted
   by the Zig ownership gate.

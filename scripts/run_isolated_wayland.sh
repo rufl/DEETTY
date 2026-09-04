@@ -27,7 +27,10 @@ timeout_seconds=${NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}
 lock="${XDG_RUNTIME_DIR:-/tmp}/noctty-isolated-display-$(id -u).lock"
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-isolated-wayland.XXXXXX")
 cleanup() {
-  rm -rf "$scratch"
+  if ! rm -rf "$scratch" 2>/dev/null; then
+    sleep 0.1
+    rm -rf "$scratch"
+  fi
 }
 trap cleanup EXIT
 trap 'exit 129' HUP

@@ -83,7 +83,10 @@ fi
 lock="$lock_root/runner.lock"
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-isolated-x11.XXXXXX")
 cleanup() {
-  rm -rf "$scratch"
+  if ! rm -rf "$scratch" 2>/dev/null; then
+    sleep 0.1
+    rm -rf "$scratch"
+  fi
 }
 trap cleanup EXIT
 trap 'exit 129' HUP

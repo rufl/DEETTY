@@ -39,6 +39,10 @@ comptime {
     _ = NativeGridLogic.noctty_grid_close_preflight_result;
     _ = NativeGridLogic.noctty_grid_adapt_window_geometry;
     _ = NativeGridLogic.noctty_grid_scale_brightness;
+    _ = NativeGridLogic.noctty_grid_cycle_target;
+    _ = NativeGridLogic.noctty_grid_directional_focus_begin;
+    _ = NativeGridLogic.noctty_grid_directional_focus_consider;
+    _ = NativeGridLogic.noctty_grid_key_command_plan;
     _ = NativeGridRender.noctty_grid_render_ascii_run;
     _ = NativeGridRender.noctty_grid_render_cells;
     _ = NativeGridRender.noctty_grid_render_apply_font_options;
@@ -60,6 +64,10 @@ comptime {
     _ = NativeGtk.noctty_prepare_action_button_tree;
     _ = NativeGtk.noctty_show_all_with_action_affordances;
     _ = NativeGtk.noctty_install_compact_tab_styles;
+    _ = NativeGtk.noctty_compact_tab_new;
+    _ = NativeGtk.noctty_new_tab_button_new;
+    _ = NativeGtk.noctty_window_toolbar_new;
+    _ = NativeGtk.noctty_window_toolbar_set_close_visible;
     _ = NativeGtk.noctty_action_button_event_window;
     _ = NativeGtk.noctty_action_button_enter;
     _ = NativeGtk.noctty_action_button_leave;
