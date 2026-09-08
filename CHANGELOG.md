@@ -26,6 +26,12 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   Zig policy. GTK now clamps the returned rectangles to the live allocation
   before queuing redraws.
 
+- Added the `Paseo Black Zinc` built-in theme: pure-black terminal/workspace
+  surfaces, zinc-950 through zinc-50 chrome, zinc selection and scrollbar
+  states, and a high-contrast ANSI palette. It is available alongside the
+  existing NOCTTY Dark and High Contrast themes and persists through the theme
+  library.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

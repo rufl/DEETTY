@@ -452,6 +452,7 @@ pub const App = struct {
         };
         errdefer app.deinit();
         _ = try app.installThemeCopy(Theme.Theme.builtinDark());
+        _ = try app.installThemeCopy(Theme.Theme.builtinPaseoBlackZinc());
         return app;
     }
 
@@ -2251,7 +2252,7 @@ test "app previews installs and selects imported themes" {
     } });
     try std.testing.expectEqualStrings("Workspace Night", preview.theme_previewed.name);
     try std.testing.expectEqual(Theme.Color.fromHex(0x000011), preview.theme_previewed.background);
-    try std.testing.expectEqual(@as(usize, 1), app.themes.items.len);
+    try std.testing.expectEqual(@as(usize, 2), app.themes.items.len);
 
     const installed = try app.dispatch(.{ .install_theme_import = .{
         .format = .ghostty,
@@ -2263,7 +2264,7 @@ test "app previews installs and selects imported themes" {
         ,
     } });
     try std.testing.expectEqualStrings("Workspace Night", installed.theme_installed.name);
-    try std.testing.expectEqual(@as(usize, 2), app.themes.items.len);
+    try std.testing.expectEqual(@as(usize, 3), app.themes.items.len);
 
     const selected = try app.dispatch(.{ .select_theme = "Workspace Night" });
     try std.testing.expectEqualStrings("Workspace Night", selected.theme_selected.name);
@@ -2330,7 +2331,7 @@ test "app replaces installed themes by name and rejects missing selection" {
         .name = "replace-me",
         .contents = "background = #222222",
     } });
-    try std.testing.expectEqual(@as(usize, 2), app.themes.items.len);
+    try std.testing.expectEqual(@as(usize, 3), app.themes.items.len);
     try std.testing.expectEqual(Theme.Color.fromHex(0x222222), app.findTheme("replace-me").?.background);
 
     try std.testing.expectError(error.ThemeNotInstalled, app.dispatch(.{ .select_theme = "missing-theme" }));
@@ -2360,15 +2361,15 @@ test "app saves and loads durable theme library files" {
     } });
     const saved = try source.saveThemeLibraryFile(io, tmp.dir, "themes/library.nocttythemes", .library);
     defer saved.deinit(allocator);
-    try std.testing.expectEqual(@as(usize, 2), saved.theme_count);
+    try std.testing.expectEqual(@as(usize, 3), saved.theme_count);
 
     var loaded_app = try App.init(allocator);
     defer loaded_app.deinit();
     const loaded = try loaded_app.loadThemeLibraryFile(io, tmp.dir, "themes/library.nocttythemes", .library);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(ThemeStorage.ThemeFileRole.library, loaded.role);
-    try std.testing.expectEqual(@as(usize, 2), loaded.theme_count);
-    try std.testing.expectEqual(@as(usize, 2), loaded_app.themes.items.len);
+    try std.testing.expectEqual(@as(usize, 3), loaded.theme_count);
+    try std.testing.expectEqual(@as(usize, 3), loaded_app.themes.items.len);
     try std.testing.expectEqual(Theme.Color.fromHex(0x000011), loaded_app.findTheme("Workspace Night").?.background);
     try std.testing.expectEqualStrings("noctty-dark", loaded_app.config.default_theme);
 }

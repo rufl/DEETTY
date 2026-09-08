@@ -97,6 +97,53 @@ pub const Theme = struct {
         };
     }
 
+    pub fn builtinPaseoBlackZinc() Theme {
+        return .{
+            .name = "paseo-black-zinc",
+            .foreground = Color.fromHex(0xf4f4f5),
+            .background = Color.fromHex(0x000000),
+            .cursor = Color.fromHex(0xfafafa),
+            .palette = .{
+                Color.fromHex(0x000000),
+                Color.fromHex(0xf87171),
+                Color.fromHex(0xa3e635),
+                Color.fromHex(0xfacc15),
+                Color.fromHex(0x60a5fa),
+                Color.fromHex(0xe879f9),
+                Color.fromHex(0x22d3ee),
+                Color.fromHex(0xd4d4d8),
+                Color.fromHex(0x52525b),
+                Color.fromHex(0xfca5a5),
+                Color.fromHex(0xbef264),
+                Color.fromHex(0xfde68a),
+                Color.fromHex(0x93c5fd),
+                Color.fromHex(0xf0abfc),
+                Color.fromHex(0x67e8f9),
+                Color.fromHex(0xfafafa),
+            },
+            .chrome = .{
+                Color.fromHex(0x000000),
+                Color.fromHex(0xfafafa),
+                Color.fromHex(0xd4d4d8),
+                Color.fromHex(0x27272a),
+                Color.fromHex(0x18181b),
+                Color.fromHex(0x71717a),
+                Color.fromHex(0xa1a1aa),
+                Color.fromHex(0x09090b),
+                Color.fromHex(0x52525b),
+                Color.fromHex(0xf4f4f5),
+                Color.fromHex(0x3f3f46),
+                Color.fromHex(0xfacc15),
+                Color.fromHex(0x60a5fa),
+                Color.fromHex(0x4ade80),
+                Color.fromHex(0xfacc15),
+                Color.fromHex(0xf87171),
+                Color.fromHex(0xfafafa),
+                Color.fromHex(0x000000),
+            },
+        };
+    }
+
     pub fn builtinHighContrast() Theme {
         var theme = builtinDark();
         theme.name = "noctty-high-contrast";
@@ -458,6 +505,17 @@ test "imports active Noctalia material colors without a terminal section" {
         Color.fromHex(0xadc6ff),
         imported.chromeColor(.terminal_cursor),
     );
+}
+
+test "Paseo black zinc theme uses pure black and zinc chrome" {
+    const theme = Theme.builtinPaseoBlackZinc();
+    try std.testing.expectEqualStrings("paseo-black-zinc", theme.name);
+    try std.testing.expectEqual(Color.fromHex(0x000000), theme.background);
+    try std.testing.expectEqual(Color.fromHex(0xf4f4f5), theme.foreground);
+    try std.testing.expectEqual(Color.fromHex(0x18181b), theme.chromeColor(.scrollbar_track));
+    try std.testing.expectEqual(Color.fromHex(0x27272a), theme.chromeColor(.pane_border_inactive));
+    try std.testing.expectEqual(Color.fromHex(0x3f3f46), theme.chromeColor(.selection_background));
+    try std.testing.expectEqual(Color.fromHex(0xfafafa), theme.palette[15]);
 }
 
 test "built-in theme exposes independently configurable workspace colors" {

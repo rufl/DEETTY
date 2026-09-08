@@ -10351,8 +10351,10 @@ static void populate_theme_combo(NocttyGridContext *context,
         if (length <= 0) continue;
         const char *label = g_strcmp0(name, "noctty-dark") == 0
             ? "NOCTTY Dark"
-            : g_strcmp0(name, "noctty-high-contrast") == 0
-                ? "NOCTTY High Contrast" : name;
+            : g_strcmp0(name, "paseo-black-zinc") == 0
+                ? "Paseo Black Zinc"
+                : g_strcmp0(name, "noctty-high-contrast") == 0
+                    ? "NOCTTY High Contrast" : name;
         gtk_combo_box_text_append(combo, name, label);
     }
     if (active[0] != '\0')

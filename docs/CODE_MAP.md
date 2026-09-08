@@ -83,7 +83,8 @@ zig build run-nocted -- --open README.md
   panels, activation plans, project actions, and persistence-facing workspace
   structures.
 - `src/config/Config.zig` — user-facing configuration model and defaults.
-- `src/theme/*` — theme library/import/export/application logic.
+- `src/theme/*` — theme library/import/export/application logic, including the
+  built-in NOCTTY Dark, High Contrast, and Paseo Black Zinc palettes.
 - `src/share/Net.zig` — bounded cross-platform TCP, multicast-discovery, and
   socket-lifetime boundary for explicitly enabled LAN session sharing.
 

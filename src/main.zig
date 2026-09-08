@@ -7963,6 +7963,16 @@ fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) 
     defer std.Io.Dir.cwd().deleteFile(io, theme_path) catch {};
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
+    const paseo = app.findTheme("paseo-black-zinc") orelse
+        return error.NativeGridPaseoThemeMissing;
+    if (!std.meta.eql(paseo.background, noctty.theme.Color.fromHex(0x000000)) or
+        !std.meta.eql(paseo.foreground, noctty.theme.Color.fromHex(0xf4f4f5)) or
+        !std.meta.eql(
+            paseo.chromeColor(.scrollbar_track),
+            noctty.theme.Color.fromHex(0x18181b),
+        ))
+        return error.NativeGridPaseoThemeMismatch;
+    _ = try app.dispatch(.{ .select_theme = "paseo-black-zinc" });
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     var session = try noctty.terminal_session.TerminalSession.spawn(allocator, "/tmp", "/bin/sh", 96, 24);
     defer session.deinit();
@@ -8036,7 +8046,7 @@ fn nativeGridThemeSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) 
         verify_app.findTheme("Noctalia Test Dark") == null or
         !std.mem.eql(u8, verify_app.config.default_theme, "Noctalia Test Dark"))
         return error.NativeGridThemeReloadMismatch;
-    try out.print("native_grid_theme_smoke rendered=true imported=true format=ghostty noctalia=true noctalia_system=true noctalia_dark=true terminal_palette=true tui_palette=true per_tab=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true\n", .{});
+    try out.print("native_grid_theme_smoke rendered=true paseo_black_zinc=true imported=true format=ghostty noctalia=true noctalia_system=true noctalia_dark=true terminal_palette=true tui_palette=true per_tab=true material_chrome=true caret_color=true selected=true library_persisted=true config_persisted=true reloaded=true exited=true\n", .{});
 }
 
 fn nativeGridProjectEditorSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
