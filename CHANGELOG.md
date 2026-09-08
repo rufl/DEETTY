@@ -69,6 +69,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved pane divider snap-point selection and threshold policy into tested Zig.
   GTK retains the paned-widget position query and update.
 
+- Moved the command-palette action table into tested Zig. GTK retains
+  palette widget construction and action activation.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

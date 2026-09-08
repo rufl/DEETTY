@@ -12653,35 +12653,6 @@ static void save_grid_scrollback(NocttyGridContext *context) {
     gtk_widget_destroy(chooser);
 }
 
-static const NocttyPaletteAction compact_actions[] = {
-    {1, "New terminal tab", "Ctrl+Shift+T · same directory"},
-    {2, "Split down", "Ctrl+Shift+S"},
-    {3, "Split left", "Ctrl+Shift+L"},
-    {4, "Zoom or restore pane", "Ctrl+Shift+Z"},
-    {5, "Find in terminal scrollback", "Ctrl+Shift+F"},
-    {6, "Open quick note", "Ctrl+Shift+N"},
-    {7, "Enable or disable broadcast input", "selected panes · confirms enable"},
-    {8, "Move pane to another tab", "keeps live PTY"},
-    {9, "Open settings", "compact native controls"},
-    {10, "Open theme library", "preview and import"},
-    {11, "Open project workspace", "files, Git, editor"},
-    {18, "Open NoctEd here", "launch NoctEd at the terminal directory"},
-    {12, "Save terminal scrollback", "plain UTF-8 text"},
-    {13, "Show keyboard shortcuts", "Ctrl+Shift+K"},
-    {14, "Show or hide NOCTTY", "F10"},
-    {15, "Cycle terminal theme", "dark / high contrast"},
-    {16, "Cycle tab position", "top / bottom / left / right"},
-    {17, "Rename active tab", "Ctrl+Shift+R"},
-    {19, "Set Smart Tab filter", "Ctrl+Shift+G"},
-    {20, "Tag selected panes", "Ctrl+Shift+Y"},
-    {21, "Remove tag from selected panes", "selection group"},
-    {22, "Lighten active tab color", "Ctrl+Alt+="},
-    {23, "Darken active tab color", "Ctrl+Alt+-"},
-    {24, "Register agent resume reference", "provider + opaque session ID"},
-    {25, "Clear agent resume reference", "return to ordinary restore"},
-    {26, "Export encrypted screen history", "password-protected local file"},
-    {27, "Accept pending agent action", "explicitly run a safe focus/project action"},
-};
 
 static void on_palette_search_changed(GtkEditable *editable, gpointer user_data) {
     NocttyGridContext *root = user_data;
@@ -12805,11 +12776,18 @@ static void open_command_palette(NocttyGridContext *context) {
     int dialog_height = MIN(390, MAX(1, workarea.height - 32));
     gboolean vertical_rows = workarea.width < 640;
     GtkWidget *dialog = gtk_dialog_new();
+    NocttyPaletteAction compact_actions[27] = {0};
+    guint compact_action_count = noctty_grid_palette_actions(
+        compact_actions, G_N_ELEMENTS(compact_actions));
+    if (compact_action_count == 0) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
     gchar *visibility_hint = grid_shortcut_label_alloc(root);
     NocttyPaletteContents contents = {0};
     gboolean contents_ready = noctty_command_palette_contents_new(
         dialog, dialog_width, dialog_height, vertical_rows,
-        compact_actions, G_N_ELEMENTS(compact_actions), visibility_hint,
+        compact_actions, compact_action_count, visibility_hint,
         &contents);
     g_free(visibility_hint);
     if (!contents_ready) {

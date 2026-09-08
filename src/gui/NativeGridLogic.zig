@@ -1545,7 +1545,53 @@ pub export fn noctty_grid_snap_pane_position(
         const distance = @abs(@as(i64, position) - @as(i64, snap_point));
         if (distance <= @as(i64, threshold)) return snap_point;
     }
+
     return -1;
+}
+
+pub const PaletteAction = extern struct {
+    id: c_int,
+    label: [*:0]const u8,
+    hint: [*:0]const u8,
+};
+
+pub export fn noctty_grid_palette_actions(
+    output: ?[*]PaletteAction,
+    capacity: c_uint,
+) callconv(.c) c_uint {
+    const target = output orelse return 0;
+    const actions = [_]PaletteAction{
+        .{ .id = 1, .label = "New terminal tab", .hint = "Ctrl+Shift+T · same directory" },
+        .{ .id = 2, .label = "Split down", .hint = "Ctrl+Shift+S" },
+        .{ .id = 3, .label = "Split left", .hint = "Ctrl+Shift+L" },
+        .{ .id = 4, .label = "Zoom or restore pane", .hint = "Ctrl+Shift+Z" },
+        .{ .id = 5, .label = "Find in terminal scrollback", .hint = "Ctrl+Shift+F" },
+        .{ .id = 6, .label = "Open quick note", .hint = "Ctrl+Shift+N" },
+        .{ .id = 7, .label = "Enable or disable broadcast input", .hint = "selected panes · confirms enable" },
+        .{ .id = 8, .label = "Move pane to another tab", .hint = "keeps live PTY" },
+        .{ .id = 9, .label = "Open settings", .hint = "compact native controls" },
+        .{ .id = 10, .label = "Open theme library", .hint = "preview and import" },
+        .{ .id = 11, .label = "Open project workspace", .hint = "files, Git, editor" },
+        .{ .id = 18, .label = "Open NoctEd here", .hint = "launch NoctEd at the terminal directory" },
+        .{ .id = 12, .label = "Save terminal scrollback", .hint = "plain UTF-8 text" },
+        .{ .id = 13, .label = "Show keyboard shortcuts", .hint = "Ctrl+Shift+K" },
+        .{ .id = 14, .label = "Show or hide NOCTTY", .hint = "F10" },
+        .{ .id = 15, .label = "Cycle terminal theme", .hint = "dark / high contrast" },
+        .{ .id = 16, .label = "Cycle tab position", .hint = "top / bottom / left / right" },
+        .{ .id = 17, .label = "Rename active tab", .hint = "Ctrl+Shift+R" },
+        .{ .id = 19, .label = "Set Smart Tab filter", .hint = "Ctrl+Shift+G" },
+        .{ .id = 20, .label = "Tag selected panes", .hint = "Ctrl+Shift+Y" },
+        .{ .id = 21, .label = "Remove tag from selected panes", .hint = "selection group" },
+        .{ .id = 22, .label = "Lighten active tab color", .hint = "Ctrl+Alt+=" },
+        .{ .id = 23, .label = "Darken active tab color", .hint = "Ctrl+Alt+-" },
+        .{ .id = 24, .label = "Register agent resume reference", .hint = "provider + opaque session ID" },
+        .{ .id = 25, .label = "Clear agent resume reference", .hint = "return to ordinary restore" },
+        .{ .id = 26, .label = "Export encrypted screen history", .hint = "password-protected local file" },
+        .{ .id = 27, .label = "Accept pending agent action", .hint = "explicitly run a safe focus/project action" },
+    };
+    if (capacity < actions.len) return 0;
+    for (actions, 0..) |action, index| target[index] = action;
+    return @intCast(actions.len);
 }
 
 pub const AdaptiveWindowGeometry = extern struct {
@@ -1793,6 +1839,17 @@ test "pane snap policy selects nearby thirds and rejects distant positions" {
     try std.testing.expectEqual(@as(c_int, 75), noctty_grid_snap_pane_position(100, 86));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(100, 12));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(0, 12));
+}
+
+test "palette action policy preserves ordered ids and labels" {
+    var actions: [27]PaletteAction = undefined;
+    try std.testing.expectEqual(@as(c_uint, 27), noctty_grid_palette_actions(&actions, actions.len));
+    try std.testing.expectEqual(@as(c_int, 1), actions[0].id);
+    try std.testing.expectEqualStrings("New terminal tab", std.mem.span(actions[0].label));
+    try std.testing.expectEqual(@as(c_int, 18), actions[11].id);
+    try std.testing.expectEqualStrings("Open NoctEd here", std.mem.span(actions[11].label));
+    try std.testing.expectEqual(@as(c_int, 27), actions[26].id);
+    try std.testing.expectEqual(@as(c_uint, 0), noctty_grid_palette_actions(&actions, 26));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {
