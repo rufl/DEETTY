@@ -38,6 +38,8 @@ Included:
   desktop shortcuts, reversible NoctEd Open-With registration, silent lifecycle
   support, and a fail-closed operator-provided signing hook
 - no telemetry, analytics, update checks, crash uploads, or remote flags
+- physical Windows 11 automated host qualification covering ConPTY, VT parsing,
+  GDI painting, settings, input coordinates, selection, clipboard, and clean exit
 
 Not included or claimed yet:
 
@@ -48,7 +50,7 @@ Not included or claimed yet:
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
   updates
 - graphical paired-device/session-sharing controls
-- physical Windows dogfood or compatibility qualification
+- a broad physical Windows 10/11 compatibility matrix
 
 This should be treated as a testable Windows terminal alpha, not as Windows
 parity with the current Linux workspace.

@@ -1,12 +1,20 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const PasteIsSafeFn = *const fn ([*]const u8, usize) callconv(.c) bool;
 
-const Runtime = struct {
+const Runtime = if (builtin.os.tag == .windows) struct {
+    paste_is_safe: PasteIsSafeFn,
+
+    fn open(paths: []const []const u8) ?@This() {
+        _ = paths;
+        return null;
+    }
+} else struct {
     lib: std.DynLib,
     paste_is_safe: PasteIsSafeFn,
 
-    fn open(paths: []const []const u8) ?Runtime {
+    fn open(paths: []const []const u8) ?@This() {
         for (paths) |path| {
             var lib = std.DynLib.open(path) catch continue;
             const paste_is_safe = lib.lookup(
