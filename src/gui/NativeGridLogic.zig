@@ -257,6 +257,24 @@ pub export fn noctty_grid_window_resize_cursor_name(index: c_int) callconv(.c) [
     return if (index == 3 or index == 4) "ew-resize" else "ns-resize";
 }
 
+pub export fn noctty_grid_tray_menu_label(id: c_int, window_presented: c_int) callconv(.c) [*:0]const u8 {
+    return switch (id) {
+        1 => if (window_presented != 0) "Hide NOCTTY" else "Show NOCTTY",
+        2 => "Settings…",
+        4 => "Close NOCTTY",
+        else => "",
+    };
+}
+
+pub export fn noctty_grid_tray_menu_icon_name(id: c_int) callconv(.c) [*:0]const u8 {
+    return switch (id) {
+        1 => "view-visible",
+        2 => "configure",
+        4 => "application-exit",
+        else => "",
+    };
+}
+
 fn validRectangle(rectangle: *const Rectangle) bool {
     return std.math.isFinite(rectangle.x) and
         std.math.isFinite(rectangle.y) and
@@ -2187,6 +2205,18 @@ test "tray ids and resize cursor policy stay bounded" {
     try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(3)));
     try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(4)));
     try std.testing.expectEqualStrings("ns-resize", std.mem.span(noctty_grid_window_resize_cursor_name(0)));
+}
+
+test "tray labels and icons preserve every menu state" {
+    try std.testing.expectEqualStrings("Show NOCTTY", std.mem.span(noctty_grid_tray_menu_label(1, 0)));
+    try std.testing.expectEqualStrings("Hide NOCTTY", std.mem.span(noctty_grid_tray_menu_label(1, 1)));
+    try std.testing.expectEqualStrings("Settings…", std.mem.span(noctty_grid_tray_menu_label(2, 0)));
+    try std.testing.expectEqualStrings("Close NOCTTY", std.mem.span(noctty_grid_tray_menu_label(4, 0)));
+    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_tray_menu_label(3, 0)));
+    try std.testing.expectEqualStrings("view-visible", std.mem.span(noctty_grid_tray_menu_icon_name(1)));
+    try std.testing.expectEqualStrings("configure", std.mem.span(noctty_grid_tray_menu_icon_name(2)));
+    try std.testing.expectEqualStrings("application-exit", std.mem.span(noctty_grid_tray_menu_icon_name(4)));
+    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_tray_menu_icon_name(0)));
 }
 
 test "scroll direction and tab color names handle every boundary" {

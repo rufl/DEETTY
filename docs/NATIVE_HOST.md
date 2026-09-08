@@ -110,6 +110,9 @@ Tray menu IDs are bounded by Zig policy before D-Bus layout/property handling.
 Resize-handle cursor orientation is likewise selected in Zig; GTK only creates
 the cursor and applies the native window edge.
 
+Tray-menu labels and icon names are also selected by Zig for every menu ID;
+GTK supplies only the live presented state for the toggle label.
+
 Validated OSC 8 links accept only `http`, `https`, and `mailto`. `Ctrl+click` asks GTK to open the URI through the desktop's default application; right-clicking the link opens an owned menu with **Open Link in Browser** and **Copy Link**. Invalid encodings, control bytes, unsupported schemes, and oversized addresses fail closed.
 
 Each terminal's native context menu now includes an exact-pane `Profile` submenu with five Zig-owned radio choices: Global default, Compact, Readable, High contrast, and Mono no ligatures. The current item is resolved from the right-clicked pane, and selection carries that pane ID even if another terminal owns keyboard focus. The narrow profile query synchronizes family, size, high-contrast state, ligature preference, and current preset into only the matching native context; Settings exposes the same path as `Active pane profile`. Readable drives the target to 14 pt, High contrast updates the target theme/rendering, and the focused two-pane proof keeps the neighbor unchanged through all three driven transitions before snapshot/autosave restoration. Mono no ligatures is an honest state boundary: the preference reaches GTK and persists, but the current fixed-cell Cairo renderer paints codepoints individually and does not prove font-feature shaping or visible ligature substitution.

@@ -126,6 +126,8 @@ int noctty_grid_is_alt_key(uint32_t keyval);
 uint32_t noctty_grid_input_modifiers(uint32_t state);
 int noctty_grid_tray_menu_id_valid(int id);
 const char *noctty_grid_window_resize_cursor_name(int index);
+const char *noctty_grid_tray_menu_label(int id, int window_presented);
+const char *noctty_grid_tray_menu_icon_name(int id);
 
 enum {
     NOCTTY_GRID_KEY_ACTION_NONE = 0,

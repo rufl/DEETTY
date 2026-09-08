@@ -3511,20 +3511,6 @@ static GVariant *new_empty_grid_tray_pixmaps(void) {
 }
 
 
-static const char *grid_tray_menu_label(NocttyGridContext *root, gint32 id) {
-    if (id == NOCTTY_TRAY_MENU_TOGGLE)
-        return root->window_presented ? "Hide NOCTTY" : "Show NOCTTY";
-    if (id == NOCTTY_TRAY_MENU_SETTINGS) return "Settings…";
-    if (id == NOCTTY_TRAY_MENU_CLOSE) return "Close NOCTTY";
-    return "";
-}
-
-static const char *grid_tray_menu_icon_name(gint32 id) {
-    if (id == NOCTTY_TRAY_MENU_TOGGLE) return "view-visible";
-    if (id == NOCTTY_TRAY_MENU_SETTINGS) return "configure";
-    if (id == NOCTTY_TRAY_MENU_CLOSE) return "application-exit";
-    return "";
-}
 
 static GVariant *new_grid_tray_menu_properties(NocttyGridContext *root,
                                                 gint32 id) {
@@ -3539,10 +3525,10 @@ static GVariant *new_grid_tray_menu_properties(NocttyGridContext *root,
     } else {
         g_variant_builder_add(&properties, "{sv}", "label",
                               g_variant_new_string(
-                                  grid_tray_menu_label(root, id)));
+                                  noctty_grid_tray_menu_label(id, root->window_presented)));
         g_variant_builder_add(&properties, "{sv}", "icon-name",
                               g_variant_new_string(
-                                  grid_tray_menu_icon_name(id)));
+                                  noctty_grid_tray_menu_icon_name(id)));
     }
     return g_variant_builder_end(&properties);
 }
@@ -3578,9 +3564,9 @@ static GVariant *new_grid_tray_menu_property(NocttyGridContext *root,
                                               const char *name) {
     if (!noctty_grid_tray_menu_id_valid(id)) return NULL;
     if (g_strcmp0(name, "label") == 0)
-        return g_variant_new_string(grid_tray_menu_label(root, id));
+        return g_variant_new_string(noctty_grid_tray_menu_label(id, root->window_presented));
     if (g_strcmp0(name, "icon-name") == 0)
-        return g_variant_new_string(grid_tray_menu_icon_name(id));
+        return g_variant_new_string(noctty_grid_tray_menu_icon_name(id));
     if (g_strcmp0(name, "type") == 0)
         return g_variant_new_string(id == NOCTTY_TRAY_MENU_SEPARATOR
                                         ? "separator"
