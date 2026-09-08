@@ -1526,6 +1526,28 @@ pub export fn noctty_grid_resize_handle_layout(
     return 1;
 }
 
+pub export fn noctty_grid_snap_pane_position(
+    max_position: c_int,
+    position: c_int,
+) callconv(.c) c_int {
+    if (max_position <= 0 or
+        max_position >= @divTrunc(std.math.maxInt(c_int), 2))
+        return -1;
+    const snap_points = [_]c_int{
+        @divTrunc(max_position, 4),
+        @divTrunc(max_position, 3),
+        @divTrunc(max_position, 2),
+        @divTrunc(max_position * 2, 3),
+        @divTrunc(max_position * 3, 4),
+    };
+    const threshold = @max(@as(c_int, 12), @divTrunc(max_position, 32));
+    for (snap_points) |snap_point| {
+        const distance = @abs(@as(i64, position) - @as(i64, snap_point));
+        if (distance <= @as(i64, threshold)) return snap_point;
+    }
+    return -1;
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1762,6 +1784,15 @@ test "resize handle layout preserves the complete grid geometry" {
     try std.testing.expectEqual(@as(c_int, -1), layout.width);
     try std.testing.expectEqual(@as(c_int, 4), layout.height);
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_handle_layout(8, 6, 4, &layout));
+}
+
+test "pane snap policy selects nearby thirds and rejects distant positions" {
+    try std.testing.expectEqual(@as(c_int, 25), noctty_grid_snap_pane_position(100, 24));
+    try std.testing.expectEqual(@as(c_int, 50), noctty_grid_snap_pane_position(100, 51));
+    try std.testing.expectEqual(@as(c_int, 66), noctty_grid_snap_pane_position(100, 76));
+    try std.testing.expectEqual(@as(c_int, 75), noctty_grid_snap_pane_position(100, 86));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(100, 12));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(0, 12));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

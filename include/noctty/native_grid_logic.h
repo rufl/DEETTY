@@ -313,6 +313,7 @@ typedef struct {
 int noctty_grid_resize_handle_layout(int index, int border_px,
                                      int dragger_px,
                                      NocttyGridResizeHandleLayout *output);
+int noctty_grid_snap_pane_position(int max_position, int position);
 typedef struct {
     int x;
     int y;

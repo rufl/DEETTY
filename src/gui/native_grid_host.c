@@ -6875,18 +6875,11 @@ static gboolean on_grid_layout_button_release(
     gint max_position = 0;
     g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
     if (max_position <= 0 || max_position >= G_MAXINT / 2) return FALSE;
-    const int snap_points[] = {
-        max_position / 4, max_position / 3, max_position / 2,
-        max_position * 2 / 3, max_position * 3 / 4,
-    };
-    const int threshold = MAX(12, max_position / 32);
     int position = gtk_paned_get_position(GTK_PANED(widget));
-    for (guint index = 0; index < G_N_ELEMENTS(snap_points); index++) {
-        if (ABS(position - snap_points[index]) <= threshold) {
-            gtk_paned_set_position(GTK_PANED(widget), snap_points[index]);
-            break;
-        }
-    }
+    int snapped_position = noctty_grid_snap_pane_position(
+        max_position, position);
+    if (snapped_position >= 0)
+        gtk_paned_set_position(GTK_PANED(widget), snapped_position);
     return FALSE;
 }
 

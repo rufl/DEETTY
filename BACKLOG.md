@@ -138,6 +138,7 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   navigation planning, tab/pane cycle targets, directional focus scoring,
   tray-menu ID, label, and icon policy, resize-cursor orientation, resize-edge
   ordinals, handle-index normalization, resize-handle grid layout,
+  pane-divider snap points,
   active-pane render selection, status labels, profile preset labels,
   broadcast menu labels, shortcut identities, scrollbar geometry and
   press/drag planning, wheel accumulation, scroll targets, font/cell metric
