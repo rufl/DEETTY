@@ -15,6 +15,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   activation tokens into tested, allocation-free Zig native-grid logic.
   Hyperlink validation now shares the same policy.
 
+- Moved native scrollbar thumb hit testing, saturated page targets, and
+  continuous drag-to-history mapping from GTK C into tested Zig policy.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

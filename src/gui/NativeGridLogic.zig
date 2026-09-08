@@ -14,6 +14,15 @@ pub const ScrollbarGeometry = extern struct {
     visible_rows: u32,
 };
 
+pub const ScrollbarPressPlan = extern struct {
+    action: c_int,
+    drag_offset: f64,
+    target_offset: u64,
+};
+
+pub const scrollbar_press_none: c_int = 0;
+pub const scrollbar_press_drag: c_int = 1;
+pub const scrollbar_press_page: c_int = 2;
 pub const Rectangle = extern struct {
     x: f64,
     y: f64,
@@ -833,6 +842,104 @@ pub export fn noctty_grid_scrollbar_geometry(
     return 1;
 }
 
+fn validScrollbarGeometry(geometry: *const ScrollbarGeometry) bool {
+    if (!std.math.isFinite(geometry.y) or
+        !std.math.isFinite(geometry.height) or
+        !std.math.isFinite(geometry.thumb_y) or
+        !std.math.isFinite(geometry.thumb_height) or
+        geometry.height <= 0 or
+        geometry.thumb_height <= 0 or
+        geometry.thumb_height > geometry.height)
+    {
+        return false;
+    }
+    const travel = geometry.height - geometry.thumb_height;
+    const track_end = geometry.y + travel;
+    const thumb_end = geometry.thumb_y + geometry.thumb_height;
+    return std.math.isFinite(track_end) and std.math.isFinite(thumb_end) and
+        geometry.thumb_y >= geometry.y and geometry.thumb_y <= track_end;
+}
+
+pub export fn noctty_grid_scrollbar_press_plan(
+    geometry_optional: ?*const ScrollbarGeometry,
+    pointer_y: f64,
+    output_optional: ?*ScrollbarPressPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = scrollbar_press_none,
+        .drag_offset = 0,
+        .target_offset = 0,
+    };
+    const geometry = geometry_optional orelse return;
+    if (!std.math.isFinite(pointer_y) or !validScrollbarGeometry(geometry))
+        return;
+
+    const viewport_offset = @min(
+        geometry.viewport_offset,
+        geometry.history_lines,
+    );
+    output.target_offset = viewport_offset;
+    const thumb_end = geometry.thumb_y + geometry.thumb_height;
+    if (pointer_y >= geometry.thumb_y and pointer_y <= thumb_end) {
+        output.action = scrollbar_press_drag;
+        output.drag_offset = pointer_y - geometry.thumb_y;
+        return;
+    }
+
+    const page = @max(
+        @as(u64, if (geometry.visible_rows > 1)
+            geometry.visible_rows - 1
+        else
+            1),
+        1,
+    );
+    output.action = scrollbar_press_page;
+    output.target_offset = if (pointer_y < geometry.thumb_y)
+        @min(geometry.history_lines, viewport_offset +| page)
+    else
+        viewport_offset -| page;
+}
+
+pub export fn noctty_grid_scrollbar_drag_target(
+    geometry_optional: ?*const ScrollbarGeometry,
+    pointer_y: f64,
+    drag_offset: f64,
+    target_optional: ?*u64,
+) callconv(.c) c_int {
+    const target = target_optional orelse return 0;
+    target.* = 0;
+    const geometry = geometry_optional orelse return 0;
+    target.* = @min(geometry.viewport_offset, geometry.history_lines);
+    if (!std.math.isFinite(pointer_y) or
+        !std.math.isFinite(drag_offset) or
+        !validScrollbarGeometry(geometry) or
+        geometry.history_lines == 0)
+    {
+        return 0;
+    }
+    const travel = geometry.height - geometry.thumb_height;
+    if (travel <= 0) return 0;
+    const requested_thumb_y = pointer_y - drag_offset;
+    if (!std.math.isFinite(requested_thumb_y)) return 0;
+    const thumb_y = std.math.clamp(
+        requested_thumb_y,
+        geometry.y,
+        geometry.y + travel,
+    );
+    const position = (thumb_y - geometry.y) / travel;
+    const history_float: f64 = @floatFromInt(geometry.history_lines);
+    const scaled = @round(position * history_float);
+    const target_position: u64 = if (scaled <= 0)
+        0
+    else if (scaled >= history_float)
+        geometry.history_lines
+    else
+        @intFromFloat(scaled);
+    target.* = geometry.history_lines - target_position;
+    return 1;
+}
+
 pub export fn noctty_grid_cell_selected(
     selecting: c_int,
     start_column: c_int,
@@ -1628,6 +1735,75 @@ test "scrollbar geometry clamps offset and thumb" {
     try std.testing.expectEqual(@as(u64, 1000), geometry.viewport_offset);
     try std.testing.expect(geometry.thumb_height >= 24);
     try std.testing.expectEqual(geometry.y, geometry.thumb_y);
+}
+
+test "scrollbar press planning distinguishes thumb drag and saturated pages" {
+    var geometry = ScrollbarGeometry{
+        .x = 788,
+        .y = 2,
+        .width = 12,
+        .height = 100,
+        .thumb_y = 42,
+        .thumb_height = 20,
+        .history_lines = 100,
+        .viewport_offset = 50,
+        .visible_rows = 10,
+    };
+    var plan: ScrollbarPressPlan = undefined;
+    noctty_grid_scrollbar_press_plan(&geometry, 50, &plan);
+    try std.testing.expectEqual(scrollbar_press_drag, plan.action);
+    try std.testing.expectEqual(@as(f64, 8), plan.drag_offset);
+    try std.testing.expectEqual(@as(u64, 50), plan.target_offset);
+
+    noctty_grid_scrollbar_press_plan(&geometry, 41, &plan);
+    try std.testing.expectEqual(scrollbar_press_page, plan.action);
+    try std.testing.expectEqual(@as(u64, 59), plan.target_offset);
+    noctty_grid_scrollbar_press_plan(&geometry, 63, &plan);
+    try std.testing.expectEqual(@as(u64, 41), plan.target_offset);
+
+    geometry.viewport_offset = 98;
+    noctty_grid_scrollbar_press_plan(&geometry, 41, &plan);
+    try std.testing.expectEqual(@as(u64, 100), plan.target_offset);
+    geometry.viewport_offset = 2;
+    noctty_grid_scrollbar_press_plan(&geometry, 63, &plan);
+    try std.testing.expectEqual(@as(u64, 0), plan.target_offset);
+
+    noctty_grid_scrollbar_press_plan(&geometry, std.math.nan(f64), &plan);
+    try std.testing.expectEqual(scrollbar_press_none, plan.action);
+}
+
+test "scrollbar drag targets map the complete track to history" {
+    const geometry = ScrollbarGeometry{
+        .x = 788,
+        .y = 2,
+        .width = 12,
+        .height = 100,
+        .thumb_y = 42,
+        .thumb_height = 20,
+        .history_lines = 100,
+        .viewport_offset = 50,
+        .visible_rows = 10,
+    };
+    var target: u64 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_scrollbar_drag_target(&geometry, 10, 8, &target),
+    );
+    try std.testing.expectEqual(@as(u64, 100), target);
+    _ = noctty_grid_scrollbar_drag_target(&geometry, 50, 8, &target);
+    try std.testing.expectEqual(@as(u64, 50), target);
+    _ = noctty_grid_scrollbar_drag_target(&geometry, 90, 8, &target);
+    try std.testing.expectEqual(@as(u64, 0), target);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_scrollbar_drag_target(
+            &geometry,
+            std.math.inf(f64),
+            8,
+            &target,
+        ),
+    );
+    try std.testing.expectEqual(@as(u64, 50), target);
 }
 
 test "linear selection is direction independent" {

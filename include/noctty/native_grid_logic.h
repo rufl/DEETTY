@@ -17,6 +17,18 @@ typedef struct {
 } NocttyTerminalScrollbarGeometry;
 
 typedef struct {
+    int action;
+    double drag_offset;
+    uint64_t target_offset;
+} NocttyTerminalScrollbarPressPlan;
+
+enum {
+    NOCTTY_GRID_SCROLLBAR_PRESS_NONE = 0,
+    NOCTTY_GRID_SCROLLBAR_PRESS_DRAG = 1,
+    NOCTTY_GRID_SCROLLBAR_PRESS_PAGE = 2,
+};
+
+typedef struct {
     double x;
     double y;
     double width;
@@ -188,6 +200,12 @@ int noctty_grid_scrollbar_geometry(
     double thumb_height_min, uint64_t history_lines,
     uint64_t viewport_offset, uint32_t visible_rows,
     NocttyTerminalScrollbarGeometry *geometry);
+void noctty_grid_scrollbar_press_plan(
+    const NocttyTerminalScrollbarGeometry *geometry, double pointer_y,
+    NocttyTerminalScrollbarPressPlan *plan);
+int noctty_grid_scrollbar_drag_target(
+    const NocttyTerminalScrollbarGeometry *geometry, double pointer_y,
+    double drag_offset, uint64_t *target_offset);
 int noctty_grid_cell_selected(int selecting, int start_column, int start_row,
                               int end_column, int end_row, int column,
                               int row);

@@ -37,7 +37,8 @@ zig build run-nocted -- --open README.md
   lifetimes, callback dispatch, Pango glyph caches, and bridge calls into Zig.
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
   precedence, keyboard command planning, tab/pane cycle targets, directional
-  pane focus scoring, scrollbar geometry, wheel accumulation and fallback keys,
+  pane focus scoring, scrollbar geometry and press/drag planning, wheel
+  accumulation and fallback keys,
   terminal key encoding and shortcut labels, keyboard scroll targets, bounded
   UI text and hyperlink validation, command-palette fuzzy matching, responsive
   dropdown dimension/percentage conversion, sharing-status actions, grid

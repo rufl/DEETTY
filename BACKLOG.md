@@ -135,9 +135,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   native-grid adapter. Core first-party ownership now exceeds the 80% Zig
   target. The adapter delegates bounded UI text validation, input-routing
   precedence, keyboard navigation planning, tab/pane cycle targets, directional
-  focus scoring, scrollbar geometry, wheel accumulation, keyboard scroll
-  targets, grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell
-  mapping, linear selection hit testing, compact tab/new-tab/window-toolbar
+  focus scoring, scrollbar geometry and press/drag planning, wheel accumulation,
+  keyboard scroll targets, grid sizing/auto-fit, window-resize deltas/bounds,
+  pointer-to-cell mapping, linear selection hit testing, compact
+  tab/new-tab/window-toolbar
   construction, and the Cairo/Pango cell, glyph, overlay, scrollbar, and
   sharing preview pipeline to Zig.
   Continue migrating that adapter incrementally behind its existing ABI

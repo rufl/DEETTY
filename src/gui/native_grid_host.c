@@ -8925,21 +8925,16 @@ static gboolean handle_terminal_scrollbar_button(
 
     if (!gtk_widget_has_focus(widget)) gtk_widget_grab_focus(widget);
     activate_grid_context(context);
-    if (event->y >= geometry->thumb_y &&
-        event->y <= geometry->thumb_y + geometry->thumb_height) {
+    NocttyTerminalScrollbarPressPlan plan = {0};
+    noctty_grid_scrollbar_press_plan(geometry, event->y, &plan);
+    if (plan.action == NOCTTY_GRID_SCROLLBAR_PRESS_DRAG) {
         context->scrollbar_dragging = 1;
-        context->scrollbar_drag_offset = event->y - geometry->thumb_y;
+        context->scrollbar_drag_offset = plan.drag_offset;
         gtk_widget_queue_draw(context->area);
         return TRUE;
     }
-
-    uint64_t page = MAX((uint64_t)geometry->visible_rows - 1, 1u);
-    uint64_t target = event->y < geometry->thumb_y
-        ? MIN(geometry->history_lines, geometry->viewport_offset + page)
-        : geometry->viewport_offset > page
-            ? geometry->viewport_offset - page
-            : 0;
-    if (scroll_terminal_to_offset(context, target))
+    if (plan.action == NOCTTY_GRID_SCROLLBAR_PRESS_PAGE &&
+        scroll_terminal_to_offset(context, plan.target_offset))
         root_grid_context(context)->compact_scrollbar_track_scrolled = 1;
     return TRUE;
 }
@@ -15746,17 +15741,11 @@ static gboolean handle_terminal_scrollbar_motion(
     if (!terminal_scrollbar_geometry(context, allocation, &geometry))
         return TRUE;
 
-    double travel = geometry.height - geometry.thumb_height;
-    if (travel <= 0.0 || geometry.history_lines == 0) return TRUE;
-    double thumb_y = CLAMP(
-        event->y - context->scrollbar_drag_offset,
-        geometry.y, geometry.y + travel);
-    double position = (thumb_y - geometry.y) / travel;
-    uint64_t target_position = (uint64_t)llround(
-        position * (double)geometry.history_lines);
-    uint64_t target_offset = geometry.history_lines -
-        MIN(target_position, geometry.history_lines);
-    if (scroll_terminal_to_offset(context, target_offset))
+    uint64_t target_offset = 0;
+    if (noctty_grid_scrollbar_drag_target(
+            &geometry, event->y, context->scrollbar_drag_offset,
+            &target_offset) != 0 &&
+        scroll_terminal_to_offset(context, target_offset))
         root_grid_context(context)->compact_scrollbar_thumb_dragged = 1;
     return TRUE;
 }
