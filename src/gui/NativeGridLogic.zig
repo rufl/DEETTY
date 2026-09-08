@@ -1754,6 +1754,18 @@ pub export fn noctty_grid_pointer_cell(
     return 1;
 }
 
+pub export fn noctty_grid_cell_is_background(
+    text: ?[*]const u8,
+    length: c_int,
+) callconv(.c) c_int {
+    const bytes = text orelse return 0;
+    if (length < 0) return 0;
+    for (bytes[0..@intCast(length)]) |byte| {
+        if (byte != ' ') return 0;
+    }
+    return 1;
+}
+
 test "pointer mapping distinguishes bounded hits from clamped drags" {
     var column: c_int = 0;
     var row: c_int = 0;
@@ -1792,6 +1804,13 @@ test "pointer mapping distinguishes bounded hits from clamped drags" {
         &column,
         &row,
     ));
+}
+
+test "background cell policy accepts only empty and plain spaces" {
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_is_background("".ptr, 0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_is_background("   ".ptr, 3));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_is_background("x".ptr, 1));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_is_background("\xc2\xa0".ptr, 2));
 }
 
 test "inactive pane brightness scales every channel and preserves active panes" {

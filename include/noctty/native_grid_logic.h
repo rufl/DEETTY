@@ -343,4 +343,5 @@ int noctty_grid_pointer_cell(double x, double y, double cell_width,
                              double cell_height, int columns, int rows,
                              int clamp, int *column, int *row);
 
+int noctty_grid_cell_is_background(const unsigned char *text, int length);
 #endif

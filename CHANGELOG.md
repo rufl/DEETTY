@@ -75,6 +75,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved workspace color-editor labels and roles into tested Zig. GTK retains
   settings-page widget creation.
 
+- Restricted pane double-click zoom to empty background cells and added
+  contiguous word selection for rendered text.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

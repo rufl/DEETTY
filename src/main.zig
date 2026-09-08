@@ -44,6 +44,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_resize_delta;
     _ = NativeGridLogic.noctty_grid_clamp_resize;
     _ = NativeGridLogic.noctty_grid_pointer_cell;
+    _ = NativeGridLogic.noctty_grid_cell_is_background;
     _ = NativeGridLogic.noctty_grid_close_request;
     _ = NativeGridLogic.noctty_grid_close_modal_begin;
     _ = NativeGridLogic.noctty_grid_close_modal_end;
@@ -7298,7 +7299,7 @@ fn nativeGridClickFocusSmoke(out: anytype) !void {
     if (bridge.created_session_count != 1 or tab.panes.items.len != 2) return error.NativeGridClickFocusCountMismatch;
     if (tab.active_pane_id != 2 or tab.zoomed_pane_id != null or !bridge.saw_pane_zoom) return error.NativeGridClickFocusStateMismatch;
     if (!bridge.saw_secondary_output or !bridge.saw_secondary_exited) return error.NativeGridClickFocusRoutingMissing;
-    try out.print("native_grid_click_focus_smoke panes=2 primary_click=true secondary_click=true clean_click=true hover_trails=false double_click_zoom=true zoom_selection=false restore_selection=false drag_selection=true focus_switched=true primary_input=true secondary_input=true focus_readiness=bounded controlled_exit=true exited=true\n", .{});
+    try out.print("native_grid_click_focus_smoke panes=2 primary_click=true secondary_click=true clean_click=true hover_trails=false double_click_zoom=true word_selection=true zoom_selection=false restore_selection=false drag_selection=true focus_switched=true primary_input=true secondary_input=true focus_readiness=bounded controlled_exit=true exited=true\n", .{});
 }
 
 fn nativeGridEightPaneSmoke(out: anytype) !void {

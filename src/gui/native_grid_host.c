@@ -318,6 +318,7 @@ typedef struct NocttyGridContextTag {
     int tag_filter_empty_escape;
     int tag_suggestions_visible;
     int selection_indicator_visible;
+    int preserve_double_click_selection;
     int suppress_primary_release;
     int cursor_visible;
     int focused;
@@ -482,6 +483,7 @@ typedef struct NocttyGridContextTag {
     int focus_click_primary;
     int focus_click_secondary;
     int focus_click_controlled_exit;
+    int focus_double_click_word_selection;
     int focus_double_click_zoom_clean;
     int focus_double_click_restore_clean;
     int focus_drag_selection_preserved;
@@ -8738,6 +8740,36 @@ static gboolean grid_cell_at_point(NocttyGridContext *context,
         context->columns, context->rows, 0, column, row) != 0;
 }
 
+static gboolean grid_cell_is_background(NocttyGridContext *context,
+                                        int column, int row) {
+    char text[64] = {0};
+    int length = context->cell_text(
+        context->userdata, column, row, text, sizeof(text));
+    return noctty_grid_cell_is_background(
+        (const uint8_t *)text, length) != 0;
+}
+
+static gboolean select_grid_word(NocttyGridContext *context,
+                                 int column, int row) {
+    if (grid_cell_is_background(context, column, row)) return FALSE;
+    int start = column;
+    int end = column;
+    while (start > 0 &&
+           !grid_cell_is_background(context, start - 1, row))
+        start--;
+    while (end + 1 < context->columns &&
+           !grid_cell_is_background(context, end + 1, row))
+        end++;
+    context->selecting = 1;
+    context->selection_dragging = 0;
+    context->selection_start_column = start;
+    context->selection_start_row = row;
+    context->selection_end_column = end;
+    context->selection_end_row = row;
+    gtk_widget_queue_draw(context->area);
+    return TRUE;
+}
+
 static void popup_menu_at_toplevel_pointer(
     NocttyGridContext *context, GtkWidget *menu, GtkWidget *anchor,
     GdkEventButton *event);
@@ -8919,19 +8951,34 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         context, event->x, event->y, &hyperlink_column, &hyperlink_row);
     int button = event->button >= 1 && event->button <= 3 ? (int)event->button - 1 : 0;
     int pressed = event->type == GDK_BUTTON_PRESS;
-    if (event->type == GDK_BUTTON_PRESS && event->button == 1)
+    if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
+        context->preserve_double_click_selection = 0;
         context->suppress_primary_release = 0;
-    if (event->type == GDK_2BUTTON_PRESS && event->button == 1 &&
-        grid_contexts_on_page(root_grid_context(context), context->page) > 1) {
+    }
+    if (event->type == GDK_2BUTTON_PRESS && event->button == 1) {
+        gboolean background = grid_cell_is_background(context, column, row);
+        if (background &&
+            grid_contexts_on_page(root_grid_context(context), context->page) > 1) {
+            clear_grid_selection(context);
+            context->suppress_primary_release = 1;
+            toggle_grid_zoom(context);
+            return TRUE;
+        }
+        if (!background && select_grid_word(context, column, row)) {
+            context->preserve_double_click_selection = 1;
+            context->suppress_primary_release = 1;
+            return TRUE;
+        }
         clear_grid_selection(context);
         context->suppress_primary_release = 1;
-        toggle_grid_zoom(context);
         return TRUE;
     }
     if (event->type == GDK_BUTTON_RELEASE && event->button == 1 &&
         context->suppress_primary_release) {
+        const int preserve_selection = context->preserve_double_click_selection;
+        context->preserve_double_click_selection = 0;
         context->suppress_primary_release = 0;
-        clear_grid_selection(context);
+        if (!preserve_selection) clear_grid_selection(context);
         return TRUE;
     }
     if (pressed && event->button == 1 && hyperlink_point &&
@@ -9068,11 +9115,11 @@ static void emit_zoom_double_click(NocttyGridContext *target,
     (void)on_mouse_button(target->area, &event, target);
     event.type = GDK_BUTTON_RELEASE;
     (void)on_mouse_button(target->area, &event, target);
+    event.x = release_x;
+    event.y = release_y;
     event.type = GDK_2BUTTON_PRESS;
     (void)on_mouse_button(target->area, &event, target);
     event.type = GDK_BUTTON_RELEASE;
-    event.x = release_x;
-    event.y = release_y;
     (void)on_mouse_button(target->area, &event, target);
 }
 
@@ -9083,18 +9130,40 @@ static void run_zoom_selection_smoke(NocttyGridContext *root) {
     GtkWidget *split = gtk_widget_get_parent(target->area);
     int original_split_position = GTK_IS_PANED(split)
         ? gtk_paned_get_position(GTK_PANED(split)) : -1;
-    emit_zoom_double_click(target, 45, 54);
+    emit_zoom_double_click(target, 900, 300);
     root->focus_double_click_zoom_clean =
         root->zoomed_pane_id == target->pane_id &&
         !target->selection_dragging && !target->selecting &&
         !target->suppress_primary_release;
-    emit_zoom_double_click(target, 63, 72);
+    emit_zoom_double_click(target, 850, 280);
     root->focus_double_click_restore_clean =
         root->zoomed_pane_id == 0 &&
         !target->selection_dragging && !target->selecting &&
         !target->suppress_primary_release &&
         (!GTK_IS_PANED(split) ||
          gtk_paned_get_position(GTK_PANED(split)) == original_split_position);
+    int word_column = -1;
+    int word_row = -1;
+    for (int row = 0; row < target->rows && word_row < 0; row++) {
+        for (int column = 0; column < target->columns; column++) {
+            if (!grid_cell_is_background(target, column, row)) {
+                word_column = column;
+                word_row = row;
+                break;
+            }
+        }
+    }
+    if (word_row >= 0) {
+        NocttyGridFontMetrics metrics = grid_font_metrics(target);
+        emit_zoom_double_click(
+            target,
+            4.0 + (word_column + 0.5) * metrics.cell_width,
+            2.0 + (word_row + 0.5) * metrics.cell_height);
+        root->focus_double_click_word_selection =
+            target->selecting && !target->selection_dragging &&
+            !target->suppress_primary_release;
+        clear_grid_selection(target);
+    }
     GdkEventButton button = {0};
     button.type = GDK_BUTTON_PRESS;
     button.button = 1;
@@ -17246,6 +17315,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     int focus_ok = workspace_smoke != 12 ||
         (context.focus_click_primary && context.focus_click_secondary &&
          context.focus_click_controlled_exit &&
+         context.focus_double_click_word_selection &&
          context.focus_double_click_zoom_clean &&
          context.focus_double_click_restore_clean &&
          context.focus_drag_selection_preserved);
@@ -17592,11 +17662,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                    final_tabs_visible);
     }
     if (!host_ok && workspace_smoke == 12) {
-        g_printerr("native_grid_click_focus_flags stage=%d primary=%d secondary=%d controlled_exit=%d zoom=%d restore=%d drag=%d\n",
+        g_printerr("native_grid_click_focus_flags stage=%d primary=%d secondary=%d controlled_exit=%d word=%d zoom=%d restore=%d drag=%d\n",
                    context.focus_click_smoke_stage,
                    context.focus_click_primary,
                    context.focus_click_secondary,
                    context.focus_click_controlled_exit,
+                   context.focus_double_click_word_selection,
                    context.focus_double_click_zoom_clean,
                    context.focus_double_click_restore_clean,
                    context.focus_drag_selection_preserved);
