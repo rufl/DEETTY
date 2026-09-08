@@ -1532,9 +1532,8 @@ static void draw_terminal_scrollbar(
 static uint32_t scale_pane_brightness(NocttyGridContext *context,
                                       uint32_t rgb) {
     NocttyGridContext *root = root_grid_context(context);
-    gboolean active = root->active_pane_id_for_render != 0
-        ? root->active_pane_id_for_render == context->pane_id
-        : context->focused;
+    gboolean active = noctty_grid_pane_is_active(
+        root->active_pane_id_for_render, context->pane_id, context->focused);
     return noctty_grid_scale_brightness(
         rgb, context->inactive_pane_dim_enabled, active,
         context->inactive_pane_brightness_percent);

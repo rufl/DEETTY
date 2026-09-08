@@ -1451,6 +1451,14 @@ pub export fn noctty_grid_scale_brightness(
     return (red << 16) | (green << 8) | blue;
 }
 
+pub export fn noctty_grid_pane_is_active(
+    active_pane_id: u64,
+    pane_id: u64,
+    focused: c_int,
+) callconv(.c) c_int {
+    return @intFromBool(if (active_pane_id != 0) active_pane_id == pane_id else focused != 0);
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1627,6 +1635,13 @@ test "inactive pane brightness scales every channel and preserves active panes" 
         @as(u32, 0xa05023),
         noctty_grid_scale_brightness(0xa05023, 0, 0, 70),
     );
+}
+
+test "active pane selection prefers mapped identity over GTK focus" {
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pane_is_active(7, 7, 0));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(7, 8, 1));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pane_is_active(0, 8, 1));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(0, 8, 0));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

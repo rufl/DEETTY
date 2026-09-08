@@ -298,6 +298,8 @@ int noctty_grid_dimensions(int allocation_width, int allocation_height,
 uint32_t noctty_grid_scale_brightness(
     uint32_t rgb, int enabled, int active, int percent);
 
+int noctty_grid_pane_is_active(uint64_t active_pane_id,
+                               uint64_t pane_id, int focused);
 typedef struct {
     int x;
     int y;
