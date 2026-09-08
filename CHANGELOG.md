@@ -45,6 +45,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved resize-handle edge ordinal selection into tested Zig policy. GTK now
   receives the bounded edge value through the native logic ABI.
 
+- Moved resize-handle storage-index normalization into tested Zig policy.
+  GTK object data remains the transport for the 1-based handle identifier.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

@@ -16108,15 +16108,11 @@ static void on_size_allocate(GtkWidget *widget, GtkAllocation *allocation, gpoin
 
 
 
-static int window_resize_handle_index(GtkWidget *widget) {
-    return GPOINTER_TO_INT(g_object_get_data(
-        G_OBJECT(widget), "noctty-resize-index")) - 1;
-}
-
 static void on_window_resize_handle_realize(GtkWidget *widget,
                                             gpointer user_data) {
     (void)user_data;
-    int index = window_resize_handle_index(widget);
+    int index = noctty_grid_resize_handle_index(GPOINTER_TO_INT(
+        g_object_get_data(G_OBJECT(widget), "noctty-resize-index")));
     if (index < 0 || index >= 8) return;
     GdkWindow *window = gtk_widget_get_window(widget);
     if (window == NULL) return;
@@ -16224,7 +16220,8 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
                                                 GdkEventButton *event,
                                                 gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    int index = window_resize_handle_index(widget);
+    int index = noctty_grid_resize_handle_index(GPOINTER_TO_INT(
+        g_object_get_data(G_OBJECT(widget), "noctty-resize-index")));
     if (index < 0 || index >= 8 || event->button != 1 || root->mode == 2)
         return FALSE;
 
@@ -16269,7 +16266,8 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
                                                 gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     if (!root->window_resize_drag_active &&
-        window_resize_handle_index(widget) == 6 && root->mode == 0 &&
+        noctty_grid_resize_handle_index(GPOINTER_TO_INT(
+            g_object_get_data(G_OBJECT(widget), "noctty-resize-index"))) == 6 && root->mode == 0 &&
         root->dragger_click_pending == 1 && (event->state & GDK_BUTTON1_MASK)) {
         double delta_x = event->x_root - root->window_resize_drag_start_x;
         double delta_y = event->y_root - root->window_resize_drag_start_y;
