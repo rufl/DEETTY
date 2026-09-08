@@ -16106,16 +16106,6 @@ static void on_size_allocate(GtkWidget *widget, GtkAllocation *allocation, gpoin
     resize_grid_to_allocation(context, allocation);
 }
 
-static const GdkWindowEdge noctty_resize_edges[8] = {
-    GDK_WINDOW_EDGE_NORTH_WEST,
-    GDK_WINDOW_EDGE_NORTH,
-    GDK_WINDOW_EDGE_NORTH_EAST,
-    GDK_WINDOW_EDGE_WEST,
-    GDK_WINDOW_EDGE_EAST,
-    GDK_WINDOW_EDGE_SOUTH_WEST,
-    GDK_WINDOW_EDGE_SOUTH,
-    GDK_WINDOW_EDGE_SOUTH_EAST,
-};
 
 
 static int window_resize_handle_index(GtkWidget *widget) {
@@ -16186,7 +16176,7 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
         root->dropdown_height_percent;
     if (!root->layer_shell_active) {
         gtk_window_begin_resize_drag(
-            GTK_WINDOW(root->window), noctty_resize_edges[index],
+            GTK_WINDOW(root->window), (GdkWindowEdge)noctty_grid_resize_edge(index),
             (gint)button, (gint)x_root, (gint)y_root, time);
         return TRUE;
     }

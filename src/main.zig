@@ -26,6 +26,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_window_resize_cursor_name;
     _ = NativeGridLogic.noctty_grid_tray_menu_label;
     _ = NativeGridLogic.noctty_grid_tray_menu_icon_name;
+    _ = NativeGridLogic.noctty_grid_resize_edge;
     _ = NativeGridLogic.noctty_grid_cell_selected;
     _ = NativeGridLogic.noctty_grid_codepoint_utf8;
     _ = NativeGridLogic.noctty_grid_render_viewport;

@@ -275,6 +275,17 @@ pub export fn noctty_grid_tray_menu_icon_name(id: c_int) callconv(.c) [*:0]const
     };
 }
 
+pub export fn noctty_grid_resize_edge(index: c_int) callconv(.c) c_int {
+    return if (index >= 0 and index < 8) index else -1;
+}
+
+test "resize edge policy preserves all GTK edge ordinals" {
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_edge(0));
+    try std.testing.expectEqual(@as(c_int, 7), noctty_grid_resize_edge(7));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_edge(-1));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_edge(8));
+}
+
 fn validRectangle(rectangle: *const Rectangle) bool {
     return std.math.isFinite(rectangle.x) and
         std.math.isFinite(rectangle.y) and
