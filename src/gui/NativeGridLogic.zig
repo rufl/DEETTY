@@ -1459,6 +1459,16 @@ pub export fn noctty_grid_pane_is_active(
     return @intFromBool(if (active_pane_id != 0) active_pane_id == pane_id else focused != 0);
 }
 
+pub export fn noctty_grid_status_name(status_kind: c_int) callconv(.c) [*:0]const u8 {
+    return switch (status_kind) {
+        1 => "running",
+        2 => "done",
+        3 => "error",
+        4 => "pending input",
+        else => "idle",
+    };
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1642,6 +1652,14 @@ test "active pane selection prefers mapped identity over GTK focus" {
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(7, 8, 1));
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pane_is_active(0, 8, 1));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(0, 8, 0));
+}
+
+test "status names cover protocol states and idle fallback" {
+    try std.testing.expectEqualStrings("running", std.mem.span(noctty_grid_status_name(1)));
+    try std.testing.expectEqualStrings("done", std.mem.span(noctty_grid_status_name(2)));
+    try std.testing.expectEqualStrings("error", std.mem.span(noctty_grid_status_name(3)));
+    try std.testing.expectEqualStrings("pending input", std.mem.span(noctty_grid_status_name(4)));
+    try std.testing.expectEqualStrings("idle", std.mem.span(noctty_grid_status_name(0)));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

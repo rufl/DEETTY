@@ -41,14 +41,14 @@ zig build run-nocted -- --open README.md
   accumulation and fallback keys, GTK modifier-mask and Alt/Meta key policy,
   tray-menu ID, label, and icon policy, resize-cursor orientation,
   resize-edge ordinals, handle-index normalization, active-pane render
-  selection, terminal key encoding and shortcut labels, keyboard scroll
-  targets, bounded UI text and hyperlink
-  validation, command-palette fuzzy matching, responsive dropdown
-  dimension/percentage conversion, sharing-status actions, terminal font/cell
-  metric conversion, grid sizing/auto-fit, window-resize deltas/bounds,
-  pointer-to-cell mapping, linear selection hit testing, pixel-snapped render
-  and dirty row/cell damage spans, packed-cell/run decoding, UTF-8 encoding,
-  clipping, pane chrome, and caret policy consumed through
+  selection, status-label selection, terminal key encoding and shortcut
+  labels, keyboard scroll targets, bounded UI text and hyperlink validation,
+  command-palette fuzzy matching, responsive dropdown dimension/percentage
+  conversion, sharing-status actions, terminal font/cell metric conversion,
+  grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
+  linear selection hit testing, pixel-snapped render and dirty row/cell damage
+  spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane chrome, and
+  caret policy consumed through
   `include/noctty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and

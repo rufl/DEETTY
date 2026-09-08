@@ -53,6 +53,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_dropdown_percent;
     _ = NativeGridLogic.noctty_grid_scale_brightness;
     _ = NativeGridLogic.noctty_grid_pane_is_active;
+    _ = NativeGridLogic.noctty_grid_status_name;
     _ = NativeGridLogic.noctty_grid_cycle_target;
     _ = NativeGridLogic.noctty_grid_directional_focus_begin;
     _ = NativeGridLogic.noctty_grid_directional_focus_consider;

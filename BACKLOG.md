@@ -137,8 +137,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   translation and Alt/Meta key detection, input-routing precedence, keyboard
   navigation planning, tab/pane cycle targets, directional focus scoring,
   tray-menu ID, label, and icon policy, resize-cursor orientation, resize-edge
-  ordinals, handle-index normalization, active-pane render selection,
-  scrollbar geometry and press/drag planning, wheel accumulation, keyboard
+  ordinals, handle-index normalization, active-pane render selection, status
+  labels, scrollbar geometry and press/drag planning, wheel accumulation,
   scroll targets, font/cell metric conversion, grid sizing/auto-fit,
   window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit
   testing, pixel-snapped row/cell damage spans, Paseo Black Zinc theme colors,

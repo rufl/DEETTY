@@ -4515,16 +4515,6 @@ static gboolean on_window_focus_out(GtkWidget *widget, GdkEventFocus *event,
     return FALSE;
 }
 
-static const gchar *grid_status_name(int status_kind) {
-    switch (status_kind) {
-    case 1: return "running";
-    case 2: return "done";
-    case 3: return "error";
-    case 4: return "pending input";
-    default: return "idle";
-    }
-}
-
 static void update_status_tooltip(NocttyGridContext *context, const gchar *status) {
     char tag_buffer[256] = {0};
     int tag_length = context->event_data != NULL
@@ -4557,7 +4547,7 @@ static void refresh_tag_tooltips(NocttyGridContext *context) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->active && candidate->area != NULL)
             update_status_tooltip(candidate,
-                                  grid_status_name(candidate->status_kind));
+                                  noctty_grid_status_name(candidate->status_kind));
     }
 }
 
@@ -6168,7 +6158,7 @@ static int pump_grid_context(NocttyGridContext *context,
                        active_status == 4 ? 109 : 2, 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     if (status_changed) {
-        update_status_tooltip(context, grid_status_name(active_status));
+        update_status_tooltip(context, noctty_grid_status_name(active_status));
         update_compact_tab(context);
     }
     if (notification_requested) {
