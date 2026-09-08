@@ -1495,6 +1495,37 @@ pub export fn noctty_grid_shortcut_field(field: c_int, smoke: c_int) callconv(.c
     };
 }
 
+pub const ResizeHandleLayout = extern struct {
+    column: c_int,
+    row: c_int,
+    width: c_int,
+    height: c_int,
+};
+
+pub export fn noctty_grid_resize_handle_layout(
+    index: c_int,
+    border_px: c_int,
+    dragger_px: c_int,
+    output: ?*ResizeHandleLayout,
+) callconv(.c) c_int {
+    const layout = output orelse return 0;
+    if (index < 0 or index >= 8 or border_px < 0 or dragger_px < 0) return 0;
+    const columns = [_]c_int{ 0, 1, 2, 0, 2, 0, 1, 2 };
+    const rows = [_]c_int{ 0, 0, 0, 1, 1, 2, 2, 2 };
+    layout.* = .{
+        .column = columns[@intCast(index)],
+        .row = rows[@intCast(index)],
+        .width = if (index == 1 or index == 6) -1 else border_px,
+        .height = if (index == 3 or index == 4)
+            -1
+        else if (index == 6)
+            dragger_px
+        else
+            border_px,
+    };
+    return 1;
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1716,6 +1747,21 @@ test "shortcut fields preserve normal and smoke identities" {
     try std.testing.expectEqualStrings("Show/hide NOCTTY", std.mem.span(noctty_grid_shortcut_field(3, 0)));
     try std.testing.expectEqualStrings("/component/noctty_smoke", std.mem.span(noctty_grid_shortcut_field(4, 1)));
     try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_shortcut_field(9, 0)));
+}
+
+test "resize handle layout preserves the complete grid geometry" {
+    var layout: ResizeHandleLayout = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_handle_layout(0, 6, 4, &layout));
+    try std.testing.expectEqual(@as(c_int, 0), layout.column);
+    try std.testing.expectEqual(@as(c_int, 0), layout.row);
+    try std.testing.expectEqual(@as(c_int, 6), layout.width);
+    try std.testing.expectEqual(@as(c_int, 6), layout.height);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_handle_layout(6, 6, 4, &layout));
+    try std.testing.expectEqual(@as(c_int, 1), layout.column);
+    try std.testing.expectEqual(@as(c_int, 2), layout.row);
+    try std.testing.expectEqual(@as(c_int, -1), layout.width);
+    try std.testing.expectEqual(@as(c_int, 4), layout.height);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_handle_layout(8, 6, 4, &layout));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

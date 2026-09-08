@@ -63,6 +63,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved global shortcut component, action, display, description, and object-path
   naming into tested Zig policy for both normal and smoke identities.
 
+- Moved resize-handle grid coordinates and size policy into tested Zig. GTK
+  retains widget creation and attachment.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

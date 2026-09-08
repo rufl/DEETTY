@@ -305,6 +305,15 @@ const char *noctty_grid_profile_preset_label(int preset);
 const char *noctty_grid_broadcast_menu_label(int enabled);
 const char *noctty_grid_shortcut_field(int field, int smoke);
 typedef struct {
+    int column;
+    int row;
+    int width;
+    int height;
+} NocttyGridResizeHandleLayout;
+int noctty_grid_resize_handle_layout(int index, int border_px,
+                                     int dragger_px,
+                                     NocttyGridResizeHandleLayout *output);
+typedef struct {
     int x;
     int y;
     int width;

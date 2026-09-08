@@ -40,11 +40,11 @@ zig build run-nocted -- --open README.md
   pane focus scoring, scrollbar geometry and press/drag planning, wheel
   accumulation and fallback keys, GTK modifier-mask and Alt/Meta key policy,
   tray-menu ID, label, and icon policy, resize-cursor orientation,
-  resize-edge ordinals, handle-index normalization, active-pane render
-  selection, status-label and profile-preset label selection, broadcast-menu
-  label selection, global shortcut identity strings, terminal key encoding and
-  shortcut labels, keyboard scroll targets, bounded UI text and hyperlink
-  validation,
+  resize-edge ordinals, handle-index normalization, resize-handle grid layout,
+  active-pane render selection, status-label and profile-preset label selection,
+  broadcast-menu label selection, global shortcut identity strings, terminal key
+  encoding and shortcut labels, keyboard scroll targets, bounded UI text and
+  hyperlink validation,
   command-palette fuzzy matching, responsive dropdown dimension/percentage
   conversion, sharing-status actions, terminal font/cell metric conversion,
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,

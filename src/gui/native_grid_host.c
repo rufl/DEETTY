@@ -16355,20 +16355,18 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
     gtk_widget_set_vexpand(layout, TRUE);
     gtk_widget_set_hexpand(content, TRUE);
     gtk_widget_set_vexpand(content, TRUE);
-    const int columns[8] = {0, 1, 2, 0, 2, 0, 1, 2};
-    const int rows[8] = {0, 0, 0, 1, 1, 2, 2, 2};
     int border_px = context->window_border_px;
     int dragger_px = context->dragger_px;
-    const int widths[8] = {border_px, -1, border_px, border_px,
-                          border_px, border_px, -1, border_px};
-    const int heights[8] = {border_px, border_px, border_px, -1, -1,
-                           border_px, dragger_px, border_px};
     for (int index = 0; index < 8; index++) {
+        NocttyGridResizeHandleLayout handle_layout = {0};
+        if (noctty_grid_resize_handle_layout(
+                index, border_px, dragger_px, &handle_layout) == 0)
+            continue;
         GtkWidget *handle = create_window_resize_handle(
-            context, index, widths[index], heights[index]);
+            context, index, handle_layout.width, handle_layout.height);
         if (index != 6)
-            gtk_grid_attach(GTK_GRID(layout), handle, columns[index],
-                            rows[index], 1, 1);
+            gtk_grid_attach(GTK_GRID(layout), handle, handle_layout.column,
+                            handle_layout.row, 1, 1);
     }
     context->resize_grip = context->window_resize_handles[6];
     gtk_grid_attach(GTK_GRID(layout), content, 1, 1, 1, 1);
@@ -16388,10 +16386,12 @@ static void update_window_resize_handles(NocttyGridContext *context) {
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = root->window_resize_handles[index];
         if (handle == NULL || index == 6) continue;
-        int width = index == 1 ? -1 : root->window_border_px;
-        int height = index == 3 || index == 4
-            ? -1 : root->window_border_px;
-        gtk_widget_set_size_request(handle, width, height);
+        NocttyGridResizeHandleLayout handle_layout = {0};
+        if (noctty_grid_resize_handle_layout(
+                index, root->window_border_px, dragger_px, &handle_layout) == 0)
+            continue;
+        gtk_widget_set_size_request(handle, handle_layout.width,
+                                    handle_layout.height);
     }
     int visible = 0;
     for (int index = 0; index < 8; index++) {

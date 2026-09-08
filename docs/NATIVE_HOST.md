@@ -134,6 +134,10 @@ GTK builds the workspace menu.
 Global shortcut identity strings for normal and smoke registrations are selected
 by Zig before GTK/DBus registration.
 
+Resize-handle grid coordinates and size requests are selected by tested Zig
+policy for all eight grips; GTK retains widget creation, attachment, and
+overlay placement.
+
 Validated OSC 8 links accept only `http`, `https`, and `mailto`. `Ctrl+click` asks GTK to open the URI through the desktop's default application; right-clicking the link opens an owned menu with **Open Link in Browser** and **Copy Link**. Invalid encodings, control bytes, unsupported schemes, and oversized addresses fail closed.
 
 Each terminal's native context menu now includes an exact-pane `Profile` submenu with five Zig-owned radio choices: Global default, Compact, Readable, High contrast, and Mono no ligatures. The current item is resolved from the right-clicked pane, and selection carries that pane ID even if another terminal owns keyboard focus. The narrow profile query synchronizes family, size, high-contrast state, ligature preference, and current preset into only the matching native context; Settings exposes the same path as `Active pane profile`. Readable drives the target to 14 pt, High contrast updates the target theme/rendering, and the focused two-pane proof keeps the neighbor unchanged through all three driven transitions before snapshot/autosave restoration. Mono no ligatures is an honest state boundary: the preference reaches GTK and persists, but the current fixed-cell Cairo renderer paints codepoints individually and does not prove font-feature shaping or visible ligature substitution.
