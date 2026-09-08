@@ -13955,17 +13955,6 @@ static void on_compact_menu_activate(GtkWidget *item, gpointer user_data) {
     execute_palette_action(context, action);
 }
 
-static const gchar *profile_preset_label(int preset) {
-    static const gchar *labels[] = {
-        "Global default",
-        "Compact",
-        "Readable",
-        "High contrast",
-        "Mono no ligatures",
-    };
-    return preset >= 0 && preset < (int)G_N_ELEMENTS(labels)
-        ? labels[preset] : "Custom";
-}
 
 static void on_profile_preset_toggled(GtkCheckMenuItem *item,
                                       gpointer user_data) {
@@ -13994,7 +13983,7 @@ static GtkWidget *create_profile_preset_menu(NocttyGridContext *context) {
     GSList *group = NULL;
     for (int preset = 0; preset < 5; preset++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(
-            group, profile_preset_label(preset));
+            group, noctty_grid_profile_preset_label(preset));
         group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
         g_object_set_data(G_OBJECT(item), "noctty-profile-preset",
                           GINT_TO_POINTER(preset));
@@ -14720,10 +14709,10 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
     const int selected = stage == 1 ? 2 : stage == 2 ? 3 : 4;
     GtkWidget *current = submenu != NULL
         ? find_workspace_menu_item(submenu,
-                                   profile_preset_label(expected)) : NULL;
+                                   noctty_grid_profile_preset_label(expected)) : NULL;
     GtkWidget *choice = submenu != NULL
         ? find_workspace_menu_item(submenu,
-                                   profile_preset_label(selected)) : NULL;
+                                   noctty_grid_profile_preset_label(selected)) : NULL;
     int preset_count = 0;
     if (submenu != NULL) {
         GList *items = gtk_container_get_children(GTK_CONTAINER(submenu));

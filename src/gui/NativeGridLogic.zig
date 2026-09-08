@@ -1469,6 +1469,17 @@ pub export fn noctty_grid_status_name(status_kind: c_int) callconv(.c) [*:0]cons
     };
 }
 
+pub export fn noctty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]const u8 {
+    return switch (preset) {
+        0 => "Global default",
+        1 => "Compact",
+        2 => "Readable",
+        3 => "High contrast",
+        4 => "Mono no ligatures",
+        else => "Custom",
+    };
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1660,6 +1671,15 @@ test "status names cover protocol states and idle fallback" {
     try std.testing.expectEqualStrings("error", std.mem.span(noctty_grid_status_name(3)));
     try std.testing.expectEqualStrings("pending input", std.mem.span(noctty_grid_status_name(4)));
     try std.testing.expectEqualStrings("idle", std.mem.span(noctty_grid_status_name(0)));
+}
+
+test "profile labels cover every preset and custom fallback" {
+    try std.testing.expectEqualStrings("Global default", std.mem.span(noctty_grid_profile_preset_label(0)));
+    try std.testing.expectEqualStrings("Compact", std.mem.span(noctty_grid_profile_preset_label(1)));
+    try std.testing.expectEqualStrings("Readable", std.mem.span(noctty_grid_profile_preset_label(2)));
+    try std.testing.expectEqualStrings("High contrast", std.mem.span(noctty_grid_profile_preset_label(3)));
+    try std.testing.expectEqualStrings("Mono no ligatures", std.mem.span(noctty_grid_profile_preset_label(4)));
+    try std.testing.expectEqualStrings("Custom", std.mem.span(noctty_grid_profile_preset_label(5)));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {
