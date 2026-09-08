@@ -140,10 +140,11 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   ordinals, handle-index normalization, resize-handle grid layout,
   pane-divider snap points, active-pane render selection, status labels, profile
   preset labels, broadcast menu labels, shortcut identities, command-palette
-  action IDs/labels/hints, scrollbar geometry and press/drag planning, wheel
-  accumulation, scroll targets, font/cell metric conversion, grid sizing/auto-
-  fit, window-resize deltas/bounds,
-  pointer-to-cell mapping, linear selection hit testing, pixel-snapped row/cell
+  action IDs/labels/hints, workspace color-editor labels/roles, scrollbar
+  geometry and press/drag planning, wheel accumulation, scroll targets,
+  font/cell metric conversion, grid sizing/auto-fit, window-resize
+  deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
+  pixel-snapped row/cell
   damage spans, Paseo Black Zinc theme colors, compact tab/new-tab/window-
   toolbar construction, and the Cairo/Pango cell, glyph, overlay, scrollbar,
   and sharing preview pipeline to Zig.

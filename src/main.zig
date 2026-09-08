@@ -60,6 +60,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_resize_handle_layout;
     _ = NativeGridLogic.noctty_grid_snap_pane_position;
     _ = NativeGridLogic.noctty_grid_palette_actions;
+    _ = NativeGridLogic.noctty_grid_workspace_color;
     _ = NativeGridLogic.noctty_grid_cycle_target;
     _ = NativeGridLogic.noctty_grid_directional_focus_begin;
     _ = NativeGridLogic.noctty_grid_directional_focus_consider;

@@ -317,6 +317,11 @@ int noctty_grid_snap_pane_position(int max_position, int position);
 unsigned int noctty_grid_palette_actions(
     NocttyPaletteAction *output, unsigned int capacity);
 typedef struct {
+    const char *label;
+    unsigned int role;
+} NocttyGridWorkspaceColor;
+int noctty_grid_workspace_color(int index, NocttyGridWorkspaceColor *output);
+typedef struct {
     int x;
     int y;
     int width;

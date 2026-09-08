@@ -1594,6 +1594,43 @@ pub export fn noctty_grid_palette_actions(
     return @intCast(actions.len);
 }
 
+pub const WorkspaceColor = extern struct {
+    label: [*:0]const u8,
+    role: c_uint,
+};
+
+pub export fn noctty_grid_workspace_color(
+    index: c_int,
+    output: ?*WorkspaceColor,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    if (index < 0 or index >= 17) return 0;
+    const labels = [_][*:0]const u8{
+        "Focused pane border",
+        "Selected pane border",
+        "Unselected pane border",
+        "Scrollbar track",
+        "Scrollbar thumb",
+        "Scrollbar hover / drag",
+        "Overlay background",
+        "Overlay border",
+        "Overlay text",
+        "Text selection",
+        "Search match",
+        "Info status",
+        "Success status",
+        "Warning status",
+        "Error status",
+        "Terminal caret",
+        "Pane gap",
+    };
+    target.* = .{
+        .label = labels[@intCast(index)],
+        .role = @intCast(index + 1),
+    };
+    return 1;
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1850,6 +1887,17 @@ test "palette action policy preserves ordered ids and labels" {
     try std.testing.expectEqualStrings("Open NoctEd here", std.mem.span(actions[11].label));
     try std.testing.expectEqual(@as(c_int, 27), actions[26].id);
     try std.testing.expectEqual(@as(c_uint, 0), noctty_grid_palette_actions(&actions, 26));
+}
+
+test "workspace color policy preserves labels and sequential roles" {
+    var color: WorkspaceColor = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_workspace_color(0, &color));
+    try std.testing.expectEqualStrings("Focused pane border", std.mem.span(color.label));
+    try std.testing.expectEqual(@as(c_uint, 1), color.role);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_workspace_color(16, &color));
+    try std.testing.expectEqualStrings("Pane gap", std.mem.span(color.label));
+    try std.testing.expectEqual(@as(c_uint, 17), color.role);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_workspace_color(17, &color));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

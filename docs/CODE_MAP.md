@@ -45,9 +45,9 @@ zig build run-nocted -- --open README.md
   profile-preset label selection, broadcast-menu label selection, global
   shortcut identity strings, terminal key encoding and shortcut labels,
   keyboard scroll targets, bounded UI text and hyperlink validation,
-  command-palette action IDs, labels, and hints, fuzzy matching, responsive
-  dropdown dimension/percentage conversion, sharing-status actions, terminal
-  font/cell metric conversion,
+  command-palette action IDs, labels, and hints, workspace color-editor labels
+  and roles, fuzzy matching, responsive dropdown dimension/percentage
+  conversion, sharing-status actions, terminal font/cell metric conversion,
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
   linear selection hit testing, pixel-snapped render and dirty row/cell damage
   spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane chrome, and

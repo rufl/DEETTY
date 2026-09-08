@@ -11002,28 +11002,9 @@ static void open_grid_settings(NocttyGridContext *context) {
     populate_theme_combo(target, GTK_COMBO_BOX_TEXT(theme));
     GtkWidget *background_tint = theme_color_button_new(
         context, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND, "Background tint");
-    static const struct {
-        const char *label;
-        uint32_t role;
-    } workspace_colors[] = {
-        { "Focused pane border", NOCTTY_UI_COLOR_PANE_BORDER_ACTIVE },
-        { "Selected pane border", NOCTTY_UI_COLOR_PANE_BORDER_SELECTED },
-        { "Unselected pane border", NOCTTY_UI_COLOR_PANE_BORDER_INACTIVE },
-        { "Scrollbar track", NOCTTY_UI_COLOR_SCROLLBAR_TRACK },
-        { "Scrollbar thumb", NOCTTY_UI_COLOR_SCROLLBAR_THUMB },
-        { "Scrollbar hover / drag", NOCTTY_UI_COLOR_SCROLLBAR_THUMB_HOVER },
-        { "Overlay background", NOCTTY_UI_COLOR_OVERLAY_BACKGROUND },
-        { "Overlay border", NOCTTY_UI_COLOR_OVERLAY_BORDER },
-        { "Overlay text", NOCTTY_UI_COLOR_OVERLAY_FOREGROUND },
-        { "Text selection", NOCTTY_UI_COLOR_SELECTION_BACKGROUND },
-        { "Search match", NOCTTY_UI_COLOR_SEARCH_MATCH_BACKGROUND },
-        { "Info status", NOCTTY_UI_COLOR_STATUS_INFO },
-        { "Success status", NOCTTY_UI_COLOR_STATUS_SUCCESS },
-        { "Warning status", NOCTTY_UI_COLOR_STATUS_WARNING },
-        { "Error status", NOCTTY_UI_COLOR_STATUS_ERROR },
-        { "Terminal caret", NOCTTY_UI_COLOR_TERMINAL_CURSOR },
-        { "Pane gap", NOCTTY_UI_COLOR_PANE_GAP },
-    };
+    NocttyGridWorkspaceColor workspace_colors[17] = {0};
+    for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
+        (void)noctty_grid_workspace_color((int)index, &workspace_colors[index]);
     GtkWidget *color_buttons[G_N_ELEMENTS(workspace_colors)] = {0};
     for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
         color_buttons[index] = theme_color_button_new(

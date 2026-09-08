@@ -72,6 +72,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved the command-palette action table into tested Zig. GTK retains
   palette widget construction and action activation.
 
+- Moved workspace color-editor labels and roles into tested Zig. GTK retains
+  settings-page widget creation.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.
