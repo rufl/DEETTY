@@ -238,12 +238,13 @@ static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
 
     NocttyGridMouseMode original_mouse_mode = target->mouse_mode;
     target->mouse_mode = compact_tui_wheel_smoke_mouse_mode;
+    NocttyGridFontMetrics metrics = grid_font_metrics(target);
     GdkEventButton event = {0};
     event.type = GDK_BUTTON_PRESS;
     event.button = 1;
     event.state = GDK_CONTROL_MASK;
-    event.x = 4.0 + (hyperlink_column + 0.5) * grid_cell_width(target);
-    event.y = 2.0 + (hyperlink_row + 0.5) * grid_cell_height(target);
+    event.x = 4.0 + (hyperlink_column + 0.5) * metrics.cell_width;
+    event.y = 2.0 + (hyperlink_row + 0.5) * metrics.cell_height;
     (void)on_mouse_button(target->area, &event, target);
     event.type = GDK_BUTTON_RELEASE;
     (void)on_mouse_button(target->area, &event, target);
@@ -259,17 +260,18 @@ static gboolean request_compact_linear_selection_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     if (root->rows < 4 || root->columns < 8) return G_SOURCE_REMOVE;
     clear_grid_selection(root);
+    NocttyGridFontMetrics metrics = grid_font_metrics(root);
     GdkEventButton button = {0};
     button.type = GDK_BUTTON_PRESS;
     button.button = 1;
-    button.x = 4.0 + 3.5 * grid_cell_width(root);
-    button.y = 2.0 + 1.5 * grid_cell_height(root);
+    button.x = 4.0 + 3.5 * metrics.cell_width;
+    button.y = 2.0 + 1.5 * metrics.cell_height;
     (void)on_mouse_button(root->area, &button, root);
     GdkEventMotion motion = {0};
     motion.type = GDK_MOTION_NOTIFY;
     motion.state = GDK_BUTTON1_MASK;
-    motion.x = 4.0 + 2.5 * grid_cell_width(root);
-    motion.y = 2.0 + 3.5 * grid_cell_height(root);
+    motion.x = 4.0 + 2.5 * metrics.cell_width;
+    motion.y = 2.0 + 3.5 * metrics.cell_height;
     (void)on_mouse_motion(root->area, &motion, root);
     button.type = GDK_BUTTON_RELEASE;
     button.x = motion.x;
@@ -290,8 +292,8 @@ static gboolean request_compact_linear_selection_smoke(gpointer user_data) {
     root->compact_linear_selection_copy =
         copied != NULL && strchr(copied, '\n') != NULL;
     g_free(copied);
-    double previous_bottom = ceil(2.0 + 2.0 * grid_cell_height(root));
-    double next_top = floor(2.0 + 2.0 * grid_cell_height(root));
+    double previous_bottom = ceil(2.0 + 2.0 * metrics.cell_height);
+    double next_top = floor(2.0 + 2.0 * metrics.cell_height);
     root->compact_background_fill_seamless = next_top <= previous_bottom;
     clear_grid_selection(root);
     return G_SOURCE_REMOVE;

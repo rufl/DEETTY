@@ -29,6 +29,12 @@ enum {
 };
 
 typedef struct {
+    double font_px;
+    double cell_width;
+    double cell_height;
+} NocttyGridFontMetrics;
+
+typedef struct {
     double x;
     double y;
     double width;
@@ -270,6 +276,8 @@ int noctty_grid_scroll_steps(int configured_lines, int smooth_enabled,
 uint64_t noctty_grid_keyboard_scroll_target(uint64_t history_lines,
                                             uint64_t viewport_offset,
                                             uint32_t visible_rows, int action);
+void noctty_grid_font_metrics(double requested_points,
+                              NocttyGridFontMetrics *metrics);
 void noctty_grid_auto_fit(double base_size, int fit_width, int fit_height,
                           int enabled, double *next_size, int *zoom_percent,
                           int *floor_reached);

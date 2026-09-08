@@ -1250,6 +1250,53 @@ pub export fn noctty_grid_keyboard_scroll_target(
     };
 }
 
+pub const FontMetrics = extern struct {
+    font_px: f64,
+    cell_width: f64,
+    cell_height: f64,
+};
+
+const default_font_points: f64 = 11;
+const font_points_to_pixels: f64 = 96.0 / 72.0;
+const cell_width_ratio: f64 = 0.64;
+const cell_height_ratio: f64 = 1.28;
+
+fn defaultFontMetrics() FontMetrics {
+    const font_px = default_font_points * font_points_to_pixels;
+    return .{
+        .font_px = font_px,
+        .cell_width = @max(3, font_px * cell_width_ratio),
+        .cell_height = @max(5, font_px * cell_height_ratio),
+    };
+}
+
+fn gridFontMetrics(requested_points: f64) FontMetrics {
+    if (!std.math.isFinite(requested_points) or requested_points <= 0)
+        return defaultFontMetrics();
+    const font_px = requested_points * font_points_to_pixels;
+    const cell_width = font_px * cell_width_ratio;
+    const cell_height = font_px * cell_height_ratio;
+    if (!std.math.isFinite(font_px) or
+        !std.math.isFinite(cell_width) or
+        !std.math.isFinite(cell_height))
+    {
+        return defaultFontMetrics();
+    }
+    return .{
+        .font_px = font_px,
+        .cell_width = @max(3, cell_width),
+        .cell_height = @max(5, cell_height),
+    };
+}
+
+pub export fn noctty_grid_font_metrics(
+    requested_points: f64,
+    output_optional: ?*FontMetrics,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = gridFontMetrics(requested_points);
+}
+
 pub export fn noctty_grid_auto_fit(
     base_size: f64,
     fit_width: c_int,
@@ -1265,8 +1312,10 @@ pub export fn noctty_grid_auto_fit(
     var value = base_size;
     var fit_min = std.math.inf(f64);
     if (enabled != 0 and fit_width > 0 and fit_height > 0) {
-        const width_fit = @as(f64, @floatFromInt(fit_width)) / (80 * (96.0 / 72.0) * 0.64);
-        const height_fit = @as(f64, @floatFromInt(fit_height)) / (24 * (96.0 / 72.0) * 1.28);
+        const width_fit = @as(f64, @floatFromInt(fit_width)) /
+            (80 * (96.0 / 72.0) * 0.64);
+        const height_fit = @as(f64, @floatFromInt(fit_height)) /
+            (24 * (96.0 / 72.0) * 1.28);
         fit_min = @min(width_fit, height_fit);
         value = @min(base_size, @floor(fit_min * 4) / 4);
         value = @max(3, value);
@@ -1558,6 +1607,29 @@ test "resize handles preserve directional deltas and bounds" {
     try std.testing.expectEqual(@as(f64, 20), vertical);
     try std.testing.expectEqual(@as(c_int, 320), noctty_grid_clamp_resize(300, -50, 320, 900));
     try std.testing.expectEqual(@as(c_int, 900), noctty_grid_clamp_resize(850, 100, 320, 900));
+}
+
+test "font metrics convert points once and preserve finite cell floors" {
+    var metrics: FontMetrics = undefined;
+    noctty_grid_font_metrics(12, &metrics);
+    try std.testing.expectApproxEqAbs(@as(f64, 16), metrics.font_px, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.24), metrics.cell_width, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.48), metrics.cell_height, 0.0001);
+
+    noctty_grid_font_metrics(1, &metrics);
+    try std.testing.expectEqual(@as(f64, 3), metrics.cell_width);
+    try std.testing.expectEqual(@as(f64, 5), metrics.cell_height);
+
+    var fallback: FontMetrics = undefined;
+    noctty_grid_font_metrics(0, &fallback);
+    for ([_]f64{
+        std.math.nan(f64),
+        std.math.inf(f64),
+        std.math.floatMax(f64),
+    }) |invalid| {
+        noctty_grid_font_metrics(invalid, &metrics);
+        try std.testing.expectEqualDeep(fallback, metrics);
+    }
 }
 
 test "auto-fit and grid dimensions remain bounded" {

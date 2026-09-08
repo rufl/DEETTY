@@ -1004,18 +1004,12 @@ static gboolean grid_context_is_registered(
     return FALSE;
 }
 
-static double terminal_font_px(const NocttyGridContext *context) {
-    double points = context != NULL && context->font_size > 0
-        ? context->font_size : 11.0;
-    return points * (96.0 / 72.0);
-}
-
-static double grid_cell_width(const NocttyGridContext *context) {
-    return MAX(3.0, terminal_font_px(context) * 0.64);
-}
-
-static double grid_cell_height(const NocttyGridContext *context) {
-    return MAX(5.0, terminal_font_px(context) * 1.28);
+static NocttyGridFontMetrics grid_font_metrics(
+    const NocttyGridContext *context) {
+    NocttyGridFontMetrics metrics;
+    noctty_grid_font_metrics(
+        context != NULL ? context->font_size : 0, &metrics);
+    return metrics;
 }
 
 typedef struct {
@@ -1318,10 +1312,11 @@ static void draw_terminal_text_pango(NocttyGridContext *context, cairo_t *cr,
                                      double x, double baseline,
                                      uint32_t style) {
     if (text == NULL || length <= 0) return;
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     const NocttyGridTerminalFont font = {
         .descriptions = context->terminal_font_descriptions,
         .family = context->font_family,
-        .size_px = terminal_font_px(context),
+        .size_px = metrics.font_px,
     };
     (void)noctty_grid_render_terminal_text(
         cr, &font, text, length, x, baseline, style);
@@ -1598,8 +1593,9 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     NocttyGridContext *root = root_grid_context(context);
     gboolean pane_selected = context->event_data != NULL &&
         noctty_grid_pane_selected(context->event_data, context->pane_id) != 0;
-    double cell_width = grid_cell_width(context);
-    double cell_height = grid_cell_height(context);
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
+    double cell_width = metrics.cell_width;
+    double cell_height = metrics.cell_height;
     uint32_t cursor = context->cursor(context->userdata);
     int cursor_column = cursor != 0xffffffff ? (int)(cursor & 0xffff) : -1;
     int cursor_row = cursor != 0xffffffff ? (int)(cursor >> 16) : -1;
@@ -1648,7 +1644,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         .draw_codepoint = draw_codepoint_bridge,
         .draw_cell_text = draw_grid_cell_text_bridge,
         .font_family = context->font_family,
-        .font_px = terminal_font_px(context),
+        .font_px = metrics.font_px,
         .antialias = root->font_antialias,
         .hinting = root->font_hinting,
         .allocation_width = allocation.width,
@@ -5899,7 +5895,7 @@ static void queue_grid_row_range(NocttyGridContext *context, int first,
     if (first < 0 || end <= first || context->area == NULL) return;
     GtkAllocation allocation;
     gtk_widget_get_allocation(context->area, &allocation);
-    double cell_height = grid_cell_height(context);
+    double cell_height = grid_font_metrics(context).cell_height;
     int y = MAX(0, (int)floor(2.0 + first * cell_height));
     int bottom = MIN(allocation.height,
                      (int)ceil(2.0 + end * cell_height));
@@ -5918,8 +5914,9 @@ static void queue_grid_cell_span(NocttyGridContext *context, int row,
     end = MIN(end, context->columns);
     GtkAllocation allocation;
     gtk_widget_get_allocation(context->area, &allocation);
-    double cell_width = grid_cell_width(context);
-    double cell_height = grid_cell_height(context);
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
+    double cell_width = metrics.cell_width;
+    double cell_height = metrics.cell_height;
     int x = MAX(0, (int)floor(4.0 + first * cell_width));
     int right = MIN(allocation.width,
                     (int)ceil(4.0 + end * cell_width));
@@ -5941,8 +5938,9 @@ static void queue_grid_cursor_cell(NocttyGridContext *context,
     int row = (int)(packed_cursor >> 16);
     if (column < 0 || column >= context->columns ||
         row < 0 || row >= context->rows) return;
-    double cell_width = grid_cell_width(context);
-    double cell_height = grid_cell_height(context);
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
+    double cell_width = metrics.cell_width;
+    double cell_height = metrics.cell_height;
     gtk_widget_queue_draw_area(
         context->area,
         MAX(0, (int)floor(4.0 + column * cell_width)),
@@ -8757,8 +8755,9 @@ static void clear_grid_selection(NocttyGridContext *context) {
 static int grid_column_at_pointer(NocttyGridContext *context, double x) {
     int column = 0;
     int row = 0;
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     (void)noctty_grid_pointer_cell(
-        x, 2.0, grid_cell_width(context), grid_cell_height(context),
+        x, 2.0, metrics.cell_width, metrics.cell_height,
         context->columns, context->rows, 1, &column, &row);
     return column;
 }
@@ -8766,8 +8765,9 @@ static int grid_column_at_pointer(NocttyGridContext *context, double x) {
 static int grid_row_at_pointer(NocttyGridContext *context, double y) {
     int column = 0;
     int row = 0;
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     (void)noctty_grid_pointer_cell(
-        4.0, y, grid_cell_width(context), grid_cell_height(context),
+        4.0, y, metrics.cell_width, metrics.cell_height,
         context->columns, context->rows, 1, &column, &row);
     return row;
 }
@@ -8775,8 +8775,9 @@ static int grid_row_at_pointer(NocttyGridContext *context, double y) {
 static gboolean grid_cell_at_point(NocttyGridContext *context,
                                    double x, double y,
                                    int *column, int *row) {
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     return noctty_grid_pointer_cell(
-        x, y, grid_cell_width(context), grid_cell_height(context),
+        x, y, metrics.cell_width, metrics.cell_height,
         context->columns, context->rows, 0, column, row) != 0;
 }
 
@@ -16098,10 +16099,11 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     int terminal_width = 0;
     int columns = 0;
     int rows = 0;
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     if (!noctty_grid_dimensions(
             allocation->width, allocation->height,
-            NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX, grid_cell_width(context),
-            grid_cell_height(context), &terminal_width, &columns, &rows))
+            NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX, metrics.cell_width,
+            metrics.cell_height, &terminal_width, &columns, &rows))
         return;
     if (columns == context->columns && rows == context->rows) {
         if (font_changed) show_resize_overlay(context, columns, rows);

@@ -87,6 +87,10 @@ Every terminal drawing area also owns a zero-layout-cost resize OSD. Initial all
 
 Ctrl+wheel is intercepted before terminal scrollback or application mouse reporting only while Ctrl is held. Discrete wheel notches change one point; smooth deltas accumulate per pane into whole steps. The host clamps through the configured font range, derives matching Cairo cell width/height, resizes only the pointed Zig grid and PTY, and emits the precise size into that pane's workspace profile. Neighboring panes and the global Settings default remain unchanged. For unmodified scrolling, the visible native scrollbar rail owns its hit target before terminal mouse reporting. Wheel events over terminal content use three bounded paths: DEC mouse-wheel reports when the application requested mouse tracking; local history when the application emitted alternate-screen full-scroll rows; or xterm-compatible repeated cursor-up/down input when an alternate-screen application has neither mouse tracking nor retained rows. Application-cursor mode selects SS3 instead of CSI arrow sequences. Shift-only wheel forces local history. This covers Codex and other alternate-screen TUIs without requiring `--no-alt-screen`; an application that ignores both standard mouse reports and cursor keys cannot be made internally scrollable by a terminal emulator. Codex inline mode still emits `CSI 1;0 r`, whose explicit zero DECSTBM parameter resolves to the viewport default.
 
+Terminal point-to-pixel conversion and bounded cell dimensions are
+allocation-free Zig policy shared by rendering, damage, pointer mapping, and
+PTY resize paths. GTK supplies only the pane's current font setting.
+
 Scrollbar geometry, thumb hit testing, saturated track-page targets, and
 continuous drag-to-history mapping are allocation-free Zig policy. GTK retains
 only pointer-event capture, focus, drawing invalidation, and scroll dispatch.

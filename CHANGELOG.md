@@ -18,6 +18,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved native scrollbar thumb hit testing, saturated page targets, and
   continuous drag-to-history mapping from GTK C into tested Zig policy.
 
+- Moved terminal font point-to-pixel conversion and bounded cell dimensions
+  from GTK C into tested Zig policy. Rendering, damage, pointer mapping, and
+  PTY resize now share one computed metric set per operation.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

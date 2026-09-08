@@ -711,11 +711,12 @@ static void print_stability_qualification_smoke(
 
 static GtkAllocation renderer_allocation_for_context(
     const NocttyGridContext *context) {
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
     GtkAllocation allocation = {
         .x = 0,
         .y = 0,
-        .width = (int)ceil(8.0 + context->columns * grid_cell_width(context)),
-        .height = (int)ceil(4.0 + context->rows * grid_cell_height(context)),
+        .width = (int)ceil(8.0 + context->columns * metrics.cell_width),
+        .height = (int)ceil(4.0 + context->rows * metrics.cell_height),
     };
     return allocation;
 }

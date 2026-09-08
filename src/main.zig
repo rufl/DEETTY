@@ -29,6 +29,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_cell_span;
     _ = NativeGridLogic.noctty_grid_scroll_steps;
     _ = NativeGridLogic.noctty_grid_keyboard_scroll_target;
+    _ = NativeGridLogic.noctty_grid_font_metrics;
     _ = NativeGridLogic.noctty_grid_auto_fit;
     _ = NativeGridLogic.noctty_grid_dimensions;
     _ = NativeGridLogic.noctty_grid_resize_delta;
