@@ -38,9 +38,10 @@ zig build run-nocted -- --open README.md
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
   precedence, keyboard command planning, tab/pane cycle targets, directional
   pane focus scoring, scrollbar geometry, wheel accumulation and fallback keys,
-  terminal key encoding and shortcut labels, keyboard scroll targets,
-  hyperlink validation, command-palette fuzzy matching, responsive dropdown
-  dimension/percentage conversion, sharing-status actions, grid sizing/auto-fit,
+  terminal key encoding and shortcut labels, keyboard scroll targets, bounded
+  UI text and hyperlink validation, command-palette fuzzy matching, responsive
+  dropdown dimension/percentage conversion, sharing-status actions, grid
+  sizing/auto-fit,
   window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
   pixel-snapped spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane
   chrome, and caret policy consumed through

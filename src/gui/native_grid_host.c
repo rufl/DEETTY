@@ -3112,14 +3112,8 @@ static gboolean finish_grid_hide(gpointer user_data) {
 static gboolean retain_xdg_activation_token_bytes(
     NocttyGridContext *context, const gchar *token, gsize length) {
     NocttyGridContext *root = root_grid_context(context);
-    if (token == NULL || length == 0 || length > 4096 ||
-        memchr(token, '\0', length) != NULL ||
-        !g_utf8_validate(token, (gssize)length, NULL))
+    if (noctty_grid_text_valid((const uint8_t *)token, length, 4096) == 0)
         return FALSE;
-    for (gsize index = 0; index < length; index++) {
-        if ((guchar)token[index] < 0x20 || token[index] == 0x7f)
-            return FALSE;
-    }
     gchar *owned = g_strndup(token, length);
     if (owned == NULL) return FALSE;
     g_free(root->xdg_activation_token);
@@ -5146,11 +5140,8 @@ static gboolean apply_tab_rename(NocttyGridContext *root) {
     gchar *title = g_strdup(gtk_entry_get_text(GTK_ENTRY(root->tab_rename_entry)));
     g_strstrip(title);
     size_t length = strlen(title);
-    gboolean valid = length > 0 && length <= 128 && g_utf8_validate(title, -1, NULL);
-    for (size_t index = 0; valid && index < length; index++) {
-        unsigned char byte = (unsigned char)title[index];
-        if (byte < 0x20 || byte == 0x7f) valid = FALSE;
-    }
+    gboolean valid =
+        noctty_grid_text_valid((const uint8_t *)title, length, 128) != 0;
     if (!valid) {
         set_tab_rename_error(root,
             length == 0 ? "Enter a tab name." : "Use a single-line name up to 128 bytes.");

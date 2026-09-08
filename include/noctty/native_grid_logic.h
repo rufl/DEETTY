@@ -1,6 +1,7 @@
 #ifndef NOCTTY_NATIVE_GRID_LOGIC_H
 #define NOCTTY_NATIVE_GRID_LOGIC_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -159,6 +160,8 @@ int noctty_grid_terminal_key_sequence(uint32_t keyval, uint32_t codepoint,
                                       uint32_t capacity);
 int noctty_grid_shortcut_label(uint32_t encoded, uint8_t *output,
                                uint32_t capacity);
+int noctty_grid_text_valid(const uint8_t *text, size_t length,
+                           size_t max_length);
 int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
 int noctty_grid_fuzzy_match_ascii(const uint8_t *haystack,
                                   uint32_t haystack_length,

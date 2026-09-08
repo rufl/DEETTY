@@ -677,17 +677,38 @@ pub export fn noctty_grid_tab_color_shade_name(shade: c_int) callconv(.c) [*:0]c
     return "base shade";
 }
 
+fn validatedGridText(
+    text_pointer: ?[*]const u8,
+    length: usize,
+    max_length: usize,
+) ?[]const u8 {
+    const pointer = text_pointer orelse return null;
+    if (length == 0 or length > max_length) return null;
+    const text = pointer[0..length];
+    if (!std.unicode.utf8ValidateSlice(text)) return null;
+    for (text) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return null;
+    }
+    return text;
+}
+
+pub export fn noctty_grid_text_valid(
+    text_pointer: ?[*]const u8,
+    length: usize,
+    max_length: usize,
+) callconv(.c) c_int {
+    return @intFromBool(validatedGridText(
+        text_pointer,
+        length,
+        max_length,
+    ) != null);
+}
+
 pub export fn noctty_grid_hyperlink_valid(
     uri_pointer: ?[*]const u8,
     length: u32,
 ) callconv(.c) c_int {
-    const pointer = uri_pointer orelse return 0;
-    if (length == 0 or length > 2048) return 0;
-    const uri = pointer[0..length];
-    if (!std.unicode.utf8ValidateSlice(uri)) return 0;
-    for (uri) |byte| {
-        if (byte < 0x20 or byte == 0x7f) return 0;
-    }
+    const uri = validatedGridText(uri_pointer, length, 2048) orelse return 0;
     const separator = std.mem.indexOfScalar(u8, uri, ':') orelse return 0;
     const scheme = uri[0..separator];
     const allowed = std.ascii.eqlIgnoreCase(scheme, "http") or
@@ -1860,6 +1881,42 @@ test "scroll direction and tab color names handle every boundary" {
     try std.testing.expectEqualStrings("base shade", std.mem.span(noctty_grid_tab_color_shade_name(0)));
     try std.testing.expectEqualStrings("lighter", std.mem.span(noctty_grid_tab_color_shade_name(1)));
     try std.testing.expectEqualStrings("much lighter", std.mem.span(noctty_grid_tab_color_shade_name(3)));
+}
+
+test "bounded text validation enforces UTF-8 and control-free byte limits" {
+    const accepted = [_][]const u8{
+        "four",
+        "Résumé",
+        "界",
+    };
+    for (accepted) |text| {
+        try std.testing.expectEqual(
+            @as(c_int, 1),
+            noctty_grid_text_valid(text.ptr, text.len, text.len),
+        );
+    }
+
+    const rejected = [_][]const u8{
+        "",
+        "line\nbreak",
+        "nul\x00byte",
+        "delete\x7fbyte",
+        "\xc3(",
+    };
+    for (rejected) |text| {
+        try std.testing.expectEqual(
+            @as(c_int, 0),
+            noctty_grid_text_valid(text.ptr, text.len, 128),
+        );
+    }
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_text_valid(null, 1, 128),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_text_valid("four".ptr, 4, 3),
+    );
 }
 
 test "hyperlink validation accepts safe browser schemes and rejects controls" {

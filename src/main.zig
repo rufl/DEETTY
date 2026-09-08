@@ -44,6 +44,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_directional_focus_begin;
     _ = NativeGridLogic.noctty_grid_directional_focus_consider;
     _ = NativeGridLogic.noctty_grid_key_command_plan;
+    _ = NativeGridLogic.noctty_grid_text_valid;
     _ = NativeGridRender.noctty_grid_render_ascii_run;
     _ = NativeGridRender.noctty_grid_render_cells;
     _ = NativeGridRender.noctty_grid_render_apply_font_options;
