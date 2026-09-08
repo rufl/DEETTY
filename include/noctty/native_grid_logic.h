@@ -122,6 +122,8 @@ enum {
     NOCTTY_GRID_MODIFIER_CONTROL = 1u << 1,
     NOCTTY_GRID_MODIFIER_ALT = 1u << 2,
 };
+int noctty_grid_is_alt_key(uint32_t keyval);
+uint32_t noctty_grid_input_modifiers(uint32_t state);
 
 enum {
     NOCTTY_GRID_KEY_ACTION_NONE = 0,

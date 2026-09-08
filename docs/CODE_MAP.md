@@ -38,7 +38,7 @@ zig build run-nocted -- --open README.md
 - `src/gui/NativeGridLogic.zig` — tested platform-neutral input-routing
   precedence, keyboard command planning, tab/pane cycle targets, directional
   pane focus scoring, scrollbar geometry and press/drag planning, wheel
-  accumulation and fallback keys,
+  accumulation and fallback keys, GTK modifier-mask and Alt/Meta key policy,
   terminal key encoding and shortcut labels, keyboard scroll targets, bounded
   UI text and hyperlink validation, command-palette fuzzy matching, responsive
   dropdown dimension/percentage conversion, sharing-status actions, terminal

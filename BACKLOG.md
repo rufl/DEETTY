@@ -133,10 +133,11 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and persistence modules. Its former C translation unit and private header are
   retired. The only remaining first-party C translation unit is the GTK
   native-grid adapter. Core first-party ownership now exceeds the 80% Zig
-  target. The adapter delegates bounded UI text validation, input-routing
-  precedence, keyboard navigation planning, tab/pane cycle targets, directional
-  focus scoring, scrollbar geometry and press/drag planning, wheel accumulation,
-  keyboard scroll targets, font/cell metric conversion, grid sizing/auto-fit,
+  target. The adapter delegates bounded UI text validation, GTK modifier-mask
+  translation and Alt/Meta key detection, input-routing precedence, keyboard
+  navigation planning, tab/pane cycle targets, directional focus scoring,
+  scrollbar geometry and press/drag planning, wheel accumulation, keyboard
+  scroll targets, font/cell metric conversion, grid sizing/auto-fit,
   window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit
   testing, pixel-snapped row/cell damage spans, Paseo Black Zinc theme colors,
   compact tab/new-tab/window-toolbar

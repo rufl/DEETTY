@@ -4502,10 +4502,6 @@ static void hide_quick_note_overlays(NocttyGridContext *context) {
     queue_quick_note_overlay_draws(root);
 }
 
-static gboolean is_alt_key(guint keyval) {
-    return keyval == GDK_KEY_Alt_L || keyval == GDK_KEY_Alt_R ||
-           keyval == GDK_KEY_Meta_L || keyval == GDK_KEY_Meta_R;
-}
 
 static gboolean deferred_focus_hide(gpointer user_data) {
     NocttyGridContext *root = user_data;
@@ -8532,13 +8528,7 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     char bytes[8];
     size_t length = 0;
     (void)widget;
-    uint32_t modifier_flags = 0;
-    if (event->state & GDK_SHIFT_MASK)
-        modifier_flags |= NOCTTY_GRID_MODIFIER_SHIFT;
-    if (event->state & GDK_CONTROL_MASK)
-        modifier_flags |= NOCTTY_GRID_MODIFIER_CONTROL;
-    if (event->state & GDK_MOD1_MASK)
-        modifier_flags |= NOCTTY_GRID_MODIFIER_ALT;
+    uint32_t modifier_flags = noctty_grid_input_modifiers(event->state);
     gboolean smart_filter_clear_available =
         event->keyval == GDK_KEY_Escape &&
         root->smart_filter_tag != NULL &&
@@ -8546,7 +8536,7 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         gtk_widget_get_visible(root->smart_filter_empty_box);
     NocttyGridKeyCommandPlan key_plan;
     noctty_grid_key_command_plan(
-        TRUE, is_alt_key(event->keyval), smart_filter_clear_available,
+        TRUE, noctty_grid_is_alt_key(event->keyval), smart_filter_clear_available,
         event->keyval, modifier_flags, &key_plan);
     switch (key_plan.action) {
         case NOCTTY_GRID_KEY_ACTION_SHOW_NOTE_OVERLAYS:
@@ -8733,7 +8723,7 @@ static gboolean on_key_release(GtkWidget *widget, GdkEventKey *event,
     NocttyGridContext *root = root_grid_context(context);
     NocttyGridKeyCommandPlan key_plan;
     noctty_grid_key_command_plan(
-        FALSE, is_alt_key(event->keyval), FALSE, event->keyval, 0, &key_plan);
+        FALSE, noctty_grid_is_alt_key(event->keyval), FALSE, event->keyval, 0, &key_plan);
     if (key_plan.action != NOCTTY_GRID_KEY_ACTION_HIDE_NOTE_OVERLAYS)
         return FALSE;
     root->note_overlay_alt_released = 1;
@@ -8907,13 +8897,6 @@ static gboolean show_hyperlink_menu(
     return TRUE;
 }
 
-static uint32_t grid_input_modifiers(guint state) {
-    uint32_t modifiers = 0;
-    if (state & GDK_SHIFT_MASK) modifiers |= NOCTTY_GRID_MODIFIER_SHIFT;
-    if (state & GDK_CONTROL_MASK) modifiers |= NOCTTY_GRID_MODIFIER_CONTROL;
-    if (state & GDK_MOD1_MASK) modifiers |= NOCTTY_GRID_MODIFIER_ALT;
-    return modifiers;
-}
 
 static gboolean handle_terminal_scrollbar_button(
     NocttyGridContext *context, GtkWidget *widget, GdkEventButton *event,
@@ -8958,7 +8941,7 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
         terminal_mode_flags & NOCTTY_GRID_TERMINAL_MODE_MOUSE;
     int route = noctty_grid_input_route(
         NOCTTY_GRID_INPUT_POINTER, scrollbar_owned, terminal_mode_flags, 0,
-        event->button == 1, grid_input_modifiers(event->state));
+        event->button == 1, noctty_grid_input_modifiers(event->state));
     if (route == NOCTTY_GRID_ROUTE_SCROLLBAR)
         return handle_terminal_scrollbar_button(
             context, widget, event, &scrollbar);
@@ -15881,7 +15864,7 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     }
     int route = noctty_grid_input_route(
         NOCTTY_GRID_INPUT_WHEEL, scrollbar_owned, terminal_mode_flags,
-        history_available, 0, grid_input_modifiers(event->state));
+        history_available, 0, noctty_grid_input_modifiers(event->state));
     /* The native rail owns pointer events inside its visible hit target even
      * when the foreground TUI enables terminal mouse reporting. Otherwise
      * apps such as Codex consume the wheel before NOCTTY can move history. */

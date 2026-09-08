@@ -212,6 +212,29 @@ pub const modifier_control: u32 = 1 << 1;
 pub const modifier_alt: u32 = 1 << 2;
 const known_modifiers = modifier_shift | modifier_control | modifier_alt;
 
+const gdk_key_alt_l: u32 = 0xffe9;
+const gdk_key_alt_r: u32 = 0xffea;
+const gdk_key_meta_l: u32 = 0xffe7;
+const gdk_key_meta_r: u32 = 0xffe8;
+const gdk_shift_mask: u32 = 1 << 0;
+const gdk_control_mask: u32 = 1 << 2;
+const gdk_mod1_mask: u32 = 1 << 3;
+
+pub export fn noctty_grid_is_alt_key(keyval: u32) callconv(.c) c_int {
+    return @intFromBool(
+        keyval == gdk_key_alt_l or keyval == gdk_key_alt_r or
+            keyval == gdk_key_meta_l or keyval == gdk_key_meta_r,
+    );
+}
+
+pub export fn noctty_grid_input_modifiers(state: u32) callconv(.c) u32 {
+    var modifiers: u32 = 0;
+    if (state & gdk_shift_mask != 0) modifiers |= modifier_shift;
+    if (state & gdk_control_mask != 0) modifiers |= modifier_control;
+    if (state & gdk_mod1_mask != 0) modifiers |= modifier_alt;
+    return modifiers;
+}
+
 pub export fn noctty_grid_cycle_target(
     count: c_int,
     current_index: c_int,
@@ -2137,6 +2160,15 @@ test "shortcut labels are bounded and name supported keys" {
         @as(c_int, 0),
         noctty_grid_shortcut_label(0x04000000 | 'A', &output, 2),
     );
+}
+
+test "GTK modifier masks and Alt key names map to native flags" {
+    try std.testing.expectEqual(@as(u32, modifier_shift | modifier_control | modifier_alt), noctty_grid_input_modifiers(gdk_shift_mask | gdk_control_mask | gdk_mod1_mask));
+    try std.testing.expectEqual(@as(u32, modifier_alt), noctty_grid_input_modifiers(gdk_mod1_mask));
+    try std.testing.expectEqual(@as(u32, 0), noctty_grid_input_modifiers(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_alt_l));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_meta_r));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_is_alt_key('A'));
 }
 
 test "scroll direction and tab color names handle every boundary" {
