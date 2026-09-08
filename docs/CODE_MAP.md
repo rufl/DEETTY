@@ -44,7 +44,8 @@ zig build run-nocted -- --open README.md
   dropdown dimension/percentage conversion, sharing-status actions, terminal
   font/cell metric conversion, grid sizing/auto-fit, window-resize
   deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
-  pixel-snapped spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane
+  pixel-snapped render and dirty row/cell damage spans, packed-cell/run
+  decoding, UTF-8 encoding, clipping, pane
   chrome, and caret policy consumed through
   `include/noctty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,

@@ -1206,6 +1206,23 @@ pub export fn noctty_grid_cell_span(
     };
 }
 
+pub export fn noctty_grid_row_span(
+    first: c_int,
+    end: c_int,
+    cell_height: f64,
+    output: ?*Rectangle,
+) callconv(.c) void {
+    const rectangle = output orelse return;
+    const top = @floor(2 + @as(f64, @floatFromInt(first)) * cell_height);
+    const bottom = @ceil(2 + @as(f64, @floatFromInt(end)) * cell_height);
+    rectangle.* = .{
+        .x = 0,
+        .y = top,
+        .width = 0,
+        .height = @max(1, bottom - top),
+    };
+}
+
 pub export fn noctty_grid_scroll_steps(
     configured_lines: c_int,
     smooth_enabled: c_int,
@@ -1884,13 +1901,19 @@ test "linear selection is direction independent" {
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_selected(1, 4, 3, 1, 1, 0, 1));
 }
 
-test "cell spans preserve seamless pixel bounds" {
+test "cell and row spans preserve seamless pixel bounds" {
     var rectangle: Rectangle = undefined;
     noctty_grid_cell_span(1, 3, 2, 9.5, 18.25, 1, &rectangle);
     try std.testing.expectEqual(@as(f64, 13), rectangle.x);
     try std.testing.expectEqual(@as(f64, 20), rectangle.width);
     try std.testing.expectEqual(@as(f64, 38), rectangle.y);
     try std.testing.expectEqual(@as(f64, 19), rectangle.height);
+
+    noctty_grid_row_span(1, 3, 18.25, &rectangle);
+    try std.testing.expectEqual(@as(f64, 0), rectangle.x);
+    try std.testing.expectEqual(@as(f64, 20), rectangle.y);
+    try std.testing.expectEqual(@as(f64, 0), rectangle.width);
+    try std.testing.expectEqual(@as(f64, 37), rectangle.height);
 }
 
 test "pointer routing exhaustively preserves scrollbar selection and mouse precedence" {

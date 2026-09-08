@@ -22,6 +22,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   from GTK C into tested Zig policy. Rendering, damage, pointer mapping, and
   PTY resize now share one computed metric set per operation.
 
+- Moved dirty row and cell-span invalidation geometry from GTK C into tested
+  Zig policy. GTK now clamps the returned rectangles to the live allocation
+  before queuing redraws.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

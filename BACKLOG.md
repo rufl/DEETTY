@@ -138,7 +138,7 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   focus scoring, scrollbar geometry and press/drag planning, wheel accumulation,
   keyboard scroll targets, font/cell metric conversion, grid sizing/auto-fit,
   window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit
-  testing, compact
+  testing, pixel-snapped row/cell damage spans, compact
   tab/new-tab/window-toolbar
   construction, and the Cairo/Pango cell, glyph, overlay, scrollbar, and
   sharing preview pipeline to Zig.

@@ -270,6 +270,8 @@ int noctty_grid_render_run_end(const uint64_t *cells, int start, int end,
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,
                            NocttyGridRectangle *rectangle);
+void noctty_grid_row_span(int first, int end, double cell_height,
+                          NocttyGridRectangle *rectangle);
 int noctty_grid_scroll_steps(int configured_lines, int smooth_enabled,
                              int direction, double delta_y,
                              double *accumulator);

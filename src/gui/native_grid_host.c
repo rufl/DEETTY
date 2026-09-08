@@ -5895,10 +5895,12 @@ static void queue_grid_row_range(NocttyGridContext *context, int first,
     if (first < 0 || end <= first || context->area == NULL) return;
     GtkAllocation allocation;
     gtk_widget_get_allocation(context->area, &allocation);
-    double cell_height = grid_font_metrics(context).cell_height;
-    int y = MAX(0, (int)floor(2.0 + first * cell_height));
-    int bottom = MIN(allocation.height,
-                     (int)ceil(2.0 + end * cell_height));
+    NocttyGridFontMetrics metrics = grid_font_metrics(context);
+    NocttyGridRectangle damage;
+    noctty_grid_row_span(first, end, metrics.cell_height, &damage);
+    int y = MAX(0, (int)damage.y);
+    int bottom = MIN(
+        allocation.height, (int)(damage.y + damage.height));
     gtk_widget_queue_draw_area(context->area, 0, y,
                                MAX(allocation.width, 1), MAX(bottom - y, 1));
     root_grid_context(context)->damage_rows_queued += (guint)(end - first);
@@ -5915,14 +5917,13 @@ static void queue_grid_cell_span(NocttyGridContext *context, int row,
     GtkAllocation allocation;
     gtk_widget_get_allocation(context->area, &allocation);
     NocttyGridFontMetrics metrics = grid_font_metrics(context);
-    double cell_width = metrics.cell_width;
-    double cell_height = metrics.cell_height;
-    int x = MAX(0, (int)floor(4.0 + first * cell_width));
-    int right = MIN(allocation.width,
-                    (int)ceil(4.0 + end * cell_width));
-    int y = MAX(0, (int)floor(2.0 + row * cell_height));
-    int bottom = MIN(allocation.height,
-                     (int)ceil(2.0 + (row + 1) * cell_height));
+    NocttyGridRectangle damage;
+    noctty_grid_cell_span(
+        first, end, row, metrics.cell_width, metrics.cell_height, 1, &damage);
+    int x = MAX(0, (int)damage.x);
+    int right = MIN(allocation.width, (int)(damage.x + damage.width));
+    int y = MAX(0, (int)damage.y);
+    int bottom = MIN(allocation.height, (int)(damage.y + damage.height));
     gtk_widget_queue_draw_area(context->area, x, y,
                                MAX(right - x, 1), MAX(bottom - y, 1));
     NocttyGridContext *root = root_grid_context(context);

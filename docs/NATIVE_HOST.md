@@ -90,6 +90,8 @@ Ctrl+wheel is intercepted before terminal scrollback or application mouse report
 Terminal point-to-pixel conversion and bounded cell dimensions are
 allocation-free Zig policy shared by rendering, damage, pointer mapping, and
 PTY resize paths. GTK supplies only the pane's current font setting.
+Dirty row and cell-span invalidation rectangles are also Zig-computed. GTK
+clamps them to the current widget allocation and queues the redraw.
 
 Scrollbar geometry, thumb hit testing, saturated track-page targets, and
 continuous drag-to-history mapping are allocation-free Zig policy. GTK retains
