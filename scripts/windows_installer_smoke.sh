@@ -72,6 +72,7 @@ start_menu_dir=$("$winepath" -u "$appdata_win\\Microsoft\\Windows\\Start Menu\\P
 test -s "$install_dir/noctty.exe"
 test -s "$install_dir/nocted.exe"
 test -s "$install_dir/Uninstall.exe"
+cmp "$install_dir/UNICODE-LICENSE.txt" dependencies/UNICODE-LICENSE.txt
 test -s "$start_menu_dir/NOCTTY.lnk"
 test -s "$start_menu_dir/NoctEd.lnk"
 test -s "$start_menu_dir/Uninstall NOCTTY.lnk"

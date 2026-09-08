@@ -486,6 +486,7 @@ pub extern fn g_file_monitor_directory(
 pub extern fn g_file_monitor_cancel(monitor: *GFileMonitor) gboolean;
 pub extern fn g_file_monitor_set_rate_limit(monitor: *GFileMonitor, limit_msecs: c_int) void;
 pub extern fn g_object_set_data(object: ?*anyopaque, key: [*:0]const u8, data: ?*anyopaque) void;
+pub extern fn g_object_set_data_full(object: ?*anyopaque, key: [*:0]const u8, data: ?*anyopaque, destroy: *const fn (?*anyopaque) callconv(.c) void) void;
 pub extern fn g_object_get_data(object: ?*anyopaque, key: [*:0]const u8) ?*anyopaque;
 pub extern fn g_object_unref(object: ?*anyopaque) void;
 pub extern fn g_free(memory: ?*anyopaque) void;

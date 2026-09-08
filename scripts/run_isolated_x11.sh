@@ -40,14 +40,17 @@ if [ "$screen_width" -lt 1 ] || [ "$screen_height" -lt 1 ]; then
   exit 2
 fi
 
-shared_runner=${OVERZEER_DISPLAY_RUNNER:-$HOME/.local/bin/overzeer-isolated-display}
+script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd -P)
+shared_runner=${OVERZEER_DISPLAY_RUNNER:-$script_dir/isolated_display_runner.sh}
+window_manager=${NOCTTY_ISOLATED_X11_WM:-auto}
 if [ "${NOCTTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
   if [ ! -x "$shared_runner" ]; then
     echo 'run_isolated_x11 error=shared_isolated_display_runner_missing' >&2
     exit 2
   fi
   exec env TMPDIR=/tmp \
-    "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" --wm none -- \
+    "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" \
+      --wm "$window_manager" -- \
     env XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 NO_AT_BRIDGE=1 \
       NOCTTY_ISOLATED_DISPLAY=x11 NOCTTY_SHARED_ISOLATION=1 \
     sh -eu -c '

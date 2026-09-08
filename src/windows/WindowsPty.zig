@@ -271,23 +271,14 @@ fn createPseudoConsole(pty: *Pty, launch_profile: c_int) bool {
         &custom_command,
         custom_command.len,
     );
-    const powershell = std.unicode.utf8ToUtf16LeStringLiteral("powershell.exe -NoLogo");
-    const command_prompt = std.unicode.utf8ToUtf16LeStringLiteral("cmd.exe");
     var commands: [3][]const u16 = undefined;
     var command_count: usize = 0;
     if (custom_length > 0 and custom_length < custom_command.len) {
         commands[command_count] = custom_command[0..custom_length];
         command_count += 1;
     }
-    if (launch_profile == 1) {
-        commands[command_count] = command_prompt[0 .. command_prompt.len - 1];
-        command_count += 1;
-        commands[command_count] = powershell[0 .. powershell.len - 1];
-        command_count += 1;
-    } else {
-        commands[command_count] = powershell[0 .. powershell.len - 1];
-        command_count += 1;
-        commands[command_count] = command_prompt[0 .. command_prompt.len - 1];
+    for (@import("WindowsPtyLogic.zig").defaultShellCommands(launch_profile)) |command| {
+        commands[command_count] = command;
         command_count += 1;
     }
 

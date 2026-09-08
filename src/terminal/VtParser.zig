@@ -141,6 +141,7 @@ pub const Parser = struct {
     string_bytes: [max_string_bytes]u8 = undefined,
     string_length: usize = 0,
     string_overflow: bool = false,
+    string_utf8_expected: u3 = 0,
     string_escape_return: State = .ground,
 
     pub fn isGround(self: Parser) bool {
@@ -161,6 +162,7 @@ pub const Parser = struct {
         self.escape_intermediate_count = 0;
         self.string_length = 0;
         self.string_overflow = false;
+        self.string_utf8_expected = 0;
     }
 
     pub fn feed(self: *Parser, byte: u8) Event {
@@ -168,7 +170,23 @@ pub const Parser = struct {
             self.reset();
             return .none;
         }
-        if (byte == 0x9c and self.inString()) return self.finishString();
+        if (self.inString()) {
+            // Match the grid's UTF-8 lead/continuation rules, even after the
+            // bounded payload overflows and across separate feed calls.
+            const continuation = self.string_utf8_expected > 0 and
+                byte >= 0x80 and byte <= 0xbf;
+            if (continuation) {
+                self.string_utf8_expected -= 1;
+            } else {
+                self.string_utf8_expected = switch (byte) {
+                    0xc2...0xdf => 1,
+                    0xe0...0xef => 2,
+                    0xf0...0xf4 => 3,
+                    else => 0,
+                };
+            }
+            if (byte == 0x9c and !continuation) return self.finishString();
+        }
         return switch (self.state) {
             .ground => self.feedGround(byte),
             .escape => self.feedEscape(byte),
@@ -369,6 +387,7 @@ pub const Parser = struct {
         self.string_kind = kind;
         self.string_length = 0;
         self.string_overflow = false;
+        self.string_utf8_expected = 0;
         self.state = switch (kind) {
             .osc => .osc_string,
             .dcs => .dcs_passthrough,
@@ -405,6 +424,7 @@ pub const Parser = struct {
             .overflow = self.string_overflow,
         };
         self.state = .ground;
+        self.string_utf8_expected = 0;
         return .{ .string = event };
     }
 
@@ -504,6 +524,37 @@ test "VT parser bounds strings and terminates OSC and DCS" {
     try std.testing.expectEqualStrings("A", parser.stringSlice());
     try std.testing.expect(parser.dcsHeader().hasIntermediate('+'));
     try std.testing.expectEqual(@as(u8, 'q'), parser.dcsHeader().final);
+}
+
+test "VT parser distinguishes UTF-8 string continuations from ST" {
+    for ([_][]const u8{ "\x1b]2;", "\x1bPq", "\x1b_" }) |prefix| {
+        var parser = Parser{};
+        for (prefix) |byte| try std.testing.expect(parser.feed(byte) == .none);
+        const text = "\xc3\x9cber \xe2\x9c\x93 \xf0\x9f\x9c\x80";
+        for (text) |byte| try std.testing.expect(parser.feed(byte) == .none);
+        const event = parser.feed(0x9c);
+        try std.testing.expect(event == .string);
+        const payload = parser.stringSlice();
+        try std.testing.expectEqualStrings(text, payload[payload.len - text.len ..]);
+        try std.testing.expectEqual(Event{ .print = 'X' }, parser.feed('X'));
+    }
+}
+
+test "VT parser tracks UTF-8 beyond its string bound and clears interrupted sequences" {
+    var parser = Parser{};
+    for ("\x1b]") |byte| _ = parser.feed(byte);
+    for (0..max_string_bytes) |_| _ = parser.feed('a');
+    for ("\xc3\x9cber") |byte| try std.testing.expect(parser.feed(byte) == .none);
+    const bounded = parser.feed(0x9c).string;
+    try std.testing.expect(bounded.overflow);
+    try std.testing.expectEqual(max_string_bytes, bounded.length);
+
+    // ASCII interrupts an incomplete codepoint; the following ST is a control.
+    for ("\x1b]2;\xc3x") |byte| _ = parser.feed(byte);
+    try std.testing.expect(parser.feed(0x9c) == .string);
+    // Cancellation must not carry a pending continuation into the next string.
+    for ("\x1b]2;\xc3\x18\x1b]2;") |byte| _ = parser.feed(byte);
+    try std.testing.expect(parser.feed(0x9c) == .string);
 }
 
 test "VT parser executes controls inside CSI and cancels safely" {

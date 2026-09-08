@@ -2571,11 +2571,11 @@ pub export fn noctty_sharing_contents_new(
 fn addStyle(strip: *GtkWidget, label: *GtkWidget) void {
     const provider = gtk_css_provider_new() orelse return;
     _ = gtk_css_provider_load_from_data(provider, "#noctty-pane-info {" ++
-        " background-color: #000000;" ++
-        " border-top: 1px solid alpha(@theme_fg_color, 0.09);" ++
+        " background-color: #11151d;" ++
+        " border-top: 1px solid #2b3444;" ++
         "}" ++
         "#noctty-pane-info label {" ++
-        " color: alpha(@theme_fg_color, 0.72);" ++
+        " color: #c4cbd6;" ++
         " font-size: 0.9em;" ++
         " padding: 1px 6px;" ++
         "}", -1, null);

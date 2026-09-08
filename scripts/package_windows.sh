@@ -71,7 +71,10 @@ if command -v llvm-objdump >/dev/null 2>&1; then
 fi
 
 cp "$stage/bin/noctty.exe" "$stage/bin/nocted.exe" "$package/"
-cp LICENSE THIRD_PARTY_NOTICES.md docs/WINDOWS.md "$package/"
+cp "$stage/share/licenses/noctty/LICENSE" \
+  "$stage/share/licenses/noctty/THIRD_PARTY_NOTICES.md" \
+  "$stage/share/licenses/noctty/UNICODE-LICENSE.txt" "$package/"
+cp docs/WINDOWS.md "$package/"
 cp scripts/windows_smoke.ps1 "$package/WINDOWS-SMOKE.ps1"
 cat > "$package/BUILD-INFO.txt" <<EOF
 package=noctty

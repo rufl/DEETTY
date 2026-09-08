@@ -33,7 +33,7 @@ Required:
   - dropdown/windowed mode
   - settings
   - NoctEd project edit/search
-- Screenshot recapture helper (disposable compositor only): `NOCTTY_DEDICATED_DISPLAY=1 ./scripts/capture_alpha_screenshots.sh`.
+- Screenshot recapture helper (self-isolating by default): `./scripts/capture_alpha_screenshots.sh`.
 - README links to detailed evidence instead of embedding every receipt inline.
 - `docs/CODE_MAP.md` explains the large native/runtime/editor source surfaces.
 - One obvious verification command remains documented: `./scripts/verify.sh`.
@@ -85,13 +85,17 @@ Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`. Current dogfood status command: `./
 
 Suggested dogfood protocol:
 
-- 5 separate sessions
-- at least 2 hours each
-- use at least 4 terminal panes/tabs in one session
-- run Pi or another agent CLI inside NOCTTY at least once
-- use NoctEd for small real edits in at least 3 sessions
-- test hide/show, close confirmation, restore, find, copy/paste, and settings
-- record bugs as backlog rows, not as vague notes
+- [x] 5 separate sessions
+- [x] at least 2 hours each
+- [ ] use at least 4 terminal panes/tabs in one session
+- [x] run Pi or another agent CLI inside NOCTTY at least once
+- [ ] use NoctEd for small real edits in at least 3 sessions
+- [ ] test hide/show, close confirmation, restore, find, copy/paste, and settings
+- [x] record bugs as backlog rows, not as vague notes
+
+The retained baseline is seven operator-confirmed sessions and 167.107 counted
+hours. Unchecked rows remain unchecked because elapsed time does not prove a
+specific interaction.
 
 During this phase, only fix:
 
@@ -142,9 +146,9 @@ Before public alpha tag:
 - [x] build/run instructions tested from a clean source copy
 - [x] no telemetry/network surprises; retained source scan: `./scripts/check_no_surprise_network.sh`
 - [x] package/signing status clear
-- [ ] Recapture NOCTTY and NoctEd screenshots from the current installed build
-  in a disposable compositor session; the retained 2026-07-19 images are
-  baseline evidence only.
+- [x] Current `ReleaseSafe` installed-tree NOCTTY and NoctEd screenshots
+  recaptured in the repository's disposable private X11/KWin session, including
+  terminal tabs/splits, settings, project editing, and project-wide search.
 - [x] contribution licensing, conduct, support, and private security-reporting notes present
 - [x] public bug/dogfood/feature issue templates and PR template present
 - [x] pinned read-only source CI, tracked-source hygiene guard, and GitHub publication runbook present

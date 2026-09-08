@@ -38,6 +38,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_close_source_fired;
     _ = NativeGridLogic.noctty_grid_close_preflight_result;
     _ = NativeGridLogic.noctty_grid_adapt_window_geometry;
+    _ = NativeGridLogic.noctty_grid_dropdown_percent;
     _ = NativeGridLogic.noctty_grid_scale_brightness;
     _ = NativeGridLogic.noctty_grid_cycle_target;
     _ = NativeGridLogic.noctty_grid_directional_focus_begin;
@@ -419,6 +420,7 @@ const ShareState = struct {
     store: noctty.share.identity.Store,
     pairing: ?*noctty.share.pair_controller.Controller = null,
     live_host: ?*noctty.share.live_host.LiveHost = null,
+    control_request: ?noctty.share.live_host.ControlRequest = null,
     live_viewer: ?*noctty.share.live_viewer.LiveViewer = null,
     shared_pane_ids: [noctty.share.protocol.max_streams]u64 = [_]u64{0} ** noctty.share.protocol.max_streams,
     shared_pane_count: usize = 0,
@@ -955,6 +957,7 @@ export fn noctty_grid_share_action(
                 state.store.identity,
                 state.store.peerSliceConst()[index],
                 null,
+                null,
                 port,
                 scope,
                 specs.tabs[0..specs.tab_count],
@@ -969,6 +972,7 @@ export fn noctty_grid_share_action(
                 state.shared_pane_ids[pane_index] = pane.pane_id;
             state.shared_pane_count = specs.pane_count;
             state.live_host = host;
+            state.control_request = null;
         },
         6 => {
             const host = state.live_host orelse return -1;
@@ -980,7 +984,12 @@ export fn noctty_grid_share_action(
             state.shared_scope = null;
             @memset(&state.shared_pane_ids, 0);
         },
-        7 => (state.live_host orelse return -1).grantControl(),
+        7 => {
+            const host = state.live_host orelse return -1;
+            const request = state.control_request orelse return -1;
+            state.control_request = null;
+            if (!host.respondControl(request, true)) return -1;
+        },
         8 => (state.live_host orelse return -1).revokeControl(),
         9 => {
             if (peer_index_raw < 0) return -1;
@@ -1067,6 +1076,7 @@ export fn noctty_grid_share_status(
         return 100 + @intFromEnum(pairing.statusSnapshot());
     }
     if (state.live_host) |host| {
+        state.control_request = host.controlRequest();
         sas_output.* = 0;
         port_output.* = host.port();
         return 200 + @intFromEnum(host.currentStatus());
@@ -2620,21 +2630,8 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         bridge.saw_directional_focus = true;
         return;
     }
-    if ((event >= 70 and event <= 74) or event == 76 or event == 77) {
+    if ((event >= 72 and event <= 74) or event == 76 or event == 77) {
         switch (event) {
-            70, 71 => {
-                var dimensions = noctty.app.App.DropdownDimensions{
-                    .width_percent = bridge.app.config.dropdown.width_percent,
-                    .height_percent = bridge.app.config.dropdown.height_percent,
-                    .width_px = bridge.app.config.dropdown.width_px,
-                    .height_px = bridge.app.config.dropdown.height_px,
-                };
-                if (event == 70) dimensions.width_px = @intCast(@max(1, @min(exit_code, 65535))) else dimensions.height_px = @intCast(@max(1, @min(exit_code, 65535)));
-                _ = bridge.app.dispatch(.{ .set_dropdown_dimensions = dimensions }) catch {
-                    bridge.callback_failed = true;
-                    return;
-                };
-            },
             72 => _ = bridge.app.dispatch(.{ .set_dropdown_animation_ms = @intCast(@max(0, @min(exit_code, 2000))) }) catch {
                 bridge.callback_failed = true;
                 return;
@@ -2925,12 +2922,19 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
             return;
         };
         const maintenance = plan.maintenance_planned;
-        if (maintenance.autosave_due) {
-            const io = bridge.io orelse return;
-            const path = bridge.autosave_path orelse return;
+        if (maintenance.autosave_due) autosave: {
+            defer bridge.app.maintenance.autosave_pending = false;
+            const io = bridge.io orelse {
+                std.log.err("native grid maintenance autosave unavailable: missing I/O", .{});
+                break :autosave;
+            };
+            const path = bridge.autosave_path orelse {
+                std.log.err("native grid maintenance autosave unavailable: missing path", .{});
+                break :autosave;
+            };
             const receipt = bridge.app.saveWorkspaceFile(io, std.Io.Dir.cwd(), path, .autosave) catch |err| {
                 std.log.err("native grid maintenance autosave failed: {s}", .{@errorName(err)});
-                return;
+                break :autosave;
             };
             receipt.deinit(bridge.app.allocator);
             bridge.autosave_executed = true;
@@ -2952,8 +2956,55 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
                 bridge.project_refresh_deferred = true;
             }
         }
-        if (maintenance.recovery_cleanup_due) {
-            _ = bridge.app.dispatch(.{ .recovery_cleanup_receipt = .{ .completed_at_ms = at_ms, .receipt = .{} } }) catch {
+        if (maintenance.recovery_cleanup_due) cleanup: {
+            defer bridge.app.maintenance.recovery_cleanup_pending = false;
+            defer bridge.app.maintenance.last_recovery_cleanup_ms = at_ms;
+            const io = bridge.io orelse {
+                std.log.err("native grid recovery cleanup unavailable: missing I/O", .{});
+                break :cleanup;
+            };
+            // Only this session's known snapshots belong to this retention policy.
+            // Other workspaces and rejected snapshots are not cleanup candidates.
+            const paths = [_]?[]const u8{ bridge.autosave_path, bridge.app.recovery.recovery_path };
+            var candidates: [paths.len]noctty.workspace_storage.RecoveryCleanupCandidate = undefined;
+            var candidate_count: usize = 0;
+            for (paths, 0..) |maybe_path, index| {
+                const path = maybe_path orelse continue;
+                if (index != 0 and paths[0] != null and std.mem.eql(u8, path, paths[0].?)) continue;
+                const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch |err| switch (err) {
+                    error.FileNotFound => continue,
+                    else => {
+                        std.log.err("native grid recovery cleanup stat failed: {s}", .{@errorName(err)});
+                        break :cleanup;
+                    },
+                };
+                if (stat.kind != .file) {
+                    std.log.err("native grid recovery cleanup refused a non-file snapshot", .{});
+                    break :cleanup;
+                }
+                candidates[candidate_count] = .{
+                    .path = path,
+                    .role = if (index == 0) .autosave else .recovery,
+                    .saved_generation = 0,
+                    .saved_at_ms = @intCast(std.math.clamp(@divFloor(stat.mtime.nanoseconds, std.time.ns_per_ms), 0, std.math.maxInt(u64))),
+                };
+                candidate_count += 1;
+            }
+            var cleanup_plan = bridge.app.planRecoveryCleanup(candidates[0..candidate_count]) catch |err| {
+                std.log.err("native grid recovery cleanup planning failed: {s}", .{@errorName(err)});
+                break :cleanup;
+            };
+            defer cleanup_plan.deinit(bridge.app.allocator);
+            const receipt = bridge.app.applyRecoveryCleanup(io, std.Io.Dir.cwd(), cleanup_plan) catch |err| {
+                std.log.err("native grid recovery cleanup failed: {s}", .{@errorName(err)});
+                break :cleanup;
+            };
+            for (cleanup_plan.delete_entries) |entry| {
+                if (bridge.app.recovery.recovery_path) |path| {
+                    if (std.mem.eql(u8, entry.path, path)) bridge.app.recovery.clearRecoveryPath(bridge.app.allocator);
+                }
+            }
+            _ = bridge.app.dispatch(.{ .recovery_cleanup_receipt = .{ .completed_at_ms = at_ms, .receipt = receipt } }) catch {
                 bridge.callback_failed = true;
                 return;
             };
@@ -3450,6 +3501,30 @@ pub fn main(init: std.process.Init) !void {
 
     if (args.len > 1) {
         const cmd = args[1];
+        if (std.mem.eql(u8, cmd, "--help") or std.mem.eql(u8, cmd, "-h")) {
+            try stdout.writeAll(
+                \\Usage: noctty [OPTION]
+                \\
+                \\With no option, show the existing workspace or start NOCTTY.
+                \\  -h, --help                 Show this help without opening a window
+                \\  --version                  Print the version
+                \\  --show | --hide | --toggle Control the running dropdown
+                \\  --status                   Report whether the dropdown is running
+                \\  --hidden                   Start hidden until activated
+                \\  --new-window [--working-directory PATH]
+                \\                             Open an independent window
+                \\  --native-grid              Open in dropdown mode
+                \\  --native-grid-windowed     Open in decorated window mode
+                \\  --native-grid-zen          Open in fullscreen mode
+                \\  --open-workspace PATH      Restore a saved workspace
+                \\  --open-uri URI             Open a noctty workspace URI
+                \\
+                \\Settings, shortcuts, themes and launch profiles are configurable in
+                \\the native Settings window. See docs/INSTALL.md for desktop setup.
+                \\
+            );
+            return;
+        }
         if (std.mem.eql(u8, cmd, "--version")) {
             try stdout.writeAll("noctty " ++ noctty.release.version ++ "\n");
             return;
@@ -3805,6 +3880,14 @@ pub fn main(init: std.process.Init) !void {
                 try nativeGridWindowTraySmoke(stdout);
                 return;
             }
+            if (std.mem.eql(u8, cmd, "--native-grid-resolution-dropdown-smoke")) {
+                try nativeGridResolutionSmoke(stdout, 0, 44, "dropdown");
+                return;
+            }
+            if (std.mem.eql(u8, cmd, "--native-grid-resolution-fullscreen-smoke")) {
+                try nativeGridResolutionSmoke(stdout, 2, 45, "fullscreen");
+                return;
+            }
             if (std.mem.eql(u8, cmd, "--native-grid-clipboard-smoke")) {
                 try nativeGridClipboardSmoke(stdout);
                 return;
@@ -3914,6 +3997,8 @@ pub fn main(init: std.process.Init) !void {
             try runNativeGrid(allocator, init.io, home_dir, init.environ_map, 2, .automatic);
             return;
         }
+        std.debug.print("Unknown option: {s}\nRun 'noctty --help' for usage.\n", .{cmd});
+        return error.UnknownArgument;
     }
 
     if (init.environ_map.get("NOCTTY_RENDERER")) |renderer| {
@@ -6425,6 +6510,7 @@ fn nativeGridSharingScopeSmoke(io: std.Io, out: anytype) !void {
         random,
         host_identity,
         host_peer,
+        null,
         "127.0.0.1",
         0,
         .tab,
@@ -7628,6 +7714,38 @@ fn nativeGridWindowTraySmoke(out: anytype) !void {
     });
     if (status != 0) return error.NativeGridWindowTraySmokeFailed;
     try out.print("native_grid_window_tray_smoke resize_handles=4 cardinal_edges=true side_border=2 diagonal_cursors=false resized=true native_decorated=true native_resizable=true tray_registered=true menu_registered=true watcher=true icon=true activate=true secondary=true context=true menu_layout=true close=true session_stopped=true exited=true\n", .{});
+}
+
+fn nativeGridResolutionSmoke(
+    out: anytype,
+    mode: c_int,
+    workspace_smoke: c_int,
+    comptime mode_name: []const u8,
+) !void {
+    var session = try noctty.terminal_session.TerminalSession.spawn(
+        std.heap.page_allocator,
+        "/tmp",
+        "/bin/sh",
+        96,
+        24,
+    );
+    defer session.deinit();
+    try session.write(
+        "printf 'NOCTTY_RESOLUTION_READY'; " ++
+            "while [ ! -f \"$XDG_RUNTIME_DIR/noctty-resolution-" ++
+            mode_name ++ "-finished\" ]; do sleep 0.1; done; exit 0\n",
+    );
+    const status = runNativeGridHost(.{
+        .session = &session,
+        .mode = mode,
+        .workspace_smoke = workspace_smoke,
+        .claim_control = 0,
+    });
+    if (status != 0) return error.NativeGridResolutionSmokeFailed;
+    try out.print(
+        "native_grid_resolution_smoke mode={s} live=true exited=true\n",
+        .{mode_name},
+    );
 }
 
 fn nativeGridClipboardSmoke(out: anytype) !void {

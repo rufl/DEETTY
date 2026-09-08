@@ -18,11 +18,11 @@ For an automatically isolated, display-independent X11 lane:
 NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
 ```
 
-Offscreen mode uses the shared `overzeer-isolated-display` boundary: a private
-mount/PID/IPC/network namespace, runtime directory, D-Bus session, and X server
-with serialized, pressure-gated, bounded process-tree cleanup. Both modes
-serialize benchmark runs and fail closed rather than use an unacknowledged
-active desktop.
+Offscreen mode uses the repository's `isolated_display_runner.sh` boundary by
+default: a private mount/PID/IPC/network namespace, runtime directory, D-Bus
+session, and X server with serialized, pressure-gated, bounded process-tree
+cleanup. `OVERZEER_DISPLAY_RUNNER` may select an equivalent reviewed runner.
+Both modes fail closed rather than use an unacknowledged active desktop.
 
 The harness writes raw samples (including execution order), summary, metadata,
 process attribution, and checksums to `benchmarks/`. Run stamps are bounded to

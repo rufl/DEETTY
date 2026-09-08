@@ -85,16 +85,18 @@ A fresh 2026-08-05 tmpfs-scoped single-job run completed successfully through te
 Current dogfood status:
 
 ```text
-dogfood_status counted_sessions=0 documented_sessions=0 unverified_sessions=0 not_counted_sessions=3 counted_seconds=0 counted_hours=0.000 five_sessions=false four_pane=false agent_cli=false nocted_real_edit=false foreground_close_confirmation=false
-dogfood_omp_status observed_sessions=0 qualified_sessions=0 qualified_version=none max_concurrent=0 separate_worktrees=false concurrent_streaming=false independent_input=false independent_paste=false resize_during_output=false focus_isolation=false hide_show=false close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=false output_integrity=false logs_clean=false compatible=false
+dogfood_status counted_sessions=7 documented_sessions=7 unverified_sessions=0 not_counted_sessions=3 counted_seconds=601585 counted_hours=167.107 five_sessions=true four_pane=false agent_cli=true nocted_real_edit=true foreground_close_confirmation=false
+dogfood_omp_status observed_sessions=1 qualified_sessions=0 qualified_version=none max_concurrent=5 separate_worktrees=true concurrent_streaming=true independent_input=true independent_paste=true resize_during_output=true focus_isolation=true hide_show=true close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=true output_integrity=false logs_clean=false compatible=false
 ```
 
-Retained installed-launcher logs contain 8.777 NOCTTY process-hours and 3.056
-NoctEd process-hours on this host. The values can overlap, and the one
-4.466-hour NOCTTY candidate has no recorded real-work context, so none of those
-runtime-only hours is promoted into the counted-session quota.
+Retained installed-launcher logs contain 188.293 total NOCTTY process-hours and
+14.568 NoctEd process-hours on this host. The values can overlap. Seven unique
+operator-confirmed NOCTTY receipts contribute 167.107 counted hours, satisfying
+the minimum five-session baseline without inventing unrecorded interaction
+coverage.
 
-- counted real dogfood sessions are still needed
+- NCT-125 still requires its clean current-build workflow recapture
+- four-pane, close-protection, three-session NoctEd, and multi-OMP evidence remain incomplete
 - signing/publication/artifact signatures are not complete
 - authenticated Codex 0.144.6 and installed tmux/Zellij mapped receipts are retained; the stability harness shakedown passes, while the 48-hour run, varied-project GUI evidence, and broader agent products remain future proof
 

@@ -4,8 +4,8 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)
 cd "$repo_root"
 
-isolation=${NOCTTY_ISOLATED_DISPLAY:-overzeer-isolated-display}
-command -v "$isolation" >/dev/null
+isolation=${NOCTTY_ISOLATED_DISPLAY_RUNNER:-$repo_root/scripts/isolated_display_runner.sh}
+test -x "$isolation"
 command -v wine >/dev/null
 command -v wineboot >/dev/null
 command -v wineserver >/dev/null

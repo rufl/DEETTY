@@ -139,23 +139,28 @@ is ignored; startup falls back to the default single-pane workspace.
 `nocted.exe` is a separate native Win32 editor process; it does not run inside
 the terminal host and does not require GTK, Node.js, Electron, or a browser
 runtime. It provides bounded document tabs, a project tree, UTF-8 Rich Edit
-editing, undo/redo, cut/copy/paste, find, New/Open/Open Folder, Save/Save As,
+editing, undo/redo, cut/copy/paste, find, New/Open/Open Project, Save/Save As,
 dirty-close prompts, and DPI-aware native controls.
 
-Start it directly, open one file, or index a project folder:
+Start it directly, open one file, or open a saved `.npr` project:
 
 ```powershell
 .\nocted.exe
 .\nocted.exe --open C:\work\project\main.zig
-.\nocted.exe --project C:\work\project
+.\nocted.exe --project C:\work\project\project.npr
 ```
+
+**File → Open Project…** and `--project` require a `.npr` project file, not a
+directory. NoctEd indexes the root recorded in that file; it does not currently
+provide a Windows **Open Folder** command.
 
 NoctEd atomically saves files and rejects a save when the loaded file identity
 changed on disk. Restored dirty file buffers remain deliberately conflicted
 because the prior identity is not persisted; save them to a different path
 after reviewing the on-disk file. Its bounded session state restores ordered
-tabs, dirty recovery buffers, the active tab, and the project root under
-`%LOCALAPPDATA%\NOCTTY`. Choosing **No** in a dirty-exit prompt removes that
+tabs, dirty recovery buffers, and the active tab under `%LOCALAPPDATA%\NOCTTY`.
+The project is not restored automatically; reopen its `.npr` file explicitly.
+Choosing **No** in a dirty-exit prompt removes that
 buffer from recovery instead of reopening the file; failure to persist the
 remaining recovery state blocks shutdown.
 
@@ -397,6 +402,11 @@ rejection self-test:
 .\nocted.exe --self-test
 $LASTEXITCODE
 ```
+
+The editor self-test uses `%LOCALAPPDATA%\NOCTTY\NoctEd` for temporary files;
+it does not require the package directory as its working directory. Success
+exits zero. Failure exits one and reports the error name to stderr without
+opening a dialog. Redirect stderr when running it from automation.
 
 The package also includes a PowerShell wrapper:
 

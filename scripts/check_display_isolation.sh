@@ -2,7 +2,8 @@
 set -eu
 
 for helper in scripts/require_isolated_display.sh \
-  scripts/run_isolated_x11.sh scripts/run_isolated_wayland.sh; do
+  scripts/isolated_display_runner.sh scripts/run_isolated_x11.sh \
+  scripts/run_isolated_wayland.sh; do
   test -x "$helper"
 done
 
@@ -26,6 +27,7 @@ scripts/native_grid_pane_move_smoke.sh
 scripts/native_grid_project_editor_smoke.sh
 scripts/native_grid_recursive_split_smoke.sh
 scripts/native_grid_resize_overlay_smoke.sh
+scripts/native_grid_resolution_smoke.sh
 scripts/native_grid_resource_qualification.sh
 scripts/native_grid_settings_smoke.sh
 scripts/native_grid_single_instance_smoke.sh
@@ -83,7 +85,7 @@ done
 dedicated_count=0
 for script in $dedicated; do
   test -s "$script"
-  grep -F 'require_isolated_display.sh --dedicated' "$script" >/dev/null
+  grep -E 'require_isolated_display[.]sh"? --dedicated' "$script" >/dev/null
   dedicated_count=$((dedicated_count + 1))
 done
 
@@ -110,8 +112,32 @@ grep -F 'visible_root=$(mktemp -d "$PWD/.noctty-verify-visible.XXXXXX")' \
   scripts/verify.sh >/dev/null
 grep -F 'visible_staging=true' scripts/verify.sh >/dev/null
 test "$(grep -c 'NOCTTY_LEGACY_DISPLAY_RUNNER=1' scripts/verify.sh)" -eq 2
-grep -F 'overzeer-isolated-display' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'isolated_display_runner.sh' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'exec env TMPDIR=/tmp' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'NOCTTY_ISOLATED_X11_WM:-auto' scripts/run_isolated_x11.sh >/dev/null
+! grep -F -- '--wm none' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'bwrap' scripts/isolated_display_runner.sh >/dev/null
+for namespace in pid ipc uts net; do
+  grep -F -- "--unshare-$namespace" scripts/isolated_display_runner.sh >/dev/null
+done
+grep -F -- '--tmpfs /tmp' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--tmpfs "$private_runtime"' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--tmpfs /dev/shm' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--tmpfs /run/dbus' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv HOME /tmp/noctty-home' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_CONFIG_HOME /tmp/noctty-config' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_STATE_HOME /tmp/noctty-state' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_CACHE_HOME /tmp/noctty-cache' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_DATA_HOME /tmp/noctty-data' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--unsetenv XDG_CURRENT_DESKTOP' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'dbus-run-session' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'xvfb-run' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'NOCTTY_ISOLATED_WINDOW_MANAGER' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'openbox kwin_x11 xfwm4' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--unsetenv DBUS_SYSTEM_BUS_ADDRESS' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'pressure_is_critical' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'timeout --signal=TERM --kill-after=10' \
+  scripts/isolated_display_runner.sh >/dev/null
 grep -F 'XDG_DATA_HOME="$scratch/data" XDG_RUNTIME_DIR="$scratch/runtime"' \
   scripts/run_isolated_x11.sh >/dev/null
 grep -F 'chmod 0700 "$scratch/runtime"' scripts/run_isolated_x11.sh >/dev/null
@@ -128,4 +154,4 @@ grep -F 'require_isolated_display.sh" --dedicated' \
   scripts/terminal_benchmark.sh >/dev/null
 
 printf '%s\n' \
-  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true shared_x11_runner=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true legacy_runtime_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"
+  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true repository_x11_runner=true namespace_mount=true namespace_pid=true namespace_ipc=true namespace_network=true private_home=true private_xdg=true private_system_bus=true private_x11_wm=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true legacy_runtime_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"

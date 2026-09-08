@@ -13,10 +13,12 @@ Supported first:
 
 Experimental, not parity or daily-driver qualified:
 
-- x86_64 Windows 10 1809+/Windows 11 Win32/ConPTY terminal workspace; bounded
-  tabs and recursive splits exist, while settings, recovery, global shortcuts,
-  mouse reporting/selection, Windows NoctEd, ARM64, signing, installer
-  packaging, and physical Windows receipts remain open
+- x86_64 Windows 10 1809+/Windows 11 Win32/ConPTY terminal workspace. Native
+  tabs/splits, settings, layout restore, mouse reporting/selection, NoctEd,
+  and an NSIS installer are implemented. Dropdown/global-hotkey behavior,
+  Linux workspace continuity parity, graphical sharing controls, ARM64,
+  release signatures, and physical Windows qualification remain open.
+  See [Windows alpha](WINDOWS.md) for the feature boundary.
 
 Not supported or not claimed yet:
 
@@ -31,6 +33,15 @@ Not supported or not claimed yet:
 
 Source builds and local packaging paths exist, but public release operations are
 not complete yet.
+
+Ordinary source builds and `zig build check` do not require maintainer release
+receipts or graphical infrastructure. The optional
+`scripts/public_alpha_verify.sh` uses the repository-owned bubblewrap/Xvfb plus
+private-window-manager runner for X11 and a virtual-capable KWin for Wayland.
+Those host packages are not bundled with the source; release CI provisions
+them, while contributors may use the non-graphical gate when they are
+unavailable. Never substitute an active desktop for an unavailable isolation
+dependency.
 
 Open before a polished public binary release:
 
@@ -84,6 +95,17 @@ Works today in the intended scope:
 - recent projects
 - private atomic hot-exit restoration for dirty saved and untitled tabs
 - Save/Discard/Cancel protection when closing an individual dirty tab
+
+Save refuses replacement when the original file changed or disappeared.
+Dirty restored buffers lack a retained original-disk identity and require
+Save As rather than assuming the current disk version is safe to overwrite.
+The identity check narrows external-write races but is not a cross-process
+filesystem lock; Save As remains the escape hatch for an unknown original.
+
+Language-service edits use request-time snapshots of open buffers. Closing or
+changing a target invalidates its response. A workspace rename that mentions an
+unopened or changed file is rejected before any edit; open the affected files
+and retry. Unopened disk files are not edited without a baseline.
 
 Not claimed yet:
 

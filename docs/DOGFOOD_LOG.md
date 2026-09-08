@@ -45,9 +45,9 @@ and `docs/DOGFOOD_RUNBOOK.md` for the exact preflight.
 
 ## Alpha dogfood checklist
 
-- [ ] Five sessions of at least two hours each
+- [x] Five sessions of at least two hours each
 - [ ] One session with four or more panes/tabs
-- [ ] One Pi/Codex/Claude/agent CLI session inside NOCTTY
+- [x] One Pi/Codex/Claude/agent CLI session inside NOCTTY
 - [ ] Hide/show tested during real work
 - [ ] close confirmation tested with foreground job
 - [ ] hot-session restore tested after normal exit
@@ -80,7 +80,9 @@ host `chopper`:
   29,094 seconds / 8.082 runtime-only hours
 - one clean 2.699-hour NOCTTY runtime candidate and one clean 3.203-hour NoctEd
   runtime candidate exist, but neither is counted without the required work
-  context in this log
+  context in this log.
+- The 2026-09-06 operator reconciliation under **Sessions** supersedes this
+  historical NOCTTY count classification, not the retained defect facts.
 - five retained NOCTTY failures ended in descriptor exhaustion/display flush
   failure; separate retained logs exposed popup-parent warnings, stale-widget
   draw criticals, one exit 139, and one `NativeGridStateSyncFailed`
@@ -195,6 +197,163 @@ installed session is still required; source, smoke, and installation results do
 not close NCT-125 by themselves.
 
 ## Sessions
+
+The operator reconfirmed on 2026-09-06 that the seven retained two-hour NOCTTY
+candidates below were real installed daily-terminal dogfood, not smoke or
+screenshot runs. The receipts contribute 601,585 seconds / 167.107 hours across
+seven unique launcher sessions. Shell commands and terminal contents were
+intentionally not logged. Six sessions exited zero; the nonzero exit and
+warning-bearing sessions remain documented rather than being silently excluded.
+Separate NoctEd runtime may overlap and is not added to the NOCTTY total.
+
+## 2026-09-03 — 60.152-hour installed NOCTTY dogfood session
+
+- Duration: 216,547 seconds / 60.152 hours
+- Dogfood receipt: `noctty-20260903-162027-752716`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--toggle`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: at least one instrumented pane; exact peak was not retained
+- Agent/TUI apps used: OMP 18.1.11, with native detection and independent-input evidence
+- NoctEd used: yes; the overlapping finished NoctEd receipt retained 6.478 hours on a configuration file
+
+### What worked
+
+- The installed host remained available across 60.152 hours and exited zero.
+- Retained timestamps show repeated popup, selection-transfer, and final OMP interaction rather than an untouched launch.
+
+### Problems
+
+- [x] P2 historical popup-parent and external clipboard-consumer warnings were
+  retained. Current source dismisses stale popups; clipboard broken-pipe
+  cancellation is nondestructive. The warning-bearing OMP log review correctly
+  remains ineligible for the separate multi-OMP qualification.
+
+## 2026-09-03 — 3.322-hour installed NOCTTY dogfood session
+
+- Duration: 11,961 seconds / 3.322 hours
+- Dogfood receipt: `noctty-20260903-125659-3575`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--hidden`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked editor receipt
+
+### What worked
+
+- The installed host completed more than three hours of use and exited zero.
+
+### Problems
+
+- [x] P1 historical tab-label ownership failure emitted three GTK criticals.
+  The source correction is retained, while NCT-125 still requires a clean
+  current-build workflow recapture rather than reclassifying this old run.
+
+## 2026-09-02 — 10.856-hour installed NOCTTY dogfood session
+
+- Duration: 39,081 seconds / 10.856 hours
+- Dogfood receipt: `noctty-20260902-135507-18289`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--hidden`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked editor receipt
+
+### What worked
+
+- The installed host exited zero after 10.856 hours.
+- The retained log contains no categorized warning, critical, native-grid failure, or panic marker.
+
+### Problems
+
+- None recorded in the retained launcher log.
+
+## 2026-08-31 — 47.626-hour installed NOCTTY dogfood session
+
+- Duration: 171,454 seconds / 47.626 hours
+- Dogfood receipt: `noctty-20260831-111441-1690`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--hidden`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked two-hour editor receipt
+
+### What worked
+
+- The installed host remained alive across two calendar days and exited zero.
+- Retained popup and selection-transfer timestamps show interaction throughout the launcher span.
+
+### Problems
+
+- [x] P2 historical popup-parent and external clipboard-consumer warnings were
+  retained and fed the later popup ownership hardening.
+
+## 2026-08-30 — 2.222-hour installed NOCTTY dogfood session
+
+- Duration: 7,998 seconds / 2.222 hours
+- Dogfood receipt: `noctty-20260830-125425-2624493`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--open-uri`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked editor receipt
+
+### What worked
+
+- The installed host exited zero after more than two hours.
+- Retained popup and selection-transfer timestamps show active UI use.
+
+### Problems
+
+- [x] P2 historical popup-parent and external clipboard-consumer warnings were
+  retained and fed the later popup ownership hardening.
+
+## 2026-08-28 — 40.230-hour installed NOCTTY dogfood session
+
+- Duration: 144,828 seconds / 40.230 hours
+- Dogfood receipt: `noctty-20260828-204031-39059`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--open-uri`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked two-hour editor receipt
+
+### What worked
+
+- The launcher retained a complete monotonic duration across two calendar days.
+- Popup and selection-transfer timestamps show repeated interaction throughout the span.
+
+### Problems
+
+- [x] P1 historical process exit 139 after 40.230 hours. The associated
+  lifecycle/descriptor fixes are retained; NCT-125 still requires a clean
+  current-build workflow recapture.
+
+## 2026-08-28 — 2.699-hour installed NOCTTY dogfood session
+
+- Duration: 9,716 seconds / 2.699 hours
+- Dogfood receipt: `noctty-20260828-115932-221925`
+- Desktop/session: Niri / Wayland
+- NOCTTY command: installed launcher with `--open-uri`
+- Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
+- Panes/tabs used: not instrumented
+- Agent/TUI apps used: not instrumented
+- NoctEd used: no linked editor receipt
+
+### What worked
+
+- The installed host exited zero after more than two hours.
+- Popup and selection-transfer timestamps show active UI use.
+
+### Problems
+
+- [x] P2 historical popup-parent and external clipboard-consumer warnings were
+  retained and fed the later popup ownership hardening.
 
 ## 2026-08-05 — retained 4.466-hour runtime candidate (not counted pending work-context confirmation)
 

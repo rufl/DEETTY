@@ -11,9 +11,9 @@ NoctEd is the companion standalone editor. It is intentionally smaller than a
 full IDE: open a project, edit files, search, save safely, and get back to the
 terminal.
 
-NOCTTY and NoctEd are written in Zig with thin native C ABI boundaries. The
-supported runtime path does **not** use Electron, Node.js, Bun, React, a browser
-UI runtime, telemetry, update pings, crash uploaders, or remote feature flags.
+NOCTTY and NoctEd use Zig with native GTK/Win32 bindings. The runtime does
+**not** use Electron, Node.js, Bun, React, a browser UI runtime, telemetry,
+update pings, crash uploaders, or remote feature flags.
 
 ## Status
 
@@ -57,24 +57,120 @@ Not claimed yet:
 See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md), the [Konsole resilience review](docs/KONSOLE_RESILIENCE_REVIEW.md),
 the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairness qualification](docs/TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md), the [mapped presentation qualification](docs/NATIVE_GRID_PRESENTATION_QUALIFICATION.md), the [full-stack mapped qualification](docs/NATIVE_GRID_FULL_STACK_QUALIFICATION.md), the [hidden/visible stability qualification](docs/NATIVE_GRID_STABILITY_QUALIFICATION.md), the [authenticated Codex qualification](docs/AUTHENTICATED_AGENT_QUALIFICATION.md), the [installed tmux/Zellij continuity qualification](docs/INSTALLED_CONTINUITY_QUALIFICATION.md), the [NoctEd native endurance qualification](docs/NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md), and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
 
+## Build and run
+
+Linux requirements:
+
+- Zig 0.16.x (the build intentionally rejects other minor versions)
+- GTK 3 development files discoverable through `pkg-config`
+- GtkSourceView 4 development files discoverable through `pkg-config`
+- system `gtk-layer-shell` at runtime for Wayland dropdown placement;
+  dependency bundles and dogfood installs copy the host package's library into
+  a launcher-owned private runtime after provenance/license checks
+- VTE 2.91 development files only for `zig build check`, smoke binaries, or the
+  optional legacy/fallback binary; not for the production build
+
+Install the [distribution prerequisites](docs/INSTALL.md#prerequisites), then
+run from the repository root in your desktop session:
+
+```sh
+zig build -j1
+./zig-out/bin/noctty --native-grid-windowed
+```
+
+This builds both production applications without running the maintainer matrix.
+Launch the editor with `./zig-out/bin/nocted --open README.md`. No OVERZEER install,
+agent CLI account, packaging receipt, or physical qualification is needed.
+For the dropdown instead, use `zig build run`.
+Use `noctty --help` or `nocted --help` for command-line options. To work with a
+saved editor project, use **File > New Project** or open an existing `.npr` file;
+`--project` expects a project file, not a directory.
+
+Useful launch variants:
+
+```sh
+zig build run -- --native-grid-windowed
+zig build run -- --native-grid-zen
+zig build run -- --native-grid-two-pane
+zig build run-nocted -- --open src/nocted/main.zig
+```
+
+Optional legacy/fallback build:
+
+```sh
+zig build vte-fallback
+./zig-out/bin/noctty-vte --native-host
+```
+
+Native x86_64 Windows cross-build (no GTK dependency):
+
+```sh
+zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
+./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
+```
+
+See [Windows alpha](docs/WINDOWS.md) for the current feature and proof boundary.
+
+## Install/package locally
+
+Local install:
+
+```sh
+zig build -j1 -Doptimize=ReleaseSafe --prefix "$HOME/.local"
+```
+
+Reproducible install-tree tarball:
+
+```sh
+./scripts/package_tarball.sh /tmp/noctty-local.tar.gz
+```
+
+Same-architecture dependency bundle:
+
+```sh
+./scripts/package_bundle.sh /tmp/noctty-linux-bundle.tar.gz
+```
+
+See [Install and package](docs/INSTALL.md) for runtime requirements and package
+contents. The dependency bundle is not a public redistribution promise until
+independent license/redistribution review and release receipts are complete.
+
 ## Screenshots
 
-Retained 2026-07-19 alpha baseline screenshots from the author's Plasma
-Wayland desktop. They predate the current UI and must be recaptured before a
-public announcement. Recaptures must use a disposable compositor session:
-`NOCTTY_DEDICATED_DISPLAY=1 ./scripts/capture_alpha_screenshots.sh`.
+Current 2026-09-06 alpha captures use an active-window crop inside the
+repository's disposable private X11/KWin boundary; no author desktop or active
+session appears in the images. They demonstrate current rendering, not physical
+input or release approval. Recapture safely with
+`./scripts/capture_alpha_screenshots.sh`; it self-isolates by default.
+
+**Terminal workspace**
 
 ![NOCTTY alpha terminal workspace](docs/assets/noctty-alpha.png)
 
+**Tabs and recursive splits**
+
+![NOCTTY alpha tabs and recursive splits](docs/assets/noctty-alpha-tabs-splits.png)
+
+**Native settings**
+
+![NOCTTY alpha settings](docs/assets/noctty-alpha-settings.png)
+
+**NoctEd project editor**
+
 ![NoctEd alpha editor](docs/assets/nocted-alpha.png)
+
+**NoctEd project-wide search**
+
+![NoctEd alpha project search](docs/assets/nocted-alpha-project-search.png)
 
 ## What works today
 
 The qualified Linux NOCTTY host provides:
 
-- undecorated, horizontally centered dropdown mode with live percentage sizing,
-  native decorated windowed mode, and zen/fullscreen mode; every mode reflows
-  and clamps itself when monitor work areas or resolution change
+- undecorated, horizontally centered dropdown mode with responsive percentage
+  sizing, native decorated windowed mode, and zen/fullscreen mode; every mode
+  watches monitor geometry, work area, scale, and reveal events, then reflows
+  or clamps itself after a display-resolution change
 - native terminal tabs and recursive splits with configurable transparent or
   theme-colored pixel gaps and optional 70%-by-default inactive-pane dimming
 - guarded broadcast input across selected panes or the active tab, with explicit enable confirmation and immediate disable
@@ -207,74 +303,6 @@ WIZP is the separate experimental rich-editor/WebView line. Ideas may transfer
 from WIZP, but NOCTTY should stay native and avoid inheriting WIZP's webview,
 Bun, or VS Code-parity stack.
 
-## Build and run
-
-Linux requirements:
-
-- Zig 0.16.x (the build intentionally rejects other minor versions)
-- GTK 3 development files discoverable through `pkg-config`
-- GtkSourceView 4 development files discoverable through `pkg-config`
-- system `gtk-layer-shell` at runtime for Wayland dropdown placement;
-  dependency bundles and dogfood installs copy the host package's library into
-  a launcher-owned private runtime after provenance/license checks
-- VTE 2.91 development files only for the optional legacy/fallback binary or the
-  complete verification matrix
-
-From the repository root on Linux:
-
-```sh
-./scripts/verify.sh
-zig build run
-```
-
-Useful launch variants:
-
-```sh
-zig build run -- --native-grid-windowed
-zig build run -- --native-grid-zen
-zig build run -- --native-grid-two-pane
-zig build run-nocted -- --open src/nocted/main.zig
-```
-
-Optional legacy/fallback build:
-
-```sh
-zig build vte-fallback
-./zig-out/bin/noctty-vte --native-host
-```
-
-Native x86_64 Windows cross-build (no GTK dependency):
-
-```sh
-zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
-./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
-```
-
-See [Windows alpha](docs/WINDOWS.md) for the current feature and proof boundary.
-
-## Install/package locally
-
-Local install:
-
-```sh
-zig build --prefix "$HOME/.local"
-```
-
-Reproducible install-tree tarball:
-
-```sh
-./scripts/package_tarball.sh /tmp/noctty-local.tar.gz
-```
-
-Same-architecture dependency bundle:
-
-```sh
-./scripts/package_bundle.sh /tmp/noctty-linux-bundle.tar.gz
-```
-
-The dependency bundle is not a public redistribution promise until independent
-license/redistribution review and release receipts are complete.
-
 ## Common controls
 
 ```text
@@ -317,10 +345,10 @@ More interaction detail: [Compact UX](docs/COMPACT_UX.md).
 
 ## Verification
 
-Fast Linux contributor gate:
+Linux contributor gate (also requires VTE development files):
 
 ```sh
-zig build check
+zig build check -j1 --summary all
 ```
 
 Windows compile gate:
@@ -329,13 +357,20 @@ Windows compile gate:
 zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe
 ```
 
-The current working tree passes `zig build check -j1 --summary all` with
-`19/19` steps and `421/421` tests in Debug; the experimental Windows
-`ReleaseSafe` cross-compile also passes. The last retained `./scripts/verify.sh`
-aggregate passes with scoped scratch cleanup; the current focused isolation
-receipt proves private X11/Wayland state and no inherited active display.
+See [Contributing](CONTRIBUTING.md#before-opening-a-change) for choosing a
+focused gate and the extra dependencies for graphical checks. Verification is
+not a prerequisite for launching the production build.
 
-Bounded public-source-alpha gate:
+<details>
+<summary>Maintainer qualification commands and historical evidence</summary>
+
+Retained Linux Debug evidence reports `19/19` steps and `421/421` tests;
+the experimental Windows `ReleaseSafe` cross-compile also has a retained pass.
+These are historical receipts, not a claim that an arbitrary current checkout
+or machine has passed. The retained isolation receipt covers private
+X11/Wayland state and no inherited active display.
+
+Bounded public-source-alpha gate (see the prerequisite list in Contributing):
 
 ```sh
 ./scripts/public_alpha_verify.sh
@@ -351,12 +386,19 @@ Wayland dropdown:
 ./scripts/dogfood_runtime_status.sh --list-candidates
 ```
 
+Current retained evidence includes seven operator-confirmed installed NOCTTY
+sessions totaling 167.107 counted hours. This closes the minimum session-count
+baseline, not NCT-125's required clean current-build workflow recapture or the
+remaining four-pane, lifecycle, editor-coverage, and multi-OMP checks.
+
 The display-backed post-upgrade lane is operator-initiated inside a disposable
 Plasma VM/session and performs no package refresh, telemetry, or upload:
 
 ```sh
 NOCTTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
-``` See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
+```
+
+See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
 
 Main maintainer gate:
 
@@ -364,7 +406,7 @@ Main maintainer gate:
 ./scripts/verify.sh
 ```
 
-A fresh current-source single-job maintainer run completed successfully on
+A single-job maintainer run on the source available at that time completed on
 2026-08-03, including the Debug/`ReleaseSafe` terminal, renderer, PTY, NoctEd
 core/worker, project-index, package, release-contract, and truth-check lanes,
 followed by `verify_cleanup scratch=true cache=true install=true artifacts=true`.
@@ -385,6 +427,8 @@ behavior, PTY lifecycle, NoctEd worker/index/search behavior, and native UI
 lifecycle. These are engineering evidence, not blanket public guarantees. The
 full detailed receipt history lives in [Technical status](docs/TECHNICAL_STATUS.md)
 and the active finish list lives in [BACKLOG.md](BACKLOG.md).
+
+</details>
 
 ## Public alpha finish line
 
@@ -422,4 +466,8 @@ for private vulnerability reporting. Third-party provenance is documented in
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Contributions are accepted under the same license.
+NOCTTY's first-party code is [MIT-licensed](LICENSE); contributions are accepted
+under the same license. Vendored code and Unicode data retain their upstream
+copyrights and licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+System libraries, including any copied into a dependency bundle, are **not**
+relicensed under NOCTTY's MIT license.

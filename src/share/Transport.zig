@@ -149,18 +149,19 @@ pub const Listener = struct {
         const socket = Net.tcpAccept(self.socket);
         if (socket == invalid_socket) return error.ShareAcceptFailed;
         errdefer Net.socketClose(socket);
+        const deadline = Deadline.init(io, 5_000);
         var responder = Crypto.Responder.init(identity, io);
         defer responder.deinit();
         var message1: [Crypto.message1_length]u8 = undefined;
-        try readExact(socket, &message1);
+        try readExact(socket, &message1, deadline);
         try responder.readMessage1(&message1);
         const message2 = try responder.writeMessage2();
-        try writeExact(socket, &message2);
+        try writeExact(socket, &message2, deadline);
         var message3: [Crypto.message3_length]u8 = undefined;
-        try readExact(socket, &message3);
+        try readExact(socket, &message3, deadline);
         try responder.readMessage3(&message3);
         const result = try responder.finish(pinned_remote);
-        return PendingConnection.init(socket, result);
+        return PendingConnection.init(socket, result, io);
     }
 
     pub fn readable(self: *Listener, timeout_milliseconds: u32) !bool {
@@ -188,17 +189,18 @@ pub fn connect(allocator: std.mem.Allocator, io: Crypto.RandomContext, host: []c
     const socket = Net.tcpConnect(host_z.ptr, port);
     if (socket == invalid_socket) return error.ShareConnectFailed;
     errdefer Net.socketClose(socket);
+    const deadline = Deadline.init(io, 5_000);
     var initiator = Crypto.Initiator.init(identity, io);
     defer initiator.deinit();
     const message1 = try initiator.writeMessage1();
-    try writeExact(socket, &message1);
+    try writeExact(socket, &message1, deadline);
     var message2: [Crypto.message2_length]u8 = undefined;
-    try readExact(socket, &message2);
+    try readExact(socket, &message2, deadline);
     try initiator.readMessage2(&message2);
     const message3 = try initiator.writeMessage3();
-    try writeExact(socket, &message3);
+    try writeExact(socket, &message3, deadline);
     const result = try initiator.finish(pinned_remote);
-    return PendingConnection.init(socket, result);
+    return PendingConnection.init(socket, result, io);
 }
 
 pub const PendingConnection = struct {
@@ -207,9 +209,9 @@ pub const PendingConnection = struct {
     sas: u32,
     confirmed: bool = false,
 
-    fn init(socket: Socket, result: Crypto.HandshakeResult) PendingConnection {
+    fn init(socket: Socket, result: Crypto.HandshakeResult, io: Crypto.RandomContext) PendingConnection {
         return .{
-            .connection = .{ .socket = socket, .transport = result.transport },
+            .connection = .{ .socket = socket, .transport = result.transport, .io = io },
             .remote_static = result.remote_static,
             .sas = result.sas,
         };
@@ -232,6 +234,7 @@ pub const PendingConnection = struct {
 pub const SecureConnection = struct {
     socket: Socket = invalid_socket,
     transport: Crypto.Transport,
+    io: Crypto.RandomContext,
 
     pub fn sendFrame(self: *SecureConnection, allocator: std.mem.Allocator, frame: Protocol.Frame) !void {
         const plaintext = try Protocol.encodeFrameAlloc(allocator, frame);
@@ -242,8 +245,9 @@ pub const SecureConnection = struct {
         if (count > std.math.maxInt(u16)) return error.ShareEncryptedFrameTooLarge;
         var prefix: [2]u8 = undefined;
         std.mem.writeInt(u16, &prefix, @intCast(count), .big);
-        try writeExact(self.socket, &prefix);
-        try writeExact(self.socket, ciphertext[0..count]);
+        const deadline = Deadline.init(self.io, 5_000);
+        try writeExact(self.socket, &prefix, deadline);
+        try writeExact(self.socket, ciphertext[0..count], deadline);
     }
     pub fn readable(self: *SecureConnection, timeout_milliseconds: u32) !bool {
         const result = Net.socketReadable(self.socket, timeout_milliseconds);
@@ -252,15 +256,16 @@ pub const SecureConnection = struct {
     }
 
     pub fn receiveFrameAlloc(self: *SecureConnection, allocator: std.mem.Allocator) ![]u8 {
+        const deadline = Deadline.init(self.io, 5_000);
         var prefix: [2]u8 = undefined;
-        try readExact(self.socket, &prefix);
+        try readExact(self.socket, &prefix, deadline);
         const encrypted_length = std.mem.readInt(u16, &prefix, .big);
         if (encrypted_length < Crypto.transport_tag_length or
             encrypted_length > Protocol.max_wire_bytes + Crypto.transport_tag_length)
             return error.InvalidShareEncryptedLength;
         const ciphertext = try allocator.alloc(u8, encrypted_length);
         defer allocator.free(ciphertext);
-        try readExact(self.socket, ciphertext);
+        try readExact(self.socket, ciphertext, deadline);
         const plaintext = try allocator.alloc(u8, encrypted_length - Crypto.transport_tag_length);
         errdefer allocator.free(plaintext);
         const count = try self.transport.open(plaintext, ciphertext);
@@ -276,23 +281,45 @@ pub const SecureConnection = struct {
     }
 };
 
-fn readExact(socket: Socket, output: []u8) !void {
+// One budget covers a complete handshake or frame, including length prefixes.
+// A byte trickle must not restart the timeout and indefinitely block worker join.
+const Deadline = struct {
+    io: Crypto.RandomContext,
+    expires_ms: u64,
+
+    fn init(io: Crypto.RandomContext, timeout_ms: u32) Deadline {
+        return .{ .io = io, .expires_ms = monotonicMilliseconds(io) +| timeout_ms };
+    }
+
+    fn remaining(self: Deadline) !u32 {
+        const now = monotonicMilliseconds(self.io);
+        if (now >= self.expires_ms) return error.ShareTransactionTimedOut;
+        return @intCast(@min(self.expires_ms - now, std.math.maxInt(u32)));
+    }
+};
+
+fn readExact(socket: Socket, output: []u8, deadline: Deadline) !void {
     var offset: usize = 0;
     while (offset < output.len) {
         const request = @min(output.len - offset, @as(usize, std.math.maxInt(u16)));
-        const count = Net.socketRead(socket, output[offset..][0..request]);
-        if (count <= 0) return error.ShareConnectionClosed;
+        const count = Net.socketRead(socket, output[offset..][0..request], try deadline.remaining());
+        if (count <= 0) {
+            _ = try deadline.remaining();
+            return error.ShareConnectionClosed;
+        }
         offset += @intCast(count);
     }
 }
 
-fn writeExact(socket: Socket, bytes: []const u8) !void {
+fn writeExact(socket: Socket, bytes: []const u8, deadline: Deadline) !void {
     var offset: usize = 0;
     while (offset < bytes.len) {
         const request = @min(bytes.len - offset, @as(usize, std.math.maxInt(u16)));
-        const count = Net.socketWrite(socket, bytes[offset..][0..request]);
-        if (count <= 0 or count > @as(c_int, @intCast(request)))
+        const count = Net.socketWrite(socket, bytes[offset..][0..request], try deadline.remaining());
+        if (count <= 0 or count > @as(c_int, @intCast(request))) {
+            _ = try deadline.remaining();
             return error.ShareWriteFailed;
+        }
         offset += @intCast(count);
     }
 }
@@ -409,4 +436,44 @@ test "loopback pairing carries authenticated framed terminal data" {
     thread.join();
     try std.testing.expect(!context.failed);
     try std.testing.expect(context.received);
+}
+
+test "partial input cannot renew a frame transaction deadline" {
+    const Sender = struct {
+        socket: Socket,
+        io: Crypto.RandomContext,
+        stop: std.atomic.Value(bool) = .init(false),
+
+        fn run(self: *@This()) void {
+            while (!self.stop.load(.acquire)) {
+                if (Net.socketWrite(self.socket, "x", 100) != 1) return;
+                sleepMilliseconds(self.io, 10);
+            }
+        }
+    };
+    const io = Crypto.testingRandomContext();
+    var listener = try Listener.listen("127.0.0.1", 0);
+    defer listener.close();
+    const client = Net.tcpConnect("127.0.0.1", listener.port);
+    if (client == invalid_socket) return error.ShareConnectFailed;
+    defer Net.socketClose(client);
+    const server = Net.tcpAccept(listener.socket);
+    if (server == invalid_socket) return error.ShareAcceptFailed;
+    defer Net.socketClose(server);
+
+    var sender = Sender{ .socket = client, .io = io };
+    const thread = try std.Thread.spawn(.{}, Sender.run, .{&sender});
+    defer {
+        sender.stop.store(true, .release);
+        thread.join();
+    }
+    const deadline = Deadline.init(io, 250);
+    var prefix: [1]u8 = undefined;
+    try readExact(server, &prefix, deadline);
+    try std.testing.expectEqual(@as(u8, 'x'), prefix[0]);
+    var body: [8192]u8 = undefined;
+    try std.testing.expectError(
+        error.ShareTransactionTimedOut,
+        readExact(server, &body, deadline),
+    );
 }

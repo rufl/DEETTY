@@ -1,8 +1,9 @@
 # Third-Party Notices
 
-NOCTTY and NoctEd remain native Zig/C applications. The items below are either
-compiled sources, generated data inputs, or a repo-local native packaging
-payload; none adds a browser runtime, telemetry service, or runtime download.
+NOCTTY's first-party code is MIT-licensed. Third-party code, generated data, and
+system libraries retain their upstream copyrights and licenses; NOCTTY's MIT
+license does not relicense them. None of the dependencies below adds a browser
+runtime, telemetry service, or runtime download.
 
 ## Unicode Character Database 17.0.0
 
@@ -10,8 +11,13 @@ payload; none adds a browser runtime, telemetry service, or runtime download.
 files pinned by URL and SHA-256 in `dependencies/terminal-unicode.lock.json`.
 The complete UAX #29 conformance fixture is retained as
 `src/terminal/fixtures/GraphemeBreakTest-17.0.0.txt`. Unicode data and test
-files are copyright Unicode, Inc. and distributed under the
-[Unicode License Agreement](https://www.unicode.org/license.txt).
+files are copyright Unicode, Inc. and distributed under the Unicode License V3.
+The complete [retained license](dependencies/UNICODE-LICENSE.txt) was retrieved
+from [Unicode's license page](https://www.unicode.org/license.txt) on 2026-09-06.
+Both Linux and Windows install trees retain it as
+`share/licenses/noctty/UNICODE-LICENSE.txt`.
+Windows portable ZIPs and installers keep this notice beside the executables
+as `UNICODE-LICENSE.txt`.
 
 ## Tree-sitter
 
@@ -21,6 +27,22 @@ tests. They are not linked into production `noctty`. Unused upstream workflows,
 lockfiles, and container metadata are intentionally omitted; version and license
 pointers remain in `vendor/tree-sitter/LICENSES.md`, with complete license texts
 beside each vendored source tree.
+
+The embedded Unicode/ICU support in Tree-sitter separately retains its upstream
+notice at `vendor/tree-sitter/lib/src/unicode/LICENSE`; it is not covered by
+the Tree-sitter MIT notice alone.
+
+Linux install trees include each linked component's complete license at
+`share/licenses/noctty/vendor/<component>/LICENSE`, plus the embedded Unicode
+notice at `share/licenses/noctty/vendor/tree-sitter/lib/src/unicode/LICENSE`.
+The Windows host does not link Tree-sitter.
+
+## System Libraries
+
+Ordinary Linux installs dynamically link host-provided GTK, GtkSourceView,
+and their dependencies, and may load GTK Layer Shell. These libraries are
+not part of NOCTTY's MIT grant. Installing their development packages is a
+build prerequisite, not permission to redistribute a dependency bundle.
 
 ## Generated Dependency-Bundle Notices
 

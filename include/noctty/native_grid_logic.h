@@ -166,6 +166,8 @@ int noctty_grid_fuzzy_match_ascii(const uint8_t *haystack,
                                   uint32_t needle_length);
 int noctty_grid_dropdown_dimension(int stored_px, int percent,
                                    int available_px, int minimum_px);
+int noctty_grid_dropdown_percent(int pixels, int available_px,
+                                 int fallback_percent);
 
 enum {
     NOCTTY_GRID_SHARING_ALLOW_PAIRING = 1u << 0,

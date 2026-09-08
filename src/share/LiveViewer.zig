@@ -939,6 +939,7 @@ test "live viewer multiplexes panes and gates control per selected stream" {
         random,
         host_identity,
         host_peer,
+        null,
         "127.0.0.1",
         0,
         .session,
@@ -1208,7 +1209,8 @@ test "live viewer multiplexes panes and gates control per selected stream" {
         if (host.currentStatus() == .control_requested) break;
         Transport.sleepMilliseconds(random, 1);
     }
-    host.grantControl();
+    const original_request = host.controlRequest().?;
+    try std.testing.expect(host.respondControl(original_request, true));
     for (0..5000) |_| {
         if (viewer.currentStatus() == .control_granted) break;
         Transport.sleepMilliseconds(random, 1);
@@ -1228,7 +1230,8 @@ test "live viewer multiplexes panes and gates control per selected stream" {
         if (host.currentStatus() == .control_requested) break;
         Transport.sleepMilliseconds(random, 1);
     }
-    host.grantControl();
+    try std.testing.expect(!host.respondControl(original_request, true));
+    try std.testing.expect(host.respondControl(host.controlRequest().?, true));
     for (0..5000) |_| {
         if (viewer.currentStatus() == .control_granted) break;
         Transport.sleepMilliseconds(random, 1);
@@ -1259,6 +1262,7 @@ test "live viewer multiplexes panes and gates control per selected stream" {
         if (host.currentStatus() == .control_requested) break;
         Transport.sleepMilliseconds(random, 1);
     }
+    const disconnected_request = host.controlRequest().?;
     viewer.mutex.lock();
     viewer.stop_requested = true;
     viewer.mutex.unlock();
@@ -1288,4 +1292,11 @@ test "live viewer multiplexes panes and gates control per selected stream" {
         error.ShareInputNotGranted,
         viewer.sendInput("control must not survive reconnect\n"),
     );
+    try viewer.requestControl();
+    for (0..5000) |_| {
+        if (host.currentStatus() == .control_requested) break;
+        Transport.sleepMilliseconds(random, 1);
+    }
+    try std.testing.expect(!host.respondControl(disconnected_request, true));
+    try std.testing.expect(host.respondControl(host.controlRequest().?, false));
 }

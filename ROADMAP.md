@@ -39,7 +39,7 @@ compatibility.
 | P2 | NCT-112 terminal stability | Blocked on elapsed evidence: run and retain the uninterrupted 48-hour qualification. |
 | P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
 | P2 | NCT-126 native-adapter migration | The 80% core Zig ownership target is met; continue shrinking the GTK object/event adapter, then retain required mapped and physical retirement proof. |
-| P3 | Release Operations | Blocked on operator/external evidence: retain signatures, publication, review, compositor, and consented HID acceptance. |
+| P3 | Release Operations | Retain operator/external signatures, publication, review, compositor, and consented HID acceptance. |
 
 Source-ready work may be implemented locally; elapsed, physical, and operator
 evidence cannot be claimed from source completion. The tier records execution
@@ -71,13 +71,17 @@ Goal: use NOCTTY for real Lichforge work instead of merely testing fixtures.
 
 Acceptance:
 
-- [ ] Five sessions of at least two hours each
+- [x] Five sessions of at least two hours each
 - [ ] One session with four or more panes/tabs
-- [ ] One Pi or coding-agent session inside NOCTTY
+- [x] One Pi or coding-agent session inside NOCTTY
 - [ ] Hide/show and restore tested during real work
 - [ ] close confirmation tested with a foreground job
 - [ ] copy/paste/search/scrollback used during real work
-- [ ] blocker notes recorded in `docs/DOGFOOD_LOG.md`
+- [x] blocker notes recorded in `docs/DOGFOOD_LOG.md`
+
+Seven operator-confirmed installed sessions now contribute 167.107 counted
+hours. The remaining unchecked rows require specific interaction evidence; raw
+elapsed time does not imply that coverage.
 
 Only fix P0/P1 dogfood blockers during this phase.
 
@@ -126,7 +130,7 @@ Required before tagging alpha:
 - [x] fast source build/check path confirmed with `zig build check -j1 --summary all`
 - [x] fast build/check path confirmed from a clean source copy
 - [x] full `./scripts/verify.sh` status recorded
-- [ ] README screenshots current
+- [x] README screenshots current
 - [x] limitations current
 - [x] changelog has alpha note
 - [x] license present

@@ -9,7 +9,17 @@ measured terminal-only footprint is small. It is suitable for ordinary shell
 work and supervised agent sessions, but it is not yet an unconditional Yakuake
 replacement for all-day Codex, Claude Code, and Antigravity CLI use.
 
-The remaining daily-driver acceptance categories are counted real-work sessions, one current-build two-hour defect recapture, and the elapsed 48-hour hidden/visible stability run. Authenticated Codex 0.144.6 and installed tmux/Zellij mapped acceptance are retained at one-host boundaries, and the stability harness passes its short Debug/`ReleaseSafe` Wayland/X11 shakedown without claiming multi-day completion. Hot-session recovery still restores tabs, split geometry, profile state, and working directories by starting new shells; arbitrary agent processes are not resurrected unless the user deliberately runs them inside a persistent tmux/Zellij session.
+The minimum counted baseline now exists: seven operator-confirmed installed
+sessions total 167.107 hours. Remaining daily-driver acceptance categories are
+the specific four-pane, lifecycle, close-protection, editor, and multi-OMP
+workflows, one clean current-build two-hour defect recapture, and the elapsed
+48-hour hidden/visible stability run. Authenticated Codex 0.144.6 and installed
+tmux/Zellij mapped acceptance are retained at one-host boundaries, and the
+stability harness passes its short Debug/`ReleaseSafe` Wayland/X11 shakedown
+without claiming multi-day completion. Hot-session recovery still restores
+tabs, split geometry, profile state, and working directories by starting new
+shells; arbitrary agent processes are not resurrected unless the user
+deliberately runs them inside a persistent tmux/Zellij session.
 
 The 2026-07-16 hardening slice closes the immediate lifecycle and idle-cost
 defects. Current dogfood startup additionally rejects legacy relative pane cwd
@@ -138,7 +148,10 @@ These are short one-host engineering probes, not the multi-day agent-TUI soak, p
 
 The implementation selects `TERM=xterm-256color`, and the bounded Codex
 login/Vim/btop lane now proves several advertised capabilities under real TUIs.
-Completion still requires counted real-work dogfood and multi-day evidence. Broader application traces are needed only before making broader product-compatibility claims.
+Completion still requires the remaining specific real-work workflows and
+multi-day evidence; the minimum elapsed-session baseline is complete. Broader
+application traces are needed only before making broader product-compatibility
+claims.
 
 For process continuity, select the matching persistent tmux or Zellij launch type with a session name. Installed server survival and later reattachment are retained on this host; NOCTTY still does not own a persistent terminal daemon or claim arbitrary-process resurrection.
 

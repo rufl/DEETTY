@@ -42,15 +42,18 @@ pub const RecoveryState = struct {
     }
 
     pub fn markSaved(self: *RecoveryState, allocator: std.mem.Allocator, path: []const u8, role: WorkspaceFileRole) !void {
-        try self.setLastPath(allocator, path);
-        self.saved_generation = self.generation;
-        self.dirty = false;
+        const owned_path = try allocator.dupe(u8, path);
+        errdefer allocator.free(owned_path);
         switch (role) {
             .manual => {
                 if (!self.policy.keep_recovery_after_clean_exit) self.clearRecoveryPath(allocator);
             },
             .autosave, .recovery => try self.setRecoveryPath(allocator, path),
         }
+        if (self.last_path) |old| allocator.free(old);
+        self.last_path = owned_path;
+        self.saved_generation = self.generation;
+        self.dirty = false;
     }
 
     pub fn markLoaded(self: *RecoveryState, allocator: std.mem.Allocator, path: []const u8, role: WorkspaceFileRole) !void {
@@ -388,6 +391,36 @@ test "recovery state tracks dirty autosave and clean manual saves" {
     try std.testing.expect(state.hasPendingRecovery());
     try state.markSaved(allocator, "manual/project.nocttyws", .manual);
     try std.testing.expect(state.recovery_path == null);
+}
+
+fn exerciseRecoverySaveAllocationFailures(allocator: std.mem.Allocator) !void {
+    var state = RecoveryState{};
+    defer state.deinit(allocator);
+    state.markDirty();
+    try state.markSaved(allocator, "previous.nocttyws", .autosave);
+    state.markDirty();
+    const generation = state.generation;
+    const saved_generation = state.saved_generation;
+    state.markSaved(allocator, "next.nocttyws", .autosave) catch |err| {
+        try std.testing.expect(state.dirty);
+        try std.testing.expectEqual(generation, state.generation);
+        try std.testing.expectEqual(saved_generation, state.saved_generation);
+        try std.testing.expectEqualStrings("previous.nocttyws", state.last_path.?);
+        try std.testing.expectEqualStrings("previous.nocttyws", state.recovery_path.?);
+        return err;
+    };
+    try std.testing.expect(!state.dirty);
+    try std.testing.expectEqual(generation, state.saved_generation);
+    try std.testing.expectEqualStrings("next.nocttyws", state.last_path.?);
+    try std.testing.expectEqualStrings("next.nocttyws", state.recovery_path.?);
+}
+
+test "recovery save allocation failures preserve dirty state and previous paths" {
+    try std.testing.checkAllAllocationFailures(
+        std.testing.allocator,
+        exerciseRecoverySaveAllocationFailures,
+        .{},
+    );
 }
 
 test "damaged workspace snapshots can be retained before safe replacement" {

@@ -165,6 +165,10 @@ const Document = struct {
     editable: bool,
     loading: bool = false,
     identity: ?core.document.FileIdentity = null,
+    external_change_pending: bool = false,
+    external_identity: ?core.document.FileIdentity = null,
+    change_serial: u64 = 0,
+    reload_serial: u64 = 0,
     syntax: ?tree_sitter.Document = null,
     syntax_tags: SyntaxTags,
     syntax_source: c.guint = 0,
@@ -1313,7 +1317,8 @@ const App = struct {
         self: *App,
         path: []const u8,
         contents: []const u8,
-    ) !void {
+        expected_identity: ?core.document.FileIdentity,
+    ) !core.document.FileIdentity {
         if (self.synchronous_worker_running)
             return error.SynchronousWorkerReentry;
         self.synchronous_worker_running = true;
@@ -1336,6 +1341,7 @@ const App = struct {
             .{ .document_save = .{
                 .path = path_copy,
                 .contents = contents_copy,
+                .expected_identity = expected_identity,
             } },
             onWorkerComplete,
         );
@@ -1349,7 +1355,12 @@ const App = struct {
             self.destroyWorkerJob(job);
             return err;
         }
+        const saved_identity = job.payload.document_save.saved_identity orelse {
+            self.destroyWorkerJob(job);
+            return error.SavedIdentityUnavailable;
+        };
         self.destroyWorkerJob(job);
+        return saved_identity;
     }
 
     fn drainWorkerKind(self: *App, kind: WorkerJobKind) void {
@@ -1432,8 +1443,13 @@ const App = struct {
                 },
                 .document_load => {
                     const requested = job.payload.document_load.requested_path;
-                    if (self.documents_by_path.get(requested)) |document|
+                    if (self.documents_by_path.get(requested)) |document| {
                         document.loading = false;
+                        c.gtk_text_view_set_editable(
+                            @ptrCast(document.view),
+                            @intFromBool(document.editable),
+                        );
+                    }
                     self.showWorkerError("Open failed", err);
                 },
                 .document_save, .resolve_save_path => {},
@@ -1880,23 +1896,20 @@ const App = struct {
         defer self.suppress_session_persist = was_suppressed;
         var restored: [core.session.max_open_files]?*Document =
             [_]?*Document{null} ** core.session.max_open_files;
+        var restored_named_edits = false;
         for (self.session.tabs.items, 0..) |tab, index| {
             if (tab.contents) |contents| {
-                var identity: ?core.document.FileIdentity = null;
-                if (tab.path) |path| {
-                    const path_z = self.allocator.dupeZ(u8, path) catch continue;
-                    defer self.allocator.free(path_z);
-                    identity = core.document.identityForPath(self.io, path_z) catch null;
-                } else {
-                    self.rememberUntitledSerial(tab.display_name);
-                }
+                if (tab.path == null) self.rememberUntitledSerial(tab.display_name);
                 const document = self.createDocument(
                     tab.path,
                     tab.display_name,
                     contents,
                     true,
-                    identity,
+                    null,
                 ) catch continue;
+                // Session snapshots do not carry their original disk identity.
+                // Never bless whatever appeared at the path while we were closed.
+                restored_named_edits = restored_named_edits or tab.path != null;
                 c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 1);
                 self.updateTabLabel(document);
                 restored[index] = document;
@@ -1921,6 +1934,8 @@ const App = struct {
             if (restored[index]) |document| self.focusDocument(document);
         }
         self.session_restores +|= 1;
+        if (restored_named_edits)
+            self.updateStatusError("Restored unsaved files: use Save As to save a copy; original disk versions are unknown");
         return true;
     }
 
@@ -2286,7 +2301,8 @@ const App = struct {
             );
         }
         const resolved = try self.resolveExistingPath(requested_path);
-        errdefer self.allocator.free(resolved);
+        var resolved_owned = true;
+        errdefer if (resolved_owned) self.allocator.free(resolved);
         self.cancelProjectLoad();
         self.cancelProjectSearch();
         self.cancelProjectMonitoring();
@@ -2301,6 +2317,7 @@ const App = struct {
             .{ .project_scan = .{ .root = resolved } },
             onWorkerComplete,
         );
+        resolved_owned = false;
         errdefer job.deinit();
         self.project_load_started = std.Io.Clock.awake.now(self.io);
         try self.submitWorkerJob(job);
@@ -2704,7 +2721,8 @@ const App = struct {
         reveal_line: ?u32,
     ) !void {
         const path = try self.resolveExistingPath(requested_path);
-        errdefer self.allocator.free(path);
+        var path_owned = true;
+        errdefer if (path_owned) self.allocator.free(path);
         const job = try self.allocator.create(WorkerJob);
         errdefer self.allocator.destroy(job);
         job.* = WorkerJob.init(
@@ -2719,6 +2737,7 @@ const App = struct {
             } },
             onWorkerComplete,
         );
+        path_owned = false;
         errdefer job.deinit();
         try self.submitWorkerJob(job);
         self.updateStatus("Opening file...");
@@ -2753,6 +2772,16 @@ const App = struct {
         document: *Document,
         loaded: *const core.document.LoadedFile,
     ) void {
+        if (document.change_serial != document.reload_serial) {
+            document.loading = false;
+            c.gtk_text_view_set_editable(
+                @ptrCast(document.view),
+                @intFromBool(document.editable),
+            );
+            self.scheduleSessionPersist();
+            self.updateStatusError("Reload canceled: newer edits remain unsaved");
+            return;
+        }
         _ = document.clearFolds();
         c.gtk_source_buffer_begin_not_undoable_action(document.buffer);
         c.gtk_text_buffer_set_text(
@@ -2764,6 +2793,7 @@ const App = struct {
         c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 0);
         document.editable = loaded.mode == .editable;
         document.identity = loaded.identity;
+        document.external_change_pending = false;
         document.loading = false;
         document.scheduleTreeSitterRefresh();
         c.gtk_text_view_set_editable(
@@ -2777,6 +2807,7 @@ const App = struct {
     }
 
     fn checkExternalDocuments(self: *App) void {
+        if (self.synchronous_worker_running) return;
         var index: usize = 0;
         while (index < self.documents.items.len) {
             const document = self.documents.items[index];
@@ -2784,6 +2815,13 @@ const App = struct {
             if (document.loading) continue;
             const path = document.path orelse continue;
             const current = core.document.identityForPath(self.io, path) catch null;
+            if (document.external_change_pending) {
+                if (document.external_identity) |observed| {
+                    if (current) |value| {
+                        if (observed.eql(value)) continue;
+                    }
+                } else if (current == null) continue;
+            }
             if (document.identity == null and current == null) continue;
             if (document.identity) |previous| {
                 if (current) |value| {
@@ -2825,7 +2863,8 @@ const App = struct {
                 c.GTK_RESPONSE_CANCEL,
             );
             c.gtk_widget_destroy(dialog);
-            document.identity = null;
+            document.external_change_pending = true;
+            document.external_identity = null;
             if (response == c.GTK_RESPONSE_REJECT) {
                 _ = self.closeDocument(document);
             } else if (!dirty) {
@@ -2860,14 +2899,22 @@ const App = struct {
         );
         c.gtk_widget_destroy(dialog);
         if (response == c.GTK_RESPONSE_ACCEPT) {
+            document.reload_serial = document.change_serial;
             document.loading = true;
+            c.gtk_text_view_set_editable(@ptrCast(document.view), 0);
             self.openDocument(document.path.?) catch |err| {
                 document.loading = false;
+                c.gtk_text_view_set_editable(
+                    @ptrCast(document.view),
+                    @intFromBool(document.editable),
+                );
                 self.showWorkerError("Reload failed", err);
             };
         } else {
-            document.identity = current;
+            document.external_change_pending = true;
+            document.external_identity = current;
             if (!dirty) c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 1);
+            self.updateStatusError("Kept local edits; use Save As to save a copy without replacing the external file");
         }
     }
 
@@ -3223,13 +3270,41 @@ const App = struct {
         document: *Document,
         path: [:0]const u8,
     ) bool {
+        if (document.loading) {
+            self.updateStatusError("Save blocked: wait for reload to finish");
+            return false;
+        }
+        const same_file = if (document.path) |original|
+            std.mem.eql(u8, original, path)
+        else
+            false;
+        const expected_identity: ?core.document.FileIdentity = if (same_file)
+            document.identity orelse {
+                self.updateStatusError("Save blocked: original disk version is unknown; use Save As to save a copy");
+                return false;
+            }
+        else blk: {
+            _ = std.Io.Dir.cwd().statFile(self.io, path, .{}) catch |err| {
+                if (err == error.FileNotFound) break :blk null;
+                self.showWorkerError("Save failed", err);
+                return false;
+            };
+            break :blk core.document.identityForPath(self.io, path) catch |err| {
+                self.showWorkerError("Save failed", err);
+                return false;
+            };
+        };
         const contents = document.completeTextAlloc() catch {
             self.updateStatusError("Save failed: unable to restore folded text");
             return false;
         };
         defer self.allocator.free(contents);
         self.updateStatus("Saving...");
-        self.saveContentsOnWorker(path, contents) catch |err| {
+        const saved_identity = self.saveContentsOnWorker(path, contents, expected_identity) catch |err| {
+            if (err == error.DocumentSaveConflict) {
+                self.updateStatusError("Save blocked: file changed or was removed on disk; use Save As to save a copy");
+                return false;
+            }
             const status = std.fmt.allocPrintSentinel(
                 self.allocator,
                 "Save failed: {s}",
@@ -3240,7 +3315,8 @@ const App = struct {
             self.updateStatusError(status);
             return false;
         };
-        document.identity = core.document.identityForPath(self.io, path) catch null;
+        document.identity = saved_identity;
+        document.external_change_pending = false;
         const current = document.completeTextAlloc() catch return true;
         defer self.allocator.free(current);
         if (std.mem.eql(u8, current, contents))
@@ -3289,7 +3365,26 @@ const App = struct {
         };
         var display_name_owned = true;
         defer if (display_name_owned) self.allocator.free(display_name);
+        const previous_identity = document.identity;
+        var published = false;
+        defer if (!published) {
+            document.identity = previous_identity;
+        };
         if (!self.writeDocumentContents(document, resolved)) return false;
+        // Worker waits dispatch document loads, so the map may have changed
+        // since the preflight collision check and reservation.
+        if (self.documents_by_path.get(resolved)) |candidate| {
+            if (candidate != document) {
+                c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 1);
+                self.updateStatusError("Copy written, but destination opened during save; original edits retained");
+                return false;
+            }
+        }
+        self.documents_by_path.ensureUnusedCapacity(1) catch {
+            c.gtk_text_buffer_set_modified(@ptrCast(document.buffer), 1);
+            self.updateStatusError("Copy written, but Save As could not finish; original edits retained");
+            return false;
+        };
 
         if (document.path) |old_path| {
             _ = self.documents_by_path.remove(old_path);
@@ -3301,6 +3396,7 @@ const App = struct {
         self.documents_by_path.putAssumeCapacity(document.path.?, document);
         document.display_name = display_name;
         display_name_owned = false;
+        published = true;
         _ = self.persistSessionReported();
         const language = c.gtk_source_language_manager_guess_language(
             self.language_manager,
@@ -3411,7 +3507,10 @@ const App = struct {
         c.gtk_dialog_set_default_response(@ptrCast(dialog), c.GTK_RESPONSE_ACCEPT);
         const response = c.gtk_dialog_run(@ptrCast(dialog));
         c.gtk_widget_destroy(dialog);
-        if (response == c.GTK_RESPONSE_ACCEPT) return self.saveDocument(document);
+        if (response == c.GTK_RESPONSE_ACCEPT) {
+            if (!self.saveDocument(document)) return false;
+            return c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0;
+        }
         return response == c.GTK_RESPONSE_REJECT;
     }
 
@@ -4246,6 +4345,122 @@ const App = struct {
             self.updateStatusError("Project task failed");
     }
 
+    const language_snapshot_key = "nocted-language-snapshot";
+    const max_language_snapshots = 128;
+
+    const LanguageDocumentSnapshot = struct {
+        allocator: std.mem.Allocator,
+        generation: u64,
+        change_serial: u64,
+        path: []u8,
+        disk_identity: ?core.document.FileIdentity,
+
+        fn destroy(data: ?*anyopaque) callconv(.c) void {
+            const snapshot: *LanguageDocumentSnapshot = @ptrCast(@alignCast(data orelse return));
+            const allocator = snapshot.allocator;
+            allocator.free(snapshot.path);
+            allocator.destroy(snapshot);
+        }
+    };
+
+    fn captureLanguageDocument(self: *App, document: *Document, generation: u64, additional: bool) !bool {
+        const path = document.path orelse return false;
+        if (document.loading or !document.editable) return false;
+        var disk_identity: ?core.document.FileIdentity = null;
+        if (additional) {
+            // Only the requesting document is sent with didOpen. Other buffers
+            // must still represent the disk version the server can read.
+            if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) != 0) return false;
+            const previous = document.identity orelse return false;
+            const current = core.document.identityForPath(self.io, path) catch return false;
+            if (!previous.eql(current)) return false;
+            disk_identity = current;
+        }
+        const snapshot = try self.allocator.create(LanguageDocumentSnapshot);
+        errdefer self.allocator.destroy(snapshot);
+        snapshot.* = .{
+            .allocator = self.allocator,
+            .generation = generation,
+            .change_serial = document.change_serial,
+            .path = try self.allocator.dupe(u8, path),
+            .disk_identity = disk_identity,
+        };
+        c.g_object_set_data_full(
+            @ptrCast(document.buffer),
+            language_snapshot_key,
+            snapshot,
+            LanguageDocumentSnapshot.destroy,
+        );
+        return true;
+    }
+
+    fn captureLanguageDocuments(self: *App, document: *Document, job: *WorkerJob) !void {
+        if (!try self.captureLanguageDocument(document, job.generation, false))
+            return error.DocumentNotEditable;
+        if (job.payload.lsp_request.feature != .rename) return;
+        var count: usize = 1;
+        for (self.documents.items) |candidate| {
+            if (count == max_language_snapshots) break;
+            if (candidate == document) continue;
+            if (try self.captureLanguageDocument(candidate, job.generation, true)) count += 1;
+        }
+    }
+
+    fn languageDocumentForPath(self: *App, job: *WorkerJob, path: []const u8) ?*Document {
+        if (job.generation != self.lsp_generation) {
+            self.updateStatusError("Language-service response superseded; retry the request");
+            return null;
+        }
+        const document = self.documents_by_path.get(path) orelse {
+            self.updateStatusError("Language-service target closed or not snapshotted; open the file and retry");
+            return null;
+        };
+        const raw = c.g_object_get_data(@ptrCast(document.buffer), language_snapshot_key) orelse {
+            self.updateStatusError("Language-service target has no safe snapshot; save the file and retry");
+            return null;
+        };
+        const snapshot: *const LanguageDocumentSnapshot = @ptrCast(@alignCast(raw));
+        if (snapshot.generation != job.generation or
+            !std.mem.eql(u8, snapshot.path, path) or
+            snapshot.change_serial != document.change_serial or
+            document.loading or !document.editable)
+        {
+            self.updateStatusError("Language-service target changed or was replaced; retry the request");
+            return null;
+        }
+        if (snapshot.disk_identity) |previous| {
+            const current = core.document.identityForPath(self.io, document.path orelse return null) catch {
+                self.updateStatusError("Language-service target changed on disk; reload and retry");
+                return null;
+            };
+            if (!previous.eql(current)) {
+                self.updateStatusError("Language-service target changed on disk; reload and retry");
+                return null;
+            }
+        }
+        return document;
+    }
+
+    fn languageRequestDocument(self: *App, job: *WorkerJob) ?*Document {
+        const payload = &job.payload.lsp_request;
+        const path = core.lsp.filePathAlloc(self.allocator, payload.uri) catch {
+            self.updateStatusError("Invalid language-service target");
+            return null;
+        };
+        defer self.allocator.free(path);
+        const document = self.languageDocumentForPath(job, path) orelse return null;
+        const text = document.completeTextAlloc() catch {
+            self.updateStatusError("Unable to verify language-service target text");
+            return null;
+        };
+        defer self.allocator.free(text);
+        if (!std.mem.eql(u8, text, payload.text)) {
+            self.updateStatusError("Language-service target text changed; retry the request");
+            return null;
+        }
+        return document;
+    }
+
     fn runLanguageFeature(
         self: *App,
         feature: core.lsp.Feature,
@@ -4331,6 +4546,12 @@ const App = struct {
         name_owned = false;
         self.lsp_generation +%= 1;
         self.cancelWorkerJobs(.lsp_request);
+        self.captureLanguageDocuments(document, job) catch |err| {
+            job.deinit();
+            self.allocator.destroy(job);
+            self.showWorkerError("Unable to snapshot language-service targets", err);
+            return;
+        };
         self.submitWorkerJob(job) catch |err| {
             job.deinit();
             self.allocator.destroy(job);
@@ -4343,10 +4564,11 @@ const App = struct {
     fn applyLanguageEdits(
         self: *App,
         response: []const u8,
-        fallback_uri: []const u8,
+        job: *WorkerJob,
         workspace: bool,
     ) bool {
-        const sets = core.lsp.editsAlloc(self.allocator, response, fallback_uri) catch return false;
+        const payload = &job.payload.lsp_request;
+        const sets = core.lsp.editsAlloc(self.allocator, response, payload.uri) catch return false;
         defer {
             for (sets) |*set| set.deinit(self.allocator);
             self.allocator.free(sets);
@@ -4355,8 +4577,15 @@ const App = struct {
             self.updateStatus("Language service returned no edits");
             return true;
         }
-        const current_path = self.currentDocument().?.path.?;
-        var changed_files: usize = 0;
+        const requested = self.languageRequestDocument(job) orelse return true;
+        const requested_path = requested.path.?;
+        const PreparedEdit = struct { document: *Document, text: []u8 };
+        var prepared = std.array_list.Managed(PreparedEdit).init(self.allocator);
+        defer {
+            for (prepared.items) |edit| self.allocator.free(edit.text);
+            prepared.deinit();
+        }
+        prepared.ensureTotalCapacity(sets.len) catch return false;
         for (sets) |set| {
             const path = core.lsp.filePathAlloc(self.allocator, set.uri) catch {
                 self.updateStatus("Language service returned a non-local edit");
@@ -4364,49 +4593,47 @@ const App = struct {
             };
             defer self.allocator.free(path);
             const allowed = if (workspace)
-                if (self.project_root) |root|
+                if (payload.cwd) |root|
                     std.mem.eql(u8, path, root) or
                         (std.mem.startsWith(u8, path, root) and path.len > root.len and
                             std.fs.path.isSep(path[root.len]))
                 else
-                    std.mem.eql(u8, path, current_path)
+                    std.mem.eql(u8, path, requested_path)
             else
-                std.mem.eql(u8, path, current_path);
+                std.mem.eql(u8, path, requested_path);
             if (!allowed) {
                 self.updateStatus("Language service edit escaped the active workspace");
                 return true;
             }
 
-            if (self.documents_by_path.get(path)) |document| {
-                const before = document.completeTextAlloc() catch return false;
-                defer self.allocator.free(before);
-                const after = core.lsp.applyTextEditsAlloc(self.allocator, before, set.edits) catch return false;
-                defer self.allocator.free(after);
-                _ = document.clearFolds();
-                c.gtk_text_buffer_begin_user_action(@ptrCast(document.buffer));
-                c.gtk_text_buffer_set_text(
-                    @ptrCast(document.buffer),
-                    after.ptr,
-                    @intCast(after.len),
-                );
-                c.gtk_text_buffer_end_user_action(@ptrCast(document.buffer));
-            } else {
-                var loaded = core.document.loadFileAlloc(self.allocator, self.io, path) catch return false;
-                defer loaded.deinit(self.allocator);
-                if (loaded.mode != .editable) {
-                    self.updateStatus("Language service tried to edit a read-only preview");
+            const document = self.languageDocumentForPath(job, path) orelse return true;
+            for (prepared.items) |edit| {
+                if (edit.document == document) {
+                    self.updateStatusError("Language service returned duplicate file edits; nothing applied");
                     return true;
                 }
-                const after = core.lsp.applyTextEditsAlloc(
-                    self.allocator,
-                    loaded.contents,
-                    set.edits,
-                ) catch return false;
-                defer self.allocator.free(after);
-                core.document.saveFileAtomic(self.io, loaded.path, after) catch return false;
             }
-            changed_files += 1;
+            const before = document.completeTextAlloc() catch return false;
+            defer self.allocator.free(before);
+            const after = core.lsp.applyTextEditsAlloc(self.allocator, before, set.edits) catch {
+                self.updateStatusError("Invalid language-service edits; nothing applied");
+                return true;
+            };
+            prepared.appendAssumeCapacity(.{ .document = document, .text = after });
         }
+        // Finish validation and allocation for every file before changing any
+        // buffer. Unopened files have no request-time baseline and are rejected.
+        for (prepared.items) |edit| {
+            _ = edit.document.clearFolds();
+            c.gtk_text_buffer_begin_user_action(@ptrCast(edit.document.buffer));
+            c.gtk_text_buffer_set_text(
+                @ptrCast(edit.document.buffer),
+                edit.text.ptr,
+                @intCast(edit.text.len),
+            );
+            c.gtk_text_buffer_end_user_action(@ptrCast(edit.document.buffer));
+        }
+        const changed_files = prepared.items.len;
         const status = std.fmt.allocPrintSentinel(
             self.allocator,
             "Applied language-service edits to {d} file{s}",
@@ -4418,7 +4645,8 @@ const App = struct {
         return true;
     }
 
-    fn chooseCompletion(self: *App, payload: *const @TypeOf(@as(WorkerJob.Payload, undefined).lsp_request), response: []const u8) bool {
+    fn chooseCompletion(self: *App, job: *WorkerJob, response: []const u8) bool {
+        const payload = &job.payload.lsp_request;
         const completions = core.lsp.completionsAlloc(
             self.allocator,
             response,
@@ -4447,7 +4675,7 @@ const App = struct {
         const combo = c.gtk_combo_box_text_new() orelse return false;
         setAccessibleName(combo, "Language-service completions");
         for (completions) |completion| {
-            const label = self.allocator.dupeZ(u8, completion.label) catch continue;
+            const label = self.allocator.dupeZ(u8, completion.label) catch return false;
             defer self.allocator.free(label);
             c.gtk_combo_box_text_append_text(@ptrCast(combo), label.ptr);
         }
@@ -4458,12 +4686,12 @@ const App = struct {
         if (c.gtk_dialog_run(@ptrCast(dialog)) != c.GTK_RESPONSE_ACCEPT) return true;
         const selected = c.gtk_combo_box_get_active(@ptrCast(combo));
         if (selected < 0 or selected >= completions.len) return true;
-        const document = self.currentDocument() orelse return true;
-        const before = document.completeTextAlloc() catch return false;
-        defer self.allocator.free(before);
+        // gtk_dialog_run dispatches nested events: the tab may have closed,
+        // changed, or been replaced since the chooser was displayed.
+        const document = self.languageRequestDocument(job) orelse return true;
         const after = core.lsp.applyTextEditsAlloc(
             self.allocator,
-            before,
+            payload.text,
             &.{completions[@intCast(selected)].edit},
         ) catch return false;
         defer self.allocator.free(after);
@@ -4479,7 +4707,8 @@ const App = struct {
         if (job.generation != self.lsp_generation) return;
         const payload = &job.payload.lsp_request;
         const response = payload.response orelse return;
-        if (payload.feature == .completion and self.chooseCompletion(payload, response)) return;
+        _ = self.languageRequestDocument(job) orelse return;
+        if (payload.feature == .completion and self.chooseCompletion(job, response)) return;
         if (payload.feature == .definition) {
             if (core.lsp.firstLocationAlloc(self.allocator, response) catch null) |location_value| {
                 var location = location_value;
@@ -4493,7 +4722,7 @@ const App = struct {
             }
         }
         if (payload.feature == .formatting or payload.feature == .rename) {
-            if (self.applyLanguageEdits(response, payload.uri, payload.feature == .rename))
+            if (self.applyLanguageEdits(response, job, payload.feature == .rename))
                 return;
         }
         const summary = core.lsp.summaryAlloc(self.allocator, response) catch {
@@ -5091,7 +5320,7 @@ const App = struct {
             &.{ root, "src/rank-target.zig" },
         ) catch return searchLoadFailure("target_path");
         defer self.allocator.free(target_path);
-        const save_path = std.fs.path.join(
+        const save_path = std.fs.path.joinZ(
             self.allocator,
             &.{ root, "src/qualification-save.zig" },
         ) catch return searchLoadFailure("save_path");
@@ -5197,9 +5426,10 @@ const App = struct {
             if (!self.hasWorkerJob(.project_scan))
                 return searchLoadFailure("refresh_scan_admission");
             const started = std.Io.Clock.awake.now(self.io);
-            self.saveContentsOnWorker(
+            _ = self.saveContentsOnWorker(
                 save_path,
                 "const qualification_save = true;\n",
+                core.document.identityForPath(self.io, save_path) catch null,
             ) catch return searchLoadFailure("save_under_refresh");
             save_values[cycle] = elapsedNanoseconds(started, self.io);
             if (!self.waitForProjectModel(refresh_models, null))
@@ -6253,6 +6483,29 @@ fn appendApplicationFile(
         return error.ApplicationFileUnavailable);
 }
 
+// Reject misspelled options before registering or forwarding to an existing
+// editor. Otherwise a command-line error can silently activate a live session.
+fn validateApplicationArguments(args: []const []const u8) !void {
+    var index: usize = 1;
+    while (index < args.len) : (index += 1) {
+        const arg = args[index];
+        if (std.mem.eql(u8, arg, "--")) return;
+        if (std.mem.eql(u8, arg, "--project") or std.mem.eql(u8, arg, "--open")) {
+            index += 1;
+            if (index >= args.len) return error.MissingApplicationPath;
+        } else if (std.mem.eql(u8, arg, "--smoke") or
+            std.mem.eql(u8, arg, "--startup-smoke") or
+            std.mem.eql(u8, arg, "--session-restore-smoke") or
+            std.mem.eql(u8, arg, "--project-lifecycle-smoke"))
+        {
+            if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
+        } else if (std.mem.startsWith(u8, arg, "-")) {
+            std.debug.print("Unknown option: {s}\nRun 'nocted --help' for usage.\n", .{arg});
+            return error.UnknownArgument;
+        }
+    }
+}
+
 fn forwardApplicationOpen(
     application: *c.GApplication,
     allocator: std.mem.Allocator,
@@ -6265,9 +6518,14 @@ fn forwardApplicationOpen(
     }
     var project: ?[]const u8 = null;
     var index: usize = 1;
+    var literal_paths = false;
     while (index < args.len) : (index += 1) {
         const arg = args[index];
-        if (std.mem.eql(u8, arg, "--project")) {
+        if (literal_paths) {
+            try appendApplicationFile(allocator, &files, arg);
+        } else if (std.mem.eql(u8, arg, "--")) {
+            literal_paths = true;
+        } else if (std.mem.eql(u8, arg, "--project")) {
             index += 1;
             if (index >= args.len) return error.MissingApplicationPath;
             project = args[index];
@@ -6366,10 +6624,29 @@ fn registerApplication(
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const args = try init.minimal.args.toSlice(init.arena.allocator());
-    if (args.len > 1 and std.mem.eql(u8, args[1], "--version")) {
-        var buffer: [64]u8 = undefined;
+    if (args.len > 1 and (std.mem.eql(u8, args[1], "--version") or
+        std.mem.eql(u8, args[1], "--help") or std.mem.eql(u8, args[1], "-h")))
+    {
+        var buffer: [2048]u8 = undefined;
         var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
-        try writer.interface.print("nocted {s}\n", .{version});
+        if (std.mem.eql(u8, args[1], "--version")) {
+            try writer.interface.print("nocted {s}\n", .{version});
+        } else {
+            try writer.interface.writeAll(
+                \\Usage: nocted [OPTIONS] [FILE ...]
+                \\
+                \\  -h, --help         Show this help without opening a window
+                \\  --version          Print the version
+                \\  --open FILE        Open a file (repeatable)
+                \\  --project FILE.npr Open a saved NoctEd project
+                \\  --                 Treat remaining arguments as file paths
+                \\
+                \\With no files, restore the previous session or open an untitled
+                \\buffer. File paths are forwarded to the running editor.
+                \\Use the File menu to create a project or save your work.
+                \\
+            );
+        }
         try writer.interface.flush();
         return;
     }
@@ -6471,6 +6748,7 @@ pub fn main(init: std.process.Init) !void {
         try writer.interface.flush();
         return;
     }
+    try validateApplicationArguments(args);
     if (c.gtk_init_check(null, null) == 0) return error.GtkUnavailable;
     const home = init.environ_map.get("HOME") orelse ".";
     var registration = registerApplication(
@@ -6511,9 +6789,14 @@ pub fn main(init: std.process.Init) !void {
     var files = std.array_list.Managed([]const u8).init(allocator);
     defer files.deinit();
     var index: usize = 1;
+    var literal_paths = false;
     while (index < args.len) : (index += 1) {
         const arg = args[index];
-        if (std.mem.eql(u8, arg, "--smoke")) {
+        if (literal_paths) {
+            try files.append(arg);
+        } else if (std.mem.eql(u8, arg, "--")) {
+            literal_paths = true;
+        } else if (std.mem.eql(u8, arg, "--smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.smoke = true;
         } else if (std.mem.eql(u8, arg, "--startup-smoke")) {
@@ -7286,7 +7569,11 @@ fn onSessionPersist(data: ?*anyopaque) callconv(.c) c.gboolean {
 
 fn onBufferChanged(_: ?*c.GtkTextBuffer, data: ?*anyopaque) callconv(.c) void {
     const document: *Document = @ptrCast(@alignCast(data.?));
-    if (document.loading) return;
+    document.change_serial +%= 1;
+    if (document.loading) {
+        document.app.scheduleSessionPersist();
+        return;
+    }
     document.app.scheduleSessionPersist();
     if (document.multi_editing) return;
     document.clearMultiSelections();

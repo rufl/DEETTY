@@ -801,13 +801,13 @@ pub export fn wWinMain(instance: windows.HINSTANCE, previous_instance: ?windows.
         command_line,
         std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
     )) {
-        const session_path = windowsSessionPathAlloc() catch return 1;
+        const session_path = windowsSessionPathAlloc() catch |err| {
+            std.debug.print("NoctEd self-test session path failed: {s}\n", .{@errorName(err)});
+            return 1;
+        };
         defer allocator.free(session_path);
-        selfTest(io, session_path) catch {
-            showWindowsMessage(
-                std.unicode.utf8ToUtf16LeStringLiteral("NoctEd document bridge self-test failed."),
-                true,
-            );
+        selfTest(io, session_path) catch |err| {
+            std.debug.print("NoctEd document bridge self-test failed: {s}\n", .{@errorName(err)});
             return 1;
         };
         return 0;

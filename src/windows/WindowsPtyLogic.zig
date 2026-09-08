@@ -1,6 +1,26 @@
-//! Platform-neutral bounded ring logic used by the Win32 ConPTY reader.
+//! Platform-neutral shell selection and bounded ring logic for Win32 ConPTY.
 
 const std = @import("std");
+
+pub fn defaultShellCommands(launch_profile: c_int) [2][]const u16 {
+    const powershell = std.unicode.utf8ToUtf16LeStringLiteral("powershell.exe -NoLogo");
+    const command_prompt = std.unicode.utf8ToUtf16LeStringLiteral("cmd.exe");
+    return if (launch_profile == 1)
+        .{ command_prompt, powershell }
+    else
+        .{ powershell, command_prompt };
+}
+
+test "shell profiles preserve complete commands and fallback order" {
+    const powershell = std.unicode.utf8ToUtf16LeStringLiteral("powershell.exe -NoLogo");
+    const command_prompt = std.unicode.utf8ToUtf16LeStringLiteral("cmd.exe");
+    const prompt_commands = defaultShellCommands(1);
+    try std.testing.expectEqualSlices(u16, command_prompt, prompt_commands[0]);
+    try std.testing.expectEqualSlices(u16, powershell, prompt_commands[1]);
+    const powershell_commands = defaultShellCommands(0);
+    try std.testing.expectEqualSlices(u16, powershell, powershell_commands[0]);
+    try std.testing.expectEqualSlices(u16, command_prompt, powershell_commands[1]);
+}
 
 pub const OutputRing = struct {
     storage: []u8,

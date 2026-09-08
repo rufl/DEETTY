@@ -24,7 +24,7 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Install-tree desktop/AppStream/icon/license validation
 - [x] Debian/RPM/Arch manifest structure checks with truthful RPM and Arch parser availability status
 - [x] Two isolated byte-identical tarball builds, coherent version/date surfaces, SHA-256 sidecar verification, and self-cleaning verification scratch space (NCT-075)
-- [x] Pinned x86_64/aarch64 release workflow contract with Zig 0.16.0, layer-shell provisioning, runner-architecture assertions, and archive/sidecar validation before upload (NCT-076)
+- [x] Pinned x86_64/aarch64 release workflow contract with Zig 0.16.0, runner-architecture assertions, archive/sidecar validation before upload, and a bounded Linux source-alpha gate using CI-provisioned private display/session namespaces, Xvfb, Openbox, and virtual KWin (NCT-076, NCT-127)
 - [x] Dependency-bundle manifest with archive digest, installed files, bundled-library/package/license inventories, fail-closed ownership/text validation, and redistribution-source readiness (NCT-077 follow-through)
 - [x] Release-operations evidence status guard that reports retained artifacts, signatures, publication, dependency-bundle redistribution notices, compositor acceptance, and consented Wayland HID receipts without promoting missing external evidence to source success (NCT-078)
 - [x] Release-operations missing-evidence diagnostics and complete-fixture smoke for `--require-complete` (NCT-079)

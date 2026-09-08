@@ -217,6 +217,8 @@ pub const Job = struct {
         document_save: struct {
             path: []u8,
             contents: []u8,
+            expected_identity: ?core.document.FileIdentity = null,
+            saved_identity: ?core.document.FileIdentity = null,
         },
         resolve_save_path: struct {
             requested_path: []u8,
@@ -408,11 +410,12 @@ fn execute(job: *Job) !void {
                 payload.requested_path,
             );
         },
-        .document_save => |payload| {
-            try core.document.saveFileAtomic(
+        .document_save => |*payload| {
+            payload.saved_identity = try core.document.saveFileAtomicChecked(
                 job.io,
                 payload.path,
                 payload.contents,
+                payload.expected_identity,
             );
         },
         .resolve_save_path => |*payload| {

@@ -4,6 +4,51 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Made dropdown and fullscreen geometry follow live monitor changes. Manual
+  dropdown resizes now persist as monitor-relative percentages, legacy pixel
+  sizes migrate on use, hidden windows adapt before reveal, and fullscreen
+  remains compositor-resizable while being reaffirmed on the current monitor.
+  A private-KWin smoke switches 1440×900 → 1024×640 → 1440×900 and validates
+  compositor screenshots for both modes.
+
+- Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
+  document failures now report their error names to stderr and exit nonzero
+  instead of opening a modal dialog.
+- Fixed NoctEd save/restore data-loss paths: Save checks the original file's
+  identity before atomic replacement, dirty restored buffers with unknown disk
+  versions require Save As, and newer edits cannot be discarded by a close-time
+  save or delayed reload. Worker admission failures no longer double-free jobs.
+- Bound language-service edits to request-time document snapshots instead of
+  the active tab. Closed, changed, or unsnapshotted targets reject the response;
+  workspace rename validates every target before mutating any buffer.
+- Fixed maintenance failure paths that stranded autosave work or consumed a
+  closed-tab snapshot on allocation failure. Recovery cleanup now executes the
+  storage cleanup operation rather than reporting an invented empty receipt.
+- Hardened sharing frame ownership, hostile workspace-layout traversal,
+  request-scoped control consent, and host trust invalidation. Handshakes and
+  encrypted-frame transfers now share an absolute five-second transaction
+  deadline, so trickled input cannot renew a worker's wait indefinitely.
+- Corrected terminal RIS mode/buffer reset and UTF-8 OSC parsing. Printable
+  ASCII batching now preserves a preceding Unicode grapheme cluster and remains
+  bytewise-equivalent. Windows shell profiles preserve complete
+  sentinel-terminated command lines; wide-glyph backgrounds paint before
+  leading glyphs, and oversized NoctEd previews cannot leave the previous file
+  editable under the newly selected name.
+- Added non-interactive Linux CLI help and unknown-option rejection before GUI
+  activation. Help/version queries bypass dogfood receipts. Source-package
+  inputs and installed third-party license texts are now complete, contributor
+  instructions distinguish ordinary builds from maintainer qualification, and
+  the source-hygiene gate rejects a failed Git inventory instead of passing.
+- Made Linux release verification reproducible on clean runners: CI now
+  provisions a repository-owned, serialized, pressure-gated bubblewrap/Xvfb
+  boundary and virtual KWin, then runs the bounded source-alpha gate instead of
+  invoking the maintainer matrix without its graphical prerequisites.
+- Refreshed alpha captures through that private display boundary. Active-window
+  framing removes desktop leakage; the current set covers Unicode and 24-bit
+  terminal output, tabs and recursive splits, native settings, NoctEd project
+  editing, and project-wide search. Capture failures or signals clean the
+  application process tree, and assets publish only after every capture passes.
+
 - Fixed pane zoom inside nested split trees: double-click now hides every
   sibling branch up to the page root, giving lower panes the full available
   width and height, then restores all branches without changing split ratios.
@@ -525,11 +570,12 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved the active-pane/resource information strip below the notebook so a bottom-positioned tab row remains immediately above it. The compact native smoke now verifies notebook-first/strip-last root ordering, while dropdown mode reduces the full-width resize grip from 12 to 4 pixels.
 - Added live CPU and resident-memory usage to the active-pane information bar. `App` samples the complete NOCTTY process tree; `Pane` samples the selected terminal shell tree. Both reuse the existing one-second root maintenance cadence, rapid refreshes reuse the cached sample, `/proc` traversal is fixed-capacity, formatting remains caller-buffered, and hover shows process counts and detailed MiB/CPU values. Focused unit/build and native compact-UX proof cover resource parsing, deltas, labels/tooltips, and setter dedupe. The compact smoke's stale hard-coded 11 pt expectation was also corrected to follow the configured default font. A repeatedly observed cold/contention launch-profile test timeout now uses the same bounded 20-second exit budget already used by heavier qualification paths. A focused five-process-tree microcheck measured 200 sampler calls at a host-local 39.8 µs average. The dogfood installer now atomically replaces binaries so an already-running NOCTTY does not block installation; the running process still requires a normal restart to load the new inode.
 - Added and exercised `./scripts/install_dogfood.sh`. It installs unstripped `ReleaseFast` `noctty`/`nocted` binaries by default under `~/.local/libexec/noctty-dogfood`, logging launchers under `~/.local/bin`, and absolute installed desktop-entry commands. Each invocation retains local arguments, session/backend, stdout/stderr, GTK/GLib debug output, exit status, best-effort core dumps, and an atomic duration receipt; the bounded stores keep 100 verbose logs and 500 compact receipts per app, and no evidence is uploaded. **Open NoctEd Here** resolves the sibling logging launcher, so the editor receives independent evidence.
-- Refreshed `docs/PUBLIC_ALPHA_CODE_REVIEW.md` to match the current public-alpha state: screenshots, code map, clean source-copy fast gate, bounded source-alpha gate, issue templates, release notes, and local Git baseline are now closed; counted dogfood remains the honest blocker.
-- Added `docs/PUBLIC_ALPHA_GO_NO_GO.md`, a final decision sheet that keeps the project no-go for public alpha announcement while counted dogfood remains zero, while documenting the narrower acceptable source-alpha path once dogfood starts.
-- Refreshed the bounded source-alpha proof: `./scripts/public_alpha_verify.sh` passes with build/check, no-surprise network, docs truth, native-grid X11/Wayland smoke, and NoctEd native smoke true; `./scripts/dogfood_status.sh` still reports zero counted sessions, so dogfood remains the honest blocker.
-- Added `./scripts/dogfood_status.sh`, a small read-only dogfood progress summary that counts only `docs/DOGFOOD_LOG.md` entries not marked "not counted" and reports the remaining alpha coverage flags.
-- Added `docs/DOGFOOD_RUNBOOK.md`, a short counted-session protocol for the remaining public-alpha dogfood work. It defines what counts, the first-session target, four-pane target, foreground-job close-confirmation target, NoctEd edit/search/save coverage, and what not to count.
+- Refreshed `docs/PUBLIC_ALPHA_CODE_REVIEW.md` to match the current public-alpha state: screenshots, code map, clean source-copy fast gate, bounded source-alpha gate, issue templates, release notes, local Git baseline, and the minimum counted-session baseline are closed; NCT-125's clean current-build workflow remains the honest P1 blocker.
+- Updated `docs/PUBLIC_ALPHA_GO_NO_GO.md` to keep the project no-go for public announcement on NCT-125 rather than the now-satisfied elapsed-session count.
+- Reconciled seven unique installed NOCTTY receipts with operator-confirmed real work: 601,585 seconds / 167.107 hours now count, while historical exit-139, GTK-critical, popup, and clipboard-consumer observations remain explicit.
+- Hardened `dogfood_status.sh` evidence parsing so missing work context and negative or unavailable Agent/NoctEd/close fields cannot produce positive coverage, and recognize the installed OMP CLI as agent evidence.
+- Corrected the native OMP dogfood emitter to use the documented `dogfood_event session=ID` wire format. `dogfood_status.sh` normalizes retained pre-fix `noctty_dogfood_event session_id=ID` records so existing local evidence remains analyzable, and the logging smoke now exercises both formats.
+- Added `docs/DOGFOOD_RUNBOOK.md`, a short counted-session protocol for public-alpha dogfood work. It defines what counts, the four-pane target, foreground-job close-confirmation target, NoctEd edit/search/save coverage, and what not to count.
 - Added `./scripts/public_alpha_verify.sh`, a bounded source-alpha gate that runs the fast build/check, no-surprise network guard, docs truth guard, native-grid X11/Wayland smoke, and NoctEd native smoke. It reports `full_verify=false` so it cannot be mistaken for the full maintainer `./scripts/verify.sh` matrix.
 - Hardened the native-grid smoke synchronized-output fixture for dogfood preflight. The smoke now leaves the first DECSET 2026 synchronized-output window long enough for mapped X11/Wayland hosts to observe a normal release, and leaves the second window long enough to deterministically exercise the deadman release path under current compositor timing. `./scripts/native_grid_smoke.sh` now passes again on both backends.
 - Added bounded draft public source-alpha release notes in `docs/PUBLIC_ALPHA_RELEASE_NOTES.md`, including what is claimed, what is not claimed, retained fast-gate proof, and the fresh full-verifier receipt.
@@ -537,7 +583,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Added public-alpha GitHub hygiene templates: reproducible bug report form, real dogfood-session form, issue routing config, and a small PR template that asks for tested commands and non-claims.
 - Verified the fast build/check path from a clean source copy: `zig build check -j1 --summary all` passed with `21/21` steps and `336/336` tests after copying the tree without `.git`, `.zig-cache`, `zig-out`, or `.noctty-*` state.
 - Retried the full maintainer gate with `NOCTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh`; the fresh 2026-07-29 run completed the maintained matrix and ended with `verify_cleanup scratch=true cache=true install=true artifacts=true`.
-- Prepared the source-alpha release-hygiene note: current limitations, license, contributing/security docs, incomplete package/signing status, and the changelog alpha wording are now reflected in the public roadmap. Remaining public-alpha blockers are counted dogfood evidence and external release operations.
+- Prepared the source-alpha release-hygiene note: current limitations, license, contributing/security docs, incomplete package/signing status, and the changelog alpha wording are reflected in the public roadmap. Remaining public-alpha blockers are NCT-125's clean current-build workflow and external release operations.
 - Added a retained public-alpha no-surprise network guard. `./scripts/check_no_surprise_network.sh` scans production source/build resources for telemetry vendors, update/crash-upload/remote-flag tokens, and hidden network APIs, and `docs/NO_SURPRISE_NETWORK.md` records the current static proof boundary. Roadmap/release docs now mark the alpha telemetry/network surprise check complete.
 - Improved public-alpha presentation and fixed a NoctEd launch blocker. NOCTTY now defaults to JetBrains Mono 12 pt, applies subpixel/slight-hinted Cairo options, routes non-ASCII/grapheme fallback through Pango/Cairo, opens a larger default native-grid window, and uses rounded native tabs. NoctEd now has matching rounded editor tabs. Both apps now share the same modern NOCTTY dark palette across terminal defaults, editor chrome, GtkSourceView styling, and SVG app icons. The screenshot helper captures current-monitor PNGs for both apps with isolated app state. NoctEd also resolves relative `--project`/`--open` CLI paths to absolute real paths before worker admission, fixing the relative-path assertion found during screenshot/dogfood prep. Focused checks passed: `zig build check -j1 --summary all`, `./scripts/native_grid_smoke.sh`, `./scripts/nocted_native_smoke.sh`, `./scripts/check_docs_truth.sh`, and `./scripts/capture_alpha_screenshots.sh`.
 - Advanced NCT-106/NCT-121/NCT-122 through the first retained native search/load tranche. Two consecutive warning-fatal Debug runs on the live Wayland session each completed eight production GTK cycles for first result, completion, cancellation retirement, first result-tree draw, open under search, save under refresh, three-query coalesced Quick Open, the exact two-batch cap, deterministic ranking, worker/project drain, rendered screenshot validation, real-project model/tree draws, actual GIO bursts, overflow recovery, and clean scratch (`nocted_search_load_wayland_evidence backend=wayland optimize=Debug runs=2 cycles_per_run=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true gtk_batch_peak=2 gtk_batch_cap=2 worker_drained=true warning_fatal=true rendered=true scratch_clean=true`). Later managed commands lost compositor access, including `wayland-info` with `Operation not permitted`, so matching `ReleaseSafe`, X11, peak process-tree memory, and long-duration cross-backend evidence remain open.

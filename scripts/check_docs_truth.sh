@@ -108,7 +108,9 @@ while IFS= read -r document; do
 done
 
 grep -F 'Current public-readiness status: **early source alpha; public announcement not yet approved**.' README.md >/dev/null
-grep -F 'Status: **no-go for public alpha announcement** until real counted dogfood, the' \
+grep -F 'Status: **no-go for public alpha announcement** until the' \
+  docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
+grep -F 'NCT-125 current-build reliability recapture exists.' \
   docs/PUBLIC_ALPHA_GO_NO_GO.md >/dev/null
 grep -F 'full_verify=false' scripts/public_alpha_verify.sh \
   docs/PUBLIC_ALPHA_GO_NO_GO.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null

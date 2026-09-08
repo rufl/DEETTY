@@ -140,15 +140,20 @@ fn setSocketOption(
 }
 
 fn configureTcpSocket(socket: NativeSocket) bool {
+    return setIoTimeout(socket, io_timeout_ms);
+}
+
+fn setIoTimeout(socket: NativeSocket, timeout_ms: u32) bool {
+    // Zero means an unbounded wait to the socket API, never an expired budget.
+    if (timeout_ms == 0) return false;
     if (is_windows) {
-        const timeout: c.DWORD = io_timeout_ms;
+        const timeout: c.DWORD = timeout_ms;
         return setSocketOption(socket, c.SOL_SOCKET, c.SO_RCVTIMEO, &timeout, @sizeOf(c.DWORD)) and
             setSocketOption(socket, c.SOL_SOCKET, c.SO_SNDTIMEO, &timeout, @sizeOf(c.DWORD));
     }
-
     const timeout: c.struct_timeval = .{
-        .tv_sec = @divFloor(io_timeout_ms, 1_000),
-        .tv_usec = @mod(io_timeout_ms, 1_000) * 1_000,
+        .tv_sec = @intCast(timeout_ms / 1_000),
+        .tv_usec = @intCast((timeout_ms % 1_000) * 1_000),
     };
     return setSocketOption(socket, c.SOL_SOCKET, c.SO_RCVTIMEO, &timeout, @sizeOf(c.struct_timeval)) and
         setSocketOption(socket, c.SOL_SOCKET, c.SO_SNDTIMEO, &timeout, @sizeOf(c.struct_timeval));
@@ -340,8 +345,9 @@ pub fn tcpConnect(host: [*:0]const u8, port: u16) Socket {
     return shareSocket(openTcp(host, port, false, true, null));
 }
 
-pub fn socketRead(socket: Socket, output: []u8) c_int {
+pub fn socketRead(socket: Socket, output: []u8, timeout_ms: u32) c_int {
     if (output.len == 0 or output.len > std.math.maxInt(u16)) return -1;
+    if (!setIoTimeout(nativeSocket(socket), timeout_ms)) return -1;
     const count = if (is_windows)
         c.recv(nativeSocket(socket), @ptrCast(output.ptr), @intCast(output.len), 0)
     else
@@ -350,28 +356,21 @@ pub fn socketRead(socket: Socket, output: []u8) c_int {
     return @intCast(count);
 }
 
-pub fn socketWrite(socket: Socket, bytes: []const u8) c_int {
-    if (bytes.len > std.math.maxInt(u16)) return -1;
-    var offset: usize = 0;
-    while (offset < bytes.len) {
-        const count = if (is_windows)
-            c.send(
-                nativeSocket(socket),
-                @ptrCast(bytes[offset..].ptr),
-                @intCast(bytes.len - offset),
-                0,
-            )
-        else
-            c.send(
-                nativeSocket(socket),
-                bytes[offset..].ptr,
-                bytes.len - offset,
-                if (@hasDecl(c, "MSG_NOSIGNAL")) c.MSG_NOSIGNAL else 0,
-            );
-        if (count <= 0) return -1;
-        offset += @intCast(count);
-    }
-    return @intCast(bytes.len);
+pub fn socketWrite(socket: Socket, bytes: []const u8, timeout_ms: u32) c_int {
+    if (bytes.len == 0 or bytes.len > std.math.maxInt(u16)) return -1;
+    if (!setIoTimeout(nativeSocket(socket), timeout_ms)) return -1;
+    // The transport owns partial-write iteration and its absolute deadline.
+    const count = if (is_windows)
+        c.send(nativeSocket(socket), @ptrCast(bytes.ptr), @intCast(bytes.len), 0)
+    else
+        c.send(
+            nativeSocket(socket),
+            bytes.ptr,
+            bytes.len,
+            if (@hasDecl(c, "MSG_NOSIGNAL")) c.MSG_NOSIGNAL else 0,
+        );
+    if (count <= 0 or count > std.math.maxInt(c_int)) return -1;
+    return @intCast(count);
 }
 
 pub fn socketReadable(socket: Socket, timeout_ms: u32) c_int {

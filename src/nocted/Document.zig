@@ -164,10 +164,84 @@ pub fn identityForPath(io: std.Io, path: [:0]const u8) !FileIdentity {
 }
 
 pub fn saveFileAtomic(io: std.Io, path: []const u8, contents: []const u8) !void {
+    _ = try saveFileAtomicImpl(io, path, contents, null);
+}
+
+/// A null expected identity requires a new destination, never permission to
+/// overwrite an existing file. Named buffers with unknown origins must not call
+/// this as a same-file save.
+pub fn saveFileAtomicChecked(
+    io: std.Io,
+    path: []const u8,
+    contents: []const u8,
+    expected_identity: ?FileIdentity,
+) !FileIdentity {
+    return (try saveFileAtomicImpl(io, path, contents, .{
+        .expected_identity = expected_identity,
+    })).?;
+}
+
+const SaveCheck = struct {
+    expected_identity: ?FileIdentity,
+    before_commit: ?*const fn (std.Io, []const u8) anyerror!void = null,
+};
+
+fn checkSaveIdentity(io: std.Io, path: []const u8, expected: ?FileIdentity) !void {
+    if (expected) |identity| {
+        const path_z = try std.posix.toPosixPath(path);
+        const current = identityForPath(io, std.mem.sliceTo(&path_z, 0)) catch
+            return error.DocumentSaveConflict;
+        if (!identity.eql(current)) return error.DocumentSaveConflict;
+    } else {
+        _ = std.Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch |err|
+            return switch (err) {
+                error.FileNotFound => {},
+                else => err,
+            };
+        return error.DocumentSaveConflict;
+    }
+}
+
+fn identityForFile(io: std.Io, file: std.Io.File) !FileIdentity {
+    if (builtin.os.tag == .linux) {
+        const linux = std.os.linux;
+        var statx: linux.Statx = undefined;
+        const result = linux.statx(
+            file.handle,
+            "",
+            linux.AT.EMPTY_PATH,
+            linux.STATX.BASIC_STATS,
+            &statx,
+        );
+        if (linux.errno(result) != .SUCCESS) return error.FileIdentityUnavailable;
+        return .{
+            .device = (@as(u64, statx.dev_major) << 32) | statx.dev_minor,
+            .inode = statx.ino,
+            .size = statx.size,
+            .mtime_ns = @as(i128, statx.mtime.sec) * std.time.ns_per_s +
+                statx.mtime.nsec,
+        };
+    }
+    const stat = try file.stat(io);
+    return .{
+        .device = 0,
+        .inode = @bitCast(stat.inode),
+        .size = stat.size,
+        .mtime_ns = stat.mtime.nanoseconds,
+    };
+}
+
+fn saveFileAtomicImpl(
+    io: std.Io,
+    path: []const u8,
+    contents: []const u8,
+    check: ?SaveCheck,
+) !?FileIdentity {
     if (path.len == 0) return error.InvalidDocumentPath;
     if (!std.unicode.utf8ValidateSlice(contents)) return error.InvalidUtf8;
     if (std.mem.indexOfScalar(u8, contents, 0) != null)
         return error.UnsupportedNul;
+    if (check) |value| try checkSaveIdentity(io, path, value.expected_identity);
     const permissions = if (std.Io.Dir.cwd().statFile(io, path, .{})) |stat| blk: {
         if (stat.kind != .file) return error.InvalidDocumentFile;
         break :blk stat.permissions;
@@ -182,7 +256,21 @@ pub fn saveFileAtomic(io: std.Io, path: []const u8, contents: []const u8) !void 
     });
     defer atomic.deinit(io);
     try atomic.file.writeStreamingAll(io, contents);
+    // Capture our own inode, not a subsequent writer's version at the path.
+    const saved_identity = if (check != null) try identityForFile(io, atomic.file) else null;
+    if (check) |value| {
+        if (value.before_commit) |observe| try observe(io, path);
+        try checkSaveIdentity(io, path, value.expected_identity);
+        if (value.expected_identity == null) {
+            atomic.link(io) catch |err| switch (err) {
+                error.PathAlreadyExists => return error.DocumentSaveConflict,
+                else => return err,
+            };
+            return saved_identity;
+        }
+    }
     try atomic.replace(io);
+    return saved_identity;
 }
 
 pub fn resolveSavePathAlloc(
@@ -257,6 +345,77 @@ test "loads editable UTF-8 and writes it back atomically" {
     try std.testing.expectEqualStrings("const after = true;\n", saved);
     const after_identity = try identityForPath(io, absolute);
     try std.testing.expectEqual(@as(u64, saved.len), after_identity.size);
+}
+
+test "checked save keeps external edits and rejects unknown existing origins" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(io, .{ .sub_path = "conflict.txt", .data = "original" });
+    const path = try tmp.dir.realPathFileAlloc(io, "conflict.txt", allocator);
+    defer allocator.free(path);
+    const original = try identityForPath(io, path);
+    const saved = try saveFileAtomicChecked(io, path, "local first save", original);
+    try std.testing.expect(saved.eql(try identityForPath(io, path)));
+    try saveFileAtomic(io, path, "external edits");
+    try std.testing.expectError(
+        error.DocumentSaveConflict,
+        saveFileAtomicChecked(io, path, "unsaved local edits", saved),
+    );
+    try std.testing.expectError(
+        error.DocumentSaveConflict,
+        saveFileAtomicChecked(io, path, "restored edits", null),
+    );
+    const contents = try tmp.dir.readFileAlloc(io, "conflict.txt", allocator, .limited(128));
+    defer allocator.free(contents);
+    try std.testing.expectEqualStrings("external edits", contents);
+}
+
+test "checked save does not recreate removed originals but permits new destinations" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(io, .{ .sub_path = "removed.txt", .data = "original" });
+    const path = try tmp.dir.realPathFileAlloc(io, "removed.txt", allocator);
+    defer allocator.free(path);
+    const original = try identityForPath(io, path);
+    try tmp.dir.deleteFile(io, "removed.txt");
+    try std.testing.expectError(
+        error.DocumentSaveConflict,
+        saveFileAtomicChecked(io, path, "unsaved edits", original),
+    );
+    try std.testing.expectError(error.FileNotFound, tmp.dir.statFile(io, "removed.txt", .{}));
+    _ = try saveFileAtomicChecked(io, path, "saved as new", null);
+    const contents = try tmp.dir.readFileAlloc(io, "removed.txt", allocator, .limited(128));
+    defer allocator.free(contents);
+    try std.testing.expectEqualStrings("saved as new", contents);
+}
+
+test "checked save detects changes while preparing the atomic replacement" {
+    const Rewrite = struct {
+        fn beforeCommit(io: std.Io, path: []const u8) !void {
+            try saveFileAtomic(io, path, "external edit during save");
+        }
+    };
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(io, .{ .sub_path = "race.txt", .data = "original" });
+    const path = try tmp.dir.realPathFileAlloc(io, "race.txt", allocator);
+    defer allocator.free(path);
+    try std.testing.expectError(
+        error.DocumentSaveConflict,
+        saveFileAtomicImpl(io, path, "unsaved local edits", .{
+            .expected_identity = try identityForPath(io, path),
+            .before_commit = Rewrite.beforeCommit,
+        }),
+    );
+    const contents = try tmp.dir.readFileAlloc(io, "race.txt", allocator, .limited(128));
+    defer allocator.free(contents);
+    try std.testing.expectEqualStrings("external edit during save", contents);
 }
 
 test "rejects non UTF-8 and files above the preview limit" {

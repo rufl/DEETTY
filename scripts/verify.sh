@@ -62,6 +62,7 @@ run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZI
 run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
 run_zig_build --prefix "$visible_root" --cache-dir "$NOCTTY_ZIG_CACHE_DIR" \
   --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR"
+./scripts/cli_smoke.sh "$visible_root/bin/noctty" "$visible_root/bin/nocted"
 run_pressure_gated_display ./scripts/nocted_single_instance_smoke.sh \
   "$visible_root/bin/nocted"
 run_pressure_gated_display ./scripts/native_grid_single_instance_smoke.sh \

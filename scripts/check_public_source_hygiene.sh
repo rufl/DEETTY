@@ -5,8 +5,14 @@ export LC_ALL=C
 # This gate inspects existing tracked and not-ignored candidate source. Full-
 # history secret scanning remains a separate maintainer action because ordinary
 # contributors should not need extra security tooling for the bounded gate.
+# A Git failure is not evidence of a clean tree. Keep this command outside a
+# pipeline so archives and unreadable repositories cannot produce a green gate.
+candidate_files=$(git ls-files --cached --others --exclude-standard) || {
+  echo 'public_source_hygiene git_inventory_failed=true' >&2
+  exit 1
+}
 tracked_files=$(
-  git ls-files --cached --others --exclude-standard |
+  printf '%s\n' "$candidate_files" |
     while IFS= read -r path; do
       if [ -e "$path" ]; then printf '%s\n' "$path"; fi
     done
@@ -34,11 +40,20 @@ if printf '%s\n' "$tracked_files" | grep -E \
   exit 1
 fi
 
-if git grep -I -n -E '^(<<<<<<< |=======|>>>>>>> )' -- . \
-  ':!vendor/**' ':!src/terminal/fixtures/**' >/dev/null; then
-  echo 'public_source_hygiene merge_marker=true' >&2
-  exit 1
-fi
+marker_status=0
+git grep -I -n -E '^(<<<<<<< |=======|>>>>>>> )' -- . \
+  ':!vendor/**' ':!src/terminal/fixtures/**' >/dev/null || marker_status=$?
+case "$marker_status" in
+  0)
+    echo 'public_source_hygiene merge_marker=true' >&2
+    exit 1
+    ;;
+  1) ;;
+  *)
+    echo 'public_source_hygiene git_scan_failed=true' >&2
+    exit 1
+    ;;
+esac
 
 # GitHub actions are third-party release inputs. Pinning immutable revisions
 # prevents an upstream tag move from changing CI or packaging behavior.

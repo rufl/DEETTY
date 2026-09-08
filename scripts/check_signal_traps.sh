@@ -12,6 +12,9 @@ scripts/windows_sign_artifact.sh
 scripts/terminal_benchmark.sh
 scripts/run_isolated_x11.sh
 scripts/run_isolated_wayland.sh
+scripts/isolated_display_runner.sh
+scripts/isolated_display_smoke.sh
+scripts/capture_alpha_screenshots.sh
 '
 
 for file in $files; do

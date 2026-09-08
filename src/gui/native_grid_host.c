@@ -404,6 +404,7 @@ typedef struct NocttyGridContextTag {
     int layer_shell_active;
     int layer_shell_allowed;
     int layer_shell_keyboard_mode;
+    GdkMonitor *layer_shell_monitor;
     int window_presented;
     guint window_mode_recreate_source;
     guint resolution_adapt_source;
@@ -411,6 +412,11 @@ typedef struct NocttyGridContextTag {
     int monitor_workarea_y;
     int monitor_workarea_width;
     int monitor_workarea_height;
+    int monitor_geometry_x;
+    int monitor_geometry_y;
+    int monitor_geometry_width;
+    int monitor_geometry_height;
+    int monitor_scale_factor;
     int window_mode_surface_recreated;
     int workspace_smoke;
     int workspace_visual_attempts;
@@ -909,6 +915,8 @@ static void present_configured_window(GtkWidget *window) {
 static void update_window_resize_handles(NocttyGridContext *context);
 static gboolean on_window_resize_handle_button(
     GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_window_resize_handle_release(
+    GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static void queue_grid_cursor_cell(NocttyGridContext *context,
                                    uint32_t packed_cursor);
 static void apply_panel_layout_metrics(NocttyGridContext *root);
@@ -938,6 +946,11 @@ static gboolean on_key_release(GtkWidget *widget, GdkEventKey *event,
 static void toggle_grid_window(NocttyGridContext *context);
 static void set_grid_layer_keyboard_active(NocttyGridContext *context,
                                            gboolean active);
+static gboolean adapt_window_to_resolution(gpointer user_data);
+static void schedule_resolution_adapt(NocttyGridContext *context);
+static void apply_fullscreen_dimensions(NocttyGridContext *context);
+static gboolean normalize_dropdown_pixel_dimensions(
+    NocttyGridContext *context, gboolean notify);
 static const char *broadcast_menu_label(NocttyGridContext *context);
 static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data);
 #if NOCTTY_ENABLE_SMOKE
@@ -3185,6 +3198,7 @@ static void toggle_grid_window(NocttyGridContext *context) {
             gtk_revealer_set_reveal_child(GTK_REVEALER(root->revealer), TRUE);
         if (!root->layer_shell_active)
             gtk_window_present(GTK_WINDOW(root->window));
+        schedule_resolution_adapt(root);
         NocttyGridContext *focus_target = active_grid_context(context);
         if (focus_target->area != NULL)
             gtk_widget_grab_focus(focus_target->area);
@@ -4599,9 +4613,8 @@ static void emit_dogfood_event(NocttyGridContext *context,
         event_name == NULL || event_name[0] == '\0')
         return;
     g_printerr(
-        "noctty_dogfood_event session_id=%s event=%s pane=%"
-        G_GUINT64_FORMAT " value=%d detail=%s monotonic_ms=%"
-        G_GINT64_FORMAT "\n",
+        "dogfood_event session=%s event=%s pane=%" G_GUINT64_FORMAT
+        " value=%d detail=%s monotonic_ms=%" G_GINT64_FORMAT "\n",
         session_id, event_name, pane_id, value,
         detail != NULL && detail[0] != '\0' ? detail : "none",
         g_get_monotonic_time() / 1000);
@@ -9295,6 +9308,20 @@ static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     return monitor;
 }
 
+static gboolean grid_monitor_metrics(
+    GtkWidget *window, GdkMonitor **monitor_output,
+    GdkRectangle *geometry_output, GdkRectangle *workarea_output,
+    int *scale_factor_output) {
+    GdkMonitor *monitor = grid_monitor_for_window(window);
+    if (monitor == NULL) return FALSE;
+    if (monitor_output != NULL) *monitor_output = monitor;
+    if (geometry_output != NULL) gdk_monitor_get_geometry(monitor, geometry_output);
+    if (workarea_output != NULL) gdk_monitor_get_workarea(monitor, workarea_output);
+    if (scale_factor_output != NULL)
+        *scale_factor_output = MAX(1, gdk_monitor_get_scale_factor(monitor));
+    return TRUE;
+}
+
 static void apply_grid_layer_geometry(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (!root->layer_shell_active || root->layer_shell_library == NULL) return;
@@ -9312,6 +9339,14 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
+    NocttyLayerSetMonitor set_monitor =
+        (NocttyLayerSetMonitor)dlsym(root->layer_shell_library,
+                                     "gtk_layer_set_monitor");
+    if (set_monitor != NULL && monitor != NULL &&
+        monitor != root->layer_shell_monitor) {
+        set_monitor(GTK_WINDOW(root->window), monitor);
+        root->layer_shell_monitor = monitor;
+    }
     int width = noctty_grid_dropdown_dimension(
         root->dropdown_width_px, root->dropdown_width_percent,
         geometry.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
@@ -9389,7 +9424,10 @@ static int configure_grid_layer_shell(NocttyGridContext *context) {
     }
     init_for_window(GTK_WINDOW(root->window));
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) set_monitor(GTK_WINDOW(root->window), monitor);
+    if (monitor != NULL) {
+        set_monitor(GTK_WINDOW(root->window), monitor);
+        root->layer_shell_monitor = monitor;
+    }
     // Keep the dropdown on TOP. Plasma composites alpha correctly there;
     // OVERLAY became translucent only while a modal temporarily lowered it.
     set_layer(GTK_WINDOW(root->window), 2);
@@ -9599,14 +9637,60 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
 }
 
+static void apply_fullscreen_dimensions(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (!GTK_IS_WINDOW(root->window)) return;
+    gtk_widget_set_size_request(root->window, -1, -1);
+    GdkDisplay *display = gtk_widget_get_display(root->window);
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
+    int monitor_index = -1;
+    for (int index = 0; monitor != NULL && display != NULL &&
+         index < gdk_display_get_n_monitors(display); index++) {
+        if (gdk_display_get_monitor(display, index) == monitor) {
+            monitor_index = index;
+            break;
+        }
+    }
+    GdkWindow *gdk_window = gtk_widget_get_window(root->window);
+    if (gdk_window == NULL) {
+        gtk_window_fullscreen(GTK_WINDOW(root->window));
+    } else {
+        gdk_window_set_fullscreen_mode(
+            gdk_window, GDK_FULLSCREEN_ON_CURRENT_MONITOR);
+        if (!GDK_IS_WAYLAND_DISPLAY(display) && monitor_index >= 0)
+            gdk_window_fullscreen_on_monitor(gdk_window, monitor_index);
+        else
+            gdk_window_fullscreen(gdk_window);
+    }
+}
+
+static void schedule_resolution_adapt(NocttyGridContext *context) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (root->resolution_adapt_source == 0)
+        root->resolution_adapt_source =
+            g_idle_add(adapt_window_to_resolution, root);
+}
+
 static gboolean adapt_window_to_resolution(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->resolution_adapt_source = 0;
     if (!GTK_IS_WINDOW(root->window)) return G_SOURCE_REMOVE;
-    GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor == NULL) return G_SOURCE_REMOVE;
+    GdkMonitor *monitor = NULL;
+    GdkRectangle monitor_geometry = {0};
     GdkRectangle workarea = {0};
-    gdk_monitor_get_workarea(monitor, &workarea);
+    int scale_factor = 1;
+    if (!grid_monitor_metrics(root->window, &monitor, &monitor_geometry,
+                              &workarea, &scale_factor))
+        return G_SOURCE_REMOVE;
+    root->monitor_geometry_x = monitor_geometry.x;
+    root->monitor_geometry_y = monitor_geometry.y;
+    root->monitor_geometry_width = monitor_geometry.width;
+    root->monitor_geometry_height = monitor_geometry.height;
+    root->monitor_workarea_x = workarea.x;
+    root->monitor_workarea_y = workarea.y;
+    root->monitor_workarea_width = workarea.width;
+    root->monitor_workarea_height = workarea.height;
+    root->monitor_scale_factor = scale_factor;
     int current_x = 0;
     int current_y = 0;
     int current_width = 1;
@@ -9614,12 +9698,14 @@ static gboolean adapt_window_to_resolution(gpointer user_data) {
     gtk_window_get_position(GTK_WINDOW(root->window), &current_x, &current_y);
     gtk_window_get_size(GTK_WINDOW(root->window),
                         &current_width, &current_height);
+    const GdkRectangle *dropdown_space =
+        root->layer_shell_active ? &monitor_geometry : &workarea;
     int dropdown_width = noctty_grid_dropdown_dimension(
         root->dropdown_width_px, root->dropdown_width_percent,
-        workarea.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
+        dropdown_space->width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
     int dropdown_height = noctty_grid_dropdown_dimension(
         root->dropdown_height_px, root->dropdown_height_percent,
-        workarea.height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
+        dropdown_space->height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
     NocttyGridAdaptiveWindowGeometry geometry;
     if (!noctty_grid_adapt_window_geometry(
             root->mode, current_x, current_y, current_width, current_height,
@@ -9629,7 +9715,7 @@ static gboolean adapt_window_to_resolution(gpointer user_data) {
     if (root->mode == 0 && root->layer_shell_active) {
         apply_grid_layer_geometry(root);
     } else if (root->mode == 2) {
-        gtk_window_fullscreen(GTK_WINDOW(root->window));
+        apply_fullscreen_dimensions(root);
     } else {
         gtk_window_resize(
             GTK_WINDOW(root->window), geometry.width, geometry.height);
@@ -9649,29 +9735,47 @@ static gboolean on_window_resolution_configure(
     GtkWidget *widget, GdkEventConfigure *event, gpointer user_data) {
     (void)event;
     NocttyGridContext *root = root_grid_context(user_data);
-    GdkMonitor *monitor = grid_monitor_for_window(widget);
-    if (monitor == NULL) return FALSE;
+    GdkRectangle geometry = {0};
     GdkRectangle workarea = {0};
-    gdk_monitor_get_workarea(monitor, &workarea);
-    gboolean changed = workarea.x != root->monitor_workarea_x ||
+    int scale_factor = 1;
+    if (!grid_monitor_metrics(widget, NULL, &geometry, &workarea,
+                              &scale_factor))
+        return FALSE;
+    gboolean changed = geometry.x != root->monitor_geometry_x ||
+        geometry.y != root->monitor_geometry_y ||
+        geometry.width != root->monitor_geometry_width ||
+        geometry.height != root->monitor_geometry_height ||
+        workarea.x != root->monitor_workarea_x ||
         workarea.y != root->monitor_workarea_y ||
         workarea.width != root->monitor_workarea_width ||
-        workarea.height != root->monitor_workarea_height;
-    if (!changed) return FALSE;
-    root->monitor_workarea_x = workarea.x;
-    root->monitor_workarea_y = workarea.y;
-    root->monitor_workarea_width = workarea.width;
-    root->monitor_workarea_height = workarea.height;
-    if (root->resolution_adapt_source == 0)
-        root->resolution_adapt_source =
-            g_idle_add(adapt_window_to_resolution, root);
+        workarea.height != root->monitor_workarea_height ||
+        scale_factor != root->monitor_scale_factor;
+    if (changed) schedule_resolution_adapt(root);
     return FALSE;
+}
+
+static void on_screen_geometry_changed(GdkScreen *screen,
+                                       gpointer user_data) {
+    (void)screen;
+    GtkWidget *window = GTK_WIDGET(user_data);
+    NocttyGridContext *root = g_object_get_data(
+        G_OBJECT(window), "noctty-grid-root-context");
+    if (root != NULL) schedule_resolution_adapt(root);
 }
 
 static void on_window_map(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
     root->window_map_count++;
+    schedule_resolution_adapt(root);
+#if NOCTTY_ENABLE_SMOKE
+    if (root->workspace_smoke == 44 || root->workspace_smoke == 45) {
+        g_printerr(
+            "native_grid_resolution_window_ready mode=%s layer_shell=%s\n",
+            root->mode == 0 ? "dropdown" : "fullscreen",
+            root->layer_shell_active ? "true" : "false");
+    }
+#endif
 }
 
 static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
@@ -9708,13 +9812,26 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     set_grid_window_title(
         root,
         window,
-        root->workspace_smoke == 39
-            ? "NOCTTY installed continuity qualification"
-            : "NOCTTY native grid");
+        root->workspace_smoke == 44
+            ? "NOCTTY resolution dropdown qualification"
+            : root->workspace_smoke == 45
+                ? "NOCTTY resolution fullscreen qualification"
+                : root->workspace_smoke == 39
+                    ? "NOCTTY installed continuity qualification"
+                    : "NOCTTY native grid");
     gtk_window_set_default_size(GTK_WINDOW(window), 1100, 640);
     gtk_window_set_decorated(GTK_WINDOW(window), root->mode == 1);
-    gtk_window_set_resizable(GTK_WINDOW(window), root->mode != 2);
+    gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
     gtk_window_set_keep_above(GTK_WINDOW(window), root->mode == 0);
+    g_object_set_data(G_OBJECT(window), "noctty-grid-root-context", root);
+    if (screen != NULL) {
+        g_signal_connect_object(
+            screen, "size-changed", G_CALLBACK(on_screen_geometry_changed),
+            window, 0);
+        g_signal_connect_object(
+            screen, "monitors-changed",
+            G_CALLBACK(on_screen_geometry_changed), window, 0);
+    }
     g_signal_connect(window, "delete-event",
                      G_CALLBACK(on_window_delete_event), root);
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
@@ -9723,6 +9840,8 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     g_signal_connect(window, "map", G_CALLBACK(on_window_map), root);
     g_signal_connect(window, "configure-event",
                      G_CALLBACK(on_window_resolution_configure), root);
+    g_signal_connect(window, "button-release-event",
+                     G_CALLBACK(on_window_resize_handle_release), root);
     return window;
 }
 
@@ -9757,6 +9876,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     gtk_container_remove(GTK_CONTAINER(old_window), layout);
 
     root->layer_shell_active = 0;
+    root->layer_shell_monitor = NULL;
     root->window = create_grid_toplevel(root);
     if (title != NULL) set_grid_window_title(root, root->window, title);
     for (guint index = 0; root->contexts != NULL &&
@@ -9767,13 +9887,16 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     g_object_unref(layout);
 
     root->window_presented = was_presented;
-    if (root->mode == 0) (void)configure_grid_layer_shell(root);
+    if (root->mode == 0) {
+        (void)configure_grid_layer_shell(root);
+        (void)normalize_dropdown_pixel_dimensions(root, TRUE);
+    }
     if (was_presented) show_all_with_action_affordances(root->window);
     update_window_toolbar_controls(root);
     update_window_resize_handles(root);
     if (root->mode == 0) apply_dropdown_dimensions(root);
     else if (root->mode == 1) apply_window_dimensions(root);
-    else gtk_window_fullscreen(GTK_WINDOW(root->window));
+    else apply_fullscreen_dimensions(root);
     if (!was_presented) gtk_widget_hide(root->window);
     else {
         root->window_presented = 1;
@@ -9806,6 +9929,39 @@ static void sync_compact_setting(NocttyGridContext *context, int field, int valu
         else if (field == 4) candidate->focus_follows_pointer = value;
         else if (field == 5) candidate->show_pane_info = value;
     }
+}
+
+static gboolean normalize_dropdown_pixel_dimensions(
+    NocttyGridContext *context, gboolean notify) {
+    NocttyGridContext *root = root_grid_context(context);
+    if (root->dropdown_width_px <= 0 && root->dropdown_height_px <= 0)
+        return FALSE;
+    GdkMonitor *monitor = grid_monitor_for_window(root->window);
+    if (monitor == NULL) return FALSE;
+    GdkRectangle available = {0};
+    if (root->layer_shell_active)
+        gdk_monitor_get_geometry(monitor, &available);
+    else
+        gdk_monitor_get_workarea(monitor, &available);
+    int width_percent = noctty_grid_dropdown_percent(
+        root->dropdown_width_px, available.width,
+        root->dropdown_width_percent);
+    int height_percent = noctty_grid_dropdown_percent(
+        root->dropdown_height_px, available.height,
+        root->dropdown_height_percent);
+    sync_compact_setting(root, 0, width_percent);
+    sync_compact_setting(root, 1, height_percent);
+    sync_compact_setting(root, 14, 0);
+    sync_compact_setting(root, 15, 0);
+    if (notify && root->event != NULL) {
+        uint64_t timestamp =
+            (uint64_t)(g_get_monotonic_time() / 1000);
+        root->event(root->event_data, root->pane_id, 76,
+                    width_percent, timestamp);
+        root->event(root->event_data, root->pane_id, 77,
+                    height_percent, timestamp);
+    }
+    return TRUE;
 }
 
 static void apply_pane_info_visibility(NocttyGridContext *context,
@@ -9931,9 +10087,11 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
         return;
     }
     gtk_window_set_keep_above(GTK_WINDOW(root->window), mode == 0);
+    gtk_window_set_decorated(GTK_WINDOW(root->window), mode == 1);
+    gtk_window_set_resizable(GTK_WINDOW(root->window), TRUE);
     update_window_resize_handles(root);
     if (root->layer_shell_active) apply_grid_layer_geometry(root);
-    else if (mode == 2) gtk_window_fullscreen(GTK_WINDOW(root->window));
+    else if (mode == 2) apply_fullscreen_dimensions(root);
     else {
         gtk_window_unfullscreen(GTK_WINDOW(root->window));
         if (mode == 1) apply_window_dimensions(root);
@@ -16040,10 +16198,22 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
 
 static void finish_window_resize_drag(NocttyGridContext *root) {
     int index = root->window_resize_drag_handle;
+    gboolean commit_dropdown_size =
+        root->window_resize_drag_active && root->mode == 0;
     root->window_resize_drag_active = 0;
     if (index >= 0 && index < 8 &&
         gtk_widget_has_grab(root->window_resize_handles[index]))
         gtk_grab_remove(root->window_resize_handles[index]);
+    if (commit_dropdown_size && !root->layer_shell_active) {
+        int width = 0;
+        int height = 0;
+        gtk_window_get_size(GTK_WINDOW(root->window), &width, &height);
+        sync_compact_setting(root, 14, width);
+        sync_compact_setting(root, 15, height);
+    }
+    if (commit_dropdown_size &&
+        normalize_dropdown_pixel_dimensions(root, TRUE))
+        apply_dropdown_dimensions(root);
 }
 
 static gboolean begin_window_resize_drag(GtkWidget *widget,
@@ -16053,12 +16223,6 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
                                            guint32 time) {
     root->window_resize_handle_mask |= 1 << index;
     if (root->workspace_smoke == 19) return TRUE;
-    if (!root->layer_shell_active) {
-        gtk_window_begin_resize_drag(
-            GTK_WINDOW(root->window), noctty_resize_edges[index],
-            (gint)button, (gint)x_root, (gint)y_root, time);
-        return TRUE;
-    }
     finish_window_resize_drag(root);
     root->window_resize_drag_active = 1;
     root->window_resize_drag_handle = index;
@@ -16071,6 +16235,12 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
         root->dropdown_width_percent;
     root->window_resize_drag_start_height_percent =
         root->dropdown_height_percent;
+    if (!root->layer_shell_active) {
+        gtk_window_begin_resize_drag(
+            GTK_WINDOW(root->window), noctty_resize_edges[index],
+            (gint)button, (gint)x_root, (gint)y_root, time);
+        return TRUE;
+    }
     gtk_grab_add(widget);
     return TRUE;
 }
@@ -16209,16 +16379,10 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     gboolean changed = FALSE;
     if (horizontal != 0.0 && width != root->dropdown_width_px) {
         sync_compact_setting(root, 14, width);
-        if (root->event != NULL)
-            root->event(root->event_data, root->pane_id, 70, width,
-                        (uint64_t)(g_get_monotonic_time() / 1000));
         changed = TRUE;
     }
     if (vertical != 0.0 && height != root->dropdown_height_px) {
         sync_compact_setting(root, 15, height);
-        if (root->event != NULL)
-            root->event(root->event_data, root->pane_id, 71, height,
-                        (uint64_t)(g_get_monotonic_time() / 1000));
         changed = TRUE;
     }
     if (changed) apply_dropdown_dimensions(root);
@@ -16336,7 +16500,7 @@ static void update_window_resize_handles(NocttyGridContext *context) {
          gtk_window_get_decorated(GTK_WINDOW(root->window)) &&
          gtk_window_get_resizable(GTK_WINDOW(root->window))) ||
         (root->mode == 0 && visible == 3);
-    gtk_window_set_resizable(GTK_WINDOW(root->window), root->mode != 2);
+    gtk_window_set_resizable(GTK_WINDOW(root->window), TRUE);
 }
 
 static gboolean check_window_resize_smoke(gpointer user_data) {
@@ -16726,7 +16890,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         context.peer = &secondary;
         secondary.peer = &context;
     }
-    if (mode == 2) gtk_window_fullscreen(GTK_WINDOW(context.window));
+    if (mode == 2) apply_fullscreen_dimensions(&context);
     context.notebook = gtk_notebook_new();
     gtk_notebook_set_scrollable(GTK_NOTEBOOK(context.notebook), TRUE);
     install_compact_tab_styles(context.notebook);
@@ -16810,6 +16974,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     gboolean hot_session_restored = restore_hot_session(&context);
     apply_panel_layout_metrics(&context);
     (void)configure_grid_layer_shell(&context);
+    if (mode == 0)
+        (void)normalize_dropdown_pixel_dimensions(&context, TRUE);
     if (claim_control) {
         (void)register_grid_control(&context);
         drain_grid_dbus_operations(&context);

@@ -426,6 +426,8 @@ pub fn validateWorkspaceManifest(manifest: WorkspaceManifest) !void {
                         node.second >= nodes.len or node.first == node.second or
                         node.ratio_permille == 0 or node.ratio_permille >= 1000)
                         return error.InvalidShareWorkspace;
+                    if (stack_len > stack.len - 2)
+                        return error.InvalidShareWorkspace;
                     stack[stack_len] = node.first;
                     stack_len += 1;
                     stack[stack_len] = node.second;
@@ -784,4 +786,39 @@ test "workspace manifest decoder rejects duplicates and trailing bytes" {
     _ = try malformed_decoder.nextNode();
     _ = try malformed_decoder.nextNode();
     try std.testing.expectError(error.InvalidShareWorkspace, malformed_decoder.nextNode());
+}
+
+test "workspace manifest rejects split chain that exhausts traversal stack" {
+    var panes: [Protocol.max_streams]PaneManifest = undefined;
+    for (&panes, 0..) |*pane, index| {
+        pane.* = .{
+            .stream_id = @intCast(index + 1),
+            .pane_id = @intCast(index + 1),
+            .tab_id = 1,
+            .title = "",
+        };
+    }
+    var nodes: [Protocol.max_layout_nodes]LayoutNodeManifest = undefined;
+    for (&nodes, 0..) |*node, index| {
+        node.* = .{
+            .tab_id = 1,
+            .kind = .split,
+            .first = 0,
+            .second = @intCast(if (index + 1 == nodes.len) 1 else index + 1),
+            .ratio_permille = 500,
+        };
+    }
+    try std.testing.expectError(error.InvalidShareWorkspace, validateWorkspaceManifest(.{
+        .scope = .tab,
+        .tabs = &.{.{
+            .tab_id = 1,
+            .title = "",
+            .active = true,
+            .active_pane_id = 1,
+            .root_node = 0,
+            .node_count = nodes.len,
+        }},
+        .panes = &panes,
+        .nodes = &nodes,
+    }));
 }

@@ -28,7 +28,7 @@ pub export fn noctty_windows_launch_nocted() c_int {
     }
     const directory_end = (separator orelse return 0) + 1;
     const editor_name = std.unicode.utf8ToUtf16LeStringLiteral("nocted.exe");
-    const editor_length = editor_name.len - 1;
+    const editor_length = editor_name.len;
     if (directory_end + editor_length + 1 > executable.len) return 0;
     @memcpy(executable[directory_end..][0..editor_length], editor_name[0..editor_length]);
     executable[directory_end + editor_length] = 0;

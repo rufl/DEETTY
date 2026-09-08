@@ -42,6 +42,8 @@ portable_contract_valid() {
       "$portable_path.manifest" >/dev/null &&
     grep -Fx 'signed=false' "$portable_path.manifest" >/dev/null &&
     grep -Fx 'nocted_included=true' "$portable_path.manifest" >/dev/null &&
+    grep -E '^[0-9a-f]{64}  noctty-windows-x86_64/UNICODE-LICENSE[.]txt$' \
+      "$portable_path.manifest" >/dev/null &&
     grep -Fx "version=$version" "$portable_path.manifest" >/dev/null &&
     grep -Fx "package_revision=$package_revision" \
       "$portable_path.manifest" >/dev/null
@@ -106,6 +108,7 @@ cat > "$expected" <<'EOF'
 BUILD-INFO.txt
 LICENSE
 THIRD_PARTY_NOTICES.md
+UNICODE-LICENSE.txt
 WINDOWS-SMOKE.ps1
 WINDOWS.md
 nocted.exe

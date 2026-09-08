@@ -108,8 +108,11 @@ fn drawLegacyGrid(state: *const State, device: c.HDC) void {
     if (state.columns <= 0 or state.rows <= 0) return;
     var row: c_int = 0;
     while (row < state.rows) : (row += 1) {
-        var column: c_int = 0;
-        while (column < state.columns) : (column += 1) {
+        // Wide glyphs paint across their continuation cell. Paint that cell's
+        // background first so it cannot erase the glyph's right half.
+        var column = state.columns;
+        while (column > 0) {
+            column -= 1;
             drawCell(
                 state,
                 device,
@@ -145,8 +148,11 @@ fn drawPane(state: *const State, device: c.HDC, client: c.RECT, pane_index: c_in
     const height = pane.content.bottom - pane.content.top;
     var row: c_int = 0;
     while (row < pane.rows) : (row += 1) {
-        var column: c_int = 0;
-        while (column < pane.columns) : (column += 1) {
+        // Match the remote/legacy path: continuation backgrounds precede the
+        // leading glyph's two-cell paint, including selection colors.
+        var column = pane.columns;
+        while (column > 0) {
+            column -= 1;
             drawCell(
                 state,
                 device,
@@ -466,4 +472,73 @@ fn drawBorder(device: c.HDC, rectangle: c.RECT, thickness: c_int, color: u32, in
 
 fn wide(comptime text: []const u8) [*:0]const u16 {
     return @ptrCast(std.unicode.utf8ToUtf16LeStringLiteral(text));
+}
+
+test "wide glyph survives full row background painting" {
+    const Fixture = struct {
+        fn cell(_: ?*anyopaque, column: c_int, _: c_int) callconv(.c) u64 {
+            const style = (color_default << 8) | (color_default << 20) |
+                @as(u32, if (column == 1) style_wide_continuation else 0);
+            return @as(u64, style) << 32;
+        }
+        fn text(_: ?*anyopaque, column: c_int, _: c_int, output: [*]u8, _: usize) callconv(.c) c_int {
+            output[0] = if (column == 0) 'W' else ' ';
+            return 1;
+        }
+        fn color(_: ?*anyopaque, _: u32) callconv(.c) u32 {
+            return color_invalid;
+        }
+        fn cursor(_: ?*anyopaque) callconv(.c) u32 {
+            return color_invalid;
+        }
+    };
+    const device = c.CreateCompatibleDC(null) orelse return error.DeviceContextUnavailable;
+    defer _ = c.DeleteDC(device);
+    var info = std.mem.zeroes(c.BITMAPINFO);
+    info.bmiHeader.biSize = @sizeOf(c.BITMAPINFOHEADER);
+    info.bmiHeader.biWidth = 24;
+    info.bmiHeader.biHeight = -32;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = c.BI_RGB;
+    var pixels: ?*anyopaque = null;
+    const bitmap = c.CreateDIBSection(device, &info, c.DIB_RGB_COLORS, &pixels, null, 0) orelse
+        return error.BitmapUnavailable;
+    defer _ = c.DeleteObject(bitmap);
+    const previous_bitmap = c.SelectObject(device, bitmap);
+    defer _ = c.SelectObject(device, previous_bitmap);
+    // Force a glyph wider than one cell without requiring a CJK font on Wine.
+    const font = c.CreateFontW(-24, 0, 0, 0, c.FW_NORMAL, 0, 0, 0, c.DEFAULT_CHARSET, c.OUT_DEFAULT_PRECIS, c.CLIP_DEFAULT_PRECIS, c.NONANTIALIASED_QUALITY, c.FIXED_PITCH, wide("Courier New")) orelse return error.FontUnavailable;
+    defer _ = c.DeleteObject(font);
+    var fixture_callbacks: Abi.Callbacks = undefined;
+    fixture_callbacks.cell = Fixture.cell;
+    fixture_callbacks.cell_text = Fixture.text;
+    fixture_callbacks.color_rgb = Fixture.color;
+    fixture_callbacks.cursor = Fixture.cursor;
+    fixture_callbacks.userdata = null;
+    const state = State{
+        .window = null,
+        .callbacks = &fixture_callbacks,
+        .font_normal = font,
+        .font_bold = font,
+        .cell_width = 8,
+        .cell_height = 32,
+        .columns = 3,
+        .rows = 1,
+        .foreground = 0xffffff,
+        .background = 0,
+        .selection_active = 0,
+        .selection_pane = 0,
+        .selection_anchor_column = 0,
+        .selection_anchor_row = 0,
+        .selection_extent_column = 0,
+        .selection_extent_row = 0,
+    };
+    drawLegacyGrid(&state, device);
+    var right_half_ink = false;
+    for (8..16) |x| for (0..32) |y| {
+        const pixel = c.GetPixel(device, @intCast(x), @intCast(y));
+        if (pixel != 0 and pixel != c.CLR_INVALID) right_half_ink = true;
+    };
+    try std.testing.expect(right_half_ink);
 }

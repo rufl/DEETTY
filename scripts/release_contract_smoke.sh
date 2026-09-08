@@ -71,6 +71,7 @@ grep -F "* $rpm_date" packaging/rpm/noctty.spec >/dev/null
 grep -F 'NOCTTY is a native terminal workspace focused first on Linux desktops' README.md >/dev/null
 grep -F "## $version — $release_date product behavior complete; release hardening and publication pending" CHANGELOG.md >/dev/null
 grep -F "Product-behavior and local release-source baseline: $version, $verified_date." docs/RELEASE_CHECKLIST.md >/dev/null
-grep -F "Canonical release contract: version $version, source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
+grep -F "Historical packaging baseline: $verified_date; release contract version $version," docs/INSTALL.md >/dev/null
+grep -F "source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
 
 echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true noctty_runtime=true nocted_runtime=true production_vte=false production_noctty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_smoke_symbols=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"

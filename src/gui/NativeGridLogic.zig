@@ -737,6 +737,24 @@ pub export fn noctty_grid_dropdown_dimension(
     ));
 }
 
+pub export fn noctty_grid_dropdown_percent(
+    pixels: c_int,
+    available_px: c_int,
+    fallback_percent: c_int,
+) callconv(.c) c_int {
+    const fallback = std.math.clamp(fallback_percent, 1, 100);
+    if (pixels <= 0 or available_px <= 0 or pixels > available_px) {
+        return fallback;
+    }
+    const numerator = @as(i64, pixels) * 100 +
+        @divFloor(@as(i64, available_px), 2);
+    return @intCast(std.math.clamp(
+        @divFloor(numerator, @as(i64, available_px)),
+        1,
+        100,
+    ));
+}
+
 pub const sharing_allow_pairing: u32 = 1 << 0;
 pub const sharing_allow_session: u32 = 1 << 1;
 pub const sharing_clear_host: u32 = 1 << 2;
@@ -1902,6 +1920,14 @@ test "dropdown dimensions reject invalid space and clamp every input" {
     try std.testing.expectEqual(@as(c_int, 720), noctty_grid_dropdown_dimension(720, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 900), noctty_grid_dropdown_dimension(1200, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 400), noctty_grid_dropdown_dimension(0, 200, 400, 480));
+}
+
+test "manual dropdown pixels become responsive percentages" {
+    try std.testing.expectEqual(@as(c_int, 80), noctty_grid_dropdown_percent(720, 900, 50));
+    try std.testing.expectEqual(@as(c_int, 53), noctty_grid_dropdown_percent(481, 900, 50));
+    try std.testing.expectEqual(@as(c_int, 96), noctty_grid_dropdown_percent(1200, 900, 96));
+    try std.testing.expectEqual(@as(c_int, 55), noctty_grid_dropdown_percent(0, 900, 55));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dropdown_percent(0, 0, 0));
 }
 
 test "sharing status actions cover only explicit protocol states" {

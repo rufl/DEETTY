@@ -33,18 +33,35 @@ without discussion.
 3. Keep claims proof-bounded.
 4. Run the smallest relevant local gate.
 
-Fast contributor gate:
+First build and launch using [Install](docs/INSTALL.md#run-from-the-checkout).
+For a code change, the non-graphical contributor gate is:
 
 ```sh
 zig fmt --check build.zig src
 zig build check -j1 --summary all
 ```
 
-Bounded source-alpha gate:
+This gate additionally requires VTE 2.91 development files (`libvte-2.91-dev`
+on Debian/Ubuntu). It builds the fallback and smoke binaries and runs unit
+tests, but does not launch graphical qualification or require an agent account.
+For documentation-only changes, use `./scripts/check_docs_truth.sh`.
+
+Optional bounded source-alpha gate, from a Git checkout:
 
 ```sh
 ./scripts/public_alpha_verify.sh
 ```
+
+This includes isolated X11 and Wayland graphical checks. The repository-owned
+X11 runner requires `bubblewrap`, `dbus-run-session`, `flock`, `setsid`,
+`timeout`, Xvfb, Xauthority tooling, and a private window manager such as
+Openbox or `kwin_x11`; `OVERZEER_DISPLAY_RUNNER` may select an equivalent
+reviewed runner. The Wayland wrapper additionally needs `kwin_wayland` with
+virtual-backend support. Release CI provisions these tools. They remain optional
+for building, launching, or running `zig build check`.
+Do not bypass a missing isolation runner by using your active desktop.
+The bounded gate is not physical desktop, authenticated-agent, or release
+qualification.
 
 The maintainer gate is `./scripts/verify.sh`. It includes isolated graphical and
 broader qualification lanes, can be environment-heavy, and is not required for

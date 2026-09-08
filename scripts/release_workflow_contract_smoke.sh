@@ -20,11 +20,16 @@ grep -F 'arch: aarch64' "$workflow" >/dev/null
 
 grep -F 'libgtk-layer-shell0' "$workflow" >/dev/null
 grep -F 'libgtksourceview-4-dev' "$workflow" >/dev/null
+grep -F 'bubblewrap dbus-x11 xvfb xauth openbox kwin-wayland' "$workflow" >/dev/null
+grep -F 'libvte-2.91-dev' "$workflow" >/dev/null
+grep -F 'libgtk-layer-shell-dev' "$workflow" >/dev/null
 grep -F 'Assert runner architecture' "$workflow" >/dev/null
 grep -F 'actual_arch="$(uname -m)"' "$workflow" >/dev/null
 grep -F 'x86_64:x86_64|aarch64:aarch64' "$workflow" >/dev/null
 
-grep -F './scripts/verify.sh' "$workflow" >/dev/null
+grep -F './scripts/public_alpha_verify.sh' "$workflow" >/dev/null
+grep -F 'scripts/isolated_display_runner.sh' "$workflow" >/dev/null
+! grep -F 'run: ./scripts/verify.sh' "$workflow" >/dev/null
 grep -F './scripts/package_manifests_smoke.sh' "$workflow" >/dev/null
 grep -F './scripts/package_bundle.sh "noctty-linux-${{ matrix.arch }}.tar.gz"' "$workflow" >/dev/null
 
@@ -64,4 +69,4 @@ grep -F 'windows-runtime:' "$workflow" >/dev/null
 grep -F 'runs-on: windows-latest' "$workflow" >/dev/null
 grep -F 'WINDOWS-SMOKE.ps1 -AutomatedHost' "$workflow" >/dev/null
 
-echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true layer_shell_source=system gtksourceview=true nocted=true arch_assert=true verify=true bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"
+echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true layer_shell_source=system gtksourceview=true nocted=true arch_assert=true bounded_source_alpha=true repository_isolated_display=true private_x11_wm=true maintainer_verify=false bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"

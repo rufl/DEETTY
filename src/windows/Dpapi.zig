@@ -27,6 +27,44 @@ const identity_description = std.unicode.utf8ToUtf16LeStringLiteral(
 );
 const peers_description = std.unicode.utf8ToUtf16LeStringLiteral("NOCTTY paired devices");
 
+pub const PeerStoreVersion = struct {
+    volume: u32,
+    file_index: u64,
+    created: u64,
+    written: u64,
+    size: u64,
+};
+
+fn fileVersion(file: c.HANDLE) !PeerStoreVersion {
+    var info: c.BY_HANDLE_FILE_INFORMATION = undefined;
+    if (c.GetFileInformationByHandle(file, &info) == 0)
+        return error.WindowsDataStatFailed;
+    return .{
+        .volume = info.dwVolumeSerialNumber,
+        .file_index = (@as(u64, info.nFileIndexHigh) << 32) | info.nFileIndexLow,
+        .created = (@as(u64, info.ftCreationTime.dwHighDateTime) << 32) | info.ftCreationTime.dwLowDateTime,
+        .written = (@as(u64, info.ftLastWriteTime.dwHighDateTime) << 32) | info.ftLastWriteTime.dwLowDateTime,
+        .size = (@as(u64, info.nFileSizeHigh) << 32) | info.nFileSizeLow,
+    };
+}
+
+pub fn peersVersion() !PeerStoreVersion {
+    var path: [path_capacity:0]u16 = undefined;
+    if (!dataPath(&path, peers_file)) return error.WindowsDataPathUnavailable;
+    const file = c.CreateFileW(
+        &path,
+        c.FILE_READ_ATTRIBUTES,
+        c.FILE_SHARE_READ | c.FILE_SHARE_WRITE | c.FILE_SHARE_DELETE,
+        null,
+        c.OPEN_EXISTING,
+        c.FILE_ATTRIBUTE_NORMAL,
+        null,
+    );
+    if (file == c.INVALID_HANDLE_VALUE) return error.WindowsDataOpenFailed;
+    defer closeHandle(file);
+    return fileVersion(file);
+}
+
 fn dataPath(path: *[path_capacity:0]u16, filename: []const u16) bool {
     const count = c.GetEnvironmentVariableW(local_app_data, path, @intCast(path.len));
     if (count == 0 or count >= path.len) return false;
@@ -72,6 +110,7 @@ fn loadProtected(
     filename: []const u16,
     output: []u8,
     blob_size_max: usize,
+    version: ?*PeerStoreVersion,
 ) !?usize {
     if (output.len == 0) return error.InvalidProtectedOutput;
     var path: [path_capacity:0]u16 = undefined;
@@ -91,6 +130,7 @@ fn loadProtected(
         return error.WindowsDataOpenFailed;
     }
     defer closeHandle(file);
+    if (version) |output_version| output_version.* = try fileVersion(file);
 
     const size: usize = c.GetFileSize(file, null);
     if (size == c.INVALID_FILE_SIZE or size == 0 or size > blob_size_max)
@@ -190,7 +230,7 @@ fn saveProtected(
 }
 
 pub fn identityLoad(secret: []u8) !bool {
-    const length = try loadProtected(identity_file, secret, identity_blob_bytes_max) orelse
+    const length = try loadProtected(identity_file, secret, identity_blob_bytes_max, null) orelse
         return false;
     if (length != secret.len) return error.InvalidIdentityLength;
     return true;
@@ -211,8 +251,8 @@ pub fn random(bytes: []u8) !void {
     ) != 0) return error.WindowsRandomFailed;
 }
 
-pub fn peersLoad(output: []u8) !?usize {
-    return loadProtected(peers_file, output, peers_blob_bytes_max);
+pub fn peersLoad(output: []u8, version: ?*PeerStoreVersion) !?usize {
+    return loadProtected(peers_file, output, peers_blob_bytes_max, version);
 }
 
 pub fn peersSave(bytes: []const u8) !void {

@@ -37,6 +37,12 @@ pub const StreamSpec = struct {
 
 pub const LayoutSpec = Session.LayoutNodeManifest;
 
+pub const ControlRequest = struct {
+    generation: u64,
+    stream_id: u32,
+    pane_id: u64,
+};
+
 const Tab = struct {
     tab_id: u64,
     title: []u8,
@@ -59,6 +65,8 @@ pub const LiveHost = struct {
     io: Crypto.RandomContext,
     identity: Crypto.Identity,
     paired_peer: Identity.Peer,
+    // Called under the host mutex; false permanently invalidates this host.
+    peer_trusted: ?*const fn ([Crypto.public_key_length]u8) bool = null,
     listener: Transport.Listener,
     thread: ?std.Thread = null,
     mutex: ShareMutex = .{},
@@ -80,6 +88,7 @@ pub const LiveHost = struct {
     grant_requested: bool = false,
     revoke_requested: bool = false,
     control_stream_id: u32 = 0,
+    control_generation: u64 = 0,
     input_stream_id: u32 = 0,
     input: [Protocol.max_input_bytes]u8 = undefined,
     input_length: usize = 0,
@@ -89,6 +98,7 @@ pub const LiveHost = struct {
         io: Crypto.RandomContext,
         identity: Crypto.Identity,
         paired_peer: Identity.Peer,
+        peer_trusted: ?*const fn ([Crypto.public_key_length]u8) bool,
         host: ?[]const u8,
         listen_port: u16,
         scope: Session.ShareScope,
@@ -97,6 +107,8 @@ pub const LiveHost = struct {
         layout_specs: []const LayoutSpec,
     ) !*LiveHost {
         if (paired_peer.revoked) return error.PairedDeviceRevoked;
+        if (peer_trusted) |check_peer|
+            if (!check_peer(paired_peer.public_key)) return error.PairedDeviceRevoked;
         try validateWorkspaceSpec(scope, tab_specs, stream_specs, layout_specs);
         const self = try allocator.create(LiveHost);
         errdefer allocator.destroy(self);
@@ -105,6 +117,7 @@ pub const LiveHost = struct {
             .io = io,
             .identity = identity,
             .paired_peer = paired_peer,
+            .peer_trusted = peer_trusted,
             .listener = try Transport.Listener.listen(host, listen_port),
             .scope = scope,
             .tabs = std.array_list.Managed(Tab).init(allocator),
@@ -439,17 +452,56 @@ pub const LiveHost = struct {
             try self.enqueue(title);
     }
 
-    pub fn grantControl(self: *LiveHost) void {
+    fn trusted(self: *LiveHost) bool {
+        if (self.stop_requested) return false;
+        if (self.peer_trusted) |check| {
+            if (!check(self.paired_peer.public_key)) {
+                self.stop_requested = true;
+                self.status = .stopped;
+                self.grant_requested = false;
+                self.wipeInput();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    pub fn controlRequest(self: *LiveHost) ?ControlRequest {
         self.mutex.lock();
         defer self.mutex.unlock();
-        if (self.status == .control_requested and self.control_stream_id != 0)
+        if (!self.trusted() or self.status != .control_requested or
+            self.grant_requested or self.revoke_requested) return null;
+        const stream = self.streamForId(self.control_stream_id) orelse return null;
+        return .{
+            .generation = self.control_generation,
+            .stream_id = self.control_stream_id,
+            .pane_id = stream.pane_id,
+        };
+    }
+
+    pub fn respondControl(self: *LiveHost, request: ControlRequest, approved: bool) bool {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        if (!self.trusted() or self.status != .control_requested or
+            self.grant_requested or self.revoke_requested or
+            request.generation != self.control_generation or
+            request.stream_id != self.control_stream_id) return false;
+        const stream = self.streamForId(request.stream_id) orelse return false;
+        if (stream.pane_id != request.pane_id) return false;
+        if (approved) {
             self.grant_requested = true;
+        } else {
+            self.wipeInput();
+            self.revoke_requested = true;
+        }
+        return true;
     }
 
     pub fn revokeControl(self: *LiveHost) void {
         self.mutex.lock();
         defer self.mutex.unlock();
         if (self.status == .control_requested or self.status == .control_granted) {
+            self.grant_requested = false;
             self.wipeInput();
             self.revoke_requested = true;
         }
@@ -458,7 +510,7 @@ pub const LiveHost = struct {
     pub fn drainInput(self: *LiveHost, pane_id: u64, terminal_session: anytype) !usize {
         self.mutex.lock();
         defer self.mutex.unlock();
-        if (self.input_length == 0) return 0;
+        if (!self.trusted() or self.revoke_requested or self.input_length == 0) return 0;
         const stream = self.streamForPane(pane_id) orelse return 0;
         if (stream.peer.stream_id != self.input_stream_id or
             !stream.peer.permission.permitsInput())
@@ -525,7 +577,6 @@ pub const LiveHost = struct {
         const bytes = try Protocol.encodeFrameAlloc(self.allocator, frame);
         errdefer self.allocator.free(bytes);
         if (self.pending_bytes + bytes.len > Protocol.max_pending_peer_bytes) {
-            self.allocator.free(bytes);
             self.status = .failed;
             self.stop_requested = true;
             return error.SharePeerBackpressureExceeded;
@@ -654,6 +705,7 @@ pub const LiveHost = struct {
 
         self.mutex.lock();
         defer self.mutex.unlock();
+        if (!self.trusted()) return error.PairedDeviceRevoked;
         try self.workspace_receive_sequence.receive(response.header.sequence);
         if (self.peer_hello_received) return error.InvalidShareHello;
         _ = try Session.decodeHello(response.payload);
@@ -726,6 +778,10 @@ pub const LiveHost = struct {
     }
 
     fn serveConnection(self: *LiveHost) void {
+        self.mutex.lock();
+        const allowed = self.trusted();
+        self.mutex.unlock();
+        if (!allowed) return;
         var pending = self.listener.accept(self.io, self.identity, self.paired_peer.public_key) catch {
             self.setTerminalStatus(.failed);
             return;
@@ -735,6 +791,10 @@ pub const LiveHost = struct {
             return;
         };
         defer connection.close();
+        self.mutex.lock();
+        const still_allowed = self.trusted();
+        self.mutex.unlock();
+        if (!still_allowed) return;
         self.sendInitial(connection) catch {
             self.setTerminalStatus(.failed);
             return;
@@ -747,7 +807,7 @@ pub const LiveHost = struct {
         self.mutex.unlock();
         while (true) {
             self.mutex.lock();
-            const should_stop = self.stop_requested;
+            const should_stop = !self.trusted();
             const revoke = self.revoke_requested;
             const grant = self.grant_requested and !revoke;
             self.grant_requested = false;
@@ -802,6 +862,12 @@ pub const LiveHost = struct {
             }
             if (grant) {
                 self.mutex.lock();
+                if (!self.trusted() or self.revoke_requested or
+                    self.control_stream_id != control_stream_id or self.status != .control_requested)
+                {
+                    self.mutex.unlock();
+                    continue;
+                }
                 const stream = self.streamForId(control_stream_id) orelse {
                     self.status = .failed;
                     self.mutex.unlock();
@@ -848,6 +914,10 @@ pub const LiveHost = struct {
                 return;
             };
             self.mutex.lock();
+            if (!self.trusted()) {
+                self.mutex.unlock();
+                return;
+            }
             self.last_peer_activity_ms = Transport.monotonicMilliseconds(self.io);
             if (frame.header.stream_id == 0) {
                 const final_expected = frame.header.message_type == .disconnect_reason;
@@ -938,6 +1008,13 @@ pub const LiveHost = struct {
                 @memcpy(self.input[self.input_length .. self.input_length + bytes.len], bytes);
                 self.input_length += bytes.len;
             } else if (frame.header.message_type == .control_request) {
+                if (self.control_generation == std.math.maxInt(u64)) {
+                    self.stop_requested = true;
+                    self.status = .failed;
+                    self.mutex.unlock();
+                    return;
+                }
+                self.control_generation += 1;
                 if (self.control_stream_id != 0 and self.control_stream_id != frame.header.stream_id) {
                     self.status = .failed;
                     self.mutex.unlock();
@@ -982,6 +1059,7 @@ test "live host publishes damage and dispatches only granted input" {
         io,
         host_identity,
         host_peer,
+        null,
         "127.0.0.1",
         0,
         .pane,
@@ -1038,7 +1116,8 @@ test "live host publishes damage and dispatches only granted input" {
         Transport.sleepMilliseconds(io, 1);
     }
     try std.testing.expectEqual(Status.control_requested, live.currentStatus());
-    live.grantControl();
+    const original_request = live.controlRequest().?;
+    try std.testing.expect(live.respondControl(original_request, true));
     while (try viewer.receive(std.testing.allocator) != .control_grant) {}
     try viewer.sendInput(std.testing.allocator, "pwd\n");
     var dispatched: usize = 0;
@@ -1067,4 +1146,64 @@ test "live host publishes damage and dispatches only granted input" {
         Transport.sleepMilliseconds(io, 1);
     }
     try std.testing.expectEqual(@as(usize, 0), try live.drainInput(41, &terminal_session));
+    while (try viewer.receive(std.testing.allocator) != .control_revoke) {}
+    try viewer.requestControl(std.testing.allocator);
+    for (0..5000) |_| {
+        if (live.currentStatus() == .control_requested) break;
+        Transport.sleepMilliseconds(io, 1);
+    }
+    try std.testing.expect(!live.respondControl(original_request, true));
+    const replacement_request = live.controlRequest().?;
+    try std.testing.expect(live.respondControl(replacement_request, false));
+    try std.testing.expect(!live.respondControl(replacement_request, true));
+}
+
+test "live host backpressure frees rejected frame exactly once" {
+    var host: LiveHost = undefined;
+    host.allocator = std.testing.allocator;
+    host.queue = std.array_list.Managed([]u8).init(std.testing.allocator);
+    defer host.queue.deinit();
+    host.pending_bytes = Protocol.max_pending_peer_bytes;
+    host.status = .connected;
+    host.stop_requested = false;
+    try std.testing.expectError(error.SharePeerBackpressureExceeded, host.enqueue(.{
+        .header = .{ .message_type = .ping, .stream_id = 0, .sequence = 0, .payload_length = 0 },
+        .payload = "",
+    }));
+    try std.testing.expect(host.stop_requested);
+    try std.testing.expectEqual(Status.failed, host.status);
+    try std.testing.expectEqual(@as(usize, 0), host.queue.items.len);
+}
+
+test "live host invalidated trust discards input and cannot be revived" {
+    const Authority = struct {
+        var allowed = true;
+        fn check(_: [Crypto.public_key_length]u8) bool {
+            return allowed;
+        }
+    };
+    const Sink = struct {
+        fn write(_: *@This(), _: []const u8) !void {
+            return error.RevokedInputDispatched;
+        }
+    };
+    var host: LiveHost = undefined;
+    host.mutex = .{};
+    host.stop_requested = false;
+    host.peer_trusted = Authority.check;
+    host.paired_peer.public_key = [_]u8{0} ** Crypto.public_key_length;
+    host.input_length = 4;
+    host.input_stream_id = 1;
+    @memcpy(host.input[0..4], "late");
+    host.status = .control_granted;
+    host.grant_requested = false;
+    host.revoke_requested = false;
+    var sink = Sink{};
+    Authority.allowed = false;
+    defer Authority.allowed = true;
+    try std.testing.expectEqual(@as(usize, 0), try host.drainInput(1, &sink));
+    Authority.allowed = true;
+    try std.testing.expectEqual(@as(usize, 0), try host.drainInput(1, &sink));
+    try std.testing.expect(host.controlRequest() == null);
+    try std.testing.expectEqual(Status.stopped, host.currentStatus());
 }

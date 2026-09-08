@@ -1,14 +1,13 @@
 # Install and Package
 
-Verified baseline: 2026-07-18.
-
-Canonical release contract: version 0.1.0, source baseline 2026-07-14, package revision 1.
+NOCTTY is an early source alpha. Start with a checkout build or a local prefix
+install; dependency bundles and signed releases have additional requirements.
 
 ## Prerequisites
 
 Building requires:
 
-- Zig 0.16.x (other minor versions are rejected);
+- Zig 0.16.x (CI pins 0.16.0; other minor versions are rejected);
 - `pkg-config`;
 - GTK 3 development files;
 - GtkSourceView 4 development files;
@@ -23,12 +22,40 @@ Debian/Ubuntu before the first dogfood install or any bundle build.
 
 VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. Production `noctty` links neither VTE nor Tree-sitter. Production `nocted` statically includes its vendored Tree-sitter parsers and adds no Tree-sitter runtime package; distribution manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
 
+Install Zig 0.16.0 from [ziglang.org](https://ziglang.org/download/) and put its
+`zig` executable on `PATH`; distribution packages may provide a different
+minor version. Then install the native production-build dependencies:
+
+```sh
+# Debian/Ubuntu
+sudo apt-get install build-essential pkg-config libgtk-3-dev libgtksourceview-4-dev libgtk-layer-shell0
+
+# Arch Linux (alternative, not an additional step)
+sudo pacman -S --needed base-devel gtk3 gtksourceview4 gtk-layer-shell
+```
+
+For `zig build check`, additionally install `libvte-2.91-dev` on Debian/Ubuntu
+or `vte3` on Arch. The default production build needs no downloaded Zig
+packages or Tree-sitter generator: the native parser sources and generated
+Unicode tables are included. No OVERZEER installation or authenticated agent
+CLI is needed to build or launch.
+
 ## Run from the Checkout
 
 ```sh
-./scripts/verify.sh
-zig build run
+zig build -j1
+./zig-out/bin/noctty --native-grid-windowed
 ```
+
+Run this from the repository root in a Linux desktop session. It builds both
+production binaries and installs their resources into `zig-out`; it does not
+run the maintainer verification matrix or install into your home directory.
+To launch the editor, use `./zig-out/bin/nocted --open README.md`.
+These are ordinary application launches, not graphical test commands.
+
+The non-graphical contributor gate is `zig build check -j1 --summary all`;
+see [Contributing](../CONTRIBUTING.md#before-opening-a-change) for focused
+checks and the separate, environment-dependent graphical gate.
 
 Optional modes:
 
@@ -36,7 +63,7 @@ Optional modes:
 zig build run -- --native-grid-windowed
 zig build run -- --native-grid-zen
 zig build run -- --native-grid-two-pane
-zig build run-nocted -- --project . --open src/nocted/main.zig
+zig build run-nocted -- --open src/nocted/main.zig
 zig build vte-fallback
 ./zig-out/bin/noctty-vte --native-host
 zig build run -- --noctalia-plan niri
@@ -76,7 +103,7 @@ depend on its inherited `PATH`. See
 ## Local Prefix Install
 
 ```sh
-zig build -Doptimize=ReleaseSafe --prefix "$HOME/.local"
+zig build -j1 -Doptimize=ReleaseSafe --prefix "$HOME/.local"
 ```
 
 The default install tree contains only production binaries and resources:
@@ -97,6 +124,9 @@ The default install tree contains only production binaries and resources:
 - `share/nocted/language-specs/zig.lang`
 - `share/nocted/styles/nocted-dark.xml`
 - `share/licenses/noctty/LICENSE`
+- `share/licenses/noctty/THIRD_PARTY_NOTICES.md`
+- `share/licenses/noctty/UNICODE-LICENSE.txt`
+- `share/licenses/noctty/vendor/` with the linked Tree-sitter license texts
 
 The optional `noctty-vte`, the `noctty-smoke`/`nocted-smoke` verification binaries, and the `nocted-core-stability`, `nocted-project-index-qualification`, `noctty-terminal-compatibility`, and `noctty-terminal-session-qualification` runners are non-default build artifacts and are excluded from normalized release archives.
 
@@ -108,7 +138,26 @@ The installed workspace-URL contract can be checked without modifying user deskt
 ./scripts/native_grid_installed_activation_smoke.sh --contract-only
 ```
 
-On an accessible Plasma session, omit `--contract-only` to dispatch the disposable installed desktop entry through `gio` and drive the Recent Workspaces child on both Wayland and X11. The full lane fails when a backend is inaccessible and does not substitute headless registration for rendered compositor proof.
+Only in a disposable dedicated Plasma VM/session, omit `--contract-only` to
+dispatch the disposable installed desktop entry through `gio` and drive the
+Recent Workspaces child on both Wayland and X11. Never run this lane on your
+active desktop. The full lane fails when a backend is inaccessible and does
+not substitute headless registration for rendered compositor proof.
+
+## Source Archives
+
+The `.paths` allowlist in `build.zig.zon` includes first-party build tools,
+scripts, dependency provenance, packaging definitions, contributor documents,
+and retained documentation evidence as well as source, resources, and vendored
+licenses. It excludes local build caches, installed binaries, and private
+agent state. This allowlist controls Zig package contents; it does not filter
+GitHub's Git-based source archives. Review tracked files before publishing
+either form.
+
+An extracted source archive can use the same production build and
+`zig build check` commands as a checkout. Git-aware source-hygiene checks
+require a Git checkout; neither source builds nor local prefix installs
+require release artifacts, signatures, or compositor acceptance receipts.
 
 ## Normalized Install Tarball
 
@@ -139,7 +188,16 @@ The bundle:
 
 It remains architecture-local and still expects Linux, a compatible kernel/display session, and desktop services such as Plasma GlobalAccel or a Noctalia compositor binding, session D-Bus, and a freedesktop notification service.
 
+NOCTTY's MIT license covers its first-party code, not the copied host
+libraries. Vendored parser and Unicode licenses are retained in ordinary
+installs; bundle-specific host-library notices are additional. Review
+[Third-party notices](../THIRD_PARTY_NOTICES.md) before redistributing.
+
 ## Distribution Manifests
+
+Historical packaging baseline: 2026-07-18; release contract version 0.1.0,
+source baseline 2026-07-14, package revision 1. These are retained packaging
+metadata, not evidence that a fresh checkout has passed release qualification.
 
 - Debian: `packaging/debian/`
 - RPM: `packaging/rpm/noctty.spec`

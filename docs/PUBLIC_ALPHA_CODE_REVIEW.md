@@ -1,155 +1,155 @@
 # Public Alpha Code Review
 
-Review date: 2026-08-31.
+Review date: 2026-09-06. Scope: NOCTTY and NoctEd source behavior, native
+usability, contributor setup, and MIT source distribution. This supersedes the
+2026-08-31 assessment; it is not a formal security audit or release approval.
 
-Scope: source-level public-alpha review of NOCTTY and NoctEd, focused on what is
-still needed before publishing an honest open-source alpha. This is not a formal
-security audit.
+## Decision
 
-## Summary
+The exercised terminal and editor paths are real native implementations, not a
+scaffold. However, the audit found data-loss, memory-ownership, authorization,
+and misleading-success defects despite earlier green smoke receipts. The old
+blanket readiness assessment was too generous.
 
-NOCTTY/NoctEd does not look like throwaway code. It has extensive bounded proof
-work, careful release boundaries, and a strong native-runtime philosophy. The
-main public-alpha risk is not missing features; it is complexity and
-maintainability. Several production and smoke paths are large enough that a new
-contributor will need a simpler map before they can help confidently.
+The corrections below are implemented. Their evidence is deliberately separated
+from untested scenarios and publication gates. Source can be reviewed and built;
+a public-ready or daily-driver-qualified announcement is still not justified.
+Language percentages and accumulated test counts are not quality certificates.
 
-The tracked source is now prepared for GitHub review: required community and security policies, pinned read-only source CI, publication instructions, a tracked-source hygiene gate, full-history secret-scan evidence, and module ownership comments are present. A public-alpha announcement remains blocked by deliberately unfilled dogfood evidence and stale screenshots. The public promise must stay small: Linux-native terminal workspace plus companion editor, not a mature IDE or universal terminal replacement.
+## Corrected findings
 
-## What looks strong
+| Priority | Finding | Correction and source boundary |
+|---|---|---|
+| P1 | NoctEd could overwrite external disk changes, including after dirty-session restore. | `src/nocted/Document.zig` retains an original file identity and checks it before atomic replacement. GTK restore treats dirty snapshots as having an unknown disk baseline; Save As is required. |
+| P1 | A close-time save could discard edits made while the worker pumped GTK events; delayed reloads could replace newer text. | `src/nocted/main.zig` checks the post-save modified state and binds reload results to the document change serial. Worker admission has one owner for each payload. |
+| P1 | Delayed language-service edits used the active tab, could dereference a closed document, and could partially mutate a workspace rename. | Request-time open-buffer snapshots bind identity, generation, text, and disk state to the request. Every rename target is validated before mutation. Closed, changed, and unsnapshotted targets reject the result visibly. |
+| P1 | Failed autosave could remain pending forever; allocation failures could lose the closed-tab recovery snapshot or dirty generation. | `src/app/App.zig`, `src/workspace/Workspace.zig`, and `Storage.zig` clear failed maintenance work for a later cadence and commit ownership/state only after fallible preparation succeeds. |
+| P1 | Sharing queue backpressure double-freed an encoded frame; a hostile split-chain manifest could exhaust traversal storage. | `src/share/LiveHost.zig` has one frame owner on rejection; `Session.zig` bounds pending traversal pushes. |
+| P1 | Control approval could outlive its requesting connection; a modal dialog could use a retired host; invalid host trust did not reliably discard queued input. | Control requests carry a request epoch. GTK/Win32 revalidate the host after modal message pumping, and host trust invalidation cancels queued input and cannot revive the same grant. |
+| P1 | Per-read timeouts let a peer extend a sharing transaction indefinitely by trickling bytes. | `src/share/Transport.zig` and `Net.zig` enforce one absolute five-second budget per handshake or encrypted frame, including partial reads/writes. This bounds the transaction, not an instantaneous disconnect guarantee. |
+| P1 | Windows NoctEd could display the previous small document as editable under a newly selected oversized document's name. | `src/windows/NoctedHost.zig` replaces the displayed content, enforces read-only previews, disables Save/Save As and undo mutation where appropriate, and restores the small document on tab return. |
+| P2 | Recovery maintenance reported a fabricated empty cleanup receipt without doing cleanup. | The native event path now invokes the existing bounded storage cleanup operation and reports its real result or error. |
+| P2 | RIS retained terminal modes/buffer state; UTF-8 OSC continuations could be confused with string terminators. | `src/terminal/Vt.zig` and `VtParser.zig` reset the actual terminal state and track UTF-8 sequence boundaries in OSC strings. |
+| P2 | Windows shell selection dropped the final character of command candidates such as `cmd.exe`. | `WindowsPtyLogic.zig`, `WindowsPty.zig`, and `WindowsProcess.zig` preserve full sentinel-terminated commands, including arguments and fallback order. |
+| P2 | Painting the continuation-cell background erased the right half of a wide glyph. | Both Windows local-grid and pane rendering paint continuation backgrounds before the leading glyph. An offscreen GDI pixel regression covers the overlap. |
+| P2 | Linux help/unknown options silently launched a GUI or forwarded to an existing editor; help could create dogfood receipts. | Entrypoints validate options before GUI/IPC activation. `scripts/cli_smoke.sh` exercises help/version/errors without a reachable display or mutable user state. Launchers bypass receipts for help/version. |
+| P2 | First-party source packaging omitted required build inputs; binary installs omitted compiled third-party license texts. | `build.zig.zon` includes required source/resource/package inputs. Linux installs include vendored parser and Unicode notices; Windows ZIP/NSIS payload contracts include Unicode licensing. Arch/RPM packaging preserves the installed license tree. NOCTTY remains MIT; third-party works retain their own licenses. |
+| P2 | Contributor quick starts implied maintainer infrastructure was required; failed Git inventory could pass source hygiene. | README, contributing/install instructions, and code map now distinguish normal builds from qualification. The hygiene gate fails closed on Git inventory failure. Windows documentation describes its actual `.npr` project contract. |
 
-- Native runtime boundary is clear: production `noctty`/`nocted` avoid Electron,
-  Node, Bun, browser UI, telemetry, and surprise network behavior.
-- The split between NOCTTY terminal workspace and standalone NoctEd is the right
-  product boundary for alpha.
-- The terminal core has real attention to bounded parsing, scrollback,
-  grapheme/Unicode handling, process groups, teardown, and PTY lifecycle.
-- NoctEd has the correct small-editor foundation: project tree, tabs, save/Save
-  As, search, quick open, folding, minimap, dirty-close handling.
-- Release claims are already proof-bounded in the backlog and detailed docs.
-- `docs/KNOWN_LIMITATIONS.md`, `ROADMAP.md`, and `MEMORY.md` now give a public
-  reader a smaller truth surface.
+## Verification performed
 
-## Main risks before public alpha
+### Focused behavior checks
 
-### 1. Very large files block contributor readability
+Passed the focused regression groups for:
 
-Largest current surfaces include:
+- checked saves: changed, missing, unknown, and newly created destinations;
+- maintenance/autosave and closed-tab recovery under allocation failure;
+- sharing backpressure ownership, split-chain traversal, host trust invalidation,
+  and connection-scoped input; ordinary loopback pairing and trickled-input
+  transaction expiry;
+- terminal RIS and UTF-8 OSC boundary behavior;
+- complete Windows shell command profiles and fallback order.
 
-- `src/gui/native_grid_host.c` (~21.8k lines)
-- `src/main.zig` (~8.6k lines)
-- `src/nocted/main.zig` (~8.2k lines)
-- `src/terminal/Vt.zig` (~4.9k lines)
-- `src/workspace/Workspace.zig` (~3.9k lines)
-- `src/app/App.zig` (~3.2k lines)
+Linux libc-linked direct tests used `-target x86_64-linux-gnu -mcpu baseline`.
+The host-native invocation encountered a Zig/GCC relocation error before any
+behavior test ran; the explicit baseline-target runs passed.
 
-This is not automatically wrong, but public readers will struggle. For alpha,
-do not rewrite these. Instead add architecture maps and extract only the most
-obvious low-risk seams later.
+### Actual native surfaces
 
-Current mitigation:
+All display work ran in the reviewed `overzeer-isolated-display` private
+namespace with Xvfb/KWin, bounded timeouts, serialization, and process-tree
+cleanup. No active developer desktop or physical monitor was used.
 
-- `docs/CODE_MAP.md` identifies module responsibilities and entry points.
-- The largest production files now start with concise ownership/boundary comments.
-- Large refactors remain deferred until a real change justifies an extraction.
+Passed (Linux screenshots visually inspected; Windows checks automated):
 
-### 2. Smoke/qualification code is mixed into production entry surfaces
+- terminal input, creating a second tab, and resizing to 520 by 420;
+- editor typing and saving, including a 640 by 480 window;
+- refusal to overwrite an external file change;
+- hot exit and dirty restore followed by another external disk change: the
+  restored text remained available and Save preserved the external bytes;
+- 33-file admission without crashing the native editor;
+- a delayed formatter response while another tab was selected: the original
+  document received the edit, not the active tab;
+- rejection of delayed formatting after a newer local edit or after all source
+  tabs closed, with visible feedback and no crash;
+- isolated Wine offscreen GDI wide-glyph regression and mapped Win32 NoctEd
+  editable/preview/unavailable transitions, including rejected saves and return
+  to the original editable document.
 
-`src/main.zig`, `src/nocted/main.zig`, and build targets carry many smoke and
-qualification paths. This is valuable evidence, but it makes the source feel
-heavier and harder to reason about.
+The delayed-language smoke used a local protocol fixture only as the server;
+real NoctEd menus, tabs, edits, saves, and close actions were exercised. This is
+not compatibility qualification for a production language server. Multi-file
+rename's snapshot restriction is documented, not a claim of arbitrary workspace
+rename parity.
 
-Recommended alpha action:
+The Wine bootstrap first timed out before the test executable ran. A subsequent
+bounded direct launch in that disposable prefix passed both Windows checks.
+Wine is not physical Windows qualification. Fixture screenshots were inspected,
+not promoted as release screenshots.
 
-- Keep current behavior, but document the distinction clearly in `docs/CODE_MAP.md`.
-- After alpha, consider moving smoke command dispatch into dedicated modules so
-  `main.zig` is easier to read.
+### Source and contributor boundary
 
-### 3. Verification is strong but currently heavy/fragile for contributors
+- The actual Zig-fetched source archive built both applications and installed
+  their resources successfully: **38/38 steps**. This build used no Git checkout
+  metadata and no external display-test runner.
+- Ten Linux installed license payloads matched their source files byte-for-byte.
+- The Windows `ReleaseFast` ZIP and per-user NSIS installer built successfully.
+  The isolated installer lifecycle passed silent install/uninstall, reversible
+  shortcuts/Open-With registration, preservation of user/unrelated files, and
+  byte-exact installed Unicode licensing.
+- CLI and dogfood logging checks passed, including help/version receipt bypass.
+- Source hygiene rejected an archive without Git inventory instead of reporting
+  a clean tree. That gate intentionally applies to a checkout; the source build
+  itself does not require Git.
+- Native ownership, documentation-truth, and no-surprise-network source guards
+  passed. The network guard is a static scan, not proof of absence of every
+  possible network behavior.
+- The release workflow now provisions the repository-owned private X11 runner
+  and virtual-capable KWin, then runs the bounded source-alpha gate rather than
+  invoking the environment-heavy maintainer matrix without its prerequisites.
 
-The full `./scripts/verify.sh` is authoritative but long and environment-heavy.
-A fresh 2026-07-31 single-job run completed successfully with final
-scratch/cache/install cleanup. A bounded source-alpha gate still exists as
-`./scripts/public_alpha_verify.sh` and deliberately reports `full_verify=false`
-because it does not execute the full matrix itself.
+No repository-wide graphical matrix, physical Windows run, long-duration
+stability run, signing, publication, or redistribution approval was performed
+by this audit.
 
-Recommended alpha action:
+## Remaining publication and maintenance risks
 
-- Use the documented lightweight contributor gate, `zig build check`, and the bounded source-alpha gate, `./scripts/public_alpha_verify.sh`.
-- Keep `./scripts/verify.sh` as the maintainer gate.
-- Document that display-backed and long qualification lanes are maintainer/host
-  specific.
+1. **Current-build acceptance is incomplete.** Seven operator-confirmed
+   installed sessions contribute 167.107 counted hours, so the minimum
+   session-count and agent-use baselines are met. NCT-125 remains open because
+   the retained candidates predate the final source state or contain the
+   historical exit-139, popup, or GTK-critical observations; four-pane,
+   close-protection, and multi-OMP evidence also remain incomplete.
+2. **Windows and release operations remain separate gates.** Physical Windows
+   input/ConPTY/installer behavior, signing, retained architecture artifacts,
+   dependency-bundle redistribution review, compositor acceptance, and consented
+   HID proof remain open. See [known limitations](KNOWN_LIMITATIONS.md).
+3. **External-write safety is conservative, not a filesystem lock.** Identity
+   checks narrow races but cannot coordinate an uncooperative external writer
+   across the final check/rename interval. Unknown restored baselines and
+   unsnapshotted rename targets are explicitly rejected, not guessed.
+4. **Large modules remain a maintenance cost.** `src/main.zig`,
+   `src/nocted/main.zig`, and the remaining GTK C adapter still combine multiple
+   lifecycle concerns. Future extraction should follow behavior and ownership
+   boundaries, not a Zig-percentage target or another abstraction layer.
+5. **Usability proof remains narrow.** Native normal/narrow-window operation,
+   current isolated publication captures, and sustained installed terminal use
+   are demonstrated; screen-reader completeness, varied high-contrast themes,
+   high-DPI/platform coverage, and sustained varied-project editor work are not
+   established by this pass.
 
-### 4. Release operation blockers remain real
+## Contributor entry point
 
-The source tree may be publishable before polished binaries are. Do not bundle
-or announce signed/installable release artifacts until evidence exists.
+Follow [CONTRIBUTING.md](../CONTRIBUTING.md) and
+[the install guide](INSTALL.md). A normal source trial is:
 
-Still open:
+```sh
+zig build -j1
+./zig-out/bin/noctty --native-grid-windowed
+./zig-out/bin/nocted --open README.md
+```
 
-- signing
-- publication receipts
-- independent dependency-bundle redistribution review
-- retained architecture artifacts/signatures
-- compositor acceptance receipts
-- consented Wayland HID/input evidence
-
-Recommended alpha action:
-
-- Publish source alpha first.
-- Mark packages/bundles experimental/local until release-operation rows close.
-
-### 5. NoctEd should stay small for alpha
-
-NoctEd has enough surface for useful quick edits. The original review deferred LSP,
-plugins, debugging, and VS Code parity. Dogfood requirements later added a bounded,
-on-demand local LSP client; NoctEd still does not implement an LSP server, plugin
-runtime, debugger, or parity layer.
-
-Recommended alpha action:
-
-- Dogfood real edit/search/save and local language-service workflows.
-- Fix data-loss, crash, save, search, protocol-boundary, and severe usability bugs.
-- Keep persistent LSP sessions, DAP, and plugin work post-alpha.
-
-## What still needs to be done
-
-### Must do before source-public alpha
-
-1. Add first counted entries to `docs/DOGFOOD_LOG.md` from real sessions.
-2. Keep package/signing language clearly incomplete.
-3. Keep the fresh full `./scripts/verify.sh` receipt green when changing shared runtime, package, or proof surfaces.
-
-Already closed for source-alpha prep: baseline screenshots with an explicit stale warning, `docs/CODE_MAP.md`, clean source-copy fast build/check, public alpha release notes, no-surprise network and source-hygiene guards, GitHub issue/PR templates and source CI, contribution/conduct/support/security policies, local Git baseline, and the bounded `./scripts/public_alpha_verify.sh` gate.
-
-### Should do before announcing broadly
-
-1. Complete at least five dogfood sessions.
-2. Fix any P0/P1 dogfood blockers.
-3. Capture one NOCTTY + Pi/coding-agent session.
-4. Capture one NoctEd real edit/save/search session.
-5. Run display-backed smoke on the intended Plasma Wayland/X11 environment.
-6. Create a small alpha release note in `CHANGELOG.md`.
-
-### Defer until after alpha
-
-- persistent/IDE-parity LSP sessions and DAP in NoctEd
-- plugin systems
-- VS Code/Zed/Sublime parity claims
-- broad terminal compatibility claims
-- Windows/macOS
-- tmux/Zellij live reattach proof unless already needed for dogfood
-- GPU renderer rewrite
-- major file/module refactors
-
-## Suggested immediate code/doc next steps
-
-1. Start dogfood session 1 and log bugs instead of adding features.
-2. Fix only P0/P1 dogfood blockers.
-3. Re-run `./scripts/public_alpha_verify.sh` before publishing or tagging.
-
-## Alpha grade
-
-Current grade: **yellow / source can be published for review; announcement remains no-go**.
-
-Reason: policy docs, source CI, publication instructions, code map, local Git baseline, bounded gates, release wording, full-history Gitleaks evidence, and no-surprise network/source-hygiene checks are in place. Current screenshots and counted dogfood are still missing; do not mark the public alpha announcement green while `./scripts/dogfood_status.sh` reports `counted_sessions=0`.
+Those last two commands are ordinary interactive application launches on the
+user's chosen desktop, not graphical tests. Automated display checks must stay
+inside the reviewed isolated environment. Do not require contributors to run the
+maintainer matrix merely to build or try the applications.

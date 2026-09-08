@@ -185,6 +185,7 @@ pub const App = struct {
     pub const MaintenanceState = struct {
         workspace_dirty_since_ms: ?u64 = null,
         autosave_pending: bool = false,
+        last_autosave_attempt_ms: ?u64 = null,
         project_refresh_pending: bool = false,
         recovery_cleanup_pending: bool = false,
         last_project_refresh_ms: ?u64 = null,
@@ -625,6 +626,9 @@ pub const App = struct {
         path: []const u8,
         role: Storage.WorkspaceFileRole,
     ) !Storage.WorkspaceFileReceipt {
+        errdefer if (role == .autosave) {
+            self.maintenance.autosave_pending = false;
+        };
         var snapshot = try self.workspace.captureSnapshot();
         defer snapshot.deinit(self.allocator);
 
@@ -641,6 +645,7 @@ pub const App = struct {
         try self.recovery.markSaved(self.allocator, receipt.path, role);
         self.maintenance.autosave_pending = false;
         self.maintenance.workspace_dirty_since_ms = null;
+        self.maintenance.last_autosave_attempt_ms = null;
         return receipt;
     }
 
@@ -801,11 +806,13 @@ pub const App = struct {
 
         if (!self.maintenance.autosave_pending and self.recovery.dirty) {
             const dirty_since = self.maintenance.workspace_dirty_since_ms orelse tick.now_ms;
-            if (elapsedSeconds(dirty_since, tick.now_ms) >= self.recovery.policy.autosave_interval_seconds and
+            const retry_since = self.maintenance.last_autosave_attempt_ms orelse dirty_since;
+            if (elapsedSeconds(@max(dirty_since, retry_since), tick.now_ms) >= self.recovery.policy.autosave_interval_seconds and
                 self.recovery.generation != self.recovery.saved_generation and
                 self.recovery.policy.enabled)
             {
                 self.maintenance.autosave_pending = true;
+                self.maintenance.last_autosave_attempt_ms = tick.now_ms;
                 plan.autosave_due = true;
             }
         }
@@ -3077,6 +3084,46 @@ test "workspace autosave clears pending maintenance autosave state" {
     try std.testing.expect(!app.recovery.dirty);
     try std.testing.expect(!app.maintenance.autosave_pending);
     try std.testing.expect(app.maintenance.workspace_dirty_since_ms == null);
+}
+
+test "failed maintenance autosave retries at cadence without blocking other due work" {
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{});
+    const allocator = failing.allocator();
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var app = try App.init(allocator);
+    defer app.deinit();
+    try app.configureRecoveryPolicy(.{ .autosave_interval_seconds = 1 });
+    try app.configureMaintenancePolicy(.{
+        .project_refresh_interval_seconds = 1,
+        .recovery_cleanup_interval_seconds = 1,
+    });
+    app.markWorkspaceDirtyAt(0);
+    const saved_generation = app.recovery.saved_generation;
+    const due = try app.advanceMaintenance(.{ .now_ms = 1000 });
+    try std.testing.expect(due.autosave_due and due.project_refresh_due and due.recovery_cleanup_due);
+
+    failing.fail_index = failing.alloc_index;
+    try std.testing.expectError(error.OutOfMemory, app.saveWorkspaceFile(io, tmp.dir, "autosave.nocttyws", .autosave));
+    failing.fail_index = std.math.maxInt(usize);
+    try std.testing.expect(app.recovery.dirty);
+    try std.testing.expectEqual(saved_generation, app.recovery.saved_generation);
+    _ = try app.recordProjectRefresh(.{ .completed_at_ms = due.now_ms, .summary = .{} });
+    _ = try app.recordRecoveryCleanup(.{ .completed_at_ms = due.now_ms, .receipt = .{} });
+
+    // Further edits must not bypass the retry cadence.
+    app.markWorkspaceDirtyAt(0);
+    const early = try app.advanceMaintenance(.{ .now_ms = 1999 });
+    try std.testing.expect(!early.hasDueWork());
+    const retry = try app.advanceMaintenance(.{ .now_ms = 2000 });
+    try std.testing.expect(retry.autosave_due and retry.project_refresh_due and retry.recovery_cleanup_due);
+    const saved = try app.saveWorkspaceFile(io, tmp.dir, "autosave.nocttyws", .autosave);
+    defer saved.deinit(allocator);
+    try std.testing.expect(!app.recovery.dirty);
+    try std.testing.expectEqual(app.recovery.generation, app.recovery.saved_generation);
+    const settled = try app.advanceMaintenance(.{ .now_ms = 3000 });
+    try std.testing.expect(!settled.autosave_due);
 }
 
 test "app dispatches workspace save and open dialog requests" {

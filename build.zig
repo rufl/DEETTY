@@ -494,6 +494,24 @@ pub fn build(b: *std.Build) void {
         "THIRD_PARTY_NOTICES.md",
         "share/licenses/noctty/THIRD_PARTY_NOTICES.md",
     );
+    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/noctty/UNICODE-LICENSE.txt");
+    for ([_][]const u8{
+        "tree-sitter",
+        "tree-sitter-json",
+        "tree-sitter-c",
+        "tree-sitter-bash",
+        "tree-sitter-markdown",
+        "tree-sitter-zig",
+    }) |component| {
+        b.installFile(
+            b.fmt("vendor/{s}/LICENSE", .{component}),
+            b.fmt("share/licenses/noctty/vendor/{s}/LICENSE", .{component}),
+        );
+    }
+    b.installFile(
+        "vendor/tree-sitter/lib/src/unicode/LICENSE",
+        "share/licenses/noctty/vendor/tree-sitter/lib/src/unicode/LICENSE",
+    );
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -698,6 +716,7 @@ fn addWindowsBuild(
         "THIRD_PARTY_NOTICES.md",
         "share/licenses/noctty/THIRD_PARTY_NOTICES.md",
     );
+    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/noctty/UNICODE-LICENSE.txt");
 
     const check_step = b.step(
         "check",

@@ -106,6 +106,7 @@ const Host = struct {
     workspace: Logic.WorkspaceState = .{ .live_sessions = 0, .pending_close = 0 },
     remote_mode: c_int = 0,
     suppress_character: c_int = 0,
+    timer_active: bool = false,
     smoke_mode: c_int = 0,
     exit_code: c_int = 1,
     paint_count: u32 = 0,
@@ -1019,18 +1020,24 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
 }
 
 fn drainRemoteInput(host: *Host) void {
-    var input: [4096]u8 = undefined;
+    var input: [@import("noctty_share").protocol.max_input_bytes]u8 = undefined;
     const session_index = host.callbacks.remote_pane(host.callbacks.userdata);
     if (Logic.noctty_windows_session_is_live(&host.workspace, session_index) == 0) return;
     const session = &host.sessions[@intCast(session_index)];
     for (0..16) |_| {
-        const count = host.callbacks.take_remote(host.callbacks.userdata, &input, input.len);
+        const count = host.callbacks.take_remote(host.callbacks.userdata, host.window, &input, input.len);
         if (count <= 0) break;
+        if (c.IsWindow(host.window) == 0 or
+            host.callbacks.remote_pane(host.callbacks.userdata) != session_index or
+            Logic.noctty_windows_session_is_live(&host.workspace, session_index) == 0) break;
         if (!writeSession(session, &input, @intCast(count))) break;
     }
 }
 
 fn onTimer(host: *Host) void {
+    if (host.timer_active) return;
+    host.timer_active = true;
+    defer host.timer_active = false;
     for (&host.sessions, 0..) |*session, index| {
         if (Logic.noctty_windows_session_is_live(&host.workspace, @intCast(index)) == 0) continue;
         drainOutput(host, @intCast(index));
@@ -1041,6 +1048,7 @@ fn onTimer(host: *Host) void {
         }
     }
     drainRemoteInput(host);
+    if (c.IsWindow(host.window) == 0) return;
     if (host.remote_mode != 0) {
         updateTitle(host);
         _ = c.InvalidateRect(host.window, null, c.FALSE);

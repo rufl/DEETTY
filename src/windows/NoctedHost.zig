@@ -28,6 +28,8 @@ const font_size_max: c_int = 32;
 const invalid_index = std.math.maxInt(usize);
 const tab_count_max: usize = 32;
 const text_bytes_max: usize = 1024 * 1024;
+// The model accepts complete read-only previews through this bound.
+const preview_bytes_max: usize = 8 * 1024 * 1024;
 const path_wide_capacity: usize = 32_768;
 
 const id_file_new: u16 = 41001;
@@ -175,6 +177,7 @@ const Host = struct {
     rich_edit: c.HMODULE = null,
     callbacks: *const Callbacks,
     suppress_change: bool = false,
+    editor_state: enum { unavailable, read_only, editable } = .unavailable,
     find_visible: bool = false,
     editor_font_size: c_int = font_size_default,
     zoom_wheel_delta: c_int = 0,
@@ -626,33 +629,58 @@ fn syncTabs(host: *Host) void {
 }
 
 fn syncEditor(host: *Host) void {
+    host.suppress_change = true;
+    defer host.suppress_change = false;
+    host.editor_state = .unavailable;
+    _ = c.EnableWindow(host.editor, 0);
+    _ = c.SendMessageW(host.editor, c.EM_SETREADONLY, 1, 0);
+    _ = c.SendMessageW(host.editor, c.EM_EMPTYUNDOBUFFER, 0, 0);
+    // Hide the previous document even if replacing its text subsequently fails.
+    _ = c.ShowWindow(host.editor, c.SW_HIDE);
+    var failure: [*:0]const u16 = std.unicode.utf8ToUtf16LeStringLiteral(
+        "This document could not be displayed. Editing and saving are disabled.",
+    );
+    defer if (host.editor_state == .unavailable) {
+        if (c.SetWindowTextW(host.editor, failure) != 0)
+            _ = c.ShowWindow(host.editor, c.SW_SHOW);
+        _ = c.SendMessageW(host.editor, c.EM_SETMODIFY, 0, 0);
+    };
+    const active = host.callbacks.active_tab(host.callbacks.userdata);
+    if (active == invalid_index) return;
+    var dirty: c_int = 0;
+    var read_only: c_int = 1;
+    var ignored: u8 = 0;
+    _ = host.callbacks.tab_title(
+        host.callbacks.userdata,
+        active,
+        @ptrCast(&ignored),
+        0,
+        &dirty,
+        &read_only,
+    );
     const length = host.callbacks.active_content_length(host.callbacks.userdata);
-    if (length > text_bytes_max) return;
+    if (length > preview_bytes_max) {
+        failure = std.unicode.utf8ToUtf16LeStringLiteral(
+            "This document exceeds the supported 8 MiB preview limit. Editing and saving are disabled.",
+        );
+        return;
+    }
     const bytes = allocator.alloc(u8, length) catch return;
     defer allocator.free(bytes);
     if (length != 0 and
         host.callbacks.active_content(host.callbacks.userdata, bytes.ptr, length) != length) return;
+    if (std.mem.indexOfScalar(u8, bytes, 0) != null) return;
     const wide = utf8ToWideAlloc(bytes) catch return;
     defer allocator.free(wide);
-    const active = host.callbacks.active_tab(host.callbacks.userdata);
-    var dirty: c_int = 0;
-    var read_only: c_int = 0;
-    if (active != invalid_index) {
-        var ignored: u8 = 0;
-        _ = host.callbacks.tab_title(
-            host.callbacks.userdata,
-            active,
-            @ptrCast(&ignored),
-            0,
-            &dirty,
-            &read_only,
-        );
-    }
-    host.suppress_change = true;
-    _ = c.SetWindowTextW(host.editor, wide.ptr);
-    _ = c.SendMessageW(host.editor, c.EM_SETREADONLY, @intCast(read_only), 0);
+    const editable = read_only == 0 and length <= text_bytes_max;
+    _ = c.SendMessageW(host.editor, c.EM_EXLIMITTEXT, 0, preview_bytes_max);
+    if (c.SetWindowTextW(host.editor, wide.ptr) == 0) return;
+    _ = c.SendMessageW(host.editor, c.EM_EXLIMITTEXT, 0, if (editable) text_bytes_max else preview_bytes_max);
+    if (c.SendMessageW(host.editor, c.EM_SETREADONLY, @intFromBool(!editable), 0) == 0) return;
     _ = c.SendMessageW(host.editor, c.EM_SETMODIFY, 0, 0);
-    host.suppress_change = false;
+    host.editor_state = if (editable) .editable else .read_only;
+    _ = c.EnableWindow(host.editor, 1);
+    _ = c.ShowWindow(host.editor, c.SW_SHOW);
 }
 
 fn syncProject(host: *Host) void {
@@ -710,6 +738,16 @@ fn setWindowTextJoined(
 }
 
 fn updateChrome(host: *Host) void {
+    const menu = c.GetMenu(host.window);
+    const save_flags: c.UINT = @intCast(c.MF_BYCOMMAND |
+        (if (host.editor_state == .editable) c.MF_ENABLED else c.MF_GRAYED));
+    _ = c.EnableMenuItem(menu, id_file_save, save_flags);
+    _ = c.EnableMenuItem(menu, id_file_save_as, save_flags);
+    if (host.editor_state == .unavailable) {
+        _ = c.SetWindowTextW(host.status, std.unicode.utf8ToUtf16LeStringLiteral(
+            "Document display unavailable. Editing and saving are disabled.",
+        ));
+    }
     const path = callbackText(host, host.callbacks.active_path) catch null;
     defer if (path) |value| allocator.free(value);
     const project = callbackText(host, host.callbacks.project_name) catch null;
@@ -733,7 +771,13 @@ fn updateChrome(host: *Host) void {
         "  |  Editor font";
     var font_wide: [64]u16 = undefined;
     const font_length = std.unicode.utf8ToUtf16Le(&font_wide, font) catch 0;
-    setWindowTextJoined(host.status, &.{}, project_shown, font_wide[0..font_length]);
+    if (host.editor_state != .unavailable) {
+        const prefix: []const u16 = if (host.editor_state == .read_only)
+            std.unicode.utf8ToUtf16LeStringLiteral("Read-only preview  |  ")
+        else
+            std.unicode.utf8ToUtf16LeStringLiteral("");
+        setWindowTextJoined(host.status, prefix, project_shown, font_wide[0..font_length]);
+    }
 }
 
 fn sync(host: *Host) void {
@@ -746,7 +790,7 @@ fn sync(host: *Host) void {
 }
 
 fn editorChanged(host: *Host) void {
-    if (host.suppress_change) return;
+    if (host.suppress_change or host.editor_state != .editable) return;
     const wide_length = c.GetWindowTextLengthW(host.editor);
     if (wide_length < 0 or wide_length > text_bytes_max) return;
     const wide = allocator.allocSentinel(u16, @intCast(wide_length), 0) catch return;
@@ -833,6 +877,7 @@ fn saveAs(host: *Host) bool {
 }
 
 fn save(host: *Host, force_path: bool) bool {
+    if (host.editor_state != .editable) return false;
     if (force_path) return saveAs(host);
     const result = host.callbacks.save_document(host.callbacks.userdata, null, 0);
     if (result == save_needs_path) return saveAs(host);
@@ -904,6 +949,7 @@ fn confirmExit(host: *Host) bool {
         );
         if (dirty == 0) continue;
         if (host.callbacks.activate_document(host.callbacks.userdata, index) == 0) return false;
+        syncEditor(host);
         const answer = c.MessageBoxW(
             host.window,
             std.unicode.utf8ToUtf16LeStringLiteral("Save changes before exiting NoctEd?"),
@@ -1175,6 +1221,10 @@ fn createControls(host: *Host) bool {
 }
 
 fn handleCommand(host: *Host, command: u16) bool {
+    if (host.editor_state != .editable) switch (command) {
+        id_edit_undo, id_edit_redo, id_edit_cut, id_edit_paste => return true,
+        else => {},
+    };
     switch (command) {
         id_file_new => {
             if (host.callbacks.new_document(host.callbacks.userdata) < 0) {
@@ -1308,6 +1358,54 @@ fn windowProc(
     return c.DefWindowProcW(window, message, word, long_value);
 }
 
+fn qualifyEditorTransitions(host: *Host) bool {
+    const edited = std.unicode.utf8ToUtf16LeStringLiteral("editable document!");
+    _ = c.SendMessageW(host.editor, c.EM_SETSEL, @intCast(c.GetWindowTextLengthW(host.editor)), -1);
+    _ = c.SendMessageW(host.editor, c.WM_CHAR, '!', 0);
+    var small: [128]u16 = undefined;
+    var count = c.GetWindowTextW(host.editor, &small, small.len);
+    if (count < 0 or !std.mem.eql(u16, small[0..@intCast(count)], edited)) return false;
+    var selection = std.mem.zeroes(c.NMHDR);
+    selection.hwndFrom = host.tabs;
+    selection.idFrom = id_control_tabs;
+    selection.code = @bitCast(@as(c_int, -551)); // TCN_SELCHANGE
+    for (1..6) |index| {
+        _ = c.SendMessageW(host.tabs, tcm_set_current_selection, index, 0);
+        _ = c.SendMessageW(host.window, c.WM_NOTIFY, id_control_tabs, longFromPointer(&selection));
+        if (host.callbacks.active_tab(host.callbacks.userdata) != index) return false;
+        if ((c.GetWindowLongPtrW(host.editor, c.GWL_STYLE) & c.ES_READONLY) == 0) return false;
+        if ((c.GetMenuState(c.GetMenu(host.window), id_file_save, c.MF_BYCOMMAND) & c.MF_GRAYED) == 0)
+            return false;
+        if (save(host, false) or save(host, true)) return false;
+        _ = c.SendMessageW(host.editor, c.WM_CHAR, 'x', 0);
+        _ = handleCommand(host, id_edit_undo);
+        if (index <= 2) {
+            const expected: usize = if (index == 1) 2 * 1024 * 1024 else preview_bytes_max;
+            if (c.GetWindowTextLengthW(host.editor) != @as(c_int, @intCast(expected))) return false;
+            const preview = allocator.alloc(u16, expected + 1) catch return false;
+            defer allocator.free(preview);
+            if (c.GetWindowTextW(host.editor, preview.ptr, @intCast(preview.len)) != @as(c_int, @intCast(expected)))
+                return false;
+            for (preview[0..expected]) |unit| if (unit != 'p') return false;
+            if (c.IsWindowEnabled(host.editor) == 0) return false;
+        } else {
+            if (c.IsWindowEnabled(host.editor) != 0) return false;
+            count = c.GetWindowTextW(host.editor, &small, small.len);
+            if (count <= 0 or std.mem.eql(u16, small[0..@intCast(count)], edited)) return false;
+        }
+        _ = c.SendMessageW(host.tabs, tcm_set_current_selection, 0, 0);
+        _ = c.SendMessageW(host.window, c.WM_NOTIFY, id_control_tabs, longFromPointer(&selection));
+        if (host.callbacks.active_tab(host.callbacks.userdata) != 0) return false;
+        count = c.GetWindowTextW(host.editor, &small, small.len);
+        if (count < 0 or !std.mem.eql(u16, small[0..@intCast(count)], edited)) return false;
+        if (c.IsWindowEnabled(host.editor) == 0 or
+            (c.GetWindowLongPtrW(host.editor, c.GWL_STYLE) & c.ES_READONLY) != 0) return false;
+        if ((c.GetMenuState(c.GetMenu(host.window), id_file_save, c.MF_BYCOMMAND) & c.MF_GRAYED) != 0)
+            return false;
+    }
+    return true;
+}
+
 pub fn run(
     instance: windows.HINSTANCE,
     show_command: c_int,
@@ -1377,6 +1475,7 @@ pub fn run(
         if (host.tabs == null or host.tree == null or host.editor == null or
             host.find_edit == null or host.find_button == null) return 1;
         if (c.SendMessageW(host.tree, tvm_get_count, 0, 0) != 1) return 1;
+        if (!qualifyEditorTransitions(&host)) return 1;
         showFind(&host);
         if (c.IsWindowVisible(host.find_edit) == 0 or
             c.IsWindowVisible(host.find_button) == 0) return 1;

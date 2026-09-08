@@ -8,9 +8,25 @@ else
   shared_runner=true
   legacy_fallback=false
 fi
+active_tmp_marker=$(mktemp /tmp/noctty-active-display.XXXXXX)
+cleanup() { rm -f "$active_tmp_marker"; }
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
+  DBUS_SESSION_BUS_ADDRESS=unix:path=/active-session-bus \
+  DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket \
+  SSH_AUTH_SOCK=/run/user/1000/active-agent.sock \
+  XDG_ACTIVATION_TOKEN=active-token \
   GDK_BACKEND=wayland NOCTTY_ACTIVE_HOME_FIXTURE="$HOME" \
+  NOCTTY_ACTIVE_TMP_MARKER="$active_tmp_marker" \
+  NOCTTY_ACTIVE_MOUNT_NS="$(readlink /proc/self/ns/mnt)" \
+  NOCTTY_ACTIVE_PID_NS="$(readlink /proc/self/ns/pid)" \
+  NOCTTY_ACTIVE_IPC_NS="$(readlink /proc/self/ns/ipc)" \
+  NOCTTY_ACTIVE_NET_NS="$(readlink /proc/self/ns/net)" \
+  NOCTTY_ACTIVE_DBUS_FIXTURE=unix:path=/active-session-bus \
   NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=30 \
   ./scripts/run_isolated_x11.sh sh -eu -c '
     ./scripts/require_isolated_display.sh
@@ -26,6 +42,18 @@ x11_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture \
     [ "$(dirname "$XDG_CACHE_HOME")" = "$private_root" ]
     [ "$(dirname "$XDG_DATA_HOME")" = "$private_root" ]
     [ "$(dirname "$TMPDIR")" = "$private_root" ]
+    [ ! -e "$NOCTTY_ACTIVE_TMP_MARKER" ]
+    [ "$(readlink /proc/self/ns/mnt)" != "$NOCTTY_ACTIVE_MOUNT_NS" ]
+    [ "$(readlink /proc/self/ns/pid)" != "$NOCTTY_ACTIVE_PID_NS" ]
+    [ "$(readlink /proc/self/ns/ipc)" != "$NOCTTY_ACTIVE_IPC_NS" ]
+    [ "$(readlink /proc/self/ns/net)" != "$NOCTTY_ACTIVE_NET_NS" ]
+    [ "$DBUS_SESSION_BUS_ADDRESS" != "$NOCTTY_ACTIVE_DBUS_FIXTURE" ]
+    [ "${LICHFORGE_ISOLATED_DISPLAY:-0}" = 1 ]
+    [ "$NOCTTY_ISOLATED_WINDOW_MANAGER" != none ]
+    [ -z "${DBUS_SYSTEM_BUS_ADDRESS:-}" ]
+    [ -z "${SSH_AUTH_SOCK:-}" ]
+    [ -z "${XDG_ACTIVATION_TOKEN:-}" ]
+    [ ! -S /run/dbus/system_bus_socket ]
     printf "isolated_x11=true\n"
   ')
 printf '%s\n' "$x11_output"
@@ -44,6 +72,24 @@ wayland_output=$(DISPLAY=:active-fixture WAYLAND_DISPLAY=wayland-active-fixture 
   ')
 printf '%s\n' "$wayland_output"
 printf '%s\n' "$wayland_output" | grep -Fx 'isolated_wayland=true' >/dev/null
+
+pressure_status=0
+NOCTTY_DISPLAY_IO_FULL_LIMIT=0 \
+  ./scripts/isolated_display_runner.sh -- true >/dev/null 2>&1 ||
+  pressure_status=$?
+if [ "$pressure_status" -ne 75 ]; then
+  echo "isolated_display_smoke error=pressure_gate_status status=$pressure_status" >&2
+  exit 1
+fi
+
+timeout_status=0
+NOCTTY_DISPLAY_IO_FULL_LIMIT=101 NOCTTY_DISPLAY_BLOCKED_LIMIT=100000 \
+  ./scripts/isolated_display_runner.sh --timeout 1 -- sleep 30 \
+  >/dev/null 2>&1 || timeout_status=$?
+if [ "$timeout_status" -ne 124 ]; then
+  echo "isolated_display_smoke error=timeout_status status=$timeout_status" >&2
+  exit 1
+fi
 
 if NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=invalid \
   ./scripts/run_isolated_x11.sh true >/dev/null 2>&1; then
@@ -80,4 +126,4 @@ if DISPLAY=:fixture WAYLAND_DISPLAY= \
   exit 1
 fi
 
-echo "isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true private_xdg=true serialized=true timeout_bounded=true dynamic_screen=true shared_runner=$shared_runner legacy_fallback=$legacy_fallback direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true"
+echo "isolated_display_smoke x11=true wayland=true active_display_inherited=false private_home=true private_xdg=true private_tmp=true mount_namespace=true pid_namespace=true ipc_namespace=true network_namespace=true private_dbus=true private_system_bus=true private_x11_wm=true host_agent_socket=false host_activation_token=false serialized=true pressure_gated=true timeout_bounded=true process_tree_bounded=true dynamic_screen=true shared_runner=$shared_runner legacy_fallback=$legacy_fallback direct_wrappers_fail_closed=true dedicated_ack=true fail_closed=true"

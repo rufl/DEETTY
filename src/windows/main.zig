@@ -533,6 +533,7 @@ const State = struct {
     preferences: WindowsPreferences = .{},
     saved_workspace: ?WorkspaceSnapshot = null,
     live_host: ?*Share.live_host.LiveHost = null,
+    control_prompt_active: bool = false,
     shared_pane: ?usize = null,
     live_viewer: ?*Share.live_viewer.LiveViewer = null,
 };
@@ -791,6 +792,7 @@ extern "user32" fn MessageBoxW(
     [*:0]const u16,
     windows.UINT,
 ) callconv(.winapi) c_int;
+extern "user32" fn IsWindow(windows.HWND) callconv(.winapi) windows.BOOL;
 
 fn readPersistedWindowsState() !?PersistedWindowsState {
     var bytes: [persisted_state_capacity]u8 = undefined;
@@ -927,6 +929,7 @@ pub export fn wWinMain(
             random,
             state.store.identity,
             state.store.peerSliceConst()[mode.index],
+            pairedPeerTrusted,
             null,
             mode.port,
             .pane,
@@ -1037,10 +1040,43 @@ fn loadOrCreateIdentity() !Crypto.Identity {
 fn loadOrCreateStore() !Share.identity.Store {
     var bytes: [Share.identity.max_file_bytes]u8 = undefined;
     defer std.crypto.secureZero(u8, &bytes);
-    const length = Dpapi.peersLoad(&bytes) catch
+    const length = Dpapi.peersLoad(&bytes, null) catch
         return error.WindowsPeerStoreLoadFailed;
     if (length) |count| return Share.identity.import(bytes[0..count]);
     return Share.identity.Store.init(try loadOrCreateIdentity());
+}
+
+// LiveHost serializes this callback. Atomic replacement changes the file identity;
+// the loaded version is captured from the same open file as the decrypted bytes.
+var peer_trust_cache: ?struct {
+    version: Dpapi.PeerStoreVersion,
+    public_key: [Crypto.public_key_length]u8,
+    trusted: bool,
+} = null;
+
+fn pairedPeerTrusted(public_key: [Crypto.public_key_length]u8) bool {
+    const current_version = Dpapi.peersVersion() catch {
+        peer_trust_cache = null;
+        return false;
+    };
+    if (peer_trust_cache) |cache| {
+        if (std.meta.eql(cache.version, current_version) and
+            std.mem.eql(u8, &cache.public_key, &public_key)) return cache.trusted;
+    }
+    peer_trust_cache = null;
+    var bytes: [Share.identity.max_file_bytes]u8 = undefined;
+    defer std.crypto.secureZero(u8, &bytes);
+    var loaded_version: Dpapi.PeerStoreVersion = undefined;
+    const length = (Dpapi.peersLoad(&bytes, &loaded_version) catch return false) orelse return false;
+    var store = Share.identity.import(bytes[0..length]) catch return false;
+    defer store.deinit();
+    const peer = store.find(public_key) orelse return false;
+    peer_trust_cache = .{
+        .version = loaded_version,
+        .public_key = public_key,
+        .trusted = !peer.revoked,
+    };
+    return !peer.revoked;
 }
 
 fn saveStore(store: *const Share.identity.Store) !void {
@@ -1319,9 +1355,9 @@ fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: 
     return 0;
 }
 
-fn confirmWindowsControl() bool {
+fn confirmWindowsControl(owner: windows.HWND) bool {
     return MessageBoxW(
-        null,
+        owner,
         std.unicode.utf8ToUtf16LeStringLiteral(
             "The paired viewer requests terminal control for one shared pane on this connection. Grant it?",
         ),
@@ -1585,18 +1621,22 @@ fn workspacePersistence(
     }
 }
 
-fn takeRemote(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
+fn takeRemote(raw: ?*anyopaque, owner: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
+    if (state.control_prompt_active) return 0;
     const host = state.live_host orelse return 0;
     if (state.shared_pane) |pane_index| {
         const grid = state.workspace.paneGrid(pane_index) orelse return 0;
         host.captureGrid(1, grid) catch return -1;
     }
-    if (host.currentStatus() == .control_requested) {
-        if (confirmWindowsControl())
-            host.grantControl()
-        else
-            host.revokeControl();
+    if (host.controlRequest()) |request| {
+        const window: windows.HWND = @ptrCast(owner orelse return 0);
+        state.control_prompt_active = true;
+        defer state.control_prompt_active = false;
+        const approved = confirmWindowsControl(window);
+        // The owned modal dialog pumps messages: closing a pane can destroy its host.
+        if (state.live_host != host or !IsWindow(window).toBool()) return 0;
+        _ = host.respondControl(request, approved);
     }
     var sink = RemoteInputSink{ .output = output[0..capacity] };
     _ = host.drainInput(1, &sink) catch return -1;

@@ -27,10 +27,12 @@ exit 0
 EOF
 cat >"$runtime/nocted-bin" <<'EOF'
 #!/usr/bin/env sh
-if [ "${1:-}" = --version ]; then
-  printf 'stub_nocted_version\n'
-  exit 0
-fi
+case "${1:-}" in
+  --version|--help|-h)
+    printf 'stub_nocted_version\n'
+    exit 0
+    ;;
+esac
 printf '%s\n' 'Gtk-CRITICAL fixture' >&2
 printf '%s\n' 'Gdk-CRITICAL fixture' >&2
 printf '%s\n' 'GLib-CRITICAL fixture' >&2
@@ -48,6 +50,12 @@ printf '%s\n' "$fast_status" | grep -F 'stub_noctty_output' >/dev/null
 fast_version=$(XDG_STATE_HOME="$state" "$runtime/nocted" --version)
 printf '%s\n' "$fast_version" | grep -F 'stub_nocted_version' >/dev/null
 [ ! -d "$state/noctty/dogfood-sessions" ]
+for app in noctty nocted; do
+  for option in --help -h; do
+    XDG_STATE_HOME="$state" "$runtime/$app" "$option" >/dev/null
+    [ ! -d "$state/noctty/dogfood-sessions" ]
+  done
+done
 
 home="$scratch/home"
 instance_lock="$home/.local/state/noctty/instance.lock"
@@ -215,8 +223,9 @@ cat >"$scratch/DOGFOOD_LOG.md" <<'EOF'
 
 - Duration: derived from receipt
 - Dogfood receipt: `noctty-legacy-two-hour`
+- Work performed: operator-confirmed daily terminal work
 - Panes/tabs used: 4
-- Agent/TUI apps used: Pi
+- Agent/TUI apps used: OMP 17.3.3
 - NoctEd used: yes; edit/save/find/quick open
 - Foreground-job close confirmation passed
 
@@ -230,7 +239,7 @@ cat >"$state/noctty/logs/noctty-omp-preflight-a.log" <<'EOF'
 dogfood_launch app=noctty session_id=omp-preflight-a omp_version=deferred args=
 dogfood_event session=omp-preflight-a event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-preflight-a event=omp_detected pane=1 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
-dogfood_event session=omp-preflight-a event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222
+noctty_dogfood_event session_id=omp-preflight-a event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=1
 dogfood_event session=omp-preflight-a event=omp_detected pane=3 value=1 detail=3333333333333333333333333333333333333333333333333333333333333333
 dogfood_event session=omp-preflight-a event=omp_detected pane=4 value=1 detail=4444444444444444444444444444444444444444444444444444444444444444
 dogfood_event session=omp-preflight-a event=omp_concurrency pane=0 value=4 detail=active
@@ -251,7 +260,7 @@ cat >"$state/noctty/logs/noctty-omp-preflight-b.log" <<'EOF'
 dogfood_launch app=noctty session_id=omp-preflight-b omp_version=deferred args=
 dogfood_event session=omp-preflight-b event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-preflight-b event=omp_detected pane=1 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
-dogfood_event session=omp-preflight-b event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222
+noctty_dogfood_event session_id=omp-preflight-b event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=2
 dogfood_event session=omp-preflight-b event=omp_detected pane=3 value=1 detail=3333333333333333333333333333333333333333333333333333333333333333
 dogfood_event session=omp-preflight-b event=omp_detected pane=4 value=1 detail=4444444444444444444444444444444444444444444444444444444444444444
 dogfood_event session=omp-preflight-b event=omp_workspace pane=0 value=4 detail=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -286,6 +295,42 @@ printf '%s\n' "$qualified" | grep -F 'normal_exit_cleanup=true' >/dev/null
 printf '%s\n' "$qualified" | grep -F 'hot_restore=true' >/dev/null
 printf '%s\n' "$qualified" | grep -F 'output_integrity=true' >/dev/null
 printf '%s\n' "$qualified" | grep -F 'logs_clean=true compatible=true' >/dev/null
+
+negative_state="$scratch/negative-state"
+mkdir -p "$negative_state/noctty/logs"
+cat >"$negative_state/noctty/logs/noctty-negative-two-hour.log" <<'EOF'
+dogfood_launch app=noctty timestamp=2026-08-03T10:00:00+00:00 epoch=1785751200
+dogfood_exit app=noctty timestamp=2026-08-03T12:00:00+00:00 epoch=1785758400 duration_seconds=7200 status=0
+EOF
+cat >"$negative_state/noctty/logs/noctty-missing-context.log" <<'EOF'
+dogfood_launch app=noctty timestamp=2026-08-04T10:00:00+00:00 epoch=1785837600
+dogfood_exit app=noctty timestamp=2026-08-04T12:00:00+00:00 epoch=1785844800 duration_seconds=7200 status=0
+EOF
+cat >"$scratch/DOGFOOD_LOG_NEGATIVE.md" <<'EOF'
+# Negative evidence fixture
+
+## 2026-08-03 — counted session with unavailable feature evidence
+
+- Dogfood receipt: `noctty-negative-two-hour`
+- Work performed: operator-confirmed daily terminal work
+- Panes/tabs used: not recorded
+- Agent/TUI apps used: not recorded
+- NoctEd used: no
+- Foreground-job close confirmation not tested
+
+## 2026-08-04 — session missing work context
+
+- Dogfood receipt: `noctty-missing-context`
+- Agent/TUI apps used: OMP
+EOF
+negative=$(./scripts/dogfood_status.sh "$scratch/DOGFOOD_LOG_NEGATIVE.md" "$negative_state")
+printf '%s\n' "$negative" | grep -F 'counted_sessions=1' >/dev/null
+printf '%s\n' "$negative" | grep -F 'documented_sessions=2' >/dev/null
+printf '%s\n' "$negative" | grep -F 'unverified_sessions=1' >/dev/null
+printf '%s\n' "$negative" | grep -F 'four_pane=false' >/dev/null
+printf '%s\n' "$negative" | grep -F 'agent_cli=false' >/dev/null
+printf '%s\n' "$negative" | grep -F 'nocted_real_edit=false' >/dev/null
+printf '%s\n' "$negative" | grep -F 'foreground_close_confirmation=false' >/dev/null
 
 partial_state="$scratch/partial-state"
 mkdir -p "$partial_state/noctty/logs"

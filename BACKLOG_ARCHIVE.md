@@ -6,6 +6,26 @@ This archive records completed implementation slices that changed the verified p
 
 NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening, NCT-101 native output throughput hardening, and NCT-102 event-driven PTY scheduling plus benchmark isolation are also closed.
 
+## 2026-09-06
+
+### NCT-127 self-contained release CI display isolation: done
+
+- Added a repository-owned X11 runner with private mount/PID/IPC/network
+  namespaces, `/tmp`, runtime sockets, D-Bus, and Xvfb; graphical runs are
+  serialized, pressure-gated, time-bounded, and cleaned as process groups.
+- The Linux release job provisions bubblewrap, Xvfb/Xauthority, virtual KWin,
+  and native development dependencies, then runs the bounded source-alpha gate.
+  The maintainer matrix is no longer misrepresented as a clean-runner gate.
+- Added fail-closed isolation and workflow-contract smokes, retained support for
+  an equivalent `OVERZEER_DISPLAY_RUNNER`, and kept ordinary source builds free
+  of graphical prerequisites.
+- Acceptance met:
+  `isolated_display_smoke private_tmp=true mount_namespace=true pid_namespace=true ipc_namespace=true network_namespace=true private_dbus=true private_system_bus=true private_x11_wm=true pressure_gated=true timeout_bounded=true process_tree_bounded=true fail_closed=true`;
+  `release_workflow_contract bounded_source_alpha=true repository_isolated_display=true private_x11_wm=true maintainer_verify=false`.
+- Honest boundary: this closes source-controlled clean-runner provisioning, not
+  the full maintainer matrix, physical compositor/input qualification, signing,
+  publication, or other operator-owned release evidence.
+
 ## 2026-08-22 <!-- craft-ignore: chronological archive navigation -->
 
 ### NCT-124 Konsole-class Plasma launch resilience: done

@@ -11,8 +11,10 @@ launcher=$(readlink -f "$0")
 runtime_dir=$(dirname "$launcher")
 export LD_LIBRARY_PATH="$runtime_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 umask 077
-if [ "$#" -eq 1 ] && [ "$1" = --version ]; then
-  exec "$runtime_dir/$app-bin" "$@"
+if [ "$#" -ge 1 ]; then
+  case "$1" in
+    --version|--help|-h) exec "$runtime_dir/$app-bin" "$@" ;;
+  esac
 fi
 
 

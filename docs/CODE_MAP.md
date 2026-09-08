@@ -21,7 +21,7 @@ Start here when trying the app:
 
 ```sh
 zig build run -- --native-grid-windowed
-zig build run-nocted -- --project . --open README.md
+zig build run-nocted -- --open README.md
 ```
 
 ## Main NOCTTY runtime areas
@@ -39,9 +39,9 @@ zig build run-nocted -- --project . --open README.md
   precedence, keyboard command planning, tab/pane cycle targets, directional
   pane focus scoring, scrollbar geometry, wheel accumulation and fallback keys,
   terminal key encoding and shortcut labels, keyboard scroll targets,
-  hyperlink validation, command-palette fuzzy matching, dropdown dimension
-  clamping, sharing-status actions, grid sizing/auto-fit, window-resize
-  deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
+  hyperlink validation, command-palette fuzzy matching, responsive dropdown
+  dimension/percentage conversion, sharing-status actions, grid sizing/auto-fit,
+  window-resize deltas/bounds, pointer-to-cell mapping, linear selection hit testing,
   pixel-snapped spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane
   chrome, and caret policy consumed through
   `include/noctty/native_grid_logic.h`.
@@ -137,6 +137,8 @@ read this as engineering evidence, not as extra product surface.
 - `scripts/run_isolated_x11.sh`, `scripts/run_isolated_wayland.sh`, and `scripts/require_isolated_display.sh` — serialized focused-display boundaries and the fail-closed guard for broader disposable-session lanes; `scripts/check_display_isolation.sh` keeps the wrapper inventory explicit.
 - `scripts/native_grid_presentation_qualification.sh`: opt-in dedicated Plasma Wayland/X11 synthetic key-handler-to-draw/frame-clock and presentation-timing lane.
 - `scripts/native_grid_full_stack_qualification.sh`: opt-in live Wayland/X11 idle/fullscreen compositor-pixel, memory, and wakeup lane.
+- `scripts/native_grid_resolution_smoke.sh`: focused private-KWin live output-mode
+  switch proof for proportional dropdown reflow and current-monitor fullscreen.
 - `scripts/native_grid_stability_qualification.sh`: NCT-112 hidden/visible phase runner. `--smoke` checks Debug/`ReleaseSafe` Wayland/X11 quickly; `--run` retains the default 48-hour authenticated `ReleaseSafe` matrix.
 - `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in authenticated Codex exact-response matrix through production PTY/VT/GTK/Cairo in dedicated Wayland/X11 sessions.
 - `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, NOCTTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
@@ -165,7 +167,7 @@ A practical contributor sequence is:
 ```sh
 zig build check
 zig build run -- --native-grid-windowed
-zig build run-nocted -- --project . --open README.md
+zig build run-nocted -- --open README.md
 ```
 
 Maintainers should still run the full verification matrix before tags or public

@@ -2468,12 +2468,12 @@ pub const Workspace = struct {
 
     pub fn reopenLastClosedTab(self: *Workspace) !u64 {
         var snapshot = self.last_closed_tab orelse return error.NoClosedTab;
-        self.last_closed_tab = null;
-        errdefer snapshot.deinit(self.allocator);
-        const tab = try self.restoreTabSnapshot(snapshot);
+        var tab = try self.restoreTabSnapshot(snapshot);
+        errdefer tab.deinit();
         const id = tab.id;
-        snapshot.deinit(self.allocator);
         try self.tabs.append(tab);
+        snapshot.deinit(self.allocator);
+        self.last_closed_tab = null;
         self.active_tab = self.tabs.items.len - 1;
         return id;
     }
@@ -3033,6 +3033,47 @@ test "workspace reopens the last closed tab with its durable title" {
     try std.testing.expectEqual(@as(i8, -1), workspace.activeTab().?.accent.?.shade);
     try std.testing.expectEqualStrings("/tmp", workspace.activeTab().?.panes.items[0].cwd);
     try std.testing.expectError(error.NoClosedTab, workspace.reopenLastClosedTab());
+}
+
+test "workspace reopening allocation failures preserve the closed tab for retry" {
+    var failure_offset: usize = 0;
+    while (true) : (failure_offset += 1) {
+        var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{});
+        const allocator = failing.allocator();
+        var workspace = try Workspace.init(allocator, "/tmp");
+        defer workspace.deinit();
+        _ = try workspace.renameTab(1, "Build logs");
+        _ = try workspace.splitActivePane(.right);
+        _ = try workspace.addTab("survivor", "/tmp/agent");
+        _ = try workspace.closeTab(1);
+        // Force reopening to allocate the destination array after restoring the tab.
+        workspace.tabs.shrinkAndFree(workspace.tabs.items.len);
+        try std.testing.expectEqual(workspace.tabs.items.len, workspace.tabs.capacity);
+        var before = try workspace.captureSnapshot();
+        defer before.deinit(allocator);
+        const before_bytes = try exportSnapshotAlloc(allocator, before);
+        defer allocator.free(before_bytes);
+
+        failing.fail_index = failing.alloc_index + failure_offset;
+        failing.resize_fail_index = failing.resize_index;
+        const reopened = workspace.reopenLastClosedTab() catch |err| {
+            try std.testing.expectEqual(error.OutOfMemory, err);
+            failing.fail_index = std.math.maxInt(usize);
+            failing.resize_fail_index = std.math.maxInt(usize);
+            var after = try workspace.captureSnapshot();
+            defer after.deinit(allocator);
+            const after_bytes = try exportSnapshotAlloc(allocator, after);
+            defer allocator.free(after_bytes);
+            try std.testing.expectEqualSlices(u8, before_bytes, after_bytes);
+            try std.testing.expectEqual(@as(u64, 1), try workspace.reopenLastClosedTab());
+            try std.testing.expectEqualStrings("Build logs", workspace.activeTab().?.title);
+            try std.testing.expectEqual(@as(usize, 2), workspace.activeTab().?.panes.items.len);
+            try std.testing.expectError(error.NoClosedTab, workspace.reopenLastClosedTab());
+            continue;
+        };
+        try std.testing.expectEqual(@as(u64, 1), reopened);
+        break;
+    }
 }
 
 test "workspace reorders tabs while preserving the active tab identity" {

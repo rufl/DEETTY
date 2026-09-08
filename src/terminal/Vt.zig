@@ -1348,9 +1348,14 @@ pub const Grid = struct {
                 var end = index;
                 while (end < bytes.len and bytes[end] >= 0x20 and bytes[end] <= 0x7e) : (end += 1) {}
                 if (end > index) {
-                    try self.putAscii(bytes[index..end]);
-                    index = end;
-                    continue;
+                    var grapheme_probe = self.grapheme_stream;
+                    const starts_cluster = !self.last_grapheme_valid or
+                        grapheme_probe.push(bytes[index]);
+                    if (starts_cluster) {
+                        try self.putAscii(bytes[index..end]);
+                        index = end;
+                        continue;
+                    }
                 }
             }
             try self.feedByte(bytes[index]);
@@ -1566,29 +1571,53 @@ pub const Grid = struct {
                 }
             },
             'c' => {
-                self.bold = false;
-                self.inverse = false;
-                self.italic = false;
-                self.underline = false;
-                self.strikethrough = false;
-                self.dim = false;
-                self.foreground = default_color_id;
-                self.background = default_color_id;
+                self.leaveAlternate();
+                self.applySgr(0);
                 self.active_hyperlink = 0;
                 self.cursor_column = 0;
                 self.cursor_row = 0;
+                self.saved_cursor_column = 0;
+                self.saved_cursor_row = 0;
+                self.saved_wrap_pending = false;
+                self.saved_origin_mode = false;
+                self.saved_charset_g0_dec_special = false;
+                self.saved_charset_g1_dec_special = false;
+                self.saved_charset_use_g1 = false;
+                self.saved_style_bold = false;
+                self.saved_style_inverse = false;
+                self.saved_style_italic = false;
+                self.saved_style_underline = false;
+                self.saved_style_strikethrough = false;
+                self.saved_style_dim = false;
+                self.saved_style_foreground = default_color_id;
+                self.saved_style_background = default_color_id;
                 self.margin_top = 0;
                 self.margin_bottom = self.rows - 1;
                 self.insert_mode = false;
                 self.auto_wrap = true;
                 self.origin_mode = false;
+                self.wrap_pending = false;
+                self.cursor_visible = true;
+                self.application_cursor_keys = false;
+                self.mouse_tracking = .none;
+                self.mouse_encoding = .legacy;
+                self.focus_reporting = false;
+                self.bracketed_paste = false;
+                self.synchronized_output = false;
+                for (self.tab_stops, 0..) |*stop, column| stop.* = column % 8 == 0;
                 self.charset_g0_dec_special = false;
                 self.charset_g1_dec_special = false;
                 self.charset_use_g1 = false;
                 self.last_printed_codepoint = null;
-                self.markAllDirty();
-                @memset(self.cells, .{});
-                for (0..self.rows) |row| self.rowMeta(row).* = self.freshRowMeta();
+                self.parser.reset();
+                self.utf8_expected = 0;
+                self.utf8_codepoint = 0;
+                self.utf8_minimum = 0;
+                self.resetGraphemeInput();
+                // Preserve retained scrollback and its color/grapheme stores.
+                self.viewport_offset = 0;
+                self.wide_cells_present = false;
+                self.eraseDisplay(2);
             },
             else => {},
         }
@@ -3925,6 +3954,41 @@ test "terminal grid printable run path matches byte feeding" {
     }
 }
 
+test "terminal ASCII fast path preserves preceding grapheme clusters" {
+    const input = "\xd8\x80ABCDEFGH";
+    var fast = try Grid.init(std.testing.allocator, 4, 2);
+    defer fast.deinit();
+    var bytewise = try Grid.init(std.testing.allocator, 4, 2);
+    defer bytewise.deinit();
+
+    try fast.feed(input);
+    for (input) |byte| try bytewise.feedByte(byte);
+
+    try std.testing.expectEqual(bytewise.cursor_column, fast.cursor_column);
+    try std.testing.expectEqual(bytewise.cursor_row, fast.cursor_row);
+    try std.testing.expectEqual(bytewise.wrap_pending, fast.wrap_pending);
+    try std.testing.expectEqual(bytewise.screen_origin, fast.screen_origin);
+    try std.testing.expectEqual(bytewise.history.items.len, fast.history.items.len);
+    var fast_text: [16]u8 = undefined;
+    var bytewise_text: [16]u8 = undefined;
+    for (0..fast.rows) |row| {
+        for (0..fast.columns) |column| {
+            try std.testing.expectEqualDeep(
+                bytewise.cell(column, row),
+                fast.cell(column, row),
+            );
+            const fast_length = fast.cellText(column, row, &fast_text);
+            const bytewise_length = bytewise.cellText(column, row, &bytewise_text);
+            try std.testing.expectEqual(bytewise_length, fast_length);
+            try std.testing.expectEqualSlices(
+                u8,
+                bytewise_text[0..bytewise_length],
+                fast_text[0..fast_length],
+            );
+        }
+    }
+}
+
 test "terminal grid applies rich SGR and bounded truecolor IDs" {
     var grid = try Grid.init(std.testing.allocator, 8, 2);
     defer grid.deinit();
@@ -5011,4 +5075,72 @@ test "terminal grid supports insert delete and erase character operations" {
     try grid.feed("abcd\x1b[1;3H\x1b[4hX\x1b[4l\x1b[2PX\x1b[1X");
     try std.testing.expectEqual(@as(u21, 'a'), grid.cell(0, 0).codepoint);
     try std.testing.expectEqual(@as(u21, 'b'), grid.cell(1, 0).codepoint);
+}
+
+test "terminal OSC UTF-8 survives every chunk boundary without screen leakage" {
+    const title = "\xc3\x9cber \xe2\x9c\x93 \xf0\x9f\x9c\x80";
+    const body = "\x1b]2;" ++ title;
+    for ([_][]const u8{ body ++ "\x07X", body ++ "\x9cX", body ++ "\x1b\\X" }) |input| {
+        for (0..input.len + 1) |split| {
+            var grid = try Grid.init(std.testing.allocator, 16, 2);
+            defer grid.deinit();
+            try grid.feed(input[0..split]);
+            try grid.feed(input[split..]);
+            try std.testing.expectEqualStrings(title, grid.titleSlice());
+            try std.testing.expectEqual(@as(usize, 1), grid.cursor_column);
+            try std.testing.expectEqual(@as(usize, 0), grid.cursor_row);
+            for (0..grid.rows) |row| {
+                for (0..grid.columns) |column| {
+                    try std.testing.expectEqual(
+                        @as(u21, if (row == 0 and column == 0) 'X' else ' '),
+                        grid.cell(column, row).codepoint,
+                    );
+                }
+            }
+        }
+    }
+}
+
+test "terminal RIS restores modes buffers saved cursor and tabs while retaining history" {
+    for ([_]bool{ false, true }) |alternate| {
+        var grid = try Grid.init(std.testing.allocator, 16, 4);
+        defer grid.deinit();
+        try grid.feed("history\r\nprimary\r\nthird\r\nfourth\r\nlast");
+        try std.testing.expectEqual(@as(usize, 1), grid.historyCount());
+        // Save non-default cursor, origin, charsets and rendition before RIS.
+        try grid.feed("\x1b[2;3r\x1b[?6h\x1b[2;5H" ++
+            "\x1b(0\x1b)0\x0e\x1b[1;2;3;4;7;9;31;42m\x1b7");
+        if (alternate) try grid.feed("\x1b[?1049hALT");
+        try grid.feed("\x1b[?1;1003;1004;1006;2004;2026h\x1b[?7;25l\x1b[4h" ++
+            "\x1b[3g\x1b[5G\x1bH\x1b]8;;https://example.com\x1b\\");
+        grid.scrollViewport(1);
+        try grid.feed("\x1bc");
+
+        try grid.feed("\x1b[6n\x1b[4$p\x1b[?1$p\x1b[?6$p\x1b[?7$p\x1b[?25$p" ++
+            "\x1b[?1049$p\x1b[?1003$p\x1b[?1004$p\x1b[?1006$p\x1b[?2004$p\x1b[?2026$p");
+        try std.testing.expectEqualStrings(
+            "\x1b[1;1R\x1b[4;2$y\x1b[?1;2$y\x1b[?6;2$y\x1b[?7;1$y\x1b[?25;1$y" ++
+                "\x1b[?1049;2$y\x1b[?1003;2$y\x1b[?1004;2$y\x1b[?1006;2$y\x1b[?2004;2$y\x1b[?2026;2$y",
+            grid.pendingReplies(),
+        );
+        for (0..grid.rows) |row| {
+            for (0..grid.columns) |column| {
+                try std.testing.expectEqualDeep(Cell{}, grid.cell(column, row));
+            }
+        }
+        // Neither cursor restore nor leaving alternate mode may resurrect state.
+        try grid.feed("\x1b8q\tX\x1b[?1049l");
+        var expected = Cell{ .codepoint = 'q' };
+        try std.testing.expectEqualDeep(expected, grid.cell(0, 0));
+        expected.codepoint = 'X';
+        try std.testing.expectEqualDeep(expected, grid.cell(8, 0));
+        try grid.feed("\x1b[1;16HYZ");
+        try std.testing.expectEqual(@as(u21, 'Y'), grid.cell(15, 0).codepoint);
+        try std.testing.expectEqual(@as(u21, 'Z'), grid.cell(0, 1).codepoint);
+        // Reset restores the full scroll region without discarding host history.
+        try grid.feed("\x1b[4;1H\n");
+        try std.testing.expectEqual(@as(usize, 2), grid.historyCount());
+        grid.scrollViewport(2);
+        try std.testing.expectEqual(@as(u21, 'h'), grid.cell(0, 0).codepoint);
+    }
 }

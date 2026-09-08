@@ -135,6 +135,10 @@ host its receipt session ID and log path. The host writes one-line records with
 dogfood_event session=ID event=omp_NAME pane=ID value=INTEGER detail=TOKEN
 ```
 
+The current native host emits that canonical form. `dogfood_status.sh` also
+normalizes retained pre-fix `noctty_dogfood_event session_id=ID` records while
+deriving local status; new sessions must use `dogfood_event session=ID`.
+
 All values are space-free allowlisted tokens. `omp_detected` is emitted only
 when the PTY foreground-process basename is exactly `omp`; its detail is the
 SHA-256 digest of that process working directory, not the directory text.

@@ -21,7 +21,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 | P2 | NCT-112 terminal stability and agent-resource qualification | Blocked on elapsed evidence: retain the uninterrupted 48-hour run. |
 | P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
 | P2 | NCT-126 first-party native-adapter migration | Source-ready incremental migration plus mapped/physical retirement gates. |
-| P3 | Release Operations | Blocked on operator/external evidence: retain signing, publication, redistribution review, compositor, and consented HID acceptance. |
+| P3 | Release Operations | Operator/external evidence owns signing, publication, redistribution review, compositor, and consented HID acceptance. |
 
 Every open bundle is listed once above. Source-ready work is locally executable;
 elapsed, physical, and operator evidence is not implied by source completion.
@@ -82,12 +82,14 @@ elapsed, physical, and operator evidence is not implied by source completion.
   previously staged GTK Layer Shell runtime only when it matches the prior
   private build receipt; the current `ReleaseFast` dogfood install completed
   through that fail-closed path. The launcher smoke and isolated Wayland
-  tab/profile menu lanes pass without the popup-parent warning. The retained
-  2026-07-19 alpha screenshots now have an explicit stale
-  boundary; recapture them inside the installed-session qualification. A real
-  installed-session recapture remains
-  required before closing the historical
-  descriptor, GTK-critical, and exit-139 observations. `[truth:build,logs,docs]`
+  tab/profile menu lanes pass without the popup-parent warning. Current
+  `ReleaseSafe` installed-tree alpha screenshots were recaptured inside the
+  repository's private display/session boundary. Seven operator-confirmed
+  installed sessions now contribute 167.107 counted hours, closing the minimum
+  session-count baseline. NCT-125 remains open for the specified clean
+  current-build workflow recapture after the historical descriptor,
+  GTK-critical, and exit-139 observations.
+  `[truth:build,logs,docs]`
 
 ### P2 — Post-alpha architecture, physical proof, and stability
 

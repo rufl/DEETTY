@@ -16,14 +16,14 @@ trap 'rm -f "$session_records" "$candidates" "$used" "$omp_events" "$omp_records
 awk '
   function flush() {
     if (active && counted)
-      printf "%s|%d|%d|%d|%d\n", receipt, four_pane, agent, nocted, close_confirm
+      printf "%s|%d|%d|%d|%d|%d\n", receipt, work_context, four_pane, agent, nocted, close_confirm
   }
   /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] / {
     flush()
     active = 1
     counted = ($0 !~ /not counted/)
     receipt = ""
-    four_pane = agent = nocted = close_confirm = 0
+    work_context = four_pane = agent = nocted = close_confirm = 0
     next
   }
   active && counted && /^- Dogfood receipt:/ {
@@ -31,11 +31,36 @@ awk '
     sub(/^- Dogfood receipt:[[:space:]]*/, "", receipt)
     gsub(/`/, "", receipt)
   }
+  active && counted && /^- Work performed:/ {
+    value = tolower($0)
+    sub(/^- work performed:[[:space:]]*/, "", value)
+    negative = (value == "" ||
+      value ~ /^(no|none|not|unknown|unconfirmed|unrecorded|smoke|test)([[:space:][:punct:]]|$)/)
+    if (!negative)
+      work_context = 1
+  }
   active && counted && /Panes\/tabs used:.*([4-9]|[1-9][0-9]+)/ { four_pane = 1 }
-  active && counted && /Agent\/TUI apps used:/ && tolower($0) ~ /(pi|codex|claude|agent)/ { agent = 1 }
-  active && counted && /NoctEd used:/ && tolower($0) ~ /(yes|edit|save|search|find|quick)/ { nocted = 1 }
-  active && counted && tolower($0) ~ /(close confirmation|foreground-job|foreground job|sleep 600)/ {
-    close_confirm = 1
+  active && counted && /Agent\/TUI apps used:/ {
+    value = tolower($0)
+    sub(/^.*agent\/tui apps used:[[:space:]]*/, "", value)
+    negative = (value ~ /^(no|none|not|unknown|unconfirmed|unrecorded)([[:space:][:punct:]]|$)/)
+    if (!negative && value ~ /(^|[^[:alnum:]_])(pi|omp|codex|claude|agent)([^[:alnum:]_]|$)/)
+      agent = 1
+  }
+  active && counted && /NoctEd used:/ {
+    value = tolower($0)
+    sub(/^.*nocted used:[[:space:]]*/, "", value)
+    negative = (value ~ /^(no|none|not|unknown|unconfirmed|unrecorded)([[:space:][:punct:]]|$)/)
+    if (!negative && value ~ /(^|[^[:alnum:]_])(yes|edit|edited|editing|save|saved|search|searched|find|quick)([^[:alnum:]_]|$)/)
+      nocted = 1
+  }
+  active && counted {
+    value = tolower($0)
+    close_subject = (value ~ /(close confirmation|foreground-job close|foreground job close)/)
+    close_positive = (value ~ /(passed|worked|tested|confirmed|prompted|canceled|cancelled|accepted)/)
+    close_negative = (value ~ /(^|[^[:alnum:]_])(no|not|never|unknown|unconfirmed|missing|without)([^[:alnum:]_]|$)/)
+    if (close_subject && close_positive && !close_negative)
+      close_confirm = 1
   }
   END { flush() }
 ' "$log" >"$session_records"
@@ -59,12 +84,12 @@ for omp_log in "$state_home"/noctty/logs/noctty-*.log; do
       }
       next
     }
-    /^dogfood_event / {
+    /^(dogfood_event|noctty_dogfood_event) / {
       event_session = event = pane = number = detail = ""
       for (i = 1; i <= NF; i++) {
         value = $i
-        if (value ~ /^session=/) {
-          sub(/^session=/, "", value)
+        if (value ~ /^(session|session_id)=/) {
+          sub(/^(session|session_id)=/, "", value)
           event_session = value
         } else if (value ~ /^event=/) {
           sub(/^event=/, "", value)
@@ -215,13 +240,17 @@ four_pane=false
 agent=false
 nocted=false
 close_confirm=false
-while IFS='|' read -r receipt has_four has_agent has_nocted has_close; do
+while IFS='|' read -r receipt has_work has_four has_agent has_nocted has_close; do
   case "$receipt" in
     ''|*[!A-Za-z0-9._-]*)
       unverified_sessions=$((unverified_sessions + 1))
       continue
       ;;
   esac
+  if [ "$has_work" != 1 ]; then
+    unverified_sessions=$((unverified_sessions + 1))
+    continue
+  fi
   if grep -Fx "$receipt" "$used" >/dev/null 2>&1; then
     unverified_sessions=$((unverified_sessions + 1))
     continue
