@@ -3510,9 +3510,6 @@ static GVariant *new_empty_grid_tray_pixmaps(void) {
     return g_variant_builder_end(&builder);
 }
 
-static gboolean grid_tray_menu_id_valid(gint32 id) {
-    return id >= NOCTTY_TRAY_MENU_ROOT && id <= NOCTTY_TRAY_MENU_CLOSE;
-}
 
 static const char *grid_tray_menu_label(NocttyGridContext *root, gint32 id) {
     if (id == NOCTTY_TRAY_MENU_TOGGLE)
@@ -3579,7 +3576,7 @@ static GVariant *new_grid_tray_menu_layout(NocttyGridContext *root,
 static GVariant *new_grid_tray_menu_property(NocttyGridContext *root,
                                               gint32 id,
                                               const char *name) {
-    if (!grid_tray_menu_id_valid(id)) return NULL;
+    if (!noctty_grid_tray_menu_id_valid(id)) return NULL;
     if (g_strcmp0(name, "label") == 0)
         return g_variant_new_string(grid_tray_menu_label(root, id));
     if (g_strcmp0(name, "icon-name") == 0)
@@ -3627,7 +3624,7 @@ static void on_grid_tray_menu_method_call(
         g_variant_get(parameters, "(ii@as)", &parent_id, &recursion_depth,
                       &property_names);
         g_variant_unref(property_names);
-        if (!grid_tray_menu_id_valid(parent_id)) {
+        if (!noctty_grid_tray_menu_id_valid(parent_id)) {
             g_dbus_method_invocation_return_error(
                 invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
                 "Unknown tray menu item: %d", parent_id);
@@ -3651,7 +3648,7 @@ static void on_grid_tray_menu_method_call(
         gint32 id = 0;
         g_variant_iter_init(&iterator, ids);
         while (g_variant_iter_next(&iterator, "i", &id)) {
-            if (!grid_tray_menu_id_valid(id)) continue;
+            if (!noctty_grid_tray_menu_id_valid(id)) continue;
             g_variant_builder_add(&properties, "(i@a{sv})", id,
                                   new_grid_tray_menu_properties(root, id));
         }
@@ -16134,9 +16131,6 @@ static const GdkWindowEdge noctty_resize_edges[8] = {
     GDK_WINDOW_EDGE_SOUTH_EAST,
 };
 
-static const char *window_resize_cursor_name(int index) {
-    return index == 3 || index == 4 ? "ew-resize" : "ns-resize";
-}
 
 static int window_resize_handle_index(GtkWidget *widget) {
     return GPOINTER_TO_INT(g_object_get_data(
@@ -16152,15 +16146,16 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
     if (window == NULL) return;
     GdkDisplay *display = gtk_widget_get_display(widget);
     GdkCursor *cursor = gdk_cursor_new_from_name(
-        display, window_resize_cursor_name(index));
+        display, noctty_grid_window_resize_cursor_name(index));
     if (cursor == NULL)
         cursor = gdk_cursor_new_for_display(
-            display, index == 3 || index == 4
+            display,
+            g_strcmp0(noctty_grid_window_resize_cursor_name(index), "ew-resize") == 0
                 ? GDK_SB_H_DOUBLE_ARROW : GDK_SB_V_DOUBLE_ARROW);
     if (cursor == NULL) return;
     gdk_window_set_cursor(window, cursor);
     g_object_set_data(G_OBJECT(widget), "noctty-resize-cursor-name",
-                      (gpointer)window_resize_cursor_name(index));
+                      (gpointer)noctty_grid_window_resize_cursor_name(index));
     g_object_unref(cursor);
 }
 
@@ -16390,7 +16385,7 @@ static GtkWidget *create_window_resize_handle(NocttyGridContext *context,
     g_object_set_data(G_OBJECT(handle), "noctty-resize-index",
                       GINT_TO_POINTER(index + 1));
     g_object_set_data(G_OBJECT(handle), "noctty-resize-cursor-name",
-                      (gpointer)window_resize_cursor_name(index));
+                      (gpointer)noctty_grid_window_resize_cursor_name(index));
     g_signal_connect(handle, "realize",
                      G_CALLBACK(on_window_resize_handle_realize), context);
     g_signal_connect(handle, "button-press-event",

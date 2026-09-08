@@ -249,6 +249,14 @@ pub export fn noctty_grid_cycle_target(
     return if (current_index == count - 1) 0 else current_index + 1;
 }
 
+pub export fn noctty_grid_tray_menu_id_valid(id: c_int) callconv(.c) c_int {
+    return @intFromBool(id >= 0 and id <= 4);
+}
+
+pub export fn noctty_grid_window_resize_cursor_name(index: c_int) callconv(.c) [*:0]const u8 {
+    return if (index == 3 or index == 4) "ew-resize" else "ns-resize";
+}
+
 fn validRectangle(rectangle: *const Rectangle) bool {
     return std.math.isFinite(rectangle.x) and
         std.math.isFinite(rectangle.y) and
@@ -2169,6 +2177,16 @@ test "GTK modifier masks and Alt key names map to native flags" {
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_alt_l));
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_meta_r));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_is_alt_key('A'));
+}
+
+test "tray ids and resize cursor policy stay bounded" {
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_tray_menu_id_valid(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_tray_menu_id_valid(4));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_tray_menu_id_valid(-1));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_tray_menu_id_valid(5));
+    try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(3)));
+    try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(4)));
+    try std.testing.expectEqualStrings("ns-resize", std.mem.span(noctty_grid_window_resize_cursor_name(0)));
 }
 
 test "scroll direction and tab color names handle every boundary" {

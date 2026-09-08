@@ -22,6 +22,8 @@ comptime {
     _ = NativeGridLogic.noctty_grid_scrollbar_drag_target;
     _ = NativeGridLogic.noctty_grid_is_alt_key;
     _ = NativeGridLogic.noctty_grid_input_modifiers;
+    _ = NativeGridLogic.noctty_grid_tray_menu_id_valid;
+    _ = NativeGridLogic.noctty_grid_window_resize_cursor_name;
     _ = NativeGridLogic.noctty_grid_cell_selected;
     _ = NativeGridLogic.noctty_grid_codepoint_utf8;
     _ = NativeGridLogic.noctty_grid_render_viewport;
