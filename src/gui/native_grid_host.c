@@ -4031,22 +4031,22 @@ static void finish_grid_shortcut_request(NocttyShortcutRequest *request,
 
 static const char *grid_shortcut_component_name(
     const NocttyGridContext *root) {
-    return root->workspace_smoke == 9 ? "noctty-smoke" : "noctty";
+    return noctty_grid_shortcut_field(0, root->workspace_smoke == 9);
 }
 
 static const char *grid_shortcut_action_name(
     const NocttyGridContext *root) {
-    return root->workspace_smoke == 9 ? "toggle-window-smoke" : "toggle-window";
+    return noctty_grid_shortcut_field(1, root->workspace_smoke == 9);
 }
 
 static const char *grid_shortcut_display_name(
     const NocttyGridContext *root) {
-    return root->workspace_smoke == 9 ? "NOCTTY Smoke" : "NOCTTY";
+    return noctty_grid_shortcut_field(2, root->workspace_smoke == 9);
 }
 
 static const char *grid_shortcut_description(
     const NocttyGridContext *root) {
-    return root->workspace_smoke == 9 ? "Show/hide NOCTTY smoke" : "Show/hide NOCTTY";
+    return noctty_grid_shortcut_field(3, root->workspace_smoke == 9);
 }
 static gchar *grid_shortcut_label_alloc(
     const NocttyGridContext *root) {
@@ -4098,7 +4098,7 @@ static void refresh_grid_settings_shortcut_button(
 
 static const char *grid_shortcut_component_path(
     const NocttyGridContext *root) {
-    return root->workspace_smoke == 9 ? "/component/noctty_smoke" : "/component/noctty";
+    return noctty_grid_shortcut_field(4, root->workspace_smoke == 9);
 }
 
 static void on_grid_shortcut_set(GObject *source, GAsyncResult *result,

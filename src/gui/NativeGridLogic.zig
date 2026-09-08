@@ -1484,6 +1484,17 @@ pub export fn noctty_grid_broadcast_menu_label(enabled: c_int) callconv(.c) [*:0
     return if (enabled != 0) "Disable Broadcast Input" else "Enable Broadcast Input…";
 }
 
+pub export fn noctty_grid_shortcut_field(field: c_int, smoke: c_int) callconv(.c) [*:0]const u8 {
+    return switch (field) {
+        0 => if (smoke != 0) "noctty-smoke" else "noctty",
+        1 => if (smoke != 0) "toggle-window-smoke" else "toggle-window",
+        2 => if (smoke != 0) "NOCTTY Smoke" else "NOCTTY",
+        3 => if (smoke != 0) "Show/hide NOCTTY smoke" else "Show/hide NOCTTY",
+        4 => if (smoke != 0) "/component/noctty_smoke" else "/component/noctty",
+        else => "",
+    };
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1695,6 +1706,16 @@ test "broadcast menu labels distinguish enabled state" {
         "Enable Broadcast Input…",
         std.mem.span(noctty_grid_broadcast_menu_label(0)),
     );
+}
+
+test "shortcut fields preserve normal and smoke identities" {
+    try std.testing.expectEqualStrings("noctty", std.mem.span(noctty_grid_shortcut_field(0, 0)));
+    try std.testing.expectEqualStrings("noctty-smoke", std.mem.span(noctty_grid_shortcut_field(0, 1)));
+    try std.testing.expectEqualStrings("toggle-window", std.mem.span(noctty_grid_shortcut_field(1, 0)));
+    try std.testing.expectEqualStrings("NOCTTY Smoke", std.mem.span(noctty_grid_shortcut_field(2, 1)));
+    try std.testing.expectEqualStrings("Show/hide NOCTTY", std.mem.span(noctty_grid_shortcut_field(3, 0)));
+    try std.testing.expectEqualStrings("/component/noctty_smoke", std.mem.span(noctty_grid_shortcut_field(4, 1)));
+    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_shortcut_field(9, 0)));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

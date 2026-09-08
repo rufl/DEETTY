@@ -42,8 +42,9 @@ zig build run-nocted -- --open README.md
   tray-menu ID, label, and icon policy, resize-cursor orientation,
   resize-edge ordinals, handle-index normalization, active-pane render
   selection, status-label and profile-preset label selection, broadcast-menu
-  label selection, terminal key encoding and shortcut labels, keyboard scroll
-  targets, bounded UI text and hyperlink validation,
+  label selection, global shortcut identity strings, terminal key encoding and
+  shortcut labels, keyboard scroll targets, bounded UI text and hyperlink
+  validation,
   command-palette fuzzy matching, responsive dropdown dimension/percentage
   conversion, sharing-status actions, terminal font/cell metric conversion,
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
