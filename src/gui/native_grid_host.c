@@ -951,7 +951,6 @@ static void schedule_resolution_adapt(NocttyGridContext *context);
 static void apply_fullscreen_dimensions(NocttyGridContext *context);
 static gboolean normalize_dropdown_pixel_dimensions(
     NocttyGridContext *context, gboolean notify);
-static const char *broadcast_menu_label(NocttyGridContext *context);
 static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data);
 #if NOCTTY_ENABLE_SMOKE
 static void record_presentation_draw_smoke(NocttyGridContext *context);
@@ -2949,7 +2948,9 @@ static gboolean emit_workspace_smoke_select(gpointer user_data) {
         strstr(tooltip, "broadcast on") != NULL;
     g_free(tooltip);
     root->broadcast_state_label =
-        g_strcmp0(broadcast_menu_label(root),
+        g_strcmp0(noctty_grid_broadcast_menu_label(
+                      root->event_data != NULL &&
+                      noctty_grid_broadcast_enabled(root->event_data) != 0),
                   "Disable Broadcast Input") == 0;
     on_broadcast_menu_activate(NULL, root);
     if (root->event != NULL)
@@ -13719,12 +13720,6 @@ static void on_workspace_menu_activate(GtkWidget *item, gpointer user_data) {
     emit_grid_workspace_event(context, event_code);
 }
 
-static const char *broadcast_menu_label(NocttyGridContext *context) {
-    NocttyGridContext *root = root_grid_context(context);
-    gboolean enabled = root->event_data != NULL &&
-        noctty_grid_broadcast_enabled(root->event_data) != 0;
-    return enabled ? "Disable Broadcast Input" : "Enable Broadcast Input…";
-}
 
 static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
     (void)item;
@@ -14560,7 +14555,9 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
         .context = context,
         .root = root,
         .profile_menu = profile_menu,
-        .broadcast_label = broadcast_menu_label(context),
+        .broadcast_label = noctty_grid_broadcast_menu_label(
+            root->event_data != NULL &&
+            noctty_grid_broadcast_enabled(root->event_data) != 0),
         .selection_active = context->selecting,
         .pane_close_sensitive = active_grid_context_count(root) > 1,
     };

@@ -1480,6 +1480,10 @@ pub export fn noctty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]
     };
 }
 
+pub export fn noctty_grid_broadcast_menu_label(enabled: c_int) callconv(.c) [*:0]const u8 {
+    return if (enabled != 0) "Disable Broadcast Input" else "Enable Broadcast Input…";
+}
+
 pub const AdaptiveWindowGeometry = extern struct {
     x: c_int,
     y: c_int,
@@ -1680,6 +1684,17 @@ test "profile labels cover every preset and custom fallback" {
     try std.testing.expectEqualStrings("High contrast", std.mem.span(noctty_grid_profile_preset_label(3)));
     try std.testing.expectEqualStrings("Mono no ligatures", std.mem.span(noctty_grid_profile_preset_label(4)));
     try std.testing.expectEqualStrings("Custom", std.mem.span(noctty_grid_profile_preset_label(5)));
+}
+
+test "broadcast menu labels distinguish enabled state" {
+    try std.testing.expectEqualStrings(
+        "Disable Broadcast Input",
+        std.mem.span(noctty_grid_broadcast_menu_label(1)),
+    );
+    try std.testing.expectEqualStrings(
+        "Enable Broadcast Input…",
+        std.mem.span(noctty_grid_broadcast_menu_label(0)),
+    );
 }
 
 test "resolution adaptation preserves window intent within every workarea" {

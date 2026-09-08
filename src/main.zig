@@ -55,6 +55,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_pane_is_active;
     _ = NativeGridLogic.noctty_grid_status_name;
     _ = NativeGridLogic.noctty_grid_profile_preset_label;
+    _ = NativeGridLogic.noctty_grid_broadcast_menu_label;
     _ = NativeGridLogic.noctty_grid_cycle_target;
     _ = NativeGridLogic.noctty_grid_directional_focus_begin;
     _ = NativeGridLogic.noctty_grid_directional_focus_consider;

@@ -57,6 +57,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved profile preset label selection and custom fallback into tested Zig
   policy. GTK retains radio-menu construction and activation.
 
+- Moved broadcast menu label selection into tested Zig policy. GTK retains
+  only the live broadcast-state query and menu construction.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

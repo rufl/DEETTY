@@ -302,6 +302,7 @@ int noctty_grid_pane_is_active(uint64_t active_pane_id,
                                uint64_t pane_id, int focused);
 const char *noctty_grid_status_name(int status_kind);
 const char *noctty_grid_profile_preset_label(int preset);
+const char *noctty_grid_broadcast_menu_label(int enabled);
 typedef struct {
     int x;
     int y;
