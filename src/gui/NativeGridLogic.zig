@@ -1026,6 +1026,18 @@ pub export fn noctty_grid_sharing_paste_allowed(length: usize) callconv(.c) c_in
 pub export fn noctty_grid_sharing_paste_chunk_size(remaining: usize) usize {
     return @min(remaining, 16 * 1024);
 }
+
+pub export fn noctty_grid_sharing_preview_scroll_lines(
+    direction: c_int,
+    delta_y: f64,
+) callconv(.c) c_int {
+    return switch (direction) {
+        0 => 3,
+        1 => -3,
+        4 => if (delta_y < 0.0) 3 else if (delta_y > 0.0) -3 else 0,
+        else => 0,
+    };
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -3008,6 +3020,15 @@ test "sharing paste limits and chunks preserve bounded transport" {
     try std.testing.expectEqual(@as(usize, 16 * 1024), noctty_grid_sharing_paste_chunk_size(64 * 1024));
     try std.testing.expectEqual(@as(usize, 7), noctty_grid_sharing_paste_chunk_size(7));
     try std.testing.expectEqual(@as(usize, 0), noctty_grid_sharing_paste_chunk_size(0));
+}
+
+test "sharing preview scroll lines preserve GTK directions" {
+    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_sharing_preview_scroll_lines(0, 0));
+    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_sharing_preview_scroll_lines(1, 0));
+    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_sharing_preview_scroll_lines(4, -0.5));
+    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_sharing_preview_scroll_lines(4, 0.5));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(4, 0));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(2, -1));
 }
 
 fn expectCloseTransition(

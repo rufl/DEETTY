@@ -12949,18 +12949,12 @@ static gboolean on_sharing_preview_button(GtkWidget *widget,
 static gboolean on_sharing_preview_scroll(
     GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    int lines = 0;
-    if (event->direction == GDK_SCROLL_UP)
-        lines = 3;
-    else if (event->direction == GDK_SCROLL_DOWN)
-        lines = -3;
-    else if (event->direction == GDK_SCROLL_SMOOTH) {
-        double delta_x = 0.0;
-        double delta_y = 0.0;
-        if (gdk_event_get_scroll_deltas(
-                (GdkEvent *)event, &delta_x, &delta_y))
-            lines = delta_y < 0.0 ? 3 : (delta_y > 0.0 ? -3 : 0);
-    }
+    double delta_y = 0.0;
+    if (event->direction == GDK_SCROLL_SMOOTH)
+        (void)gdk_event_get_scroll_deltas(
+            (GdkEvent *)event, &(double){0.0}, &delta_y);
+    int lines = noctty_grid_sharing_preview_scroll_lines(
+        (int)event->direction, delta_y);
     if (lines == 0 ||
         noctty_grid_share_view_scroll(root->event_data, lines) != 0)
         return FALSE;
