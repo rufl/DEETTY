@@ -78,6 +78,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Restricted pane double-click zoom to empty background cells and added
   contiguous word selection for rendered text.
 
+- Moved sharing-preview Enter, Tab, Escape, arrow, and editing-key sequence
+  selection into tested Zig policy. GTK retains event-state extraction,
+  clipboard retrieval, and sharing transport.
+
 - Moved bracketed-paste begin/end marker selection into tested Zig. GTK retains
   clipboard retrieval, chunking, and sharing transport.
 

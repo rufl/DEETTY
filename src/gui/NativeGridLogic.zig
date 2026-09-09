@@ -888,6 +888,30 @@ pub export fn noctty_grid_bracketed_paste_marker(
     return @intCast(marker.len);
 }
 
+pub export fn noctty_grid_sharing_key_sequence(
+    kind: c_int,
+    application_cursor: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    const sequence = switch (kind) {
+        0 => "\r",
+        1 => "\x7f",
+        2 => "\t",
+        3 => "\x1b[Z",
+        4 => "\x1b",
+        5 => if (application_cursor != 0) "\x1bOA" else "\x1b[A",
+        6 => if (application_cursor != 0) "\x1bOB" else "\x1b[B",
+        7 => if (application_cursor != 0) "\x1bOC" else "\x1b[C",
+        8 => if (application_cursor != 0) "\x1bOD" else "\x1b[D",
+        else => return 0,
+    };
+    if (capacity < sequence.len) return 0;
+    @memcpy(target[0..sequence.len], sequence);
+    return @intCast(sequence.len);
+}
+
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2708,6 +2732,39 @@ test "bracketed paste markers preserve terminal protocol delimiters" {
     try std.testing.expectEqualStrings("\x1b[201~", output[0..]);
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(2, &output, output.len));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(0, &output, 5));
+}
+
+test "sharing key sequences preserve terminal control bytes" {
+    var output: [3]u8 = undefined;
+    const expected = [_][]const u8{
+        "\r",
+        "\x7f",
+        "\t",
+        "\x1b[Z",
+        "\x1b",
+        "\x1bOA",
+        "\x1bOB",
+        "\x1bOC",
+        "\x1bOD",
+    };
+    for (expected, 0..) |sequence, kind| {
+        const length = noctty_grid_sharing_key_sequence(
+            @intCast(kind),
+            if (kind >= 5) 1 else 0,
+            &output,
+            output.len,
+        );
+        try std.testing.expectEqual(@as(c_int, @intCast(sequence.len)), length);
+        try std.testing.expectEqualStrings(sequence, output[0..sequence.len]);
+    }
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_key_sequence(9, 0, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_key_sequence(3, 0, &output, 2),
+    );
 }
 
 test "input routing handles scrollbar overrides and invalid boundaries" {

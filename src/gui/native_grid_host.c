@@ -13059,49 +13059,41 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
 
     const uint8_t *bytes = NULL;
     size_t length = 0;
+    uint8_t special[3] = {0};
     char sequence[32];
-    static const uint8_t enter[] = {'\r'};
-    static const uint8_t backspace[] = {0x7f};
-    static const uint8_t tab[] = {'\t'};
-    static const uint8_t backtab[] = {'\x1b', '[', 'Z'};
-    static const uint8_t escape[] = {'\x1b'};
-    static const uint8_t arrows_normal[][3] = {
-        {'\x1b', '[', 'A'}, {'\x1b', '[', 'B'},
-        {'\x1b', '[', 'C'}, {'\x1b', '[', 'D'}};
-    static const uint8_t arrows_application[][3] = {
-        {'\x1b', 'O', 'A'}, {'\x1b', 'O', 'B'},
-        {'\x1b', 'O', 'C'}, {'\x1b', 'O', 'D'}};
     guint key = event->keyval;
     int modifier = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) +
                    (control ? 4 : 0);
     gboolean application_cursor =
         noctty_grid_share_view_cursor_mode(root->event_data) != 0;
+    int special_kind = -1;
     if (key == GDK_KEY_Return || key == GDK_KEY_KP_Enter) {
-        bytes = enter;
-        length = sizeof(enter);
+        special_kind = 0;
     } else if (key == GDK_KEY_BackSpace) {
-        bytes = backspace;
-        length = sizeof(backspace);
+        special_kind = 1;
     } else if (key == GDK_KEY_Tab || key == GDK_KEY_ISO_Left_Tab) {
-        bytes = shift ? backtab : tab;
-        length = shift ? sizeof(backtab) : sizeof(tab);
+        special_kind = shift ? 3 : 2;
     } else if (key == GDK_KEY_Escape) {
-        bytes = escape;
-        length = sizeof(escape);
+        special_kind = 4;
     } else if (key == GDK_KEY_Up || key == GDK_KEY_Down ||
                key == GDK_KEY_Right || key == GDK_KEY_Left) {
         int arrow = key == GDK_KEY_Up ? 0 : key == GDK_KEY_Down ? 1 :
                     key == GDK_KEY_Right ? 2 : 3;
         if (modifier == 1) {
-            bytes = application_cursor
-                ? arrows_application[arrow]
-                : arrows_normal[arrow];
-            length = 3;
+            special_kind = 5 + arrow;
         } else {
             length = (size_t)g_snprintf(
                 sequence, sizeof(sequence), "\x1b[1;%d%c",
                 modifier, "ABCD"[arrow]);
             bytes = (const uint8_t *)sequence;
+        }
+    }
+    if (special_kind >= 0) {
+        int special_length = noctty_grid_sharing_key_sequence(
+            special_kind, application_cursor, special, sizeof(special));
+        if (special_length > 0) {
+            bytes = special;
+            length = (size_t)special_length;
         }
     } else if (key == GDK_KEY_Home || key == GDK_KEY_End) {
         char final = key == GDK_KEY_Home ? 'H' : 'F';
