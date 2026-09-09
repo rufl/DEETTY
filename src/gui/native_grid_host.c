@@ -10506,11 +10506,11 @@ static void on_theme_color_changed(GtkColorButton *button, gpointer user_data) {
     if (context->text_action == NULL) return;
     GdkRGBA rgba;
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(button), &rgba);
-    guint red = (guint)CLAMP(round(rgba.red * 255.0), 0.0, 255.0);
-    guint green = (guint)CLAMP(round(rgba.green * 255.0), 0.0, 255.0);
-    guint blue = (guint)CLAMP(round(rgba.blue * 255.0), 0.0, 255.0);
-    gchar value[8];
-    g_snprintf(value, sizeof(value), "#%02x%02x%02x", red, green, blue);
+    gchar value[8] = {0};
+    if (noctty_grid_theme_color_text(
+            rgba.red, rgba.green, rgba.blue,
+            (uint8_t *)value, sizeof(value)) != 7)
+        return;
     if (context->text_action(context->text_action_data, 20, value,
                              strlen(value), "", 0, (int)control->role) != 0) {
         set_theme_color_button_from_model(button, context, control->role);

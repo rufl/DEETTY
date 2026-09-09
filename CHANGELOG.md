@@ -111,6 +111,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved sharing-preview pane selection-ID formatting into tested Zig policy.
   GTK retains combo-box updates and selection side effects.
 
+- Moved theme color-editor channel clamping, rounding, and CSS-hex formatting
+  into tested Zig policy. GTK retains color chooser interaction and settings
+  dispatch.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

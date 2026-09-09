@@ -1092,6 +1092,35 @@ pub export fn noctty_grid_sharing_pane_hit(
             normalized_y >= pane_y and normalized_y < pane_y + pane_height,
     );
 }
+
+pub export fn noctty_grid_theme_color_text(
+    red: f64,
+    green: f64,
+    blue: f64,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    if (capacity < 8 or !std.math.isFinite(red) or
+        !std.math.isFinite(green) or !std.math.isFinite(blue))
+        return 0;
+    const channel = struct {
+        fn convert(value: f64) u8 {
+            return @intCast(@as(u16, @intFromFloat(
+                std.math.clamp(@round(value * 255.0), 0.0, 255.0),
+            )));
+        }
+    }.convert;
+    const hex = "0123456789abcdef";
+    const colors = [_]u8{ channel(red), channel(green), channel(blue) };
+    target[0] = '#';
+    for (colors, 0..) |color, index| {
+        target[index * 2 + 1] = hex[color >> 4];
+        target[index * 2 + 2] = hex[color & 0x0f];
+    }
+    target[7] = 0;
+    return 7;
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -3129,6 +3158,28 @@ test "sharing pane hit testing preserves normalized half-open bounds" {
     try std.testing.expectEqual(
         @as(c_int, 0),
         noctty_grid_sharing_pane_hit(25, 25, 0, 100, 0, 0, 1_000_000, 1_000_000),
+    );
+}
+
+test "theme color text clamps channels and preserves CSS hex format" {
+    var output: [8]u8 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 7),
+        noctty_grid_theme_color_text(1.0, 0.5, 0.0, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("#ff8000", output[0..7]);
+    try std.testing.expectEqual(
+        @as(c_int, 7),
+        noctty_grid_theme_color_text(-1.0, 2.0, 0.25, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("#00ff40", output[0..7]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_theme_color_text(std.math.nan(f64), 0.0, 0.0, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_theme_color_text(0.0, 0.0, 0.0, &output, 7),
     );
 }
 

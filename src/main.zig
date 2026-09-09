@@ -28,6 +28,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_sharing_index;
     _ = NativeGridLogic.noctty_grid_sharing_index_text;
     _ = NativeGridLogic.noctty_grid_sharing_pane_hit;
+    _ = NativeGridLogic.noctty_grid_theme_color_text;
     _ = NativeGridLogic.noctty_grid_scrollbar_press_plan;
     _ = NativeGridLogic.noctty_grid_scrollbar_drag_target;
     _ = NativeGridLogic.noctty_grid_is_alt_key;
