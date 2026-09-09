@@ -85,6 +85,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved bracketed-paste begin/end marker selection into tested Zig. GTK retains
   clipboard retrieval, chunking, and sharing transport.
 
+- Moved sharing-preview Home, End, Insert, Delete, Page Up, Page Down, and
+  F1–F12 sequence formatting into tested Zig policy. GTK retains key-event
+  routing and sharing transport.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

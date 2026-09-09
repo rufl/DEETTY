@@ -912,6 +912,64 @@ pub export fn noctty_grid_sharing_key_sequence(
     return @intCast(sequence.len);
 }
 
+pub export fn noctty_grid_sharing_extended_key_sequence(
+    kind: c_int,
+    modifier: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    if (modifier < 1) return 0;
+    var buffer: [16]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    switch (kind) {
+        0, 1 => {
+            const final: u8 = if (kind == 0) 'H' else 'F';
+            if (modifier == 1) {
+                writer.print("\x1b[{c}", .{final}) catch return 0;
+            } else {
+                writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
+            }
+        },
+        2...5, 10...17 => {
+            const code: c_int = switch (kind) {
+                2 => 2,
+                3 => 3,
+                4 => 5,
+                5 => 6,
+                else => switch (kind) {
+                    10 => 15,
+                    11 => 17,
+                    12 => 18,
+                    13 => 19,
+                    14 => 20,
+                    15 => 21,
+                    16 => 23,
+                    17 => 24,
+                    else => unreachable,
+                },
+            };
+            if (modifier == 1) {
+                writer.print("\x1b[{d}~", .{code}) catch return 0;
+            } else {
+                writer.print("\x1b[{d};{d}~", .{ code, modifier }) catch return 0;
+            }
+        },
+        6...9 => {
+            const final = "PQRS"[@as(usize, @intCast(kind - 6))];
+            if (modifier == 1) {
+                writer.print("\x1bO{c}", .{final}) catch return 0;
+            } else {
+                writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
+            }
+        },
+        else => return 0,
+    }
+    const sequence = writer.buffered();
+    if (capacity < sequence.len) return 0;
+    @memcpy(target[0..sequence.len], sequence);
+    return @intCast(sequence.len);
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2783,6 +2841,7 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
             );
         }
     }
+
     try std.testing.expectEqual(
         route_application_mouse,
         noctty_grid_input_route(input_wheel, 0, -1, 0, 0, 1 << 31),
@@ -2797,6 +2856,36 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
             1,
             std.math.maxInt(u32),
         ),
+    );
+}
+test "sharing extended key sequences preserve modifier formats" {
+    var output: [16]u8 = undefined;
+    const cases = [_]struct { kind: c_int, modifier: c_int, expected: []const u8 }{
+        .{ .kind = 0, .modifier = 1, .expected = "\x1b[H" },
+        .{ .kind = 1, .modifier = 3, .expected = "\x1b[1;3F" },
+        .{ .kind = 2, .modifier = 1, .expected = "\x1b[2~" },
+        .{ .kind = 5, .modifier = 4, .expected = "\x1b[6;4~" },
+        .{ .kind = 6, .modifier = 1, .expected = "\x1bOP" },
+        .{ .kind = 9, .modifier = 5, .expected = "\x1b[1;5S" },
+        .{ .kind = 17, .modifier = 2, .expected = "\x1b[24;2~" },
+    };
+    for (cases) |case| {
+        const length = noctty_grid_sharing_extended_key_sequence(
+            case.kind,
+            case.modifier,
+            &output,
+            output.len,
+        );
+        try std.testing.expectEqual(@as(c_int, @intCast(case.expected.len)), length);
+        try std.testing.expectEqualStrings(case.expected, output[0..case.expected.len]);
+    }
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_extended_key_sequence(18, 1, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_extended_key_sequence(0, 1, &output, 2),
     );
 }
 

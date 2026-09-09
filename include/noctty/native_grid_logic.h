@@ -209,6 +209,8 @@ int noctty_grid_bracketed_paste_marker(
     int kind, unsigned char *output, size_t capacity);
 int noctty_grid_sharing_key_sequence(
     int kind, int application_cursor, unsigned char *output, size_t capacity);
+int noctty_grid_sharing_extended_key_sequence(
+    int kind, int modifier, unsigned char *output, size_t capacity);
 
 int noctty_grid_scroll_direction(int direction);
 const char *noctty_grid_tab_color_preset_name(int preset);

@@ -13059,7 +13059,7 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
 
     const uint8_t *bytes = NULL;
     size_t length = 0;
-    uint8_t special[3] = {0};
+    uint8_t special[32] = {0};
     char sequence[32];
     guint key = event->keyval;
     int modifier = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) +
@@ -13095,40 +13095,24 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
             bytes = special;
             length = (size_t)special_length;
         }
-    } else if (key == GDK_KEY_Home || key == GDK_KEY_End) {
-        char final = key == GDK_KEY_Home ? 'H' : 'F';
-        length = modifier == 1
-            ? (size_t)g_snprintf(sequence, sizeof(sequence), "\x1b[%c", final)
-            : (size_t)g_snprintf(
-                  sequence, sizeof(sequence), "\x1b[1;%d%c", modifier, final);
-        bytes = (const uint8_t *)sequence;
-    } else if (key == GDK_KEY_Insert || key == GDK_KEY_Delete ||
+    } else if (key == GDK_KEY_Home || key == GDK_KEY_End ||
+               key == GDK_KEY_Insert || key == GDK_KEY_Delete ||
                key == GDK_KEY_Page_Up || key == GDK_KEY_Page_Down ||
-               (key >= GDK_KEY_F5 && key <= GDK_KEY_F12)) {
-        int code = key == GDK_KEY_Insert ? 2 :
-                   key == GDK_KEY_Delete ? 3 :
-                   key == GDK_KEY_Page_Up ? 5 :
-                   key == GDK_KEY_Page_Down ? 6 :
-                   key == GDK_KEY_F5 ? 15 :
-                   key == GDK_KEY_F6 ? 17 :
-                   key == GDK_KEY_F7 ? 18 :
-                   key == GDK_KEY_F8 ? 19 :
-                   key == GDK_KEY_F9 ? 20 :
-                   key == GDK_KEY_F10 ? 21 :
-                   key == GDK_KEY_F11 ? 23 : 24;
-        length = modifier == 1
-            ? (size_t)g_snprintf(
-                  sequence, sizeof(sequence), "\x1b[%d~", code)
-            : (size_t)g_snprintf(
-                  sequence, sizeof(sequence), "\x1b[%d;%d~", code, modifier);
-        bytes = (const uint8_t *)sequence;
-    } else if (key >= GDK_KEY_F1 && key <= GDK_KEY_F4) {
-        char final = "PQRS"[key - GDK_KEY_F1];
-        length = modifier == 1
-            ? (size_t)g_snprintf(sequence, sizeof(sequence), "\x1bO%c", final)
-            : (size_t)g_snprintf(
-                  sequence, sizeof(sequence), "\x1b[1;%d%c", modifier, final);
-        bytes = (const uint8_t *)sequence;
+               (key >= GDK_KEY_F1 && key <= GDK_KEY_F12)) {
+        int extended_kind = key == GDK_KEY_Home ? 0 :
+                            key == GDK_KEY_End ? 1 :
+                            key == GDK_KEY_Insert ? 2 :
+                            key == GDK_KEY_Delete ? 3 :
+                            key == GDK_KEY_Page_Up ? 4 :
+                            key == GDK_KEY_Page_Down ? 5 :
+                            key <= GDK_KEY_F4 ? 6 + (int)(key - GDK_KEY_F1) :
+                            10 + (int)(key - GDK_KEY_F5);
+        int extended_length = noctty_grid_sharing_extended_key_sequence(
+            extended_kind, modifier, special, sizeof(special));
+        if (extended_length > 0) {
+            bytes = special;
+            length = (size_t)extended_length;
+        }
     } else if (event->string != NULL && event->length > 0) {
         if (alt && (size_t)event->length + 1 <= sizeof(sequence)) {
             sequence[0] = '\x1b';
