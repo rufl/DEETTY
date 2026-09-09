@@ -12929,8 +12929,10 @@ static gboolean on_sharing_preview_button(GtkWidget *widget,
             ? GTK_COMBO_BOX(g_object_get_data(
                   G_OBJECT(root->sharing_dialog), "noctty-sharing-streams"))
             : NULL;
-        char index_id[24];
-        g_snprintf(index_id, sizeof(index_id), "%d", pane_index);
+        char index_id[24] = {0};
+        if (noctty_grid_sharing_index_text(
+                pane_index, (uint8_t *)index_id, sizeof(index_id)) <= 0)
+            continue;
         if (streams != NULL &&
             gtk_combo_box_set_active_id(streams, index_id)) {
             gtk_widget_grab_focus(widget);

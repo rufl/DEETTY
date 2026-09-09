@@ -1056,6 +1056,23 @@ pub export fn noctty_grid_sharing_index(
     return @intCast(value);
 }
 
+pub export fn noctty_grid_sharing_index_text(
+    index: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    if (index < 0 or capacity == 0) return 0;
+    var buffer: [32]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    writer.print("{d}", .{index}) catch return 0;
+    const text = writer.buffered();
+    if (text.len + 1 > capacity) return 0;
+    @memcpy(target[0..text.len], text);
+    target[text.len] = 0;
+    return @intCast(text.len);
+}
+
 pub export fn noctty_grid_sharing_pane_hit(
     x: f64,
     y: f64,
@@ -3079,6 +3096,25 @@ test "sharing index parsing accepts bounded decimal identifiers" {
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("", 0));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("4x", 2));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("2147483648", 10));
+}
+
+test "sharing index text formatting stays terminated and bounded" {
+    var output: [12]u8 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_sharing_index_text(0, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("0", std.mem.span(@as([*:0]u8, @ptrCast(&output))));
+    try std.testing.expectEqual(
+        @as(c_int, 10),
+        noctty_grid_sharing_index_text(2_147_483_647, &output, output.len),
+    );
+    try std.testing.expectEqualStrings(
+        "2147483647",
+        std.mem.span(@as([*:0]u8, @ptrCast(&output))),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index_text(-1, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index_text(12, &output, 2));
 }
 
 test "sharing pane hit testing preserves normalized half-open bounds" {

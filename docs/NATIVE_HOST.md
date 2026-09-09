@@ -206,9 +206,9 @@ On Wayland, ordinary toplevel clients cannot choose absolute placement. NOCTTY d
   control stripping and bracketed-paste marker policy, and delivers it to the
   active PTY. Sharing-preview control keys, editing/function-key sequences,
   arrow sequences, paste limit/chunk sizing, scroll-direction mapping,
-  selection-index parsing, and normalized pane hit testing use Zig-owned
-  policies; Alt-prefixed text uses the same bounded Zig policy. GTK retains
-  modifier-state extraction, clipboard retrieval, chunking, and sharing
+  selection-index parsing/formatting, and normalized pane hit testing use
+  Zig-owned policies; Alt-prefixed text uses the same bounded Zig policy. GTK
+  retains modifier-state extraction, clipboard retrieval, chunking, and sharing
   transport. The common literal policy performs two bounded scans and one exact
   allocation from the owning session allocator
   (`literal_paste_single_pass=true`, `paste_session_allocator=true`).
