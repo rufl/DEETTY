@@ -1038,6 +1038,23 @@ pub export fn noctty_grid_sharing_preview_scroll_lines(
         else => 0,
     };
 }
+
+pub export fn noctty_grid_sharing_index(
+    text: ?[*]const u8,
+    length: usize,
+) callconv(.c) c_int {
+    const bytes = text orelse return -1;
+    if (length == 0) return -1;
+    var value: usize = 0;
+    const maximum: usize = @intCast(std.math.maxInt(c_int));
+    for (bytes[0..length]) |byte| {
+        if (byte < '0' or byte > '9') return -1;
+        const digit = byte - '0';
+        if (value > (maximum - digit) / 10) return -1;
+        value = value * 10 + digit;
+    }
+    return @intCast(value);
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -3029,6 +3046,19 @@ test "sharing preview scroll lines preserve GTK directions" {
     try std.testing.expectEqual(@as(c_int, -3), noctty_grid_sharing_preview_scroll_lines(4, 0.5));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(4, 0));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(2, -1));
+}
+
+test "sharing index parsing accepts bounded decimal identifiers" {
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index("0", 1));
+    try std.testing.expectEqual(@as(c_int, 42), noctty_grid_sharing_index("42", 2));
+    try std.testing.expectEqual(
+        std.math.maxInt(c_int),
+        noctty_grid_sharing_index("2147483647", 10),
+    );
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index(null, 1));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("", 0));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("4x", 2));
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("2147483648", 10));
 }
 
 fn expectCloseTransition(

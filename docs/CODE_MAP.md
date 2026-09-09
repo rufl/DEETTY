@@ -49,8 +49,9 @@ zig build run-nocted -- --open README.md
   and roles, fuzzy matching, responsive dropdown dimension/percentage
   conversion, sharing-status actions, bracketed-paste markers, sharing-preview
   control-key sequences, text-prefix buffering, arrow-sequence formatting,
-  paste-limit/chunk sizing, sharing-preview scroll-direction mapping, terminal
-  font/cell metric conversion, grid sizing/auto-fit, window-resize deltas/bounds,
+  paste-limit/chunk sizing, sharing-preview scroll-direction mapping, decimal
+  selection-index parsing, terminal font/cell metric conversion, grid
+  sizing/auto-fit, window-resize deltas/bounds,
   pointer-to-cell mapping, linear selection hit testing, pixel-snapped render
   and dirty row/cell damage spans, packed-cell/run decoding, UTF-8 encoding,
   clipping, pane chrome, and caret policy consumed through

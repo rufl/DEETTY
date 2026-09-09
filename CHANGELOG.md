@@ -102,6 +102,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved sharing-preview wheel direction and smooth-delta mapping into tested
   Zig policy. GTK retains event extraction and redraw scheduling.
 
+- Moved sharing peer and stream selection-ID decimal parsing into tested Zig
+  policy. GTK retains combo-box state and selection side effects.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

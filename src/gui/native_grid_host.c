@@ -13171,12 +13171,10 @@ static int sharing_selected_peer_index(GtkComboBox *combo) {
     const char *active_id = combo != NULL
         ? gtk_combo_box_get_active_id(combo)
         : NULL;
-    if (active_id == NULL) return -1;
-    char *end = NULL;
-    gint64 parsed = g_ascii_strtoll(active_id, &end, 10);
-    if (end == active_id || *end != '\0' || parsed < 0 || parsed > G_MAXINT)
-        return -1;
-    return (int)parsed;
+    return active_id == NULL
+        ? -1
+        : noctty_grid_sharing_index(
+              (const uint8_t *)active_id, strlen(active_id));
 }
 
 static void refresh_sharing_streams(NocttyGridContext *context);
@@ -13188,11 +13186,10 @@ static void on_sharing_stream_changed(GtkComboBox *combo, gpointer user_data) {
         return;
     const char *active_id = gtk_combo_box_get_active_id(combo);
     if (active_id == NULL) return;
-    char *end = NULL;
-    gint64 parsed = g_ascii_strtoll(active_id, &end, 10);
-    if (end == active_id || *end != '\0' || parsed < 0 || parsed > G_MAXINT)
-        return;
-    if (noctty_grid_share_view_select(root->event_data, (int)parsed) == 0 &&
+    int parsed = noctty_grid_sharing_index(
+        (const uint8_t *)active_id, strlen(active_id));
+    if (parsed < 0) return;
+    if (noctty_grid_share_view_select(root->event_data, parsed) == 0 &&
         root->sharing_dialog != NULL) {
         GtkWidget *preview = g_object_get_data(
             G_OBJECT(root->sharing_dialog), "noctty-sharing-preview");
