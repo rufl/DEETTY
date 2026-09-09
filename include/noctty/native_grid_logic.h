@@ -217,6 +217,8 @@ int noctty_grid_sharing_text_sequence(
 int noctty_grid_sharing_arrow_sequence(
     int arrow, int modifier, int application_cursor,
     unsigned char *output, size_t capacity);
+int noctty_grid_sharing_paste_allowed(size_t length);
+size_t noctty_grid_sharing_paste_chunk_size(size_t remaining);
 
 int noctty_grid_scroll_direction(int direction);
 const char *noctty_grid_tab_color_preset_name(int preset);

@@ -12976,7 +12976,6 @@ static gboolean send_sharing_input(
            (int)length;
 }
 
-#define NOCTTY_SHARING_PASTE_MAX_BYTES (64u * 1024u)
 
 static void set_sharing_transient_feedback(
     NocttyGridContext *root, const char *text, gboolean is_error) {
@@ -12997,7 +12996,7 @@ static void on_sharing_clipboard_text(
     if (root->sharing_dialog == NULL || text == NULL || text[0] == '\0')
         return;
     const size_t text_length = strlen(text);
-    if (text_length > NOCTTY_SHARING_PASTE_MAX_BYTES) {
+    if (noctty_grid_sharing_paste_allowed(text_length) == 0) {
         set_sharing_transient_feedback(
             root,
             "Paste was not sent because it exceeds the 64 KiB sharing limit.",
@@ -13022,7 +13021,7 @@ static void on_sharing_clipboard_text(
     const uint8_t *next = (const uint8_t *)text;
     size_t remaining = text_length;
     while (sent && remaining > 0) {
-        size_t count = remaining > 16u * 1024u ? 16u * 1024u : remaining;
+        size_t count = noctty_grid_sharing_paste_chunk_size(remaining);
         sent = send_sharing_input(root, next, count);
         next += count;
         remaining -= count;

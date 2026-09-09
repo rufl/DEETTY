@@ -96,6 +96,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   including modifier variants, into tested Zig policy. GTK retains key routing
   and sharing transport.
 
+- Moved sharing paste-size validation and 16 KiB chunk sizing into tested Zig
+  policy. GTK retains clipboard retrieval, chunk transport, and feedback.
+
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
   instead of opening a modal dialog.

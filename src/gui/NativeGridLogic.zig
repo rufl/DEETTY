@@ -1018,6 +1018,14 @@ pub export fn noctty_grid_sharing_text_sequence(
     @memcpy(target[prefix_length .. prefix_length + length], source[0..length]);
     return @intCast(prefix_length + length);
 }
+
+pub export fn noctty_grid_sharing_paste_allowed(length: usize) callconv(.c) c_int {
+    return @intFromBool(length <= 64 * 1024);
+}
+
+pub export fn noctty_grid_sharing_paste_chunk_size(remaining: usize) usize {
+    return @min(remaining, 16 * 1024);
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2992,6 +3000,14 @@ test "sharing arrow sequences preserve cursor modes and modifiers" {
         @as(c_int, 0),
         noctty_grid_sharing_arrow_sequence(0, 1, 0, &output, 2),
     );
+}
+
+test "sharing paste limits and chunks preserve bounded transport" {
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_sharing_paste_allowed(64 * 1024));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_paste_allowed(64 * 1024 + 1));
+    try std.testing.expectEqual(@as(usize, 16 * 1024), noctty_grid_sharing_paste_chunk_size(64 * 1024));
+    try std.testing.expectEqual(@as(usize, 7), noctty_grid_sharing_paste_chunk_size(7));
+    try std.testing.expectEqual(@as(usize, 0), noctty_grid_sharing_paste_chunk_size(0));
 }
 
 fn expectCloseTransition(
