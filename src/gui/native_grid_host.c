@@ -13004,14 +13004,19 @@ static void on_sharing_clipboard_text(
             TRUE);
         return;
     }
-    static const uint8_t begin[] = "\x1b[200~";
-    static const uint8_t end[] = "\x1b[201~";
+    uint8_t begin[6] = {0};
+    uint8_t end[6] = {0};
+    int begin_length = noctty_grid_bracketed_paste_marker(
+        0, begin, sizeof(begin));
+    int end_length = noctty_grid_bracketed_paste_marker(
+        1, end, sizeof(end));
     gboolean bracketed =
         noctty_grid_share_view_bracketed_paste(root->event_data) != 0;
     gboolean began_bracketed_paste = FALSE;
     gboolean sent = TRUE;
     if (bracketed) {
-        sent = send_sharing_input(root, begin, sizeof(begin) - 1);
+        sent = begin_length > 0 &&
+            send_sharing_input(root, begin, (size_t)begin_length);
         began_bracketed_paste = sent;
     }
     const uint8_t *next = (const uint8_t *)text;
@@ -13025,7 +13030,8 @@ static void on_sharing_clipboard_text(
     // If a chunk failed after bracketed paste began, still make a best-effort
     // attempt to leave the remote terminal's bracketed-paste mode.
     if (began_bracketed_paste &&
-        !send_sharing_input(root, end, sizeof(end) - 1))
+        (end_length <= 0 ||
+         !send_sharing_input(root, end, (size_t)end_length)))
         sent = FALSE;
     if (!sent)
         set_sharing_transient_feedback(

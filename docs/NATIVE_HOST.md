@@ -202,7 +202,11 @@ On Wayland, ordinary toplevel clients cannot choose absolute placement. NOCTTY d
 
 ## GUI Services
 
-- Ctrl+Shift+V reads GTK clipboard data asynchronously, sends it through Zig control stripping and bracketed-paste policy, and delivers it to the active PTY. The common literal policy performs two bounded scans and one exact allocation from the owning session allocator (`literal_paste_single_pass=true`, `paste_session_allocator=true`).
+- Ctrl+Shift+V reads GTK clipboard data asynchronously, sends it through Zig
+  control stripping and bracketed-paste marker policy, and delivers it to the
+  active PTY. The common literal policy performs two bounded scans and one
+  exact allocation from the owning session allocator
+  (`literal_paste_single_pass=true`, `paste_session_allocator=true`).
 - Pane state updates a thin status border and tooltip; the tooltip includes current tags when present, is stack-formatted, and skips repeated GTK setter calls when unchanged (`pane_tooltip_dedup=true`). Configured process completion sends `org.freedesktop.Notifications.Notify`.
 - Settings controls dispatch typed Zig commands and atomically persist mode, drop-down geometry/reveal/focus behavior, global shortcut, tab position, font, theme, status, metrics, notifications, and the `Active pane profile`. Plasma captures re-register live; Noctalia captures update the generated compositor plan. Tab placement, drop-down sizing, and exact-pane profile changes apply immediately and restore during host startup.
 - Theme Library file selection routes Ghostty, Xresources, and simple Alacritty text into Zig parsing/install/select state.

@@ -872,6 +872,22 @@ pub export fn noctty_grid_sharing_status_actions(status: c_int) callconv(.c) u32
     return actions;
 }
 
+pub export fn noctty_grid_bracketed_paste_marker(
+    kind: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    const marker = switch (kind) {
+        0 => "\x1b[200~",
+        1 => "\x1b[201~",
+        else => return 0,
+    };
+    if (capacity < marker.len) return 0;
+    @memcpy(target[0..marker.len], marker);
+    return @intCast(marker.len);
+}
+
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2676,6 +2692,22 @@ test "sharing status actions cover only explicit protocol states" {
             @as(u32, 0),
             noctty_grid_sharing_status_actions(status),
         );
+}
+
+test "bracketed paste markers preserve terminal protocol delimiters" {
+    var output: [6]u8 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 6),
+        noctty_grid_bracketed_paste_marker(0, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("\x1b[200~", output[0..]);
+    try std.testing.expectEqual(
+        @as(c_int, 6),
+        noctty_grid_bracketed_paste_marker(1, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("\x1b[201~", output[0..]);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(2, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(0, &output, 5));
 }
 
 test "input routing handles scrollbar overrides and invalid boundaries" {
