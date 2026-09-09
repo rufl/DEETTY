@@ -48,7 +48,8 @@ zig build run-nocted -- --open README.md
   command-palette action IDs, labels, and hints, workspace color-editor labels
   and roles, fuzzy matching, responsive dropdown dimension/percentage
   conversion, sharing-status actions, bracketed-paste markers, sharing-preview
-  control-key sequences, terminal font/cell metric conversion,
+  control-key sequences, text-prefix handling, terminal font/cell metric
+  conversion,
   grid sizing/auto-fit, window-resize deltas/bounds, pointer-to-cell mapping,
   linear selection hit testing, pixel-snapped render and dirty row/cell damage
   spans, packed-cell/run decoding, UTF-8 encoding, clipping, pane chrome, and

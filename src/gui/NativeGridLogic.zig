@@ -970,6 +970,23 @@ pub export fn noctty_grid_sharing_extended_key_sequence(
     @memcpy(target[0..sequence.len], sequence);
     return @intCast(sequence.len);
 }
+pub export fn noctty_grid_sharing_text_sequence(
+    alt: c_int,
+    input: ?[*]const u8,
+    length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const source = input orelse return 0;
+    const target = output orelse return 0;
+    const prefix_length: usize = if (alt != 0) 1 else 0;
+    if (length == 0 or length > std.math.maxInt(usize) - prefix_length or
+        capacity < prefix_length + length)
+        return 0;
+    if (prefix_length != 0) target[0] = 0x1b;
+    @memcpy(target[prefix_length .. prefix_length + length], source[0..length]);
+    return @intCast(prefix_length + length);
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2886,6 +2903,29 @@ test "sharing extended key sequences preserve modifier formats" {
     try std.testing.expectEqual(
         @as(c_int, 0),
         noctty_grid_sharing_extended_key_sequence(0, 1, &output, 2),
+    );
+}
+
+test "sharing text sequences add bounded Alt prefixes" {
+    const input = "xy";
+    var output: [3]u8 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 2),
+        noctty_grid_sharing_text_sequence(0, input, input.len, &output, output.len),
+    );
+    try std.testing.expectEqualStrings(input, output[0..2]);
+    try std.testing.expectEqual(
+        @as(c_int, 3),
+        noctty_grid_sharing_text_sequence(1, input, input.len, &output, output.len),
+    );
+    try std.testing.expectEqualStrings("\x1bxy", output[0..3]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_text_sequence(1, input, input.len, &output, 2),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_text_sequence(0, null, input.len, &output, output.len),
     );
 }
 

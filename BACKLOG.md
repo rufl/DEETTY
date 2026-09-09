@@ -147,8 +147,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   pixel-snapped row/cell
   damage spans, Paseo Black Zinc theme colors, compact tab/new-tab/window-
   toolbar construction, bracketed-paste markers, sharing-preview control-key
-  and editing/function-key sequences, and the Cairo/Pango cell, glyph, overlay,
-  scrollbar, and sharing preview pipeline to Zig.
+  and editing/function-key sequences, text-prefix buffering, and the Cairo/Pango
+  cell, glyph, overlay, scrollbar, and sharing preview pipeline to Zig.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

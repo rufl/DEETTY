@@ -13114,14 +13114,15 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
             length = (size_t)extended_length;
         }
     } else if (event->string != NULL && event->length > 0) {
-        if (alt && (size_t)event->length + 1 <= sizeof(sequence)) {
-            sequence[0] = '\x1b';
-            memcpy(sequence + 1, event->string, (size_t)event->length);
-            bytes = (const uint8_t *)sequence;
-            length = (size_t)event->length + 1;
-        } else {
-            bytes = (const uint8_t *)event->string;
-            length = (size_t)event->length;
+        int text_length = noctty_grid_sharing_text_sequence(
+            alt,
+            (const uint8_t *)event->string,
+            (size_t)event->length,
+            special,
+            sizeof(special));
+        if (text_length > 0) {
+            bytes = special;
+            length = (size_t)text_length;
         }
     }
     if (bytes == NULL || length == 0) return FALSE;
