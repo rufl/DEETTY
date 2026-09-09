@@ -13060,7 +13060,6 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
     const uint8_t *bytes = NULL;
     size_t length = 0;
     uint8_t special[32] = {0};
-    char sequence[32];
     guint key = event->keyval;
     int modifier = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) +
                    (control ? 4 : 0);
@@ -13079,13 +13078,11 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
                key == GDK_KEY_Right || key == GDK_KEY_Left) {
         int arrow = key == GDK_KEY_Up ? 0 : key == GDK_KEY_Down ? 1 :
                     key == GDK_KEY_Right ? 2 : 3;
-        if (modifier == 1) {
-            special_kind = 5 + arrow;
-        } else {
-            length = (size_t)g_snprintf(
-                sequence, sizeof(sequence), "\x1b[1;%d%c",
-                modifier, "ABCD"[arrow]);
-            bytes = (const uint8_t *)sequence;
+        int arrow_length = noctty_grid_sharing_arrow_sequence(
+            arrow, modifier, application_cursor, special, sizeof(special));
+        if (arrow_length > 0) {
+            bytes = special;
+            length = (size_t)arrow_length;
         }
     }
     if (special_kind >= 0) {

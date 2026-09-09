@@ -912,6 +912,37 @@ pub export fn noctty_grid_sharing_key_sequence(
     return @intCast(sequence.len);
 }
 
+pub export fn noctty_grid_sharing_arrow_sequence(
+    arrow: c_int,
+    modifier: c_int,
+    application_cursor: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    if (arrow < 0 or arrow > 3 or modifier < 1) return 0;
+    const final = "ABCD"[@as(usize, @intCast(arrow))];
+    var buffer: [8]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    if (modifier == 1) {
+        const sequence = switch (arrow) {
+            0 => if (application_cursor != 0) "\x1bOA" else "\x1b[A",
+            1 => if (application_cursor != 0) "\x1bOB" else "\x1b[B",
+            2 => if (application_cursor != 0) "\x1bOC" else "\x1b[C",
+            3 => if (application_cursor != 0) "\x1bOD" else "\x1b[D",
+            else => unreachable,
+        };
+        if (capacity < sequence.len) return 0;
+        @memcpy(target[0..sequence.len], sequence);
+        return @intCast(sequence.len);
+    }
+    writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
+    const sequence = writer.buffered();
+    if (capacity < sequence.len) return 0;
+    @memcpy(target[0..sequence.len], sequence);
+    return @intCast(sequence.len);
+}
+
 pub export fn noctty_grid_sharing_extended_key_sequence(
     kind: c_int,
     modifier: c_int,
@@ -2926,6 +2957,40 @@ test "sharing text sequences add bounded Alt prefixes" {
     try std.testing.expectEqual(
         @as(c_int, 0),
         noctty_grid_sharing_text_sequence(0, null, input.len, &output, output.len),
+    );
+}
+
+test "sharing arrow sequences preserve cursor modes and modifiers" {
+    var output: [8]u8 = undefined;
+    const cases = [_]struct {
+        arrow: c_int,
+        modifier: c_int,
+        application_cursor: c_int,
+        expected: []const u8,
+    }{
+        .{ .arrow = 0, .modifier = 1, .application_cursor = 0, .expected = "\x1b[A" },
+        .{ .arrow = 1, .modifier = 1, .application_cursor = 1, .expected = "\x1bOB" },
+        .{ .arrow = 2, .modifier = 6, .application_cursor = 0, .expected = "\x1b[1;6C" },
+        .{ .arrow = 3, .modifier = 2, .application_cursor = 1, .expected = "\x1b[1;2D" },
+    };
+    for (cases) |case| {
+        const length = noctty_grid_sharing_arrow_sequence(
+            case.arrow,
+            case.modifier,
+            case.application_cursor,
+            &output,
+            output.len,
+        );
+        try std.testing.expectEqual(@as(c_int, @intCast(case.expected.len)), length);
+        try std.testing.expectEqualStrings(case.expected, output[0..case.expected.len]);
+    }
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_arrow_sequence(-1, 1, 0, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_arrow_sequence(0, 1, 0, &output, 2),
     );
 }
 

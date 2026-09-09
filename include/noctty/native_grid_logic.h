@@ -214,6 +214,9 @@ int noctty_grid_sharing_extended_key_sequence(
 int noctty_grid_sharing_text_sequence(
     int alt, const unsigned char *input, size_t length,
     unsigned char *output, size_t capacity);
+int noctty_grid_sharing_arrow_sequence(
+    int arrow, int modifier, int application_cursor,
+    unsigned char *output, size_t capacity);
 
 int noctty_grid_scroll_direction(int direction);
 const char *noctty_grid_tab_color_preset_name(int preset);
