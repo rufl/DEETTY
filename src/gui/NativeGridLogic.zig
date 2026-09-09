@@ -1055,6 +1055,26 @@ pub export fn noctty_grid_sharing_index(
     }
     return @intCast(value);
 }
+
+pub export fn noctty_grid_sharing_pane_hit(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    pane_x: f64,
+    pane_y: f64,
+    pane_width: f64,
+    pane_height: f64,
+) callconv(.c) c_int {
+    if (width <= 0.0 or height <= 0.0 or pane_width <= 0.0 or pane_height <= 0.0)
+        return 0;
+    const normalized_x = x * 1_000_000.0 / width;
+    const normalized_y = y * 1_000_000.0 / height;
+    return @intFromBool(
+        normalized_x >= pane_x and normalized_x < pane_x + pane_width and
+            normalized_y >= pane_y and normalized_y < pane_y + pane_height,
+    );
+}
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -3059,6 +3079,21 @@ test "sharing index parsing accepts bounded decimal identifiers" {
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("", 0));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("4x", 2));
     try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("2147483648", 10));
+}
+
+test "sharing pane hit testing preserves normalized half-open bounds" {
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_sharing_pane_hit(25, 25, 100, 100, 0, 0, 500_000, 1_000_000),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_pane_hit(50, 25, 100, 100, 0, 0, 500_000, 1_000_000),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_pane_hit(25, 25, 0, 100, 0, 0, 1_000_000, 1_000_000),
+    );
 }
 
 fn expectCloseTransition(

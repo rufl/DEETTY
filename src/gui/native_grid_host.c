@@ -12909,8 +12909,6 @@ static gboolean on_sharing_preview_button(GtkWidget *widget,
         root->event_data, -1, NULL, 0, &pane_id, &tab_id, &ignored);
     if (event->button != GDK_BUTTON_PRIMARY || width <= 0 || height <= 0)
         return FALSE;
-    double x_position = event->x * 1000000.0 / (double)width;
-    double y_position = event->y * 1000000.0 / (double)height;
     for (int pane_index = 0; pane_index < count; pane_index++) {
         uint32_t x = 0;
         uint32_t y = 0;
@@ -12922,10 +12920,10 @@ static gboolean on_sharing_preview_button(GtkWidget *widget,
                 root->event_data, pane_index, &x, &y, &pane_width,
                 &pane_height, &selected, &host_active) <= 0)
             continue;
-        if (x_position < (double)x ||
-            x_position >= (double)x + (double)pane_width ||
-            y_position < (double)y ||
-            y_position >= (double)y + (double)pane_height)
+        if (noctty_grid_sharing_pane_hit(
+                event->x, event->y, width, height,
+                (double)x, (double)y, (double)pane_width,
+                (double)pane_height) == 0)
             continue;
         GtkComboBox *streams = root->sharing_dialog != NULL
             ? GTK_COMBO_BOX(g_object_get_data(
