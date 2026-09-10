@@ -1768,7 +1768,12 @@ static void apply_terminal_control(NocttyGridContext *context,
 }
 
 static void clear_grid_screen(NocttyGridContext *context) {
-    apply_terminal_control(context, "\x1b[2J\x1b[H", 7);
+    if (context->write == NULL ||
+        context->write(context->userdata, "\x0c", 1) != 1) {
+        show_status_feedback(context, "Could not send Ctrl+L to the terminal.");
+        return;
+    }
+    schedule_grid_write_flush(context);
 }
 
 static void clear_grid_scrollback(NocttyGridContext *context) {
