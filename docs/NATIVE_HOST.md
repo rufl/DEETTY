@@ -218,8 +218,9 @@ On Wayland, ordinary toplevel clients cannot choose absolute placement. NOCTTY d
   theme, status, metrics, notifications, and the `Active pane profile`. Plasma
   captures re-register live; Noctalia captures update the generated compositor
   plan. Tab placement, drop-down sizing, and exact-pane profile changes apply
-  immediately and restore during host startup; theme color-editor values use
-  Zig-owned clamped CSS-hex formatting before the typed settings action.
+  immediately and restore during host startup; theme color-editor RGB-channel
+  extraction and clamped CSS-hex formatting use Zig-owned policy before the
+  typed settings action.
 - Theme Library file selection routes Ghostty, Xresources, and simple Alacritty text into Zig parsing/install/select state.
 - Project / NoctEd routes workspace file choosers into Zig snapshots and starts standalone NoctEd at the selected pane directory. Opening this GUI performs the bounded project refresh; terminal-only sessions do not repeatedly launch background git subprocesses. Project scans prune generated/vendor directories, check the file-entry cap before path duplication (`project_scan_pruned=true`), and check git status/graph caps before cloning overflow rows (`git_parse_cap_before_alloc=true`).
 - A root-owned GLib timer executes due autosave and recovery cleanup, and records lightweight deferred project-refresh receipts until the Project / NoctEd GUI requests fresh data.

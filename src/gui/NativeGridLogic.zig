@@ -1093,6 +1093,17 @@ pub export fn noctty_grid_sharing_pane_hit(
     );
 }
 
+pub export fn noctty_grid_theme_color_channel(rgb: u32, channel: c_int) f64 {
+    if (channel < 0 or channel > 2) return 0.0;
+    const shift: u5 = switch (channel) {
+        0 => 16,
+        1 => 8,
+        2 => 0,
+        else => unreachable,
+    };
+    return @as(f64, @floatFromInt((rgb >> shift) & 0xff)) / 255.0;
+}
+
 pub export fn noctty_grid_theme_color_text(
     red: f64,
     green: f64,
@@ -3159,6 +3170,12 @@ test "sharing pane hit testing preserves normalized half-open bounds" {
         @as(c_int, 0),
         noctty_grid_sharing_pane_hit(25, 25, 0, 100, 0, 0, 1_000_000, 1_000_000),
     );
+}
+
+test "theme color channels decode RGB model values" {
+    try std.testing.expectEqual(@as(f64, 1.0), noctty_grid_theme_color_channel(0xff0000, 0));
+    try std.testing.expectEqual(@as(f64, 128.0 / 255.0), noctty_grid_theme_color_channel(0x008000, 1));
+    try std.testing.expectEqual(@as(f64, 0.0), noctty_grid_theme_color_channel(0x0000ff, 3));
 }
 
 test "theme color text clamps channels and preserves CSS hex format" {

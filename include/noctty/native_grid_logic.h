@@ -226,6 +226,7 @@ int noctty_grid_sharing_index_text(
 int noctty_grid_theme_color_text(
     double red, double green, double blue,
     unsigned char *output, size_t capacity);
+double noctty_grid_theme_color_channel(uint32_t rgb, int channel);
 int noctty_grid_sharing_pane_hit(
     double x, double y, double width, double height,
     double pane_x, double pane_y, double pane_width, double pane_height);

@@ -150,8 +150,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and editing/function-key sequences, text-prefix buffering, arrow-sequence
   formatting, paste-limit/chunk sizing, sharing-preview scroll mapping,
   selection-index parsing/formatting, normalized pane hit testing, theme-color
-  clamping/rounding/hex formatting, and the Cairo/Pango cell, glyph, overlay,
-  scrollbar, and sharing preview pipeline to Zig.
+  channel extraction/clamping/rounding/hex formatting, and the Cairo/Pango
+  cell, glyph, overlay, scrollbar, and sharing preview pipeline to Zig.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

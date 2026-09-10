@@ -10486,9 +10486,9 @@ static void set_theme_color_button_from_model(GtkColorButton *button,
         ? context->ui_color_rgb(context->event_data, role) : UINT32_MAX;
     if (rgb == UINT32_MAX) rgb = 0x000000;
     GdkRGBA rgba = {
-        .red = ((rgb >> 16) & 0xff) / 255.0,
-        .green = ((rgb >> 8) & 0xff) / 255.0,
-        .blue = (rgb & 0xff) / 255.0,
+        .red = noctty_grid_theme_color_channel(rgb, 0),
+        .green = noctty_grid_theme_color_channel(rgb, 1),
+        .blue = noctty_grid_theme_color_channel(rgb, 2),
         .alpha = 1.0,
     };
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(button), &rgba);

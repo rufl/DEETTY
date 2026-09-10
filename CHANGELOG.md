@@ -113,7 +113,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 - Moved theme color-editor channel clamping, rounding, and CSS-hex formatting
   into tested Zig policy. GTK retains color chooser interaction and settings
-  dispatch.
+  dispatch; RGB-channel extraction now shares the same Zig boundary.
 
 - Kept Windows NoctEd `--self-test` failures non-interactive: session-path and
   document failures now report their error names to stderr and exit nonzero
