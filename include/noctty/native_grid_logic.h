@@ -201,6 +201,13 @@ int noctty_grid_dialog_dimension(
     int available_px, int maximum_px, int minimum_px, int margin_px);
 int noctty_grid_percent_dimension(
     int available_px, int percent, int minimum_px);
+int noctty_grid_scroll_target_delta(
+    uint64_t history_lines, uint64_t viewport_offset, uint64_t target_offset);
+int noctty_grid_tab_title_width(int title_length);
+uint64_t noctty_grid_search_display_ordinal(
+    uint64_t ordinal, int matches);
+int noctty_grid_selection_end(int length);
+int noctty_grid_partition_size(int total, int parts);
 
 enum {
     NOCTTY_GRID_SHARING_ALLOW_PAIRING = 1u << 0,

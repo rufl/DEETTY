@@ -17,6 +17,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved repeated fullscreen and dialog workarea sizing clamps into tested
   native-grid Zig geometry policy.
 
+- Moved bounded scroll deltas, tab title widths, search ordinals, selection
+  spans, and restored grid partition sizing into tested native-grid Zig policy.
+
 - Made dropdown and fullscreen geometry follow live monitor changes. Manual
   dropdown resizes now persist as monitor-relative percentages, legacy pixel
   sizes migrate on use, hidden windows adapt before reveal, and fullscreen

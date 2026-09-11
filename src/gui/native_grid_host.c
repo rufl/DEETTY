@@ -1271,11 +1271,9 @@ static gboolean scroll_terminal_to_offset(
     if (!terminal_scrollbar_geometry(context, allocation, &geometry))
         return FALSE;
 
-    target_offset = MIN(target_offset, geometry.history_lines);
-    int64_t delta = (int64_t)target_offset -
-        (int64_t)geometry.viewport_offset;
-    if (delta == 0) return FALSE;
-    int lines = (int)CLAMP(delta, (int64_t)G_MININT, (int64_t)G_MAXINT);
+    int lines = noctty_grid_scroll_target_delta(
+        geometry.history_lines, geometry.viewport_offset, target_offset);
+    if (lines == 0) return FALSE;
     if (!scroll_terminal_by_lines(context, lines)) return FALSE;
     gtk_widget_queue_draw(context->area);
     return TRUE;
@@ -5200,9 +5198,9 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     gtk_entry_set_has_frame(GTK_ENTRY(entry), FALSE);
     gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
     gtk_entry_set_max_length(GTK_ENTRY(entry), 128);
-    gtk_entry_set_width_chars(GTK_ENTRY(entry), CLAMP(title_length, 4, 24));
+    gtk_entry_set_width_chars(
+        GTK_ENTRY(entry), noctty_grid_tab_title_width(title_length));
     gtk_entry_set_max_width_chars(GTK_ENTRY(entry), 24);
-    set_widget_accessible_name(entry, "Rename terminal tab");
     gtk_widget_set_size_request(entry, -1, MAX(12, root->compact_tab_height));
     gtk_style_context_add_class(gtk_widget_get_style_context(entry), "flat");
     gtk_style_context_add_class(gtk_widget_get_style_context(entry),
@@ -8302,8 +8300,8 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
             ordered[index]->retiring || ordered[index]->exited) {
             ordered[index] = restore_grid_context(
                 context, pane_ids[index],
-                MAX(2, context->columns / (int)cols),
-                MAX(2, context->rows / (int)rows));
+                noctty_grid_partition_size(context->columns, (int)cols),
+                noctty_grid_partition_size(context->rows, (int)rows));
             if (ordered[index] != NULL) {
                 ordered[index]->page = page;
                 ordered[index]->tab_label = context->tab_label;
@@ -12263,14 +12261,16 @@ static void apply_terminal_find(NocttyGridContext *root) {
                                  &matches);
     if (found == 1) {
         target->selection_start_column = column;
-        target->selection_end_column = column + MAX(0, length - 1);
+        target->selection_end_column =
+            column + noctty_grid_selection_end(length);
         target->selection_start_row = row;
         target->selection_end_row = row;
         target->selection_dragging = 0;
         target->selecting = 1;
         char status[96];
         g_snprintf(status, sizeof(status), "%zu / %d  ·  Enter for previous",
-                   root->find_ordinal % (size_t)MAX(1, matches) + 1,
+                   noctty_grid_search_display_ordinal(
+                       root->find_ordinal, matches),
                    matches);
         gtk_label_set_text(GTK_LABEL(root->find_status), status);
     } else {

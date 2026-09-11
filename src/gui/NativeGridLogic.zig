@@ -868,6 +868,41 @@ pub export fn noctty_grid_percent_dimension(
     ));
 }
 
+pub export fn noctty_grid_scroll_target_delta(
+    history_lines: u64,
+    viewport_offset: u64,
+    target_offset: u64,
+) callconv(.c) c_int {
+    const history = history_lines;
+    const viewport = @min(viewport_offset, history);
+    const target = @min(target_offset, history);
+    if (target >= viewport) {
+        return std.math.cast(c_int, target - viewport) orelse std.math.maxInt(c_int);
+    }
+    return -(std.math.cast(c_int, viewport - target) orelse std.math.maxInt(c_int));
+}
+
+pub export fn noctty_grid_tab_title_width(title_length: c_int) callconv(.c) c_int {
+    return std.math.clamp(title_length, 4, 24);
+}
+
+pub export fn noctty_grid_search_display_ordinal(
+    ordinal: u64,
+    matches: c_int,
+) callconv(.c) u64 {
+    const count: u64 = @intCast(@max(matches, 1));
+    return ordinal % count + 1;
+}
+
+pub export fn noctty_grid_selection_end(length: c_int) callconv(.c) c_int {
+    return @max(0, length - 1);
+}
+
+pub export fn noctty_grid_partition_size(total: c_int, parts: c_int) callconv(.c) c_int {
+    if (parts <= 0) return 2;
+    return @max(2, @divTrunc(total, parts));
+}
+
 pub export fn noctty_grid_dropdown_percent(
     pixels: c_int,
     available_px: c_int,
@@ -2987,6 +3022,51 @@ test "manual dropdown pixels become responsive percentages" {
     try std.testing.expectEqual(@as(c_int, 96), noctty_grid_dropdown_percent(1200, 900, 96));
     try std.testing.expectEqual(@as(c_int, 55), noctty_grid_dropdown_percent(0, 900, 55));
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dropdown_percent(0, 0, 0));
+}
+
+test "bounded host policies preserve scroll and UI ordinal edges" {
+    try std.testing.expectEqual(
+        @as(c_int, 7),
+        noctty_grid_scroll_target_delta(100, 40, 47),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, -40),
+        noctty_grid_scroll_target_delta(100, 40, 0),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 60),
+        noctty_grid_scroll_target_delta(100, 40, 120),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 4),
+        noctty_grid_tab_title_width(0),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 24),
+        noctty_grid_tab_title_width(100),
+    );
+    try std.testing.expectEqual(
+        @as(u64, 1),
+        noctty_grid_search_display_ordinal(2, 0),
+    );
+    try std.testing.expectEqual(
+        @as(u64, 2),
+        noctty_grid_search_display_ordinal(7, 3),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_selection_end(-1));
+    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_selection_end(5));
+    try std.testing.expectEqual(
+        @as(c_int, 2),
+        noctty_grid_partition_size(1, 4),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 5),
+        noctty_grid_partition_size(20, 4),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 2),
+        noctty_grid_partition_size(20, 0),
+    );
 }
 
 test "dialog and percent dimensions preserve bounded workarea geometry" {
