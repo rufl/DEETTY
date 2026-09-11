@@ -1132,6 +1132,55 @@ pub export fn noctty_grid_theme_color_text(
     target[7] = 0;
     return 7;
 }
+pub export fn noctty_grid_terminal_scroll_setting(
+    event_code: c_int,
+    value: c_int,
+) callconv(.c) c_int {
+    return switch (event_code) {
+        117 => std.math.clamp(value, 1, 20),
+        118 => @intFromBool(value != 0),
+        else => -1,
+    };
+}
+
+pub export fn noctty_grid_font_size_clamp(
+    requested: f64,
+    minimum: f64,
+    maximum: f64,
+) callconv(.c) f64 {
+    return std.math.clamp(requested, minimum, maximum);
+}
+
+pub export fn noctty_grid_font_size_event_value(
+    requested: f64,
+    minimum: f64,
+    maximum: f64,
+) callconv(.c) c_int {
+    const resolved = noctty_grid_font_size_clamp(requested, minimum, maximum);
+    return @intFromFloat(resolved * 100.0 + 0.5);
+}
+
+pub export fn noctty_grid_panel_metric_value(
+    event_code: c_int,
+    value: c_int,
+) callconv(.c) c_int {
+    return switch (event_code) {
+        46, 47 => std.math.clamp(value, 0, 64),
+        119 => std.math.clamp(value, 1, 16),
+        120 => std.math.clamp(value, 0, 12),
+        121, 122, 123, 124 => std.math.clamp(value, 1, 12),
+        125 => std.math.clamp(value, 1, 16),
+        126 => std.math.clamp(value, 1, 32),
+        127, 128, 129 => @intFromBool(value != 0),
+        130 => std.math.clamp(value, 20, 100),
+        else => -1,
+    };
+}
+
+pub export fn noctty_grid_background_opacity_value(value: c_int) callconv(.c) c_int {
+    return std.math.clamp(value, 10, 100);
+}
+
 pub export fn noctty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -3197,6 +3246,88 @@ test "theme color text clamps channels and preserves CSS hex format" {
     try std.testing.expectEqual(
         @as(c_int, 0),
         noctty_grid_theme_color_text(0.0, 0.0, 0.0, &output, 7),
+    );
+}
+
+test "settings policy clamps grouped terminal values at every boundary" {
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_terminal_scroll_setting(117, -5),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 20),
+        noctty_grid_terminal_scroll_setting(117, 99),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_terminal_scroll_setting(118, 7),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_terminal_scroll_setting(118, 0),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, -1),
+        noctty_grid_terminal_scroll_setting(116, 7),
+    );
+
+    try std.testing.expectEqual(
+        @as(f64, 10.0),
+        noctty_grid_font_size_clamp(4.0, 10.0, 24.0),
+    );
+    try std.testing.expectEqual(
+        @as(f64, 24.0),
+        noctty_grid_font_size_clamp(30.0, 10.0, 24.0),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1575),
+        noctty_grid_font_size_event_value(15.745, 10.0, 24.0),
+    );
+
+    const panel_cases = [_]struct {
+        event_code: c_int,
+        low: c_int,
+        high: c_int,
+    }{
+        .{ .event_code = 46, .low = 0, .high = 64 },
+        .{ .event_code = 47, .low = 0, .high = 64 },
+        .{ .event_code = 119, .low = 1, .high = 16 },
+        .{ .event_code = 120, .low = 0, .high = 12 },
+        .{ .event_code = 121, .low = 1, .high = 12 },
+        .{ .event_code = 122, .low = 1, .high = 12 },
+        .{ .event_code = 123, .low = 1, .high = 12 },
+        .{ .event_code = 124, .low = 1, .high = 12 },
+        .{ .event_code = 125, .low = 1, .high = 16 },
+        .{ .event_code = 126, .low = 1, .high = 32 },
+        .{ .event_code = 130, .low = 20, .high = 100 },
+    };
+    for (panel_cases) |case| {
+        try std.testing.expectEqual(
+            case.low,
+            noctty_grid_panel_metric_value(case.event_code, case.low - 1),
+        );
+        try std.testing.expectEqual(
+            case.high,
+            noctty_grid_panel_metric_value(case.event_code, case.high + 1),
+        );
+    }
+    for ([_]c_int{ 127, 128, 129 }) |event_code| {
+        try std.testing.expectEqual(
+            @as(c_int, 1),
+            noctty_grid_panel_metric_value(event_code, 9),
+        );
+    }
+    try std.testing.expectEqual(
+        @as(c_int, -1),
+        noctty_grid_panel_metric_value(131, 5),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 10),
+        noctty_grid_background_opacity_value(-1),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 100),
+        noctty_grid_background_opacity_value(101),
     );
 }
 

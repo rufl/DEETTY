@@ -227,6 +227,13 @@ int noctty_grid_theme_color_text(
     double red, double green, double blue,
     unsigned char *output, size_t capacity);
 double noctty_grid_theme_color_channel(uint32_t rgb, int channel);
+int noctty_grid_terminal_scroll_setting(int event_code, int value);
+double noctty_grid_font_size_clamp(
+    double requested, double minimum, double maximum);
+int noctty_grid_font_size_event_value(
+    double requested, double minimum, double maximum);
+int noctty_grid_panel_metric_value(int event_code, int value);
+int noctty_grid_background_opacity_value(int value);
 int noctty_grid_sharing_pane_hit(
     double x, double y, double width, double height,
     double pane_x, double pane_y, double pane_width, double pane_height);

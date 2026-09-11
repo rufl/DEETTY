@@ -8,6 +8,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   the shell responsible for redraw and ready for the next command instead of
   injecting a private terminal-screen escape sequence.
 
+- Moved terminal scroll, font-size, panel-metric, and background-opacity
+  clamping from the GTK host into tested native-grid Zig policy.
+
 - Made dropdown and fullscreen geometry follow live monitor changes. Manual
   dropdown resizes now persist as monitor-relative percentages, legacy pixel
   sizes migrate on use, hidden windows adapt before reveal, and fullscreen

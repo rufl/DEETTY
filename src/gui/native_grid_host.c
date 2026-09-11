@@ -10056,13 +10056,15 @@ static void on_settings_scrollback_changed(GtkSpinButton *spin,
 static void apply_terminal_scroll_setting(NocttyGridContext *context,
                                           int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
+    int resolved = noctty_grid_terminal_scroll_setting(event_code, value);
+    if (resolved < 0) return;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (event_code == 117)
-            candidate->terminal_scroll_lines = CLAMP(value, 1, 20);
+            candidate->terminal_scroll_lines = resolved;
         else
-            candidate->terminal_smooth_scroll = value != 0;
+            candidate->terminal_smooth_scroll = resolved != 0;
         candidate->terminal_scroll_accumulator = 0.0;
     }
     if (context->event != NULL)
@@ -10114,7 +10116,8 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
 static gboolean apply_grid_font_size(NocttyGridContext *context,
                                      double requested, gboolean notify) {
     NocttyGridContext *root = root_grid_context(context);
-    double next = CLAMP(requested, root->font_min_size, root->font_max_size);
+    double next = noctty_grid_font_size_clamp(
+        requested, root->font_min_size, root->font_max_size);
     gboolean changed = FALSE;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
@@ -10140,7 +10143,8 @@ static gboolean apply_grid_font_size(NocttyGridContext *context,
     }
     if (notify && context->event != NULL)
         context->event(context->event_data, context->pane_id, 41,
-                       (int)(next * 100.0 + 0.5),
+                       noctty_grid_font_size_event_value(
+                           next, root->font_min_size, root->font_max_size),
                        (uint64_t)(g_get_monotonic_time() / 1000));
     return TRUE;
 }
@@ -10148,7 +10152,8 @@ static gboolean apply_grid_font_size(NocttyGridContext *context,
 static gboolean apply_pane_font_size(NocttyGridContext *context,
                                      double requested, gboolean notify) {
     NocttyGridContext *root = root_grid_context(context);
-    double next = CLAMP(requested, root->font_min_size, root->font_max_size);
+    double next = noctty_grid_font_size_clamp(
+        requested, root->font_min_size, root->font_max_size);
     if (next == context->requested_font_size) return FALSE;
     context->requested_font_size = next;
     context->font_size = next;
@@ -10161,7 +10166,8 @@ static gboolean apply_pane_font_size(NocttyGridContext *context,
     }
     if (notify && context->event != NULL)
         context->event(context->event_data, context->pane_id, 96,
-                       (int)(next * 100.0 + 0.5),
+                       noctty_grid_font_size_event_value(
+                           next, root->font_min_size, root->font_max_size),
                        (uint64_t)(g_get_monotonic_time() / 1000));
     return TRUE;
 }
@@ -10200,9 +10206,9 @@ static gboolean sync_grid_context_profile(NocttyGridContext *context) {
         context->profile_preset = resolved_preset;
         changed = TRUE;
     }
-    double resolved_size = CLAMP(font_size_hundredths / 100.0,
-                                 context->font_min_size,
-                                 context->font_max_size);
+    double resolved_size = noctty_grid_font_size_clamp(
+        font_size_hundredths / 100.0,
+        context->font_min_size, context->font_max_size);
     if (context->area != NULL && gtk_widget_get_mapped(context->area)) {
         if (apply_pane_font_size(context, resolved_size, FALSE))
             changed = TRUE;
@@ -10281,31 +10287,28 @@ static void on_settings_status_changed(GtkComboBox *combo, gpointer user_data) {
 static void apply_panel_metric_setting(NocttyGridContext *context,
                                        int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
+    int resolved = noctty_grid_panel_metric_value(event_code, value);
+    if (resolved < 0) return;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(root->contexts, index);
         switch (event_code) {
-            case 46: candidate->panel_padding_px = CLAMP(value, 0, 64); break;
-            case 47: candidate->pane_spacing_px = CLAMP(value, 0, 64); break;
-            case 119: candidate->pane_divider_px = CLAMP(value, 1, 16); break;
-            case 120: candidate->pane_border_px = CLAMP(value, 0, 12); break;
-            case 121:
-                candidate->pane_border_focused_px = CLAMP(value, 1, 12);
-                break;
-            case 122:
-                candidate->pane_border_selected_px = CLAMP(value, 1, 12);
-                break;
-            case 123: candidate->status_border_px = CLAMP(value, 1, 12); break;
-            case 124: candidate->overlay_border_px = CLAMP(value, 1, 12); break;
-            case 125: candidate->window_border_px = CLAMP(value, 1, 16); break;
-            case 126: candidate->dragger_px = CLAMP(value, 1, 32); break;
-            case 127: candidate->pane_gaps_enabled = value != 0; break;
-            case 128: candidate->pane_gaps_transparent = value != 0; break;
-            case 129: candidate->inactive_pane_dim_enabled = value != 0; break;
+            case 46: candidate->panel_padding_px = resolved; break;
+            case 47: candidate->pane_spacing_px = resolved; break;
+            case 119: candidate->pane_divider_px = resolved; break;
+            case 120: candidate->pane_border_px = resolved; break;
+            case 121: candidate->pane_border_focused_px = resolved; break;
+            case 122: candidate->pane_border_selected_px = resolved; break;
+            case 123: candidate->status_border_px = resolved; break;
+            case 124: candidate->overlay_border_px = resolved; break;
+            case 125: candidate->window_border_px = resolved; break;
+            case 126: candidate->dragger_px = resolved; break;
+            case 127: candidate->pane_gaps_enabled = resolved != 0; break;
+            case 128: candidate->pane_gaps_transparent = resolved != 0; break;
+            case 129: candidate->inactive_pane_dim_enabled = resolved != 0; break;
             case 130:
-                candidate->inactive_pane_brightness_percent =
-                    CLAMP(value, 20, 100);
+                candidate->inactive_pane_brightness_percent = resolved;
                 break;
             default: return;
         }
@@ -10560,8 +10563,11 @@ static void apply_background_setting(NocttyGridContext *context,
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (event_code == 115) candidate->background_translucency = value;
-        else candidate->background_opacity_percent = CLAMP(value, 10, 100);
+        if (event_code == 115)
+            candidate->background_translucency = value;
+        else
+            candidate->background_opacity_percent =
+                noctty_grid_background_opacity_value(value);
         if (candidate->active && candidate->area != NULL)
             gtk_widget_queue_draw(candidate->area);
     }
@@ -10586,7 +10592,8 @@ static void on_background_translucency_toggled(
 static void on_background_opacity_changed(GtkRange *range,
                                           gpointer user_data) {
     apply_background_setting(
-        user_data, 116, (int)round(gtk_range_get_value(range)));
+        user_data, 116, noctty_grid_background_opacity_value(
+            (int)round(gtk_range_get_value(range))));
 }
 
 static void on_settings_family_changed(GtkComboBox *combo, gpointer user_data) {
