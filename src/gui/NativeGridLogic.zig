@@ -838,6 +838,36 @@ pub export fn noctty_grid_dropdown_dimension(
     ));
 }
 
+pub export fn noctty_grid_dialog_dimension(
+    available_px: c_int,
+    maximum_px: c_int,
+    minimum_px: c_int,
+    margin_px: c_int,
+) callconv(.c) c_int {
+    const requested = @as(i64, available_px) - @as(i64, margin_px);
+    const lower = @max(minimum_px, 1);
+    const upper = @max(maximum_px, lower);
+    return @intCast(std.math.clamp(requested, @as(i64, lower), @as(i64, upper)));
+}
+
+pub export fn noctty_grid_percent_dimension(
+    available_px: c_int,
+    percent: c_int,
+    minimum_px: c_int,
+) callconv(.c) c_int {
+    if (available_px <= 0) return 0;
+    const lower = @min(@max(minimum_px, 0), available_px);
+    const requested = @divFloor(
+        @as(i64, available_px) * @as(i64, std.math.clamp(percent, 0, 100)),
+        100,
+    );
+    return @intCast(std.math.clamp(
+        requested,
+        @as(i64, lower),
+        @as(i64, available_px),
+    ));
+}
+
 pub export fn noctty_grid_dropdown_percent(
     pixels: c_int,
     available_px: c_int,
@@ -2957,6 +2987,41 @@ test "manual dropdown pixels become responsive percentages" {
     try std.testing.expectEqual(@as(c_int, 96), noctty_grid_dropdown_percent(1200, 900, 96));
     try std.testing.expectEqual(@as(c_int, 55), noctty_grid_dropdown_percent(0, 900, 55));
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dropdown_percent(0, 0, 0));
+}
+
+test "dialog and percent dimensions preserve bounded workarea geometry" {
+    try std.testing.expectEqual(
+        @as(c_int, 660),
+        noctty_grid_dialog_dimension(1000, 660, 1, 32),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_dialog_dimension(20, 660, 1, 32),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 720),
+        noctty_grid_dialog_dimension(800, 980, 720, 96),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 720),
+        noctty_grid_dialog_dimension(400, 980, 720, 96),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1536),
+        noctty_grid_percent_dimension(1920, 80, 480),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 400),
+        noctty_grid_percent_dimension(400, 80, 480),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_percent_dimension(0, 80, 480),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 900),
+        noctty_grid_percent_dimension(900, 120, 480),
+    );
 }
 
 test "sharing status actions cover only explicit protocol states" {

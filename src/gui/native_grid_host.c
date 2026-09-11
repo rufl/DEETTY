@@ -9640,10 +9640,8 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int width = CLAMP(workarea.width * 80 / 100,
-                      MIN(480, workarea.width), workarea.width);
-    int height = CLAMP(workarea.height * 75 / 100,
-                       MIN(320, workarea.height), workarea.height);
+    int width = noctty_grid_percent_dimension(workarea.width, 80, 480);
+    int height = noctty_grid_percent_dimension(workarea.height, 75, 320);
     gtk_widget_set_size_request(root->window, -1, -1);
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
 }
@@ -10922,10 +10920,14 @@ static void open_grid_settings(NocttyGridContext *context) {
     if (settings_monitor != NULL)
         gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
     gboolean compact_settings = settings_workarea.width < 800;
-    int settings_width = MIN(980, MAX(720, settings_workarea.width - 96));
-    int settings_height = MIN(720, MAX(560, settings_workarea.height - 96));
-    settings_width = MIN(settings_width, MAX(1, settings_workarea.width - 32));
-    settings_height = MIN(settings_height, MAX(1, settings_workarea.height - 32));
+    int settings_width =
+        noctty_grid_dialog_dimension(settings_workarea.width, 980, 720, 96);
+    int settings_height =
+        noctty_grid_dialog_dimension(settings_workarea.height, 720, 560, 96);
+    settings_width = noctty_grid_dialog_dimension(
+        settings_workarea.width, settings_width, 1, 32);
+    settings_height = noctty_grid_dialog_dimension(
+        settings_workarea.height, settings_height, 1, 32);
     configure_overlay_window_geometry(
         context, dialog, &settings_workarea,
         settings_width, settings_height);
@@ -11974,8 +11976,9 @@ static void open_project_tools(NocttyGridContext *context) {
     if (project_monitor != NULL)
         gdk_monitor_get_workarea(project_monitor, &project_workarea);
     gtk_window_set_default_size(
-        GTK_WINDOW(dialog), MIN(680, MAX(1, project_workarea.width - 32)),
-        MIN(520, MAX(1, project_workarea.height - 32)));
+        GTK_WINDOW(dialog),
+        noctty_grid_dialog_dimension(project_workarea.width, 680, 1, 32),
+        noctty_grid_dialog_dimension(project_workarea.height, 520, 1, 32));
     gtk_window_set_resizable(GTK_WINDOW(dialog), TRUE);
     char summary_text[4096] = "Project data unavailable";
     if (context->text_action != NULL) {
@@ -12311,9 +12314,11 @@ static void open_terminal_find(NocttyGridContext *context) {
     GdkRectangle workarea = {0, 0, 640, 360};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int dialog_width = MIN(640, MAX(1, workarea.width - 32));
+    int dialog_width =
+        noctty_grid_dialog_dimension(workarea.width, 640, 1, 32);
     int dialog_height = workarea.width < 600 ? 132 : 76;
-    dialog_height = MIN(dialog_height, MAX(1, workarea.height - 32));
+    dialog_height = noctty_grid_dialog_dimension(
+        workarea.height, dialog_height, 1, 32);
     GtkWidget *dialog = gtk_dialog_new();
     NocttyFindContents contents = {0};
     if (!noctty_terminal_find_contents_new(
@@ -12433,8 +12438,10 @@ static void open_quick_note(NocttyGridContext *context) {
     GdkRectangle workarea = {0, 0, 640, 480};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int dialog_width = MIN(600, MAX(1, workarea.width - 32));
-    int dialog_height = MIN(380, MAX(1, workarea.height - 32));
+    int dialog_width =
+        noctty_grid_dialog_dimension(workarea.width, 600, 1, 32);
+    int dialog_height =
+        noctty_grid_dialog_dimension(workarea.height, 380, 1, 32);
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Quick Note", GTK_WINDOW(root->window),
         GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
     (void)configure_overlay_window_stacking(
@@ -12500,8 +12507,10 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
     GdkRectangle workarea = {0, 0, 640, 560};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int dialog_width = MIN(620, MAX(1, workarea.width - 32));
-    int dialog_height = MIN(620, MAX(1, workarea.height - 32));
+    int dialog_width =
+        noctty_grid_dialog_dimension(workarea.width, 620, 1, 32);
+    int dialog_height =
+        noctty_grid_dialog_dimension(workarea.height, 620, 1, 32);
     gchar *visibility_shortcut = grid_shortcut_label_alloc(root);
     gchar *shortcuts = g_strdup_printf(
         "Ctrl+Shift+P   Command palette\n"
@@ -12834,8 +12843,10 @@ static void open_command_palette(NocttyGridContext *context) {
     GdkRectangle workarea = {0, 0, 680, 460};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int dialog_width = MIN(660, MAX(1, workarea.width - 32));
-    int dialog_height = MIN(390, MAX(1, workarea.height - 32));
+    int dialog_width =
+        noctty_grid_dialog_dimension(workarea.width, 660, 1, 32);
+    int dialog_height =
+        noctty_grid_dialog_dimension(workarea.height, 390, 1, 32);
     gboolean vertical_rows = workarea.width < 640;
     GtkWidget *dialog = gtk_dialog_new();
     NocttyPaletteAction compact_actions[27] = {0};
@@ -13640,17 +13651,15 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
         "Session Sharing", GTK_WINDOW(root->window),
         GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
     root->sharing_dialog = dialog;
-    root->sharing_feedback_until_us = 0;
-    root->sharing_last_status = 0;
-    root->sharing_dialog_stacking = configure_overlay_window_stacking(
-        root, dialog, "noctty-session-sharing");
     GdkRectangle workarea = {0, 0, 900, 700};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
-    int width = MIN(920, MAX(560, workarea.width - 64));
-    int height = MIN(760, MAX(480, workarea.height - 64));
-    width = MIN(width, MAX(1, workarea.width - 32));
-    height = MIN(height, MAX(1, workarea.height - 32));
+    int width =
+        noctty_grid_dialog_dimension(workarea.width, 920, 480, 64);
+    int height =
+        noctty_grid_dialog_dimension(workarea.height, 760, 480, 64);
+    width = noctty_grid_dialog_dimension(workarea.width, width, 1, 32);
+    height = noctty_grid_dialog_dimension(workarea.height, height, 1, 32);
     configure_overlay_window_geometry(
         root, dialog, &workarea, width, height);
     gtk_window_set_default_size(GTK_WINDOW(dialog), width, height);

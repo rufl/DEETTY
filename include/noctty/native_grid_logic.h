@@ -197,6 +197,10 @@ int noctty_grid_dropdown_dimension(int stored_px, int percent,
                                    int available_px, int minimum_px);
 int noctty_grid_dropdown_percent(int pixels, int available_px,
                                  int fallback_percent);
+int noctty_grid_dialog_dimension(
+    int available_px, int maximum_px, int minimum_px, int margin_px);
+int noctty_grid_percent_dimension(
+    int available_px, int percent, int minimum_px);
 
 enum {
     NOCTTY_GRID_SHARING_ALLOW_PAIRING = 1u << 0,
