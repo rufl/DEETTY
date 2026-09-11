@@ -41,6 +41,12 @@ typedef struct {
     double height;
 } NocttyGridRectangle;
 typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} NocttyGridDamageRect;
+typedef struct {
     int steps;
     int direction;
 } NocttyGridWheelActionPlan;
@@ -317,6 +323,13 @@ void noctty_grid_render_cell(uint64_t packed_cell,
                              NocttyGridRenderCell *output);
 int noctty_grid_render_run_end(const uint64_t *cells, int start, int end,
                                int kind);
+void noctty_grid_damage_rect(
+    double x, double y, double width, double height,
+    int allocation_width, int allocation_height,
+    NocttyGridDamageRect *output);
+void noctty_grid_cursor_damage(
+    int column, int row, double cell_width, double cell_height,
+    NocttyGridDamageRect *output);
 
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,

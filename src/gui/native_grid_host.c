@@ -5872,11 +5872,12 @@ static void queue_grid_row_range(NocttyGridContext *context, int first,
     NocttyGridFontMetrics metrics = grid_font_metrics(context);
     NocttyGridRectangle damage;
     noctty_grid_row_span(first, end, metrics.cell_height, &damage);
-    int y = MAX(0, (int)damage.y);
-    int bottom = MIN(
-        allocation.height, (int)(damage.y + damage.height));
-    gtk_widget_queue_draw_area(context->area, 0, y,
-                               MAX(allocation.width, 1), MAX(bottom - y, 1));
+    NocttyGridDamageRect clipped;
+    noctty_grid_damage_rect(
+        0, damage.y, allocation.width, damage.height,
+        allocation.width, allocation.height, &clipped);
+    gtk_widget_queue_draw_area(
+        context->area, clipped.x, clipped.y, clipped.width, clipped.height);
     root_grid_context(context)->damage_rows_queued += (guint)(end - first);
     root_grid_context(context)->damage_cells_queued +=
         (guint)(end - first) * (guint)context->columns;
@@ -5894,12 +5895,12 @@ static void queue_grid_cell_span(NocttyGridContext *context, int row,
     NocttyGridRectangle damage;
     noctty_grid_cell_span(
         first, end, row, metrics.cell_width, metrics.cell_height, 1, &damage);
-    int x = MAX(0, (int)damage.x);
-    int right = MIN(allocation.width, (int)(damage.x + damage.width));
-    int y = MAX(0, (int)damage.y);
-    int bottom = MIN(allocation.height, (int)(damage.y + damage.height));
-    gtk_widget_queue_draw_area(context->area, x, y,
-                               MAX(right - x, 1), MAX(bottom - y, 1));
+    NocttyGridDamageRect clipped;
+    noctty_grid_damage_rect(
+        damage.x, damage.y, damage.width, damage.height,
+        allocation.width, allocation.height, &clipped);
+    gtk_widget_queue_draw_area(
+        context->area, clipped.x, clipped.y, clipped.width, clipped.height);
     NocttyGridContext *root = root_grid_context(context);
     root->damage_rows_queued++;
     root->damage_cells_queued += (guint)(end - first);
@@ -5914,14 +5915,11 @@ static void queue_grid_cursor_cell(NocttyGridContext *context,
     if (column < 0 || column >= context->columns ||
         row < 0 || row >= context->rows) return;
     NocttyGridFontMetrics metrics = grid_font_metrics(context);
-    double cell_width = metrics.cell_width;
-    double cell_height = metrics.cell_height;
+    NocttyGridDamageRect damage;
+    noctty_grid_cursor_damage(
+        column, row, metrics.cell_width, metrics.cell_height, &damage);
     gtk_widget_queue_draw_area(
-        context->area,
-        MAX(0, (int)floor(4.0 + column * cell_width)),
-        MAX(0, (int)floor(2.0 + row * cell_height)),
-        MAX(1, (int)ceil(cell_width)),
-        MAX(1, (int)ceil(cell_height)));
+        context->area, damage.x, damage.y, damage.width, damage.height);
 }
 
 static void queue_grid_damage_when_mapped(NocttyGridContext *context) {

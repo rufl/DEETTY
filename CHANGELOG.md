@@ -20,6 +20,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved bounded scroll deltas, tab title widths, search ordinals, selection
   spans, and restored grid partition sizing into tested native-grid Zig policy.
 
+- Moved terminal damage clipping and cursor redraw rectangle bounds from the
+  GTK host into tested native-grid rendering policy.
+
 - Made dropdown and fullscreen geometry follow live monitor changes. Manual
   dropdown resizes now persist as monitor-relative percentages, legacy pixel
   sizes migrate on use, hidden windows adapt before reveal, and fullscreen

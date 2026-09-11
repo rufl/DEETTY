@@ -29,6 +29,12 @@ pub const Rectangle = extern struct {
     width: f64,
     height: f64,
 };
+pub const DamageRect = extern struct {
+    x: c_int,
+    y: c_int,
+    width: c_int,
+    height: c_int,
+};
 pub const WheelActionPlan = extern struct {
     steps: c_int,
     direction: c_int,
@@ -1667,6 +1673,53 @@ pub export fn noctty_grid_row_span(
         .height = @max(1, bottom - top),
     };
 }
+pub export fn noctty_grid_damage_rect(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    allocation_width: c_int,
+    allocation_height: c_int,
+    output: ?*DamageRect,
+) callconv(.c) void {
+    const damage = output orelse return;
+    const left = @max(@as(c_int, 0), @as(c_int, @intFromFloat(x)));
+    const top = @max(@as(c_int, 0), @as(c_int, @intFromFloat(y)));
+    const right = @min(
+        @max(allocation_width, 0),
+        @as(c_int, @intFromFloat(x + width)),
+    );
+    const bottom = @min(
+        @max(allocation_height, 0),
+        @as(c_int, @intFromFloat(y + height)),
+    );
+    damage.* = .{
+        .x = left,
+        .y = top,
+        .width = @max(right - left, 1),
+        .height = @max(bottom - top, 1),
+    };
+}
+
+pub export fn noctty_grid_cursor_damage(
+    column: c_int,
+    row: c_int,
+    cell_width: f64,
+    cell_height: f64,
+    output: ?*DamageRect,
+) callconv(.c) void {
+    const damage = output orelse return;
+    damage.* = .{
+        .x = @max(0, @as(c_int, @intFromFloat(@floor(
+            4.0 + @as(f64, @floatFromInt(column)) * cell_width,
+        )))),
+        .y = @max(0, @as(c_int, @intFromFloat(@floor(
+            2.0 + @as(f64, @floatFromInt(row)) * cell_height,
+        )))),
+        .width = @max(1, @as(c_int, @intFromFloat(@ceil(cell_width)))),
+        .height = @max(1, @as(c_int, @intFromFloat(@ceil(cell_height)))),
+    };
+}
 
 pub export fn noctty_grid_scroll_steps(
     configured_lines: c_int,
@@ -3014,6 +3067,25 @@ test "dropdown dimensions reject invalid space and clamp every input" {
     try std.testing.expectEqual(@as(c_int, 720), noctty_grid_dropdown_dimension(720, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 900), noctty_grid_dropdown_dimension(1200, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 400), noctty_grid_dropdown_dimension(0, 200, 400, 480));
+}
+
+test "render damage bounds clip rows cells and cursor rectangles" {
+    var damage: DamageRect = undefined;
+    noctty_grid_damage_rect(-2, 3, 10, 20, 8, 10, &damage);
+    try std.testing.expectEqual(@as(c_int, 0), damage.x);
+    try std.testing.expectEqual(@as(c_int, 3), damage.y);
+    try std.testing.expectEqual(@as(c_int, 8), damage.width);
+    try std.testing.expectEqual(@as(c_int, 7), damage.height);
+
+    noctty_grid_damage_rect(0, 0, 0, 0, 0, 0, &damage);
+    try std.testing.expectEqual(@as(c_int, 1), damage.width);
+    try std.testing.expectEqual(@as(c_int, 1), damage.height);
+
+    noctty_grid_cursor_damage(2, 3, 9.5, 17.2, &damage);
+    try std.testing.expectEqual(@as(c_int, 23), damage.x);
+    try std.testing.expectEqual(@as(c_int, 53), damage.y);
+    try std.testing.expectEqual(@as(c_int, 10), damage.width);
+    try std.testing.expectEqual(@as(c_int, 18), damage.height);
 }
 
 test "manual dropdown pixels become responsive percentages" {
