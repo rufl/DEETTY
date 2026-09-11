@@ -11,6 +11,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved terminal scroll, font-size, panel-metric, and background-opacity
   clamping from the GTK host into tested native-grid Zig policy.
 
+- Reused the native-grid settings policy for context initialization, removing
+  duplicate GTK-side clamps from restored terminal and panel state.
+
 - Made dropdown and fullscreen geometry follow live monitor changes. Manual
   dropdown resizes now persist as monitor-relative percentages, legacy pixel
   sizes migrate on use, hidden windows adapt before reveal, and fullscreen

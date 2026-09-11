@@ -16684,11 +16684,12 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         ? noctty_grid_compact_setting(event_data, 16) : 1;
     context.background_opacity_percent = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 17) : 92;
-    context.background_opacity_percent = CLAMP(
-        context.background_opacity_percent, 10, 100);
-    context.terminal_scroll_lines = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 18) : 3;
-    context.terminal_scroll_lines = CLAMP(context.terminal_scroll_lines, 1, 20);
+    context.background_opacity_percent =
+        noctty_grid_background_opacity_value(
+            context.background_opacity_percent);
+    context.terminal_scroll_lines =
+        noctty_grid_terminal_scroll_setting(
+            117, context.terminal_scroll_lines);
     context.terminal_smooth_scroll = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 19) : 1;
     context.panel_padding_px = event_data != NULL
@@ -16719,20 +16720,29 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         ? noctty_grid_compact_setting(event_data, 28) : 2;
     context.dragger_px = event_data != NULL
         ? noctty_grid_compact_setting(event_data, 29) : 2;
-    context.panel_padding_px = CLAMP(context.panel_padding_px, 0, 64);
-    context.pane_spacing_px = CLAMP(context.pane_spacing_px, 0, 64);
-    context.inactive_pane_brightness_percent = CLAMP(
-        context.inactive_pane_brightness_percent, 20, 100);
-    context.pane_divider_px = CLAMP(context.pane_divider_px, 1, 16);
-    context.pane_border_px = CLAMP(context.pane_border_px, 0, 12);
-    context.pane_border_focused_px = CLAMP(
-        context.pane_border_focused_px, 1, 12);
-    context.pane_border_selected_px = CLAMP(
-        context.pane_border_selected_px, 1, 12);
-    context.status_border_px = CLAMP(context.status_border_px, 1, 12);
-    context.overlay_border_px = CLAMP(context.overlay_border_px, 1, 12);
-    context.window_border_px = CLAMP(context.window_border_px, 1, 16);
-    context.dragger_px = CLAMP(context.dragger_px, 1, 32);
+    context.panel_padding_px =
+        noctty_grid_panel_metric_value(46, context.panel_padding_px);
+    context.pane_spacing_px =
+        noctty_grid_panel_metric_value(47, context.pane_spacing_px);
+    context.inactive_pane_brightness_percent =
+        noctty_grid_panel_metric_value(
+            130, context.inactive_pane_brightness_percent);
+    context.pane_divider_px =
+        noctty_grid_panel_metric_value(119, context.pane_divider_px);
+    context.pane_border_px =
+        noctty_grid_panel_metric_value(120, context.pane_border_px);
+    context.pane_border_focused_px =
+        noctty_grid_panel_metric_value(121, context.pane_border_focused_px);
+    context.pane_border_selected_px =
+        noctty_grid_panel_metric_value(122, context.pane_border_selected_px);
+    context.status_border_px =
+        noctty_grid_panel_metric_value(123, context.status_border_px);
+    context.overlay_border_px =
+        noctty_grid_panel_metric_value(124, context.overlay_border_px);
+    context.window_border_px =
+        noctty_grid_panel_metric_value(125, context.window_border_px);
+    context.dragger_px =
+        noctty_grid_panel_metric_value(126, context.dragger_px);
     context.show_pane_info = event_data != NULL ? noctty_grid_compact_setting(event_data, 9) : 1;
     context.compact_tab_height = event_data != NULL ? noctty_grid_compact_setting(event_data, 5) : 16;
     context.workspace_smoke = workspace_smoke;
@@ -16757,9 +16767,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     if (context.font_min_size <= 0.0) context.font_min_size = 7.0;
     if (context.font_max_size < context.font_min_size)
         context.font_max_size = 28.0;
-    context.font_size = CLAMP(context.font_size,
-                              context.font_min_size,
-                              context.font_max_size);
+    context.font_size = noctty_grid_font_size_clamp(
+        context.font_size, context.font_min_size, context.font_max_size);
     context.requested_font_size = context.font_size;
     context.font_family = g_strdup("monospace");
     context.font_antialias = event_data != NULL
