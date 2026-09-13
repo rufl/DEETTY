@@ -1013,13 +1013,63 @@ fn themeSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     return 0;
 }
 
+fn sourceThemeFormat(path: []const u8, contents: []const u8) ?Share.theme.ImportFormat {
+    const basename_start = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
+    const name = if (basename_start < path.len and (path[basename_start] == '/' or path[basename_start] == '\\'))
+        path[basename_start + 1 ..]
+    else
+        path;
+    if (std.ascii.endsWithIgnoreCase(name, ".conf") or std.ascii.endsWithIgnoreCase(name, ".ghostty")) return .ghostty;
+    if (std.ascii.endsWithIgnoreCase(name, ".xresources") or std.ascii.endsWithIgnoreCase(name, ".xdefaults")) return .xresources;
+    if (std.ascii.endsWithIgnoreCase(name, ".toml")) return .alacritty_toml;
+    if (std.ascii.endsWithIgnoreCase(name, ".json")) {
+        if (std.mem.indexOf(u8, contents, "\"dark\"") != null) return .noctalia_dark;
+        if (std.mem.indexOf(u8, contents, "\"light\"") != null) return .noctalia_light;
+        return .noctalia_active;
+    }
+    return null;
+}
+
+fn sourceThemeName(path: []const u8, output: *[97]u8) []const u8 {
+    const separator = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
+    const start = if (separator < path.len and (path[separator] == '/' or path[separator] == '\\')) separator + 1 else separator;
+    const end = std.mem.lastIndexOfScalar(u8, path, '.') orelse path.len;
+    const candidate = path[start..@min(end, path.len)];
+    if (candidate.len > 0 and candidate.len <= 96) {
+        Share.theme.validateName(candidate) catch return "Imported theme";
+        @memcpy(output[0..candidate.len], candidate);
+        return output[0..candidate.len];
+    }
+    const fallback = "Imported theme";
+    @memcpy(output[0..fallback.len], fallback);
+    return output[0..fallback.len];
+}
+
+fn importThemeSource(state: *State, path: []const u8, contents: []const u8) !void {
+    const format = sourceThemeFormat(path, contents) orelse return error.UnsupportedThemeSource;
+    var name_buffer: [97]u8 = undefined;
+    const imported = try Share.theme.importTheme(
+        state.themes.allocator,
+        format,
+        sourceThemeName(path, &name_buffer),
+        contents,
+    );
+    const portable = try Share.theme_storage.exportThemeLibraryAlloc(state.themes.allocator, &.{imported});
+    defer state.themes.allocator.free(portable);
+    try state.themes.importPortable(portable, ThemeSink{});
+}
+
 fn themeImport(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) c_int {
     if (length == 0 or length > 131_068) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     const allocator = state.themes.allocator;
     const bytes = Dpapi.readFileAllocUtf8(allocator, path[0..length], WindowsThemeLibrary.max_file_bytes) catch return -1;
     defer allocator.free(bytes);
-    state.themes.importPortable(bytes, ThemeSink{}) catch return -1;
+    if (sourceThemeFormat(path[0..length], bytes) != null) {
+        importThemeSource(state, path[0..length], bytes) catch return -1;
+    } else {
+        state.themes.importPortable(bytes, ThemeSink{}) catch return -1;
+    }
     return 0;
 }
 

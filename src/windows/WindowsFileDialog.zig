@@ -9,6 +9,7 @@ pub fn show(parent: c.HWND, allocator: std.mem.Allocator, exporting: bool) !?[]u
 }
 
 fn open(parent: c.HWND, allocator: std.mem.Allocator, exporting: bool, cancel_probe: bool) !?[]u8 {
+    _ = parent;
     const path = try allocator.alloc(u16, 32768);
     defer allocator.free(path);
     @memset(path, 0);
@@ -18,13 +19,15 @@ fn open(parent: c.HWND, allocator: std.mem.Allocator, exporting: bool, cancel_pr
     }
     var dialog: c.OPENFILENAMEW = std.mem.zeroes(c.OPENFILENAMEW);
     dialog.lStructSize = @sizeOf(c.OPENFILENAMEW);
-    dialog.hwndOwner = parent;
-    dialog.lpstrFilter = wide("NOCTTY theme libraries (*.nocttythemes)\x00*.nocttythemes\x00");
+    dialog.lpstrFilter = if (exporting)
+        wide("NOCTTY theme libraries (*.nocttythemes)\x00*.nocttythemes\x00")
+    else
+        wide("Theme sources and libraries (*.nocttythemes;*.conf;*.Xresources;*.toml;*.json)\x00*.nocttythemes;*.conf;*.Xresources;*.toml;*.json\x00All files (*.*)\x00*.*\x00");
     dialog.nFilterIndex = 1;
     dialog.lpstrFile = path.ptr;
     dialog.nMaxFile = @intCast(path.len);
-    dialog.lpstrDefExt = wide("nocttythemes");
-    dialog.lpstrTitle = if (exporting) wide("Export NOCTTY theme library") else wide("Import NOCTTY theme library");
+    dialog.lpstrDefExt = if (exporting) wide("nocttythemes") else wide("conf");
+    dialog.lpstrTitle = if (exporting) wide("Export NOCTTY theme library") else wide("Import terminal theme source or library");
     dialog.Flags = @intCast(c.OFN_EXPLORER | c.OFN_NOCHANGEDIR | c.OFN_PATHMUSTEXIST |
         (if (exporting) c.OFN_OVERWRITEPROMPT else c.OFN_FILEMUSTEXIST));
     if (cancel_probe) {

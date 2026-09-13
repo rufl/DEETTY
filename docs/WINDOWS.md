@@ -279,21 +279,22 @@ The separate atomic, versioned file is
 stored locally **without encryption**; inherit secrets from the environment
 instead of saving them in a profile. Missing or invalid profile state falls
 back to the legacy built-in preference without overwriting the file until an
-explicit successful change. `NWS3` remains unchanged: layout restoration uses
-the currently selected default for replacement shells, not per-pane profile
-identities or recovered running processes.
-
+explicit successful change.
 ### Theme library
 
 **Theme → Import library** opens a native file picker for portable
-`.nocttythemes` files shared with Linux. Import replaces the custom library and
-selects its first entry; replacing existing custom themes requires confirmation.
+`.nocttythemes` libraries and single-source Ghostty `.conf`/`.ghostty`,
+Xresources, Alacritty `.toml`, or Noctalia `.json` files. A source file becomes
+one custom theme named from its validated ASCII filename stem; invalid stems
+use `Imported theme`. Import replaces the custom library and selects its first
+entry. Replacing existing custom themes requires confirmation.
 Up to 64 custom themes and 4 MiB input are accepted;
 malformed files or failed persistence leave the live and saved state unchanged.
 Theme names follow the shared format's ASCII rules and 96-byte limit after
 outer whitespace is trimmed; native labels use that trimmed name. File paths
-support Unicode. Ghostty, Xresources, Alacritty, and Noctalia source files must
-currently be imported/exported through the Linux theme tools first.
+support Unicode. Source parsers ignore unsupported keys but reject malformed
+Noctalia JSON and preserve the previous library on validation or persistence
+failure.
 
 **Export library** writes the current custom library, or the three built-ins
 when no customs exist, using the shared portable codec. The native save dialog

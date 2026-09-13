@@ -185,9 +185,11 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   scrollback handling are implemented. Isolated Wine covers native controls and
   real child-process delivery without ConPTY; file-backed rollback and shared
   POSIX configuration compatibility pass. `[truth:build,test,docs,external]`
-- [ ] Add native source-format theme imports for Ghostty, Xresources, Alacritty,
-  and Noctalia. Portable `.nocttythemes` import/export, persistent custom
-  selection, Unicode dialogs, and shared built-in/font controls are implemented.
+- [ ] [status:yellow] Add native source-format theme imports for Ghostty,
+  Xresources, Alacritty, and Noctalia. Windows now accepts those source
+  extensions through its native picker and converts each source transactionally
+  into one custom theme; focused parser coverage and native-source qualification
+  remain.
 - [ ] [status:yellow] Qualify custom theme selection/import/export, replacement
   confirmation, persistence errors, and tab dragging on supported Windows with
   real sessions, DPI changes, and assistive technology. The focused policy

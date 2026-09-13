@@ -716,7 +716,7 @@ fn themeFileDialog(host: *Host, exporting: bool) void {
         c.MessageBoxW(host.window, wide("Import replaces your custom theme library. Export it first if you want to keep a copy. Replace it now?"), wide("Replace custom themes"), c.MB_YESNO | c.MB_ICONWARNING | c.MB_DEFBUTTON2) != c.IDYES) return;
     const result = if (exporting) cb.theme_export(cb.userdata, path.ptr, path.len) else cb.theme_import(cb.userdata, path.ptr, path.len);
     if (result != 0) {
-        if (exporting) themeFailure(host, "NOCTTY could not export the theme library. Check the destination and permissions.") else themeFailure(host, "NOCTTY could not import this theme library. Choose a valid NOCTTY .nocttythemes file containing at most 64 themes. The previous library is unchanged.");
+        if (exporting) themeFailure(host, "NOCTTY could not export the theme library. Check the destination and permissions.") else themeFailure(host, "NOCTTY could not import this theme. Choose a valid .nocttythemes, Ghostty, Xresources, Alacritty, or Noctalia source file. The previous library is unchanged.");
         return;
     }
     if (!exporting and !refreshTheme(host, true)) themeFailure(host, "The theme library was imported, but NOCTTY could not update its theme menu.");
@@ -1262,6 +1262,21 @@ fn themeSmoke(host: *Host) bool {
     const themes = [_]Share.theme.Theme{ first, second };
     const portable = Share.theme_storage.exportThemeLibraryAlloc(allocator, &themes) catch return false;
     defer allocator.free(portable);
+    Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
+    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
+        cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
+    const source_path = allocator.alloc(u8, source.len) catch return false;
+    defer allocator.free(source_path);
+    @memcpy(source_path, source);
+    const portable_suffix = ".nocttythemes";
+    const source_suffix = ".conf";
+    if (!std.mem.endsWith(u8, source_path, portable_suffix)) return false;
+    const source_length = source_path.len - portable_suffix.len + source_suffix.len;
+    @memcpy(source_path[source_path.len - portable_suffix.len ..][0..source_suffix.len], source_suffix);
+    Dpapi.writeFileAtomicUtf8(allocator, source_path[0..source_length], "background = #102030\nforeground = #d0e0f0\ncursor-color = #ffffff\n") catch return false;
+    if (cb.theme_import(cb.userdata, source_path.ptr, source_length) != 0 or
+        cb.theme_count(cb.userdata) != 4 or cb.theme_active(cb.userdata) != 3 or
+        host.background != 0x102030 or host.foreground != 0xd0e0f0 or !refreshTheme(host, true)) return false;
     Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
     if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
         cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
@@ -2084,7 +2099,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);
