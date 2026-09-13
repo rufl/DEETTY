@@ -55,6 +55,7 @@ pub const id_clear_screen: u32 = 40203;
 pub const id_theme_import: u32 = 40500;
 pub const id_theme_export: u32 = 40501;
 pub const id_theme_custom: u32 = 40600;
+pub const id_broadcast: u32 = 40117;
 pub const max_custom_themes: u32 = 64;
 pub const id_profile_manage: u32 = 40700;
 pub const id_profile_custom: u32 = 40800;
@@ -64,6 +65,7 @@ const local_commands = [_]u32{
     id_new_tab,        id_split_down,        id_split_left,       id_close_pane,     id_close_tab,
     id_workspace_save, id_workspace_restore, id_rename_tab,       id_move_tab_left,  id_move_tab_right,
     id_divider_reset,  id_divider_wider,     id_divider_narrower, id_divider_taller, id_divider_shorter,
+    id_broadcast,
 };
 
 pub const Menu = struct {
@@ -147,6 +149,7 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         !append(workspace, c.MF_STRING, id_move_tab_right, "Move Tab R&ight") or
         !append(workspace, c.MF_STRING, id_close_pane, "&Close Pane\tCtrl+D") or
         !append(workspace, c.MF_STRING, id_close_tab, "Close Ta&b\tCtrl+Shift+W") or
+        !append(workspace, c.MF_STRING, id_broadcast, "&Broadcast input\tCtrl+Shift+B") or
         c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
         !append(workspace, c.MF_STRING, id_divider_wider, "Make focused pane &Wider") or
         !append(workspace, c.MF_STRING, id_divider_narrower, "Make focused pane N&arrower") or
@@ -363,7 +366,7 @@ pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
         c.GetSubMenu(menu.root, 2) != menu.terminal or
-        c.GetMenuItemCount(menu.workspace) != 21 or
+        c.GetMenuItemCount(menu.workspace) != 22 or
         c.GetMenuItemCount(menu.terminal) != 3) return false;
     for (local_commands) |command| {
         if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;

@@ -124,6 +124,7 @@ const Host = struct {
     sessions: [max_sessions]Session = [_]Session{.{}} ** max_sessions,
     workspace: Logic.WorkspaceState = .{ .live_sessions = 0, .pending_close = 0 },
     remote_mode: c_int = 0,
+    broadcast_enabled: bool = false,
     suppress_character: c_int = 0,
     timer_active: bool = false,
     smoke_mode: c_int = 0,
@@ -182,6 +183,7 @@ fn loadPreferences(host: *Host) c_int {
 fn updateMenu(host: *Host) void {
     host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
     Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
+    if (host.menu) |menu| _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input") else wide("&Broadcast input\tCtrl+Shift+B"));
 }
 
 fn createMenu(host: *Host) bool {
@@ -332,7 +334,28 @@ fn writeSession(session: ?*Session, bytes: [*]const u8, length: usize) bool {
 
 fn writeTerminal(host: *Host, bytes: [*]const u8, length: usize) bool {
     if (host.remote_mode != 0) return host.callbacks.write(host.callbacks.userdata, bytes, length) == @as(c_int, @intCast(length));
-    return writeSession(activeSession(host), bytes, length);
+    if (!host.broadcast_enabled) return writeSession(activeSession(host), bytes, length);
+    const count = host.callbacks.pane_count(host.callbacks.userdata);
+    var wrote = false;
+    var index: c_int = 0;
+    while (index < count and index < max_sessions) : (index += 1) {
+        if (Logic.noctty_windows_session_is_live(&host.workspace, index) != 0)
+            wrote = writeSession(&host.sessions[@intCast(index)], bytes, length) or wrote;
+    }
+    return wrote;
+}
+
+fn toggleBroadcast(host: *Host) void {
+    if (host.remote_mode != 0) return;
+    if (!host.broadcast_enabled and c.MessageBoxW(
+        host.window,
+        wide("Broadcast sends terminal input to every local pane. Enable it?"),
+        wide("Broadcast input"),
+        c.MB_YESNO | c.MB_ICONWARNING | c.MB_DEFBUTTON2,
+    ) != c.IDYES) return;
+    host.broadcast_enabled = !host.broadcast_enabled;
+    updateMenu(host);
+    _ = c.SetFocus(host.window);
 }
 
 fn flushReplies(host: *Host, session: *Session) void {
@@ -990,6 +1013,10 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         },
         Menu.id_next_tab => {
             cycleWorkspace(host, true);
+            return true;
+        },
+        Menu.id_broadcast => {
+            toggleBroadcast(host);
             return true;
         },
         Menu.id_close_pane => {
@@ -1770,6 +1797,10 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             const control = @intFromBool(keyDown(c.VK_CONTROL));
             const shift = @intFromBool(keyDown(c.VK_SHIFT));
             const alt = @intFromBool(keyDown(c.VK_MENU));
+            if (word == 'B' and control != 0 and shift != 0) {
+                toggleBroadcast(current);
+                return 0;
+            }
             var suppress_character: c_int = 0;
             const action = Logic.noctty_windows_decode_key_action(@truncate(word), control, shift, alt, current.remote_mode, &suppress_character);
             if (suppress_character != 0) current.suppress_character = 1;
@@ -2099,7 +2130,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true broadcast_input=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);

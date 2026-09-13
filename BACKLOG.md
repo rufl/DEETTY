@@ -195,8 +195,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   real sessions, DPI changes, and assistive technology. The focused policy
   group, file-backed interoperability smoke, GTK theme flow, and isolated
   Wine control/bitmap qualification pass. `[truth:build,test,docs,external]`
-- [ ] Complete remaining native Windows workspace parity: Smart Tabs, broadcast
-  input, dropdown/global-hotkey behavior, and workspace continuity.
+- [ ] [status:yellow] Complete remaining native Windows workspace parity:
+  Smart Tabs, dropdown/global-hotkey behavior, and workspace continuity.
+  Broadcast input now has guarded native menu/shortcut dispatch and live-pane
+  fan-out; physical/operator qualification remains.
 - [ ] Add native graphical paired-device/session-sharing controls over the
   existing shared protocol and lifecycle, including visible permission and
   persistence failures.

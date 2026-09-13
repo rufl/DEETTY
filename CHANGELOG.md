@@ -19,6 +19,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   up to 64 custom themes, persistent selection, terminal palette/cursor colors,
   and transactional failure handling. Portable files reuse the Linux codec;
   the separate Windows theme envelope leaves `NWS3` workspaces unchanged.
+- Added guarded native Windows broadcast input. `Ctrl+Shift+B` and the
+  Workspace menu require explicit confirmation before enabling, show the active
+  state, fan input to live local panes, and remain unavailable to remote
+  viewers; disabling is immediate.
 
 - Added captured native tab drag reordering with insertion feedback, stable
   identity checks, cancellation, and remote-viewer guards.
