@@ -103,6 +103,8 @@ pub const WindowsWorkspace = struct {
     tabs: [max_tabs]WorkspaceTab = [_]WorkspaceTab{.{}} ** max_tabs,
     tab_count: usize = 0,
     active_tab: usize = 0,
+    /// Volatile view query; tags remain persisted, filter resets on restart.
+    smart_filter_mask: u8 = 0,
 
     pub fn init(allocator: std.mem.Allocator, columns: usize, rows: usize) !WindowsWorkspace {
         var workspace = WindowsWorkspace{ .allocator = allocator };
@@ -155,6 +157,24 @@ pub const WindowsWorkspace = struct {
         return filter_mask == 0 or (pane_tags & filter_mask) != 0;
     }
 
+    pub fn smartFilterMask(self: *const WindowsWorkspace) u8 {
+        return self.smart_filter_mask;
+    }
+
+    pub fn setSmartFilterMask(self: *WindowsWorkspace, filter_mask: u8) bool {
+        if (self.smart_filter_mask == filter_mask) return false;
+        self.smart_filter_mask = filter_mask;
+        if (filter_mask != 0 and !self.paneMatchesTag(self.activePaneIndex() orelse 0, filter_mask)) {
+            for (self.panes, 0..) |pane_slot, index| {
+                const pane = pane_slot orelse continue;
+                if (pane.tab == self.active_tab and self.paneMatchesTag(index, filter_mask)) {
+                    self.tabs[self.active_tab].active_pane = @intCast(index);
+                    break;
+                }
+            }
+        }
+        return true;
+    }
     fn allocateNode(self: *WindowsWorkspace) !usize {
         for (&self.nodes, 0..) |*node, index| {
             if (node.used) continue;
@@ -438,7 +458,6 @@ pub const WindowsWorkspace = struct {
     }
 
     pub fn activeTabMask(self: *const WindowsWorkspace) u32 {
-        if (self.tab_count <= 1) return 0;
         var mask: u32 = 0;
         for (self.panes, 0..) |pane_slot, pane_index| {
             const pane = pane_slot orelse continue;
@@ -458,7 +477,8 @@ pub const WindowsWorkspace = struct {
     pub fn paneRect(self: *const WindowsWorkspace, pane_index: usize) ?PaneRect {
         if (pane_index >= self.panes.len) return null;
         const pane = self.panes[pane_index] orelse return null;
-        if (pane.tab != self.active_tab) return null;
+        if (pane.tab != self.active_tab or !self.paneMatchesTag(pane_index, self.smart_filter_mask))
+            return null;
         return self.findPaneRect(
             self.tabs[self.active_tab].root,
             pane.node,
@@ -1328,4 +1348,20 @@ test "Windows workspace: pane tags roundtrip and matching remain bounded" {
     var corrupt = encoded;
     corrupt[length - 1] ^= 1;
     try std.testing.expectError(error.InvalidWindowsState, decodePersistedWindowsState(corrupt[0..length]));
+}
+
+test "Windows workspace: Smart Tab filter hides unmatched panes and hands focus to a match" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    const second = try workspace.splitActive(.horizontal, false, 12, 4);
+    try std.testing.expect(try workspace.setPaneTagMask(0, 0b001));
+    try std.testing.expect(try workspace.setPaneTagMask(second, 0b100));
+    try std.testing.expect(workspace.selectPane(0));
+    try std.testing.expect(workspace.setSmartFilterMask(0b100));
+    try std.testing.expectEqual(@as(u8, 0b100), workspace.smartFilterMask());
+    try std.testing.expectEqual(second, workspace.activePaneIndex().?);
+    try std.testing.expect(workspace.paneRect(second) != null);
+    try std.testing.expect(workspace.paneRect(0) == null);
+    try std.testing.expect(workspace.setSmartFilterMask(0));
+    try std.testing.expect(workspace.paneRect(0) != null);
 }
