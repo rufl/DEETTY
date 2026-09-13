@@ -31,6 +31,7 @@ const WorkspacePane = struct {
     grid: *Vt.Grid,
     tab: u8,
     node: u8,
+    tag_mask: u8 = 0,
 };
 
 const WorkspaceTab = struct {
@@ -79,6 +80,7 @@ const SnapshotPane = struct {
     used: bool = false,
     tab: u8 = invalid_index,
     node: u8 = invalid_index,
+    tag_mask: u8 = 0,
 };
 
 pub const WorkspaceSnapshot = struct {
@@ -133,6 +135,24 @@ pub const WindowsWorkspace = struct {
     pub fn paneGrid(self: *WindowsWorkspace, index: usize) ?*Vt.Grid {
         if (index >= self.panes.len) return null;
         return if (self.panes[index]) |pane| pane.grid else null;
+    }
+
+    pub fn paneTagMask(self: *const WindowsWorkspace, index: usize) ?u8 {
+        if (index >= self.panes.len) return null;
+        return if (self.panes[index]) |pane| pane.tag_mask else null;
+    }
+
+    pub fn setPaneTagMask(self: *WindowsWorkspace, index: usize, tag_mask: u8) !bool {
+        if (index >= self.panes.len or self.panes[index] == null)
+            return error.InvalidWindowsPane;
+        if (self.panes[index].?.tag_mask == tag_mask) return false;
+        self.panes[index].?.tag_mask = tag_mask;
+        return true;
+    }
+
+    pub fn paneMatchesTag(self: *const WindowsWorkspace, index: usize, filter_mask: u8) bool {
+        const pane_tags = self.paneTagMask(index) orelse return false;
+        return filter_mask == 0 or (pane_tags & filter_mask) != 0;
     }
 
     fn allocateNode(self: *WindowsWorkspace) !usize {
@@ -555,6 +575,7 @@ pub const WindowsWorkspace = struct {
                 .used = true,
                 .tab = pane.tab,
                 .node = pane.node,
+                .tag_mask = pane.tag_mask,
             };
         }
         return result;
@@ -587,6 +608,7 @@ pub const WindowsWorkspace = struct {
                 .grid = grid,
                 .tab = pane.tab,
                 .node = pane.node,
+                .tag_mask = pane.tag_mask,
             };
         }
         self.deinit();
@@ -618,9 +640,8 @@ pub fn copyTitle(value: []const u8, output: []u8) usize {
     return length;
 }
 
-const persisted_state_magic = "NWS3";
 pub const persisted_state_capacity = 4096;
-
+const persisted_state_magic = "NWS4";
 const StateWriter = struct {
     bytes: []u8,
     index: usize = 0,
@@ -778,12 +799,10 @@ fn validateWorkspaceSnapshot(snapshot_value: *const WorkspaceSnapshot) !void {
     }
     for (snapshot_value.panes, 0..) |pane, index| {
         if (!pane.used) {
-            if (pane.tab != invalid_index or pane.node != invalid_index)
+            if (pane.tab != invalid_index or pane.node != invalid_index or pane.tag_mask != 0)
                 return error.InvalidWindowsWorkspace;
             continue;
         }
-        if (pane.tab >= snapshot_value.tab_count or pane.node >= max_layout_nodes)
-            return error.InvalidWindowsWorkspace;
         const node = snapshot_value.nodes[pane.node];
         if (!node.used or node.kind != .leaf or node.pane != index)
             return error.InvalidWindowsWorkspace;
@@ -829,6 +848,7 @@ pub fn encodePersistedWindowsState(
             try writer.put(@intFromBool(pane.used));
             try writer.put(pane.tab);
             try writer.put(pane.node);
+            try writer.put(pane.tag_mask);
         }
     }
     try writer.putU32(windowsStateChecksum(output[0..writer.index]));
@@ -846,14 +866,16 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
     for ("NWS") |expected|
         if (try reader.take() != expected) return error.InvalidWindowsState;
     const version = try reader.take();
-    if (version != '1' and version != '2' and version != '3') return error.InvalidWindowsState;
+    if (version != '1' and version != '2' and version != '3' and version != '4')
+        return error.InvalidWindowsState;
     const theme_value = try reader.take();
-    if (!WindowsAppearance.validTheme(theme_value) or (version != '3' and theme_value > 1))
+    if (!WindowsAppearance.validTheme(theme_value) or
+        ((version != '3' and version != '4') and theme_value > 1))
         return error.InvalidWindowsState;
     const theme: WindowsTheme = @enumFromInt(theme_value);
     const font_size = try reader.take();
     if (!WindowsAppearance.validFontSize(font_size) or
-        (version != '3' and (font_size < 10 or font_size > 24)))
+        ((version != '3' and version != '4') and (font_size < 10 or font_size > 24)))
         return error.InvalidWindowsState;
     const launch_profile: WindowsLaunchProfile = switch (try reader.take()) {
         0 => .powershell,
@@ -901,7 +923,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .first = try reader.take(),
                 .second = try reader.take(),
                 .pane = try reader.take(),
-                .ratio_permille = if (version == '3') try reader.takeU16() else 500,
+                .ratio_permille = if (version == '3' or version == '4') try reader.takeU16() else 500,
             };
         }
         for (&snapshot_value.panes) |*pane| {
@@ -909,6 +931,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .used = try reader.takeBool(),
                 .tab = try reader.take(),
                 .node = try reader.take(),
+                .tag_mask = if (version == '4') try reader.take() else 0,
             };
         }
         try validateWorkspaceSnapshot(&snapshot_value);
@@ -1069,7 +1092,7 @@ test "Windows workspace: NWS1 migrates to NWS3 preserving order with automatic l
     _ = try workspace.renameTab(1, "legacy");
     var encoded: [persisted_state_capacity]u8 = undefined;
     const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
-    try std.testing.expectEqualStrings("NWS3", encoded[0..4]);
+    try std.testing.expectEqualStrings("NWS4", encoded[0..4]);
     const migrated = try decodePersistedWindowsState(encoded[0..length]);
     try workspace.restore(migrated.workspace.?, 12, 4);
     try std.testing.expectEqual(@as(usize, 1), workspace.activePaneIndex().?);
@@ -1209,7 +1232,7 @@ test "Windows workspace: focused adjustment follows child side and nearest match
     try validateWorkspaceSnapshot(&snapshot_value);
 }
 
-test "Windows workspace: NWS2 split ratios migrate to equal and NWS3 preserves boundary ratios" {
+test "Windows workspace: NWS2 split ratios migrate to equal and NWS4 preserves boundary ratios" {
     const payload = "NWS2\x00\x0d\x00\x01\x01\x01\x00" ++
         "\x01\x01\x01\x01\x03old" ++ "\x00\xff\xff\x00\x00" ** 15 ++
         "\x01\x00\x01\xff\xff\x00" ++ // First leaf.
@@ -1246,13 +1269,13 @@ test "Windows workspace: NWS2 split ratios migrate to equal and NWS3 preserves b
     try std.testing.expectError(error.InvalidWindowsState, encodePersistedWindowsState(.{ .preferences = .{ .font_size_pt = 33 } }, &encoded));
 }
 
-test "Windows workspace: signed NWS3 rejects malicious ratios and noncanonical node metadata" {
+test "Windows workspace: signed NWS4 rejects malicious ratios and noncanonical node metadata" {
     var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
     defer workspace.deinit();
     _ = try workspace.splitActive(.horizontal, false, 12, 4);
     var encoded: [persisted_state_capacity]u8 = undefined;
     const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
-    const nodes_offset = 11 + 5 * max_tabs;
+    const nodes_offset = 11 + 5;
     for ([_]struct { node: usize, ratio: u16 }{
         .{ .node = 0, .ratio = 499 }, // Used leaf is canonical, not proportional.
         .{ .node = 1, .ratio = 1001 }, // Branch must fit permille domain.
@@ -1268,7 +1291,7 @@ test "Windows workspace: signed NWS3 rejects malicious ratios and noncanonical n
     for ([_]struct { offset: usize, value: u8 }{
         .{ .offset = nodes_offset + 3 * 8 + 1, .value = 1 },
         .{ .offset = nodes_offset + 3 * 8 + 2, .value = 0 },
-        .{ .offset = nodes_offset + 8 * max_layout_nodes + 3 * 2 + 1, .value = 0 },
+        .{ .offset = nodes_offset + 8 * max_layout_nodes + 3 * 4 + 1, .value = 0 },
     }) |mutation| {
         var corrupt = encoded;
         corrupt[mutation.offset] = mutation.value;
@@ -1285,4 +1308,24 @@ test "Windows workspace: signed NWS3 rejects malicious ratios and noncanonical n
         signTestState(corrupt[0..length]);
         try std.testing.expectError(error.InvalidWindowsState, decodePersistedWindowsState(corrupt[0..length]));
     }
+}
+
+test "Windows workspace: pane tags roundtrip and matching remain bounded" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    const second = try workspace.splitActive(.horizontal, false, 12, 4);
+    try std.testing.expect(try workspace.setPaneTagMask(0, 0b001));
+    try std.testing.expect(try workspace.setPaneTagMask(second, 0b100));
+    try std.testing.expect(!try workspace.setPaneTagMask(0, 0b001));
+    try std.testing.expect(workspace.paneMatchesTag(0, 0));
+    try std.testing.expect(workspace.paneMatchesTag(0, 0b001));
+    try std.testing.expect(!workspace.paneMatchesTag(0, 0b100));
+    var encoded: [persisted_state_capacity]u8 = undefined;
+    const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
+    const decoded = try decodePersistedWindowsState(encoded[0..length]);
+    try std.testing.expectEqual(@as(u8, 0b001), decoded.workspace.?.panes[0].tag_mask);
+    try std.testing.expectEqual(@as(u8, 0b100), decoded.workspace.?.panes[second].tag_mask);
+    var corrupt = encoded;
+    corrupt[length - 1] ^= 1;
+    try std.testing.expectError(error.InvalidWindowsState, decodePersistedWindowsState(corrupt[0..length]));
 }
