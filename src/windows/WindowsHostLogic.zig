@@ -68,6 +68,28 @@ pub export fn noctty_windows_workspace_local_operation(
 ) callconv(.c) c_int {
     return @intFromBool(remote_mode == 0);
 }
+test "broadcast routing requires local mode, enabled state, and live session" {
+    for ([_]c_int{ 0, 1 }) |remote_mode| {
+        for ([_]c_int{ 0, 1 }) |enabled| {
+            for ([_]c_int{ 0, 1 }) |session_live| {
+                const expected = @intFromBool(remote_mode == 0 and enabled != 0 and session_live != 0);
+                try std.testing.expectEqual(expected, noctty_windows_broadcast_route(
+                    remote_mode,
+                    enabled,
+                    session_live,
+                ));
+            }
+        }
+    }
+}
+
+pub export fn noctty_windows_broadcast_route(
+    remote_mode: c_int,
+    broadcast_enabled: c_int,
+    session_live: c_int,
+) callconv(.c) c_int {
+    return @intFromBool(remote_mode == 0 and broadcast_enabled != 0 and session_live != 0);
+}
 
 pub export fn noctty_windows_workspace_startup_plan(
     state: ?*WorkspaceState,

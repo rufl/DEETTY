@@ -339,7 +339,11 @@ fn writeTerminal(host: *Host, bytes: [*]const u8, length: usize) bool {
     var wrote = false;
     var index: c_int = 0;
     while (index < count and index < max_sessions) : (index += 1) {
-        if (Logic.noctty_windows_session_is_live(&host.workspace, index) != 0)
+        if (Logic.noctty_windows_broadcast_route(
+            host.remote_mode,
+            @intFromBool(host.broadcast_enabled),
+            Logic.noctty_windows_session_is_live(&host.workspace, index),
+        ) != 0)
             wrote = writeSession(&host.sessions[@intCast(index)], bytes, length) or wrote;
     }
     return wrote;

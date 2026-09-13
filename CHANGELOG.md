@@ -23,6 +23,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   Workspace menu require explicit confirmation before enabling, show the active
   state, fan input to live local panes, and remain unavailable to remote
   viewers; disabling is immediate.
+- Broadcast input is intentionally session-scoped and is not restored from
+  workspace state, preventing a saved layout from unexpectedly fanning input
+  into every local pane after restart.
 
 - Added captured native tab drag reordering with insertion feedback, stable
   identity checks, cancellation, and remote-viewer guards.

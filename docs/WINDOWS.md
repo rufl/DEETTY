@@ -235,6 +235,9 @@ The window's **Settings** menu applies user-owned, local preferences:
 - **Restore saved workspace on startup** controls whether a saved layout is
   reconstructed before the native host opens.
 
+Broadcast input is session-scoped and is not serialized in `NWS3`; restarting
+NOCTTY always starts with broadcast disabled.
+
 The **Workspace** menu saves the current bounded tab/split model or restores the
 last saved model. Restore is intentionally destructive: NOCTTY confirms first,
 closes the current shells, reconstructs the validated layout, and starts
