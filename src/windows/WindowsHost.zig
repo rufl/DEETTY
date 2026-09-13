@@ -431,7 +431,9 @@ fn sendWideCharacter(host: *Host, character: u16) void {
 fn clipboardWrite(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {
     const host: *Host = @ptrCast(@alignCast(raw orelse return -1));
     if (length > std.math.maxInt(c_int)) return -1;
-    return if (writeTerminal(host, bytes, length)) @intCast(length) else -1;
+    if (writeTerminal(host, bytes, length)) return @intCast(length);
+    reportInputFailure(host);
+    return -1;
 }
 
 fn pasteClipboard(host: *Host) void {
@@ -456,6 +458,37 @@ fn copyTerminal(host: *Host) void {
         if (selected) host.mouse.selection_extent_column else -1,
         if (selected) host.mouse.selection_extent_row else -1,
     );
+}
+
+fn reportInputFailure(host: *Host) void {
+    log("terminal_input_failed remote={d}\r\n", .{host.remote_mode});
+    _ = c.MessageBoxW(
+        host.window,
+        wide("NOCTTY could not send input to the focused terminal. The session may have closed, or remote input may not be permitted."),
+        wide("NOCTTY Windows alpha"),
+        c.MB_OK | c.MB_ICONERROR,
+    );
+}
+
+fn clearScreen(host: *Host) void {
+    const form_feed = [_]u8{0x0c};
+    if (!writeTerminal(host, &form_feed, form_feed.len)) reportInputFailure(host);
+}
+
+fn cycleWorkspace(host: *Host, next_tab: bool) void {
+    const changed = if (next_tab)
+        host.callbacks.next_tab(host.callbacks.userdata)
+    else
+        host.callbacks.next_stream(host.callbacks.userdata);
+    if (changed <= 0) return;
+    clearSelection(host);
+    if (host.remote_mode == 0) {
+        var client: c.RECT = undefined;
+        _ = c.GetClientRect(host.window, &client);
+        resizeTerminal(host, client.right, client.bottom);
+    }
+    updateTitle(host);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
 }
 
 fn workspaceAction(host: *Host, action: c_int) bool {
@@ -734,6 +767,49 @@ fn launchNocted(host: *Host) void {
 }
 
 fn handleMenuCommand(host: *Host, command: c.UINT) bool {
+    switch (command) {
+        Menu.id_new_tab => {
+            _ = workspaceAction(host, action_new_tab);
+            return true;
+        },
+        Menu.id_split_down => {
+            _ = workspaceAction(host, action_split_down);
+            return true;
+        },
+        Menu.id_split_left => {
+            _ = workspaceAction(host, action_split_left);
+            return true;
+        },
+        Menu.id_next_pane => {
+            cycleWorkspace(host, false);
+            return true;
+        },
+        Menu.id_next_tab => {
+            cycleWorkspace(host, true);
+            return true;
+        },
+        Menu.id_close_pane => {
+            _ = workspaceClose(host, close_pane, query_close_pane);
+            return true;
+        },
+        Menu.id_close_tab => {
+            _ = workspaceClose(host, close_tab, query_close_tab);
+            return true;
+        },
+        Menu.id_copy => {
+            copyTerminal(host);
+            return true;
+        },
+        Menu.id_paste => {
+            pasteClipboard(host);
+            return true;
+        },
+        Menu.id_clear_screen => {
+            clearScreen(host);
+            return true;
+        },
+        else => {},
+    }
     var action: Logic.MenuAction = undefined;
     if (Logic.noctty_windows_decode_menu_command(command, host.restore_workspace, &action) == 0) return false;
     switch (action.kind) {
@@ -745,6 +821,43 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         menu_workspace_restore => workspacePersistence(host, workspace_restore),
         menu_launch_nocted => launchNocted(host),
         else => return false,
+    }
+    return true;
+}
+
+fn menuSmoke(host: *Host) bool {
+    const menu = host.menu orelse return false;
+    if (!Menu.qualifyState(menu, false)) return false;
+    const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
+    const active_before = host.callbacks.active_pane(host.callbacks.userdata);
+    const sessions_before = host.workspace.live_sessions;
+    host.remote_mode = 1;
+    updateMenu(host);
+    if (!Menu.qualifyState(menu, true)) return false;
+    for ([_]u32{
+        Menu.id_new_tab,    Menu.id_split_down, Menu.id_split_left,
+        Menu.id_close_pane, Menu.id_close_tab,
+    }) |command| {
+        if (!handleMenuCommand(host, command) or
+            c.IsWindow(host.window) == 0 or
+            host.callbacks.pane_count(host.callbacks.userdata) != panes_before or
+            host.callbacks.active_pane(host.callbacks.userdata) != active_before or
+            host.workspace.live_sessions != sessions_before or
+            host.workspace.pending_close != 0) return false;
+    }
+    host.remote_mode = 0;
+    updateMenu(host);
+    if (!Menu.qualifyState(menu, false)) return false;
+    // DestroyWindow owns the entire attached tree; descriptor cleanup must not
+    // destroy any of these handles a second time.
+    const handles = [_]c.HMENU{
+        @ptrCast(menu.root),     @ptrCast(menu.settings), @ptrCast(menu.theme),
+        @ptrCast(menu.font),     @ptrCast(menu.profile),  @ptrCast(menu.workspace),
+        @ptrCast(menu.terminal),
+    };
+    if (c.DestroyWindow(host.window) == 0) return false;
+    for (handles) |handle| {
+        if (c.IsMenu(handle) != 0) return false;
     }
     return true;
 }
@@ -952,24 +1065,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
                 Logic.key_action_split_left => _ = workspaceAction(current, action_split_left),
                 Logic.key_action_close_tab => _ = workspaceClose(current, close_tab, query_close_tab),
                 Logic.key_action_close_pane => _ = workspaceClose(current, close_pane, query_close_pane),
-                Logic.key_action_cycle => {
-                    const changed = if (current.remote_mode != 0)
-                        if (shift != 0) current.callbacks.next_stream(current.callbacks.userdata) else current.callbacks.next_tab(current.callbacks.userdata)
-                    else if (shift != 0)
-                        current.callbacks.next_tab(current.callbacks.userdata)
-                    else
-                        current.callbacks.next_stream(current.callbacks.userdata);
-                    if (changed > 0) {
-                        clearSelection(current);
-                        if (current.remote_mode == 0) {
-                            var client: c.RECT = undefined;
-                            _ = c.GetClientRect(window, &client);
-                            resizeTerminal(current, client.right, client.bottom);
-                        }
-                        updateTitle(current);
-                        _ = c.InvalidateRect(window, null, c.FALSE);
-                    }
-                },
+                Logic.key_action_cycle => cycleWorkspace(current, if (current.remote_mode != 0) shift == 0 else shift != 0),
                 Logic.key_action_special => sendSpecialKey(current, word),
                 else => return c.DefWindowProcW(window, message, word, long_value),
             }
@@ -1199,6 +1295,12 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         @intCast(smoke_value.len),
     );
     host.smoke_mode = @intFromBool(smoke_length > 0 and smoke_value[0] != '0');
+    const menu_smoke_length = c.GetEnvironmentVariableW(
+        wide("NOCTTY_WINDOWS_MENU_SMOKE"),
+        &smoke_value,
+        @intCast(smoke_value.len),
+    );
+    const menu_smoke = menu_smoke_length > 0 and smoke_value[0] != '0';
     host.mouse.selection_pane = -1;
     host.mouse.capture_pane = -1;
 
@@ -1243,8 +1345,20 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         return exit_code;
     }
     if (!createMenu(host)) {
+        if (menu_smoke) {
+            log("windows_menu_smoke passed=false conpty=false\r\n", .{});
+            return 2;
+        }
         _ = c.MessageBoxW(host.window, wide("NOCTTY could not create its native menu."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
+    }
+    if (menu_smoke) {
+        if (!menuSmoke(host)) {
+            log("windows_menu_smoke passed=false conpty=false\r\n", .{});
+            return 2;
+        }
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false\r\n", .{});
+        return 0;
     }
     var dpi = c.GetDpiForWindow(host.window);
     if (dpi == 0) dpi = 96;

@@ -4,6 +4,7 @@
 //! handles so the message adapter composes them without recreating decisions.
 
 const std = @import("std");
+const KeyEncoding = @import("terminal_key_encoding");
 
 const layout_scale: u64 = 1_000_000;
 
@@ -356,6 +357,10 @@ pub export fn noctty_windows_decode_key_action(
         suppress.* = 1;
         return key_action_paste;
     }
+    if (control != 0 and key == 0x09) { // VK_TAB.
+        suppress.* = 1;
+        return key_action_cycle;
+    }
     if (remote_mode == 0 and control != 0 and shift != 0) {
         suppress.* = 1;
         return switch (key) {
@@ -372,10 +377,6 @@ pub export fn noctty_windows_decode_key_action(
     if (remote_mode == 0 and control != 0 and shift == 0 and key == 'D') {
         suppress.* = 1;
         return key_action_close_pane;
-    }
-    if (control != 0 and key == 0x09) { // VK_TAB.
-        suppress.* = 1;
-        return key_action_cycle;
     }
     if (shift != 0 and key == 0x2d) return key_action_paste; // VK_INSERT.
     if (isSpecialKey(key)) return key_action_special;
@@ -807,36 +808,38 @@ pub export fn noctty_windows_special_key_sequence(
     output: [*]u8,
     capacity: usize,
 ) callconv(.c) usize {
-    const sequence = specialKeySequence(key, application_cursor != 0) orelse return 0;
-    if (sequence.len > capacity) return 0;
-    @memcpy(output[0..sequence.len], sequence);
-    return sequence.len;
+    const terminal_key = terminalKey(key) orelse return 0;
+    return KeyEncoding.encode(
+        terminal_key,
+        .{ .application_cursor = application_cursor != 0 },
+        output[0..capacity],
+    );
 }
 
-fn specialKeySequence(key: usize, application_cursor: bool) ?[]const u8 {
+fn terminalKey(key: usize) ?KeyEncoding.Key {
     return switch (key) {
-        0x26 => if (application_cursor) "\x1bOA" else "\x1b[A",
-        0x28 => if (application_cursor) "\x1bOB" else "\x1b[B",
-        0x27 => if (application_cursor) "\x1bOC" else "\x1b[C",
-        0x25 => if (application_cursor) "\x1bOD" else "\x1b[D",
-        0x24 => "\x1b[H",
-        0x23 => "\x1b[F",
-        0x21 => "\x1b[5~",
-        0x22 => "\x1b[6~",
-        0x2d => "\x1b[2~",
-        0x2e => "\x1b[3~",
-        0x70 => "\x1bOP",
-        0x71 => "\x1bOQ",
-        0x72 => "\x1bOR",
-        0x73 => "\x1bOS",
-        0x74 => "\x1b[15~",
-        0x75 => "\x1b[17~",
-        0x76 => "\x1b[18~",
-        0x77 => "\x1b[19~",
-        0x78 => "\x1b[20~",
-        0x79 => "\x1b[21~",
-        0x7a => "\x1b[23~",
-        0x7b => "\x1b[24~",
+        0x26 => .up,
+        0x28 => .down,
+        0x27 => .right,
+        0x25 => .left,
+        0x24 => .home,
+        0x23 => .end,
+        0x21 => .page_up,
+        0x22 => .page_down,
+        0x2d => .insert,
+        0x2e => .delete,
+        0x70 => .f1,
+        0x71 => .f2,
+        0x72 => .f3,
+        0x73 => .f4,
+        0x74 => .f5,
+        0x75 => .f6,
+        0x76 => .f7,
+        0x77 => .f8,
+        0x78 => .f9,
+        0x79 => .f10,
+        0x7a => .f11,
+        0x7b => .f12,
         else => null,
     };
 }
@@ -950,6 +953,32 @@ test "Windows key commands preserve local and remote policy" {
     ));
 }
 
+test "Ctrl Tab cycles locally and remotely with or without Shift" {
+    for ([_]c_int{ 0, 1 }) |remote_mode| {
+        for ([_]c_int{ 0, 1 }) |shift| {
+            var suppress: c_int = 0;
+            try std.testing.expectEqual(key_action_cycle, noctty_windows_decode_key_action(
+                0x09,
+                1,
+                shift,
+                0,
+                remote_mode,
+                &suppress,
+            ));
+            try std.testing.expectEqual(@as(c_int, 1), suppress);
+            try std.testing.expectEqual(key_action_default, noctty_windows_decode_key_action(
+                0x09,
+                0,
+                shift,
+                0,
+                remote_mode,
+                &suppress,
+            ));
+            try std.testing.expectEqual(@as(c_int, 0), suppress);
+        }
+    }
+}
+
 test "Windows menu commands decode to bounded actions" {
     var action: MenuAction = undefined;
     try std.testing.expectEqual(@as(c_int, 1), noctty_windows_decode_menu_command(
@@ -1021,6 +1050,23 @@ test "selection and special keys preserve Win32 host policy" {
     var bytes: [16]u8 = undefined;
     const count = noctty_windows_special_key_sequence(0x26, 1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1bOA", bytes[0..count]);
+}
+
+test "Windows key adapter preserves cursor mode and atomic capacity failures" {
+    var bytes = [_]u8{0xa5} ** 8;
+    var count = noctty_windows_special_key_sequence(0x25, 0, &bytes, bytes.len);
+    try std.testing.expectEqualStrings("\x1b[D", bytes[0..count]);
+    count = noctty_windows_special_key_sequence(0x25, -1, &bytes, bytes.len);
+    try std.testing.expectEqualStrings("\x1bOD", bytes[0..count]);
+    count = noctty_windows_special_key_sequence(0x24, 1, &bytes, bytes.len);
+    try std.testing.expectEqualStrings("\x1b[H", bytes[0..count]);
+    bytes = [_]u8{0xa5} ** 8;
+    try std.testing.expectEqual(@as(usize, 0), noctty_windows_special_key_sequence(0x7b, 0, &bytes, 4));
+    try std.testing.expectEqual(@as(usize, 0), noctty_windows_special_key_sequence(0x0d, 0, &bytes, bytes.len));
+    try std.testing.expectEqualSlices(u8, &([_]u8{0xa5} ** 8), &bytes);
+    count = noctty_windows_special_key_sequence(0x7b, 0, &bytes, 5);
+    try std.testing.expectEqualStrings("\x1b[24~", bytes[0..count]);
+    try std.testing.expectEqual(@as(u8, 0xa5), bytes[5]);
 }
 
 fn testMouseState() MouseState {

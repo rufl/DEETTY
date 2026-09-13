@@ -23,8 +23,9 @@ Included:
 - bounded local tabs and recursive split-down/split-left layouts, with one
   independent ConPTY process, Zig VT grid, output ring, reply path, resize
   state, and lifecycle per pane
-- a native Win32 menu for dark/system-high-contrast themes, 11/13/16/18-point
-  terminal fonts, launch profile, and startup workspace restoration
+- native Win32 Settings, Workspace, and Terminal menus exposing themes,
+  font sizes, launch profile, workspace creation/navigation/guarded close,
+  layout persistence, copy/paste, and focused-terminal Ctrl+L
 - explicit, checksummed save/restore of the bounded tab and split layout;
   restoring launches replacement shells rather than serializing shell contents
 - explicit command-line LAN discovery, pairing, and encrypted terminal
@@ -59,9 +60,10 @@ ConPTY pipes, the shell process, reader thread, synchronized 1 MiB output ring,
 resize/exit polling, Unicode clipboard global memory, native-menu state,
 DPI-aware font creation/metrics, preference normalization, bounded window
 titles, the double-buffered GDI renderer, local diagnostics, and sibling NoctEd
-launch are Zig-owned platform adapters. The remaining C host is limited to
-HWND/timer ownership, input/workspace-session orchestration, and
-window-message/command dispatch behind the existing ABI.
+launch are Zig-owned platform adapters. `WindowsHost.zig` also owns
+HWND/timer lifetime, input/workspace-session orchestration, and native
+window-message/command dispatch. The Windows host has no first-party C
+translation unit.
 
 ## Requirements
 
@@ -93,9 +95,57 @@ tab and pane counts, and clicking a rendered pane focuses its exact session.
 | `Ctrl+D` | Close the focused pane; the final session is protected |
 | `Ctrl+Shift+W` | Close the current tab; the final tab is protected |
 
+The **Workspace** menu exposes these same actions and save/restore commands.
+The **Terminal** menu provides Copy, Paste, and Clear Screen. Clear Screen sends
+one Ctrl+L byte to the focused local or remote input path; the running shell or
+application decides how to redraw. It does not directly erase the VT grid.
+Paste and clear input-delivery failures show a native error dialog.
+
+Remote viewers disable local workspace mutations and reject them at dispatch.
+Next Pane and Next Tab remain available, with shortcut hints changed to match
+the remote navigation order described above.
+
 These controls are intentionally smaller than the Linux workspace surface.
 There is no Windows tab strip, drag reordering, reusable profile library,
 Smart Tab, or broadcast-input claim yet.
+
+### Parity development boundary
+
+Linux and Windows should share toolkit-neutral behavior, not widget handles or
+transport lifetimes. Terminal key encoding is the first shared extraction;
+GDK key values and Windows virtual keys stay in their respective adapters.
+GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
+ownership remains platform-specific.
+
+The next larger parity work is a native tab strip with selection/rename/reorder,
+adjustable split ratios, shared launch/profile and theme models, and graphical
+sharing controls. These are not delivered by menu discoverability alone.
+Windows currently has its own bounded workspace tree in `src/windows/main.zig`;
+reusing Linux layout policy must reconcile that tree and its saved-state format
+rather than introduce a third workspace model.
+
+Cross-compilation proves build compatibility. Isolated Wine can exercise native
+controls and command dispatch, but does not establish physical Windows
+ConPTY/GDI, DPI, IME, or accessibility parity.
+
+### Focused menu qualification
+
+After a Windows cross-build, run:
+
+```sh
+scripts/windows_terminal_menu_smoke.sh path/to/noctty.exe
+```
+
+This uses the reviewed isolated-display runner and a disposable Wine prefix.
+It inspects real Win32 menus, local/remote enabled-state transitions, navigation
+shortcut hints, rejection of remote workspace mutations through production
+command dispatch, and HWND-owned menu destruction. It does not start or mock
+ConPTY; its receipt explicitly reports `conpty=false`.
+
+On supported Windows, run the packaged `windows_smoke.ps1 -Interactive`
+checklist to exercise the new menus against real shells, clipboard, and remote
+input permissions. Cross-compilation and the hidden-window Wine qualification
+do not establish visual, physical-input, or ConPTY acceptance for these actions.
 
 ## Selection and terminal mouse input
 

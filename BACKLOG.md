@@ -21,6 +21,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 | P2 | NCT-112 terminal stability and agent-resource qualification | Blocked on elapsed evidence: retain the uninterrupted 48-hour run. |
 | P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
 | P2 | NCT-126 first-party native-adapter migration | Source-ready incremental migration plus mapped/physical retirement gates. |
+| P2 | NCT-127 shared native behavior and Windows feature parity | Share toolkit-neutral libraries while adding native Windows workspace controls and preserving Linux behavior. |
 | P3 | Release Operations | Operator/external evidence owns signing, publication, redistribution review, compositor, and consented HID acceptance. |
 
 Every open bundle is listed once above. Source-ready work is locally executable;
@@ -157,6 +158,29 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   display-isolation shell orchestration outside the source-percentage target.
   Physical Windows behavior and isolated mapped GTK proof remain required
   acceptance boundaries. `[truth:build,test,docs]`
+
+#### NCT-127 Shared native behavior and Windows feature parity — partial
+
+- [ ] [status:yellow] Qualify the new Windows Workspace/Terminal menus against
+  real ConPTY shells and remote input permissions on supported Windows.
+  Shared key encoding, native menu construction, guarded command dispatch,
+  and the local Ctrl+Shift+Tab fix are implemented; cross-build and focused
+  byte-level regressions do not establish physical Windows acceptance.
+  `[truth:build,test,docs,external]`
+- [ ] Add a native Windows tab strip with select, rename, and reorder actions;
+  preserve active-pane identity and saved layout ordering.
+- [ ] Reuse proportional split-tree policy for Windows adjustable dividers;
+  migrate the bounded Windows snapshot deliberately rather than duplicate
+  Linux's layout semantics in another model.
+- [ ] Bring shared launch-profile/theme behavior to Windows GUI controls,
+  retaining ConPTY-specific launch validation and atomic local persistence.
+- [ ] Add native graphical paired-device/session-sharing controls over the
+  existing shared protocol and lifecycle, including visible permission and
+  persistence failures.
+- [ ] Continue replacing GTK C ownership with cohesive Zig components toward
+  90% without counting file moves, duplicate implementations, or unrelated new
+  code as architectural progress. Retain focused Linux runtime proof and
+  supported-Windows acceptance for each migrated behavior.
 
 ### P3 — Release operations
 

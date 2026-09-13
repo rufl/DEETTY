@@ -26,6 +26,22 @@ const id_workspace_save = Logic.menu_workspace_save;
 const id_workspace_restore = Logic.menu_workspace_restore;
 const id_open_nocted = Logic.menu_open_nocted;
 
+pub const id_new_tab: u32 = 40101;
+pub const id_split_down: u32 = 40102;
+pub const id_split_left: u32 = 40103;
+pub const id_next_pane: u32 = 40104;
+pub const id_next_tab: u32 = 40105;
+pub const id_close_pane: u32 = 40106;
+pub const id_close_tab: u32 = 40107;
+pub const id_copy: u32 = 40201;
+pub const id_paste: u32 = 40202;
+pub const id_clear_screen: u32 = 40203;
+
+const local_commands = [_]u32{
+    id_new_tab,        id_split_down,        id_split_left, id_close_pane, id_close_tab,
+    id_workspace_save, id_workspace_restore,
+};
+
 pub const Menu = struct {
     window: c.HWND,
     root: c.HMENU,
@@ -34,6 +50,7 @@ pub const Menu = struct {
     font: c.HMENU,
     profile: c.HMENU,
     workspace: c.HMENU,
+    terminal: c.HMENU,
 };
 
 pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
@@ -68,6 +85,11 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
     defer {
         if (workspace_owned) _ = c.DestroyMenu(workspace);
     }
+    const terminal = c.CreatePopupMenu() orelse return null;
+    var terminal_owned = true;
+    defer {
+        if (terminal_owned) _ = c.DestroyMenu(terminal);
+    }
 
     if (!append(theme, c.MF_STRING, id_theme_dark, "&Dark") or
         !append(theme, c.MF_STRING, id_theme_high_contrast, "&High contrast") or
@@ -78,6 +100,18 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         !append(profile, c.MF_STRING, id_profile_powershell, "&PowerShell") or
         !append(profile, c.MF_STRING, id_profile_command, "&Command Prompt") or
         !append(settings, c.MF_STRING, id_restore_startup, "&Restore saved workspace on startup") or
+        !append(workspace, c.MF_STRING, id_new_tab, "&New Tab\tCtrl+Shift+T") or
+        !append(workspace, c.MF_STRING, id_split_down, "Split &Down\tCtrl+Shift+S") or
+        !append(workspace, c.MF_STRING, id_split_left, "Split &Left\tCtrl+Shift+L") or
+        c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(workspace, c.MF_STRING, id_next_pane, "Next &Pane\tCtrl+Tab") or
+        !append(workspace, c.MF_STRING, id_next_tab, "Next &Tab\tCtrl+Shift+Tab") or
+        !append(workspace, c.MF_STRING, id_close_pane, "&Close Pane\tCtrl+D") or
+        !append(workspace, c.MF_STRING, id_close_tab, "Close Ta&b\tCtrl+Shift+W") or
+        c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(terminal, c.MF_STRING, id_copy, "&Copy\tCtrl+Shift+C") or
+        !append(terminal, c.MF_STRING, id_paste, "&Paste\tCtrl+Shift+V") or
+        !append(terminal, c.MF_STRING, id_clear_screen, "C&lear Screen\tCtrl+L") or
         !append(workspace, c.MF_STRING, id_workspace_save, "&Save current layout") or
         !append(workspace, c.MF_STRING, id_workspace_restore, "&Restore saved layout..."))
     {
@@ -96,13 +130,14 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         return null;
     }
     profile_owned = false;
-    if (c.AppendMenuW(settings, c.MF_SEPARATOR, 0, null) == 0) return null;
     if (c.AppendMenuW(root, c.MF_POPUP, @intFromPtr(settings), wide("&Settings")) == 0) return null;
     settings_owned = false;
     if (c.AppendMenuW(root, c.MF_POPUP, @intFromPtr(workspace), wide("&Workspace")) == 0) {
         return null;
     }
     workspace_owned = false;
+    if (c.AppendMenuW(root, c.MF_POPUP, @intFromPtr(terminal), wide("&Terminal")) == 0) return null;
+    terminal_owned = false;
     if (!append(root, c.MF_STRING, id_open_nocted, "Open &NoctEd")) return null;
 
     const heap = c.GetProcessHeap() orelse return null;
@@ -116,6 +151,7 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         .font = font,
         .profile = profile,
         .workspace = workspace,
+        .terminal = terminal,
     };
     if (c.SetMenu(window, root) == 0) {
         _ = c.HeapFree(heap, 0, menu);
@@ -168,9 +204,61 @@ pub export fn noctty_windows_menu_update(
     _ = c.EnableMenuItem(menu.profile, id_profile_powershell, command_state);
     _ = c.EnableMenuItem(menu.profile, id_profile_command, command_state);
     _ = c.EnableMenuItem(menu.settings, id_restore_startup, command_state);
-    _ = c.EnableMenuItem(menu.workspace, id_workspace_save, command_state);
-    _ = c.EnableMenuItem(menu.workspace, id_workspace_restore, command_state);
+    for (local_commands) |command| _ = c.EnableMenuItem(menu.workspace, command, command_state);
+    _ = c.ModifyMenuW(menu.workspace, id_next_pane, c.MF_BYCOMMAND | c.MF_STRING, id_next_pane, if (remote_mode != 0)
+        wide("Next &Pane\tCtrl+Shift+Tab")
+    else
+        wide("Next &Pane\tCtrl+Tab"));
+    _ = c.ModifyMenuW(menu.workspace, id_next_tab, c.MF_BYCOMMAND | c.MF_STRING, id_next_tab, if (remote_mode != 0)
+        wide("Next &Tab\tCtrl+Tab")
+    else
+        wide("Next &Tab\tCtrl+Shift+Tab"));
     _ = c.DrawMenuBar(menu.window);
+}
+
+/// Inspect the real Win32 menu, including disabled commands and displayed hints.
+/// Used only by the bounded, hidden-window host qualification mode.
+pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
+    if (c.GetMenu(menu.window) != menu.root or
+        c.GetMenuItemCount(menu.root) != 4 or
+        c.GetSubMenu(menu.root, 0) != menu.settings or
+        c.GetSubMenu(menu.root, 1) != menu.workspace or
+        c.GetSubMenu(menu.root, 2) != menu.terminal or
+        c.GetMenuItemCount(menu.workspace) != 11 or
+        c.GetMenuItemCount(menu.terminal) != 3) return false;
+    for (local_commands) |command| {
+        if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;
+    }
+    for ([_]u32{ id_next_pane, id_next_tab }) |command| {
+        if (!commandStateMatches(menu.workspace, command, false)) return false;
+    }
+    for ([_]u32{ id_copy, id_paste, id_clear_screen }) |command| {
+        if (!commandStateMatches(menu.terminal, command, false)) return false;
+    }
+    if (!commandStateMatches(menu.root, id_open_nocted, false) or
+        !commandStateMatches(menu.settings, id_restore_startup, remote_mode) or
+        !commandStateMatches(menu.profile, id_profile_powershell, remote_mode) or
+        !commandStateMatches(menu.profile, id_profile_command, remote_mode)) return false;
+    return if (remote_mode)
+        commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Shift+Tab") and
+            commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Tab")
+    else
+        commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Tab") and
+            commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Shift+Tab");
+}
+
+fn commandStateMatches(menu: c.HMENU, command: u32, disabled: bool) bool {
+    const state = c.GetMenuState(menu, command, c.MF_BYCOMMAND);
+    if (state == @import("std").math.maxInt(c.UINT)) return false;
+    return ((state & (c.MF_DISABLED | c.MF_GRAYED)) != 0) == disabled;
+}
+
+fn commandTextMatches(menu: c.HMENU, command: u32, comptime expected: []const u8) bool {
+    var text: [64]u16 = undefined;
+    const count = c.GetMenuStringW(menu, command, &text, @intCast(text.len), c.MF_BYCOMMAND);
+    const expected_wide = @import("std").unicode.utf8ToUtf16LeStringLiteral(expected);
+    return count == expected_wide.len and
+        @import("std").mem.eql(u16, text[0..@intCast(@max(count, 0))], expected_wide);
 }
 
 pub export fn noctty_windows_menu_deinit(optional_menu: ?*Menu) void {

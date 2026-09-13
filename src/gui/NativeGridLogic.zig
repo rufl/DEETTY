@@ -1,6 +1,7 @@
 //! Pure close coordination, geometry, selection, and input policy for GTK.
 
 const std = @import("std");
+const KeyEncoding = @import("terminal_key_encoding");
 
 pub const ScrollbarGeometry = extern struct {
     x: f64,
@@ -474,11 +475,14 @@ pub export fn noctty_grid_wheel_key_sequence(
     const count: u32 = @min(@abs(steps), 64);
     const length = count * 3;
     if (capacity < length) return 0;
-    const introducer: u8 = if (application_cursor != 0) 'O' else '[';
-    const final: u8 = if (steps > 0) 'A' else 'B';
-    for (0..count) |index| {
+    _ = KeyEncoding.encode(
+        if (steps > 0) .up else .down,
+        .{ .application_cursor = application_cursor != 0 },
+        destination[0..3],
+    );
+    for (1..count) |index| {
         const start = index * 3;
-        destination[start..][0..3].* = .{ 0x1b, introducer, final };
+        @memcpy(destination[start..][0..3], destination[0..3]);
     }
     return @intCast(length);
 }
@@ -608,34 +612,34 @@ pub export fn noctty_grid_key_command_plan(
     }
 }
 
-fn terminalSpecialKeySequence(keyval: u32, application_cursor: bool) ?[]const u8 {
+fn terminalKey(keyval: u32) ?KeyEncoding.Key {
     return switch (keyval) {
-        gdk_key_up => if (application_cursor) "\x1bOA" else "\x1b[A",
-        gdk_key_down => if (application_cursor) "\x1bOB" else "\x1b[B",
-        gdk_key_right => if (application_cursor) "\x1bOC" else "\x1b[C",
-        gdk_key_left => if (application_cursor) "\x1bOD" else "\x1b[D",
-        gdk_key_home => "\x1b[H",
-        gdk_key_end => "\x1b[F",
-        gdk_key_insert => "\x1b[2~",
-        gdk_key_delete => "\x1b[3~",
-        gdk_key_page_up => "\x1b[5~",
-        gdk_key_page_down => "\x1b[6~",
-        gdk_key_f1 => "\x1bOP",
-        gdk_key_f1 + 1 => "\x1bOQ",
-        gdk_key_f1 + 2 => "\x1bOR",
-        gdk_key_f1 + 3 => "\x1bOS",
-        gdk_key_f1 + 4 => "\x1b[15~",
-        gdk_key_f1 + 5 => "\x1b[17~",
-        gdk_key_f1 + 6 => "\x1b[18~",
-        gdk_key_f1 + 7 => "\x1b[19~",
-        gdk_key_f1 + 8 => "\x1b[20~",
-        gdk_key_f1 + 9 => "\x1b[21~",
-        gdk_key_f1 + 10 => "\x1b[23~",
-        gdk_key_f12 => "\x1b[24~",
-        gdk_key_return, gdk_key_kp_enter => "\r",
-        gdk_key_backspace => "\x7f",
-        gdk_key_tab => "\t",
-        gdk_key_escape => "\x1b",
+        gdk_key_up => .up,
+        gdk_key_down => .down,
+        gdk_key_right => .right,
+        gdk_key_left => .left,
+        gdk_key_home => .home,
+        gdk_key_end => .end,
+        gdk_key_insert => .insert,
+        gdk_key_delete => .delete,
+        gdk_key_page_up => .page_up,
+        gdk_key_page_down => .page_down,
+        gdk_key_f1 => .f1,
+        gdk_key_f1 + 1 => .f2,
+        gdk_key_f1 + 2 => .f3,
+        gdk_key_f1 + 3 => .f4,
+        gdk_key_f1 + 4 => .f5,
+        gdk_key_f1 + 5 => .f6,
+        gdk_key_f1 + 6 => .f7,
+        gdk_key_f1 + 7 => .f8,
+        gdk_key_f1 + 8 => .f9,
+        gdk_key_f1 + 9 => .f10,
+        gdk_key_f1 + 10 => .f11,
+        gdk_key_f12 => .f12,
+        gdk_key_return, gdk_key_kp_enter => .enter,
+        gdk_key_backspace => .backspace,
+        gdk_key_tab => .tab,
+        gdk_key_escape => .escape,
         else => null,
     };
 }
@@ -667,10 +671,12 @@ pub export fn noctty_grid_terminal_key_sequence(
         sequence = encoded[0..length];
         meta_prefix = alt and codepoint <= 0x7e;
     } else {
-        sequence = terminalSpecialKeySequence(
-            keyval,
-            application_cursor != 0,
-        ) orelse return 0;
+        const key = terminalKey(keyval) orelse return 0;
+        return @intCast(KeyEncoding.encode(
+            key,
+            .{ .application_cursor = application_cursor != 0 },
+            output[0..capacity],
+        ));
     }
 
     const prefix_length: u32 = @intFromBool(meta_prefix and !control);
@@ -966,21 +972,23 @@ pub export fn noctty_grid_sharing_key_sequence(
     capacity: usize,
 ) callconv(.c) c_int {
     const target = output orelse return 0;
-    const sequence = switch (kind) {
-        0 => "\r",
-        1 => "\x7f",
-        2 => "\t",
-        3 => "\x1b[Z",
-        4 => "\x1b",
-        5 => if (application_cursor != 0) "\x1bOA" else "\x1b[A",
-        6 => if (application_cursor != 0) "\x1bOB" else "\x1b[B",
-        7 => if (application_cursor != 0) "\x1bOC" else "\x1b[C",
-        8 => if (application_cursor != 0) "\x1bOD" else "\x1b[D",
+    const key: KeyEncoding.Key = switch (kind) {
+        0 => .enter,
+        1 => .backspace,
+        2 => .tab,
+        3 => .backtab,
+        4 => .escape,
+        5 => .up,
+        6 => .down,
+        7 => .right,
+        8 => .left,
         else => return 0,
     };
-    if (capacity < sequence.len) return 0;
-    @memcpy(target[0..sequence.len], sequence);
-    return @intCast(sequence.len);
+    return @intCast(KeyEncoding.encode(
+        key,
+        .{ .application_cursor = application_cursor != 0 },
+        target[0..capacity],
+    ));
 }
 
 pub export fn noctty_grid_sharing_arrow_sequence(
@@ -992,26 +1000,18 @@ pub export fn noctty_grid_sharing_arrow_sequence(
 ) callconv(.c) c_int {
     const target = output orelse return 0;
     if (arrow < 0 or arrow > 3 or modifier < 1) return 0;
-    const final = "ABCD"[@as(usize, @intCast(arrow))];
-    var buffer: [8]u8 = undefined;
-    var writer = std.Io.Writer.fixed(&buffer);
-    if (modifier == 1) {
-        const sequence = switch (arrow) {
-            0 => if (application_cursor != 0) "\x1bOA" else "\x1b[A",
-            1 => if (application_cursor != 0) "\x1bOB" else "\x1b[B",
-            2 => if (application_cursor != 0) "\x1bOC" else "\x1b[C",
-            3 => if (application_cursor != 0) "\x1bOD" else "\x1b[D",
-            else => unreachable,
-        };
-        if (capacity < sequence.len) return 0;
-        @memcpy(target[0..sequence.len], sequence);
-        return @intCast(sequence.len);
-    }
-    writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
-    const sequence = writer.buffered();
-    if (capacity < sequence.len) return 0;
-    @memcpy(target[0..sequence.len], sequence);
-    return @intCast(sequence.len);
+    const key: KeyEncoding.Key = switch (arrow) {
+        0 => .up,
+        1 => .down,
+        2 => .right,
+        3 => .left,
+        else => unreachable,
+    };
+    return @intCast(KeyEncoding.encode(
+        key,
+        .{ .application_cursor = application_cursor != 0, .modifier = modifier },
+        target[0..@min(capacity, 8)],
+    ));
 }
 
 pub export fn noctty_grid_sharing_extended_key_sequence(
@@ -1022,55 +1022,32 @@ pub export fn noctty_grid_sharing_extended_key_sequence(
 ) callconv(.c) c_int {
     const target = output orelse return 0;
     if (modifier < 1) return 0;
-    var buffer: [16]u8 = undefined;
-    var writer = std.Io.Writer.fixed(&buffer);
-    switch (kind) {
-        0, 1 => {
-            const final: u8 = if (kind == 0) 'H' else 'F';
-            if (modifier == 1) {
-                writer.print("\x1b[{c}", .{final}) catch return 0;
-            } else {
-                writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
-            }
-        },
-        2...5, 10...17 => {
-            const code: c_int = switch (kind) {
-                2 => 2,
-                3 => 3,
-                4 => 5,
-                5 => 6,
-                else => switch (kind) {
-                    10 => 15,
-                    11 => 17,
-                    12 => 18,
-                    13 => 19,
-                    14 => 20,
-                    15 => 21,
-                    16 => 23,
-                    17 => 24,
-                    else => unreachable,
-                },
-            };
-            if (modifier == 1) {
-                writer.print("\x1b[{d}~", .{code}) catch return 0;
-            } else {
-                writer.print("\x1b[{d};{d}~", .{ code, modifier }) catch return 0;
-            }
-        },
-        6...9 => {
-            const final = "PQRS"[@as(usize, @intCast(kind - 6))];
-            if (modifier == 1) {
-                writer.print("\x1bO{c}", .{final}) catch return 0;
-            } else {
-                writer.print("\x1b[1;{d}{c}", .{ modifier, final }) catch return 0;
-            }
-        },
+    const key: KeyEncoding.Key = switch (kind) {
+        0 => .home,
+        1 => .end,
+        2 => .insert,
+        3 => .delete,
+        4 => .page_up,
+        5 => .page_down,
+        6 => .f1,
+        7 => .f2,
+        8 => .f3,
+        9 => .f4,
+        10 => .f5,
+        11 => .f6,
+        12 => .f7,
+        13 => .f8,
+        14 => .f9,
+        15 => .f10,
+        16 => .f11,
+        17 => .f12,
         else => return 0,
-    }
-    const sequence = writer.buffered();
-    if (capacity < sequence.len) return 0;
-    @memcpy(target[0..sequence.len], sequence);
-    return @intCast(sequence.len);
+    };
+    return @intCast(KeyEncoding.encode(
+        key,
+        .{ .modifier = modifier },
+        target[0..capacity],
+    ));
 }
 pub export fn noctty_grid_sharing_text_sequence(
     alt: c_int,
@@ -3315,6 +3292,20 @@ test "sharing extended key sequences preserve modifier formats" {
         @as(c_int, 0),
         noctty_grid_sharing_extended_key_sequence(0, 1, &output, 2),
     );
+}
+
+test "sharing adapters retain their modifier sequence bounds" {
+    var output = [_]u8{0xa5} ** 32;
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_arrow_sequence(0, 1000, 1, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 15));
+    try std.testing.expectEqualSlices(u8, &([_]u8{0xa5} ** 32), &output);
+    const extended_length = noctty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 16);
+    try std.testing.expectEqualStrings("\x1b[24;2147483647~", output[0..@intCast(extended_length)]);
+    try std.testing.expectEqual(@as(u8, 0xa5), output[16]);
+    output = [_]u8{0xa5} ** 32;
+    const length = noctty_grid_sharing_arrow_sequence(0, 100, 1, &output, output.len);
+    try std.testing.expectEqualStrings("\x1b[1;100A", output[0..@intCast(length)]);
+    try std.testing.expectEqual(@as(u8, 0xa5), output[8]);
 }
 
 test "sharing text sequences add bounded Alt prefixes" {

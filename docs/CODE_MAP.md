@@ -104,6 +104,9 @@ zig build run-nocted -- --open README.md
   graphemes, hyperlinks, style storage, parser application, dirty regions, and
   screen state.
 - `src/terminal/VtParser.zig` — terminal escape/control parser.
+- `src/terminal/KeyEncoding.zig` — toolkit-neutral navigation, editing, and
+  function-key encoding shared by the GTK and Win32 adapters. Platform key
+  identifiers stay in the adapters; terminal byte sequences live here.
 - `src/terminal/Unicode.zig` — Unicode width/encoding helpers used by the grid.
 - `tools/generate_terminal_unicode.zig` — offline bounded Unicode 17 table
   generator with pinned input/output SHA-256 verification.

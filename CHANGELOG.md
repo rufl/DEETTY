@@ -4,6 +4,15 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added native Windows Workspace and Terminal menus for tab/split creation,
+  pane/tab navigation, guarded close, copy/paste, and focused Ctrl+L. Remote
+  viewers disable local mutations and retain dispatch guards; failed paste or
+  clear input delivery shows a native error.
+
+- Shared terminal key encoding between GTK and Win32 without changing platform
+  key mappings, cursor modes, or bounded-write contracts. Fixed Windows local
+  Ctrl+Shift+Tab being swallowed by Ctrl+Shift letter-command handling.
+
 - Changed Clear Screen to send Ctrl+L (`0x0c`) through the active PTY, leaving
   the shell responsible for redraw and ready for the next command instead of
   injecting a private terminal-screen escape sequence.

@@ -74,6 +74,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    const terminal_key_encoding_mod = b.createModule(.{
+        .root_source_file = b.path("src/terminal/KeyEncoding.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
     const native_grid_logic_mod = b.createModule(.{
         .root_source_file = b.path("src/gui/NativeGridLogic.zig"),
         .target = target,
@@ -86,6 +92,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    native_grid_logic_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
+    windows_host_logic_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     const windows_pty_logic_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsPtyLogic.zig"),
         .target = target,
@@ -106,6 +114,7 @@ pub fn build(b: *std.Build) void {
     runtime_options.addOption(bool, "enable_vte", false);
     exe_mod.addOptions("build_options", runtime_options);
     exe_mod.addImport("noctty", root_mod);
+    exe_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     addNativeGridSources(b, exe_mod, false);
     exe_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     exe_mod.linkSystemLibrary("dl", .{});
@@ -151,6 +160,7 @@ pub fn build(b: *std.Build) void {
     vte_options.addOption(bool, "enable_vte", true);
     vte_mod.addOptions("build_options", vte_options);
     vte_mod.addImport("noctty", root_mod);
+    vte_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     addNativeGridSources(b, vte_mod, false);
     vte_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
@@ -178,6 +188,7 @@ pub fn build(b: *std.Build) void {
     smoke_options.addOption(bool, "enable_vte", true);
     smoke_mod.addOptions("build_options", smoke_options);
     smoke_mod.addImport("noctty", root_mod);
+    smoke_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     addNativeGridSources(b, smoke_mod, true);
     smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     smoke_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
@@ -566,6 +577,11 @@ pub fn build(b: *std.Build) void {
         .root_module = unicode_generator_mod,
         .use_llvm = true,
     });
+    const terminal_key_encoding_tests = b.addTest(.{
+        .root_module = terminal_key_encoding_mod,
+        .use_llvm = true,
+    });
+    const run_terminal_key_encoding_tests = b.addRunArtifact(terminal_key_encoding_tests);
     const native_grid_logic_tests = b.addTest(.{
         .root_module = native_grid_logic_mod,
         .use_llvm = true,
@@ -588,6 +604,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_ghostty_vt_public_tests.step);
     test_step.dependOn(&run_vte_host_tests.step);
     test_step.dependOn(&run_unicode_generator_tests.step);
+    test_step.dependOn(&run_terminal_key_encoding_tests.step);
     test_step.dependOn(&run_native_grid_logic_tests.step);
     test_step.dependOn(&run_windows_host_logic_tests.step);
     test_step.dependOn(&run_windows_pty_logic_tests.step);
@@ -604,6 +621,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_vte_host_tests.step);
     check_step.dependOn(&run_unicode_generator_tests.step);
     check_step.dependOn(&unicode_generator_exe.step);
+    check_step.dependOn(&run_terminal_key_encoding_tests.step);
     check_step.dependOn(&run_native_grid_logic_tests.step);
     check_step.dependOn(&run_windows_host_logic_tests.step);
     check_step.dependOn(&run_windows_pty_logic_tests.step);
@@ -647,6 +665,12 @@ fn addWindowsBuild(
     nocted_windows_mod.linkSystemLibrary("comdlg32", .{});
     nocted_windows_mod.linkSystemLibrary("shell32", .{});
     nocted_windows_mod.linkSystemLibrary("ole32", .{});
+    const terminal_key_encoding_mod = b.createModule(.{
+        .root_source_file = b.path("src/terminal/KeyEncoding.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
     const windows_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/main.zig"),
         .target = target,
@@ -663,6 +687,7 @@ fn addWindowsBuild(
     share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     windows_mod.addImport("noctty_share", share_mod);
     windows_mod.addImport("noctty_release", release_mod);
+    windows_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     windows_mod.addIncludePath(b.path("src/windows"));
     windows_mod.linkSystemLibrary("kernel32", .{});
     windows_mod.linkSystemLibrary("user32", .{});

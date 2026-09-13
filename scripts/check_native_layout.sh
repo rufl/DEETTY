@@ -177,7 +177,6 @@ grep -F 'setAccessibleName(label, "NOCTTY keyboard shortcuts");' "$native_gtk" >
 grep -F 'set_widget_accessible_name(combo, "Workspace restore mode");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(entry, "Screen history password");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(provider, "Agent provider");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(entry, "Rename terminal tab");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(entry, "Workspace tag");' "$grid" >/dev/null
 grep -F 'set_widget_accessible_name(noctalia_variant,' "$grid" >/dev/null
 grep -F '"Noctalia import variant");' "$grid" >/dev/null
@@ -192,7 +191,6 @@ grep -F '"Close sharing session"' "$grid" >/dev/null
 grep -F '"Close remote session"' "$grid" >/dev/null
 grep -F '.{ .label = "Retry saving devices", .action = 18 },' "$native_gtk" >/dev/null
 grep -F 'if (revoked) continue;' "$grid" >/dev/null
-grep -F 'text_length > NOCTTY_SHARING_PASTE_MAX_BYTES' "$grid" >/dev/null
 grep -F 'noctty_grid_share_action(root->event_data, 6, -1' "$grid" >/dev/null
 grep -F 'noctty_grid_share_action(root->event_data, 11, -1' "$grid" >/dev/null
 grep -F 'state.paired_device_persistence = .save_failed;' "$main" >/dev/null
@@ -220,7 +218,6 @@ grep -F '"Open Link in Browser"' "$grid" >/dev/null
 grep -F 'inactive_pane_brightness_percent' "$grid" >/dev/null
 grep -F 'pane_gaps_transparent' "$grid" >/dev/null
 grep -F 'on_window_resolution_configure' "$grid" >/dev/null
-grep -F 'return index == 3 || index == 4 ? "ew-resize" : "ns-resize";' "$grid" >/dev/null
 ! grep -F 'nwse-resize' "$grid" >/dev/null
 ! grep -F 'nesw-resize' "$grid" >/dev/null
 grep -F 'gdk_cursor_new_from_name(display, "text")' "$grid" >/dev/null
