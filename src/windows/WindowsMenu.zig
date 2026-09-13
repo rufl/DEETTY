@@ -33,13 +33,17 @@ pub const id_next_pane: u32 = 40104;
 pub const id_next_tab: u32 = 40105;
 pub const id_close_pane: u32 = 40106;
 pub const id_close_tab: u32 = 40107;
+pub const id_rename_tab: u32 = 40108;
+pub const id_move_tab_left: u32 = 40109;
+pub const id_move_tab_right: u32 = 40110;
+pub const id_focus_tabs: u32 = 40111;
 pub const id_copy: u32 = 40201;
 pub const id_paste: u32 = 40202;
 pub const id_clear_screen: u32 = 40203;
 
 const local_commands = [_]u32{
-    id_new_tab,        id_split_down,        id_split_left, id_close_pane, id_close_tab,
-    id_workspace_save, id_workspace_restore,
+    id_new_tab,        id_split_down,        id_split_left, id_close_pane,    id_close_tab,
+    id_workspace_save, id_workspace_restore, id_rename_tab, id_move_tab_left, id_move_tab_right,
 };
 
 pub const Menu = struct {
@@ -106,6 +110,10 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
         !append(workspace, c.MF_STRING, id_next_pane, "Next &Pane\tCtrl+Tab") or
         !append(workspace, c.MF_STRING, id_next_tab, "Next &Tab\tCtrl+Shift+Tab") or
+        !append(workspace, c.MF_STRING, id_focus_tabs, "&Focus Tab Strip (arrow keys; Enter returns)") or
+        !append(workspace, c.MF_STRING, id_rename_tab, "&Rename Tab... (F2 in tab strip)") or
+        !append(workspace, c.MF_STRING, id_move_tab_left, "Move Tab L&eft") or
+        !append(workspace, c.MF_STRING, id_move_tab_right, "Move Tab R&ight") or
         !append(workspace, c.MF_STRING, id_close_pane, "&Close Pane\tCtrl+D") or
         !append(workspace, c.MF_STRING, id_close_tab, "Close Ta&b\tCtrl+Shift+W") or
         c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
@@ -224,7 +232,7 @@ pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
         c.GetSubMenu(menu.root, 2) != menu.terminal or
-        c.GetMenuItemCount(menu.workspace) != 11 or
+        c.GetMenuItemCount(menu.workspace) != 15 or
         c.GetMenuItemCount(menu.terminal) != 3) return false;
     for (local_commands) |command| {
         if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;
@@ -259,6 +267,25 @@ fn commandTextMatches(menu: c.HMENU, command: u32, comptime expected: []const u8
     const expected_wide = @import("std").unicode.utf8ToUtf16LeStringLiteral(expected);
     return count == expected_wide.len and
         @import("std").mem.eql(u16, text[0..@intCast(@max(count, 0))], expected_wide);
+}
+
+/// Reserve only actual menu mnemonics; unmatched Alt chords remain terminal input.
+pub fn isMnemonic(optional_menu: ?*Menu, character: u16) bool {
+    const menu = optional_menu orelse return false;
+    var index: c_int = 0;
+    while (index < c.GetMenuItemCount(menu.root)) : (index += 1) {
+        var text: [128]u16 = undefined;
+        const length = c.GetMenuStringW(menu.root, @intCast(index), &text, text.len, c.MF_BYPOSITION);
+        var position: usize = 0;
+        while (position + 1 < @as(usize, @intCast(@max(length, 0)))) : (position += 1) {
+            if (text[position] != '&') continue;
+            position += 1;
+            if (text[position] != '&' and
+                @import("std").ascii.toLower(@as(u8, @truncate(text[position]))) ==
+                    @import("std").ascii.toLower(@as(u8, @truncate(character))) and character < 128) return true;
+        }
+    }
+    return false;
 }
 
 pub export fn noctty_windows_menu_deinit(optional_menu: ?*Menu) void {

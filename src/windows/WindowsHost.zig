@@ -11,6 +11,7 @@ const Menu = @import("WindowsMenu.zig");
 const Fonts = @import("WindowsFonts.zig");
 const Title = @import("WindowsTitle.zig");
 const Renderer = @import("WindowsRenderer.zig");
+const Tabs = @import("WindowsTabStrip.zig");
 
 const c = Abi.c;
 
@@ -93,6 +94,8 @@ const Host = struct {
     cell_height: c_int = 0,
     columns: c_int = default_columns,
     menu: ?*Menu.Menu = null,
+    tabs: Tabs.Strip = .{},
+    content_top: c_int = 0,
     theme: c_int = 0,
     font_size_pt: c_int = 0,
     launch_profile: c_int = 0,
@@ -167,7 +170,7 @@ fn createMenu(host: *Host) bool {
 }
 
 fn createFonts(host: *Host, dpi: c.UINT) bool {
-    return Fonts.noctty_windows_fonts_update(
+    const updated = Fonts.noctty_windows_fonts_update(
         @ptrCast(host.window),
         host.font_size_pt,
         dpi,
@@ -176,6 +179,8 @@ fn createFonts(host: *Host, dpi: c.UINT) bool {
         &host.cell_width,
         &host.cell_height,
     ) != 0;
+    if (updated) host.tabs.setFont(host.font_normal, dpi, host.cell_height);
+    return updated;
 }
 
 fn paneGeometry(host: *Host, pane_index: c_int, client: *const c.RECT, result: *PaneHit) bool {
@@ -190,7 +195,7 @@ fn paneGeometry(host: *Host, pane_index: c_int, client: *const c.RECT, result: *
     if (host.callbacks.pane_layout(host.callbacks.userdata, pane_index, &x, &y, &width, &height, &selected, &host_active) <= 0 or
         host.callbacks.pane_dimensions(host.callbacks.userdata, pane_index, &columns, &rows) <= 0 or columns == 0 or rows == 0) return false;
     var geometry: Logic.PaneGeometry = undefined;
-    if (Logic.noctty_windows_compute_pane_geometry(client.left, client.top, client.right, client.bottom, x, y, width, height, 3, &geometry) == 0) return false;
+    if (Logic.noctty_windows_compute_pane_geometry(client.left, @min(host.content_top, client.bottom), client.right, client.bottom, x, y, width, height, 3, &geometry) == 0) return false;
     result.* = .{
         .pane_index = pane_index,
         .pane = .{ .left = geometry.pane_left, .top = geometry.pane_top, .right = geometry.pane_right, .bottom = geometry.pane_bottom },
@@ -272,6 +277,7 @@ fn paint(host: *Host) void {
     state.font_bold = @ptrCast(host.font_bold);
     state.cell_width = host.cell_width;
     state.cell_height = host.cell_height;
+    state.content_top = host.content_top;
     state.columns = host.columns;
     state.rows = host.rows;
     state.foreground = host.foreground;
@@ -367,6 +373,7 @@ fn startSession(host: *Host, session_index: c_int, dimensions_valid: c_int, colu
 }
 
 fn updateTitle(host: *Host) void {
+    _ = host.tabs.sync(host.callbacks);
     var title_utf8: [512]u8 = undefined;
     const count = host.callbacks.title(host.callbacks.userdata, &title_utf8, title_utf8.len);
     const active = activeSession(host);
@@ -376,7 +383,10 @@ fn updateTitle(host: *Host) void {
 }
 
 fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
-    if (Logic.noctty_windows_grid_dimensions(width, height, host.cell_width, host.cell_height, &host.columns, &host.rows) == 0) return;
+    _ = host.tabs.sync(host.callbacks);
+    host.content_top = host.tabs.layout(width, height);
+    const content_height = @max(0, height - host.content_top);
+    if (Logic.noctty_windows_grid_dimensions(width, content_height, host.cell_width, host.cell_height, &host.columns, &host.rows) == 0) return;
     var pane_count: c_int = 0;
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) != 0) pane_count = host.callbacks.pane_count(host.callbacks.userdata);
     pane_count = Logic.noctty_windows_workspace_resize_count(host.remote_mode, pane_count);
@@ -390,7 +400,7 @@ fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
         var host_active: c_int = 0;
         if (host.callbacks.pane_layout(host.callbacks.userdata, index, &x, &y, &pane_width, &pane_height, &selected, &host_active) <= 0) continue;
         const pixel_width: c_int = @intCast(@divTrunc(@as(i64, width) * pane_width, 1_000_000) - 6);
-        const pixel_height: c_int = @intCast(@divTrunc(@as(i64, height) * pane_height, 1_000_000) - 6);
+        const pixel_height: c_int = @intCast(@divTrunc(@as(i64, content_height) * pane_height, 1_000_000) - 6);
         var columns: c_int = 0;
         var rows: c_int = 0;
         if (Logic.noctty_windows_grid_dimensions(pixel_width, pixel_height, host.cell_width, host.cell_height, &columns, &rows) == 0) continue;
@@ -766,8 +776,62 @@ fn launchNocted(host: *Host) void {
     );
 }
 
+fn tabSelectionChanged(host: *Host) void {
+    const index = host.tabs.selected();
+    const result = host.callbacks.tab_select(host.callbacks.userdata, index);
+    if (result > 0) {
+        releaseMouseCapture(host);
+        clearSelection(host);
+        var client: c.RECT = undefined;
+        _ = c.GetClientRect(host.window, &client);
+        resizeTerminal(host, client.right, client.bottom);
+        updateTitle(host);
+        _ = c.InvalidateRect(host.window, null, c.FALSE);
+    } else {
+        // Reconcile rejected/stale selections against authoritative model state.
+        _ = host.tabs.sync(host.callbacks);
+    }
+    if (keyDown(c.VK_LBUTTON)) _ = c.SetFocus(host.window);
+}
+
+fn renameTab(host: *Host) void {
+    if (host.remote_mode != 0) return;
+    releaseMouseCapture(host);
+    const result = Tabs.rename(host.window, host.callbacks, false);
+    if (result < 0) {
+        _ = c.MessageBoxW(host.window, wide("NOCTTY could not open the rename dialog."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+    }
+    updateTitle(host);
+    _ = c.SetFocus(host.window);
+}
+
+fn moveTab(host: *Host, direction: c_int) void {
+    if (host.remote_mode != 0) return;
+    const from = host.callbacks.tab_active(host.callbacks.userdata);
+    const to = from + direction;
+    if (from < 0 or to < 0 or to >= host.callbacks.tab_count(host.callbacks.userdata)) return;
+    if (host.callbacks.tab_move(host.callbacks.userdata, from, to) < 0) {
+        _ = c.MessageBoxW(host.window, wide("NOCTTY could not move this tab."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        return;
+    }
+    updateTitle(host);
+    _ = c.SetFocus(host.window);
+}
+
 fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     switch (command) {
+        Menu.id_focus_tabs => {
+            _ = c.SetFocus(host.tabs.window);
+            return true;
+        },
+        Menu.id_rename_tab => {
+            renameTab(host);
+            return true;
+        },
+        Menu.id_move_tab_left, Menu.id_move_tab_right => {
+            moveTab(host, if (command == Menu.id_move_tab_left) -1 else 1);
+            return true;
+        },
         Menu.id_new_tab => {
             _ = workspaceAction(host, action_new_tab);
             return true;
@@ -825,9 +889,62 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     return true;
 }
 
+fn tabSmoke(host: *Host) bool {
+    const callbacks = host.callbacks;
+    const original_count = callbacks.tab_count(callbacks.userdata);
+    const original_tab = callbacks.tab_active(callbacks.userdata);
+    const original_pane = callbacks.active_pane(callbacks.userdata);
+    var class_name: [32]u16 = undefined;
+    const class_length = c.GetClassNameW(host.tabs.window, &class_name, class_name.len);
+    if (class_length != 15 or !std.mem.eql(u16, class_name[0..15], wide("SysTabControl32")[0..15])) return false;
+    if (callbacks.workspace_action(callbacks.userdata, action_new_tab, default_columns, default_rows) <= 0) return false;
+    const added_pane = callbacks.active_pane(callbacks.userdata);
+    if (added_pane == original_pane or callbacks.tab_count(callbacks.userdata) != original_count + 1) return false;
+    var client: c.RECT = undefined;
+    _ = c.GetClientRect(host.window, &client);
+    resizeTerminal(host, client.right, client.bottom);
+    if (!host.tabs.matches(callbacks)) return false;
+
+    // Drive the real common control, which emits TCN_SELCHANGE into windowProc.
+    var tab_rect: c.RECT = undefined;
+    if (c.SendMessageW(host.tabs.window, c.TCM_GETITEMRECT, @intCast(original_tab), Tabs.pointer(&tab_rect)) == 0) return false;
+    const point: c.LPARAM = @intCast(@as(u32, @intCast(tab_rect.left + 4)) | (@as(u32, @intCast(tab_rect.top + 4)) << 16));
+    _ = c.SendMessageW(host.tabs.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, point);
+    _ = c.SendMessageW(host.tabs.window, c.WM_LBUTTONUP, 0, point);
+    if (callbacks.active_pane(callbacks.userdata) != original_pane or !host.tabs.matches(callbacks)) return false;
+    _ = c.SendMessageW(host.tabs.window, c.WM_KEYDOWN, c.VK_END, 0);
+    // Arrow selection is native and must reach the production model as well.
+    if (callbacks.tab_active(callbacks.userdata) != original_count) {
+        _ = c.SendMessageW(host.tabs.window, c.WM_KEYDOWN, c.VK_RIGHT, 0);
+    }
+    if (callbacks.active_pane(callbacks.userdata) != added_pane or !host.tabs.matches(callbacks)) return false;
+    if (!Tabs.qualifyRename(host.window, callbacks) or !host.tabs.sync(callbacks) or !host.tabs.matches(callbacks)) return false;
+    if (!handleMenuCommand(host, Menu.id_move_tab_left) or
+        callbacks.tab_active(callbacks.userdata) != original_count - 1 or
+        callbacks.active_pane(callbacks.userdata) != added_pane or
+        !Tabs.titleMatches(callbacks, original_count - 1, "Native & 中") or !host.tabs.matches(callbacks)) return false;
+    if (!handleMenuCommand(host, Menu.id_move_tab_right) or
+        callbacks.tab_active(callbacks.userdata) != original_count or
+        callbacks.active_pane(callbacks.userdata) != added_pane or
+        !Tabs.titleMatches(callbacks, original_count, "Native & 中") or !host.tabs.matches(callbacks)) return false;
+    var hit: PaneHit = .{};
+    var pane: PaneHit = .{};
+    if (host.content_top <= 0 or !paneGeometry(host, added_pane, &client, &pane) or pane.pane.top < host.content_top or
+        hitTestPaneCell(host, pane.content.left, host.content_top - 1, &hit) or
+        !cellForPane(host, added_pane, pane.content.left, pane.content.top, 0, &hit) or
+        hit.column != 0 or hit.row != 0 or hit.inside_content == 0) return false;
+    // Qualification creates terminal models, never sessions or pseudo-consoles.
+    if (host.workspace.live_sessions != 0 or callbacks.workspace_close(callbacks.userdata, close_tab) == 0) return false;
+    _ = callbacks.tab_select(callbacks.userdata, original_tab);
+    updateTitle(host);
+    return callbacks.tab_count(callbacks.userdata) == original_count and
+        callbacks.active_pane(callbacks.userdata) == original_pane and host.tabs.matches(callbacks);
+}
+
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     if (!Menu.qualifyState(menu, false)) return false;
+    if (!tabSmoke(host)) return false;
     const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
     const active_before = host.callbacks.active_pane(host.callbacks.userdata);
     const sessions_before = host.workspace.live_sessions;
@@ -835,8 +952,9 @@ fn menuSmoke(host: *Host) bool {
     updateMenu(host);
     if (!Menu.qualifyState(menu, true)) return false;
     for ([_]u32{
-        Menu.id_new_tab,    Menu.id_split_down, Menu.id_split_left,
-        Menu.id_close_pane, Menu.id_close_tab,
+        Menu.id_new_tab,       Menu.id_split_down,     Menu.id_split_left,
+        Menu.id_close_pane,    Menu.id_close_tab,      Menu.id_rename_tab,
+        Menu.id_move_tab_left, Menu.id_move_tab_right,
     }) |command| {
         if (!handleMenuCommand(host, command) or
             c.IsWindow(host.window) == 0 or
@@ -848,6 +966,7 @@ fn menuSmoke(host: *Host) bool {
     host.remote_mode = 0;
     updateMenu(host);
     if (!Menu.qualifyState(menu, false)) return false;
+    const tab_window = host.tabs.window;
     // DestroyWindow owns the entire attached tree; descriptor cleanup must not
     // destroy any of these handles a second time.
     const handles = [_]c.HMENU{
@@ -856,6 +975,7 @@ fn menuSmoke(host: *Host) bool {
         @ptrCast(menu.terminal),
     };
     if (c.DestroyWindow(host.window) == 0) return false;
+    if (c.IsWindow(tab_window) != 0) return false;
     for (handles) |handle| {
         if (c.IsMenu(handle) != 0) return false;
     }
@@ -907,11 +1027,25 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_ERASEBKGND => return 1,
+        c.WM_NOTIFY => {
+            const notification: *const c.NMHDR = @ptrFromInt(@as(usize, @bitCast(long_value)));
+            if (notification.hwndFrom == current.tabs.window and notification.code == @as(c.UINT, @bitCast(@as(c_int, -551)))) { // TCN_SELCHANGE
+                tabSelectionChanged(current);
+                return 0;
+            }
+            if (notification.hwndFrom == current.tabs.window and notification.code == @as(c.UINT, @bitCast(@as(c_int, -2)))) { // NM_CLICK
+                // Clicking the already-selected tab emits no selection change.
+                _ = c.SetFocus(window);
+                return 0;
+            }
+            return c.DefWindowProcW(window, message, word, long_value);
+        },
         c.WM_COMMAND => {
             if (highWord(word) == 0 and handleMenuCommand(current, lowWord(word))) return 0;
             return c.DefWindowProcW(window, message, word, long_value);
         },
         c.WM_SYSCOLORCHANGE => {
+            if (current.tabs.window != null) _ = c.SendMessageW(current.tabs.window, message, word, long_value);
             if (current.theme == 1) {
                 applyTheme(current);
                 _ = c.InvalidateRect(window, null, c.FALSE);
@@ -944,6 +1078,9 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
                 suggested.bottom - suggested.top,
                 c.SWP_NOACTIVATE | c.SWP_NOZORDER,
             );
+            var client: c.RECT = undefined;
+            _ = c.GetClientRect(window, &client);
+            resizeTerminal(current, client.right, client.bottom);
             return 0;
         },
         c.WM_SETFOCUS => {
@@ -1089,6 +1226,8 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         },
         c.WM_SYSCHAR => {
             if (word == c.VK_RETURN) return 0;
+            if (!keyDown(c.VK_CONTROL) and Menu.isMnemonic(current.menu, @truncate(word)))
+                return c.DefWindowProcW(window, message, word, long_value);
             const escape = [_]u8{0x1b};
             _ = writeTerminal(current, &escape, escape.len);
             sendWideCharacter(current, @truncate(word));
@@ -1330,7 +1469,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         0,
         class_name,
         wide("NOCTTY Windows alpha"),
-        c.WS_OVERLAPPEDWINDOW,
+        c.WS_OVERLAPPEDWINDOW | c.WS_CLIPCHILDREN,
         c.CW_USEDEFAULT,
         c.CW_USEDEFAULT,
         window_width,
@@ -1352,17 +1491,26 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         _ = c.MessageBoxW(host.window, wide("NOCTTY could not create its native menu."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
     }
+    if (!host.tabs.create(host.window)) {
+        log("tab_strip_create_failed error={d}\r\n", .{c.GetLastError()});
+        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("NOCTTY could not create its native tab strip."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        return exit_code;
+    }
+    var dpi = c.GetDpiForWindow(host.window);
+    if (dpi == 0) dpi = 96;
+    if (!createFonts(host, dpi) or !host.tabs.sync(callbacks)) {
+        log("tab_strip_initialize_failed\r\n", .{});
+        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("NOCTTY could not initialize its native tab strip."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        return exit_code;
+    }
     if (menu_smoke) {
         if (!menuSmoke(host)) {
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true\r\n", .{});
         return 0;
     }
-    var dpi = c.GetDpiForWindow(host.window);
-    if (dpi == 0) dpi = 96;
-    if (!createFonts(host, dpi)) return exit_code;
     const start_mode = callbacks.start(callbacks.userdata);
     if (start_mode < 0) {
         _ = c.MessageBoxW(host.window, wide("NOCTTY could not start this session."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
@@ -1391,6 +1539,17 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
 
     var message: c.MSG = undefined;
     while (c.GetMessageW(&message, null, 0, 0) > 0) {
+        // Function keys remain terminal input unless the tab control owns focus.
+        if (message.hwnd == host.tabs.window and message.message == c.WM_KEYDOWN) {
+            if (message.wParam == c.VK_F2) {
+                renameTab(host);
+                continue;
+            }
+            if (message.wParam == c.VK_RETURN or message.wParam == c.VK_ESCAPE or message.wParam == c.VK_TAB) {
+                _ = c.SetFocus(host.window);
+                continue;
+            }
+        }
         _ = c.TranslateMessage(&message);
         _ = c.DispatchMessageW(&message);
     }

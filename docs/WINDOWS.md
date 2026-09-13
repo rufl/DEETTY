@@ -26,6 +26,8 @@ Included:
 - native Win32 Settings, Workspace, and Terminal menus exposing themes,
   font sizes, launch profile, workspace creation/navigation/guarded close,
   layout persistence, copy/paste, and focused-terminal Ctrl+L
+- a native tab strip with direct tab selection, custom tab names, and
+  left/right ordering commands; pane sessions retain their identities
 - explicit, checksummed save/restore of the bounded tab and split layout;
   restoring launches replacement shells rather than serializing shell contents
 - explicit command-line LAN discovery, pairing, and encrypted terminal
@@ -44,8 +46,8 @@ Included:
 
 Not included or claimed yet:
 
-- Smart Tabs, broadcast input, mouse/tab-strip workspace controls, adjustable
-  split ratios, or a reusable launch-profile library
+- Smart Tabs, broadcast input, drag-based tab reordering, adjustable split
+  ratios, or a reusable launch-profile library
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
@@ -85,6 +87,17 @@ input, process exit, and teardown remain indexed to that pane. Split trees are
 recursive and divide each branch evenly. The window title reports the current
 tab and pane counts, and clicking a rendered pane focuses its exact session.
 
+Click the native tab strip to select a tab. **Workspace → Focus Tab Strip**
+provides keyboard access to the native control without stealing terminal
+function keys. **Rename Tab**, **Move Tab Left**, and **Move Tab Right** operate
+on the selected local tab. Renaming accepts up to 128 UTF-8 bytes without control
+characters; an empty name returns to the automatic label. Reordering changes
+the tab order, not pane slots, running processes, split trees, or each tab's
+focused pane. Use **Save current layout** to persist names and ordering.
+
+Remote tabs can be selected but not renamed or reordered locally. Their names
+and ordering remain owned by the host.
+
 | Shortcut | Action |
 |---|---|
 | `Ctrl+Shift+T` | Open and focus a new tab |
@@ -105,9 +118,9 @@ Remote viewers disable local workspace mutations and reject them at dispatch.
 Next Pane and Next Tab remain available, with shortcut hints changed to match
 the remote navigation order described above.
 
-These controls are intentionally smaller than the Linux workspace surface.
-There is no Windows tab strip, drag reordering, reusable profile library,
-Smart Tab, or broadcast-input claim yet.
+These controls remain smaller than the Linux workspace surface. Drag-based
+reordering, a reusable profile library, Smart Tabs, and broadcast input are
+not included.
 
 ### Parity development boundary
 
@@ -117,18 +130,21 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is a native tab strip with selection/rename/reorder,
-adjustable split ratios, shared launch/profile and theme models, and graphical
-sharing controls. These are not delivered by menu discoverability alone.
-Windows currently has its own bounded workspace tree in `src/windows/main.zig`;
-reusing Linux layout policy must reconcile that tree and its saved-state format
+The next larger parity work is adjustable split ratios, shared launch/profile
+and theme models, and graphical sharing controls. Windows' existing bounded
+workspace tree and versioned snapshot codec now live in
+`src/windows/WindowsWorkspace.zig`, independently testable without Win32.
+Reusing Linux layout policy must reconcile that tree and its saved-state format
 rather than introduce a third workspace model.
 
 Cross-compilation proves build compatibility. Isolated Wine can exercise native
 controls and command dispatch, but does not establish physical Windows
 ConPTY/GDI, DPI, IME, or accessibility parity.
 
-### Focused menu qualification
+### Focused native-control qualification
+
+On Linux, `zig build windows-workspace-test` exercises tab identity, bounded
+Unicode names, and old/new snapshot compatibility without a display.
 
 After a Windows cross-build, run:
 
@@ -137,10 +153,11 @@ scripts/windows_terminal_menu_smoke.sh path/to/noctty.exe
 ```
 
 This uses the reviewed isolated-display runner and a disposable Wine prefix.
-It inspects real Win32 menus, local/remote enabled-state transitions, navigation
-shortcut hints, rejection of remote workspace mutations through production
-command dispatch, and HWND-owned menu destruction. It does not start or mock
-ConPTY; its receipt explicitly reports `conpty=false`.
+It inspects real Win32 menus and tab controls, local/remote enabled-state
+transitions, navigation shortcuts, tab selection, Unicode rename validation
+and cancellation, reorder identity, terminal content inset, rejection of remote
+workspace mutations, and HWND-owned child/menu destruction. It does not start
+or mock ConPTY; its receipt explicitly reports `conpty=false`.
 
 On supported Windows, run the packaged `windows_smoke.ps1 -Interactive`
 checklist to exercise the new menus against real shells, clipboard, and remote
@@ -181,8 +198,12 @@ replacement shells. Scrollback, process state, working directories, and shell
 contents are not serialized.
 
 Preferences and the saved layout use an atomic, versioned, checksummed local
-file at `%LOCALAPPDATA%\NOCTTY\windows-state-v1.bin`. Invalid or truncated state
-is ignored; startup falls back to the default single-pane workspace.
+file at `%LOCALAPPDATA%\NOCTTY\windows-state-v1.bin`. The pathname is retained
+for compatibility: the reader accepts legacy `NWS1` snapshots, and subsequent
+saves write `NWS2` with tab names, stable automatic labels, and ordering.
+Older builds that only understand `NWS1` cannot read a newly saved `NWS2` file.
+Invalid or truncated state is ignored; startup falls back to the default
+single-pane workspace.
 
 ## Native Windows NoctEd
 

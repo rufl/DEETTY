@@ -81,6 +81,7 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     defer _ = c.DeleteObject(background);
     _ = c.FillRect(buffer_device, &client, background);
 
+    client.top = @min(render.content_top, client.bottom);
     const pane_count = callbacks(render).pane_count(callbacks(render).userdata);
     if (pane_count > 0) {
         var pane_index: c_int = 0;
@@ -118,7 +119,7 @@ fn drawLegacyGrid(state: *const State, device: c.HDC) void {
                 device,
                 -1,
                 0,
-                0,
+                state.content_top,
                 state.columns * state.cell_width,
                 state.rows * state.cell_height,
                 state.columns,
@@ -135,9 +136,9 @@ fn drawLegacyGrid(state: *const State, device: c.HDC) void {
     if (column < 0 or column >= state.columns or row_index < 0 or row_index >= state.rows) return;
     var rectangle = c.RECT{
         .left = column * state.cell_width,
-        .top = row_index * state.cell_height,
+        .top = state.content_top + row_index * state.cell_height,
         .right = (column + 1) * state.cell_width,
-        .bottom = (row_index + 1) * state.cell_height,
+        .bottom = state.content_top + (row_index + 1) * state.cell_height,
     };
     _ = c.InvertRect(device, &rectangle);
 }

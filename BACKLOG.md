@@ -167,8 +167,12 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and the local Ctrl+Shift+Tab fix are implemented; cross-build and focused
   byte-level regressions do not establish physical Windows acceptance.
   `[truth:build,test,docs,external]`
-- [ ] Add a native Windows tab strip with select, rename, and reorder actions;
-  preserve active-pane identity and saved layout ordering.
+- [ ] [status:yellow] Qualify the native Windows tab strip with supported-Windows
+  input, DPI, high contrast, and live ConPTY sessions. Selection, bounded Unicode
+  rename, and left/right ordering are implemented; focused model tests cover
+  pane identity, close/reuse, and legacy/new saved-state compatibility.
+  Drag-based reorder remains outside this slice.
+  `[truth:build,test,docs,external]`
 - [ ] Reuse proportional split-tree policy for Windows adjustable dividers;
   migrate the bounded Windows snapshot deliberately rather than duplicate
   Linux's layout semantics in another model.

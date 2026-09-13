@@ -4,6 +4,15 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added a native Windows tab strip with selection, Unicode rename, and
+  left/right ordering commands. Reordering preserves pane/session identity;
+  remote tab names and order remain host-owned. Terminal geometry now reserves
+  the strip across rendering, resize, and pointer input.
+
+- Extracted the bounded Windows workspace and snapshot codec for display-free
+  tests. Saved layouts retain tab names/order in `NWS2`; existing `NWS1` layouts
+  remain readable at the same state-file path.
+
 - Added native Windows Workspace and Terminal menus for tab/split creation,
   pane/tab navigation, guarded close, copy/paste, and focused Ctrl+L. Remote
   viewers disable local mutations and retain dispatch guards; failed paste or

@@ -11,6 +11,7 @@ pub const c = @cImport({
     @cDefine("NOMINMAX", "1");
     @cDefine("_FORTIFY_SOURCE", "0");
     @cInclude("windows.h");
+    @cInclude("commctrl.h");
 });
 
 const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
@@ -79,6 +80,9 @@ const PaneCopy = *const fn (
     c_int,
     c_int,
 ) callconv(.c) c_int;
+const TabTitle = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
+const TabRename = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
+const TabMove = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
 
 pub const Callbacks = extern struct {
     userdata: ?*anyopaque,
@@ -99,6 +103,14 @@ pub const Callbacks = extern struct {
     stop: Unary,
     next_stream: Unary,
     next_tab: Unary,
+    tab_count: Unary,
+    tab_active: Unary,
+    /// UTF-8 bytes without NUL; negative means failure.
+    tab_title: TabTitle,
+    /// Selection/mutation: positive success, zero unchanged, negative failure.
+    tab_select: PaneSelect,
+    tab_rename: TabRename,
+    tab_move: TabMove,
     pane_count: Unary,
     pane_layout: PaneLayout,
     pane_dimensions: PaneDimensions,
@@ -129,6 +141,7 @@ pub const RenderState = extern struct {
     font_bold: c.HFONT,
     cell_width: c_int,
     cell_height: c_int,
+    content_top: c_int,
     columns: c_int,
     rows: c_int,
     foreground: u32,

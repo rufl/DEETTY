@@ -88,6 +88,11 @@ zig build run-nocted -- --open README.md
   the bounded output ring, clipboard, sibling launch, menus, fonts, titles,
   GDI rendering, local logs, and minidumps. No GTK, POSIX host state, or
   first-party C translation unit enters the Windows executable.
+- `src/windows/WindowsWorkspace.zig` — the bounded Windows workspace model
+  and versioned snapshot codec, separated from Win32 for focused native tests.
+  Tab selection/naming/reordering preserve pane slots and split-tree identity.
+- `src/windows/WindowsTabStrip.zig` — native tab control and rename dialog;
+  `WindowsHost.zig` owns command dispatch and terminal viewport integration.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
   structures.
