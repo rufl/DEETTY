@@ -12,6 +12,9 @@ const Fonts = @import("WindowsFonts.zig");
 const Title = @import("WindowsTitle.zig");
 const Renderer = @import("WindowsRenderer.zig");
 const Tabs = @import("WindowsTabStrip.zig");
+const Appearance = @import("WindowsAppearance.zig");
+const FontDialog = @import("WindowsFontDialog.zig");
+const Dividers = @import("WindowsDividers.zig");
 
 const c = Abi.c;
 
@@ -85,6 +88,14 @@ const PaneHit = struct {
     rows: c_int = 0,
 };
 
+const DividerDrag = struct {
+    divider: Dividers.Divider,
+    tab: c_int,
+    pane: c_int,
+    count: c_int,
+    preview: u16,
+};
+
 const Host = struct {
     callbacks: *const Callbacks,
     window: c.HWND = null,
@@ -118,6 +129,7 @@ const Host = struct {
     smoke_marker_seen: c_int = 0,
     pending_high_surrogate: u16 = 0,
     mouse: Logic.MouseState = std.mem.zeroes(Logic.MouseState),
+    divider_drag: ?DividerDrag = null,
     smoke_mouse_input: c_int = 0,
     smoke_coordinates: c_int = 0,
     smoke_selection: c_int = 0,
@@ -229,6 +241,7 @@ fn cellForPane(host: *Host, pane_index: c_int, pointer_x: c_int, pointer_y: c_in
 }
 
 fn hitTestPaneCell(host: *Host, pointer_x: c_int, pointer_y: c_int, result: *PaneHit) bool {
+    if (pointer_y < host.content_top or dividerHit(host, pointer_x, pointer_y) != null) return false;
     var client: c.RECT = undefined;
     _ = c.GetClientRect(host.window, &client);
     const count = host.callbacks.pane_count(host.callbacks.userdata);
@@ -288,6 +301,8 @@ fn paint(host: *Host) void {
     state.selection_anchor_row = host.mouse.selection_anchor_row;
     state.selection_extent_column = host.mouse.selection_extent_column;
     state.selection_extent_row = host.mouse.selection_extent_row;
+    state.divider_preview_node = if (host.divider_drag) |drag| drag.divider.node else -1;
+    state.divider_preview_ratio = if (host.divider_drag) |drag| drag.preview else 500;
     Renderer.noctty_windows_render(&state, &host.paint_count);
 }
 
@@ -486,6 +501,7 @@ fn clearScreen(host: *Host) void {
 }
 
 fn cycleWorkspace(host: *Host, next_tab: bool) void {
+    cancelDivider(host);
     const changed = if (next_tab)
         host.callbacks.next_tab(host.callbacks.userdata)
     else
@@ -502,6 +518,7 @@ fn cycleWorkspace(host: *Host, next_tab: bool) void {
 }
 
 fn workspaceAction(host: *Host, action: c_int) bool {
+    cancelDivider(host);
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const result = host.callbacks.workspace_action(host.callbacks.userdata, action, host.columns, host.rows);
     var session_index: c_int = -1;
@@ -541,6 +558,7 @@ fn workspaceAction(host: *Host, action: c_int) bool {
 }
 
 fn workspaceClose(host: *Host, close_action: c_int, query_action: c_int) bool {
+    cancelDivider(host);
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const pane_count = host.callbacks.pane_count(host.callbacks.userdata);
     const mask = host.callbacks.workspace_close(host.callbacks.userdata, query_action);
@@ -607,6 +625,7 @@ fn startWorkspaceSessions(host: *Host) bool {
 }
 
 fn setPreference(host: *Host, field: c_int, value: c_int) void {
+    cancelDivider(host);
     if (host.callbacks.preference_set(host.callbacks.userdata, field, value) != 0) {
         _ = c.MessageBoxW(
             host.window,
@@ -640,6 +659,7 @@ fn setPreference(host: *Host, field: c_int, value: c_int) void {
 }
 
 fn workspacePersistence(host: *Host, action: c_int) void {
+    cancelDivider(host);
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return;
     if (action == workspace_restore and c.MessageBoxW(
         host.window,
@@ -714,6 +734,7 @@ fn mouseModifiers() c_int {
 }
 
 fn selectPane(host: *Host, pane_index: c_int) bool {
+    cancelDivider(host);
     const previous = host.callbacks.active_pane(host.callbacks.userdata);
     if (host.callbacks.pane_select(host.callbacks.userdata, pane_index) != 0) return false;
     if (previous != pane_index) clearSelection(host);
@@ -761,6 +782,7 @@ fn applyMouseDecision(host: *Host, decision: *const Logic.MouseDecision) void {
 }
 
 fn releaseMouseCapture(host: *Host) void {
+    cancelDivider(host);
     var input: Logic.MouseInput = std.mem.zeroes(Logic.MouseInput);
     input.kind = Logic.mouse_event_cancel;
     mousePolicy(host, &input);
@@ -777,6 +799,7 @@ fn launchNocted(host: *Host) void {
 }
 
 fn tabSelectionChanged(host: *Host) void {
+    cancelDivider(host);
     const index = host.tabs.selected();
     const result = host.callbacks.tab_select(host.callbacks.userdata, index);
     if (result > 0) {
@@ -806,6 +829,7 @@ fn renameTab(host: *Host) void {
 }
 
 fn moveTab(host: *Host, direction: c_int) void {
+    cancelDivider(host);
     if (host.remote_mode != 0) return;
     const from = host.callbacks.tab_active(host.callbacks.userdata);
     const to = from + direction;
@@ -819,7 +843,31 @@ fn moveTab(host: *Host, direction: c_int) void {
 }
 
 fn handleMenuCommand(host: *Host, command: c.UINT) bool {
+    cancelDivider(host);
     switch (command) {
+        Menu.id_divider_reset, Menu.id_divider_wider, Menu.id_divider_narrower, Menu.id_divider_taller, Menu.id_divider_shorter => {
+            if (host.remote_mode == 0) {
+                const result = if (command == Menu.id_divider_reset)
+                    host.callbacks.divider_reset(host.callbacks.userdata)
+                else
+                    host.callbacks.divider_adjust(host.callbacks.userdata, if (command == Menu.id_divider_wider or command == Menu.id_divider_narrower) 0 else 1, if (command == Menu.id_divider_wider or command == Menu.id_divider_taller) 50 else -50);
+                dividerResult(host, result);
+            }
+            return true;
+        },
+        Menu.id_font_custom => {
+            const value = FontDialog.show(host.window, host.font_size_pt);
+            if (value < 0) {
+                _ = c.MessageBoxW(host.window, wide("NOCTTY could not open the font size dialog."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+            } else if (value > 0) setPreference(host, pref_font_size, value);
+            _ = c.SetFocus(host.window);
+            return true;
+        },
+        Menu.id_font_increase, Menu.id_font_decrease, Menu.id_font_reset => {
+            const value = if (command == Menu.id_font_reset) Appearance.default_font_size else host.font_size_pt + @as(c_int, if (command == Menu.id_font_increase) 1 else -1);
+            if (Appearance.validFontSize(value) and value != host.font_size_pt) setPreference(host, pref_font_size, value);
+            return true;
+        },
         Menu.id_focus_tabs => {
             _ = c.SetFocus(host.tabs.window);
             return true;
@@ -941,10 +989,132 @@ fn tabSmoke(host: *Host) bool {
         callbacks.active_pane(callbacks.userdata) == original_pane and host.tabs.matches(callbacks);
 }
 
+fn smokePoint(x: c_int, y: c_int) c.LPARAM {
+    return @intCast(@as(u32, @bitCast(x)) & 0xffff | ((@as(u32, @bitCast(y)) & 0xffff) << 16));
+}
+
+fn dividerSmoke(host: *Host) bool {
+    const cb = host.callbacks;
+    const original_tab = cb.tab_active(cb.userdata);
+    if (cb.workspace_action(cb.userdata, action_new_tab, default_columns, default_rows) <= 0 or
+        cb.workspace_action(cb.userdata, action_split_left, default_columns, default_rows) <= 0 or
+        cb.workspace_action(cb.userdata, action_split_down, default_columns, default_rows) <= 0) return false;
+    const test_tab = cb.tab_active(cb.userdata);
+    const test_pane = cb.active_pane(cb.userdata);
+    var client = dividerClient(host);
+    resizeTerminal(host, client.right, client.bottom);
+    client = dividerClient(host);
+    if (cb.divider_count(cb.userdata) != 2) return false;
+    _ = handleMenuCommand(host, Menu.id_divider_reset);
+    const initial = Dividers.Divider.read(cb, 0) orelse return false;
+    const band = initial.band(client, 0, initial.ratio);
+    const start = smokePoint(band.left, band.top + @divTrunc(band.bottom - band.top, 4));
+    const parent = initial.parent(client);
+    const target_x = parent.left + @divTrunc((parent.right - parent.left) * 3, 4);
+    const target_y = parent.top + @divTrunc((parent.bottom - parent.top) * 3, 4);
+    const target = smokePoint(target_x, target_y);
+    var pane_hit: PaneHit = .{};
+    if (hitTestPaneCell(host, band.left, band.top, &pane_hit) or dividerHit(host, band.left, host.content_top - 1) != null) return false;
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, start);
+    if (host.divider_drag == null or c.GetCapture() != host.window or host.mouse.application_capture != 0 or host.mouse.selection_dragging != 0) return false;
+    _ = c.SendMessageW(host.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, target);
+    const expected = initial.pointerRatio(client, target_x, target_y);
+    if (host.divider_drag == null or host.divider_drag.?.preview != expected or (Dividers.Divider.read(cb, 0) orelse return false).ratio != 500) return false;
+    const paints = host.paint_count;
+    _ = c.SendMessageW(host.window, c.WM_PAINT, 0, 0);
+    if (host.paint_count == paints) return false;
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONUP, 0, target);
+    if (host.divider_drag != null or c.GetCapture() == host.window or (Dividers.Divider.read(cb, 0) orelse return false).ratio != expected) return false;
+    _ = handleMenuCommand(host, Menu.id_divider_reset);
+    if ((Dividers.Divider.read(cb, 0) orelse return false).ratio != 500) return false;
+
+    // Escape and genuine capture transfer discard previews without model writes.
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, start);
+    _ = c.SendMessageW(host.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, target);
+    _ = c.SendMessageW(host.window, c.WM_KEYDOWN, c.VK_ESCAPE, 0);
+    _ = c.SendMessageW(host.window, c.WM_CHAR, c.VK_ESCAPE, 0);
+    if (host.divider_drag != null or (Dividers.Divider.read(cb, 0) orelse return false).ratio != 500) return false;
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, start);
+    _ = c.SetCapture(host.tabs.window);
+    if (host.divider_drag != null) return false;
+    _ = c.ReleaseCapture();
+    // A changed active pane invalidates even an otherwise identical node.
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, start);
+    _ = cb.next_stream(cb.userdata);
+    _ = c.SendMessageW(host.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, target);
+    if (host.divider_drag != null or (Dividers.Divider.read(cb, 0) orelse return false).ratio != 500) return false;
+    _ = cb.pane_select(cb.userdata, test_pane);
+    // Production tab cycling cancels before reusing the active tab's node IDs.
+    _ = c.SendMessageW(host.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, start);
+    _ = handleMenuCommand(host, Menu.id_next_tab);
+    if (host.divider_drag != null or cb.tab_active(cb.userdata) == test_tab) return false;
+    _ = cb.tab_select(cb.userdata, test_tab);
+    updateTitle(host);
+    inline for (.{
+        .{ Menu.id_divider_wider, Menu.id_divider_narrower, @as(c_int, 0) },
+        .{ Menu.id_divider_taller, Menu.id_divider_shorter, @as(c_int, 1) },
+    }) |commands| {
+        _ = handleMenuCommand(host, commands[0]);
+        var changed = false;
+        var ordinal: c_int = 0;
+        while (ordinal < cb.divider_count(cb.userdata)) : (ordinal += 1) {
+            const divider = Dividers.Divider.read(cb, ordinal) orelse return false;
+            if (divider.axis == commands[2] and (divider.ratio == 450 or divider.ratio == 550)) changed = true;
+        }
+        if (!changed) return false;
+        _ = handleMenuCommand(host, commands[1]);
+    }
+    var ordinal: c_int = 0;
+    while (ordinal < 2) : (ordinal += 1) if ((Dividers.Divider.read(cb, ordinal) orelse return false).ratio != 500) return false;
+    host.remote_mode = 1;
+    defer host.remote_mode = 0;
+    // The host guard must reject dispatch even when the local model has splits.
+    if (dividerHit(host, band.left, band.top) != null) return false;
+    beginDivider(host, initial);
+    if (host.divider_drag != null) return false;
+    inline for (.{ Menu.id_divider_wider, Menu.id_divider_narrower, Menu.id_divider_taller, Menu.id_divider_shorter, Menu.id_divider_reset }) |command| {
+        if (!handleMenuCommand(host, command)) return false;
+    }
+    ordinal = 0;
+    while (ordinal < 2) : (ordinal += 1) if ((Dividers.Divider.read(cb, ordinal) orelse return false).ratio != 500) return false;
+    host.remote_mode = 0;
+    if (host.workspace.live_sessions != 0 or cb.workspace_close(cb.userdata, close_tab) == 0) return false;
+    _ = cb.tab_select(cb.userdata, original_tab);
+    updateTitle(host);
+    return true;
+}
+
+fn appearanceSmoke(host: *Host) bool {
+    if (!FontDialog.qualify(host.window)) return false;
+    const original_theme = host.theme;
+    const original_font = host.font_size_pt;
+    defer {
+        setPreference(host, pref_theme, original_theme);
+        setPreference(host, pref_font_size, original_font);
+    }
+    const menu = host.menu orelse return false;
+    inline for (.{ .{ Logic.menu_theme_dark, @as(c_int, 0) }, .{ Logic.menu_theme_zinc, @as(c_int, 2) } }) |choice| {
+        if (!handleMenuCommand(host, choice[0])) return false;
+        const colors = Appearance.colors(choice[1]);
+        if (host.theme != choice[1] or host.foreground != colors.foreground or host.background != colors.background or
+            c.GetMenuState(@ptrCast(menu.theme), choice[0], c.MF_BYCOMMAND) & c.MF_CHECKED == 0) return false;
+    }
+    setPreference(host, pref_font_size, 23);
+    if (host.font_size_pt != 23 or !handleMenuCommand(host, Menu.id_font_increase) or host.font_size_pt != 24 or
+        !handleMenuCommand(host, Menu.id_font_decrease) or host.font_size_pt != 23 or
+        !handleMenuCommand(host, Menu.id_font_reset) or host.font_size_pt != 13) return false;
+    setPreference(host, pref_font_size, 8);
+    if (!handleMenuCommand(host, Menu.id_font_decrease) or host.font_size_pt != 8 or
+        c.GetMenuState(@ptrCast(menu.font), Menu.id_font_decrease, c.MF_BYCOMMAND) & c.MF_GRAYED == 0) return false;
+    setPreference(host, pref_font_size, 32);
+    return handleMenuCommand(host, Menu.id_font_increase) and host.font_size_pt == 32 and
+        c.GetMenuState(@ptrCast(menu.font), Menu.id_font_increase, c.MF_BYCOMMAND) & c.MF_GRAYED != 0;
+}
+
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     if (!Menu.qualifyState(menu, false)) return false;
-    if (!tabSmoke(host)) return false;
+    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host)) return false;
     const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
     const active_before = host.callbacks.active_pane(host.callbacks.userdata);
     const sessions_before = host.workspace.live_sessions;
@@ -952,9 +1122,11 @@ fn menuSmoke(host: *Host) bool {
     updateMenu(host);
     if (!Menu.qualifyState(menu, true)) return false;
     for ([_]u32{
-        Menu.id_new_tab,       Menu.id_split_down,     Menu.id_split_left,
-        Menu.id_close_pane,    Menu.id_close_tab,      Menu.id_rename_tab,
-        Menu.id_move_tab_left, Menu.id_move_tab_right,
+        Menu.id_new_tab,         Menu.id_split_down,       Menu.id_split_left,
+        Menu.id_close_pane,      Menu.id_close_tab,        Menu.id_rename_tab,
+        Menu.id_move_tab_left,   Menu.id_move_tab_right,   Menu.id_divider_reset,
+        Menu.id_divider_wider,   Menu.id_divider_narrower, Menu.id_divider_taller,
+        Menu.id_divider_shorter,
     }) |command| {
         if (!handleMenuCommand(host, command) or
             c.IsWindow(host.window) == 0 or
@@ -1008,6 +1180,95 @@ fn hostFromWindow(window: c.HWND) ?*Host {
     return @ptrFromInt(@as(usize, @bitCast(raw)));
 }
 
+fn dividerClient(host: *Host) c.RECT {
+    var client: c.RECT = std.mem.zeroes(c.RECT);
+    _ = c.GetClientRect(host.window, &client);
+    client.top = @min(host.content_top, client.bottom);
+    return client;
+}
+
+fn dividerHit(host: *Host, x: c_int, y: c_int) ?Dividers.Divider {
+    if (host.remote_mode != 0) return null;
+    const dpi = c.GetDpiForWindow(host.window);
+    return Dividers.hit(host.callbacks, dividerClient(host), if (dpi == 0) 96 else dpi, x, y);
+}
+
+fn dividerCursor(axis: c_int) void {
+    _ = c.SetCursor(LoadCursorW(null, @ptrFromInt(@as(usize, if (axis == 0) 32644 else 32645))));
+}
+
+fn cancelDivider(host: *Host) void {
+    if (host.divider_drag == null) return;
+    host.divider_drag = null;
+    if (c.GetCapture() == host.window) _ = c.ReleaseCapture();
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
+}
+
+fn dividerValid(host: *Host) bool {
+    const drag = host.divider_drag orelse return false;
+    const cb = host.callbacks;
+    if (host.remote_mode != 0 or cb.tab_active(cb.userdata) != drag.tab or cb.active_pane(cb.userdata) != drag.pane or
+        cb.divider_count(cb.userdata) != drag.count) return false;
+    var ordinal: c_int = 0;
+    while (ordinal < drag.count) : (ordinal += 1) {
+        const divider = Dividers.Divider.read(cb, ordinal) orelse continue;
+        if (divider.node == drag.divider.node) return divider.sameParent(drag.divider);
+    }
+    return false;
+}
+
+fn beginDivider(host: *Host, divider: Dividers.Divider) void {
+    if (host.remote_mode != 0) return;
+    releaseMouseCapture(host);
+    clearSelection(host);
+    _ = c.SetFocus(host.window);
+    host.divider_drag = .{
+        .divider = divider,
+        .tab = host.callbacks.tab_active(host.callbacks.userdata),
+        .pane = host.callbacks.active_pane(host.callbacks.userdata),
+        .count = host.callbacks.divider_count(host.callbacks.userdata),
+        .preview = @intCast(divider.ratio),
+    };
+    _ = c.SetCapture(host.window);
+    if (c.GetCapture() != host.window) {
+        cancelDivider(host);
+        return;
+    }
+    dividerCursor(divider.axis);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
+}
+
+fn moveDivider(host: *Host, x: c_int, y: c_int) void {
+    if (!dividerValid(host) or c.GetCapture() != host.window) {
+        cancelDivider(host);
+        return;
+    }
+    const drag = &host.divider_drag.?;
+    drag.preview = drag.divider.pointerRatio(dividerClient(host), x, y);
+    dividerCursor(drag.divider.axis);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
+}
+
+fn finishDivider(host: *Host, x: c_int, y: c_int) void {
+    moveDivider(host, x, y);
+    const drag = host.divider_drag orelse return;
+    // Clear before ReleaseCapture's synchronous WM_CAPTURECHANGED. No model
+    // writes until release: cancellation preserves even saved edge ratios.
+    cancelDivider(host);
+    dividerResult(host, host.callbacks.divider_set(host.callbacks.userdata, drag.divider.node, drag.preview));
+}
+
+fn dividerResult(host: *Host, result: c_int) void {
+    if (result < 0) {
+        _ = c.MessageBoxW(host.window, wide("NOCTTY could not resize this split. The workspace may have changed."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        return;
+    }
+    if (result == 0) return;
+    clearSelection(host);
+    const client = dividerClient(host);
+    resizeTerminal(host, client.right, client.bottom);
+}
+
 fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPARAM) callconv(.winapi) c.LRESULT {
     var host = hostFromWindow(window);
     if (message == c.WM_NCCREATE) {
@@ -1027,6 +1288,26 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_ERASEBKGND => return 1,
+        c.WM_SETCURSOR => {
+            if (current.divider_drag) |drag| {
+                dividerCursor(drag.divider.axis);
+                return 1;
+            }
+            if (lowWord(@bitCast(long_value)) == c.HTCLIENT) {
+                var point: c.POINT = undefined;
+                if (c.GetCursorPos(&point) != 0 and c.ScreenToClient(window, &point) != 0) {
+                    if (dividerHit(current, point.x, point.y)) |divider| {
+                        dividerCursor(divider.axis);
+                        return 1;
+                    }
+                }
+            }
+            return c.DefWindowProcW(window, message, word, long_value);
+        },
+        c.WM_ENTERMENULOOP => {
+            cancelDivider(current);
+            return 0;
+        },
         c.WM_NOTIFY => {
             const notification: *const c.NMHDR = @ptrFromInt(@as(usize, @bitCast(long_value)));
             if (notification.hwndFrom == current.tabs.window and notification.code == @as(c.UINT, @bitCast(@as(c_int, -551)))) { // TCN_SELCHANGE
@@ -1053,6 +1334,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_SIZE => {
+            cancelDivider(current);
             if (word != c.SIZE_MINIMIZED) {
                 clearSelection(current);
                 resizeTerminal(current, lowWord(@bitCast(long_value)), highWord(@bitCast(long_value)));
@@ -1066,6 +1348,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_DPICHANGED => {
+            cancelDivider(current);
             const suggested: *const c.RECT = @ptrFromInt(@as(usize, @bitCast(long_value)));
             clearSelection(current);
             _ = createFonts(current, highWord(word));
@@ -1088,11 +1371,17 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_KILLFOCUS => {
+            cancelDivider(current);
             if (current.mouse.selection_dragging != 0 or current.mouse.application_capture != 0) releaseMouseCapture(current);
             _ = c.InvalidateRect(window, null, c.FALSE);
             return 0;
         },
         c.WM_LBUTTONDOWN, c.WM_MBUTTONDOWN, c.WM_RBUTTONDOWN => {
+            if (current.divider_drag != null) return 0;
+            if (dividerHit(current, signedLowWord(long_value), signedHighWord(long_value))) |divider| {
+                if (message == c.WM_LBUTTONDOWN) beginDivider(current, divider);
+                return 0;
+            }
             var hit: PaneHit = .{};
             if (!hitTestPaneCell(current, signedLowWord(long_value), signedHighWord(long_value), &hit)) return 0;
             if (!selectPane(current, hit.pane_index)) return 0;
@@ -1112,6 +1401,10 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_LBUTTONUP, c.WM_MBUTTONUP, c.WM_RBUTTONUP => {
+            if (current.divider_drag != null) {
+                if (message == c.WM_LBUTTONUP) finishDivider(current, signedLowWord(long_value), signedHighWord(long_value));
+                return 0;
+            }
             var hit: PaneHit = .{};
             var target_pane: c_int = -1;
             const button: c_int = if (message == c.WM_LBUTTONUP) 0 else if (message == c.WM_MBUTTONUP) 1 else 2;
@@ -1133,6 +1426,14 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_MOUSEMOVE => {
+            if (current.divider_drag != null) {
+                moveDivider(current, signedLowWord(long_value), signedHighWord(long_value));
+                return 0;
+            }
+            if (dividerHit(current, signedLowWord(long_value), signedHighWord(long_value))) |divider| {
+                dividerCursor(divider.axis);
+                return 0;
+            }
             var hit: PaneHit = .{};
             var target_pane: c_int = -1;
             const route = Logic.noctty_windows_mouse_route(&current.mouse, Logic.mouse_event_move, 0, &target_pane);
@@ -1167,6 +1468,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             const steps = @divTrunc(@as(c_int, delta), c.WHEEL_DELTA);
             if (steps == 0) return 0;
             _ = c.ScreenToClient(window, &pointer);
+            if (current.divider_drag != null or dividerHit(current, pointer.x, pointer.y) != null or pointer.y < current.content_top) return 0;
             var hit: PaneHit = .{};
             if (!hitTestPaneCell(current, pointer.x, pointer.y, &hit) or !selectPane(current, hit.pane_index)) return 0;
             if (hit.inside_content != 0 and
@@ -1188,6 +1490,11 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_KEYDOWN, c.WM_SYSKEYDOWN => {
+            if (current.divider_drag != null and word == c.VK_ESCAPE) {
+                cancelDivider(current);
+                current.suppress_character = 1;
+                return 0;
+            }
             const control = @intFromBool(keyDown(c.VK_CONTROL));
             const shift = @intFromBool(keyDown(c.VK_SHIFT));
             const alt = @intFromBool(keyDown(c.VK_MENU));
@@ -1242,10 +1549,12 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_CLOSE => {
+            cancelDivider(current);
             _ = c.DestroyWindow(window);
             return 0;
         },
         c.WM_DESTROY => {
+            cancelDivider(current);
             _ = c.KillTimer(window, timer_id);
             c.PostQuitMessage(current.exit_code);
             return 0;
@@ -1273,6 +1582,7 @@ fn onTimer(host: *Host) void {
     if (host.timer_active) return;
     host.timer_active = true;
     defer host.timer_active = false;
+    if (host.divider_drag != null and !dividerValid(host)) cancelDivider(host);
     for (&host.sessions, 0..) |*session, index| {
         if (Logic.noctty_windows_session_is_live(&host.workspace, @intCast(index)) == 0) continue;
         drainOutput(host, @intCast(index));
@@ -1399,6 +1709,7 @@ fn inputSmokeObservables(host: *Host) void {
 }
 
 fn cleanup(host: *Host) void {
+    cancelDivider(host);
     cleanupAllSessions(host);
     Fonts.noctty_windows_fonts_deinit(@ptrCast(&host.font_normal), @ptrCast(&host.font_bold));
     Menu.noctty_windows_menu_deinit(host.menu);
@@ -1508,7 +1819,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);

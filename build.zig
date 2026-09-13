@@ -80,6 +80,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .strip = strip,
     });
+    const split_ratio_mod = b.createModule(.{
+        .root_source_file = b.path("src/workspace/SplitRatio.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
     const native_grid_logic_mod = b.createModule(.{
         .root_source_file = b.path("src/gui/NativeGridLogic.zig"),
         .target = target,
@@ -93,6 +98,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     native_grid_logic_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
+    native_grid_logic_mod.addImport("split_ratio", split_ratio_mod);
     windows_host_logic_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     const windows_pty_logic_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsPtyLogic.zig"),
@@ -112,6 +118,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     windows_workspace_mod.addImport("noctty_share", windows_workspace_share_mod);
+    windows_host_logic_mod.addImport("noctty_share", windows_workspace_share_mod);
+    const windows_appearance_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/WindowsAppearance.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    windows_appearance_mod.addImport("noctty_share", windows_workspace_share_mod);
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
@@ -127,6 +140,7 @@ pub fn build(b: *std.Build) void {
     exe_mod.addOptions("build_options", runtime_options);
     exe_mod.addImport("noctty", root_mod);
     exe_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
+    exe_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, exe_mod, false);
     exe_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     exe_mod.linkSystemLibrary("dl", .{});
@@ -173,6 +187,7 @@ pub fn build(b: *std.Build) void {
     vte_mod.addOptions("build_options", vte_options);
     vte_mod.addImport("noctty", root_mod);
     vte_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
+    vte_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, vte_mod, false);
     vte_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
@@ -201,6 +216,7 @@ pub fn build(b: *std.Build) void {
     smoke_mod.addOptions("build_options", smoke_options);
     smoke_mod.addImport("noctty", root_mod);
     smoke_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
+    smoke_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, smoke_mod, true);
     smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     smoke_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
@@ -620,6 +636,15 @@ pub fn build(b: *std.Build) void {
         "Test Windows tab identity and snapshot compatibility without Win32",
     );
     windows_workspace_test_step.dependOn(&run_windows_workspace_tests.step);
+    const split_ratio_tests = b.addTest(.{ .root_module = split_ratio_mod, .use_llvm = true });
+    const run_split_ratio_tests = b.addRunArtifact(split_ratio_tests);
+    const windows_appearance_tests = b.addTest(.{ .root_module = windows_appearance_mod, .use_llvm = true });
+    const run_windows_appearance_tests = b.addRunArtifact(windows_appearance_tests);
+    const windows_policy_step = b.step("windows-policy-test", "Test native workspace, divider, appearance, and input policy without a display");
+    windows_policy_step.dependOn(&run_windows_workspace_tests.step);
+    windows_policy_step.dependOn(&run_windows_host_logic_tests.step);
+    windows_policy_step.dependOn(&run_split_ratio_tests.step);
+    windows_policy_step.dependOn(&run_windows_appearance_tests.step);
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
@@ -632,6 +657,8 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_windows_host_logic_tests.step);
     test_step.dependOn(&run_windows_pty_logic_tests.step);
     test_step.dependOn(&run_windows_workspace_tests.step);
+    test_step.dependOn(&run_split_ratio_tests.step);
+    test_step.dependOn(&run_windows_appearance_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -650,6 +677,8 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_windows_host_logic_tests.step);
     check_step.dependOn(&run_windows_pty_logic_tests.step);
     check_step.dependOn(&run_windows_workspace_tests.step);
+    check_step.dependOn(&run_split_ratio_tests.step);
+    check_step.dependOn(&run_windows_appearance_tests.step);
 }
 
 fn addWindowsBuild(

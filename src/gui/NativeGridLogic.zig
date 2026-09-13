@@ -2,6 +2,25 @@
 
 const std = @import("std");
 const KeyEncoding = @import("terminal_key_encoding");
+const SplitRatio = @import("split_ratio");
+
+pub export fn noctty_grid_split_ratio(position: c_int, extent: c_int) callconv(.c) c_int {
+    if (extent <= 0) return 0;
+    return @intCast(SplitRatio.fromPosition(position, @intCast(extent)));
+}
+
+pub export fn noctty_grid_split_position(extent: c_int, ratio: c_int) callconv(.c) c_int {
+    if (extent <= 0) return 0;
+    return @intCast(SplitRatio.position(@intCast(extent), @intCast(std.math.clamp(ratio, 0, 1000))));
+}
+
+test "split ratio ABI bounds signed geometry without multiplication overflow" {
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_ratio(-1, 100));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_ratio(100, 0));
+    try std.testing.expectEqual(@as(c_int, 500), noctty_grid_split_ratio(1_000_000_000, 2_000_000_000));
+    try std.testing.expectEqual(std.math.maxInt(c_int), noctty_grid_split_position(std.math.maxInt(c_int), std.math.maxInt(c_int)));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_position(100, -1));
+}
 
 pub const ScrollbarGeometry = extern struct {
     x: f64,

@@ -5,6 +5,7 @@
 
 const std = @import("std");
 const KeyEncoding = @import("terminal_key_encoding");
+const Appearance = @import("WindowsAppearance.zig");
 
 const layout_scale: u64 = 1_000_000;
 
@@ -257,6 +258,7 @@ fn validSessionMask(mask: u32, session_count: c_int) bool {
 
 pub const menu_theme_dark: u32 = 40001;
 pub const menu_theme_high_contrast: u32 = 40002;
+pub const menu_theme_zinc: u32 = 40003;
 pub const menu_font_11: u32 = 40011;
 pub const menu_font_13: u32 = 40013;
 pub const menu_font_16: u32 = 40016;
@@ -267,6 +269,10 @@ pub const menu_restore_startup: u32 = 40031;
 pub const menu_workspace_save: u32 = 40041;
 pub const menu_workspace_restore: u32 = 40042;
 pub const menu_open_nocted: u32 = 40051;
+pub const menu_font_custom: u32 = 40060;
+pub const menu_font_increase: u32 = 40061;
+pub const menu_font_decrease: u32 = 40062;
+pub const menu_font_reset: u32 = 40063;
 
 pub const MenuAction = extern struct {
     kind: c_int,
@@ -399,6 +405,7 @@ pub export fn noctty_windows_decode_menu_command(
     action.* = switch (command) {
         menu_theme_dark => .{ .kind = 1, .value = 0 },
         menu_theme_high_contrast => .{ .kind = 1, .value = 1 },
+        menu_theme_zinc => .{ .kind = 1, .value = 2 },
         menu_font_11 => .{ .kind = 2, .value = 11 },
         menu_font_13 => .{ .kind = 2, .value = 13 },
         menu_font_16 => .{ .kind = 2, .value = 16 },
@@ -422,13 +429,13 @@ pub export fn noctty_windows_normalize_preferences(
     output: ?*Preferences,
 ) callconv(.c) c_int {
     const result = output orelse return 0;
-    const valid = (theme == 0 or theme == 1) and
-        (font_size_pt >= 10 and font_size_pt <= 24) and
+    const valid = Appearance.validTheme(theme) and
+        Appearance.validFontSize(font_size_pt) and
         (launch_profile == 0 or launch_profile == 1) and
         (restore_workspace == 0 or restore_workspace == 1);
     result.* = .{
-        .theme = @intFromBool(theme == 1),
-        .font_size_pt = if (font_size_pt >= 10 and font_size_pt <= 24) font_size_pt else 13,
+        .theme = if (Appearance.validTheme(theme)) theme else 0,
+        .font_size_pt = if (Appearance.validFontSize(font_size_pt)) font_size_pt else Appearance.default_font_size,
         .launch_profile = @intFromBool(launch_profile == 1),
         .restore_workspace = @intFromBool(restore_workspace != 0),
     };
@@ -1002,6 +1009,18 @@ test "Windows menu commands decode to bounded actions" {
     ));
 }
 
+test "Windows appearance: Zinc menu action and host-owned font commands" {
+    var action: MenuAction = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_windows_decode_menu_command(menu_theme_zinc, 0, &action));
+    try std.testing.expectEqualDeep(MenuAction{ .kind = 1, .value = 2 }, action);
+    const previous = action;
+    for ([_]u32{ menu_font_custom, menu_font_increase, menu_font_decrease, menu_font_reset }) |command| {
+        try std.testing.expectEqual(@as(c_int, 0), noctty_windows_decode_menu_command(command, 0, &action));
+        try std.testing.expectEqualDeep(previous, action);
+    }
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_decode_menu_command(menu_theme_zinc, 0, null));
+}
+
 test "Windows preferences normalize invalid persisted values" {
     var preferences: Preferences = undefined;
     try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(
@@ -1022,6 +1041,46 @@ test "Windows preferences normalize invalid persisted values" {
         0,
         &preferences,
     ));
+}
+
+test "Windows appearance: preferences preserve exact font bounds and theme selection" {
+    var preferences: Preferences = undefined;
+    for ([_]c_int{ 0, 1, 2 }) |theme| {
+        for (8..33) |size| {
+            try std.testing.expectEqual(@as(c_int, 1), noctty_windows_normalize_preferences(
+                theme,
+                @intCast(size),
+                1,
+                0,
+                &preferences,
+            ));
+            try std.testing.expectEqualDeep(Preferences{
+                .theme = theme,
+                .font_size_pt = @intCast(size),
+                .launch_profile = 1,
+                .restore_workspace = 0,
+            }, preferences);
+        }
+    }
+    for ([_]c_int{ std.math.minInt(c_int), 7, 33, std.math.maxInt(c_int) }) |size| {
+        try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(2, size, 1, 0, &preferences));
+        try std.testing.expectEqualDeep(Preferences{
+            .theme = 2,
+            .font_size_pt = 13,
+            .launch_profile = 1,
+            .restore_workspace = 0,
+        }, preferences);
+    }
+    for ([_]c_int{ -1, 3 }) |theme| {
+        try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(theme, 32, 0, 1, &preferences));
+        try std.testing.expectEqualDeep(Preferences{
+            .theme = 0,
+            .font_size_pt = 32,
+            .launch_profile = 0,
+            .restore_workspace = 1,
+        }, preferences);
+    }
+    try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(2, 8, 0, 0, null));
 }
 
 test "selection and special keys preserve Win32 host policy" {

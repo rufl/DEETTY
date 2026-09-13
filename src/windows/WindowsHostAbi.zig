@@ -83,6 +83,19 @@ const PaneCopy = *const fn (
 const TabTitle = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
 const TabRename = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
 const TabMove = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+const DividerInfo = *const fn (
+    ?*anyopaque,
+    c_int,
+    *c_int,
+    *c_int,
+    *u32,
+    *u32,
+    *u32,
+    *u32,
+    *u32,
+) callconv(.c) c_int;
+const DividerSet = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+const DividerAdjust = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
 
 pub const Callbacks = extern struct {
     userdata: ?*anyopaque,
@@ -111,6 +124,13 @@ pub const Callbacks = extern struct {
     tab_select: PaneSelect,
     tab_rename: TabRename,
     tab_move: TabMove,
+    divider_count: Unary,
+    /// Ordinal -> stable node, axis (0=width/1=height), normalized parent rect,
+    /// ratio in permille. Positive success, zero absent, negative failure.
+    divider_info: DividerInfo,
+    divider_set: DividerSet,
+    divider_adjust: DividerAdjust,
+    divider_reset: Unary,
     pane_count: Unary,
     pane_layout: PaneLayout,
     pane_dimensions: PaneDimensions,
@@ -152,4 +172,6 @@ pub const RenderState = extern struct {
     selection_anchor_row: c_int,
     selection_extent_column: c_int,
     selection_extent_row: c_int,
+    divider_preview_node: c_int,
+    divider_preview_ratio: u32,
 };

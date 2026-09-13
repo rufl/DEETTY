@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+int noctty_grid_split_ratio(int position, int extent);
+int noctty_grid_split_position(int extent, int ratio);
+
 typedef struct {
     double x;
     double y;

@@ -22,6 +22,7 @@ const WindowsRenderer = @import("WindowsRenderer.zig");
 const Dpapi = @import("Dpapi.zig");
 const WindowsHost = @import("WindowsHost.zig");
 const Workspace = @import("WindowsWorkspace.zig");
+const WindowsAppearance = @import("WindowsAppearance.zig");
 const WindowsWorkspace = Workspace.WindowsWorkspace;
 const WorkspaceSnapshot = Workspace.WorkspaceSnapshot;
 const WindowsPreferences = Workspace.WindowsPreferences;
@@ -316,6 +317,11 @@ pub export fn wWinMain(
         .tab_move = tabMove,
         .pane_count = paneCount,
         .pane_layout = paneLayout,
+        .divider_count = dividerCount,
+        .divider_info = dividerInfo,
+        .divider_set = dividerSet,
+        .divider_adjust = dividerAdjust,
+        .divider_reset = dividerReset,
         .pane_dimensions = paneDimensions,
         .pane_cell = paneCell,
         .pane_cell_text = paneCellText,
@@ -876,13 +882,12 @@ fn preferenceSet(
     const state = stateFromRaw(raw) orelse return -1;
     const previous = state.preferences;
     switch (field) {
-        1 => state.preferences.theme = switch (value) {
-            0 => .dark,
-            1 => .high_contrast,
-            else => return -1,
+        1 => {
+            if (!WindowsAppearance.validTheme(value)) return -1;
+            state.preferences.theme = @enumFromInt(value);
         },
         2 => {
-            if (value < 10 or value > 24) return -1;
+            if (!WindowsAppearance.validFontSize(value)) return -1;
             state.preferences.font_size_pt = @intCast(value);
         },
         3 => state.preferences.launch_profile = switch (value) {
@@ -995,6 +1000,8 @@ fn cellText(
 fn colorRgb(raw: ?*anyopaque, color_id: u32) callconv(.c) u32 {
     const state = stateFromRaw(raw) orelse return 0xffffffff;
     if (color_id > std.math.maxInt(u16)) return 0xffffffff;
+    if (WindowsAppearance.indexedColor(@intFromEnum(state.preferences.theme), color_id)) |rgb|
+        return rgb;
     if (state.live_viewer) |viewer| return viewer.colorRgb(@intCast(color_id));
     const grid = state.workspace.activeGrid() orelse return 0xffffffff;
     return grid.colorRgb(@intCast(color_id));
@@ -1134,6 +1141,54 @@ fn paneLayout(
     return 1;
 }
 
+fn dividerCount(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return 0;
+    if (state.live_viewer != null) return 0;
+    return @intCast(state.workspace.dividerCount());
+}
+
+fn dividerInfo(
+    raw: ?*anyopaque,
+    ordinal: c_int,
+    node: *c_int,
+    axis: *c_int,
+    x: *u32,
+    y: *u32,
+    width: *u32,
+    height: *u32,
+    ratio: *u32,
+) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or ordinal < 0) return -1;
+    const divider = state.workspace.dividerInfo(@intCast(ordinal)) orelse return 0;
+    node.* = @intCast(divider.node);
+    axis.* = divider.axis;
+    x.* = divider.rectangle.x;
+    y.* = divider.rectangle.y;
+    width.* = divider.rectangle.width;
+    height.* = divider.rectangle.height;
+    ratio.* = divider.ratio_permille;
+    return 1;
+}
+
+fn dividerSet(raw: ?*anyopaque, node: c_int, ratio: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or node < 0) return -1;
+    return @intFromBool(state.workspace.setDividerRatio(@intCast(node), ratio) catch return -1);
+}
+
+fn dividerAdjust(raw: ?*anyopaque, axis: c_int, delta: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or axis < 0 or axis > 1) return -1;
+    return @intFromBool(state.workspace.adjustDivider(@intCast(axis), delta) catch return -1);
+}
+
+fn dividerReset(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null) return -1;
+    return @intFromBool(state.workspace.resetDividers());
+}
+
 fn paneDimensions(
     raw: ?*anyopaque,
     index_raw: c_int,
@@ -1196,6 +1251,8 @@ fn paneCellText(
 fn paneColorRgb(raw: ?*anyopaque, index_raw: c_int, color_id: u32) callconv(.c) u32 {
     if (index_raw < 0 or color_id > std.math.maxInt(u16)) return 0xffffffff;
     const state = stateFromRaw(raw) orelse return 0xffffffff;
+    if (WindowsAppearance.indexedColor(@intFromEnum(state.preferences.theme), color_id)) |rgb|
+        return rgb;
     if (state.live_viewer) |viewer|
         return viewer.streamColorRgb(@intCast(index_raw), @intCast(color_id));
     const grid = state.workspace.paneGrid(@intCast(index_raw)) orelse return 0xffffffff;
@@ -1443,6 +1500,18 @@ fn selfTest(state: *State) bool {
     if (first.codepoint != 'W' or last.codepoint != 'K') return false;
     if (!first.flags.bold) return false;
     if (grid.colorRgb(first.foreground) != 0x8fb8ff) return false;
+    for ([_]Workspace.WindowsPreferences{ .{ .theme = .dark }, .{ .theme = .high_contrast }, .{ .theme = .paseo_black_zinc } }) |preferences| {
+        state.preferences = preferences;
+        if (colorRgb(state, first.foreground) != 0x8fb8ff or
+            paneColorRgb(state, 0, first.foreground) != 0x8fb8ff or
+            colorRgb(state, 202) != grid.colorRgb(202) or
+            paneColorRgb(state, 0, 202) != grid.colorRgb(202))
+            return false;
+        const red = WindowsAppearance.indexedColor(@intFromEnum(preferences.theme), 1) orelse return false;
+        if (colorRgb(state, 1) != red or paneColorRgb(state, 0, 1) != red)
+            return false;
+    }
+    state.preferences = .{};
     grid.feed("\r\nNOCTTY_WINDOWS_HOST_OK\r\n") catch return false;
     if (smokeReady(state) != 1) return false;
 
@@ -1471,6 +1540,35 @@ fn selfTest(state: *State) bool {
         left_rect.width != 500_000 or left_rect.height != 500_000) return false;
     if (right_rect.x != 500_000 or right_rect.y != 500_000 or
         right_rect.width != 500_000 or right_rect.height != 500_000) return false;
+    var divider_node: c_int = undefined;
+    var divider_axis: c_int = undefined;
+    var divider_x: u32 = undefined;
+    var divider_y: u32 = undefined;
+    var divider_width: u32 = undefined;
+    var divider_height: u32 = undefined;
+    var divider_ratio: u32 = undefined;
+    if (dividerCount(state) != 2 or dividerInfo(
+        state,
+        1,
+        &divider_node,
+        &divider_axis,
+        &divider_x,
+        &divider_y,
+        &divider_width,
+        &divider_height,
+        &divider_ratio,
+    ) != 1) return false;
+    if (divider_axis != 0 or divider_x != 0 or divider_y != 500_000 or
+        divider_width != 1_000_000 or divider_height != 500_000 or divider_ratio != 500)
+        return false;
+    if (dividerSet(state, divider_node, 333) != 1 or
+        dividerSet(state, divider_node, 333) != 0 or
+        dividerAdjust(state, 0, 100) != 1 or
+        dividerAdjust(state, 2, 100) != -1 or dividerSet(state, -1, 500) != -1)
+        return false;
+    if ((state.workspace.paneRect(2) orelse return false).width != 433_000 or
+        state.workspace.activePaneIndex() != 2) return false;
+    if (dividerReset(state) != 1 or dividerReset(state) != 0) return false;
 
     const input_grid = state.workspace.paneGrid(0) orelse return false;
     input_grid.feed(
@@ -1554,8 +1652,8 @@ fn selfTest(state: *State) bool {
     var encoded: [persisted_state_capacity]u8 = undefined;
     const encoded_length = encodePersistedWindowsState(.{
         .preferences = .{
-            .theme = .high_contrast,
-            .font_size_pt = 16,
+            .theme = .paseo_black_zinc,
+            .font_size_pt = 32,
             .launch_profile = .command_prompt,
             .restore_workspace = true,
         },
@@ -1563,8 +1661,8 @@ fn selfTest(state: *State) bool {
     }, &encoded) catch return false;
     const decoded = decodePersistedWindowsState(encoded[0..encoded_length]) catch
         return false;
-    if (decoded.preferences.theme != .high_contrast or
-        decoded.preferences.font_size_pt != 16 or
+    if (decoded.preferences.theme != .paseo_black_zinc or
+        decoded.preferences.font_size_pt != 32 or
         decoded.preferences.launch_profile != .command_prompt or
         !decoded.preferences.restore_workspace)
         return false;

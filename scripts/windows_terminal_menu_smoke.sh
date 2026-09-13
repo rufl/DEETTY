@@ -32,11 +32,11 @@ if [ "$status" -ne 0 ]; then
   cat "$scratch/runner.log" >&2
   exit "$status"
 fi
-receipt='windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true'
+receipt='windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true'
 logs="$scratch/wine/drive_c/users"
 if ! find "$logs" -type f -name 'noctty-*.log' -exec grep -F "$receipt" {} + | grep -F "$receipt"; then
   cat "$scratch/runner.log" >&2
   echo 'windows_terminal_menu_smoke error=missing_menu_receipt' >&2
   exit 1
 fi
-printf '%s\n' 'windows_terminal_menu_smoke isolated=true wine=true menu_state=true remote_dispatch_guard=true tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true physical_windows=false conpty=false'
+printf '%s\n' 'windows_terminal_menu_smoke isolated=true wine=true menu_state=true remote_dispatch_guard=true tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true physical_windows=false conpty=false'

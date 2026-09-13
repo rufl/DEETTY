@@ -173,11 +173,14 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   pane identity, close/reuse, and legacy/new saved-state compatibility.
   Drag-based reorder remains outside this slice.
   `[truth:build,test,docs,external]`
-- [ ] Reuse proportional split-tree policy for Windows adjustable dividers;
-  migrate the bounded Windows snapshot deliberately rather than duplicate
-  Linux's layout semantics in another model.
-- [ ] Bring shared launch-profile/theme behavior to Windows GUI controls,
-  retaining ConPTY-specific launch validation and atomic local persistence.
+- [ ] [status:yellow] Qualify Windows divider capture/cancellation, menu resizing,
+  and saved proportional layouts against live ConPTY sessions. Shared ratio
+  math now serves GTK and Windows; native drag preview and keyboard/menu
+  adjustment preserve the existing bounded tree and pane identities.
+  `[truth:build,test,docs,external]`
+- [ ] Add launch-profile libraries and theme import/export to Windows GUI
+  controls, retaining ConPTY launch validation and atomic local persistence.
+  Shared built-in themes and exact font-size controls are implemented.
 - [ ] Add native graphical paired-device/session-sharing controls over the
   existing shared protocol and lifecycle, including visible permission and
   persistence failures.

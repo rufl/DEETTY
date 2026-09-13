@@ -6,6 +6,8 @@
 const std = @import("std");
 const Abi = @import("WindowsHostAbi.zig");
 const Logic = @import("WindowsHostLogic.zig");
+const Appearance = @import("WindowsAppearance.zig");
+const Dividers = @import("WindowsDividers.zig");
 
 const c = Abi.c;
 
@@ -48,8 +50,9 @@ pub export fn noctty_windows_theme_colors(
             c.GetSysColor(c.COLOR_WINDOW),
         );
     } else {
-        foreground_output.* = 0xd8dee9;
-        background_output.* = 0x0b0d12;
+        const colors = Appearance.colors(theme);
+        foreground_output.* = colors.foreground;
+        background_output.* = colors.background;
     }
 }
 
@@ -91,6 +94,7 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     } else {
         drawLegacyGrid(render, buffer_device);
     }
+    drawDividers(render, buffer_device, client);
     _ = c.BitBlt(
         target,
         0,
@@ -103,6 +107,28 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
         c.SRCCOPY,
     );
     counter.* +%= 1;
+}
+
+fn drawDividers(state: *const State, device: c.HDC, client: c.RECT) void {
+    const cb = callbacks(state);
+    const count = cb.divider_count(cb.userdata);
+    if (count <= 0) return;
+    const normal = c.CreateSolidBrush(Logic.noctty_windows_colorref_from_rgb(
+        Logic.noctty_windows_blend_rgb(state.foreground, state.background, 110),
+    )) orelse return;
+    defer _ = c.DeleteObject(normal);
+    const dpi = c.GetDpiForWindow(state.window);
+    const radius = @max(0, c.MulDiv(1, @intCast(if (dpi == 0) 96 else dpi), 96) - 1);
+    var ordinal: c_int = 0;
+    while (ordinal < count) : (ordinal += 1) {
+        const divider = Dividers.Divider.read(cb, ordinal) orelse continue;
+        var line = divider.band(client, radius, divider.ratio);
+        _ = c.FillRect(device, &line, normal);
+        if (state.divider_preview_node == divider.node) {
+            line = divider.band(client, radius + 1, state.divider_preview_ratio);
+            _ = c.FillRect(device, &line, c.GetSysColorBrush(c.COLOR_HIGHLIGHT));
+        }
+    }
 }
 
 fn drawLegacyGrid(state: *const State, device: c.HDC) void {

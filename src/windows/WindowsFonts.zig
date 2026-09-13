@@ -1,6 +1,7 @@
 //! DPI-aware GDI terminal-font ownership for the native Zig host.
 
 const std = @import("std");
+const Appearance = @import("WindowsAppearance.zig");
 
 const c = @cImport({
     @cDefine("UNICODE", "1");
@@ -19,7 +20,7 @@ pub export fn noctty_windows_fonts_update(
     cell_width_output: ?*c_int,
     cell_height_output: ?*c_int,
 ) c_int {
-    if (window == null or font_size_pt <= 0 or dpi == 0) return 0;
+    if (window == null or !Appearance.validFontSize(font_size_pt) or dpi == 0) return 0;
     const normal_slot = normal_output orelse return 0;
     const bold_slot = bold_output orelse return 0;
     const cell_width = cell_width_output orelse return 0;

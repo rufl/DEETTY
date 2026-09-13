@@ -2,6 +2,8 @@
 
 const std = @import("std");
 const Vt = @import("noctty_share").vt;
+const SplitRatio = @import("noctty_share").split_ratio;
+const WindowsAppearance = @import("WindowsAppearance.zig");
 
 const max_tabs: usize = 16;
 pub const max_panes: usize = 32;
@@ -22,6 +24,7 @@ const LayoutNode = struct {
     first: u8 = invalid_index,
     second: u8 = invalid_index,
     pane: u8 = invalid_index,
+    ratio_permille: u16 = 500,
 };
 
 const WorkspacePane = struct {
@@ -47,9 +50,17 @@ const PaneRect = struct {
     height: u32,
 };
 
+pub const Divider = struct {
+    node: usize,
+    axis: u1,
+    rectangle: PaneRect,
+    ratio_permille: u16,
+};
+
 const WindowsTheme = enum(u8) {
     dark,
     high_contrast,
+    paseo_black_zinc,
 };
 
 const WindowsLaunchProfile = enum(u8) {
@@ -435,6 +446,77 @@ pub const WindowsWorkspace = struct {
         );
     }
 
+    pub fn dividerCount(self: *const WindowsWorkspace) usize {
+        return self.activeTabPaneCount() -| 1;
+    }
+
+    /// Node slots remain stable while a split survives; tab reorders never move them.
+    pub fn dividerInfo(self: *const WindowsWorkspace, ordinal: usize) ?Divider {
+        if (self.active_tab >= self.tab_count) return null;
+        var remaining = ordinal;
+        for (self.nodes, 0..) |node, index| {
+            if (!node.used or node.kind == .leaf) continue;
+            const rectangle = self.findPaneRect(
+                self.tabs[self.active_tab].root,
+                @intCast(index),
+                .{ .x = 0, .y = 0, .width = 1_000_000, .height = 1_000_000 },
+            ) orelse continue;
+            if (remaining != 0) {
+                remaining -= 1;
+                continue;
+            }
+            return .{
+                .node = index,
+                .axis = if (node.kind == .horizontal) 0 else 1,
+                .rectangle = rectangle,
+                .ratio_permille = node.ratio_permille,
+            };
+        }
+        return null;
+    }
+
+    pub fn setDividerRatio(self: *WindowsWorkspace, index: usize, ratio: i64) !bool {
+        if (index >= self.nodes.len or self.active_tab >= self.tab_count)
+            return error.InvalidWindowsDivider;
+        const node = &self.nodes[index];
+        if (!node.used or node.kind == .leaf) return error.InvalidWindowsDivider;
+        var root: usize = index;
+        while (self.nodes[root].parent != invalid_index) root = self.nodes[root].parent;
+        if (root != self.tabs[self.active_tab].root) return error.InvalidWindowsDivider;
+        const bounded: u16 = @intCast(std.math.clamp(ratio, 50, 950));
+        if (node.ratio_permille == bounded) return false;
+        node.ratio_permille = bounded;
+        return true;
+    }
+
+    /// Grow the focused subtree at its nearest ancestor with the requested axis.
+    pub fn adjustDivider(self: *WindowsWorkspace, axis: u1, delta: i32) !bool {
+        const pane = self.activePaneIndex() orelse return error.InvalidWindowsDivider;
+        var child = self.panes[pane].?.node;
+        var parent = self.nodes[child].parent;
+        while (parent != invalid_index) {
+            const node = self.nodes[parent];
+            if (node.kind == (if (axis == 0) LayoutKind.horizontal else LayoutKind.vertical)) {
+                const signed_delta: i64 = if (node.first == child) @as(i64, delta) else -@as(i64, delta);
+                return self.setDividerRatio(parent, @as(i64, node.ratio_permille) + signed_delta);
+            }
+            child = parent;
+            parent = node.parent;
+        }
+        return false;
+    }
+
+    pub fn resetDividers(self: *WindowsWorkspace) bool {
+        var changed = false;
+        for (0..self.dividerCount()) |ordinal| {
+            const divider = self.dividerInfo(ordinal) orelse continue;
+            const node = &self.nodes[divider.node];
+            changed = changed or node.ratio_permille != 500;
+            node.ratio_permille = 500;
+        }
+        return changed;
+    }
+
     fn findPaneRect(
         self: *const WindowsWorkspace,
         node_index: u8,
@@ -448,11 +530,11 @@ pub const WindowsWorkspace = struct {
         var first = rectangle;
         var second = rectangle;
         if (node.kind == .horizontal) {
-            first.width = rectangle.width / 2;
+            first.width = SplitRatio.position(rectangle.width, node.ratio_permille);
             second.x += first.width;
             second.width -= first.width;
         } else {
-            first.height = rectangle.height / 2;
+            first.height = SplitRatio.position(rectangle.height, node.ratio_permille);
             second.y += first.height;
             second.height -= first.height;
         }
@@ -536,7 +618,7 @@ pub fn copyTitle(value: []const u8, output: []u8) usize {
     return length;
 }
 
-const persisted_state_magic = "NWS2";
+const persisted_state_magic = "NWS3";
 pub const persisted_state_capacity = 4096;
 
 const StateWriter = struct {
@@ -547,6 +629,11 @@ const StateWriter = struct {
         if (self.index >= self.bytes.len) return error.WindowsStateTooLarge;
         self.bytes[self.index] = value;
         self.index += 1;
+    }
+
+    fn putU16(self: *StateWriter, value: u16) !void {
+        try self.put(@truncate(value));
+        try self.put(@truncate(value >> 8));
     }
 
     fn putU32(self: *StateWriter, value: u32) !void {
@@ -574,6 +661,12 @@ const StateReader = struct {
             1 => true,
             else => error.InvalidWindowsState,
         };
+    }
+
+    fn takeU16(self: *StateReader) !u16 {
+        const first: u16 = try self.take();
+        const second: u16 = try self.take();
+        return first | (second << 8);
     }
 
     fn takeU32(self: *StateReader) !u32 {
@@ -612,7 +705,7 @@ fn validateSnapshotNode(
     visited[index] = true;
     if (node.kind == .leaf) {
         if (node.first != invalid_index or node.second != invalid_index or
-            node.pane == invalid_index or node.pane >= max_panes)
+            node.pane == invalid_index or node.pane >= max_panes or node.ratio_permille != 500)
             return error.InvalidWindowsWorkspace;
         const pane = snapshot_value.panes[node.pane];
         if (!pane.used or pane.node != node_index or pane.tab != tab_index)
@@ -677,9 +770,18 @@ fn validateWorkspaceSnapshot(snapshot_value: *const WorkspaceSnapshot) !void {
     }
     for (snapshot_value.nodes, visited) |node, was_visited| {
         if (node.used != was_visited) return error.InvalidWindowsWorkspace;
+        if (node.ratio_permille > 1000) return error.InvalidWindowsWorkspace;
+        if (!node.used and (node.kind != .leaf or node.parent != invalid_index or
+            node.first != invalid_index or node.second != invalid_index or
+            node.pane != invalid_index or node.ratio_permille != 500))
+            return error.InvalidWindowsWorkspace;
     }
     for (snapshot_value.panes, 0..) |pane, index| {
-        if (!pane.used) continue;
+        if (!pane.used) {
+            if (pane.tab != invalid_index or pane.node != invalid_index)
+                return error.InvalidWindowsWorkspace;
+            continue;
+        }
         if (pane.tab >= snapshot_value.tab_count or pane.node >= max_layout_nodes)
             return error.InvalidWindowsWorkspace;
         const node = snapshot_value.nodes[pane.node];
@@ -692,6 +794,9 @@ pub fn encodePersistedWindowsState(
     value: PersistedWindowsState,
     output: []u8,
 ) !usize {
+    if (!WindowsAppearance.validTheme(@intFromEnum(value.preferences.theme)) or
+        !WindowsAppearance.validFontSize(value.preferences.font_size_pt))
+        return error.InvalidWindowsState;
     var writer = StateWriter{ .bytes = output };
     for (persisted_state_magic) |byte| try writer.put(byte);
     try writer.put(@intFromEnum(value.preferences.theme));
@@ -718,6 +823,7 @@ pub fn encodePersistedWindowsState(
             try writer.put(node.first);
             try writer.put(node.second);
             try writer.put(node.pane);
+            try writer.putU16(node.ratio_permille);
         }
         for (snapshot_value.panes) |pane| {
             try writer.put(@intFromBool(pane.used));
@@ -740,14 +846,15 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
     for ("NWS") |expected|
         if (try reader.take() != expected) return error.InvalidWindowsState;
     const version = try reader.take();
-    if (version != '1' and version != '2') return error.InvalidWindowsState;
-    const theme: WindowsTheme = switch (try reader.take()) {
-        0 => .dark,
-        1 => .high_contrast,
-        else => return error.InvalidWindowsState,
-    };
+    if (version != '1' and version != '2' and version != '3') return error.InvalidWindowsState;
+    const theme_value = try reader.take();
+    if (!WindowsAppearance.validTheme(theme_value) or (version != '3' and theme_value > 1))
+        return error.InvalidWindowsState;
+    const theme: WindowsTheme = @enumFromInt(theme_value);
     const font_size = try reader.take();
-    if (font_size < 10 or font_size > 24) return error.InvalidWindowsState;
+    if (!WindowsAppearance.validFontSize(font_size) or
+        (version != '3' and (font_size < 10 or font_size > 24)))
+        return error.InvalidWindowsState;
     const launch_profile: WindowsLaunchProfile = switch (try reader.take()) {
         0 => .powershell,
         1 => .command_prompt,
@@ -770,7 +877,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .root = try reader.take(),
                 .active_pane = try reader.take(),
             };
-            if (version == '2') {
+            if (version != '1') {
                 tab.label = try reader.take();
                 tab.name_length = try reader.take();
                 if (tab.name_length > max_tab_name_bytes) return error.InvalidWindowsWorkspace;
@@ -794,6 +901,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .first = try reader.take(),
                 .second = try reader.take(),
                 .pane = try reader.take(),
+                .ratio_permille = if (version == '3') try reader.takeU16() else 500,
             };
         }
         for (&snapshot_value.panes) |*pane| {
@@ -817,6 +925,8 @@ test "Windows workspace: tab moves preserve selected identity, split geometry an
     try first.feed("first");
     const second = try workspace.newTab(12, 4);
     const split = try workspace.splitActive(.horizontal, false, 12, 4);
+    const moved_divider = workspace.dividerInfo(0).?;
+    _ = try workspace.setDividerRatio(moved_divider.node, 321);
     const selected = workspace.paneGrid(split).?;
     try selected.feed("selected");
     const rectangle = workspace.paneRect(split).?;
@@ -937,7 +1047,7 @@ fn signTestState(bytes: []u8) void {
     std.mem.writeInt(u32, bytes[bytes.len - 4 ..][0..4], windowsStateChecksum(bytes[0 .. bytes.len - 4]), .little);
 }
 
-test "Windows workspace: NWS1 migrates to NWS2 preserving order with automatic labels" {
+test "Windows workspace: NWS1 migrates to NWS3 preserving order with automatic labels" {
     // Two leaf tabs, second selected. This is the original NWS1 wire format,
     // independent of the current encoder.
     const payload = "NWS1\x00\x0d\x00\x01\x01\x02\x01" ++
@@ -959,7 +1069,7 @@ test "Windows workspace: NWS1 migrates to NWS2 preserving order with automatic l
     _ = try workspace.renameTab(1, "legacy");
     var encoded: [persisted_state_capacity]u8 = undefined;
     const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
-    try std.testing.expectEqualStrings("NWS2", encoded[0..4]);
+    try std.testing.expectEqualStrings("NWS3", encoded[0..4]);
     const migrated = try decodePersistedWindowsState(encoded[0..length]);
     try workspace.restore(migrated.workspace.?, 12, 4);
     try std.testing.expectEqual(@as(usize, 1), workspace.activePaneIndex().?);
@@ -1002,4 +1112,177 @@ test "Windows workspace: persisted metadata rejects corrupt checksum, UTF-8, len
     invalid.tabs[1].name[127] = 'x';
     try std.testing.expectError(error.InvalidWindowsWorkspace, workspace.restore(invalid, 12, 4));
     try std.testing.expectEqualStrings("é", corrupt[0..try workspace.tabTitle(0, &corrupt)]);
+}
+
+test "Windows workspace: nested dividers partition odd extents without gaps" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    const right = try workspace.splitActive(.horizontal, false, 12, 4);
+    const root = workspace.dividerInfo(0).?.node;
+    _ = try workspace.setDividerRatio(root, 333);
+    const bottom = try workspace.splitActive(.vertical, false, 12, 4);
+    const vertical = workspace.dividerInfo(1).?.node;
+    _ = try workspace.setDividerRatio(vertical, 667);
+    const bottom_right = try workspace.splitActive(.horizontal, false, 12, 4);
+    const nested = workspace.dividerInfo(2).?;
+    _ = try workspace.setDividerRatio(nested.node, 333);
+    try std.testing.expectEqual(@as(usize, 3), workspace.dividerCount());
+    try std.testing.expectEqualDeep(PaneRect{ .x = 333_000, .y = 667_000, .width = 667_000, .height = 333_000 }, nested.rectangle);
+    try std.testing.expectEqualDeep(PaneRect{ .x = 0, .y = 0, .width = 333_000, .height = 1_000_000 }, workspace.paneRect(0).?);
+    try std.testing.expectEqualDeep(PaneRect{ .x = 333_000, .y = 0, .width = 667_000, .height = 667_000 }, workspace.paneRect(right).?);
+    const left_rect = workspace.paneRect(bottom).?;
+    const right_rect = workspace.paneRect(bottom_right).?;
+    try std.testing.expectEqual(@as(u32, 222_111), left_rect.width);
+    try std.testing.expectEqual(left_rect.x + left_rect.width, right_rect.x);
+    try std.testing.expectEqual(@as(u32, 1_000_000), right_rect.x + right_rect.width);
+    // Exercise rounding at a non-permille-aligned parent width.
+    const deepest = try workspace.splitActive(.horizontal, false, 12, 4);
+    _ = try workspace.setDividerRatio(workspace.dividerInfo(3).?.node, 500);
+    const odd_first = workspace.paneRect(bottom_right).?;
+    const odd_second = workspace.paneRect(deepest).?;
+    try std.testing.expectEqual(@as(u32, 222_445), odd_first.width);
+    try std.testing.expectEqual(@as(u32, 222_444), odd_second.width);
+    try std.testing.expectEqual(odd_first.x + odd_first.width, odd_second.x);
+    try std.testing.expectEqual(@as(u32, 1_000_000), odd_second.x + odd_second.width);
+    try std.testing.expect(workspace.dividerInfo(4) == null);
+}
+
+test "Windows workspace: focused adjustment follows child side and nearest matching axis" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    try std.testing.expect(!(try workspace.adjustDivider(0, 50)));
+    const right = try workspace.splitActive(.horizontal, false, 12, 4);
+    const root = workspace.dividerInfo(0).?.node;
+    const lower = try workspace.splitActive(.vertical, false, 12, 4);
+    const vertical = workspace.dividerInfo(1).?.node;
+    const inner_right = try workspace.splitActive(.horizontal, false, 12, 4);
+    const inner = workspace.dividerInfo(2).?.node;
+    const selected = workspace.activeGrid().?;
+    try selected.feed("retained");
+    try std.testing.expect(try workspace.adjustDivider(0, 100));
+    try std.testing.expectEqual(@as(u32, 300_000), workspace.paneRect(inner_right).?.width);
+    try std.testing.expectEqual(@as(u16, 500), workspace.nodes[root].ratio_permille);
+    try std.testing.expect(try workspace.adjustDivider(1, 100));
+    try std.testing.expectEqual(@as(u32, 600_000), workspace.paneRect(inner_right).?.height);
+    try std.testing.expect(workspace.selectPane(lower));
+    try std.testing.expect(try workspace.adjustDivider(0, 100));
+    try std.testing.expectEqual(@as(u16, 500), workspace.nodes[inner].ratio_permille);
+    try std.testing.expect(workspace.selectPane(right));
+    try std.testing.expect(try workspace.adjustDivider(1, 100));
+    try std.testing.expectEqual(@as(u16, 500), workspace.nodes[vertical].ratio_permille);
+    try std.testing.expect(workspace.selectPane(0));
+    try std.testing.expect(try workspace.adjustDivider(0, std.math.maxInt(i32)));
+    try std.testing.expectEqual(@as(u32, 950_000), workspace.paneRect(0).?.width);
+    try std.testing.expect(!(try workspace.adjustDivider(0, 1)));
+    try std.testing.expect(try workspace.adjustDivider(0, std.math.minInt(i32)));
+    try std.testing.expectEqual(@as(u32, 50_000), workspace.paneRect(0).?.width);
+    try std.testing.expect(workspace.selectPane(inner_right));
+    try std.testing.expect(try workspace.adjustDivider(0, std.math.minInt(i32)));
+    try std.testing.expectEqual(@as(u16, 950), workspace.nodes[inner].ratio_permille);
+    const other = try workspace.newTab(12, 4);
+    const other_grid = workspace.paneGrid(other).?;
+    _ = try workspace.splitActive(.vertical, true, 12, 4);
+    const other_divider = workspace.dividerInfo(0).?.node;
+    _ = try workspace.setDividerRatio(other_divider, 700);
+    try std.testing.expectError(error.InvalidWindowsDivider, workspace.setDividerRatio(root, 500));
+    _ = try workspace.selectTab(0);
+    try std.testing.expect(workspace.resetDividers());
+    try std.testing.expect(!workspace.resetDividers());
+    try std.testing.expectEqual(@as(u16, 700), workspace.nodes[other_divider].ratio_permille);
+    try std.testing.expectEqual(@as(u32, 250_000), workspace.paneRect(inner_right).?.width);
+    try std.testing.expectEqual(@as(u32, 500_000), workspace.paneRect(inner_right).?.height);
+    try std.testing.expectEqual(selected, workspace.activeGrid().?);
+    try std.testing.expectEqual(@as(u21, 'r'), selected.cell(0, 0).codepoint);
+    _ = try workspace.setDividerRatio(root, 350);
+    _ = try workspace.setDividerRatio(vertical, 650);
+    _ = try workspace.setDividerRatio(inner, 250);
+    try std.testing.expect(workspace.selectPane(right));
+    try std.testing.expectEqual(right, workspace.closeActivePane().?);
+    try std.testing.expectEqual(@as(u16, 350), workspace.nodes[root].ratio_permille);
+    try std.testing.expectEqual(@as(u16, 250), workspace.nodes[inner].ratio_permille);
+    try std.testing.expectEqual(@as(u32, 1_000_000), workspace.paneRect(inner_right).?.height);
+    try std.testing.expectEqual(selected, workspace.paneGrid(inner_right).?);
+    try std.testing.expectError(error.InvalidWindowsDivider, workspace.setDividerRatio(vertical, 500));
+    try std.testing.expectError(error.InvalidWindowsDivider, workspace.setDividerRatio(workspace.panes[lower].?.node, 500));
+    try std.testing.expectEqual(other_grid, workspace.paneGrid(other).?);
+    const snapshot_value = workspace.snapshot();
+    try validateWorkspaceSnapshot(&snapshot_value);
+}
+
+test "Windows workspace: NWS2 split ratios migrate to equal and NWS3 preserves boundary ratios" {
+    const payload = "NWS2\x00\x0d\x00\x01\x01\x01\x00" ++
+        "\x01\x01\x01\x01\x03old" ++ "\x00\xff\xff\x00\x00" ** 15 ++
+        "\x01\x00\x01\xff\xff\x00" ++ // First leaf.
+        "\x01\x01\xff\x00\x02\xff" ++ // Horizontal root.
+        "\x01\x00\x01\xff\xff\x01" ++ // Second leaf.
+        "\x00\x00\xff\xff\xff\xff" ** 60 ++
+        "\x01\x00\x00\x01\x00\x02" ++ "\x00\xff\xff" ** 30;
+    var legacy: [payload.len + 4]u8 = undefined;
+    @memcpy(legacy[0..payload.len], payload);
+    signTestState(&legacy);
+    const decoded = try decodePersistedWindowsState(&legacy);
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    try workspace.restore(decoded.workspace.?, 12, 4);
+    try std.testing.expectEqual(@as(u32, 500_000), workspace.paneRect(1).?.x);
+    var title_buffer: [32]u8 = undefined;
+    try std.testing.expectEqualStrings("old", title_buffer[0..try workspace.tabTitle(0, &title_buffer)]);
+    var encoded: [persisted_state_capacity]u8 = undefined;
+    for ([_]u16{ 0, 1, 999, 1000 }) |ratio| {
+        var snapshot_value = workspace.snapshot();
+        snapshot_value.nodes[1].ratio_permille = ratio;
+        const length = try encodePersistedWindowsState(.{
+            .preferences = .{ .theme = .paseo_black_zinc, .font_size_pt = 32 },
+            .workspace = snapshot_value,
+        }, &encoded);
+        const roundtrip = try decodePersistedWindowsState(encoded[0..length]);
+        try workspace.restore(roundtrip.workspace.?, 12, 4);
+        try std.testing.expectEqual(@as(u32, ratio) * 1000, workspace.paneRect(1).?.x);
+        try std.testing.expectEqual(.paseo_black_zinc, roundtrip.preferences.theme);
+        try std.testing.expectEqual(@as(u8, 32), roundtrip.preferences.font_size_pt);
+    }
+    const length = try encodePersistedWindowsState(.{ .preferences = .{ .font_size_pt = 8 } }, &encoded);
+    try std.testing.expectEqual(@as(u8, 8), (try decodePersistedWindowsState(encoded[0..length])).preferences.font_size_pt);
+    try std.testing.expectError(error.InvalidWindowsState, encodePersistedWindowsState(.{ .preferences = .{ .font_size_pt = 33 } }, &encoded));
+}
+
+test "Windows workspace: signed NWS3 rejects malicious ratios and noncanonical node metadata" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    _ = try workspace.splitActive(.horizontal, false, 12, 4);
+    var encoded: [persisted_state_capacity]u8 = undefined;
+    const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
+    const nodes_offset = 11 + 5 * max_tabs;
+    for ([_]struct { node: usize, ratio: u16 }{
+        .{ .node = 0, .ratio = 499 }, // Used leaf is canonical, not proportional.
+        .{ .node = 1, .ratio = 1001 }, // Branch must fit permille domain.
+        .{ .node = 1, .ratio = std.math.maxInt(u16) },
+        .{ .node = 3, .ratio = 0 }, // Unused node retains canonical default.
+    }) |mutation| {
+        var corrupt = encoded;
+        const offset = nodes_offset + mutation.node * 8 + 6;
+        std.mem.writeInt(u16, corrupt[offset..][0..2], mutation.ratio, .little);
+        signTestState(corrupt[0..length]);
+        try std.testing.expectError(error.InvalidWindowsWorkspace, decodePersistedWindowsState(corrupt[0..length]));
+    }
+    for ([_]struct { offset: usize, value: u8 }{
+        .{ .offset = nodes_offset + 3 * 8 + 1, .value = 1 },
+        .{ .offset = nodes_offset + 3 * 8 + 2, .value = 0 },
+        .{ .offset = nodes_offset + 8 * max_layout_nodes + 3 * 2 + 1, .value = 0 },
+    }) |mutation| {
+        var corrupt = encoded;
+        corrupt[mutation.offset] = mutation.value;
+        signTestState(corrupt[0..length]);
+        try std.testing.expectError(error.InvalidWindowsWorkspace, decodePersistedWindowsState(corrupt[0..length]));
+    }
+    for ([_]struct { offset: usize, value: u8 }{
+        .{ .offset = 4, .value = 3 },
+        .{ .offset = 5, .value = 7 },
+        .{ .offset = 5, .value = 33 },
+    }) |mutation| {
+        var corrupt = encoded;
+        corrupt[mutation.offset] = mutation.value;
+        signTestState(corrupt[0..length]);
+        try std.testing.expectError(error.InvalidWindowsState, decodePersistedWindowsState(corrupt[0..length]));
+    }
 }

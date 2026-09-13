@@ -93,6 +93,10 @@ zig build run-nocted -- --open README.md
   Tab selection/naming/reordering preserve pane slots and split-tree identity.
 - `src/windows/WindowsTabStrip.zig` — native tab control and rename dialog;
   `WindowsHost.zig` owns command dispatch and terminal viewport integration.
+- `src/windows/WindowsAppearance.zig` — shared built-in theme lookup, ANSI
+  palette overrides, and native exact-font-size bounds; no duplicate palette.
+- `src/workspace/SplitRatio.zig` — allocation-free, overflow-safe divider
+  conversion used by the GTK adapter and Windows proportional workspace.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project
   panels, activation plans, project actions, and persistence-facing workspace
   structures.

@@ -4,6 +4,18 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added native Windows proportional split dividers with drag preview,
+  release-to-commit, cancellation, focused-axis menu resizing, and reset.
+  Saved layouts now use `NWS3`; `NWS1`/`NWS2` migrate with equal ratios.
+  Pane/session identity survives resizing and tab reordering.
+
+- Added shared NOCTTY Dark, High Contrast, and Paseo Black Zinc terminal
+  palettes to Windows, including ANSI colors. Native font controls now accept
+  exact 8–32-point sizes with increase/decrease/reset and persisted preferences.
+
+- Shared overflow-safe divider conversions between GTK and Windows, removing
+  duplicated GTK C arithmetic and its signed multiplication overflow.
+
 - Added a native Windows tab strip with selection, Unicode rename, and
   left/right ordering commands. Reordering preserves pane/session identity;
   remote tab names and order remain host-owned. Terminal geometry now reserves

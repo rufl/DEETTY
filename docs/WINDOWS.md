@@ -28,6 +28,8 @@ Included:
   layout persistence, copy/paste, and focused-terminal Ctrl+L
 - a native tab strip with direct tab selection, custom tab names, and
   left/right ordering commands; pane sessions retain their identities
+- proportional split dividers with drag preview, menu-based pane resizing,
+  reset/equalize, and saved ratios
 - explicit, checksummed save/restore of the bounded tab and split layout;
   restoring launches replacement shells rather than serializing shell contents
 - explicit command-line LAN discovery, pairing, and encrypted terminal
@@ -46,8 +48,8 @@ Included:
 
 Not included or claimed yet:
 
-- Smart Tabs, broadcast input, drag-based tab reordering, adjustable split
-  ratios, or a reusable launch-profile library
+- Smart Tabs, broadcast input, drag-based tab reordering, or a reusable
+  launch-profile library
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
@@ -84,8 +86,13 @@ provide a relay or NAT traversal.
 The local Windows workspace admits up to 16 tabs and 32 panes. Every pane owns
 an independent ConPTY process and Zig VT grid; resize, output, terminal replies,
 input, process exit, and teardown remain indexed to that pane. Split trees are
-recursive and divide each branch evenly. The window title reports the current
-tab and pane counts, and clicking a rendered pane focuses its exact session.
+recursive and begin with equal branches. Drag a divider to preview a new split;
+release to apply it, or press Escape to discard it. Workspace resize commands
+grow/shrink the focused pane along either axis, and reset restores equal splits.
+Interactive ratios stay between 5% and 95%; resizing never changes pane/session
+identity. Save the current layout to retain ratios. Remote layouts stay
+host-owned. The window title reports tab/pane counts, and clicking a pane
+focuses its exact session.
 
 Click the native tab strip to select a tab. **Workspace → Focus Tab Strip**
 provides keyboard access to the native control without stealing terminal
@@ -130,12 +137,12 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is adjustable split ratios, shared launch/profile
-and theme models, and graphical sharing controls. Windows' existing bounded
-workspace tree and versioned snapshot codec now live in
-`src/windows/WindowsWorkspace.zig`, independently testable without Win32.
-Reusing Linux layout policy must reconcile that tree and its saved-state format
-rather than introduce a third workspace model.
+The next larger parity work is shared launch-profile libraries, theme
+import/export controls, and graphical sharing controls. Windows' bounded
+workspace tree and versioned snapshot codec live in
+`src/windows/WindowsWorkspace.zig`. Its divider conversions use
+`src/workspace/SplitRatio.zig`, also consumed by the GTK divider adapter.
+Platform widgets and PTY lifetimes remain separate.
 
 Cross-compilation proves build compatibility. Isolated Wine can exercise native
 controls and command dispatch, but does not establish physical Windows
@@ -143,8 +150,10 @@ ConPTY/GDI, DPI, IME, or accessibility parity.
 
 ### Focused native-control qualification
 
-On Linux, `zig build windows-workspace-test` exercises tab identity, bounded
-Unicode names, and old/new snapshot compatibility without a display.
+On Linux, `zig build windows-policy-test` exercises workspace identity,
+proportional geometry, appearance/input policy, and old/new snapshot
+compatibility without a display. `windows-workspace-test` remains the narrower
+workspace-only target.
 
 After a Windows cross-build, run:
 
@@ -156,13 +165,20 @@ This uses the reviewed isolated-display runner and a disposable Wine prefix.
 It inspects real Win32 menus and tab controls, local/remote enabled-state
 transitions, navigation shortcuts, tab selection, Unicode rename validation
 and cancellation, reorder identity, terminal content inset, rejection of remote
-workspace mutations, and HWND-owned child/menu destruction. It does not start
-or mock ConPTY; its receipt explicitly reports `conpty=false`.
+workspace mutations, and HWND-owned child/menu destruction. It also exercises
+divider drag/commit/cancellation, both-axis menu adjustment/reset, exact font
+dialog validation and cancellation, theme selection, and font-size boundaries.
+It does not start or mock ConPTY; its receipt explicitly reports `conpty=false`.
 
 On supported Windows, run the packaged `windows_smoke.ps1 -Interactive`
 checklist to exercise the new menus against real shells, clipboard, and remote
 input permissions. Cross-compilation and the hidden-window Wine qualification
 do not establish visual, physical-input, or ConPTY acceptance for these actions.
+
+The ratio/appearance tranche passes focused native policy tests, Windows and
+GTK builds, and an original-`NWS2`-encoder migration smoke. Its isolated Windows
+control and GTK layout smokes remain deferred by the host I/O-pressure gate;
+no visual or physical Windows acceptance is claimed.
 
 ## Selection and terminal mouse input
 
@@ -182,9 +198,12 @@ bounded release reports before NOCTTY clears pressed-button state.
 
 The window's **Settings** menu applies user-owned, local preferences:
 
-- **Theme** selects the built-in dark palette or Windows' current
-  high-contrast window colors.
-- **Font size** selects 11, 13, 16, or 18 points.
+- **Theme** selects the shared NOCTTY Dark or Paseo Black Zinc palette, or
+  Windows' current high-contrast window colors with the shared high-contrast
+  ANSI palette.
+- **Font size** retains the 11/13/16/18-point presets and adds an exact native
+  size dialog covering 8–32 points, plus increase/decrease/reset commands.
+  These commands do not steal terminal keyboard shortcuts.
 - **Launch profile** selects PowerShell or Command Prompt for newly created
   ConPTY sessions. `NOCTTY_WINDOWS_SHELL` remains the explicit test/operator
   override and takes precedence.
@@ -199,9 +218,10 @@ contents are not serialized.
 
 Preferences and the saved layout use an atomic, versioned, checksummed local
 file at `%LOCALAPPDATA%\NOCTTY\windows-state-v1.bin`. The pathname is retained
-for compatibility: the reader accepts legacy `NWS1` snapshots, and subsequent
-saves write `NWS2` with tab names, stable automatic labels, and ordering.
-Older builds that only understand `NWS1` cannot read a newly saved `NWS2` file.
+for compatibility: the reader accepts legacy `NWS1` and `NWS2` snapshots,
+defaulting their split ratios to 50%. Subsequent saves write `NWS3` with tab
+metadata and proportional split ratios. Older builds cannot read newly saved
+`NWS3` files.
 Invalid or truncated state is ignored; startup falls back to the default
 single-pane workspace.
 

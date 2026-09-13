@@ -4,6 +4,7 @@
 //! bounded descriptor for updating submenu state and frees that descriptor.
 
 const Logic = @import("WindowsHostLogic.zig");
+const Appearance = @import("WindowsAppearance.zig");
 
 const c = @cImport({
     @cDefine("UNICODE", "1");
@@ -15,6 +16,11 @@ const c = @cImport({
 
 const id_theme_dark = Logic.menu_theme_dark;
 const id_theme_high_contrast = Logic.menu_theme_high_contrast;
+const id_theme_zinc = Logic.menu_theme_zinc;
+pub const id_font_custom = Logic.menu_font_custom;
+pub const id_font_increase = Logic.menu_font_increase;
+pub const id_font_decrease = Logic.menu_font_decrease;
+pub const id_font_reset = Logic.menu_font_reset;
 const id_font_11 = Logic.menu_font_11;
 const id_font_13 = Logic.menu_font_13;
 const id_font_16 = Logic.menu_font_16;
@@ -37,13 +43,19 @@ pub const id_rename_tab: u32 = 40108;
 pub const id_move_tab_left: u32 = 40109;
 pub const id_move_tab_right: u32 = 40110;
 pub const id_focus_tabs: u32 = 40111;
+pub const id_divider_reset: u32 = 40112;
+pub const id_divider_wider: u32 = 40113;
+pub const id_divider_narrower: u32 = 40114;
+pub const id_divider_taller: u32 = 40115;
+pub const id_divider_shorter: u32 = 40116;
 pub const id_copy: u32 = 40201;
 pub const id_paste: u32 = 40202;
 pub const id_clear_screen: u32 = 40203;
 
 const local_commands = [_]u32{
-    id_new_tab,        id_split_down,        id_split_left, id_close_pane,    id_close_tab,
-    id_workspace_save, id_workspace_restore, id_rename_tab, id_move_tab_left, id_move_tab_right,
+    id_new_tab,        id_split_down,        id_split_left,       id_close_pane,     id_close_tab,
+    id_workspace_save, id_workspace_restore, id_rename_tab,       id_move_tab_left,  id_move_tab_right,
+    id_divider_reset,  id_divider_wider,     id_divider_narrower, id_divider_taller, id_divider_shorter,
 };
 
 pub const Menu = struct {
@@ -97,10 +109,16 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
 
     if (!append(theme, c.MF_STRING, id_theme_dark, "&Dark") or
         !append(theme, c.MF_STRING, id_theme_high_contrast, "&High contrast") or
+        !append(theme, c.MF_STRING, id_theme_zinc, "&Paseo Black Zinc") or
         !append(font, c.MF_STRING, id_font_11, "11 pt") or
         !append(font, c.MF_STRING, id_font_13, "13 pt") or
         !append(font, c.MF_STRING, id_font_16, "16 pt") or
         !append(font, c.MF_STRING, id_font_18, "18 pt") or
+        c.AppendMenuW(font, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(font, c.MF_STRING, id_font_custom, "&Custom size... (8-32 pt)") or
+        !append(font, c.MF_STRING, id_font_increase, "&Increase by 1 pt") or
+        !append(font, c.MF_STRING, id_font_decrease, "&Decrease by 1 pt") or
+        !append(font, c.MF_STRING, id_font_reset, "&Reset to 13 pt") or
         !append(profile, c.MF_STRING, id_profile_powershell, "&PowerShell") or
         !append(profile, c.MF_STRING, id_profile_command, "&Command Prompt") or
         !append(settings, c.MF_STRING, id_restore_startup, "&Restore saved workspace on startup") or
@@ -116,6 +134,12 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         !append(workspace, c.MF_STRING, id_move_tab_right, "Move Tab R&ight") or
         !append(workspace, c.MF_STRING, id_close_pane, "&Close Pane\tCtrl+D") or
         !append(workspace, c.MF_STRING, id_close_tab, "Close Ta&b\tCtrl+Shift+W") or
+        c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(workspace, c.MF_STRING, id_divider_wider, "Make focused pane &Wider") or
+        !append(workspace, c.MF_STRING, id_divider_narrower, "Make focused pane N&arrower") or
+        !append(workspace, c.MF_STRING, id_divider_taller, "Make focused pane Ta&ller") or
+        !append(workspace, c.MF_STRING, id_divider_shorter, "Make focused pane S&horter") or
+        !append(workspace, c.MF_STRING, id_divider_reset, "E&qualize all splits in tab") or
         c.AppendMenuW(workspace, c.MF_SEPARATOR, 0, null) == 0 or
         !append(terminal, c.MF_STRING, id_copy, "&Copy\tCtrl+Shift+C") or
         !append(terminal, c.MF_STRING, id_paste, "&Paste\tCtrl+Shift+V") or
@@ -181,17 +205,22 @@ pub export fn noctty_windows_menu_update(
     _ = c.CheckMenuRadioItem(
         menu.theme,
         id_theme_dark,
-        id_theme_high_contrast,
-        if (theme_value == 1) id_theme_high_contrast else id_theme_dark,
+        id_theme_zinc,
+        if (theme_value == 2) id_theme_zinc else if (theme_value == 1) id_theme_high_contrast else id_theme_dark,
         c.MF_BYCOMMAND,
     );
     const font_command: c.UINT = switch (font_size_pt) {
         11 => id_font_11,
         16 => id_font_16,
         18 => id_font_18,
-        else => id_font_13,
+        13 => id_font_13,
+        else => 0,
     };
     _ = c.CheckMenuRadioItem(menu.font, id_font_11, id_font_18, font_command, c.MF_BYCOMMAND);
+    _ = c.CheckMenuItem(menu.font, id_font_custom, @intCast(c.MF_BYCOMMAND | (if (font_command == 0) c.MF_CHECKED else c.MF_UNCHECKED)));
+    _ = c.EnableMenuItem(menu.font, id_font_increase, @intCast(c.MF_BYCOMMAND | (if (font_size_pt >= Appearance.max_font_size) c.MF_GRAYED else c.MF_ENABLED)));
+    _ = c.EnableMenuItem(menu.font, id_font_decrease, @intCast(c.MF_BYCOMMAND | (if (font_size_pt <= Appearance.min_font_size) c.MF_GRAYED else c.MF_ENABLED)));
+    _ = c.EnableMenuItem(menu.font, id_font_reset, @intCast(c.MF_BYCOMMAND | (if (font_size_pt == Appearance.default_font_size) c.MF_GRAYED else c.MF_ENABLED)));
     _ = c.CheckMenuRadioItem(
         menu.profile,
         id_profile_powershell,
@@ -232,7 +261,7 @@ pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
         c.GetSubMenu(menu.root, 2) != menu.terminal or
-        c.GetMenuItemCount(menu.workspace) != 15 or
+        c.GetMenuItemCount(menu.workspace) != 21 or
         c.GetMenuItemCount(menu.terminal) != 3) return false;
     for (local_commands) |command| {
         if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;

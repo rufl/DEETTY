@@ -6858,8 +6858,7 @@ static void on_grid_layout_position_changed(
         root->layout_restore_applying)
         return;
     int position = gtk_paned_get_position(GTK_PANED(object));
-    int ratio_permille = CLAMP(
-        (position * 1000 + max_position / 2) / max_position, 0, 1000);
+    int ratio_permille = noctty_grid_split_ratio(position, max_position);
     g_object_set_data(G_OBJECT(object), "noctty-preset-ratio",
                       GUINT_TO_POINTER((guint)ratio_permille));
     if (noctty_grid_set_layout_ratio(
@@ -7988,8 +7987,8 @@ static void apply_preset_paned_positions(GtkWidget *widget,
     guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
         G_OBJECT(widget), "noctty-preset-ratio"));
     if (max_position > 0 && max_position < G_MAXINT / 2)
-        gtk_paned_set_position(GTK_PANED(widget), (gint)(
-            ((gint64)max_position * ratio_permille + 500) / 1000));
+        gtk_paned_set_position(GTK_PANED(widget),
+            noctty_grid_split_position(max_position, (int)ratio_permille));
     apply_preset_paned_positions(
         gtk_paned_get_child1(GTK_PANED(widget)), 0, 0);
     apply_preset_paned_positions(
@@ -8008,8 +8007,8 @@ static gboolean apply_preset_split_position(gpointer user_data) {
         guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
             G_OBJECT(widget), "noctty-preset-ratio"));
         if (max_position > 0 && max_position < G_MAXINT / 2)
-            gtk_paned_set_position(GTK_PANED(widget), (gint)(
-                ((gint64)max_position * ratio_permille + 500) / 1000));
+            gtk_paned_set_position(GTK_PANED(widget),
+                noctty_grid_split_position(max_position, (int)ratio_permille));
         root->layout_restore_applying = 0;
     }
     g_object_unref(widget);
