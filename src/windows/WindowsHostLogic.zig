@@ -91,6 +91,29 @@ pub export fn noctty_windows_broadcast_route(
     return @intFromBool(remote_mode == 0 and broadcast_enabled != 0 and session_live != 0);
 }
 
+pub export fn noctty_windows_smart_tab_match(
+    filter_mask: u8,
+    pane_tag_mask: u8,
+) callconv(.c) c_int {
+    return @intFromBool(filter_mask == 0 or (filter_mask & pane_tag_mask) != 0);
+}
+
+test "Smart Tab matching treats empty filters as all panes and tags as overlap" {
+    for ([_]struct { filter: u8, pane: u8, expected: c_int }{
+        .{ .filter = 0, .pane = 0, .expected = 1 },
+        .{ .filter = 0, .pane = 4, .expected = 1 },
+        .{ .filter = 1, .pane = 0, .expected = 0 },
+        .{ .filter = 1, .pane = 1, .expected = 1 },
+        .{ .filter = 3, .pane = 4, .expected = 0 },
+        .{ .filter = 3, .pane = 6, .expected = 1 },
+    }) |case| {
+        try std.testing.expectEqual(case.expected, noctty_windows_smart_tab_match(
+            case.filter,
+            case.pane,
+        ));
+    }
+}
+
 pub export fn noctty_windows_workspace_startup_plan(
     state: ?*WorkspaceState,
     remote_mode: c_int,
