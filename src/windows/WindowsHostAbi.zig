@@ -15,6 +15,7 @@ pub const c = @cImport({
     @cInclude("commdlg.h");
 });
 
+const LaunchProfile = @import("noctty_share").launch_profile;
 const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
 const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
 const TakeReply = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
@@ -151,6 +152,17 @@ pub const Callbacks = extern struct {
     remote_pane: Unary,
     preference_get: PreferenceGet,
     preference_set: PreferenceSet,
+    profile_count: Unary,
+    profile_active: Unary,
+    profile_name: TabTitle,
+    /// Custom-only read; all mutations return zero on success, negative on failure.
+    profile_get: *const fn (?*anyopaque, c_int, *LaunchProfile.NamedProfile) callconv(.c) c_int,
+    /// Index -1 creates; indices >= 2 edit and rename. Save atomically selects.
+    profile_save: *const fn (?*anyopaque, c_int, [*]const u8, usize, *const LaunchProfile.Profile) callconv(.c) c_int,
+    profile_remove: PaneSelect,
+    profile_select: PaneSelect,
+    /// Resolves each new pane: 0/1 builtin, 2 copied custom spec, negative failure.
+    profile_launch: *const fn (?*anyopaque, c_int, *LaunchProfile.Profile) callconv(.c) c_int,
     theme_count: Unary,
     theme_active: Unary,
     /// UTF-8 bytes without NUL; negative means failure.

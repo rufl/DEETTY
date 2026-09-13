@@ -597,7 +597,7 @@ static void set_settings_smoke_values(GtkWidget *dialog) {
         G_OBJECT(dialog), "noctty-settings-dragger")), 12);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(
         G_OBJECT(dialog), "noctty-settings-theme-scope-tab")), FALSE);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-theme")), 1);
+    gtk_combo_box_set_active_id(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-theme")), "noctty-high-contrast");
     GtkToggleButton *translucency = GTK_TOGGLE_BUTTON(g_object_get_data(
         G_OBJECT(dialog), "noctty-settings-translucency"));
     gtk_toggle_button_set_active(translucency, FALSE);

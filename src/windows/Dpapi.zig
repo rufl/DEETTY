@@ -22,6 +22,7 @@ const identity_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-identity
 const peers_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-peers.dpapi");
 const state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-state-v1.bin");
 const theme_state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-themes-v1.bin");
+const profile_state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-launch-profiles-v1.bin");
 const identity_description = std.unicode.utf8ToUtf16LeStringLiteral(
     "NOCTTY session sharing identity",
 );
@@ -242,6 +243,24 @@ pub fn themeStateLoadAlloc(allocator: std.mem.Allocator, maximum: usize) !?[]u8 
 pub fn themeStateSave(bytes: []const u8) !void {
     var path: [path_capacity:0]u16 = undefined;
     if (!dataPath(&path, theme_state_file)) return error.WindowsDataPathUnavailable;
+    try writeFileAtomicW(&path, bytes, true);
+}
+
+pub fn profileStateLoad(output: []u8) !?usize {
+    if (output.len == 0) return error.InvalidStateOutput;
+    var path: [path_capacity:0]u16 = undefined;
+    if (!dataPath(&path, profile_state_file)) return error.WindowsDataPathUnavailable;
+    const file = try openPlainW(&path) orelse return null;
+    defer closeHandle(file);
+    const size = try plainSize(file, @min(output.len, 65_536));
+    try readPlain(file, output[0..size]);
+    return size;
+}
+
+pub fn profileStateSave(bytes: []const u8) !void {
+    if (bytes.len == 0 or bytes.len > 65_536) return error.InvalidWindowsState;
+    var path: [path_capacity:0]u16 = undefined;
+    if (!dataPath(&path, profile_state_file)) return error.WindowsDataPathUnavailable;
     try writeFileAtomicW(&path, bytes, true);
 }
 

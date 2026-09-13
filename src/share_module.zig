@@ -11,6 +11,7 @@ pub const vt = @import("terminal/Vt.zig");
 pub const theme = @import("theme/Theme.zig");
 pub const theme_storage = @import("theme/Storage.zig");
 pub const split_ratio = @import("workspace/SplitRatio.zig");
+pub const launch_profile = @import("terminal/LaunchProfile.zig");
 
 test {
     _ = share;

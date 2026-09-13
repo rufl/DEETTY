@@ -14,6 +14,7 @@ const Renderer = @import("WindowsRenderer.zig");
 const Tabs = @import("WindowsTabStrip.zig");
 const Appearance = @import("WindowsAppearance.zig");
 const FontDialog = @import("WindowsFontDialog.zig");
+const ProfileDialog = @import("WindowsProfileDialog.zig");
 const Dividers = @import("WindowsDividers.zig");
 const FileDialog = @import("WindowsFileDialog.zig");
 const Dpapi = @import("Dpapi.zig");
@@ -180,13 +181,14 @@ fn loadPreferences(host: *Host) c_int {
 
 fn updateMenu(host: *Host) void {
     host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
-    Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.launch_profile, host.restore_workspace, host.remote_mode);
+    Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
 }
 
 fn createMenu(host: *Host) bool {
     host.menu = Menu.noctty_windows_menu_create(@ptrCast(host.window));
     if (host.menu == null) return false;
     if (!Menu.refreshThemes(host.menu.?, host.callbacks)) return false;
+    if (!Menu.refreshProfiles(host.menu.?, host.callbacks)) return false;
     host.settings_menu_ready = 1;
     updateMenu(host);
     return true;
@@ -382,7 +384,10 @@ fn startSession(host: *Host, session_index: c_int, dimensions_valid: c_int, colu
     if (decision != Logic.session_start_create) return false;
     const session = &host.sessions[@intCast(plan.session_index)];
     session.* = .{ .index = plan.session_index, .columns = plan.columns, .rows = plan.rows };
-    session.pty = Pty.noctty_windows_pty_create(plan.session_index, plan.columns, plan.rows, host.launch_profile, @ptrCast(host.window), output_message);
+    var profile: Share.launch_profile.Profile = .{};
+    const selected = host.callbacks.profile_launch(host.callbacks.userdata, plan.session_index, &profile);
+    if (selected >= 0 and selected <= 2)
+        session.pty = Pty.noctty_windows_pty_create(plan.session_index, plan.columns, plan.rows, selected, if (selected == 2) &profile else null, @ptrCast(host.window), output_message);
     if (session.pty == null) {
         var cleanup_mask: u32 = 0;
         session.* = .{};
@@ -909,11 +914,25 @@ fn moveTab(host: *Host, direction: c_int) void {
 fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     cancelDivider(host);
     host.tabs.cancelDrag();
+    if (command >= Menu.id_profile_custom and command < Menu.id_profile_custom + Menu.max_custom_profiles) {
+        selectProfile(host, @intCast(command - Menu.id_profile_custom + 2));
+        return true;
+    }
     if (command >= Menu.id_theme_custom and command < Menu.id_theme_custom + Menu.max_custom_themes) {
         selectTheme(host, @intCast(command - Menu.id_theme_custom + 3));
         return true;
     }
     switch (command) {
+        Menu.id_profile_manage => {
+            if (!ProfileDialog.show(host.window, host.callbacks))
+                _ = c.MessageBoxW(host.window, wide("NOCTTY could not open the launch profile manager."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+            if (!Menu.refreshProfiles(host.menu orelse return true, host.callbacks))
+                _ = c.MessageBoxW(host.window, wide("NOCTTY could not refresh the profile menu."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+            _ = loadPreferences(host);
+            updateMenu(host);
+            _ = c.SetFocus(host.window);
+            return true;
+        },
         Menu.id_theme_import, Menu.id_theme_export => {
             themeFileDialog(host, command == Menu.id_theme_export);
             return true;
@@ -1000,7 +1019,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     switch (action.kind) {
         menu_preference_theme => selectTheme(host, action.value),
         menu_preference_font => setPreference(host, pref_font_size, action.value),
-        menu_preference_profile => setPreference(host, pref_launch_profile, action.value),
+        menu_preference_profile => selectProfile(host, action.value),
         menu_preference_restore => setPreference(host, pref_restore_workspace, action.value),
         menu_workspace_save => workspacePersistence(host, workspace_save),
         menu_workspace_restore => workspacePersistence(host, workspace_restore),
@@ -1008,6 +1027,15 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         else => return false,
     }
     return true;
+}
+
+fn selectProfile(host: *Host, index: c_int) void {
+    if (host.callbacks.profile_select(host.callbacks.userdata, index) != 0) {
+        _ = c.MessageBoxW(host.window, wide("NOCTTY could not save the profile selection. The previous selection is unchanged."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+        return;
+    }
+    _ = loadPreferences(host);
+    updateMenu(host);
 }
 
 fn tabSmoke(host: *Host) bool {
@@ -1301,13 +1329,24 @@ fn themeSmoke(host: *Host) bool {
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     if (!Menu.qualifyState(menu, false)) return false;
-    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host) or !themeSmoke(host)) return false;
+    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host) or !themeSmoke(host) or
+        !ProfileDialog.qualify(host.window, host.callbacks) or !Menu.refreshProfiles(menu, host.callbacks)) return false;
+    updateMenu(host);
+    if (!Menu.qualifyProfiles(menu, 3, host.callbacks.profile_active(host.callbacks.userdata))) return false;
     const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
     const active_before = host.callbacks.active_pane(host.callbacks.userdata);
     const sessions_before = host.workspace.live_sessions;
     host.remote_mode = 1;
     updateMenu(host);
     if (!Menu.qualifyState(menu, true)) return false;
+    inline for (.{ .{ Logic.menu_profile_command, @as(c_int, 1) }, .{ Logic.menu_profile_powershell, @as(c_int, 0) }, .{ Menu.id_profile_custom, @as(c_int, 2) } }) |choice| {
+        if (!handleMenuCommand(host, choice[0]) or
+            host.callbacks.profile_active(host.callbacks.userdata) != choice[1] or
+            !Menu.qualifyProfiles(menu, 3, choice[1]) or !ProfileDialog.qualifyDurable(host.callbacks) or
+            host.callbacks.pane_count(host.callbacks.userdata) != panes_before or
+            host.callbacks.active_pane(host.callbacks.userdata) != active_before or
+            host.workspace.live_sessions != sessions_before) return false;
+    }
     for ([_]u32{
         Menu.id_new_tab,         Menu.id_split_down,       Menu.id_split_left,
         Menu.id_close_pane,      Menu.id_close_tab,        Menu.id_rename_tab,
@@ -2041,7 +2080,11 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true\r\n", .{});
+        if (!Pty.qualifyLaunchProcess()) {
+            log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
+            return 2;
+        }
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);

@@ -136,6 +136,23 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const windows_launch_profiles_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/WindowsLaunchProfiles.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    windows_launch_profiles_mod.addImport("noctty_share", windows_workspace_share_mod);
+    const windows_launch_plan_mod = b.createModule(.{
+        .root_source_file = b.path("src/windows/WindowsLaunchPlan.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    windows_launch_plan_mod.addImport("noctty_share", windows_workspace_share_mod);
+    const launch_profile_mod = b.createModule(.{
+        .root_source_file = b.path("src/terminal/LaunchProfile.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     root_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const exe_mod = b.createModule(.{
@@ -663,6 +680,22 @@ pub fn build(b: *std.Build) void {
         .use_llvm = true,
     });
     const run_theme_storage_tests = b.addRunArtifact(theme_storage_tests);
+    const windows_launch_profiles_tests = b.addTest(.{
+        .root_module = windows_launch_profiles_mod,
+        .use_llvm = true,
+    });
+    const run_windows_launch_profiles_tests = b.addRunArtifact(windows_launch_profiles_tests);
+    const windows_launch_plan_tests = b.addTest(.{
+        .root_module = windows_launch_plan_mod,
+        .use_llvm = true,
+        .filters = &.{"Windows launch plan:"},
+    });
+    const run_windows_launch_plan_tests = b.addRunArtifact(windows_launch_plan_tests);
+    const launch_profile_tests = b.addTest(.{
+        .root_module = launch_profile_mod,
+        .use_llvm = true,
+    });
+    const run_launch_profile_tests = b.addRunArtifact(launch_profile_tests);
     const windows_policy_step = b.step("windows-policy-test", "Test native workspace, divider, appearance, and input policy without a display");
     windows_policy_step.dependOn(&run_windows_workspace_tests.step);
     windows_policy_step.dependOn(&run_windows_host_logic_tests.step);
@@ -670,6 +703,9 @@ pub fn build(b: *std.Build) void {
     windows_policy_step.dependOn(&run_windows_appearance_tests.step);
     windows_policy_step.dependOn(&run_windows_theme_library_tests.step);
     windows_policy_step.dependOn(&run_theme_storage_tests.step);
+    windows_policy_step.dependOn(&run_windows_launch_profiles_tests.step);
+    windows_policy_step.dependOn(&run_windows_launch_plan_tests.step);
+    windows_policy_step.dependOn(&run_launch_profile_tests.step);
 
     const test_step = b.step("test", "Run NOCTTY unit tests");
     test_step.dependOn(&run_tests.step);
@@ -685,6 +721,8 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_split_ratio_tests.step);
     test_step.dependOn(&run_windows_appearance_tests.step);
     test_step.dependOn(&run_windows_theme_library_tests.step);
+    test_step.dependOn(&run_windows_launch_profiles_tests.step);
+    test_step.dependOn(&run_windows_launch_plan_tests.step);
 
     const check_step = b.step("check", "Build and test NOCTTY");
     check_step.dependOn(&exe.step);
@@ -706,6 +744,8 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(&run_split_ratio_tests.step);
     check_step.dependOn(&run_windows_appearance_tests.step);
     check_step.dependOn(&run_windows_theme_library_tests.step);
+    check_step.dependOn(&run_windows_launch_profiles_tests.step);
+    check_step.dependOn(&run_windows_launch_plan_tests.step);
 }
 
 fn addWindowsBuild(

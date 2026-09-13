@@ -7865,6 +7865,9 @@ fn nativeGridCredentialedSshSmoke(
 
 fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytype) !void {
     const path = "/tmp/noctty-native-grid-settings.nocttycfg";
+    const autosave_path = "/tmp/noctty-native-grid-settings.nocttyws";
+    std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
+    defer std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
     std.Io.Dir.cwd().deleteFile(io, path) catch {};
     defer std.Io.Dir.cwd().deleteFile(io, path) catch {};
     var app = try noctty.app.App.init(allocator);
@@ -7882,7 +7885,7 @@ fn nativeGridSettingsSmoke(allocator: std.mem.Allocator, io: std.Io, out: anytyp
     );
     defer secondary.deinit();
     try session.write("printf 'NOCTTY_SETTINGS_OK'; sleep 3; exit 0\n");
-    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = path, .primary_session = &session, .secondary_session = &secondary };
+    var bridge = NativeGridBridge{ .app = &app, .pane_id = tab.active_pane_id, .io = io, .config_path = path, .autosave_path = autosave_path, .primary_session = &session, .secondary_session = &secondary };
     const status = runNativeGridHost(.{
         .session = &session,
         .bridge = &bridge,

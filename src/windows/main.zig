@@ -24,6 +24,8 @@ const WindowsHost = @import("WindowsHost.zig");
 const Workspace = @import("WindowsWorkspace.zig");
 const WindowsAppearance = @import("WindowsAppearance.zig");
 const WindowsThemeLibrary = @import("WindowsThemeLibrary.zig");
+const WindowsLaunchProfiles = @import("WindowsLaunchProfiles.zig");
+const LaunchProfile = Share.launch_profile;
 const WindowsWorkspace = Workspace.WindowsWorkspace;
 const WorkspaceSnapshot = Workspace.WorkspaceSnapshot;
 const WindowsPreferences = Workspace.WindowsPreferences;
@@ -92,6 +94,7 @@ const State = struct {
     store: Share.identity.Store,
     preferences: WindowsPreferences = .{},
     themes: WindowsThemeLibrary.Library = .init(std.heap.page_allocator, 0),
+    profiles: WindowsLaunchProfiles.Library = .init(0),
     saved_workspace: ?WorkspaceSnapshot = null,
     live_host: ?*Share.live_host.LiveHost = null,
     control_prompt_active: bool = false,
@@ -155,6 +158,19 @@ fn applyPersistedThemes(state: *State) void {
     state.themes = loaded;
 }
 
+const ProfileSink = struct {
+    pub fn save(_: @This(), bytes: []const u8) !void {
+        try Dpapi.profileStateSave(bytes);
+    }
+};
+
+fn applyPersistedProfiles(state: *State) void {
+    state.profiles = .init(@intFromEnum(state.preferences.launch_profile));
+    var bytes: [WindowsLaunchProfiles.max_state_bytes]u8 = undefined;
+    const length = (Dpapi.profileStateLoad(&bytes) catch return) orelse return;
+    state.profiles = WindowsLaunchProfiles.decodeState(bytes[0..length]) catch return;
+}
+
 pub export fn wWinMain(
     instance: windows.HINSTANCE,
     previous_instance: ?windows.HINSTANCE,
@@ -162,6 +178,7 @@ pub export fn wWinMain(
     show_command: c_int,
 ) callconv(.c) c_int {
     _ = previous_instance;
+    if (WindowsPty.qualificationChild(command_line)) |result| return result;
 
     const command = std.mem.span(command_line);
     if (firstAsciiTokenIs(command, "--version")) {
@@ -241,6 +258,7 @@ pub export fn wWinMain(
     if (!self_test_requested) {
         applyPersistedWindowsState(&state);
         applyPersistedThemes(&state);
+        applyPersistedProfiles(&state);
     }
 
     if (self_test_requested) return if (selfTest(&state)) 0 else 1;
@@ -369,6 +387,14 @@ pub export fn wWinMain(
         .theme_import = themeImport,
         .theme_export = themeExport,
         .theme_color = themeColor,
+        .profile_count = profileCount,
+        .profile_active = profileActive,
+        .profile_name = profileName,
+        .profile_get = profileGet,
+        .profile_save = profileSave,
+        .profile_remove = profileRemove,
+        .profile_select = profileSelect,
+        .profile_launch = profileLaunch,
         .workspace_persistence = workspacePersistence,
         .pane_mouse_mode = paneMouseMode,
         .pane_mouse_encode = paneMouseEncode,
@@ -895,6 +921,70 @@ fn workspaceClose(raw: ?*anyopaque, action: c_int) callconv(.c) u32 {
     return result;
 }
 
+fn profileCount(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    return @intCast(state.profiles.count());
+}
+
+fn profileActive(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    return @intCast(state.profiles.selected);
+}
+
+fn profileName(raw: ?*anyopaque, index: c_int, output: [*]u8, capacity: usize) callconv(.c) c_int {
+    if (index < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const name = state.profiles.name(@intCast(index)) orelse return -1;
+    if (name.len > capacity) return -1;
+    @memcpy(output[0..name.len], name);
+    return @intCast(name.len);
+}
+
+fn profileGet(raw: ?*anyopaque, index: c_int, output: *LaunchProfile.NamedProfile) callconv(.c) c_int {
+    if (index < 2) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    output.* = (state.profiles.get(@intCast(index)) orelse return -1).*;
+    return 0;
+}
+
+fn profileSave(raw: ?*anyopaque, index: c_int, name: [*]const u8, length: usize, profile: *const LaunchProfile.Profile) callconv(.c) c_int {
+    if (index < -1 or index == 0 or index == 1 or length == 0 or length > LaunchProfile.max_name_bytes) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    _ = state.profiles.save(if (index == -1) null else @intCast(index), name[0..length], profile.*, ProfileSink{}) catch return -1;
+    return 0;
+}
+
+fn profileRemove(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
+    if (index < 2) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    state.profiles.remove(@intCast(index), ProfileSink{}) catch return -1;
+    if (state.profiles.selected < 2) state.preferences.launch_profile = @enumFromInt(state.profiles.selected);
+    return 0;
+}
+
+fn profileSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
+    if (index < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    state.profiles.select(@intCast(index), ProfileSink{}) catch return -1;
+    if (index < 2) state.preferences.launch_profile = @enumFromInt(index);
+    return 0;
+}
+
+fn profileLaunch(raw: ?*anyopaque, pane_index: c_int, output: *LaunchProfile.Profile) callconv(.c) c_int {
+    if (pane_index < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const grid = state.workspace.paneGrid(@intCast(pane_index)) orelse return -1;
+    if (state.profiles.selected < 2) {
+        grid.setHistoryLimit(LaunchProfile.default_scrollback_lines) catch return -1;
+        return @intCast(state.profiles.selected);
+    }
+    const profile = &(state.profiles.get(state.profiles.selected) orelse return -1).profile;
+    WindowsLaunchProfiles.validateProfile(profile) catch return -1;
+    grid.setHistoryLimit(profile.scrollback_lines) catch return -1;
+    output.* = profile.*;
+    return 2;
+}
+
 fn themeCount(raw: ?*anyopaque) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
     return @intCast(state.themes.count());
@@ -959,7 +1049,7 @@ fn preferenceGet(raw: ?*anyopaque, field: c_int) callconv(.c) c_int {
     return switch (field) {
         1 => state.themes.preferenceTheme(),
         2 => state.preferences.font_size_pt,
-        3 => @intFromEnum(state.preferences.launch_profile),
+        3 => @intCast(@min(state.profiles.selected, 2)),
         4 => @intFromBool(state.preferences.restore_workspace),
         else => -1,
     };
@@ -981,10 +1071,9 @@ fn preferenceSet(
             if (!WindowsAppearance.validFontSize(value)) return -1;
             state.preferences.font_size_pt = @intCast(value);
         },
-        3 => state.preferences.launch_profile = switch (value) {
-            0 => .powershell,
-            1 => .command_prompt,
-            else => return -1,
+        3 => {
+            if (value != 0 and value != 1) return -1;
+            return profileSelect(raw, value);
         },
         4 => state.preferences.restore_workspace = switch (value) {
             0 => false,
@@ -1583,6 +1672,47 @@ fn firstAsciiTokenIs(command: []const u16, expected: []const u8) bool {
     return std.mem.eql(u8, token, expected);
 }
 
+fn profileSelfTest(state: *State) bool {
+    const previous = state.profiles;
+    defer state.profiles = previous;
+    if (profileCount(state) != 2 or profileActive(state) != 0 or preferenceGet(state, 3) != 0) return false;
+    var name: [LaunchProfile.max_name_bytes]u8 = undefined;
+    const length = profileName(state, 1, &name, name.len);
+    if (length < 0 or !std.mem.eql(u8, name[0..@intCast(length)], "Command Prompt")) return false;
+    var named: LaunchProfile.NamedProfile = .{};
+    if (profileGet(state, 0, &named) != -1 or profileRemove(state, 0) != -1 or
+        profileSelect(state, 2) != -1 or profileName(state, 0, &name, 1) != -1) return false;
+    var profile: LaunchProfile.Profile = .{};
+    tryProfile: {
+        profile.shell.set("C:\\Windows\\System32\\cmd.exe") catch break :tryProfile;
+        profile.scrollback_lines = 321;
+        var fixture: LaunchProfile.NamedProfile = .{ .profile = profile };
+        fixture.name.set("Self-test") catch break :tryProfile;
+        state.profiles.custom.entries[0] = fixture;
+        state.profiles.custom.count = 1;
+        state.profiles.custom.selected_index = 0;
+        state.profiles.selected = 2;
+        state.profiles.validate() catch break :tryProfile;
+        if (profileGet(state, 2, &named) != 0 or !named.profile.eql(&profile) or
+            preferenceGet(state, 3) != 2 or profileActive(state) != 2) return false;
+        const grid = state.workspace.paneGrid(0) orelse return false;
+        const history_limit = grid.history_limit;
+        defer grid.setHistoryLimit(history_limit) catch {};
+        var launch: LaunchProfile.Profile = .{};
+        if (profileLaunch(state, 0, &launch) != 2 or !launch.eql(&profile) or grid.history_limit != 321) return false;
+        if (profileLaunch(state, -1, &launch) != -1) return false;
+        profile.shell.len = LaunchProfile.max_shell_bytes + 1;
+        if (profileSave(state, 2, "Self-test", 9, &profile) != -1) return false;
+        if (profileGet(state, 2, &named) != 0 or !named.profile.eql(&launch)) return false;
+        var bytes: [WindowsLaunchProfiles.max_state_bytes]u8 = undefined;
+        const encoded = state.profiles.encodeState(&bytes) catch return false;
+        const loaded = WindowsLaunchProfiles.decodeState(bytes[0..encoded]) catch return false;
+        if (loaded.selected != 2 or !loaded.get(2).?.profile.eql(&launch)) return false;
+        return true;
+    }
+    return false;
+}
+
 fn selfTest(state: *State) bool {
     if (!firstAsciiTokenIs(
         std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
@@ -1592,6 +1722,7 @@ fn selfTest(state: *State) bool {
         std.unicode.utf8ToUtf16LeStringLiteral("device--self-test-backup"),
         "--self-test",
     )) return false;
+    if (!profileSelfTest(state)) return false;
     const grid = state.workspace.activeGrid() orelse return false;
     grid.feed("\x1b[2J\x1b[3;4H\x1b[1;38;2;143;184;255mWIN_OK") catch
         return false;

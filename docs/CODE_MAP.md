@@ -98,6 +98,14 @@ zig build run-nocted -- --open README.md
 - `src/windows/WindowsThemeLibrary.zig` — bounded custom themes, transactional
   selection/import, shared portable codec, and Windows selection envelope.
 - `src/windows/WindowsFileDialog.zig` — native Unicode theme file pickers.
+- `src/terminal/LaunchProfile.zig` — bounded shared profile fields and named
+  libraries, with explicit POSIX/Windows path and environment validation.
+- `src/windows/WindowsLaunchProfiles.zig` — immutable built-ins, bounded custom
+  entries, transactional selection/edit/delete, and the Windows profile codec.
+- `src/windows/WindowsProfileDialog.zig` — native profile manager and guarded
+  Unicode field editing; existing sessions are not reconfigured.
+- `src/windows/WindowsLaunchPlan.zig` — explicit executable/argument planning
+  and bounded Unicode child-environment merging, consumed by `WindowsPty.zig`.
 - `src/workspace/SplitRatio.zig` — allocation-free, overflow-safe divider
   conversion used by the GTK adapter and Windows proportional workspace.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project

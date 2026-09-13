@@ -56,6 +56,9 @@ pub const id_theme_import: u32 = 40500;
 pub const id_theme_export: u32 = 40501;
 pub const id_theme_custom: u32 = 40600;
 pub const max_custom_themes: u32 = 64;
+pub const id_profile_manage: u32 = 40700;
+pub const id_profile_custom: u32 = 40800;
+pub const max_custom_profiles: u32 = 8;
 
 const local_commands = [_]u32{
     id_new_tab,        id_split_down,        id_split_left,       id_close_pane,     id_close_tab,
@@ -129,6 +132,8 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         !append(font, c.MF_STRING, id_font_reset, "&Reset to 13 pt") or
         !append(profile, c.MF_STRING, id_profile_powershell, "&PowerShell") or
         !append(profile, c.MF_STRING, id_profile_command, "&Command Prompt") or
+        c.AppendMenuW(profile, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(profile, c.MF_STRING, id_profile_manage, "&Manage profiles...") or
         !append(settings, c.MF_STRING, id_restore_startup, "&Restore saved workspace on startup") or
         !append(workspace, c.MF_STRING, id_new_tab, "&New Tab\tCtrl+Shift+T") or
         !append(workspace, c.MF_STRING, id_split_down, "Split &Down\tCtrl+Shift+S") or
@@ -232,9 +237,12 @@ pub export fn noctty_windows_menu_update(
         menu.profile,
         id_profile_powershell,
         id_profile_command,
-        if (launch_profile == 1) id_profile_command else id_profile_powershell,
+        if (launch_profile == 0) id_profile_powershell else if (launch_profile == 1) id_profile_command else 0,
         c.MF_BYCOMMAND,
     );
+    for (0..max_custom_profiles) |index| {
+        _ = c.CheckMenuItem(menu.profile, id_profile_custom + @as(u32, @intCast(index)), @intCast(c.MF_BYCOMMAND | (if (launch_profile == @as(c_int, @intCast(index)) + 2) c.MF_CHECKED else c.MF_UNCHECKED)));
+    }
     _ = c.CheckMenuItem(
         menu.settings,
         id_restore_startup,
@@ -245,8 +253,6 @@ pub export fn noctty_windows_menu_update(
         if (remote_mode != 0) c.MF_GRAYED else c.MF_ENABLED,
     );
     const command_state = @as(c.UINT, @intCast(c.MF_BYCOMMAND)) | workspace_state;
-    _ = c.EnableMenuItem(menu.profile, id_profile_powershell, command_state);
-    _ = c.EnableMenuItem(menu.profile, id_profile_command, command_state);
     _ = c.EnableMenuItem(menu.settings, id_restore_startup, command_state);
     for (local_commands) |command| _ = c.EnableMenuItem(menu.workspace, command, command_state);
     _ = c.ModifyMenuW(menu.workspace, id_next_pane, c.MF_BYCOMMAND | c.MF_STRING, id_next_pane, if (remote_mode != 0)
@@ -305,6 +311,50 @@ pub fn qualifyThemes(menu: *const Menu, count: c_int, active: c_int) bool {
     return true;
 }
 
+pub fn refreshProfiles(menu: *Menu, callbacks: *const Abi.Callbacks) bool {
+    while (c.GetMenuItemCount(menu.profile) > 4) {
+        if (c.DeleteMenu(menu.profile, 4, c.MF_BYPOSITION) == 0) return false;
+    }
+    const count = callbacks.profile_count(callbacks.userdata);
+    if (count < 2 or count > 2 + max_custom_profiles) return false;
+    var index: c_int = 2;
+    while (index < count) : (index += 1) {
+        var name: [64]u8 = undefined;
+        const length = callbacks.profile_name(callbacks.userdata, index, &name, name.len);
+        if (length <= 0 or length > name.len) return false;
+        var decoded: [64]u16 = undefined;
+        const units = c.MultiByteToWideChar(c.CP_UTF8, c.MB_ERR_INVALID_CHARS, &name, length, &decoded, decoded.len);
+        if (units <= 0) return false;
+        var label: [129]u16 = undefined;
+        var used: usize = 0;
+        for (decoded[0..@intCast(units)]) |unit| {
+            label[used] = unit;
+            used += 1;
+            if (unit == '&') {
+                label[used] = '&';
+                used += 1;
+            }
+        }
+        label[used] = 0;
+        if (c.AppendMenuW(menu.profile, c.MF_STRING, id_profile_custom + @as(u32, @intCast(index - 2)), @ptrCast(&label)) == 0) return false;
+    }
+    return true;
+}
+
+pub fn qualifyProfiles(menu: *const Menu, count: c_int, active: c_int) bool {
+    if (count < 2 or c.GetMenuItemCount(menu.profile) != count + 2 or
+        !commandStateMatches(menu.profile, id_profile_manage, false)) return false;
+    var index: c_int = 0;
+    while (index < count) : (index += 1) {
+        const command = if (index == 0) id_profile_powershell else if (index == 1) id_profile_command else id_profile_custom + @as(u32, @intCast(index - 2));
+        const state = c.GetMenuState(menu.profile, command, c.MF_BYCOMMAND);
+        if (state == @import("std").math.maxInt(c.UINT) or
+            (state & (c.MF_DISABLED | c.MF_GRAYED)) != 0 or
+            ((state & c.MF_CHECKED) != 0) != (index == active)) return false;
+    }
+    return true;
+}
+
 /// Inspect the real Win32 menu, including disabled commands and displayed hints.
 /// Used only by the bounded, hidden-window host qualification mode.
 pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
@@ -326,8 +376,9 @@ pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
     }
     if (!commandStateMatches(menu.root, id_open_nocted, false) or
         !commandStateMatches(menu.settings, id_restore_startup, remote_mode) or
-        !commandStateMatches(menu.profile, id_profile_powershell, remote_mode) or
-        !commandStateMatches(menu.profile, id_profile_command, remote_mode)) return false;
+        !commandStateMatches(menu.profile, id_profile_powershell, false) or
+        !commandStateMatches(menu.profile, id_profile_command, false) or
+        !commandStateMatches(menu.profile, id_profile_manage, false)) return false;
     return if (remote_mode)
         commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Shift+Tab") and
             commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Tab")

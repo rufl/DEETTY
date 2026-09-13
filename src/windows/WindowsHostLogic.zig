@@ -431,12 +431,12 @@ pub export fn noctty_windows_normalize_preferences(
     const result = output orelse return 0;
     const valid = (Appearance.validTheme(theme) or theme == 3) and
         Appearance.validFontSize(font_size_pt) and
-        (launch_profile == 0 or launch_profile == 1) and
+        (launch_profile >= 0 and launch_profile <= 2) and
         (restore_workspace == 0 or restore_workspace == 1);
     result.* = .{
         .theme = if (Appearance.validTheme(theme) or theme == 3) theme else 0,
         .font_size_pt = if (Appearance.validFontSize(font_size_pt)) font_size_pt else Appearance.default_font_size,
-        .launch_profile = @intFromBool(launch_profile == 1),
+        .launch_profile = if (launch_profile >= 0 and launch_profile <= 2) launch_profile else 0,
         .restore_workspace = @intFromBool(restore_workspace != 0),
     };
     return @intFromBool(valid);

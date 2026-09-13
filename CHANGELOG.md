@@ -4,6 +4,17 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added native Windows launch-profile management with eight custom entries,
+  Unicode names, executable/arguments/directory/environment/scrollback controls,
+  rename/delete/selection, and transactional local persistence. Built-in
+  PowerShell and Command Prompt remain available; changes affect new sessions.
+  The launch planner resolves explicit executables, preserves inherited Unicode
+  environment entries without mutating the parent, and never substitutes a
+  built-in shell when a custom launch fails. `NWS3` layouts remain unchanged.
+
+- Fixed GTK settings qualification to select high contrast by stable theme ID
+  rather than a palette-list position, and to own its maintenance autosave path.
+
 - Added native Windows theme-library import/export with Unicode file pickers,
   up to 64 custom themes, persistent selection, terminal palette/cursor colors,
   and transactional failure handling. Portable files reuse the Linux codec;

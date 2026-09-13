@@ -179,15 +179,19 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   math now serves GTK and Windows; native drag preview and keyboard/menu
   adjustment preserve the existing bounded tree and pane identities.
   `[truth:build,test,docs,external]`
-- [ ] Add launch-profile libraries to Windows GUI controls, retaining ConPTY
-  launch validation and atomic local persistence.
+- [ ] [status:yellow] Qualify the implemented Windows launch-profile library on
+  supported Windows with live ConPTY sessions. Native create/edit/rename/delete,
+  selection, atomic persistence, and executable/arguments/directory/environment/
+  scrollback handling are implemented. Isolated Wine covers native controls and
+  real child-process delivery without ConPTY; file-backed rollback and shared
+  POSIX configuration compatibility pass. `[truth:build,test,docs,external]`
 - [ ] Add native source-format theme imports for Ghostty, Xresources, Alacritty,
   and Noctalia. Portable `.nocttythemes` import/export, persistent custom
   selection, Unicode dialogs, and shared built-in/font controls are implemented.
 - [ ] [status:yellow] Qualify custom theme selection/import/export, replacement
   confirmation, persistence errors, and tab dragging on supported Windows with
-  real sessions, DPI changes, and assistive technology. The combined 48-test
-  policy group, file-backed interoperability smoke, GTK theme flow, and isolated
+  real sessions, DPI changes, and assistive technology. The focused policy
+  group, file-backed interoperability smoke, GTK theme flow, and isolated
   Wine control/bitmap qualification pass. `[truth:build,test,docs,external]`
 - [ ] Complete remaining native Windows workspace parity: Smart Tabs, broadcast
   input, dropdown/global-hotkey behavior, and workspace continuity.

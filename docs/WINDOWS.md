@@ -13,7 +13,7 @@ Included:
 - Windows ConPTY shell transport
 - the same renderer-neutral Zig VT/parser used by Linux NOCTTY
 - ANSI color, true color, Unicode text, cursor, title, scrollback, and live resize
-- selectable PowerShell or Command Prompt launch profile for new shells
+- built-in PowerShell/Command Prompt and eight reusable custom launch profiles
 - arrow, navigation, function, control, and Unicode keyboard input
 - `Ctrl+Shift+V`/`Shift+Insert` clipboard paste
 - Unicode-aware drag selection with `Ctrl+Shift+C` copying the selected range
@@ -50,7 +50,7 @@ Included:
 
 Not included or claimed yet:
 
-- Smart Tabs, broadcast input, or a reusable launch-profile library
+- Smart Tabs or broadcast input
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
@@ -131,8 +131,8 @@ Remote viewers disable local workspace mutations and reject them at dispatch.
 Next Pane and Next Tab remain available, with shortcut hints changed to match
 the remote navigation order described above.
 
-These controls remain smaller than the Linux workspace surface. A reusable
-profile library, Smart Tabs, and broadcast input are not included.
+These controls remain smaller than the Linux workspace surface. Smart Tabs
+and broadcast input are not included.
 
 ### Parity development boundary
 
@@ -142,9 +142,9 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is shared launch-profile libraries, external
-theme-format import controls, and graphical sharing controls. Windows' bounded
-workspace tree and versioned snapshot codec live in
+The next larger parity work is external theme-format import controls and
+graphical sharing controls. Windows' bounded workspace tree and versioned
+snapshot codec live in
 `src/windows/WindowsWorkspace.zig`. Its divider conversions use
 `src/workspace/SplitRatio.zig`, also consumed by the GTK divider adapter.
 Platform widgets and PTY lifetimes remain separate.
@@ -156,8 +156,9 @@ ConPTY/GDI, DPI, IME, or accessibility parity.
 ### Focused native-control qualification
 
 On Linux, `zig build windows-policy-test` exercises workspace identity,
-proportional geometry, appearance/input policy, and old/new snapshot
-compatibility without a display. `windows-workspace-test` remains the narrower
+proportional geometry, appearance/input policy, profile validation/persistence,
+launch planning, and old/new snapshot compatibility without a display.
+`windows-workspace-test` remains the narrower
 workspace-only target.
 
 After a Windows cross-build, run:
@@ -176,6 +177,11 @@ dialog validation and cancellation, theme selection, and font-size boundaries.
 The theme/tab tranche adds production tab-drag qualification, Unicode file
 paths, common-dialog cancellation, portable import/export, persisted custom
 selection, rejected-import rollback, and bitmap sampling of terminal colors.
+The profile tranche exercises native create/edit/rename/delete controls,
+invalid and oversized fields, dirty/cancel decisions, selection, and durable
+reload. A real child process checks executable and working-directory paths
+containing spaces and Unicode, raw arguments, inherited environment, explicit
+overrides, and unchanged parent environment through the production launch plan.
 It does not start or mock ConPTY; its receipt explicitly reports `conpty=false`.
 
 On supported Windows, run the packaged `windows_smoke.ps1 -Interactive`
@@ -183,12 +189,18 @@ checklist to exercise the new menus against real shells, clipboard, and remote
 input permissions. Cross-compilation and the hidden-window Wine qualification
 do not establish visual, physical-input, or ConPTY acceptance for these actions.
 
-The integrated theme/tab tranche passes 48 focused policy/codec tests, Windows
-and GTK `ReleaseSafe` builds, a file-backed portable-theme/reload/rollback
-smoke, the isolated GTK theme and layout-preset flows, and the isolated Wine
-native-control smoke. The latter also exercises the prior tab, divider, menu,
-and font-dialog tranche. These receipts do not establish supported-Windows
-visual, input, or ConPTY acceptance.
+The integrated profile tranche passes focused policy/codec tests, Windows and
+GTK `ReleaseSafe` builds, file-backed profile lifecycle/write-failure rollback,
+and a POSIX named-profile configuration round-trip. Isolated GTK settings also
+prove named-profile save/select/delete, reload, and real PTY launch. The isolated
+Wine smoke covers the prior theme, tab, divider, menu, and font controls.
+These receipts do not establish supported-Windows visual, input, or ConPTY
+acceptance.
+
+A separate private-X11/Wine visual run verified the mapped profile fields and
+save feedback and opened a custom-command tab. That run showed no terminal
+text, so it does not qualify ConPTY output; supported-Windows verification
+remains required.
 
 ## Selection and terminal mouse input
 
@@ -215,9 +227,11 @@ The window's **Settings** menu applies user-owned, local preferences:
 - **Font size** retains the 11/13/16/18-point presets and adds an exact native
   size dialog covering 8–32 points, plus increase/decrease/reset commands.
   These commands do not steal terminal keyboard shortcuts.
-- **Launch profile** selects PowerShell or Command Prompt for newly created
-  ConPTY sessions. `NOCTTY_WINDOWS_SHELL` remains the explicit test/operator
-  override and takes precedence.
+- **Launch profile** selects PowerShell, Command Prompt, or a named custom
+  profile for newly created ConPTY sessions. **Manage Profiles…** creates,
+  edits, renames, and deletes customs. Saving also selects that profile.
+  `NOCTTY_WINDOWS_SHELL` remains the explicit test/operator override and takes
+  precedence over the chosen executable and arguments.
 - **Restore saved workspace on startup** controls whether a saved layout is
   reconstructed before the native host opens.
 
@@ -235,6 +249,41 @@ metadata and proportional split ratios. Older builds cannot read newly saved
 `NWS3` files.
 Invalid or truncated state is ignored; startup falls back to the default
 single-pane workspace.
+
+### Launch-profile library
+
+The native manager accepts up to eight custom profiles with these limits:
+
+| Field | Limit / interpretation |
+| --- | --- |
+| Name | 64 UTF-8 bytes; built-in names are reserved |
+| Executable | 256 UTF-8 bytes; fully qualified Windows drive or UNC path |
+| Arguments | 1,024 UTF-8 bytes; raw Windows arguments, without implicit `cmd /c` |
+| Working directory | 4,096 UTF-8 bytes; empty or a fully qualified directory |
+| Environment | 2,048 UTF-8 bytes, at most 16 `NAME=value;OTHER=value` entries |
+| Scrollback | 1–100,000 lines for the new pane |
+
+Inherited environment values are preserved unless overridden; Windows names
+compare case-insensitively. Terminal defaults are applied before explicit
+overrides. The parent process environment is never changed. Custom executable
+or directory errors fail that launch rather than starting a different shell.
+Choose `cmd.exe` or PowerShell explicitly when shell syntax is needed.
+
+Selection and edits affect future sessions only. Deleting the selected custom
+falls back to PowerShell; built-ins cannot be edited or deleted. Unsaved edits
+and deletion require confirmation. Validation or write failures retain the
+previous live library and selection.
+
+The separate atomic, versioned file is
+`%LOCALAPPDATA%\NOCTTY\windows-launch-profiles-v1.bin`. Environment values are
+stored locally **without encryption**; inherit secrets from the environment
+instead of saving them in a profile. Missing or invalid profile state falls
+back to the legacy built-in preference without overwriting the file until an
+explicit successful change. `NWS3` remains unchanged: layout restoration uses
+the currently selected default for replacement shells, not per-pane profile
+identities or recovered running processes.
+
+### Theme library
 
 **Theme → Import library** opens a native file picker for portable
 `.nocttythemes` files shared with Linux. Import replaces the custom library and
