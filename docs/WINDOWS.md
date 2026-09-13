@@ -50,7 +50,7 @@ Included:
 
 Not included or claimed yet:
 
-- Smart Tabs or broadcast input
+- Smart Tabs and Linux tag-filtered tab views
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
@@ -131,8 +131,12 @@ Remote viewers disable local workspace mutations and reject them at dispatch.
 Next Pane and Next Tab remain available, with shortcut hints changed to match
 the remote navigation order described above.
 
-These controls remain smaller than the Linux workspace surface. Smart Tabs
-and broadcast input are not included.
+These controls remain smaller than the Linux workspace surface. Broadcast
+input is available locally through the Workspace menu or
+`Ctrl+Shift+B`; enabling it requires confirmation, sends input to every live
+local pane, and is disabled for remote viewers. The setting is session-scoped
+and starts disabled after restart. Smart Tabs, dropdown/global-hotkey behavior,
+and Linux workspace continuity remain unimplemented.
 
 ### Parity development boundary
 
@@ -142,9 +146,9 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is external theme-format import controls and
-graphical sharing controls. Windows' bounded workspace tree and versioned
-snapshot codec live in
+The next larger parity work is Smart Tabs plus workspace continuity; graphical
+sharing controls remain a separate external boundary. Windows' bounded
+workspace tree and versioned snapshot codec live in
 `src/windows/WindowsWorkspace.zig`. Its divider conversions use
 `src/workspace/SplitRatio.zig`, also consumed by the GTK divider adapter.
 Platform widgets and PTY lifetimes remain separate.
