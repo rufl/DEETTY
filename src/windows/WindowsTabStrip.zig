@@ -9,6 +9,22 @@ pub const control_id = 40301;
 const edit_id = 40302;
 const error_id = 40303;
 const name_capacity = 128;
+const drag_subclass_id = 1;
+const reordered_message = c.WM_APP + 90;
+
+const Drag = struct {
+    source: c_int,
+    pane: c_int,
+    count: usize,
+    identities: [Protocol.max_tabs]c_int = undefined,
+    origin: c.POINT,
+    threshold_x: c_int,
+    threshold_y: c_int,
+    active: bool = false,
+    destination: c_int = -1,
+    marker: c.RECT = std.mem.zeroes(c.RECT),
+    brush: c.HBRUSH = null,
+};
 
 // Like NoctedHost, permit integer child IDs in CreateWindowExW's HMENU slot.
 const CreateWindowExW = *const fn (
@@ -33,16 +49,26 @@ pub const Strip = struct {
     height: c_int = 0,
     lengths: [Protocol.max_tabs]usize = [_]usize{0} ** Protocol.max_tabs,
     labels: [Protocol.max_tabs][Protocol.max_title_bytes]u8 = undefined,
+    callbacks: ?*const Abi.Callbacks = null,
+    remote: bool = true,
+    drag: ?Drag = null,
 
     pub fn create(self: *Strip, parent: c.HWND) bool {
         var controls = c.INITCOMMONCONTROLSEX{ .dwSize = @sizeOf(c.INITCOMMONCONTROLSEX), .dwICC = c.ICC_TAB_CLASSES };
         if (c.InitCommonControlsEx(&controls) == 0) return false;
         self.window = createWindowExW(0, wide("SysTabControl32"), wide("Workspace tabs"), c.WS_CHILD | c.WS_VISIBLE | c.WS_TABSTOP | c.WS_CLIPSIBLINGS | c.TCS_FOCUSONBUTTONDOWN, 0, 0, 0, 0, parent, @ptrFromInt(control_id), c.GetModuleHandleW(null), null);
-        return self.window != null;
+        if (self.window == null) return false;
+        if (c.SetWindowSubclass(self.window, stripProc, drag_subclass_id, @intFromPtr(self)) == 0) {
+            _ = c.DestroyWindow(self.window);
+            self.window = null;
+            return false;
+        }
+        return true;
     }
 
     pub fn setFont(self: *Strip, font: c.HFONT, dpi: c.UINT, cell_height: c_int) void {
         if (self.window == null) return;
+        self.cancelDrag();
         _ = c.SendMessageW(self.window, c.WM_SETFONT, @intFromPtr(font), 1);
         // Single-line tabs retain native overflow scrolling in narrow windows.
         self.height = @max(c.MulDiv(30, @intCast(dpi), 96), cell_height + c.MulDiv(12, @intCast(dpi), 96));
@@ -58,6 +84,9 @@ pub const Strip = struct {
     pub fn sync(self: *Strip, callbacks: *const Abi.Callbacks) bool {
         if (self.window == null) return false;
         const requested = callbacks.tab_count(callbacks.userdata);
+        if (self.callbacks != callbacks) self.cancelDrag();
+        self.callbacks = callbacks;
+        if (self.drag != null and !self.dragValid()) self.cancelDrag();
         if (requested < 0 or requested > Protocol.max_tabs) return false;
         const count: usize = @intCast(requested);
         while (self.count > count) {
@@ -136,7 +165,352 @@ pub const Strip = struct {
         }
         return true;
     }
+
+    pub fn configureDrag(self: *Strip, callbacks: *const Abi.Callbacks, remote: bool) void {
+        if (self.callbacks != callbacks or self.remote != remote) self.cancelDrag();
+        self.callbacks = callbacks;
+        self.remote = remote;
+    }
+
+    pub fn cancelDrag(self: *Strip) void {
+        const drag = self.drag orelse return;
+        // ReleaseCapture synchronously sends WM_CAPTURECHANGED. Clear all owned
+        // state first; never refresh the host/model from that nested callback.
+        self.drag = null;
+        if (drag.brush != null) _ = c.DeleteObject(drag.brush);
+        if (self.window != null) {
+            _ = c.InvalidateRect(self.window, null, c.FALSE);
+            if (c.GetCapture() == self.window) _ = c.ReleaseCapture();
+        }
+    }
+
+    fn dragValid(self: *const Strip) bool {
+        if (self.drag) |*drag| return self.snapshotValid(drag);
+        return false;
+    }
+
+    fn snapshotValid(self: *const Strip, drag: *const Drag) bool {
+        const cb = self.callbacks orelse return false;
+        if (self.remote or cb.tab_count(cb.userdata) != drag.count or
+            cb.tab_active(cb.userdata) != drag.source or cb.active_pane(cb.userdata) != drag.pane) return false;
+        for (0..drag.count) |index| {
+            if (cb.tab_identity(cb.userdata, @intCast(index)) != drag.identities[index]) return false;
+            var bytes: [Protocol.max_title_bytes]u8 = undefined;
+            const len = cb.tab_title(cb.userdata, @intCast(index), &bytes, bytes.len);
+            if (len < 0 or len != self.lengths[index] or
+                !std.mem.eql(u8, bytes[0..@intCast(len)], self.labels[index][0..self.lengths[index]])) return false;
+        }
+        return true;
+    }
+
+    fn beginDrag(self: *Strip, point: c.POINT) void {
+        const cb = self.callbacks orelse return;
+        if (self.remote or self.count < 2 or !self.sync(cb)) return;
+        var hit = c.TCHITTESTINFO{ .pt = point, .flags = 0 };
+        const index: c_int = @intCast(c.SendMessageW(self.window, c.TCM_HITTEST, 0, pointer(&hit)));
+        if (index < 0 or index != cb.tab_active(cb.userdata)) return;
+        const pane = cb.active_pane(cb.userdata);
+        if (pane < 0) return;
+        const dpi = windowDpi(self.window);
+        var drag = Drag{
+            .source = index,
+            .pane = pane,
+            .count = self.count,
+            .origin = point,
+            .threshold_x = @max(1, c.GetSystemMetricsForDpi(c.SM_CXDRAG, dpi)),
+            .threshold_y = @max(1, c.GetSystemMetricsForDpi(c.SM_CYDRAG, dpi)),
+        };
+        for (0..self.count) |tab| {
+            drag.identities[tab] = cb.tab_identity(cb.userdata, @intCast(tab));
+            if (drag.identities[tab] < 0) return;
+        }
+        self.drag = drag;
+        _ = c.SetCapture(self.window);
+        if (c.GetCapture() != self.window) self.cancelDrag();
+    }
+
+    fn moveDrag(self: *Strip, point: c.POINT) void {
+        if (!self.dragValid() or c.GetCapture() != self.window) {
+            self.cancelDrag();
+            return;
+        }
+        if (!self.drag.?.active) {
+            const origin = self.drag.?.origin;
+            if (@abs(point.x - origin.x) < self.drag.?.threshold_x and
+                @abs(point.y - origin.y) < self.drag.?.threshold_y) return;
+            self.drag.?.brush = c.CreateSolidBrush(c.GetSysColor(c.COLOR_HIGHLIGHT));
+            if (self.drag.?.brush == null) {
+                self.cancelDrag();
+                return;
+            }
+            self.drag.?.active = true;
+        }
+        self.drag.?.destination = -1;
+        var client: c.RECT = undefined;
+        if (c.GetClientRect(self.window, &client) != 0 and
+            point.x >= client.left and point.x < client.right and
+            point.y >= client.top and point.y < client.bottom and
+            c.ChildWindowFromPointEx(self.window, point, c.CWP_SKIPINVISIBLE | c.CWP_SKIPDISABLED) == self.window)
+        {
+            for (0..self.count) |index| {
+                var rect: c.RECT = undefined;
+                if (c.SendMessageW(self.window, c.TCM_GETITEMRECT, index, pointer(&rect)) == 0) break;
+                if (rect.right <= client.left or rect.left >= client.right) continue;
+                const after = point.x >= @divTrunc(rect.left + rect.right, 2);
+                if (after and index + 1 != self.count and point.x >= rect.right) continue;
+                const insertion: c_int = @as(c_int, @intCast(index)) + @intFromBool(after);
+                self.drag.?.destination = insertion - @intFromBool(insertion > self.drag.?.source);
+                const thickness = @max(2, c.MulDiv(3, @intCast(windowDpi(self.window)), 96));
+                const edge = if (after) rect.right else rect.left;
+                const x = std.math.clamp(edge - @divTrunc(thickness, 2), client.left, @max(client.left, client.right - thickness));
+                self.drag.?.marker = .{
+                    .left = x,
+                    .right = @min(client.right, x + thickness),
+                    .top = @max(client.top, rect.top),
+                    .bottom = @min(client.bottom, rect.bottom),
+                };
+                break;
+            }
+        }
+        _ = c.InvalidateRect(self.window, null, c.FALSE);
+    }
+
+    fn dropDrag(self: *Strip, point: c.POINT) void {
+        self.moveDrag(point);
+        const drag = self.drag orelse return;
+        const cb = self.callbacks orelse return;
+        const commit = drag.active and drag.destination >= 0 and
+            drag.destination != drag.source and self.dragValid();
+        self.cancelDrag();
+        if (!commit or self.callbacks != cb or !self.snapshotValid(&drag)) return;
+        const result = cb.tab_move(cb.userdata, drag.source, drag.destination);
+        if (result > 0) {
+            _ = c.SendMessageW(c.GetParent(self.window), reordered_message, 0, 0);
+        } else if (result < 0) {
+            _ = c.MessageBoxW(c.GetParent(self.window), wide("NOCTTY could not move this tab."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        }
+    }
 };
+
+fn windowDpi(window: c.HWND) c.UINT {
+    const dpi = c.GetDpiForWindow(window);
+    return if (dpi == 0) 96 else dpi;
+}
+
+fn mousePoint(value: c.LPARAM) c.POINT {
+    const bits: usize = @bitCast(value);
+    return .{ .x = @as(i16, @bitCast(@as(u16, @truncate(bits)))), .y = @as(i16, @bitCast(@as(u16, @truncate(bits >> 16)))) };
+}
+
+fn stripProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPARAM, _: c.UINT_PTR, reference: c.DWORD_PTR) callconv(.winapi) c.LRESULT {
+    const self: *Strip = @ptrFromInt(reference);
+    switch (message) {
+        c.WM_LBUTTONDOWN => {
+            self.cancelDrag();
+            // Let the common control notify the host and finish its synchronous
+            // selection/layout before recording the authoritative drag source.
+            const result = c.DefSubclassProc(window, message, word, long_value);
+            self.beginDrag(mousePoint(long_value));
+            return result;
+        },
+        c.WM_MOUSEMOVE => if (self.drag != null) {
+            if (word & c.MK_LBUTTON == 0) self.cancelDrag() else self.moveDrag(mousePoint(long_value));
+            return 0;
+        },
+        c.WM_LBUTTONUP => if (self.drag != null) {
+            const active = self.drag.?.active;
+            if (active) self.dropDrag(mousePoint(long_value)) else self.cancelDrag();
+            if (active) return 0;
+        },
+        c.WM_KEYDOWN, c.WM_SYSKEYDOWN => if (self.drag != null) {
+            self.cancelDrag();
+            if (word == c.VK_ESCAPE) return 0;
+        },
+        c.WM_CAPTURECHANGED,
+        c.WM_CANCELMODE,
+        c.WM_SIZE,
+        c.WM_KILLFOCUS,
+        c.WM_SETFONT,
+        c.WM_DPICHANGED,
+        c.WM_CONTEXTMENU,
+        c.TCM_DELETEITEM,
+        c.TCM_DELETEALLITEMS,
+        c.TCM_INSERTITEMW,
+        c.TCM_SETITEMW,
+        c.TCM_SETCURSEL,
+        => self.cancelDrag(),
+        c.WM_PAINT => {
+            const result = c.DefSubclassProc(window, message, word, long_value);
+            if (self.drag) |drag| {
+                if (drag.active and drag.destination >= 0) {
+                    const dc = c.GetDC(window);
+                    if (dc != null) {
+                        _ = c.FillRect(dc, &drag.marker, drag.brush);
+                        _ = c.ReleaseDC(window, dc);
+                    }
+                }
+            }
+            return result;
+        },
+        c.WM_NCDESTROY => {
+            self.cancelDrag();
+            _ = c.RemoveWindowSubclass(window, stripProc, drag_subclass_id);
+            self.window = null;
+        },
+        else => {},
+    }
+    return c.DefSubclassProc(window, message, word, long_value);
+}
+
+/// Requires a session-free local workspace with at least two tabs and room for
+/// their headers. Uses real callbacks and the installed native subclass; restores
+/// identity order, selection and the two effective titles before returning.
+pub fn qualifyDrag(strip: *Strip, callbacks: *const Abi.Callbacks) bool {
+    const count = callbacks.tab_count(callbacks.userdata);
+    if (strip.window == null or count < 2 or count > Protocol.max_tabs) return false;
+    const original_active = callbacks.tab_active(callbacks.userdata);
+    const original_pane = callbacks.active_pane(callbacks.userdata);
+    const pane_count = callbacks.pane_count(callbacks.userdata);
+    const original_remote = strip.remote;
+    var identities: [Protocol.max_tabs]c_int = undefined;
+    for (0..@intCast(count)) |index| {
+        identities[index] = callbacks.tab_identity(callbacks.userdata, @intCast(index));
+        if (identities[index] < 0) return false;
+    }
+    var names: [2][Protocol.max_title_bytes]u8 = undefined;
+    var lengths: [2]usize = undefined;
+    for (0..2) |index| {
+        const len = callbacks.tab_title(callbacks.userdata, @intCast(index), &names[index], names[index].len);
+        if (len < 0 or len > names[index].len) return false;
+        lengths[index] = @intCast(len);
+    }
+    defer {
+        strip.cancelDrag();
+        // Also repairs the fixture on a failed qualification, without sessions.
+        for (0..@intCast(count)) |destination| {
+            var source = destination;
+            while (source < count) : (source += 1) {
+                if (callbacks.tab_identity(callbacks.userdata, @intCast(source)) == identities[destination]) {
+                    if (source != destination) _ = callbacks.tab_move(callbacks.userdata, @intCast(source), @intCast(destination));
+                    break;
+                }
+            }
+        }
+        for (0..2) |index| _ = callbacks.tab_rename(callbacks.userdata, @intCast(index), &names[index], lengths[index]);
+        _ = callbacks.tab_select(callbacks.userdata, original_active);
+        strip.configureDrag(callbacks, original_remote);
+        _ = strip.sync(callbacks);
+    }
+    strip.configureDrag(callbacks, false);
+    for (0..2) |index| {
+        if (callbacks.tab_rename(callbacks.userdata, @intCast(index), "Duplicate", 9) < 0) return false;
+    }
+    if (callbacks.tab_select(callbacks.userdata, 0) < 0 or !strip.sync(callbacks)) return false;
+    const pane = callbacks.active_pane(callbacks.userdata);
+    var first: c.RECT = undefined;
+    var second: c.RECT = undefined;
+    var client: c.RECT = undefined;
+    if (c.GetClientRect(strip.window, &client) == 0 or
+        c.SendMessageW(strip.window, c.TCM_GETITEMRECT, 0, pointer(&first)) == 0 or
+        c.SendMessageW(strip.window, c.TCM_GETITEMRECT, 1, pointer(&second)) == 0 or
+        first.left < 0 or second.right > client.right) return false;
+    const down = packedPoint(@divTrunc(first.left + first.right, 2), first.top + 4);
+    const right = packedPoint(second.right - 2, second.top + 4);
+    const left = packedPoint(first.left + 2, first.top + 4);
+
+    // Below threshold is a click, not a reorder.
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, down);
+    if (strip.drag == null or strip.drag.?.active) return false;
+    _ = c.SendMessageW(strip.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, down);
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, down);
+    if (!dragIdle(strip) or !identityOrder(callbacks, identities[0..@intCast(count)])) return false;
+
+    // Real capture loss, Escape, cancellation and resize all abandon the drop.
+    inline for (.{ c.WM_KEYDOWN, c.WM_CANCELMODE, c.WM_SIZE, c.WM_CAPTURECHANGED }) |cancel_message| {
+        if (!qualifyDragStart(strip, down, right)) return false;
+        if (cancel_message == c.WM_CAPTURECHANGED) {
+            _ = c.SetCapture(c.GetParent(strip.window));
+            _ = c.ReleaseCapture();
+        } else {
+            _ = c.SendMessageW(strip.window, cancel_message, if (cancel_message == c.WM_KEYDOWN) c.VK_ESCAPE else 0, 0);
+        }
+        _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, right);
+        if (!dragIdle(strip) or !identityOrder(callbacks, identities[0..@intCast(count)])) return false;
+    }
+    // Dropping at the source boundary or outside the strip is a no-op.
+    for ([_]c.LPARAM{ left, packedPoint(-10, -10) }) |target| {
+        if (!qualifyDragStart(strip, down, right)) return false;
+        _ = c.SendMessageW(strip.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, target);
+        _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, target);
+        if (!dragIdle(strip) or !identityOrder(callbacks, identities[0..@intCast(count)])) return false;
+    }
+    // A title/model sync and a mode change must cancel an in-flight gesture.
+    if (!qualifyDragStart(strip, down, right) or callbacks.tab_rename(callbacks.userdata, 1, "Changed", 7) < 0 or
+        !strip.sync(callbacks) or !dragIdle(strip)) return false;
+    if (callbacks.tab_rename(callbacks.userdata, 1, "Duplicate", 9) < 0 or !strip.sync(callbacks)) return false;
+    if (!qualifyDragStart(strip, down, right)) return false;
+    strip.configureDrag(callbacks, true);
+    if (!dragIdle(strip)) return false;
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, down);
+    _ = c.SendMessageW(strip.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, right);
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, right);
+    if (!dragIdle(strip) or callbacks.tab_active(callbacks.userdata) != 0 or
+        !identityOrder(callbacks, identities[0..@intCast(count)])) return false;
+    strip.configureDrag(callbacks, false);
+    if (callbacks.tab_select(callbacks.userdata, 0) < 0 or !strip.sync(callbacks)) return false;
+
+    // Duplicate labels cannot hide identity changes from a pending drop.
+    if (!qualifyDragStart(strip, down, right) or callbacks.tab_move(callbacks.userdata, 0, 1) <= 0) return false;
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, right);
+    if (!dragIdle(strip) or callbacks.tab_identity(callbacks.userdata, 1) != identities[0] or
+        callbacks.active_pane(callbacks.userdata) != pane) return false;
+    if (callbacks.tab_move(callbacks.userdata, 1, 0) <= 0 or !strip.sync(callbacks)) return false;
+
+    // Commit once through the subclass; the host's WM_APP+90 hook must sync.
+    if (!qualifyDragStart(strip, down, right)) return false;
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, right);
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, right);
+    if (!dragIdle(strip) or callbacks.tab_active(callbacks.userdata) != 1 or
+        callbacks.tab_identity(callbacks.userdata, 1) != identities[0] or
+        callbacks.tab_identity(callbacks.userdata, 0) != identities[1] or
+        callbacks.active_pane(callbacks.userdata) != pane or !strip.matches(callbacks)) return false;
+    if (!qualifyDragStart(strip, right, left)) return false;
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONUP, 0, left);
+    if (!dragIdle(strip) or !identityOrder(callbacks, identities[0..@intCast(count)]) or
+        callbacks.active_pane(callbacks.userdata) != pane or callbacks.pane_count(callbacks.userdata) != pane_count or
+        !strip.matches(callbacks)) return false;
+    for (0..2) |index| {
+        if (callbacks.tab_rename(callbacks.userdata, @intCast(index), &names[index], lengths[index]) < 0) return false;
+    }
+    if (callbacks.tab_select(callbacks.userdata, original_active) < 0 or !strip.sync(callbacks)) return false;
+    return callbacks.active_pane(callbacks.userdata) == original_pane and strip.matches(callbacks);
+}
+
+fn packedPoint(x: c_int, y: c_int) c.LPARAM {
+    return @intCast(@as(u32, @as(u16, @bitCast(@as(i16, @intCast(x))))) |
+        (@as(u32, @as(u16, @bitCast(@as(i16, @intCast(y))))) << 16));
+}
+
+fn dragIdle(strip: *const Strip) bool {
+    return strip.drag == null and c.GetCapture() != strip.window;
+}
+
+fn identityOrder(callbacks: *const Abi.Callbacks, identities: []const c_int) bool {
+    if (callbacks.tab_count(callbacks.userdata) != identities.len) return false;
+    for (identities, 0..) |identity, index| {
+        if (callbacks.tab_identity(callbacks.userdata, @intCast(index)) != identity) return false;
+    }
+    return true;
+}
+
+fn qualifyDragStart(strip: *Strip, down: c.LPARAM, destination: c.LPARAM) bool {
+    _ = c.SendMessageW(strip.window, c.WM_LBUTTONDOWN, c.MK_LBUTTON, down);
+    _ = c.SendMessageW(strip.window, c.WM_MOUSEMOVE, c.MK_LBUTTON, destination);
+    const drag = strip.drag orelse return false;
+    return drag.active and drag.destination >= 0 and drag.brush != null and
+        drag.marker.right > drag.marker.left and drag.marker.bottom > drag.marker.top and
+        c.GetCapture() == strip.window;
+}
 
 const Rename = struct {
     callbacks: *const Abi.Callbacks,

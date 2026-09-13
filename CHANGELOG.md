@@ -4,6 +4,21 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 
 ## Unreleased
 
+- Added native Windows theme-library import/export with Unicode file pickers,
+  up to 64 custom themes, persistent selection, terminal palette/cursor colors,
+  and transactional failure handling. Portable files reuse the Linux codec;
+  the separate Windows theme envelope leaves `NWS3` workspaces unchanged.
+
+- Added captured native tab drag reordering with insertion feedback, stable
+  identity checks, cancellation, and remote-viewer guards.
+
+- Fixed shared theme decoding leaking the rejected duplicate name and
+  overflowing arithmetic on a malicious name length. Regression tests now
+  reject both cases without leaking or crashing.
+
+- Gave the GTK layout-preset smoke real maintenance I/O and an owned autosave
+  path, eliminating missing-I/O errors without disabling maintenance.
+
 - Added native Windows proportional split dividers with drag preview,
   release-to-commit, cancellation, focused-axis menu resizing, and reset.
   Saved layouts now use `NWS3`; `NWS1`/`NWS2` migrate with equal ratios.

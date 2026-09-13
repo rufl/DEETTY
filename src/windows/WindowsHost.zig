@@ -15,6 +15,10 @@ const Tabs = @import("WindowsTabStrip.zig");
 const Appearance = @import("WindowsAppearance.zig");
 const FontDialog = @import("WindowsFontDialog.zig");
 const Dividers = @import("WindowsDividers.zig");
+const FileDialog = @import("WindowsFileDialog.zig");
+const Dpapi = @import("Dpapi.zig");
+const ThemeLibrary = @import("WindowsThemeLibrary.zig");
+const Share = @import("noctty_share");
 
 const c = Abi.c;
 
@@ -148,7 +152,12 @@ fn initializeLogging() void {
 }
 
 fn applyTheme(host: *Host) void {
-    Renderer.noctty_windows_theme_colors(host.theme, &host.foreground, &host.background);
+    if (host.theme == 1) {
+        Renderer.noctty_windows_theme_colors(host.theme, &host.foreground, &host.background);
+    } else {
+        host.foreground = host.callbacks.theme_color(host.callbacks.userdata, 0);
+        host.background = host.callbacks.theme_color(host.callbacks.userdata, 1);
+    }
 }
 
 fn loadPreferences(host: *Host) c_int {
@@ -170,12 +179,14 @@ fn loadPreferences(host: *Host) c_int {
 }
 
 fn updateMenu(host: *Host) void {
-    Menu.noctty_windows_menu_update(host.menu, host.theme, host.font_size_pt, host.launch_profile, host.restore_workspace, host.remote_mode);
+    host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
+    Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.launch_profile, host.restore_workspace, host.remote_mode);
 }
 
 fn createMenu(host: *Host) bool {
     host.menu = Menu.noctty_windows_menu_create(@ptrCast(host.window));
     if (host.menu == null) return false;
+    if (!Menu.refreshThemes(host.menu.?, host.callbacks)) return false;
     host.settings_menu_ready = 1;
     updateMenu(host);
     return true;
@@ -388,6 +399,7 @@ fn startSession(host: *Host, session_index: c_int, dimensions_valid: c_int, colu
 }
 
 fn updateTitle(host: *Host) void {
+    host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
     _ = host.tabs.sync(host.callbacks);
     var title_utf8: [512]u8 = undefined;
     const count = host.callbacks.title(host.callbacks.userdata, &title_utf8, title_utf8.len);
@@ -502,6 +514,7 @@ fn clearScreen(host: *Host) void {
 
 fn cycleWorkspace(host: *Host, next_tab: bool) void {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     const changed = if (next_tab)
         host.callbacks.next_tab(host.callbacks.userdata)
     else
@@ -519,6 +532,7 @@ fn cycleWorkspace(host: *Host, next_tab: bool) void {
 
 fn workspaceAction(host: *Host, action: c_int) bool {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const result = host.callbacks.workspace_action(host.callbacks.userdata, action, host.columns, host.rows);
     var session_index: c_int = -1;
@@ -559,6 +573,7 @@ fn workspaceAction(host: *Host, action: c_int) bool {
 
 fn workspaceClose(host: *Host, close_action: c_int, query_action: c_int) bool {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const pane_count = host.callbacks.pane_count(host.callbacks.userdata);
     const mask = host.callbacks.workspace_close(host.callbacks.userdata, query_action);
@@ -626,6 +641,7 @@ fn startWorkspaceSessions(host: *Host) bool {
 
 fn setPreference(host: *Host, field: c_int, value: c_int) void {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     if (host.callbacks.preference_set(host.callbacks.userdata, field, value) != 0) {
         _ = c.MessageBoxW(
             host.window,
@@ -658,8 +674,53 @@ fn setPreference(host: *Host, field: c_int, value: c_int) void {
     _ = c.SetFocus(host.window);
 }
 
+fn themeFailure(host: *Host, comptime text: []const u8) void {
+    _ = c.MessageBoxW(host.window, wide(text), wide("NOCTTY themes"), c.MB_OK | c.MB_ICONERROR);
+}
+
+fn refreshTheme(host: *Host, library_changed: bool) bool {
+    _ = loadPreferences(host);
+    if (library_changed) {
+        if (!Menu.refreshThemes(host.menu orelse return false, host.callbacks)) return false;
+    }
+    updateMenu(host);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
+    return true;
+}
+
+fn selectTheme(host: *Host, index: c_int) void {
+    cancelDivider(host);
+    host.tabs.cancelDrag();
+    if (host.callbacks.theme_select(host.callbacks.userdata, index) != 0) {
+        themeFailure(host, "NOCTTY could not save this theme selection. The previous theme is unchanged.");
+        return;
+    }
+    _ = refreshTheme(host, false);
+    _ = c.SetFocus(host.window);
+}
+
+fn themeFileDialog(host: *Host, exporting: bool) void {
+    const allocator = std.heap.page_allocator;
+    const path = (FileDialog.show(host.window, allocator, exporting) catch {
+        themeFailure(host, "NOCTTY could not open the theme file dialog.");
+        return;
+    }) orelse return;
+    defer allocator.free(path);
+    const cb = host.callbacks;
+    if (!exporting and cb.theme_count(cb.userdata) > 3 and
+        c.MessageBoxW(host.window, wide("Import replaces your custom theme library. Export it first if you want to keep a copy. Replace it now?"), wide("Replace custom themes"), c.MB_YESNO | c.MB_ICONWARNING | c.MB_DEFBUTTON2) != c.IDYES) return;
+    const result = if (exporting) cb.theme_export(cb.userdata, path.ptr, path.len) else cb.theme_import(cb.userdata, path.ptr, path.len);
+    if (result != 0) {
+        if (exporting) themeFailure(host, "NOCTTY could not export the theme library. Check the destination and permissions.") else themeFailure(host, "NOCTTY could not import this theme library. Choose a valid NOCTTY .nocttythemes file containing at most 64 themes. The previous library is unchanged.");
+        return;
+    }
+    if (!exporting and !refreshTheme(host, true)) themeFailure(host, "The theme library was imported, but NOCTTY could not update its theme menu.");
+    _ = c.SetFocus(host.window);
+}
+
 fn workspacePersistence(host: *Host, action: c_int) void {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) == 0) return;
     if (action == workspace_restore and c.MessageBoxW(
         host.window,
@@ -735,6 +796,7 @@ fn mouseModifiers() c_int {
 
 fn selectPane(host: *Host, pane_index: c_int) bool {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     const previous = host.callbacks.active_pane(host.callbacks.userdata);
     if (host.callbacks.pane_select(host.callbacks.userdata, pane_index) != 0) return false;
     if (previous != pane_index) clearSelection(host);
@@ -819,6 +881,7 @@ fn tabSelectionChanged(host: *Host) void {
 
 fn renameTab(host: *Host) void {
     if (host.remote_mode != 0) return;
+    host.tabs.cancelDrag();
     releaseMouseCapture(host);
     const result = Tabs.rename(host.window, host.callbacks, false);
     if (result < 0) {
@@ -830,6 +893,7 @@ fn renameTab(host: *Host) void {
 
 fn moveTab(host: *Host, direction: c_int) void {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     if (host.remote_mode != 0) return;
     const from = host.callbacks.tab_active(host.callbacks.userdata);
     const to = from + direction;
@@ -844,7 +908,16 @@ fn moveTab(host: *Host, direction: c_int) void {
 
 fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     cancelDivider(host);
+    host.tabs.cancelDrag();
+    if (command >= Menu.id_theme_custom and command < Menu.id_theme_custom + Menu.max_custom_themes) {
+        selectTheme(host, @intCast(command - Menu.id_theme_custom + 3));
+        return true;
+    }
     switch (command) {
+        Menu.id_theme_import, Menu.id_theme_export => {
+            themeFileDialog(host, command == Menu.id_theme_export);
+            return true;
+        },
         Menu.id_divider_reset, Menu.id_divider_wider, Menu.id_divider_narrower, Menu.id_divider_taller, Menu.id_divider_shorter => {
             if (host.remote_mode == 0) {
                 const result = if (command == Menu.id_divider_reset)
@@ -925,7 +998,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     var action: Logic.MenuAction = undefined;
     if (Logic.noctty_windows_decode_menu_command(command, host.restore_workspace, &action) == 0) return false;
     switch (action.kind) {
-        menu_preference_theme => setPreference(host, pref_theme, action.value),
+        menu_preference_theme => selectTheme(host, action.value),
         menu_preference_font => setPreference(host, pref_font_size, action.value),
         menu_preference_profile => setPreference(host, pref_launch_profile, action.value),
         menu_preference_restore => setPreference(host, pref_restore_workspace, action.value),
@@ -975,6 +1048,7 @@ fn tabSmoke(host: *Host) bool {
         callbacks.tab_active(callbacks.userdata) != original_count or
         callbacks.active_pane(callbacks.userdata) != added_pane or
         !Tabs.titleMatches(callbacks, original_count, "Native & 中") or !host.tabs.matches(callbacks)) return false;
+    if (!Tabs.qualifyDrag(&host.tabs, callbacks)) return false;
     var hit: PaneHit = .{};
     var pane: PaneHit = .{};
     if (host.content_top <= 0 or !paneGeometry(host, added_pane, &client, &pane) or pane.pane.top < host.content_top or
@@ -1086,10 +1160,10 @@ fn dividerSmoke(host: *Host) bool {
 
 fn appearanceSmoke(host: *Host) bool {
     if (!FontDialog.qualify(host.window)) return false;
-    const original_theme = host.theme;
+    const original_theme = host.callbacks.theme_active(host.callbacks.userdata);
     const original_font = host.font_size_pt;
     defer {
-        setPreference(host, pref_theme, original_theme);
+        selectTheme(host, original_theme);
         setPreference(host, pref_font_size, original_font);
     }
     const menu = host.menu orelse return false;
@@ -1111,10 +1185,123 @@ fn appearanceSmoke(host: *Host) bool {
         c.GetMenuState(@ptrCast(menu.font), Menu.id_font_increase, c.MF_BYCOMMAND) & c.MF_GRAYED != 0;
 }
 
+fn themeSmokePath(allocator: std.mem.Allocator) ![]u8 {
+    var directory: [c.MAX_PATH]u16 = undefined;
+    const count = c.GetTempPathW(directory.len, &directory);
+    if (count == 0 or count >= directory.len) return error.TemporaryPathUnavailable;
+    var original: [c.MAX_PATH:0]u16 = undefined;
+    if (c.GetTempFileNameW(&directory, wide("NTH"), 0, &original) == 0) return error.TemporaryFileUnavailable;
+    defer _ = c.DeleteFileW(&original);
+    const length = std.mem.indexOfScalar(u16, &original, 0) orelse return error.InvalidPath;
+    const suffix = std.unicode.utf8ToUtf16LeStringLiteral("-中.nocttythemes");
+    var path: [c.MAX_PATH + 32:0]u16 = undefined;
+    @memcpy(path[0..length], original[0..length]);
+    @memcpy(path[length..][0..suffix.len], suffix);
+    path[length + suffix.len] = 0;
+    if (c.MoveFileW(&original, &path) == 0) return error.TemporaryFileUnavailable;
+    errdefer _ = c.DeleteFileW(&path);
+    return std.unicode.utf16LeToUtf8Alloc(allocator, path[0 .. length + suffix.len]);
+}
+
+fn deleteThemeSmokePath(path: []const u8) void {
+    const encoded = std.unicode.utf8ToUtf16LeAllocZ(std.heap.page_allocator, path) catch return;
+    defer std.heap.page_allocator.free(encoded);
+    _ = c.DeleteFileW(encoded.ptr);
+}
+
+fn themeSmoke(host: *Host) bool {
+    const allocator = std.heap.page_allocator;
+    const cb = host.callbacks;
+    const menu = host.menu orelse return false;
+    const source = themeSmokePath(allocator) catch return false;
+    defer allocator.free(source);
+    defer deleteThemeSmokePath(source);
+    const destination = themeSmokePath(allocator) catch return false;
+    defer allocator.free(destination);
+    defer deleteThemeSmokePath(destination);
+    var first = Share.theme.Theme.builtinDark();
+    first.name = " " ** 256 ++ "Native first" ++ " " ** 256;
+    first.foreground = .fromHex(0xd1e2f3);
+    first.background = .fromHex(0x142536);
+    first.cursor = .fromHex(0x51a2f3);
+    first.palette[1] = .fromHex(0x9a2b3c);
+    var second = Share.theme.Theme.builtinPaseoBlackZinc();
+    second.name = "Native second";
+    second.foreground = .fromHex(0xe3d2c1);
+    second.background = .fromHex(0x362514);
+    second.cursor = .fromHex(0xf3a251);
+    second.palette[1] = .fromHex(0x3c2b9a);
+    const themes = [_]Share.theme.Theme{ first, second };
+    const portable = Share.theme_storage.exportThemeLibraryAlloc(allocator, &themes) catch return false;
+    defer allocator.free(portable);
+    Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
+    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
+        cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
+    var label: [193]u16 = undefined;
+    const label_length = c.GetMenuStringW(@ptrCast(menu.theme), Menu.id_theme_custom, &label, label.len, c.MF_BYCOMMAND);
+    const expected_label = std.unicode.utf8ToUtf16LeStringLiteral("Native first");
+    if (label_length != expected_label.len or !std.mem.eql(u16, label[0..@intCast(@max(label_length, 0))], expected_label)) return false;
+    const original_tab = cb.tab_active(cb.userdata);
+    if (cb.workspace_action(cb.userdata, action_new_tab, default_columns, default_rows) <= 0) return false;
+    const paint_tab = cb.tab_active(cb.userdata);
+    defer {
+        _ = cb.tab_select(cb.userdata, paint_tab);
+        _ = cb.workspace_close(cb.userdata, close_tab);
+        _ = cb.tab_select(cb.userdata, original_tab);
+        updateTitle(host);
+    }
+    const pane = cb.active_pane(cb.userdata);
+    const text = "\x1b[0m\x1b[2J\x1b[H \x1b[41m \x1b[0m";
+    if (cb.pane_feed(cb.userdata, pane, text.ptr, text.len) != text.len) return false;
+    const normal_font = host.font_normal;
+    const bold_font = host.font_bold;
+    for (themes, 0..) |theme, index| {
+        const selected: c_int = @intCast(index + 3);
+        if (!handleMenuCommand(host, Menu.id_theme_custom + @as(u32, @intCast(index))) or
+            cb.theme_active(cb.userdata) != selected or host.theme != 3 or
+            host.foreground != ThemeLibrary.rgb(theme.foreground) or host.background != ThemeLibrary.rgb(theme.background) or
+            host.font_normal != normal_font or host.font_bold != bold_font or !Menu.qualifyThemes(menu, 5, selected)) return false;
+        const durable = (Dpapi.themeStateLoadAlloc(allocator, ThemeLibrary.max_state_bytes) catch return false) orelse return false;
+        defer allocator.free(durable);
+        var reopened = ThemeLibrary.decodeStateAlloc(allocator, durable) catch return false;
+        defer reopened.deinit();
+        if (reopened.selected != selected or reopened.count() != 5 or
+            !std.mem.eql(u8, reopened.selectedTheme().name, theme.name) or
+            ThemeLibrary.rgb(reopened.selectedTheme().foreground) != host.foreground) return false;
+        var state: Renderer.State = std.mem.zeroes(Renderer.State);
+        state.window = host.window;
+        state.callbacks = cb;
+        state.font_normal = host.font_normal;
+        state.font_bold = host.font_bold;
+        state.cell_width = host.cell_width;
+        state.cell_height = host.cell_height;
+        state.foreground = host.foreground;
+        state.background = host.background;
+        if (!Renderer.qualifyThemePaint(&state, pane, host.background, ThemeLibrary.rgb(theme.palette[1]), ThemeLibrary.rgb(theme.cursor))) return false;
+        const paints = host.paint_count;
+        _ = c.SendMessageW(host.window, c.WM_PAINT, 0, 0);
+        if (host.paint_count == paints) return false;
+    }
+    if (cb.theme_export(cb.userdata, destination.ptr, destination.len) != 0) return false;
+    const exported = Dpapi.readFileAllocUtf8(allocator, destination, ThemeLibrary.max_file_bytes) catch return false;
+    defer allocator.free(exported);
+    if (!std.mem.eql(u8, portable, exported)) return false;
+    const before = (Dpapi.themeStateLoadAlloc(allocator, ThemeLibrary.max_state_bytes) catch return false) orelse return false;
+    defer allocator.free(before);
+    Dpapi.writeFileAtomicUtf8(allocator, source, "invalid NOCTTY library") catch return false;
+    if (cb.theme_import(cb.userdata, source.ptr, source.len) >= 0 or
+        cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 4 or
+        cb.theme_color(cb.userdata, 0) != host.foreground or !Menu.qualifyThemes(menu, 5, 4) or
+        !FileDialog.qualify(host.window)) return false;
+    const after = (Dpapi.themeStateLoadAlloc(allocator, ThemeLibrary.max_state_bytes) catch return false) orelse return false;
+    defer allocator.free(after);
+    return std.mem.eql(u8, before, after) and host.workspace.live_sessions == 0;
+}
+
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     if (!Menu.qualifyState(menu, false)) return false;
-    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host)) return false;
+    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host) or !themeSmoke(host)) return false;
     const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
     const active_before = host.callbacks.active_pane(host.callbacks.userdata);
     const sessions_before = host.workspace.live_sessions;
@@ -1283,6 +1470,23 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
     }
     const current = host orelse return c.DefWindowProcW(window, message, word, long_value);
     switch (message) {
+        c.WM_APP + 90 => {
+            cancelDivider(current);
+            clearSelection(current);
+            var client: c.RECT = undefined;
+            _ = c.GetClientRect(window, &client);
+            resizeTerminal(current, client.right, client.bottom);
+            updateTitle(current);
+            _ = c.InvalidateRect(window, null, c.FALSE);
+            return 0;
+        },
+        c.WM_ACTIVATE => {
+            if (lowWord(word) == c.WA_INACTIVE) {
+                current.tabs.cancelDrag();
+                cancelDivider(current);
+            }
+            return c.DefWindowProcW(window, message, word, long_value);
+        },
         c.WM_PAINT => {
             paint(current);
             return 0;
@@ -1306,6 +1510,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         },
         c.WM_ENTERMENULOOP => {
             cancelDivider(current);
+            current.tabs.cancelDrag();
             return 0;
         },
         c.WM_NOTIFY => {
@@ -1335,6 +1540,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         },
         c.WM_SIZE => {
             cancelDivider(current);
+            current.tabs.cancelDrag();
             if (word != c.SIZE_MINIMIZED) {
                 clearSelection(current);
                 resizeTerminal(current, lowWord(@bitCast(long_value)), highWord(@bitCast(long_value)));
@@ -1349,6 +1555,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         },
         c.WM_DPICHANGED => {
             cancelDivider(current);
+            current.tabs.cancelDrag();
             const suggested: *const c.RECT = @ptrFromInt(@as(usize, @bitCast(long_value)));
             clearSelection(current);
             _ = createFonts(current, highWord(word));
@@ -1484,12 +1691,23 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             }
             return 0;
         },
-        c.WM_CAPTURECHANGED, c.WM_CANCELMODE => {
+        c.WM_CAPTURECHANGED => {
+            releaseMouseCapture(current);
+            _ = c.InvalidateRect(window, null, c.FALSE);
+            return 0;
+        },
+        c.WM_CANCELMODE => {
+            current.tabs.cancelDrag();
             releaseMouseCapture(current);
             _ = c.InvalidateRect(window, null, c.FALSE);
             return 0;
         },
         c.WM_KEYDOWN, c.WM_SYSKEYDOWN => {
+            if (word == c.VK_ESCAPE and c.GetCapture() == current.tabs.window) {
+                current.tabs.cancelDrag();
+                current.suppress_character = 1;
+                return 0;
+            }
             if (current.divider_drag != null and word == c.VK_ESCAPE) {
                 cancelDivider(current);
                 current.suppress_character = 1;
@@ -1550,11 +1768,13 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         },
         c.WM_CLOSE => {
             cancelDivider(current);
+            current.tabs.cancelDrag();
             _ = c.DestroyWindow(window);
             return 0;
         },
         c.WM_DESTROY => {
             cancelDivider(current);
+            current.tabs.cancelDrag();
             _ = c.KillTimer(window, timer_id);
             c.PostQuitMessage(current.exit_code);
             return 0;
@@ -1710,6 +1930,7 @@ fn inputSmokeObservables(host: *Host) void {
 
 fn cleanup(host: *Host) void {
     cancelDivider(host);
+    host.tabs.cancelDrag();
     cleanupAllSessions(host);
     Fonts.noctty_windows_fonts_deinit(@ptrCast(&host.font_normal), @ptrCast(&host.font_bold));
     Menu.noctty_windows_menu_deinit(host.menu);
@@ -1815,11 +2036,12 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         return exit_code;
     }
     if (menu_smoke) {
+        host.tabs.configureDrag(callbacks, false);
         if (!menuSmoke(host)) {
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);
@@ -1856,7 +2078,10 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
                 renameTab(host);
                 continue;
             }
-            if (message.wParam == c.VK_RETURN or message.wParam == c.VK_ESCAPE or message.wParam == c.VK_TAB) {
+            if (message.wParam == c.VK_RETURN or message.wParam == c.VK_TAB or
+                (message.wParam == c.VK_ESCAPE and c.GetCapture() != host.tabs.window))
+            {
+                host.tabs.cancelDrag();
                 _ = c.SetFocus(host.window);
                 continue;
             }

@@ -91,10 +91,13 @@ zig build run-nocted -- --open README.md
 - `src/windows/WindowsWorkspace.zig` — the bounded Windows workspace model
   and versioned snapshot codec, separated from Win32 for focused native tests.
   Tab selection/naming/reordering preserve pane slots and split-tree identity.
-- `src/windows/WindowsTabStrip.zig` — native tab control and rename dialog;
-  `WindowsHost.zig` owns command dispatch and terminal viewport integration.
+- `src/windows/WindowsTabStrip.zig` — native tab control, rename dialog, and
+  captured drag reordering; `WindowsHost.zig` owns viewport/lifecycle integration.
 - `src/windows/WindowsAppearance.zig` — shared built-in theme lookup, ANSI
   palette overrides, and native exact-font-size bounds; no duplicate palette.
+- `src/windows/WindowsThemeLibrary.zig` — bounded custom themes, transactional
+  selection/import, shared portable codec, and Windows selection envelope.
+- `src/windows/WindowsFileDialog.zig` — native Unicode theme file pickers.
 - `src/workspace/SplitRatio.zig` — allocation-free, overflow-safe divider
   conversion used by the GTK adapter and Windows proportional workspace.
 - `src/workspace/Workspace.zig` — workspace state, tabs/splits/layouts, project

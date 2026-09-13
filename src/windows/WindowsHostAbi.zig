@@ -12,6 +12,7 @@ pub const c = @cImport({
     @cDefine("_FORTIFY_SOURCE", "0");
     @cInclude("windows.h");
     @cInclude("commctrl.h");
+    @cInclude("commdlg.h");
 });
 
 const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
@@ -118,6 +119,8 @@ pub const Callbacks = extern struct {
     next_tab: Unary,
     tab_count: Unary,
     tab_active: Unary,
+    /// Stable local root identity; negative in remote mode or for invalid index.
+    tab_identity: PaneSelect,
     /// UTF-8 bytes without NUL; negative means failure.
     tab_title: TabTitle,
     /// Selection/mutation: positive success, zero unchanged, negative failure.
@@ -148,6 +151,16 @@ pub const Callbacks = extern struct {
     remote_pane: Unary,
     preference_get: PreferenceGet,
     preference_set: PreferenceSet,
+    theme_count: Unary,
+    theme_active: Unary,
+    /// UTF-8 bytes without NUL; negative means failure.
+    theme_name: TabTitle,
+    /// Theme mutation returns zero on success, negative on failure.
+    theme_select: PaneSelect,
+    theme_import: Write,
+    theme_export: Write,
+    /// Roles 0/1/2 are foreground/background/cursor; packed 0xRRGGBB.
+    theme_color: *const fn (?*anyopaque, c_int) callconv(.c) u32,
     workspace_persistence: WorkspacePersistence,
     pane_mouse_mode: PaneMouseMode,
     pane_mouse_encode: PaneMouseEncode,

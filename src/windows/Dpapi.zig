@@ -21,7 +21,7 @@ const directory = std.unicode.utf8ToUtf16LeStringLiteral("\\NOCTTY");
 const identity_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-identity.dpapi");
 const peers_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-peers.dpapi");
 const state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-state-v1.bin");
-const temporary_suffix = std.unicode.utf8ToUtf16LeStringLiteral(".tmp");
+const theme_state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-themes-v1.bin");
 const identity_description = std.unicode.utf8ToUtf16LeStringLiteral(
     "NOCTTY session sharing identity",
 );
@@ -82,16 +82,6 @@ fn dataPath(path: *[path_capacity:0]u16, filename: []const u16) bool {
     length += filename.len;
     path[length] = 0;
     return true;
-}
-
-fn temporaryPath(path: *const [path_capacity:0]u16) ?[path_capacity:0]u16 {
-    const length = std.mem.indexOfScalar(u16, path, 0) orelse return null;
-    if (length + temporary_suffix.len + 1 >= path.len) return null;
-    var temporary: [path_capacity:0]u16 = [_:0]u16{0} ** path_capacity;
-    @memcpy(temporary[0..length], path[0..length]);
-    @memcpy(temporary[length..][0..temporary_suffix.len], temporary_suffix);
-    temporary[length + temporary_suffix.len] = 0;
-    return temporary;
 }
 
 fn closeHandle(handle: c.HANDLE) void {
@@ -175,7 +165,6 @@ fn saveProtected(
         return error.InvalidProtectedInput;
     var path: [path_capacity:0]u16 = undefined;
     if (!dataPath(&path, filename)) return error.WindowsDataPathUnavailable;
-    var temporary = temporaryPath(&path) orelse return error.WindowsDataPathTooLong;
 
     var plaintext = c.DATA_BLOB{
         .cbData = @intCast(bytes.len),
@@ -193,40 +182,8 @@ fn saveProtected(
     ) == 0) return error.WindowsDataProtectFailed;
     defer wipeAndFreeBlob(&protected_blob);
 
-    var file = c.CreateFileW(
-        &temporary,
-        c.GENERIC_WRITE,
-        0,
-        null,
-        c.CREATE_ALWAYS,
-        c.FILE_ATTRIBUTE_HIDDEN | c.FILE_ATTRIBUTE_TEMPORARY,
-        null,
-    );
-    if (file == c.INVALID_HANDLE_VALUE) return error.WindowsDataCreateFailed;
-    var committed = false;
-    defer {
-        closeHandle(file);
-        if (!committed) _ = c.DeleteFileW(&temporary);
-    }
-
-    var written: c.DWORD = 0;
-    if (c.WriteFile(
-        file,
-        protected_blob.pbData,
-        protected_blob.cbData,
-        &written,
-        null,
-    ) == 0 or written != protected_blob.cbData or c.FlushFileBuffers(file) == 0) {
-        return error.WindowsDataWriteFailed;
-    }
-    closeHandle(file);
-    file = c.INVALID_HANDLE_VALUE;
-    if (c.MoveFileExW(
-        &temporary,
-        &path,
-        c.MOVEFILE_REPLACE_EXISTING | c.MOVEFILE_WRITE_THROUGH,
-    ) == 0) return error.WindowsDataCommitFailed;
-    committed = true;
+    const protected_bytes: [*]const u8 = @ptrCast(protected_blob.pbData);
+    try writeFileAtomicW(&path, protected_bytes[0..protected_blob.cbData], true);
 }
 
 pub fn identityLoad(secret: []u8) !bool {
@@ -263,69 +220,119 @@ pub fn stateLoad(output: []u8) !?usize {
     if (output.len == 0) return error.InvalidStateOutput;
     var path: [path_capacity:0]u16 = undefined;
     if (!dataPath(&path, state_file)) return error.WindowsDataPathUnavailable;
-
-    const file = c.CreateFileW(
-        &path,
-        c.GENERIC_READ,
-        c.FILE_SHARE_READ,
-        null,
-        c.OPEN_EXISTING,
-        c.FILE_ATTRIBUTE_NORMAL,
-        null,
-    );
-    if (file == c.INVALID_HANDLE_VALUE) {
-        if (c.GetLastError() == c.ERROR_FILE_NOT_FOUND) return null;
-        return error.WindowsDataOpenFailed;
-    }
+    const file = try openPlainW(&path) orelse return null;
     defer closeHandle(file);
-
-    const size: usize = c.GetFileSize(file, null);
-    if (size == c.INVALID_FILE_SIZE or size == 0 or size > output.len)
-        return error.InvalidWindowsState;
-    var read_count: c.DWORD = 0;
-    if (c.ReadFile(file, output.ptr, @intCast(size), &read_count, null) == 0 or
-        read_count != size)
-    {
-        return error.WindowsDataReadFailed;
-    }
+    const size = try plainSize(file, output.len);
+    try readPlain(file, output[0..size]);
     return size;
 }
 
 pub fn stateSave(bytes: []const u8) !void {
-    if (bytes.len == 0 or bytes.len > std.math.maxInt(c.DWORD))
-        return error.InvalidWindowsState;
     var path: [path_capacity:0]u16 = undefined;
     if (!dataPath(&path, state_file)) return error.WindowsDataPathUnavailable;
-    var temporary = temporaryPath(&path) orelse return error.WindowsDataPathTooLong;
+    try writeFileAtomicW(&path, bytes, true);
+}
 
+pub fn themeStateLoadAlloc(allocator: std.mem.Allocator, maximum: usize) !?[]u8 {
+    var path: [path_capacity:0]u16 = undefined;
+    if (!dataPath(&path, theme_state_file)) return error.WindowsDataPathUnavailable;
+    return readFileAllocW(allocator, &path, maximum);
+}
+
+pub fn themeStateSave(bytes: []const u8) !void {
+    var path: [path_capacity:0]u16 = undefined;
+    if (!dataPath(&path, theme_state_file)) return error.WindowsDataPathUnavailable;
+    try writeFileAtomicW(&path, bytes, true);
+}
+
+pub fn readFileAllocUtf8(allocator: std.mem.Allocator, path: []const u8, maximum: usize) ![]u8 {
+    const wide = try unicodePath(allocator, path);
+    defer allocator.free(wide);
+    return try readFileAllocW(allocator, wide, maximum) orelse error.WindowsDataFileNotFound;
+}
+
+pub fn writeFileAtomicUtf8(allocator: std.mem.Allocator, path: []const u8, bytes: []const u8) !void {
+    const wide = try unicodePath(allocator, path);
+    defer allocator.free(wide);
+    try writeFileAtomicW(wide, bytes, false);
+}
+
+fn unicodePath(allocator: std.mem.Allocator, path: []const u8) ![:0]u16 {
+    if (path.len == 0 or path.len > 131_068 or std.mem.indexOfScalar(u8, path, 0) != null)
+        return error.InvalidWindowsDataPath;
+    const wide = try std.unicode.utf8ToUtf16LeAllocZ(allocator, path);
+    errdefer allocator.free(wide);
+    if (wide.len > 32_700) return error.WindowsDataPathTooLong;
+    return wide;
+}
+
+fn openPlainW(path: [*:0]const u16) !?c.HANDLE {
+    const file = c.CreateFileW(path, c.GENERIC_READ, c.FILE_SHARE_READ, null, c.OPEN_EXISTING, c.FILE_ATTRIBUTE_NORMAL, null);
+    if (file == c.INVALID_HANDLE_VALUE) {
+        if (c.GetLastError() == c.ERROR_FILE_NOT_FOUND) return null;
+        return error.WindowsDataOpenFailed;
+    }
+    return file;
+}
+
+fn plainSize(file: c.HANDLE, maximum: usize) !usize {
+    var size: c.LARGE_INTEGER = undefined;
+    if (c.GetFileSizeEx(file, &size) == 0) return error.WindowsDataStatFailed;
+    if (size.QuadPart <= 0 or size.QuadPart > maximum or size.QuadPart > std.math.maxInt(c.DWORD))
+        return error.InvalidWindowsState;
+    return @intCast(size.QuadPart);
+}
+
+fn readPlain(file: c.HANDLE, output: []u8) !void {
+    var read_count: c.DWORD = 0;
+    if (c.ReadFile(file, output.ptr, @intCast(output.len), &read_count, null) == 0 or read_count != output.len)
+        return error.WindowsDataReadFailed;
+}
+
+fn readFileAllocW(allocator: std.mem.Allocator, path: [*:0]const u16, maximum: usize) !?[]u8 {
+    const file = try openPlainW(path) orelse return null;
+    defer closeHandle(file);
+    const size = try plainSize(file, maximum);
+    const bytes = try allocator.alloc(u8, size);
+    errdefer allocator.free(bytes);
+    try readPlain(file, bytes);
+    return bytes;
+}
+
+fn writeFileAtomicW(path: [*:0]const u16, bytes: []const u8, hidden: bool) !void {
+    if (bytes.len == 0 or bytes.len > std.math.maxInt(c.DWORD))
+        return error.InvalidWindowsState;
+    const allocator = std.heap.page_allocator;
+    const destination = std.mem.span(path);
+    var entropy: [8]u8 = undefined;
+    try random(&entropy);
+    var suffix_buffer: [32]u8 = undefined;
+    const suffix = try std.fmt.bufPrint(&suffix_buffer, ".tmp-{x}", .{std.mem.readInt(u64, &entropy, .little)});
+    const temporary = try allocator.allocSentinel(u16, destination.len + suffix.len, 0);
+    defer allocator.free(temporary);
+    @memcpy(temporary[0..destination.len], destination);
+    for (suffix, 0..) |ch, index| temporary[destination.len + index] = ch;
     var file = c.CreateFileW(
-        &temporary,
+        temporary.ptr,
         c.GENERIC_WRITE,
         0,
         null,
-        c.CREATE_ALWAYS,
-        c.FILE_ATTRIBUTE_HIDDEN | c.FILE_ATTRIBUTE_TEMPORARY,
+        c.CREATE_NEW,
+        if (hidden) c.FILE_ATTRIBUTE_HIDDEN | c.FILE_ATTRIBUTE_TEMPORARY else c.FILE_ATTRIBUTE_NORMAL,
         null,
     );
     if (file == c.INVALID_HANDLE_VALUE) return error.WindowsDataCreateFailed;
     var committed = false;
     defer {
         closeHandle(file);
-        if (!committed) _ = c.DeleteFileW(&temporary);
+        if (!committed) _ = c.DeleteFileW(temporary.ptr);
     }
-
     var written: c.DWORD = 0;
     if (c.WriteFile(file, bytes.ptr, @intCast(bytes.len), &written, null) == 0 or
-        written != bytes.len or c.FlushFileBuffers(file) == 0)
-    {
-        return error.WindowsDataWriteFailed;
-    }
+        written != bytes.len or c.FlushFileBuffers(file) == 0) return error.WindowsDataWriteFailed;
     closeHandle(file);
     file = c.INVALID_HANDLE_VALUE;
-    if (c.MoveFileExW(
-        &temporary,
-        &path,
-        c.MOVEFILE_REPLACE_EXISTING | c.MOVEFILE_WRITE_THROUGH,
-    ) == 0) return error.WindowsDataCommitFailed;
+    if (c.MoveFileExW(temporary.ptr, path, c.MOVEFILE_REPLACE_EXISTING | c.MOVEFILE_WRITE_THROUGH) == 0)
+        return error.WindowsDataCommitFailed;
     committed = true;
 }

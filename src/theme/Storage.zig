@@ -112,6 +112,7 @@ pub fn importThemeLibraryAlloc(allocator: std.mem.Allocator, bytes: []const u8) 
         entries[initialized] = try reader.readThemeRecord();
         for (entries[0..initialized]) |previous| {
             if (std.mem.eql(u8, previous.theme.name, entries[initialized].theme.name)) {
+                allocator.free(entries[initialized].owned_name);
                 return error.DuplicateThemeName;
             }
         }
@@ -340,7 +341,7 @@ const ThemeReader = struct {
 
     fn readStringAlloc(self: *ThemeReader) ![]u8 {
         const len = try self.readU64AsUsize();
-        if (self.offset + len > self.bytes.len) return error.InvalidThemeLibrarySnapshot;
+        if (len > self.bytes.len - self.offset) return error.InvalidThemeLibrarySnapshot;
         const slice = self.bytes[self.offset .. self.offset + len];
         self.offset += len;
         return self.allocator.dupe(u8, slice);
@@ -369,7 +370,7 @@ const ThemeReader = struct {
     }
 
     fn readIntLittle(self: *ThemeReader, comptime byte_count: usize) !u64 {
-        if (self.offset + byte_count > self.bytes.len) return error.InvalidThemeLibrarySnapshot;
+        if (byte_count > self.bytes.len - self.offset) return error.InvalidThemeLibrarySnapshot;
         var value: u64 = 0;
         var idx: usize = 0;
         while (idx < byte_count) : (idx += 1) {
@@ -491,6 +492,24 @@ test "theme libraries reject malformed or duplicate snapshots" {
     defer allocator.free(bad);
     bad[theme_magic.len] = 99;
     try std.testing.expectError(error.UnsupportedThemeLibrarySnapshot, importThemeLibraryAlloc(allocator, bad));
+}
+
+test "theme import releases duplicate records on rejection" {
+    const allocator = std.testing.allocator;
+    const bytes = try exportThemeLibraryAlloc(allocator, &.{ThemeMod.Theme.builtinDark()});
+    defer allocator.free(bytes);
+    const header_length = theme_magic.len + 1 + 8;
+    const duplicate = try allocator.alloc(u8, bytes.len * 2 - header_length);
+    defer allocator.free(duplicate);
+    @memcpy(duplicate[0..bytes.len], bytes);
+    @memcpy(duplicate[bytes.len..], bytes[header_length..]);
+    duplicate[theme_magic.len + 1] = 2;
+    try std.testing.expectError(error.DuplicateThemeName, importThemeLibraryAlloc(allocator, duplicate));
+}
+
+test "theme import rejects overflowing name length" {
+    const bytes = "NOCTTYTHM\x04\x01\x00\x00\x00\x00\x00\x00\x00" ++ "\xff" ** 8;
+    try std.testing.expectError(error.InvalidThemeLibrarySnapshot, importThemeLibraryAlloc(std.testing.allocator, bytes));
 }
 
 test "default theme library path uses native config location" {

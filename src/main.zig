@@ -7127,6 +7127,14 @@ fn nativeGridLayoutPresetSmoke(
     out: anytype,
     mode: NativeGridLayoutSmokeMode,
 ) !void {
+    var autosave_path_buffer: [160]u8 = undefined;
+    const autosave_path = try std.fmt.bufPrint(
+        &autosave_path_buffer,
+        "/tmp/noctty-native-grid-layout-autosave-{d}-{s}.nocttyws",
+        .{ std.c.getpid(), @tagName(mode) },
+    );
+    std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
+    defer std.Io.Dir.cwd().deleteFile(io, autosave_path) catch {};
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
     const history_limit: u32 = 12_345;
@@ -7172,6 +7180,8 @@ fn nativeGridLayoutPresetSmoke(
         .app = &app,
         .pane_id = tab.active_pane_id,
         .session_pool = &session_pool,
+        .io = io,
+        .autosave_path = autosave_path,
     };
     const expectations = nativeGridLayoutSmokeExpectations(mode);
     const status = runNativeGridHost(.{
@@ -7208,7 +7218,7 @@ fn nativeGridLayoutPresetSmoke(
     }
     if (app.workspace.tabs.items.len != 2 or
         pane_total != expectations.total_pane_count or
-        !saw_source or !saw_layout_tab or !app.recovery.dirty)
+        !saw_source or !saw_layout_tab)
         return error.NativeGridLayoutPresetModelMismatch;
 
     var workspace_path_buffer: [160]u8 = undefined;

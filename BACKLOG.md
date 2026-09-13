@@ -171,16 +171,26 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   input, DPI, high contrast, and live ConPTY sessions. Selection, bounded Unicode
   rename, and left/right ordering are implemented; focused model tests cover
   pane identity, close/reuse, and legacy/new saved-state compatibility.
-  Drag-based reorder remains outside this slice.
+  Captured drag reorder with insertion feedback and stale-identity guards is
+  implemented; the isolated native controls qualification now passes.
   `[truth:build,test,docs,external]`
 - [ ] [status:yellow] Qualify Windows divider capture/cancellation, menu resizing,
   and saved proportional layouts against live ConPTY sessions. Shared ratio
   math now serves GTK and Windows; native drag preview and keyboard/menu
   adjustment preserve the existing bounded tree and pane identities.
   `[truth:build,test,docs,external]`
-- [ ] Add launch-profile libraries and theme import/export to Windows GUI
-  controls, retaining ConPTY launch validation and atomic local persistence.
-  Shared built-in themes and exact font-size controls are implemented.
+- [ ] Add launch-profile libraries to Windows GUI controls, retaining ConPTY
+  launch validation and atomic local persistence.
+- [ ] Add native source-format theme imports for Ghostty, Xresources, Alacritty,
+  and Noctalia. Portable `.nocttythemes` import/export, persistent custom
+  selection, Unicode dialogs, and shared built-in/font controls are implemented.
+- [ ] [status:yellow] Qualify custom theme selection/import/export, replacement
+  confirmation, persistence errors, and tab dragging on supported Windows with
+  real sessions, DPI changes, and assistive technology. The combined 48-test
+  policy group, file-backed interoperability smoke, GTK theme flow, and isolated
+  Wine control/bitmap qualification pass. `[truth:build,test,docs,external]`
+- [ ] Complete remaining native Windows workspace parity: Smart Tabs, broadcast
+  input, dropdown/global-hotkey behavior, and workspace continuity.
 - [ ] Add native graphical paired-device/session-sharing controls over the
   existing shared protocol and lifecycle, including visible permission and
   persistence failures.

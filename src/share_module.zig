@@ -9,6 +9,7 @@ pub const live_host = share.live_host;
 pub const live_viewer = share.live_viewer;
 pub const vt = @import("terminal/Vt.zig");
 pub const theme = @import("theme/Theme.zig");
+pub const theme_storage = @import("theme/Storage.zig");
 pub const split_ratio = @import("workspace/SplitRatio.zig");
 
 test {

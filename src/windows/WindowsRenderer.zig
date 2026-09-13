@@ -160,13 +160,13 @@ fn drawLegacyGrid(state: *const State, device: c.HDC) void {
     const column: c_int = @intCast(cursor & 0xffff);
     const row_index: c_int = @intCast(cursor >> 16);
     if (column < 0 or column >= state.columns or row_index < 0 or row_index >= state.rows) return;
-    var rectangle = c.RECT{
+    const rectangle = c.RECT{
         .left = column * state.cell_width,
         .top = state.content_top + row_index * state.cell_height,
         .right = (column + 1) * state.cell_width,
         .bottom = state.content_top + (row_index + 1) * state.cell_height,
     };
-    _ = c.InvertRect(device, &rectangle);
+    drawCursor(state, device, rectangle);
 }
 
 fn drawPane(state: *const State, device: c.HDC, client: c.RECT, pane_index: c_int) void {
@@ -203,7 +203,7 @@ fn drawPane(state: *const State, device: c.HDC, client: c.RECT, pane_index: c_in
             if (column >= 0 and column < pane.columns and
                 row_index >= 0 and row_index < pane.rows)
             {
-                var rectangle = cellRectangle(
+                const rectangle = cellRectangle(
                     pane.content.left,
                     pane.content.top,
                     width,
@@ -213,11 +213,28 @@ fn drawPane(state: *const State, device: c.HDC, client: c.RECT, pane_index: c_in
                     column,
                     row_index,
                 );
-                _ = c.InvertRect(device, &rectangle);
+                drawCursor(state, device, rectangle);
             }
         }
     }
     drawPaneBorder(device, pane);
+}
+
+fn drawCursor(state: *const State, device: c.HDC, cell: c.RECT) void {
+    const cb = callbacks(state);
+    if (cb.preference_get(cb.userdata, 1) == 1) {
+        _ = c.InvertRect(device, &cell);
+        return;
+    }
+    // Preserve the block cursor and glyph visibility. XOR maps the default
+    // background to the theme cursor color instead of painting over its text.
+    const mask = state.background ^ cb.theme_color(cb.userdata, 2);
+    const brush = c.GetStockObject(c.DC_BRUSH);
+    const previous_brush = c.SelectObject(device, brush);
+    defer _ = c.SelectObject(device, previous_brush);
+    const previous_color = c.SetDCBrushColor(device, Logic.noctty_windows_colorref_from_rgb(mask));
+    defer _ = c.SetDCBrushColor(device, previous_color);
+    _ = c.PatBlt(device, cell.left, cell.top, cell.right - cell.left, cell.bottom - cell.top, c.PATINVERT);
 }
 
 fn paneGeometry(state: *const State, client: c.RECT, pane_index: c_int) ?Pane {
@@ -419,6 +436,30 @@ fn terminalColor(state: *const State, pane_index: c_int, color: u32, fallback: u
     else
         callbacks(state).color_rgb(callbacks(state).userdata, color);
     return if (value == color_invalid) fallback else value;
+}
+
+/// Hidden-window qualification paints real terminal cells into an owned bitmap.
+/// The caller supplies two blank cells: default background then ANSI background 1.
+pub fn qualifyThemePaint(state: *const State, pane: c_int, expected_background: u32, expected_ansi: u32, expected_cursor: u32) bool {
+    if (state.cell_width <= 0 or state.cell_height <= 0) return false;
+    if (terminalColor(state, pane, color_default, state.foreground) != state.foreground or
+        terminalColor(state, pane, 1, state.foreground) != expected_ansi or
+        terminalColor(state, -1, 1, state.foreground) != expected_ansi) return false;
+    const window_dc = c.GetDC(state.window) orelse return false;
+    defer _ = c.ReleaseDC(state.window, window_dc);
+    const device = c.CreateCompatibleDC(window_dc) orelse return false;
+    defer _ = c.DeleteDC(device);
+    const width = state.cell_width * 2;
+    const bitmap = c.CreateCompatibleBitmap(window_dc, width, state.cell_height) orelse return false;
+    defer _ = c.DeleteObject(bitmap);
+    const previous = c.SelectObject(device, bitmap);
+    defer _ = c.SelectObject(device, previous);
+    drawCell(state, device, pane, 0, 0, width, state.cell_height, 2, 1, 0, 0);
+    drawCell(state, device, pane, 0, 0, width, state.cell_height, 2, 1, 1, 0);
+    if (c.GetPixel(device, @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.noctty_windows_colorref_from_rgb(expected_background) or
+        c.GetPixel(device, state.cell_width + @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.noctty_windows_colorref_from_rgb(expected_ansi)) return false;
+    drawCursor(state, device, .{ .left = 0, .top = 0, .right = state.cell_width, .bottom = state.cell_height });
+    return c.GetPixel(device, @divTrunc(state.cell_width, 2), state.cell_height - 1) == Logic.noctty_windows_colorref_from_rgb(expected_cursor);
 }
 
 fn cellSelected(state: *const State, pane_index: c_int, column: c_int, row: c_int) bool {

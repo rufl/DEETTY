@@ -23,6 +23,7 @@ const Dpapi = @import("Dpapi.zig");
 const WindowsHost = @import("WindowsHost.zig");
 const Workspace = @import("WindowsWorkspace.zig");
 const WindowsAppearance = @import("WindowsAppearance.zig");
+const WindowsThemeLibrary = @import("WindowsThemeLibrary.zig");
 const WindowsWorkspace = Workspace.WindowsWorkspace;
 const WorkspaceSnapshot = Workspace.WorkspaceSnapshot;
 const WindowsPreferences = Workspace.WindowsPreferences;
@@ -90,6 +91,7 @@ const State = struct {
     workspace: WindowsWorkspace,
     store: Share.identity.Store,
     preferences: WindowsPreferences = .{},
+    themes: WindowsThemeLibrary.Library = .init(std.heap.page_allocator, 0),
     saved_workspace: ?WorkspaceSnapshot = null,
     live_host: ?*Share.live_host.LiveHost = null,
     control_prompt_active: bool = false,
@@ -133,6 +135,24 @@ fn applyPersistedWindowsState(state: *State) void {
             rows_initial,
         ) catch {};
     }
+}
+
+const ThemeSink = struct {
+    pub fn save(_: @This(), bytes: []const u8) !void {
+        try Dpapi.themeStateSave(bytes);
+    }
+};
+
+fn applyPersistedThemes(state: *State) void {
+    // Legacy preferences seed only the fallback; corrupt state is never repaired
+    // implicitly. An explicit selection/import is the only durable replacement.
+    state.themes.selected = @intFromEnum(state.preferences.theme);
+    const allocator = state.themes.allocator;
+    const bytes = (Dpapi.themeStateLoadAlloc(allocator, WindowsThemeLibrary.max_state_bytes) catch return) orelse return;
+    defer allocator.free(bytes);
+    const loaded = WindowsThemeLibrary.decodeStateAlloc(allocator, bytes) catch return;
+    state.themes.deinit();
+    state.themes = loaded;
 }
 
 pub export fn wWinMain(
@@ -216,8 +236,12 @@ pub export fn wWinMain(
         if (state.live_viewer) |viewer| viewer.destroy();
         state.workspace.deinit();
         state.store.deinit();
+        state.themes.deinit();
     }
-    if (!self_test_requested) applyPersistedWindowsState(&state);
+    if (!self_test_requested) {
+        applyPersistedWindowsState(&state);
+        applyPersistedThemes(&state);
+    }
 
     if (self_test_requested) return if (selfTest(&state)) 0 else 1;
     if (mode.kind == .share) {
@@ -311,6 +335,7 @@ pub export fn wWinMain(
         .next_tab = nextTab,
         .tab_count = tabCount,
         .tab_active = tabActive,
+        .tab_identity = tabIdentity,
         .tab_title = tabTitle,
         .tab_select = tabSelect,
         .tab_rename = tabRename,
@@ -337,6 +362,13 @@ pub export fn wWinMain(
         .remote_pane = remotePane,
         .preference_get = preferenceGet,
         .preference_set = preferenceSet,
+        .theme_count = themeCount,
+        .theme_active = themeActive,
+        .theme_name = themeName,
+        .theme_select = themeSelect,
+        .theme_import = themeImport,
+        .theme_export = themeExport,
+        .theme_color = themeColor,
         .workspace_persistence = workspacePersistence,
         .pane_mouse_mode = paneMouseMode,
         .pane_mouse_encode = paneMouseEncode,
@@ -863,10 +895,69 @@ fn workspaceClose(raw: ?*anyopaque, action: c_int) callconv(.c) u32 {
     return result;
 }
 
+fn themeCount(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    return @intCast(state.themes.count());
+}
+
+fn themeActive(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    return @intCast(state.themes.selected);
+}
+
+fn themeName(raw: ?*anyopaque, index: c_int, output: [*]u8, capacity: usize) callconv(.c) c_int {
+    if (index < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const theme = state.themes.theme(@intCast(index)) orelse return -1;
+    const name = std.mem.trim(u8, theme.name, " \t\r\n");
+    if (name.len > capacity) return -1;
+    @memcpy(output[0..name.len], name);
+    return @intCast(name.len);
+}
+
+fn themeSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
+    if (index < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    state.themes.select(@intCast(index), ThemeSink{}) catch return -1;
+    if (WindowsAppearance.validTheme(index)) state.preferences.theme = @enumFromInt(index);
+    return 0;
+}
+
+fn themeImport(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) c_int {
+    if (length == 0 or length > 131_068) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const allocator = state.themes.allocator;
+    const bytes = Dpapi.readFileAllocUtf8(allocator, path[0..length], WindowsThemeLibrary.max_file_bytes) catch return -1;
+    defer allocator.free(bytes);
+    state.themes.importPortable(bytes, ThemeSink{}) catch return -1;
+    return 0;
+}
+
+fn themeExport(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) c_int {
+    if (length == 0 or length > 131_068) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    const allocator = state.themes.allocator;
+    const bytes = state.themes.exportPortableAlloc() catch return -1;
+    defer allocator.free(bytes);
+    Dpapi.writeFileAtomicUtf8(allocator, path[0..length], bytes) catch return -1;
+    return 0;
+}
+
+fn themeColor(raw: ?*anyopaque, role: c_int) callconv(.c) u32 {
+    const state = stateFromRaw(raw) orelse return 0xffffffff;
+    const theme = state.themes.selectedTheme();
+    return switch (role) {
+        0 => WindowsThemeLibrary.rgb(theme.foreground),
+        1 => WindowsThemeLibrary.rgb(theme.background),
+        2 => WindowsThemeLibrary.rgb(theme.cursor),
+        else => 0xffffffff,
+    };
+}
+
 fn preferenceGet(raw: ?*anyopaque, field: c_int) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
     return switch (field) {
-        1 => @intFromEnum(state.preferences.theme),
+        1 => state.themes.preferenceTheme(),
         2 => state.preferences.font_size_pt,
         3 => @intFromEnum(state.preferences.launch_profile),
         4 => @intFromBool(state.preferences.restore_workspace),
@@ -884,7 +975,7 @@ fn preferenceSet(
     switch (field) {
         1 => {
             if (!WindowsAppearance.validTheme(value)) return -1;
-            state.preferences.theme = @enumFromInt(value);
+            return themeSelect(raw, value);
         },
         2 => {
             if (!WindowsAppearance.validFontSize(value)) return -1;
@@ -1000,7 +1091,7 @@ fn cellText(
 fn colorRgb(raw: ?*anyopaque, color_id: u32) callconv(.c) u32 {
     const state = stateFromRaw(raw) orelse return 0xffffffff;
     if (color_id > std.math.maxInt(u16)) return 0xffffffff;
-    if (WindowsAppearance.indexedColor(@intFromEnum(state.preferences.theme), color_id)) |rgb|
+    if (state.themes.indexedColor(color_id)) |rgb|
         return rgb;
     if (state.live_viewer) |viewer| return viewer.colorRgb(@intCast(color_id));
     const grid = state.workspace.activeGrid() orelse return 0xffffffff;
@@ -1251,7 +1342,7 @@ fn paneCellText(
 fn paneColorRgb(raw: ?*anyopaque, index_raw: c_int, color_id: u32) callconv(.c) u32 {
     if (index_raw < 0 or color_id > std.math.maxInt(u16)) return 0xffffffff;
     const state = stateFromRaw(raw) orelse return 0xffffffff;
-    if (WindowsAppearance.indexedColor(@intFromEnum(state.preferences.theme), color_id)) |rgb|
+    if (state.themes.indexedColor(color_id)) |rgb|
         return rgb;
     if (state.live_viewer) |viewer|
         return viewer.streamColorRgb(@intCast(index_raw), @intCast(color_id));
@@ -1400,6 +1491,15 @@ fn tabActive(raw: ?*anyopaque) callconv(.c) c_int {
     return @intCast(state.workspace.active_tab);
 }
 
+fn tabIdentity(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
+    if (index_raw < 0) return -1;
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null) return -1;
+    const index: usize = @intCast(index_raw);
+    if (index >= state.workspace.tab_count) return -1;
+    return state.workspace.tabs[index].root;
+}
+
 fn tabTitle(
     raw: ?*anyopaque,
     index_raw: c_int,
@@ -1502,6 +1602,15 @@ fn selfTest(state: *State) bool {
     if (grid.colorRgb(first.foreground) != 0x8fb8ff) return false;
     for ([_]Workspace.WindowsPreferences{ .{ .theme = .dark }, .{ .theme = .high_contrast }, .{ .theme = .paseo_black_zinc } }) |preferences| {
         state.preferences = preferences;
+        state.themes.selected = @intFromEnum(preferences.theme);
+        if (themeActive(state) != @intFromEnum(preferences.theme) or themeCount(state) != 3) return false;
+        const defaults = WindowsAppearance.colors(@intFromEnum(preferences.theme));
+        if (themeColor(state, 0) != defaults.foreground or themeColor(state, 1) != defaults.background)
+            return false;
+        var name: [128]u8 = undefined;
+        const name_length = themeName(state, themeActive(state), &name, name.len);
+        if (name_length < 0 or !std.mem.eql(u8, name[0..@intCast(name_length)], state.themes.selectedTheme().name))
+            return false;
         if (colorRgb(state, first.foreground) != 0x8fb8ff or
             paneColorRgb(state, 0, first.foreground) != 0x8fb8ff or
             colorRgb(state, 202) != grid.colorRgb(202) or
@@ -1512,6 +1621,7 @@ fn selfTest(state: *State) bool {
             return false;
     }
     state.preferences = .{};
+    state.themes.selected = 0;
     grid.feed("\r\nNOCTTY_WINDOWS_HOST_OK\r\n") catch return false;
     if (smokeReady(state) != 1) return false;
 

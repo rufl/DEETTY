@@ -429,12 +429,12 @@ pub export fn noctty_windows_normalize_preferences(
     output: ?*Preferences,
 ) callconv(.c) c_int {
     const result = output orelse return 0;
-    const valid = Appearance.validTheme(theme) and
+    const valid = (Appearance.validTheme(theme) or theme == 3) and
         Appearance.validFontSize(font_size_pt) and
         (launch_profile == 0 or launch_profile == 1) and
         (restore_workspace == 0 or restore_workspace == 1);
     result.* = .{
-        .theme = if (Appearance.validTheme(theme)) theme else 0,
+        .theme = if (Appearance.validTheme(theme) or theme == 3) theme else 0,
         .font_size_pt = if (Appearance.validFontSize(font_size_pt)) font_size_pt else Appearance.default_font_size,
         .launch_profile = @intFromBool(launch_profile == 1),
         .restore_workspace = @intFromBool(restore_workspace != 0),
@@ -1045,7 +1045,7 @@ test "Windows preferences normalize invalid persisted values" {
 
 test "Windows appearance: preferences preserve exact font bounds and theme selection" {
     var preferences: Preferences = undefined;
-    for ([_]c_int{ 0, 1, 2 }) |theme| {
+    for ([_]c_int{ 0, 1, 2, 3 }) |theme| {
         for (8..33) |size| {
             try std.testing.expectEqual(@as(c_int, 1), noctty_windows_normalize_preferences(
                 theme,
@@ -1071,7 +1071,7 @@ test "Windows appearance: preferences preserve exact font bounds and theme selec
             .restore_workspace = 0,
         }, preferences);
     }
-    for ([_]c_int{ -1, 3 }) |theme| {
+    for ([_]c_int{ -1, 4 }) |theme| {
         try std.testing.expectEqual(@as(c_int, 0), noctty_windows_normalize_preferences(theme, 32, 0, 1, &preferences));
         try std.testing.expectEqualDeep(Preferences{
             .theme = 0,

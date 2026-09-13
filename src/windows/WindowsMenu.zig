@@ -5,6 +5,7 @@
 
 const Logic = @import("WindowsHostLogic.zig");
 const Appearance = @import("WindowsAppearance.zig");
+const Abi = @import("WindowsHostAbi.zig");
 
 const c = @cImport({
     @cDefine("UNICODE", "1");
@@ -51,6 +52,10 @@ pub const id_divider_shorter: u32 = 40116;
 pub const id_copy: u32 = 40201;
 pub const id_paste: u32 = 40202;
 pub const id_clear_screen: u32 = 40203;
+pub const id_theme_import: u32 = 40500;
+pub const id_theme_export: u32 = 40501;
+pub const id_theme_custom: u32 = 40600;
+pub const max_custom_themes: u32 = 64;
 
 const local_commands = [_]u32{
     id_new_tab,        id_split_down,        id_split_left,       id_close_pane,     id_close_tab,
@@ -110,6 +115,9 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
     if (!append(theme, c.MF_STRING, id_theme_dark, "&Dark") or
         !append(theme, c.MF_STRING, id_theme_high_contrast, "&High contrast") or
         !append(theme, c.MF_STRING, id_theme_zinc, "&Paseo Black Zinc") or
+        c.AppendMenuW(theme, c.MF_SEPARATOR, 0, null) == 0 or
+        !append(theme, c.MF_STRING, id_theme_import, "&Import library...") or
+        !append(theme, c.MF_STRING, id_theme_export, "&Export library...") or
         !append(font, c.MF_STRING, id_font_11, "11 pt") or
         !append(font, c.MF_STRING, id_font_13, "13 pt") or
         !append(font, c.MF_STRING, id_font_16, "16 pt") or
@@ -202,13 +210,12 @@ pub export fn noctty_windows_menu_update(
     remote_mode: c_int,
 ) void {
     const menu = optional_menu orelse return;
-    _ = c.CheckMenuRadioItem(
-        menu.theme,
-        id_theme_dark,
-        id_theme_zinc,
-        if (theme_value == 2) id_theme_zinc else if (theme_value == 1) id_theme_high_contrast else id_theme_dark,
-        c.MF_BYCOMMAND,
-    );
+    for ([_]u32{ id_theme_dark, id_theme_high_contrast, id_theme_zinc }, 0..) |command, index| {
+        _ = c.CheckMenuItem(menu.theme, command, @intCast(c.MF_BYCOMMAND | (if (theme_value == @as(c_int, @intCast(index))) c.MF_CHECKED else c.MF_UNCHECKED)));
+    }
+    for (0..max_custom_themes) |index| {
+        _ = c.CheckMenuItem(menu.theme, id_theme_custom + @as(u32, @intCast(index)), @intCast(c.MF_BYCOMMAND | (if (theme_value == @as(c_int, @intCast(index)) + 3) c.MF_CHECKED else c.MF_UNCHECKED)));
+    }
     const font_command: c.UINT = switch (font_size_pt) {
         11 => id_font_11,
         16 => id_font_16,
@@ -251,6 +258,51 @@ pub export fn noctty_windows_menu_update(
     else
         wide("Next &Tab\tCtrl+Shift+Tab"));
     _ = c.DrawMenuBar(menu.window);
+}
+
+/// Rebuild only the custom tail after the library changes. The attached menu
+/// remains owned by the HWND; AppendMenuW copies each temporary UTF-16 label.
+pub fn refreshThemes(menu: *Menu, callbacks: *const Abi.Callbacks) bool {
+    while (c.GetMenuItemCount(menu.theme) > 6) {
+        if (c.DeleteMenu(menu.theme, 6, c.MF_BYPOSITION) == 0) return false;
+    }
+    const count = callbacks.theme_count(callbacks.userdata);
+    if (count < 3 or count > 3 + max_custom_themes) return false;
+    var index: c_int = 3;
+    while (index < count) : (index += 1) {
+        var name: [96]u8 = undefined;
+        const length = callbacks.theme_name(callbacks.userdata, index, &name, name.len);
+        if (length <= 0 or length > name.len) return false;
+        var decoded: [96]u16 = undefined;
+        const units = c.MultiByteToWideChar(c.CP_UTF8, c.MB_ERR_INVALID_CHARS, &name, length, &decoded, decoded.len);
+        if (units <= 0) return false;
+        var label: [193]u16 = undefined;
+        var used: usize = 0;
+        for (decoded[0..@intCast(units)]) |unit| {
+            label[used] = unit;
+            used += 1;
+            if (unit == '&') {
+                label[used] = '&';
+                used += 1;
+            }
+        }
+        label[used] = 0;
+        if (c.AppendMenuW(menu.theme, c.MF_STRING, id_theme_custom + @as(u32, @intCast(index - 3)), @ptrCast(&label)) == 0) return false;
+    }
+    return true;
+}
+
+pub fn qualifyThemes(menu: *const Menu, count: c_int, active: c_int) bool {
+    if (count < 3 or c.GetMenuItemCount(menu.theme) != count + 3 or
+        !commandStateMatches(menu.theme, id_theme_import, false) or
+        !commandStateMatches(menu.theme, id_theme_export, false)) return false;
+    var index: c_int = 0;
+    while (index < count) : (index += 1) {
+        const command = if (index < 3) @as(u32, @intCast(index)) + id_theme_dark else id_theme_custom + @as(u32, @intCast(index - 3));
+        const state = c.GetMenuState(menu.theme, command, c.MF_BYCOMMAND);
+        if (state == @import("std").math.maxInt(c.UINT) or ((state & c.MF_CHECKED) != 0) != (index == active)) return false;
+    }
+    return true;
 }
 
 /// Inspect the real Win32 menu, including disabled commands and displayed hints.

@@ -26,10 +26,12 @@ Included:
 - native Win32 Settings, Workspace, and Terminal menus exposing themes,
   font sizes, launch profile, workspace creation/navigation/guarded close,
   layout persistence, copy/paste, and focused-terminal Ctrl+L
-- a native tab strip with direct tab selection, custom tab names, and
-  left/right ordering commands; pane sessions retain their identities
+- a native tab strip with direct tab selection, custom tab names, drag reordering,
+  and left/right ordering commands; pane sessions retain their identities
 - proportional split dividers with drag preview, menu-based pane resizing,
   reset/equalize, and saved ratios
+- portable theme-library import/export, persistent custom selection, and native
+  Unicode file dialogs using the shared Linux theme codec
 - explicit, checksummed save/restore of the bounded tab and split layout;
   restoring launches replacement shells rather than serializing shell contents
 - explicit command-line LAN discovery, pairing, and encrypted terminal
@@ -48,8 +50,7 @@ Included:
 
 Not included or claimed yet:
 
-- Smart Tabs, broadcast input, drag-based tab reordering, or a reusable
-  launch-profile library
+- Smart Tabs, broadcast input, or a reusable launch-profile library
 - dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
@@ -102,6 +103,11 @@ characters; an empty name returns to the automatic label. Reordering changes
 the tab order, not pane slots, running processes, split trees, or each tab's
 focused pane. Use **Save current layout** to persist names and ordering.
 
+Drag a local tab past the native drag threshold to reorder it. The insertion
+marker previews the destination; releasing commits one move. Escape, capture
+loss, window resize, or workspace changes cancel the drag. The existing
+left/right menu commands remain the keyboard alternative.
+
 Remote tabs can be selected but not renamed or reordered locally. Their names
 and ordering remain owned by the host.
 
@@ -125,9 +131,8 @@ Remote viewers disable local workspace mutations and reject them at dispatch.
 Next Pane and Next Tab remain available, with shortcut hints changed to match
 the remote navigation order described above.
 
-These controls remain smaller than the Linux workspace surface. Drag-based
-reordering, a reusable profile library, Smart Tabs, and broadcast input are
-not included.
+These controls remain smaller than the Linux workspace surface. A reusable
+profile library, Smart Tabs, and broadcast input are not included.
 
 ### Parity development boundary
 
@@ -137,8 +142,8 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is shared launch-profile libraries, theme
-import/export controls, and graphical sharing controls. Windows' bounded
+The next larger parity work is shared launch-profile libraries, external
+theme-format import controls, and graphical sharing controls. Windows' bounded
 workspace tree and versioned snapshot codec live in
 `src/windows/WindowsWorkspace.zig`. Its divider conversions use
 `src/workspace/SplitRatio.zig`, also consumed by the GTK divider adapter.
@@ -168,6 +173,9 @@ and cancellation, reorder identity, terminal content inset, rejection of remote
 workspace mutations, and HWND-owned child/menu destruction. It also exercises
 divider drag/commit/cancellation, both-axis menu adjustment/reset, exact font
 dialog validation and cancellation, theme selection, and font-size boundaries.
+The theme/tab tranche adds production tab-drag qualification, Unicode file
+paths, common-dialog cancellation, portable import/export, persisted custom
+selection, rejected-import rollback, and bitmap sampling of terminal colors.
 It does not start or mock ConPTY; its receipt explicitly reports `conpty=false`.
 
 On supported Windows, run the packaged `windows_smoke.ps1 -Interactive`
@@ -175,10 +183,12 @@ checklist to exercise the new menus against real shells, clipboard, and remote
 input permissions. Cross-compilation and the hidden-window Wine qualification
 do not establish visual, physical-input, or ConPTY acceptance for these actions.
 
-The ratio/appearance tranche passes focused native policy tests, Windows and
-GTK builds, and an original-`NWS2`-encoder migration smoke. Its isolated Windows
-control and GTK layout smokes remain deferred by the host I/O-pressure gate;
-no visual or physical Windows acceptance is claimed.
+The integrated theme/tab tranche passes 48 focused policy/codec tests, Windows
+and GTK `ReleaseSafe` builds, a file-backed portable-theme/reload/rollback
+smoke, the isolated GTK theme and layout-preset flows, and the isolated Wine
+native-control smoke. The latter also exercises the prior tab, divider, menu,
+and font-dialog tranche. These receipts do not establish supported-Windows
+visual, input, or ConPTY acceptance.
 
 ## Selection and terminal mouse input
 
@@ -198,9 +208,10 @@ bounded release reports before NOCTTY clears pressed-button state.
 
 The window's **Settings** menu applies user-owned, local preferences:
 
-- **Theme** selects the shared NOCTTY Dark or Paseo Black Zinc palette, or
-  Windows' current high-contrast window colors with the shared high-contrast
-  ANSI palette.
+- **Theme** selects the shared NOCTTY Dark or Paseo Black Zinc palette, Windows'
+  current high-contrast window colors, or an imported custom theme. Terminal
+  foreground/background, ANSI colors, and block-cursor colors use the selected
+  shared palette; native window/menu chrome remains Windows-owned.
 - **Font size** retains the 11/13/16/18-point presets and adds an exact native
   size dialog covering 8–32 points, plus increase/decrease/reset commands.
   These commands do not steal terminal keyboard shortcuts.
@@ -224,6 +235,26 @@ metadata and proportional split ratios. Older builds cannot read newly saved
 `NWS3` files.
 Invalid or truncated state is ignored; startup falls back to the default
 single-pane workspace.
+
+**Theme → Import library** opens a native file picker for portable
+`.nocttythemes` files shared with Linux. Import replaces the custom library and
+selects its first entry; replacing existing custom themes requires confirmation.
+Up to 64 custom themes and 4 MiB input are accepted;
+malformed files or failed persistence leave the live and saved state unchanged.
+Theme names follow the shared format's ASCII rules and 96-byte limit after
+outer whitespace is trimmed; native labels use that trimmed name. File paths
+support Unicode. Ghostty, Xresources, Alacritty, and Noctalia source files must
+currently be imported/exported through the Linux theme tools first.
+
+**Export library** writes the current custom library, or the three built-ins
+when no customs exist, using the shared portable codec. The native save dialog
+confirms overwrites. Import/export cancellation has no state effect.
+
+Custom themes and active selection live together in the atomically replaced
+`%LOCALAPPDATA%\NOCTTY\windows-themes-v1.bin`. Legacy workspace preferences seed
+the theme only when this separate state is absent or invalid. Corrupt theme
+state is not overwritten automatically; an explicit successful theme selection
+or import replaces it. Workspace snapshots remain `NWS3`.
 
 ## Native Windows NoctEd
 
