@@ -1067,15 +1067,12 @@ fn themeImport(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) 
     if (length == 0 or length > 131_068) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     const allocator = state.themes.allocator;
-    const bytes = Dpapi.readFileAllocUtf8(allocator, path[0..length], WindowsThemeLibrary.max_file_bytes) catch return -1;
+    const bytes = Dpapi.readFileAllocUtf8(allocator, path[0..length], WindowsThemeLibrary.max_file_bytes) catch return -2;
     defer allocator.free(bytes);
     if (sourceThemeFormat(path[0..length], bytes) != null) {
-        importThemeSource(state, path[0..length], bytes) catch |err| {
-            std.debug.print("windows_theme_source_error={s}\n", .{@errorName(err)});
-            return -1;
-        };
+        importThemeSource(state, path[0..length], bytes) catch return -3;
     } else {
-        state.themes.importPortable(bytes, ThemeSink{}) catch return -1;
+        state.themes.importPortable(bytes, ThemeSink{}) catch return -4;
     }
     return 0;
 }

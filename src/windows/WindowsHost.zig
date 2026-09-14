@@ -1355,8 +1355,13 @@ fn themeSmoke(host: *Host) bool {
         return themeSmokeFail("source_path");
     const source_length = source_path.len - portable_suffix.len + source_suffix.len;
     @memcpy(source_path[source_path.len - portable_suffix.len ..][0..source_suffix.len], source_suffix);
-    if (cb.theme_import(cb.userdata, source_path.ptr, source_length) != 0)
+    Dpapi.writeFileAtomicUtf8(allocator, source_path[0..source_length], "background = #102030\nforeground = #d0e0f0\ncursor-color = #ffffff\n") catch
+        return themeSmokeFail("source_write");
+    const source_result = cb.theme_import(cb.userdata, source_path.ptr, source_length);
+    if (source_result != 0) {
+        log("windows_theme_import_code={d}\r\n", .{source_result});
         return themeSmokeFail("source_import");
+    }
     if (cb.theme_count(cb.userdata) != 4 or cb.theme_active(cb.userdata) != 3)
         return themeSmokeFail("source_state");
     if (host.background != 0x102030 or host.foreground != 0xd0e0f0)
