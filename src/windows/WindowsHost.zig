@@ -1417,8 +1417,26 @@ fn themeSmoke(host: *Host) bool {
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     if (!Menu.qualifyState(menu, false)) return false;
-    if (!tabSmoke(host) or !dividerSmoke(host) or !appearanceSmoke(host) or !themeSmoke(host) or
-        !ProfileDialog.qualify(host.window, host.callbacks) or !Menu.refreshProfiles(menu, host.callbacks)) return false;
+    if (!tabSmoke(host)) {
+        log("windows_menu_smoke_stage=tabs\r\n", .{});
+        return false;
+    }
+    if (!dividerSmoke(host)) {
+        log("windows_menu_smoke_stage=dividers\r\n", .{});
+        return false;
+    }
+    if (!appearanceSmoke(host)) {
+        log("windows_menu_smoke_stage=appearance\r\n", .{});
+        return false;
+    }
+    if (!themeSmoke(host)) {
+        log("windows_menu_smoke_stage=themes\r\n", .{});
+        return false;
+    }
+    if (!ProfileDialog.qualify(host.window, host.callbacks) or !Menu.refreshProfiles(menu, host.callbacks)) {
+        log("windows_menu_smoke_stage=profiles\r\n", .{});
+        return false;
+    }
     updateMenu(host);
     if (!Menu.qualifyProfiles(menu, 3, host.callbacks.profile_active(host.callbacks.userdata))) return false;
     const panes_before = host.callbacks.pane_count(host.callbacks.userdata);
