@@ -57,6 +57,20 @@ Not claimed yet:
 See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md), the [Konsole resilience review](docs/KONSOLE_RESILIENCE_REVIEW.md),
 the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairness qualification](docs/TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md), the [mapped presentation qualification](docs/NATIVE_GRID_PRESENTATION_QUALIFICATION.md), the [full-stack mapped qualification](docs/NATIVE_GRID_FULL_STACK_QUALIFICATION.md), the [hidden/visible stability qualification](docs/NATIVE_GRID_STABILITY_QUALIFICATION.md), the [authenticated Codex qualification](docs/AUTHENTICATED_AGENT_QUALIFICATION.md), the [installed tmux/Zellij continuity qualification](docs/INSTALLED_CONTINUITY_QUALIFICATION.md), the [NoctEd native endurance qualification](docs/NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md), and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
 
+### Local-agent resource research
+
+The [small-model teams and memory-tier research](../../tools/ZNAP/SMALL_MODEL_TEAMS_AND_MEMORY_TIERS.md)
+and [retained cache/host evidence](../../tools/ZNAP/research/memory-tier-verification-2026-09-13.json)
+apply to terminals hosting coding agents: share qualified serving weights rather
+than launching a model copy per tab, but keep project histories and permissions
+separate. A task abort must not terminate an unrelated shared inference server.
+Preserve terminal responsiveness and existing fairness/output bounds while
+serializing resource-heavy model or artifact work through its owning runtime.
+The observed zram/zswap setup consumes physical RAM; it is not extra model capacity.
+Page-cache hints do not prove endpoint readiness, and terminal/PTY qualification
+does not prove model task quality. These are integration guidelines, not a new
+NOCTTY inference engine, agent scheduler or change to default behavior.
+
 ## Build and run
 
 Linux requirements:
