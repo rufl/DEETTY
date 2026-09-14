@@ -368,8 +368,7 @@ pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
         c.GetMenuItemCount(menu.root) != 4 or
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
-        c.GetSubMenu(menu.root, 2) != menu.terminal or
-        c.GetMenuItemCount(menu.workspace) != 24 or
+        c.GetMenuItemCount(menu.workspace) != 23 or
         c.GetMenuItemCount(menu.terminal) != 3) return false;
     for (local_commands) |command| {
         if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;
