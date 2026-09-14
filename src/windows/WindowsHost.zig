@@ -1367,14 +1367,19 @@ fn themeSmoke(host: *Host) bool {
     if (!refreshTheme(host, true)) return themeSmokeFail("source_refresh");
     if (host.background != 0x102030 or host.foreground != 0xd0e0f0)
         return themeSmokeFail("source_colors");
-    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
-        cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
+    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0)
+        return themeSmokeFail("portable_restore_import");
+    if (cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3)
+        return themeSmokeFail("portable_restore_state");
+    if (!refreshTheme(host, true)) return themeSmokeFail("portable_restore_refresh");
     var label: [193]u16 = undefined;
     const label_length = c.GetMenuStringW(@ptrCast(menu.theme), Menu.id_theme_custom, &label, label.len, c.MF_BYCOMMAND);
     const expected_label = std.unicode.utf8ToUtf16LeStringLiteral("Native first");
-    if (label_length != expected_label.len or !std.mem.eql(u16, label[0..@intCast(@max(label_length, 0))], expected_label)) return false;
+    if (label_length != expected_label.len or !std.mem.eql(u16, label[0..@intCast(@max(label_length, 0))], expected_label))
+        return themeSmokeFail("theme_label");
     const original_tab = cb.tab_active(cb.userdata);
-    if (cb.workspace_action(cb.userdata, action_new_tab, default_columns, default_rows) <= 0) return false;
+    if (cb.workspace_action(cb.userdata, action_new_tab, default_columns, default_rows) <= 0)
+        return themeSmokeFail("theme_paint_tab");
     const paint_tab = cb.tab_active(cb.userdata);
     defer {
         _ = cb.tab_select(cb.userdata, paint_tab);
