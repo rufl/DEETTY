@@ -221,8 +221,17 @@ pub fn validateName(name: []const u8) !void {
 }
 
 pub fn parseHexColor(raw: []const u8) !Color {
-    var s = std.mem.trim(u8, raw, " \t'\"");
-    if (s.len > 0 and s[0] == '#') s = s[1..];
+    var s = std.mem.trim(u8, raw, " \t\r\n");
+    if (s.len >= 2 and (s[0] == '"' or s[0] == '\'')) {
+        const quote = s[0];
+        const end = std.mem.indexOfScalarPos(u8, s, 1, quote) orelse return error.InvalidColor;
+        s = s[1..end];
+    }
+    if (s.len > 0 and s[0] == '#') {
+        s = s[1..];
+    } else if (s.len >= 2 and s[0] == '0' and (s[1] == 'x' or s[1] == 'X')) {
+        s = s[2..];
+    }
     if (s.len != 6) return error.InvalidColor;
     const value = try std.fmt.parseInt(u24, s, 16);
     return Color.fromHex(value);
@@ -245,14 +254,19 @@ pub fn importTheme(
     switch (format) {
         .noctalia_dark, .noctalia_light, .noctalia_active => try applyNoctaliaTheme(allocator, &theme, format, contents),
         else => {
+            var alacritty_section: []const u8 = "";
             var it = std.mem.splitScalar(u8, contents, '\n');
             while (it.next()) |line_raw| {
                 const line = std.mem.trim(u8, line_raw, " \t\r");
                 if (line.len == 0 or line[0] == '#') continue;
+                if (format == .alacritty_toml and line[0] == '[' and line[line.len - 1] == ']') {
+                    alacritty_section = std.mem.trim(u8, line[1 .. line.len - 1], " \t");
+                    continue;
+                }
                 switch (format) {
                     .ghostty => applyGhosttyLine(&theme, line) catch {},
                     .xresources => applyXresourcesLine(&theme, line) catch {},
-                    .alacritty_toml => applyAlacrittyLine(&theme, line) catch {},
+                    .alacritty_toml => applyAlacrittyLine(&theme, alacritty_section, line) catch {},
                     else => unreachable,
                 }
             }
@@ -434,7 +448,7 @@ fn applyXresourcesLine(theme: *Theme, line: []const u8) !void {
     }
 }
 
-fn applyAlacrittyLine(theme: *Theme, line: []const u8) !void {
+fn applyAlacrittyLine(theme: *Theme, section: []const u8, line: []const u8) !void {
     const eq = std.mem.indexOfScalar(u8, line, '=') orelse return;
     const key = std.mem.trim(u8, line[0..eq], " \t");
     const value = std.mem.trim(u8, line[eq + 1 ..], " \t");
@@ -442,8 +456,29 @@ fn applyAlacrittyLine(theme: *Theme, line: []const u8) !void {
         theme.background = try parseHexColor(value);
     } else if (std.mem.eql(u8, key, "foreground")) {
         theme.foreground = try parseHexColor(value);
-    } else if (std.mem.eql(u8, key, "cursor")) {
+    } else if (std.mem.eql(u8, key, "cursor") or
+        (std.mem.eql(u8, section, "colors.cursor") and std.mem.eql(u8, key, "text")))
+    {
         theme.cursor = try parseHexColor(value);
+    } else if (std.mem.eql(u8, section, "colors.primary")) {
+        if (std.mem.eql(u8, key, "background")) {
+            theme.background = try parseHexColor(value);
+        } else if (std.mem.eql(u8, key, "foreground")) {
+            theme.foreground = try parseHexColor(value);
+        }
+    } else if (std.mem.eql(u8, section, "colors.normal") or
+        std.mem.eql(u8, section, "colors.bright"))
+    {
+        const names = [_][]const u8{
+            "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+        };
+        for (names, 0..) |name, index| {
+            if (std.mem.eql(u8, key, name)) {
+                const offset: usize = if (std.mem.eql(u8, section, "colors.bright")) 8 else 0;
+                theme.palette[index + offset] = try parseHexColor(value);
+                break;
+            }
+        }
     }
 }
 
@@ -549,4 +584,32 @@ test "imports xresources theme colors" {
     try std.testing.expectEqual(Color.fromHex(0x010203), imported.background);
     try std.testing.expectEqual(Color.fromHex(0xaabbcc), imported.foreground);
     try std.testing.expectEqual(Color.fromHex(0x00ff00), imported.palette[2]);
+}
+
+test "imports real Alacritty TOML color sections" {
+    const imported = try importTheme(std.testing.allocator, .alacritty_toml, "alacritty",
+        \\[colors.primary]
+        \\background = "0x101820"
+        \\foreground = "#f0f4f8"
+        \\
+        \\[colors.cursor]
+        \\text = "#ffffff"
+        \\
+        \\[colors.normal]
+        \\black = "#000001"
+        \\red = "0x000002"
+        \\white = "#000008"
+        \\
+        \\[colors.bright]
+        \\black = "#000009"
+        \\white = "#000010"
+    );
+    try std.testing.expectEqual(Color.fromHex(0x101820), imported.background);
+    try std.testing.expectEqual(Color.fromHex(0xf0f4f8), imported.foreground);
+    try std.testing.expectEqual(Color.fromHex(0xffffff), imported.cursor);
+    try std.testing.expectEqual(Color.fromHex(0x000001), imported.palette[0]);
+    try std.testing.expectEqual(Color.fromHex(0x000002), imported.palette[1]);
+    try std.testing.expectEqual(Color.fromHex(0x000008), imported.palette[7]);
+    try std.testing.expectEqual(Color.fromHex(0x000009), imported.palette[8]);
+    try std.testing.expectEqual(Color.fromHex(0x000010), imported.palette[15]);
 }
