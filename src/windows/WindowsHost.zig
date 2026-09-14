@@ -1310,6 +1310,11 @@ fn deleteThemeSmokePath(path: []const u8) void {
     _ = c.DeleteFileW(encoded.ptr);
 }
 
+fn themeSmokeFail(stage: []const u8) bool {
+    log("windows_theme_smoke_stage={s}\r\n", .{stage});
+    return false;
+}
+
 fn themeSmoke(host: *Host) bool {
     const allocator = std.heap.page_allocator;
     const cb = host.callbacks;
@@ -1336,20 +1341,27 @@ fn themeSmoke(host: *Host) bool {
     const portable = Share.theme_storage.exportThemeLibraryAlloc(allocator, &themes) catch return false;
     defer allocator.free(portable);
     Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
-    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
-        cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
+    if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0)
+        return themeSmokeFail("portable_import");
+    if (cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3)
+        return themeSmokeFail("portable_state");
+    if (!refreshTheme(host, true)) return themeSmokeFail("portable_refresh");
     const source_path = allocator.alloc(u8, source.len) catch return false;
     defer allocator.free(source_path);
     @memcpy(source_path, source);
     const portable_suffix = ".nocttythemes";
     const source_suffix = ".conf";
-    if (!std.mem.endsWith(u8, source_path, portable_suffix)) return false;
+    if (!std.mem.endsWith(u8, source_path, portable_suffix))
+        return themeSmokeFail("source_path");
     const source_length = source_path.len - portable_suffix.len + source_suffix.len;
     @memcpy(source_path[source_path.len - portable_suffix.len ..][0..source_suffix.len], source_suffix);
-    Dpapi.writeFileAtomicUtf8(allocator, source_path[0..source_length], "background = #102030\nforeground = #d0e0f0\ncursor-color = #ffffff\n") catch return false;
-    if (cb.theme_import(cb.userdata, source_path.ptr, source_length) != 0 or
-        cb.theme_count(cb.userdata) != 4 or cb.theme_active(cb.userdata) != 3 or
-        host.background != 0x102030 or host.foreground != 0xd0e0f0 or !refreshTheme(host, true)) return false;
+    if (cb.theme_import(cb.userdata, source_path.ptr, source_length) != 0)
+        return themeSmokeFail("source_import");
+    if (cb.theme_count(cb.userdata) != 4 or cb.theme_active(cb.userdata) != 3)
+        return themeSmokeFail("source_state");
+    if (host.background != 0x102030 or host.foreground != 0xd0e0f0)
+        return themeSmokeFail("source_colors");
+    if (!refreshTheme(host, true)) return themeSmokeFail("source_refresh");
     Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
     if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
         cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
