@@ -26,6 +26,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Broadcast input is intentionally session-scoped and is not restored from
   workspace state, preventing a saved layout from unexpectedly fanning input
   into every local pane after restart.
+- Added native Windows Smart Tab controls for tag 1: `Ctrl+Shift+Y` toggles
+  the focused pane tag and `Ctrl+Shift+G` toggles the volatile filtered view.
 
 - Added captured native tab drag reordering with insertion feedback, stable
   identity checks, cancellation, and remote-viewer guards.
