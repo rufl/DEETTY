@@ -363,34 +363,44 @@ pub fn qualifyProfiles(menu: *const Menu, count: c_int, active: c_int) bool {
 
 /// Inspect the real Win32 menu, including disabled commands and displayed hints.
 /// Used only by the bounded, hidden-window host qualification mode.
-pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
+pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
+    var code: u32 = 0;
     if (c.GetMenu(menu.window) != menu.root or
         c.GetMenuItemCount(menu.root) != 4 or
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
         c.GetSubMenu(menu.root, 2) != menu.terminal or
         c.GetMenuItemCount(menu.workspace) != 23 or
-        c.GetMenuItemCount(menu.terminal) != 3) return false;
+        c.GetMenuItemCount(menu.terminal) != 3) code |= 1;
     for (local_commands) |command| {
-        if (!commandStateMatches(menu.workspace, command, remote_mode)) return false;
+        if (!commandStateMatches(menu.workspace, command, remote_mode)) {
+            code |= 2;
+            break;
+        }
     }
     for ([_]u32{ id_next_pane, id_next_tab }) |command| {
-        if (!commandStateMatches(menu.workspace, command, false)) return false;
+        if (!commandStateMatches(menu.workspace, command, false)) code |= 4;
     }
     for ([_]u32{ id_copy, id_paste, id_clear_screen }) |command| {
-        if (!commandStateMatches(menu.terminal, command, false)) return false;
+        if (!commandStateMatches(menu.terminal, command, false)) code |= 8;
     }
     if (!commandStateMatches(menu.root, id_open_nocted, false) or
         !commandStateMatches(menu.settings, id_restore_startup, remote_mode) or
         !commandStateMatches(menu.profile, id_profile_powershell, false) or
         !commandStateMatches(menu.profile, id_profile_command, false) or
-        !commandStateMatches(menu.profile, id_profile_manage, false)) return false;
-    return if (remote_mode)
+        !commandStateMatches(menu.profile, id_profile_manage, false)) code |= 16;
+    const hints_ok = if (remote_mode)
         commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Shift+Tab") and
             commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Tab")
     else
         commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Tab") and
             commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Shift+Tab");
+    if (!hints_ok) code |= 32;
+    return code;
+}
+
+pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
+    return qualifyStateCode(menu, remote_mode) == 0;
 }
 
 fn commandStateMatches(menu: c.HMENU, command: u32, disabled: bool) bool {

@@ -2172,7 +2172,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
     if (menu_smoke) {
         host.tabs.configureDrag(callbacks, false);
         if (!menuSmoke(host)) {
-            log("windows_menu_smoke passed=false conpty=false\r\n", .{});
+            log("windows_menu_smoke passed=false conpty=false qualify_code={x}\r\n", .{Menu.qualifyStateCode(host.menu.?, false)});
             return 2;
         }
         if (!Pty.qualifyLaunchProcess()) {
