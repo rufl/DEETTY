@@ -1364,10 +1364,9 @@ fn themeSmoke(host: *Host) bool {
     }
     if (cb.theme_count(cb.userdata) != 4 or cb.theme_active(cb.userdata) != 3)
         return themeSmokeFail("source_state");
+    if (!refreshTheme(host, true)) return themeSmokeFail("source_refresh");
     if (host.background != 0x102030 or host.foreground != 0xd0e0f0)
         return themeSmokeFail("source_colors");
-    if (!refreshTheme(host, true)) return themeSmokeFail("source_refresh");
-    Dpapi.writeFileAtomicUtf8(allocator, source, portable) catch return false;
     if (cb.theme_import(cb.userdata, source.ptr, source.len) != 0 or
         cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 3 or !refreshTheme(host, true)) return false;
     var label: [193]u16 = undefined;
