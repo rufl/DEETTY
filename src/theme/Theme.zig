@@ -254,22 +254,26 @@ pub fn importTheme(
     switch (format) {
         .noctalia_dark, .noctalia_light, .noctalia_active => try applyNoctaliaTheme(allocator, &theme, format, contents),
         else => {
+            var applied: usize = 0;
             var alacritty_section: []const u8 = "";
             var it = std.mem.splitScalar(u8, contents, '\n');
             while (it.next()) |line_raw| {
                 const line = std.mem.trim(u8, line_raw, " \t\r");
-                if (line.len == 0 or line[0] == '#') continue;
+                if (line.len == 0 or line[0] == '#' or
+                    (format == .xresources and line[0] == '!'))
+                    continue;
                 if (format == .alacritty_toml and line[0] == '[' and line[line.len - 1] == ']') {
                     alacritty_section = std.mem.trim(u8, line[1 .. line.len - 1], " \t");
                     continue;
                 }
-                switch (format) {
-                    .ghostty => applyGhosttyLine(&theme, line) catch {},
-                    .xresources => applyXresourcesLine(&theme, line) catch {},
-                    .alacritty_toml => applyAlacrittyLine(&theme, alacritty_section, line) catch {},
+                applied += switch (format) {
+                    .ghostty => @intFromBool(try applyGhosttyLine(&theme, line)),
+                    .xresources => @intFromBool(try applyXresourcesLine(&theme, line)),
+                    .alacritty_toml => @intFromBool(try applyAlacrittyLine(&theme, alacritty_section, line)),
                     else => unreachable,
-                }
+                };
             }
+            if (applied == 0) return error.InvalidThemeSource;
             theme.setChromeColor(.workspace_background, theme.background);
             theme.setChromeColor(.overlay_background, theme.background);
             theme.setChromeColor(.overlay_foreground, theme.foreground);
@@ -412,60 +416,79 @@ fn applyNoctaliaTheme(
     theme.setChromeColor(.pane_gap, theme.background);
 }
 
-fn applyGhosttyLine(theme: *Theme, line: []const u8) !void {
-    const eq = std.mem.indexOfScalar(u8, line, '=') orelse return;
+fn applyGhosttyLine(theme: *Theme, line: []const u8) !bool {
+    const eq = std.mem.indexOfScalar(u8, line, '=') orelse return false;
     const key = std.mem.trim(u8, line[0..eq], " \t");
     const value = std.mem.trim(u8, line[eq + 1 ..], " \t");
     if (std.mem.eql(u8, key, "background")) {
         theme.background = try parseHexColor(value);
+        return true;
     } else if (std.mem.eql(u8, key, "foreground")) {
         theme.foreground = try parseHexColor(value);
+        return true;
     } else if (std.mem.eql(u8, key, "cursor-color")) {
         theme.cursor = try parseHexColor(value);
+        return true;
     } else if (std.mem.eql(u8, key, "palette")) {
-        if (std.mem.indexOfScalar(u8, value, '=')) |inner_eq| {
-            const idx_raw = std.mem.trim(u8, value[0..inner_eq], " \t");
-            const color_raw = std.mem.trim(u8, value[inner_eq + 1 ..], " \t");
-            const idx = try std.fmt.parseInt(usize, idx_raw, 10);
-            if (idx < theme.palette.len) theme.palette[idx] = try parseHexColor(color_raw);
-        }
+        const inner_eq = std.mem.indexOfScalar(u8, value, '=') orelse
+            return error.InvalidThemeSource;
+        const idx_raw = std.mem.trim(u8, value[0..inner_eq], " \t");
+        const color_raw = std.mem.trim(u8, value[inner_eq + 1 ..], " \t");
+        const idx = try std.fmt.parseInt(usize, idx_raw, 10);
+        if (idx >= theme.palette.len) return error.InvalidThemeSource;
+        theme.palette[idx] = try parseHexColor(color_raw);
+        return true;
     }
+    return false;
 }
 
-fn applyXresourcesLine(theme: *Theme, line: []const u8) !void {
-    const colon = std.mem.indexOfScalar(u8, line, ':') orelse return;
+fn applyXresourcesLine(theme: *Theme, line: []const u8) !bool {
+    const colon = std.mem.indexOfScalar(u8, line, ':') orelse return false;
     const key = std.mem.trim(u8, line[0..colon], " \t*.");
     const value = std.mem.trim(u8, line[colon + 1 ..], " \t");
     if (std.mem.eql(u8, key, "background")) {
         theme.background = try parseHexColor(value);
+        return true;
     } else if (std.mem.eql(u8, key, "foreground")) {
         theme.foreground = try parseHexColor(value);
+        return true;
     } else if (std.mem.eql(u8, key, "cursorColor")) {
         theme.cursor = try parseHexColor(value);
+        return true;
     } else if (std.mem.startsWith(u8, key, "color")) {
         const idx = try std.fmt.parseInt(usize, key["color".len..], 10);
-        if (idx < theme.palette.len) theme.palette[idx] = try parseHexColor(value);
+        if (idx >= theme.palette.len) return error.InvalidThemeSource;
+        theme.palette[idx] = try parseHexColor(value);
+        return true;
     }
+    return false;
 }
 
-fn applyAlacrittyLine(theme: *Theme, section: []const u8, line: []const u8) !void {
-    const eq = std.mem.indexOfScalar(u8, line, '=') orelse return;
+fn applyAlacrittyLine(theme: *Theme, section: []const u8, line: []const u8) !bool {
+    const eq = std.mem.indexOfScalar(u8, line, '=') orelse return false;
     const key = std.mem.trim(u8, line[0..eq], " \t");
     const value = std.mem.trim(u8, line[eq + 1 ..], " \t");
-    if (std.mem.eql(u8, key, "background")) {
+    if (std.mem.eql(u8, key, "background") and
+        (std.mem.eql(u8, section, "") or std.mem.eql(u8, section, "colors.primary")))
+    {
         theme.background = try parseHexColor(value);
-    } else if (std.mem.eql(u8, key, "foreground")) {
+        return true;
+    } else if (std.mem.eql(u8, key, "foreground") and
+        (std.mem.eql(u8, section, "") or std.mem.eql(u8, section, "colors.primary")))
+    {
         theme.foreground = try parseHexColor(value);
-    } else if (std.mem.eql(u8, key, "cursor") or
-        (std.mem.eql(u8, section, "colors.cursor") and std.mem.eql(u8, key, "text")))
+        return true;
+    } else if (std.mem.eql(u8, section, "colors.cursor") and
+        (std.mem.eql(u8, key, "text") or std.mem.eql(u8, key, "cursor")))
     {
         theme.cursor = try parseHexColor(value);
-    } else if (std.mem.eql(u8, section, "colors.primary")) {
-        if (std.mem.eql(u8, key, "background")) {
-            theme.background = try parseHexColor(value);
-        } else if (std.mem.eql(u8, key, "foreground")) {
-            theme.foreground = try parseHexColor(value);
-        }
+        return true;
+    } else if (std.mem.eql(u8, section, "colors.selection") and
+        (std.mem.eql(u8, key, "background") or std.mem.eql(u8, key, "text")))
+    {
+        const color = try parseHexColor(value);
+        theme.setChromeColor(.selection_background, color);
+        return true;
     } else if (std.mem.eql(u8, section, "colors.normal") or
         std.mem.eql(u8, section, "colors.bright"))
     {
@@ -476,10 +499,11 @@ fn applyAlacrittyLine(theme: *Theme, section: []const u8, line: []const u8) !voi
             if (std.mem.eql(u8, key, name)) {
                 const offset: usize = if (std.mem.eql(u8, section, "colors.bright")) 8 else 0;
                 theme.palette[index + offset] = try parseHexColor(value);
-                break;
+                return true;
             }
         }
     }
+    return false;
 }
 
 test "imports ghostty theme colors" {
@@ -573,6 +597,21 @@ test "theme preview formats gui-facing summary" {
 test "theme import rejects invalid display names" {
     try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "", "background = #000000"));
     try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "bad/name", "background = #000000"));
+}
+
+test "theme import rejects empty and out-of-range source data" {
+    try std.testing.expectError(
+        error.InvalidThemeSource,
+        importTheme(std.testing.allocator, .ghostty, "empty", "# comments only"),
+    );
+    try std.testing.expectError(
+        error.InvalidThemeSource,
+        importTheme(std.testing.allocator, .ghostty, "bad-palette", "palette = 16=#ffffff"),
+    );
+    try std.testing.expectError(
+        error.InvalidThemeSource,
+        importTheme(std.testing.allocator, .xresources, "bad-palette", "*.color16: #ffffff"),
+    );
 }
 
 test "imports xresources theme colors" {
