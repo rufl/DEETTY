@@ -239,6 +239,11 @@ The window's **Settings** menu applies user-owned, local preferences:
 - **Restore saved workspace on startup** controls whether a saved layout is
   reconstructed before the native host opens.
 
+The Workspace menu also exposes the first native Smart Tab controls:
+`Ctrl+Shift+Y` toggles tag 1 on the focused pane, and `Ctrl+Shift+G` toggles
+the volatile tag-1 filter. The filter hides unmatched pane geometry and hands
+focus to the first matching pane; the filter resets after restart.
+
 Broadcast input is session-scoped and is not serialized in `NWS3`; restarting
 NOCTTY always starts with broadcast disabled.
 

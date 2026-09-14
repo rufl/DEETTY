@@ -370,6 +370,10 @@ pub export fn wWinMain(
         .pane_cell_text = paneCellText,
         .pane_color_rgb = paneColorRgb,
         .pane_cursor = paneCursor,
+        .pane_tag_mask = paneTagMask,
+        .pane_tag_set = paneTagSet,
+        .smart_filter_get = smartFilterGet,
+        .smart_filter_set = smartFilterSet,
         .pane_select = paneSelect,
         .pane_feed = paneFeed,
         .pane_take_reply = paneTakeReply,
@@ -1335,6 +1339,30 @@ fn paneCount(raw: ?*anyopaque) callconv(.c) c_int {
     if (state.live_viewer) |viewer|
         return std.math.cast(c_int, viewer.streamCount()) orelse -1;
     return std.math.cast(c_int, state.workspace.highestPaneIndex()) orelse -1;
+}
+
+fn paneTagMask(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or index_raw < 0) return -1;
+    return state.workspace.paneTagMask(@intCast(index_raw)) orelse -1;
+}
+
+fn paneTagSet(raw: ?*anyopaque, index_raw: c_int, tag_mask: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or index_raw < 0 or tag_mask < 0 or tag_mask > 255) return -1;
+    return @intFromBool(state.workspace.setPaneTagMask(@intCast(index_raw), @intCast(tag_mask)) catch return -1);
+}
+
+fn smartFilterGet(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null) return -1;
+    return state.workspace.smartFilterMask();
+}
+
+fn smartFilterSet(raw: ?*anyopaque, filter_mask: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer != null or filter_mask < 0 or filter_mask > 255) return -1;
+    return @intFromBool(state.workspace.setSmartFilterMask(@intCast(filter_mask)));
 }
 
 fn paneLayout(

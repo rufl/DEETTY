@@ -52,7 +52,11 @@ const PaneCellText = *const fn (
 const PaneColorRgb = *const fn (?*anyopaque, c_int, u32) callconv(.c) u32;
 const PaneCursor = *const fn (?*anyopaque, c_int) callconv(.c) u32;
 const PaneSelect = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+const PaneTagMask = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+const PaneTagSet = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
+const SmartFilterGet = *const fn (?*anyopaque) callconv(.c) c_int;
 const PaneFeed = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
+const SmartFilterSet = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
 const PaneTakeReply = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
 const PaneResize = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) c_int;
 const WorkspaceAction = *const fn (?*anyopaque, c_int, c_int, c_int) callconv(.c) c_int;
@@ -142,6 +146,10 @@ pub const Callbacks = extern struct {
     pane_cell_text: PaneCellText,
     pane_color_rgb: PaneColorRgb,
     pane_cursor: PaneCursor,
+    pane_tag_mask: PaneTagMask,
+    pane_tag_set: PaneTagSet,
+    smart_filter_get: SmartFilterGet,
+    smart_filter_set: SmartFilterSet,
     pane_select: PaneSelect,
     pane_feed: PaneFeed,
     pane_take_reply: PaneTakeReply,

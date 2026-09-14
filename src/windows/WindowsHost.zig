@@ -183,7 +183,14 @@ fn loadPreferences(host: *Host) c_int {
 fn updateMenu(host: *Host) void {
     host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
     Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
-    if (host.menu) |menu| _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input") else wide("&Broadcast input\tCtrl+Shift+B"));
+    if (host.menu) |menu| {
+        const active_index = host.callbacks.active_pane(host.callbacks.userdata);
+        const active_tags = if (active_index >= 0) host.callbacks.pane_tag_mask(host.callbacks.userdata, active_index) else 0;
+        const filter_mask = host.callbacks.smart_filter_get(host.callbacks.userdata);
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input") else wide("&Broadcast input\tCtrl+Shift+B"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused, if ((active_tags & 1) != 0) wide("&Untag focused pane\tCtrl+Shift+Y") else wide("&Tag focused pane\tCtrl+Shift+Y"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter, if (filter_mask > 0) wide("&Clear Smart Tab filter\tCtrl+Shift+G") else wide("&Smart Tab filter (tag 1)\tCtrl+Shift+G"));
+    }
 }
 
 fn createMenu(host: *Host) bool {
@@ -360,6 +367,33 @@ fn toggleBroadcast(host: *Host) void {
     host.broadcast_enabled = !host.broadcast_enabled;
     updateMenu(host);
     _ = c.SetFocus(host.window);
+}
+
+fn refreshWorkspaceFilter(host: *Host) void {
+    var client: c.RECT = undefined;
+    _ = c.GetClientRect(host.window, &client);
+    resizeTerminal(host, client.right, client.bottom);
+    updateTitle(host);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
+    _ = c.SetFocus(host.window);
+}
+
+fn toggleFocusedPaneTag(host: *Host) void {
+    if (host.remote_mode != 0) return;
+    const pane = host.callbacks.active_pane(host.callbacks.userdata);
+    if (pane < 0) return;
+    const current = host.callbacks.pane_tag_mask(host.callbacks.userdata, pane);
+    if (current < 0 or host.callbacks.pane_tag_set(host.callbacks.userdata, pane, current ^ 1) < 0) return;
+    updateMenu(host);
+    refreshWorkspaceFilter(host);
+}
+
+fn toggleSmartFilter(host: *Host) void {
+    if (host.remote_mode != 0) return;
+    const current = host.callbacks.smart_filter_get(host.callbacks.userdata);
+    if (current < 0 or host.callbacks.smart_filter_set(host.callbacks.userdata, if (current == 0) 1 else 0) < 0) return;
+    updateMenu(host);
+    refreshWorkspaceFilter(host);
 }
 
 fn flushReplies(host: *Host, session: *Session) void {
@@ -1021,6 +1055,14 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         },
         Menu.id_broadcast => {
             toggleBroadcast(host);
+            return true;
+        },
+        Menu.id_tag_focused => {
+            toggleFocusedPaneTag(host);
+            return true;
+        },
+        Menu.id_smart_filter => {
+            toggleSmartFilter(host);
             return true;
         },
         Menu.id_close_pane => {
@@ -1788,11 +1830,6 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             return 0;
         },
         c.WM_KEYDOWN, c.WM_SYSKEYDOWN => {
-            if (word == c.VK_ESCAPE and c.GetCapture() == current.tabs.window) {
-                current.tabs.cancelDrag();
-                current.suppress_character = 1;
-                return 0;
-            }
             if (current.divider_drag != null and word == c.VK_ESCAPE) {
                 cancelDivider(current);
                 current.suppress_character = 1;
@@ -1803,6 +1840,14 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             const alt = @intFromBool(keyDown(c.VK_MENU));
             if (word == 'B' and control != 0 and shift != 0) {
                 toggleBroadcast(current);
+                return 0;
+            }
+            if (word == 'Y' and control != 0 and shift != 0) {
+                toggleFocusedPaneTag(current);
+                return 0;
+            }
+            if (word == 'G' and control != 0 and shift != 0) {
+                toggleSmartFilter(current);
                 return 0;
             }
             var suppress_character: c_int = 0;
