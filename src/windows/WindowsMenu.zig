@@ -410,9 +410,6 @@ pub fn qualifyHintLengths(menu: *const Menu) u32 {
         (@as(u32, @intCast(@max(pane_by_position, 0))) << 8) |
         @as(u32, @intCast(@max(tab_by_position, 0)));
 }
-pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
-    return qualifyStateCode(menu, remote_mode) == 0;
-}
 
 fn commandStateMatches(menu: c.HMENU, command: u32, disabled: bool) bool {
     const state = c.GetMenuState(menu, command, c.MF_BYCOMMAND);
@@ -422,10 +419,15 @@ fn commandStateMatches(menu: c.HMENU, command: u32, disabled: bool) bool {
 
 fn commandTextMatches(menu: c.HMENU, command: u32, comptime expected: []const u8) bool {
     var text: [64]u16 = undefined;
-    const count = c.GetMenuStringW(menu, command, &text, @intCast(text.len), c.MF_BYCOMMAND);
+    var info: c.MENUITEMINFOW = @import("std").mem.zeroes(c.MENUITEMINFOW);
+    info.cbSize = @sizeOf(c.MENUITEMINFOW);
+    info.fMask = c.MIIM_STRING;
+    info.dwTypeData = &text;
+    info.cch = text.len;
+    if (c.GetMenuItemInfoW(menu, command, c.FALSE, &info) == 0) return false;
     const expected_wide = @import("std").unicode.utf8ToUtf16LeStringLiteral(expected);
-    return count == expected_wide.len and
-        @import("std").mem.eql(u16, text[0..@intCast(@max(count, 0))], expected_wide);
+    return info.cch == expected_wide.len and
+        @import("std").mem.eql(u16, text[0..expected_wide.len], expected_wide);
 }
 
 /// Reserve only actual menu mnemonics; unmatched Alt chords remain terminal input.
