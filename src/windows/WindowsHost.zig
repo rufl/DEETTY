@@ -1437,6 +1437,10 @@ fn themeSmoke(host: *Host) bool {
 
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
+    const saved_remote_mode = host.remote_mode;
+    host.remote_mode = 0;
+    defer host.remote_mode = saved_remote_mode;
+    updateMenu(host);
     if (!Menu.qualifyState(menu, false)) return false;
     if (!tabSmoke(host)) {
         log("windows_menu_smoke_stage=tabs\r\n", .{});
