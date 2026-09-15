@@ -1405,5 +1405,11 @@ test "Windows workspace: Smart Tab filter hides unmatched panes and hands focus 
     try std.testing.expectEqual(@as(u32, 1_000_000), filtered_rect.width);
     try std.testing.expect(workspace.paneRect(0) == null);
     try std.testing.expect(workspace.setSmartFilterMask(0));
+    try std.testing.expect(workspace.setSmartFilterMask(0b101));
+    const first_both = workspace.paneRect(0).?;
+    const second_both = workspace.paneRect(second).?;
+    try std.testing.expectEqual(@as(u32, 500_000), first_both.width);
+    try std.testing.expectEqual(@as(u32, 500_000), second_both.width);
+    try std.testing.expectEqual(first_both.x + first_both.width, second_both.x);
     try std.testing.expect(workspace.paneRect(0) != null);
 }
