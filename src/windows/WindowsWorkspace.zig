@@ -479,7 +479,7 @@ pub const WindowsWorkspace = struct {
         const pane = self.panes[pane_index] orelse return null;
         if (pane.tab != self.active_tab or !self.paneMatchesTag(pane_index, self.smart_filter_mask))
             return null;
-        return self.findPaneRect(
+        return self.findFilteredPaneRect(
             self.tabs[self.active_tab].root,
             pane.node,
             .{ .x = 0, .y = 0, .width = 1_000_000, .height = 1_000_000 },
@@ -555,6 +555,46 @@ pub const WindowsWorkspace = struct {
             node.ratio_permille = 500;
         }
         return changed;
+    }
+
+    fn filteredSubtreeMatches(self: *const WindowsWorkspace, node_index: u8) bool {
+        if (node_index == invalid_index or !self.nodes[node_index].used) return false;
+        const node = self.nodes[node_index];
+        if (node.kind == .leaf) {
+            const pane = self.panes[node.pane] orelse return false;
+            return pane.tab == self.active_tab and self.paneMatchesTag(node.pane, self.smart_filter_mask);
+        }
+        return self.filteredSubtreeMatches(node.first) or self.filteredSubtreeMatches(node.second);
+    }
+
+    fn findFilteredPaneRect(
+        self: *const WindowsWorkspace,
+        node_index: u8,
+        target_node: u8,
+        rectangle: PaneRect,
+    ) ?PaneRect {
+        if (node_index == invalid_index or !self.nodes[node_index].used) return null;
+        if (node_index == target_node) return rectangle;
+        const node = self.nodes[node_index];
+        if (node.kind == .leaf) return null;
+        const first_matches = self.filteredSubtreeMatches(node.first);
+        const second_matches = self.filteredSubtreeMatches(node.second);
+        if (!first_matches and !second_matches) return null;
+        if (!first_matches) return self.findFilteredPaneRect(node.second, target_node, rectangle);
+        if (!second_matches) return self.findFilteredPaneRect(node.first, target_node, rectangle);
+        var first = rectangle;
+        var second = rectangle;
+        if (node.kind == .horizontal) {
+            first.width = SplitRatio.position(rectangle.width, node.ratio_permille);
+            second.x += first.width;
+            second.width -= first.width;
+        } else {
+            first.height = SplitRatio.position(rectangle.height, node.ratio_permille);
+            second.y += first.height;
+            second.height -= first.height;
+        }
+        return self.findFilteredPaneRect(node.first, target_node, first) orelse
+            self.findFilteredPaneRect(node.second, target_node, second);
     }
 
     fn findPaneRect(
@@ -1360,7 +1400,9 @@ test "Windows workspace: Smart Tab filter hides unmatched panes and hands focus 
     try std.testing.expect(workspace.setSmartFilterMask(0b100));
     try std.testing.expectEqual(@as(u8, 0b100), workspace.smartFilterMask());
     try std.testing.expectEqual(second, workspace.activePaneIndex().?);
-    try std.testing.expect(workspace.paneRect(second) != null);
+    const filtered_rect = workspace.paneRect(second).?;
+    try std.testing.expectEqual(@as(u32, 0), filtered_rect.x);
+    try std.testing.expectEqual(@as(u32, 1_000_000), filtered_rect.width);
     try std.testing.expect(workspace.paneRect(0) == null);
     try std.testing.expect(workspace.setSmartFilterMask(0));
     try std.testing.expect(workspace.paneRect(0) != null);
