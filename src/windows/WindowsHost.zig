@@ -1435,6 +1435,25 @@ fn themeSmoke(host: *Host) bool {
     return std.mem.eql(u8, before, after) and host.workspace.live_sessions == 0;
 }
 
+fn smartTabSmoke(host: *Host) bool {
+    const cb = host.callbacks;
+    const pane = cb.active_pane(cb.userdata);
+    if (pane < 0) return false;
+    const original_tags = cb.pane_tag_mask(cb.userdata, pane);
+    const original_filter = cb.smart_filter_get(cb.userdata);
+    if (original_tags < 0 or original_filter < 0) return false;
+    defer {
+        _ = cb.pane_tag_set(cb.userdata, pane, original_tags);
+        _ = cb.smart_filter_set(cb.userdata, original_filter);
+    }
+    if (cb.pane_tag_set(cb.userdata, pane, original_tags ^ 1) < 0 or
+        cb.pane_tag_mask(cb.userdata, pane) != (original_tags ^ 1)) return false;
+    if (cb.smart_filter_set(cb.userdata, 1) < 0 or cb.smart_filter_get(cb.userdata) != 1) return false;
+    if (cb.smart_filter_set(cb.userdata, 0) < 0 or cb.smart_filter_get(cb.userdata) != 0) return false;
+    return cb.pane_tag_set(cb.userdata, pane, original_tags) >= 0 and
+        cb.pane_tag_mask(cb.userdata, pane) == original_tags;
+}
+
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
     const saved_remote_mode = host.remote_mode;
@@ -1456,6 +1475,10 @@ fn menuSmoke(host: *Host) bool {
     }
     if (!themeSmoke(host)) {
         log("windows_menu_smoke_stage=themes\r\n", .{});
+        return false;
+    }
+    if (!smartTabSmoke(host)) {
+        log("windows_menu_smoke_stage=smart_tabs\r\n", .{});
         return false;
     }
     if (!ProfileDialog.qualify(host.window, host.callbacks) or !Menu.refreshProfiles(menu, host.callbacks)) {
