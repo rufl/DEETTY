@@ -400,13 +400,16 @@ pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
 }
 
 pub fn qualifyHintLengths(menu: *const Menu) u32 {
-    var pane_text: [64]u16 = undefined;
-    var tab_text: [64]u16 = undefined;
-    const pane_length = c.GetMenuStringW(menu.workspace, id_next_pane, &pane_text, pane_text.len, c.MF_BYCOMMAND);
-    const tab_length = c.GetMenuStringW(menu.workspace, id_next_tab, &tab_text, tab_text.len, c.MF_BYCOMMAND);
-    return (@as(u32, @intCast(@max(pane_length, 0))) << 16) | @as(u32, @intCast(@max(tab_length, 0)));
+    var text: [64]u16 = undefined;
+    const pane_by_command = c.GetMenuStringW(menu.workspace, id_next_pane, &text, text.len, c.MF_BYCOMMAND);
+    const tab_by_command = c.GetMenuStringW(menu.workspace, id_next_tab, &text, text.len, c.MF_BYCOMMAND);
+    const pane_by_position = c.GetMenuStringW(menu.workspace, 4, &text, text.len, c.MF_BYPOSITION);
+    const tab_by_position = c.GetMenuStringW(menu.workspace, 5, &text, text.len, c.MF_BYPOSITION);
+    return (@as(u32, @intCast(@max(pane_by_command, 0))) << 24) |
+        (@as(u32, @intCast(@max(tab_by_command, 0))) << 16) |
+        (@as(u32, @intCast(@max(pane_by_position, 0))) << 8) |
+        @as(u32, @intCast(@max(tab_by_position, 0)));
 }
-
 pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
     return qualifyStateCode(menu, remote_mode) == 0;
 }
