@@ -429,6 +429,9 @@ fn commandTextMatches(menu: c.HMENU, command: u32, comptime expected: []const u8
     return info.cch == expected_wide.len and
         @import("std").mem.eql(u16, text[0..expected_wide.len], expected_wide);
 }
+pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
+    return qualifyStateCode(menu, remote_mode) == 0;
+}
 
 /// Reserve only actual menu mnemonics; unmatched Alt chords remain terminal input.
 pub fn isMnemonic(optional_menu: ?*Menu, character: u16) bool {
