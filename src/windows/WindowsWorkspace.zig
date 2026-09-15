@@ -561,6 +561,7 @@ pub const WindowsWorkspace = struct {
         if (node_index == invalid_index or !self.nodes[node_index].used) return false;
         const node = self.nodes[node_index];
         if (node.kind == .leaf) {
+            if (node.pane >= self.panes.len) return false;
             const pane = self.panes[node.pane] orelse return false;
             return pane.tab == self.active_tab and self.paneMatchesTag(node.pane, self.smart_filter_mask);
         }
