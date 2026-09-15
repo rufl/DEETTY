@@ -1437,15 +1437,7 @@ fn themeSmoke(host: *Host) bool {
 
 fn menuSmoke(host: *Host) bool {
     const menu = host.menu orelse return false;
-    const qualification = Menu.qualifyStateCode(menu, false);
-    if (qualification != 0) {
-        var pane_text: [64]u16 = undefined;
-        var tab_text: [64]u16 = undefined;
-        const pane_length = c.GetMenuStringW(@ptrCast(menu.workspace), Menu.id_next_pane, &pane_text, pane_text.len, c.MF_BYCOMMAND);
-        const tab_length = c.GetMenuStringW(@ptrCast(menu.workspace), Menu.id_next_tab, &tab_text, tab_text.len, c.MF_BYCOMMAND);
-        log("windows_menu_hint_lengths code={x} pane={d} tab={d}\r\n", .{ qualification, pane_length, tab_length });
-        return false;
-    }
+    if (!Menu.qualifyState(menu, false)) return false;
     if (!tabSmoke(host)) {
         log("windows_menu_smoke_stage=tabs\r\n", .{});
         return false;
@@ -2219,7 +2211,10 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
     if (menu_smoke) {
         host.tabs.configureDrag(callbacks, false);
         if (!menuSmoke(host)) {
-            log("windows_menu_smoke passed=false conpty=false qualify_code={x}\r\n", .{Menu.qualifyStateCode(host.menu.?, false)});
+            log("windows_menu_smoke passed=false conpty=false qualify_code={x} hint_lengths={x}\r\n", .{
+                Menu.qualifyStateCode(host.menu.?, false),
+                Menu.qualifyHintLengths(host.menu.?),
+            });
             return 2;
         }
         if (!Pty.qualifyLaunchProcess()) {

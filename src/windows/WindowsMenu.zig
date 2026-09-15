@@ -399,6 +399,14 @@ pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
     return code;
 }
 
+pub fn qualifyHintLengths(menu: *const Menu) u32 {
+    var pane_text: [64]u16 = undefined;
+    var tab_text: [64]u16 = undefined;
+    const pane_length = c.GetMenuStringW(menu.workspace, id_next_pane, &pane_text, pane_text.len, c.MF_BYCOMMAND);
+    const tab_length = c.GetMenuStringW(menu.workspace, id_next_tab, &tab_text, tab_text.len, c.MF_BYCOMMAND);
+    return (@as(u32, @intCast(@max(pane_length, 0))) << 16) | @as(u32, @intCast(@max(tab_length, 0)));
+}
+
 pub fn qualifyState(menu: *const Menu, remote_mode: bool) bool {
     return qualifyStateCode(menu, remote_mode) == 0;
 }
