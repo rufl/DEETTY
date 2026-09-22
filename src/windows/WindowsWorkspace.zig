@@ -163,6 +163,17 @@ pub const WindowsWorkspace = struct {
 
     pub fn setSmartFilterMask(self: *WindowsWorkspace, filter_mask: u8) bool {
         if (self.smart_filter_mask == filter_mask) return false;
+        if (filter_mask != 0) {
+            var has_match = false;
+            for (self.panes, 0..) |pane_slot, index| {
+                const pane = pane_slot orelse continue;
+                if (pane.tab == self.active_tab and self.paneMatchesTag(index, filter_mask)) {
+                    has_match = true;
+                    break;
+                }
+            }
+            if (!has_match) return false;
+        }
         self.smart_filter_mask = filter_mask;
         if (filter_mask != 0 and !self.paneMatchesTag(self.activePaneIndex() orelse 0, filter_mask)) {
             for (self.panes, 0..) |pane_slot, index| {
@@ -1397,6 +1408,8 @@ test "Windows workspace: Smart Tab filter hides unmatched panes and hands focus 
     const second = try workspace.splitActive(.horizontal, false, 12, 4);
     try std.testing.expect(try workspace.setPaneTagMask(0, 0b001));
     try std.testing.expect(try workspace.setPaneTagMask(second, 0b100));
+    try std.testing.expect(!workspace.setSmartFilterMask(0b010));
+    try std.testing.expectEqual(@as(u8, 0), workspace.smartFilterMask());
     try std.testing.expect(workspace.selectPane(0));
     try std.testing.expect(workspace.setSmartFilterMask(0b100));
     try std.testing.expectEqual(@as(u8, 0b100), workspace.smartFilterMask());
