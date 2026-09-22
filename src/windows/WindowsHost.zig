@@ -413,6 +413,14 @@ fn toggleSmartFilter(host: *Host, bit: u3) void {
     updateMenu(host);
     refreshWorkspaceFilter(host);
 }
+fn clearSmartFilter(host: *Host) bool {
+    if (host.remote_mode != 0) return false;
+    const current = host.callbacks.smart_filter_get(host.callbacks.userdata);
+    if (current <= 0 or host.callbacks.smart_filter_set(host.callbacks.userdata, 0) < 0) return false;
+    updateMenu(host);
+    refreshWorkspaceFilter(host);
+    return true;
+}
 
 fn flushReplies(host: *Host, session: *Session) void {
     var replies: [4096]u8 = undefined;
@@ -1493,7 +1501,9 @@ fn smartTabSmoke(host: *Host) bool {
         if (cb.pane_tag_set(cb.userdata, pane, original_tags ^ mask) < 0 or
             cb.pane_tag_mask(cb.userdata, pane) != (original_tags ^ mask)) return false;
         if (cb.smart_filter_set(cb.userdata, mask) < 0 or cb.smart_filter_get(cb.userdata) != mask) return false;
-        if (cb.smart_filter_set(cb.userdata, 0) < 0 or cb.smart_filter_get(cb.userdata) != 0) return false;
+        if (bit == 0) {
+            if (!clearSmartFilter(host) or cb.smart_filter_get(cb.userdata) != 0) return false;
+        } else if (cb.smart_filter_set(cb.userdata, 0) < 0 or cb.smart_filter_get(cb.userdata) != 0) return false;
     }
     return cb.pane_tag_set(cb.userdata, pane, original_tags) >= 0 and
         cb.pane_tag_mask(cb.userdata, pane) == original_tags;
@@ -1538,6 +1548,15 @@ fn menuSmoke(host: *Host) bool {
     host.remote_mode = 1;
     updateMenu(host);
     if (!Menu.qualifyState(menu, true)) return false;
+    const remote_pane = host.callbacks.active_pane(host.callbacks.userdata);
+    const remote_tags = if (remote_pane >= 0) host.callbacks.pane_tag_mask(host.callbacks.userdata, remote_pane) else -1;
+    const remote_filter = host.callbacks.smart_filter_get(host.callbacks.userdata);
+    if (remote_tags < 0 or remote_filter < 0) return false;
+    inline for (.{ Menu.id_tag_focused, Menu.id_tag_focused_2, Menu.id_tag_focused_3, Menu.id_tag_focused_4, Menu.id_smart_filter, Menu.id_smart_filter_2, Menu.id_smart_filter_3, Menu.id_smart_filter_4 }) |command| {
+        if (!handleMenuCommand(host, command) or
+            host.callbacks.pane_tag_mask(host.callbacks.userdata, remote_pane) != remote_tags or
+            host.callbacks.smart_filter_get(host.callbacks.userdata) != remote_filter) return false;
+    }
     inline for (.{ .{ Logic.menu_profile_command, @as(c_int, 1) }, .{ Logic.menu_profile_powershell, @as(c_int, 0) }, .{ Menu.id_profile_custom, @as(c_int, 2) } }) |choice| {
         if (!handleMenuCommand(host, choice[0]) or
             host.callbacks.profile_active(host.callbacks.userdata) != choice[1] or
@@ -1943,6 +1962,10 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         c.WM_KEYDOWN, c.WM_SYSKEYDOWN => {
             if (current.divider_drag != null and word == c.VK_ESCAPE) {
                 cancelDivider(current);
+                current.suppress_character = 1;
+                return 0;
+            }
+            if (word == c.VK_ESCAPE and clearSmartFilter(current)) {
                 current.suppress_character = 1;
                 return 0;
             }
