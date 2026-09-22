@@ -2074,6 +2074,20 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         c.WM_CLOSE => {
             cancelDivider(current);
             current.tabs.cancelDrag();
+            const save_result = current.callbacks.workspace_persistence(
+                current.callbacks.userdata,
+                workspace_save,
+                default_columns,
+                default_rows,
+            );
+            if (save_result < 0) {
+                _ = c.MessageBoxW(
+                    current.window,
+                    wide("NOCTTY could not save the current workspace. The previous saved workspace remains unchanged."),
+                    wide("Workspace continuity"),
+                    c.MB_OK | c.MB_ICONWARNING,
+                );
+            }
             _ = c.DestroyWindow(window);
             return 0;
         },
