@@ -21,6 +21,7 @@ const WindowsTitle = @import("WindowsTitle.zig");
 const WindowsRenderer = @import("WindowsRenderer.zig");
 const Dpapi = @import("Dpapi.zig");
 const WindowsHost = @import("WindowsHost.zig");
+const WindowsThemeSource = @import("WindowsThemeSource.zig");
 const Workspace = @import("WindowsWorkspace.zig");
 const WindowsAppearance = @import("WindowsAppearance.zig");
 const WindowsThemeLibrary = @import("WindowsThemeLibrary.zig");
@@ -1017,23 +1018,6 @@ fn themeSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     return 0;
 }
 
-fn sourceThemeFormat(path: []const u8, contents: []const u8) ?Share.theme.ImportFormat {
-    const basename_start = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
-    const name = if (basename_start < path.len and (path[basename_start] == '/' or path[basename_start] == '\\'))
-        path[basename_start + 1 ..]
-    else
-        path;
-    if (std.ascii.endsWithIgnoreCase(name, ".conf") or std.ascii.endsWithIgnoreCase(name, ".ghostty")) return .ghostty;
-    if (std.ascii.endsWithIgnoreCase(name, ".xresources") or std.ascii.endsWithIgnoreCase(name, ".xdefaults")) return .xresources;
-    if (std.ascii.endsWithIgnoreCase(name, ".toml")) return .alacritty_toml;
-    if (std.ascii.endsWithIgnoreCase(name, ".json")) {
-        if (std.mem.indexOf(u8, contents, "\"dark\"") != null) return .noctalia_dark;
-        if (std.mem.indexOf(u8, contents, "\"light\"") != null) return .noctalia_light;
-        return .noctalia_active;
-    }
-    return null;
-}
-
 fn sourceThemeName(path: []const u8, output: *[97]u8) []const u8 {
     const separator = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
     const start = if (separator < path.len and (path[separator] == '/' or path[separator] == '\\')) separator + 1 else separator;
@@ -1050,7 +1034,7 @@ fn sourceThemeName(path: []const u8, output: *[97]u8) []const u8 {
 }
 
 fn importThemeSource(state: *State, path: []const u8, contents: []const u8) !void {
-    const format = sourceThemeFormat(path, contents) orelse return error.UnsupportedThemeSource;
+    const format = WindowsThemeSource.detect(path, contents) orelse return error.UnsupportedThemeSource;
     var name_buffer: [97]u8 = undefined;
     const imported = try Share.theme.importTheme(
         state.themes.allocator,
@@ -1069,7 +1053,7 @@ fn themeImport(raw: ?*anyopaque, path: [*]const u8, length: usize) callconv(.c) 
     const allocator = state.themes.allocator;
     const bytes = Dpapi.readFileAllocUtf8(allocator, path[0..length], WindowsThemeLibrary.max_file_bytes) catch return -2;
     defer allocator.free(bytes);
-    if (sourceThemeFormat(path[0..length], bytes) != null) {
+    if (WindowsThemeSource.detect(path[0..length], bytes) != null) {
         importThemeSource(state, path[0..length], bytes) catch return -3;
     } else {
         state.themes.importPortable(bytes, ThemeSink{}) catch return -4;
