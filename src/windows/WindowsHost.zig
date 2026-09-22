@@ -184,10 +184,10 @@ fn updateMenu(host: *Host) void {
     host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
     Menu.noctty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
     if (host.menu) |menu| {
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input\tCtrl+Shift+B") else wide("&Broadcast input\tCtrl+Shift+B"));
         const active_index = host.callbacks.active_pane(host.callbacks.userdata);
         const active_tags = if (active_index >= 0) host.callbacks.pane_tag_mask(host.callbacks.userdata, active_index) else 0;
         const filter_mask = host.callbacks.smart_filter_get(host.callbacks.userdata);
-        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input\tCtrl+Shift+B") else wide("&Broadcast input\tCtrl+Shift+B"));
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused, if ((active_tags & 1) != 0) wide("&Untag focused pane 1\tCtrl+Shift+Y") else wide("&Tag focused pane 1\tCtrl+Shift+Y"));
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused_2, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused_2, if ((active_tags & 2) != 0) wide("&Untag focused pane 2\tCtrl+Shift+U") else wide("&Tag focused pane 2\tCtrl+Shift+U"));
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused_3, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused_3, if ((active_tags & 4) != 0) wide("&Untag focused pane 3\tCtrl+Shift+I") else wide("&Tag focused pane 3\tCtrl+Shift+I"));
@@ -196,6 +196,16 @@ fn updateMenu(host: *Host) void {
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_2, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_2, if (filter_mask == 2) wide("&Clear Smart Tab filter 2\tCtrl+Shift+H") else wide("Smart Tab filter 2\tCtrl+Shift+H"));
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_3, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_3, if (filter_mask == 4) wide("&Clear Smart Tab filter 3\tCtrl+Shift+J") else wide("Smart Tab filter 3\tCtrl+Shift+J"));
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_4, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_4, if (filter_mask == 8) wide("&Clear Smart Tab filter 4\tCtrl+Shift+K") else wide("Smart Tab filter 4\tCtrl+Shift+K"));
+        // ModifyMenuW resets item state on Wine; restore remote/local command
+        // qualification after replacing the dynamic labels.
+        Menu.noctty_windows_menu_update(
+            host.menu,
+            host.callbacks.theme_active(host.callbacks.userdata),
+            host.font_size_pt,
+            host.callbacks.profile_active(host.callbacks.userdata),
+            host.restore_workspace,
+            host.remote_mode,
+        );
     }
 }
 
@@ -1051,6 +1061,14 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         },
         Menu.id_split_left => {
             _ = workspaceAction(host, action_split_left);
+            return true;
+        },
+        Menu.id_close_pane => {
+            _ = workspaceClose(host, close_pane, query_close_pane);
+            return true;
+        },
+        Menu.id_close_tab => {
+            _ = workspaceClose(host, close_tab, query_close_tab);
             return true;
         },
         Menu.id_next_pane => {

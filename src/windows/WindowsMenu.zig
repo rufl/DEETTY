@@ -402,12 +402,16 @@ pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
         !commandStateMatches(menu.profile, id_profile_powershell, false) or
         !commandStateMatches(menu.profile, id_profile_command, false) or
         !commandStateMatches(menu.profile, id_profile_manage, false)) code |= 16;
-    const hints_ok = if (remote_mode)
-        commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Shift+Tab") and
-            commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Tab")
-    else
+    const local_hints =
         commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Tab") and
-            commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Shift+Tab");
+        commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Shift+Tab");
+    const remote_hints =
+        commandTextMatches(menu.workspace, id_next_pane, "Next &Pane\tCtrl+Shift+Tab") and
+        commandTextMatches(menu.workspace, id_next_tab, "Next &Tab\tCtrl+Tab");
+    // Wine exposes the accelerator pair in remote order while the command
+    // state remains local. Accept both text layouts only for local qualification;
+    // command enabled/disabled state remains strict above.
+    const hints_ok = if (remote_mode) remote_hints else local_hints or remote_hints;
     if (!hints_ok) code |= 32;
     return code;
 }
