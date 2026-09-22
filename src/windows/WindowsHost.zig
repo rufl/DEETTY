@@ -1404,7 +1404,7 @@ fn themeSmoke(host: *Host) bool {
         return themeSmokeFail("source_path");
     const base_length = source_path.len - portable_suffix.len;
     const source_specs = .{
-        .{ ".conf", "background = #102030\nforeground = #d0e0f0\ncursor-color = #ffffff\n", @as(u32, 0x102030), @as(u32, 0xd0e0f0) },
+        .{ ".ghostty", "background = #102030\nforeground = #d0e0f0\ncursor-color = #ffffff\n", @as(u32, 0x102030), @as(u32, 0xd0e0f0) },
         .{ ".Xresources", "*.background: #203040\n*.foreground: #e0f0ff\n*.cursorColor: #ffffff\n", @as(u32, 0x203040), @as(u32, 0xe0f0ff) },
         .{ ".toml", "[colors.primary]\nbackground = \"0x304050\"\nforeground = \"#f0e0d0\"\n", @as(u32, 0x304050), @as(u32, 0xf0e0d0) },
         .{ ".json", "{\"dark\":{\"mSurface\":\"#405060\",\"mOnSurface\":\"#f0f1f2\",\"mPrimary\":\"#abcdef\"}}", @as(u32, 0x405060), @as(u32, 0xf0f1f2) },

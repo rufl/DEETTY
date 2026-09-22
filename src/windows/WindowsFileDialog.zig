@@ -22,7 +22,7 @@ fn open(parent: c.HWND, allocator: std.mem.Allocator, exporting: bool, cancel_pr
     dialog.lpstrFilter = if (exporting)
         wide("NOCTTY theme libraries (*.nocttythemes)\x00*.nocttythemes\x00")
     else
-        wide("Theme sources and libraries (*.nocttythemes;*.conf;*.Xresources;*.toml;*.json)\x00*.nocttythemes;*.conf;*.Xresources;*.toml;*.json\x00All files (*.*)\x00*.*\x00");
+        wide("Theme sources and libraries (*.nocttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json)\x00*.nocttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json\x00All files (*.*)\x00*.*\x00");
     dialog.nFilterIndex = 1;
     dialog.lpstrFile = path.ptr;
     dialog.nMaxFile = @intCast(path.len);
