@@ -1470,10 +1470,13 @@ fn smartTabSmoke(host: *Host) bool {
         _ = cb.pane_tag_set(cb.userdata, pane, original_tags);
         _ = cb.smart_filter_set(cb.userdata, original_filter);
     }
-    if (cb.pane_tag_set(cb.userdata, pane, original_tags ^ 1) < 0 or
-        cb.pane_tag_mask(cb.userdata, pane) != (original_tags ^ 1)) return false;
-    if (cb.smart_filter_set(cb.userdata, 1) < 0 or cb.smart_filter_get(cb.userdata) != 1) return false;
-    if (cb.smart_filter_set(cb.userdata, 0) < 0 or cb.smart_filter_get(cb.userdata) != 0) return false;
+    inline for (.{ 0, 1, 2, 3 }) |bit| {
+        const mask: c_int = @as(c_int, 1) << bit;
+        if (cb.pane_tag_set(cb.userdata, pane, original_tags ^ mask) < 0 or
+            cb.pane_tag_mask(cb.userdata, pane) != (original_tags ^ mask)) return false;
+        if (cb.smart_filter_set(cb.userdata, mask) < 0 or cb.smart_filter_get(cb.userdata) != mask) return false;
+        if (cb.smart_filter_set(cb.userdata, 0) < 0 or cb.smart_filter_get(cb.userdata) != 0) return false;
+    }
     return cb.pane_tag_set(cb.userdata, pane, original_tags) >= 0 and
         cb.pane_tag_mask(cb.userdata, pane) == original_tags;
 }
