@@ -58,6 +58,12 @@ pub const id_theme_custom: u32 = 40600;
 pub const id_broadcast: u32 = 40117;
 pub const id_tag_focused: u32 = 40118;
 pub const id_smart_filter: u32 = 40119;
+pub const id_tag_focused_2: u32 = 40120;
+pub const id_tag_focused_3: u32 = 40121;
+pub const id_tag_focused_4: u32 = 40122;
+pub const id_smart_filter_2: u32 = 40123;
+pub const id_smart_filter_3: u32 = 40124;
+pub const id_smart_filter_4: u32 = 40125;
 pub const max_custom_themes: u32 = 64;
 pub const id_profile_manage: u32 = 40700;
 pub const id_profile_custom: u32 = 40800;
@@ -67,7 +73,8 @@ const local_commands = [_]u32{
     id_new_tab,        id_split_down,        id_split_left,       id_close_pane,     id_close_tab,
     id_workspace_save, id_workspace_restore, id_rename_tab,       id_move_tab_left,  id_move_tab_right,
     id_divider_reset,  id_divider_wider,     id_divider_narrower, id_divider_taller, id_divider_shorter,
-    id_broadcast,      id_tag_focused,       id_smart_filter,
+    id_broadcast,      id_tag_focused,       id_smart_filter,     id_tag_focused_2,  id_tag_focused_3,
+    id_tag_focused_4,  id_smart_filter_2,    id_smart_filter_3,   id_smart_filter_4,
 };
 
 pub const Menu = struct {
@@ -152,8 +159,14 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         !append(workspace, c.MF_STRING, id_close_pane, "&Close Pane\tCtrl+D") or
         !append(workspace, c.MF_STRING, id_close_tab, "Close Ta&b\tCtrl+Shift+W") or
         !append(workspace, c.MF_STRING, id_broadcast, "&Broadcast input\tCtrl+Shift+B") or
-        !append(workspace, c.MF_STRING, id_tag_focused, "Tag focused pane\tCtrl+Shift+Y") or
-        !append(workspace, c.MF_STRING, id_smart_filter, "Smart Tab filter\tCtrl+Shift+G") or
+        !append(workspace, c.MF_STRING, id_tag_focused, "Tag focused pane 1\tCtrl+Shift+Y") or
+        !append(workspace, c.MF_STRING, id_tag_focused_2, "Tag focused pane 2\tCtrl+Shift+U") or
+        !append(workspace, c.MF_STRING, id_tag_focused_3, "Tag focused pane 3\tCtrl+Shift+I") or
+        !append(workspace, c.MF_STRING, id_tag_focused_4, "Tag focused pane 4\tCtrl+Shift+O") or
+        !append(workspace, c.MF_STRING, id_smart_filter, "Smart Tab filter 1\tCtrl+Shift+G") or
+        !append(workspace, c.MF_STRING, id_smart_filter_2, "Smart Tab filter 2\tCtrl+Shift+H") or
+        !append(workspace, c.MF_STRING, id_smart_filter_3, "Smart Tab filter 3\tCtrl+Shift+J") or
+        !append(workspace, c.MF_STRING, id_smart_filter_4, "Smart Tab filter 4\tCtrl+Shift+K") or
         !append(workspace, c.MF_STRING, id_divider_wider, "Make focused pane &Wider") or
         !append(workspace, c.MF_STRING, id_divider_narrower, "Make focused pane N&arrower") or
         !append(workspace, c.MF_STRING, id_divider_taller, "Make focused pane Ta&ller") or
@@ -370,7 +383,7 @@ pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
         c.GetSubMenu(menu.root, 0) != menu.settings or
         c.GetSubMenu(menu.root, 1) != menu.workspace or
         c.GetSubMenu(menu.root, 2) != menu.terminal or
-        c.GetMenuItemCount(menu.workspace) != 23 or
+        c.GetMenuItemCount(menu.workspace) != 29 or
         c.GetMenuItemCount(menu.terminal) != 3) code |= 1;
     for (local_commands) |command| {
         if (!commandStateMatches(menu.workspace, command, remote_mode)) {

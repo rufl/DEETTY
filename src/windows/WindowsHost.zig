@@ -187,9 +187,15 @@ fn updateMenu(host: *Host) void {
         const active_index = host.callbacks.active_pane(host.callbacks.userdata);
         const active_tags = if (active_index >= 0) host.callbacks.pane_tag_mask(host.callbacks.userdata, active_index) else 0;
         const filter_mask = host.callbacks.smart_filter_get(host.callbacks.userdata);
-        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input") else wide("&Broadcast input\tCtrl+Shift+B"));
-        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused, if ((active_tags & 1) != 0) wide("&Untag focused pane\tCtrl+Shift+Y") else wide("&Tag focused pane\tCtrl+Shift+Y"));
-        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter, if (filter_mask > 0) wide("&Clear Smart Tab filter\tCtrl+Shift+G") else wide("&Smart Tab filter (tag 1)\tCtrl+Shift+G"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input\tCtrl+Shift+B") else wide("&Broadcast input\tCtrl+Shift+B"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused, if ((active_tags & 1) != 0) wide("&Untag focused pane 1\tCtrl+Shift+Y") else wide("&Tag focused pane 1\tCtrl+Shift+Y"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused_2, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused_2, if ((active_tags & 2) != 0) wide("&Untag focused pane 2\tCtrl+Shift+U") else wide("&Tag focused pane 2\tCtrl+Shift+U"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused_3, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused_3, if ((active_tags & 4) != 0) wide("&Untag focused pane 3\tCtrl+Shift+I") else wide("&Tag focused pane 3\tCtrl+Shift+I"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_tag_focused_4, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_tag_focused_4, if ((active_tags & 8) != 0) wide("&Untag focused pane 4\tCtrl+Shift+O") else wide("&Tag focused pane 4\tCtrl+Shift+O"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter, if (filter_mask == 1) wide("&Clear Smart Tab filter 1\tCtrl+Shift+G") else wide("Smart Tab filter 1\tCtrl+Shift+G"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_2, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_2, if (filter_mask == 2) wide("&Clear Smart Tab filter 2\tCtrl+Shift+H") else wide("Smart Tab filter 2\tCtrl+Shift+H"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_3, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_3, if (filter_mask == 4) wide("&Clear Smart Tab filter 3\tCtrl+Shift+J") else wide("Smart Tab filter 3\tCtrl+Shift+J"));
+        _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_4, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_4, if (filter_mask == 8) wide("&Clear Smart Tab filter 4\tCtrl+Shift+K") else wide("Smart Tab filter 4\tCtrl+Shift+K"));
     }
 }
 
@@ -378,20 +384,22 @@ fn refreshWorkspaceFilter(host: *Host) void {
     _ = c.SetFocus(host.window);
 }
 
-fn toggleFocusedPaneTag(host: *Host) void {
+fn toggleFocusedPaneTag(host: *Host, bit: u3) void {
     if (host.remote_mode != 0) return;
     const pane = host.callbacks.active_pane(host.callbacks.userdata);
     if (pane < 0) return;
     const current = host.callbacks.pane_tag_mask(host.callbacks.userdata, pane);
-    if (current < 0 or host.callbacks.pane_tag_set(host.callbacks.userdata, pane, current ^ 1) < 0) return;
+    const mask = @as(c_int, 1) << bit;
+    if (current < 0 or host.callbacks.pane_tag_set(host.callbacks.userdata, pane, current ^ mask) < 0) return;
     updateMenu(host);
     refreshWorkspaceFilter(host);
 }
 
-fn toggleSmartFilter(host: *Host) void {
+fn toggleSmartFilter(host: *Host, bit: u3) void {
     if (host.remote_mode != 0) return;
     const current = host.callbacks.smart_filter_get(host.callbacks.userdata);
-    if (current < 0 or host.callbacks.smart_filter_set(host.callbacks.userdata, if (current == 0) 1 else 0) < 0) return;
+    const mask = @as(c_int, 1) << bit;
+    if (current < 0 or host.callbacks.smart_filter_set(host.callbacks.userdata, if (current == mask) 0 else mask) < 0) return;
     updateMenu(host);
     refreshWorkspaceFilter(host);
 }
@@ -1058,19 +1066,35 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
             return true;
         },
         Menu.id_tag_focused => {
-            toggleFocusedPaneTag(host);
+            toggleFocusedPaneTag(host, 0);
+            return true;
+        },
+        Menu.id_tag_focused_2 => {
+            toggleFocusedPaneTag(host, 1);
+            return true;
+        },
+        Menu.id_tag_focused_3 => {
+            toggleFocusedPaneTag(host, 2);
+            return true;
+        },
+        Menu.id_tag_focused_4 => {
+            toggleFocusedPaneTag(host, 3);
             return true;
         },
         Menu.id_smart_filter => {
-            toggleSmartFilter(host);
+            toggleSmartFilter(host, 0);
             return true;
         },
-        Menu.id_close_pane => {
-            _ = workspaceClose(host, close_pane, query_close_pane);
+        Menu.id_smart_filter_2 => {
+            toggleSmartFilter(host, 1);
             return true;
         },
-        Menu.id_close_tab => {
-            _ = workspaceClose(host, close_tab, query_close_tab);
+        Menu.id_smart_filter_3 => {
+            toggleSmartFilter(host, 2);
+            return true;
+        },
+        Menu.id_smart_filter_4 => {
+            toggleSmartFilter(host, 3);
             return true;
         },
         Menu.id_copy => {
@@ -1909,11 +1933,35 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
                 return 0;
             }
             if (word == 'Y' and control != 0 and shift != 0) {
-                toggleFocusedPaneTag(current);
+                toggleFocusedPaneTag(current, 0);
+                return 0;
+            }
+            if (word == 'U' and control != 0 and shift != 0) {
+                toggleFocusedPaneTag(current, 1);
+                return 0;
+            }
+            if (word == 'I' and control != 0 and shift != 0) {
+                toggleFocusedPaneTag(current, 2);
+                return 0;
+            }
+            if (word == 'O' and control != 0 and shift != 0) {
+                toggleFocusedPaneTag(current, 3);
                 return 0;
             }
             if (word == 'G' and control != 0 and shift != 0) {
-                toggleSmartFilter(current);
+                toggleSmartFilter(current, 0);
+                return 0;
+            }
+            if (word == 'H' and control != 0 and shift != 0) {
+                toggleSmartFilter(current, 1);
+                return 0;
+            }
+            if (word == 'J' and control != 0 and shift != 0) {
+                toggleSmartFilter(current, 2);
+                return 0;
+            }
+            if (word == 'K' and control != 0 and shift != 0) {
+                toggleSmartFilter(current, 3);
                 return 0;
             }
             var suppress_character: c_int = 0;
