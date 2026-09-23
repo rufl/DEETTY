@@ -140,6 +140,9 @@ extern fn gtk_dialog_set_default_response(*GtkWidget, c_int) void;
 extern fn gtk_label_set_markup(*GtkLabel, [*:0]const u8) void;
 extern fn gtk_label_set_line_wrap(*GtkLabel, c_int) void;
 extern fn gtk_label_set_mnemonic_widget(*GtkLabel, *GtkWidget) void;
+extern fn gtk_info_bar_new_with_buttons([*:0]const u8, c_int, ...) ?*GtkWidget;
+extern fn gtk_info_bar_set_message_type(*GtkWidget, c_int) void;
+extern fn gtk_info_bar_get_content_area(*GtkWidget) *GtkWidget;
 extern fn gtk_dialog_get_content_area(*GtkDialog) *GtkWidget;
 extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
@@ -1683,6 +1686,36 @@ pub export fn noctty_tab_rename_entry_new(
         "Enter to save · Esc or click elsewhere to cancel",
     );
     return entry;
+}
+
+pub export fn noctty_recovery_notice_new(
+    message: ?[*:0]const u8,
+    apply_response: c_int,
+    close_response: c_int,
+) ?*GtkWidget {
+    const text = message orelse return null;
+    const bar = gtk_info_bar_new_with_buttons(
+        "Open Settings",
+        apply_response,
+        "Dismiss",
+        close_response,
+        @as(?[*:0]const u8, null),
+    ) orelse return null;
+    gtk_info_bar_set_message_type(bar, 1);
+    gtk_widget_set_name(bar, "noctty-recovery-notice");
+    const label = gtk_label_new(text) orelse return null;
+    gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_label_set_line_wrap(@ptrCast(label), TRUE);
+    gtk_label_set_max_width_chars(@ptrCast(label), 96);
+    setAccessibleName(label, "NOCTTY startup recovery notice");
+    gtk_box_pack_start(
+        @ptrCast(gtk_info_bar_get_content_area(bar)),
+        label,
+        TRUE,
+        TRUE,
+        0,
+    );
+    return bar;
 }
 
 pub export fn noctty_terminal_find_contents_new(

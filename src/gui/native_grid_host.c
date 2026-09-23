@@ -5412,18 +5412,12 @@ static GtkWidget *create_recovery_notice(NocttyGridContext *context) {
             "The damaged workspace snapshot was skipped; a clean workspace was opened.");
     }
 
-    GtkWidget *bar = gtk_info_bar_new_with_buttons(
-        "Open Settings", GTK_RESPONSE_APPLY,
-        "Dismiss", GTK_RESPONSE_CLOSE, NULL);
-    gtk_info_bar_set_message_type(GTK_INFO_BAR(bar), GTK_MESSAGE_WARNING);
-    gtk_widget_set_name(bar, "noctty-recovery-notice");
-    GtkWidget *content = gtk_info_bar_get_content_area(GTK_INFO_BAR(bar));
-    GtkWidget *label = gtk_label_new(message->str);
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_label_set_max_width_chars(GTK_LABEL(label), 96);
-    set_widget_accessible_name(label, "NOCTTY startup recovery notice");
-    gtk_box_pack_start(GTK_BOX(content), label, TRUE, TRUE, 0);
+    GtkWidget *bar = noctty_recovery_notice_new(
+        message->str, GTK_RESPONSE_APPLY, GTK_RESPONSE_CLOSE);
+    if (bar == NULL) {
+        g_string_free(message, TRUE);
+        return NULL;
+    }
     g_signal_connect(bar, "response",
                      G_CALLBACK(on_recovery_notice_response), root);
     g_print("noctty_startup_recovery_notice flags=%u "

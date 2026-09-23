@@ -285,6 +285,9 @@ gboolean noctty_smart_filter_empty_contents_new(
 
 GtkWidget *noctty_tab_rename_entry_new(
     const char *title, int width_chars, int height);
+
+GtkWidget *noctty_recovery_notice_new(
+    const char *message, int apply_response, int close_response);
 typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;
