@@ -225,6 +225,11 @@ extern fn gtk_window_set_resizable(*GtkWindow, c_int) void;
 extern fn gtk_window_set_keep_above(*GtkWindow, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
+extern fn gtk_window_present(*GtkWindow) void;
+extern fn gtk_window_fullscreen(*GtkWindow) void;
+extern fn gtk_window_unfullscreen(*GtkWindow) void;
+extern fn gtk_window_set_startup_id(*GtkWindow, [*:0]const u8) void;
+
 
 
 
@@ -1872,6 +1877,34 @@ pub export fn noctty_grid_window_set_title(
         gtk_window_set_title(@ptrCast(window), next_title);
     }
 }
+pub export fn noctty_grid_window_present(
+    window_optional: ?*GtkWidget,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_present(@ptrCast(window));
+}
+
+pub export fn noctty_grid_window_set_fullscreen(
+    window_optional: ?*GtkWidget,
+    fullscreen: c_int,
+) void {
+    const window = window_optional orelse return;
+    if (fullscreen != 0) {
+        gtk_window_fullscreen(@ptrCast(window));
+    } else {
+        gtk_window_unfullscreen(@ptrCast(window));
+    }
+}
+
+pub export fn noctty_grid_window_set_startup_id(
+    window_optional: ?*GtkWidget,
+    startup_id: ?[*:0]const u8,
+) void {
+    const window = window_optional orelse return;
+    const id = startup_id orelse return;
+    gtk_window_set_startup_id(@ptrCast(window), id);
+}
+
 
 const GridWindowCallbacks = extern struct {
     delete_event: ?GCallback,

@@ -284,6 +284,12 @@ void noctty_grid_window_apply_mode(
     GtkWidget *window, gboolean decorated, gboolean keep_above);
 void noctty_grid_window_set_title(
     GtkWidget *window, const char *title);
+void noctty_grid_window_present(GtkWidget *window);
+void noctty_grid_window_set_fullscreen(
+    GtkWidget *window, gboolean fullscreen);
+void noctty_grid_window_set_startup_id(
+    GtkWidget *window, const char *startup_id);
+
 
 typedef struct {
     GCallback delete_event;

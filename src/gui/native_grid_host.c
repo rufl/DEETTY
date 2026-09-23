@@ -913,7 +913,7 @@ static void present_configured_window(GtkWidget *window) {
         g_object_get_data(G_OBJECT(window),
                           "noctty-overlay-window") != NULL)
         return;
-    gtk_window_present(GTK_WINDOW(window));
+    noctty_grid_window_present(window);
 }
 
 static void update_window_resize_handles(NocttyGridContext *context);
@@ -3131,8 +3131,8 @@ static void apply_xdg_activation_token(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->xdg_activation_token == NULL ||
         !GTK_IS_WINDOW(root->window)) return;
-    gtk_window_set_startup_id(GTK_WINDOW(root->window),
-                              root->xdg_activation_token);
+    noctty_grid_window_set_startup_id(
+        root->window, root->xdg_activation_token);
     root->xdg_activation_token_applied = 1;
     if (g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL)
         g_printerr("noctty_xdg_activation applied=true backend=%s\n",
@@ -3185,7 +3185,7 @@ static void toggle_grid_window(NocttyGridContext *context) {
         if (root->revealer != NULL)
             gtk_revealer_set_reveal_child(GTK_REVEALER(root->revealer), TRUE);
         if (!root->layer_shell_active)
-            gtk_window_present(GTK_WINDOW(root->window));
+            noctty_grid_window_present(root->window);
         schedule_resolution_adapt(root);
         NocttyGridContext *focus_target = active_grid_context(context);
         if (focus_target->area != NULL)
@@ -7594,7 +7594,7 @@ static gboolean confirm_terminal_process_close(NocttyGridContext *context,
     if (!root->window_presented)
         toggle_grid_window(root);
     else if (!root->layer_shell_active)
-        gtk_window_present(GTK_WINDOW(root->window));
+        noctty_grid_window_present(root->window);
 
     const char *title = g_strcmp0(scope, "application") == 0
         ? "Close NOCTTY?"
@@ -9001,7 +9001,7 @@ static gboolean focus_click_smoke_surface_ready(
         return FALSE;
     if (!root->layer_shell_active &&
         !gtk_window_is_active(GTK_WINDOW(root->window)))
-        gtk_window_present(GTK_WINDOW(root->window));
+        noctty_grid_window_present(root->window);
     return TRUE;
 }
 
@@ -9604,7 +9604,7 @@ static void apply_fullscreen_dimensions(NocttyGridContext *context) {
     }
     GdkWindow *gdk_window = gtk_widget_get_window(root->window);
     if (gdk_window == NULL) {
-        gtk_window_fullscreen(GTK_WINDOW(root->window));
+        noctty_grid_window_set_fullscreen(root->window, TRUE);
     } else {
         gdk_window_set_fullscreen_mode(
             gdk_window, GDK_FULLSCREEN_ON_CURRENT_MONITOR);
@@ -9850,7 +9850,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     else {
         root->window_presented = 1;
         if (!root->layer_shell_active)
-            gtk_window_present(GTK_WINDOW(root->window));
+            noctty_grid_window_present(root->window);
         NocttyGridContext *focus_target = active_grid_context(root);
         if (focus_target != NULL) defer_grid_context_focus(focus_target);
     }
@@ -10043,7 +10043,7 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
     if (root->layer_shell_active) apply_grid_layer_geometry(root);
     else if (mode == 2) apply_fullscreen_dimensions(root);
     else {
-        gtk_window_unfullscreen(GTK_WINDOW(root->window));
+        noctty_grid_window_set_fullscreen(root->window, FALSE);
         if (mode == 1) apply_window_dimensions(root);
     }
     if (mode == 0) apply_dropdown_dimensions(root);
