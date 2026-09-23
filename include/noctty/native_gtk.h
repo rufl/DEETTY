@@ -125,6 +125,25 @@ GtkWidget *noctty_workspace_menu_new(
     const NocttyWorkspaceMenuCallbacks *callbacks);
 
 typedef struct {
+    GtkWidget *menu;
+    GtkWidget *open;
+    GtkWidget *copy;
+} NocttyHyperlinkMenuContents;
+
+gboolean noctty_hyperlink_menu_new(
+    NocttyHyperlinkMenuContents *contents_out);
+GtkWidget *noctty_profile_preset_menu_new(
+    const char *const *labels, guint label_count, int active,
+    GCallback toggled, gpointer context);
+GtkWidget *noctty_tab_color_menu_new(
+    const char *const *labels, guint label_count, int active,
+    GtkWidget *page, GCallback preset_toggled, GCallback adjust_activate,
+    gpointer context, const char *lighter_label, const char *darker_label);
+GtkWidget *noctty_tab_context_menu_new(
+    GtkWidget *page, GtkWidget *tab_color_menu, gboolean close_sensitive,
+    GCallback close_activate, gpointer context);
+
+typedef struct {
     GtkWidget *entry;
     GtkWidget *status;
 } NocttyFindContents;

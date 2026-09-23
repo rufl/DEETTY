@@ -8845,9 +8845,12 @@ static gboolean show_hyperlink_menu(
     if (read_grid_hyperlink(context, column, row, uri) <= 0) return FALSE;
     NocttyGridContext *root = root_grid_context(context);
     dismiss_grid_popup_windows(root);
-    GtkWidget *menu = gtk_menu_new();
-    GtkWidget *open = gtk_menu_item_new_with_label("Open Link in Browser");
-    GtkWidget *copy = gtk_menu_item_new_with_label("Copy Link");
+    NocttyHyperlinkMenuContents contents = {0};
+    if (!noctty_hyperlink_menu_new(&contents))
+        return FALSE;
+    GtkWidget *menu = contents.menu;
+    GtkWidget *open = contents.open;
+    GtkWidget *copy = contents.copy;
     NocttyHyperlinkMenu *data = g_new0(NocttyHyperlinkMenu, 1);
     data->context = context;
     data->uri = g_strdup(uri);
@@ -8855,8 +8858,6 @@ static gboolean show_hyperlink_menu(
     g_object_set_data_full(
         G_OBJECT(menu), "noctty-hyperlink-menu", data,
         destroy_hyperlink_menu_data);
-    set_widget_accessible_name(open, "Open link in default browser");
-    set_widget_accessible_name(copy, "Copy hyperlink address");
     g_signal_connect(open, "activate", G_CALLBACK(on_hyperlink_menu_open), data);
     g_signal_connect(copy, "activate", G_CALLBACK(on_hyperlink_menu_copy), data);
     g_signal_connect_swapped(
@@ -8867,8 +8868,6 @@ static gboolean show_hyperlink_menu(
         menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
     g_signal_connect(menu, "destroy",
                      G_CALLBACK(on_hyperlink_menu_destroy), root);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), open);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
     root->workspace_menu = menu;
     gtk_widget_show_all(menu);
     if (root->workspace_smoke == 15) {
@@ -12167,7 +12166,8 @@ static void open_terminal_find(NocttyGridContext *context) {
     int dialog_height = workarea.width < 600 ? 132 : 76;
     dialog_height = noctty_grid_dialog_dimension(
         workarea.height, dialog_height, 1, 32);
-    GtkWidget *dialog = gtk_dialog_new();
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "", 0, NULL, 0, NULL, 0);
     NocttyFindContents contents = {0};
     if (!noctty_terminal_find_contents_new(
             dialog, dialog_width, workarea.width < 600, &contents)) {
@@ -12674,7 +12674,8 @@ static void open_command_palette(NocttyGridContext *context) {
     int dialog_height =
         noctty_grid_dialog_dimension(workarea.height, 390, 1, 32);
     gboolean vertical_rows = workarea.width < 640;
-    GtkWidget *dialog = gtk_dialog_new();
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "", 0, NULL, 0, NULL, 0);
     NocttyPaletteAction compact_actions[27] = {0};
     guint compact_action_count = noctty_grid_palette_actions(
         compact_actions, G_N_ELEMENTS(compact_actions));
@@ -13799,20 +13800,13 @@ static GtkWidget *create_profile_preset_menu(NocttyGridContext *context) {
         context->profile_menu_active = 1;
     }
     (void)sync_grid_context_profile(context);
-    GtkWidget *menu = gtk_menu_new();
-    GSList *group = NULL;
-    for (int preset = 0; preset < 5; preset++) {
-        GtkWidget *item = gtk_radio_menu_item_new_with_label(
-            group, noctty_grid_profile_preset_label(preset));
-        group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
-        g_object_set_data(G_OBJECT(item), "noctty-profile-preset",
-                          GINT_TO_POINTER(preset));
-        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),
-                                       context->profile_preset == preset);
-        g_signal_connect(item, "toggled",
-                         G_CALLBACK(on_profile_preset_toggled), context);
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-    }
+    const char *labels[5] = {0};
+    for (int preset = 0; preset < 5; preset++)
+        labels[preset] = noctty_grid_profile_preset_label(preset);
+    GtkWidget *menu = noctty_profile_preset_menu_new(
+        labels, G_N_ELEMENTS(labels), context->profile_preset,
+        G_CALLBACK(on_profile_preset_toggled), context);
+    if (menu == NULL) return NULL;
     root->profile_menu_opened++;
     return menu;
 }
@@ -13949,44 +13943,15 @@ static GtkWidget *create_tab_color_menu(NocttyGridContext *context,
         (void)noctty_grid_tab_color(root->event_data,
                                     representative->pane_id,
                                     &current_preset, &current_shade);
-    GtkWidget *menu = gtk_menu_new();
-    GSList *group = NULL;
-    for (int preset = -1; preset < 8; preset++) {
-        GtkWidget *item = gtk_radio_menu_item_new_with_label(
-            group, noctty_grid_tab_color_preset_name(preset));
-        group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
-        g_object_set_data(G_OBJECT(item), "noctty-tab-page", page);
-        g_object_set_data(G_OBJECT(item), "noctty-tab-color-preset",
-                          GINT_TO_POINTER(preset));
-        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),
-                                       preset == current_preset);
-        g_signal_connect(item, "toggled",
-                         G_CALLBACK(on_tab_color_preset_toggled), root);
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-        if (preset == -1)
-            gtk_menu_shell_append(GTK_MENU_SHELL(menu),
-                                  gtk_separator_menu_item_new());
-    }
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
-                          gtk_separator_menu_item_new());
-    GtkWidget *lighter = gtk_menu_item_new_with_label(
-        "Lighten (Ctrl+Alt+=)");
-    GtkWidget *darker = gtk_menu_item_new_with_label(
-        "Darken (Ctrl+Alt+-)");
-    GtkWidget *adjustments[] = { lighter, darker };
-    int deltas[] = { 1, -1 };
-    for (guint index = 0; index < G_N_ELEMENTS(adjustments); index++) {
-        g_object_set_data(G_OBJECT(adjustments[index]), "noctty-tab-page",
-                          page);
-        g_object_set_data(G_OBJECT(adjustments[index]),
-                          "noctty-tab-color-delta",
-                          GINT_TO_POINTER(deltas[index]));
-        g_signal_connect(adjustments[index], "activate",
-                         G_CALLBACK(on_tab_color_adjust_activate), root);
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), adjustments[index]);
-    }
+    const char *labels[9] = {0};
+    for (int preset = -1; preset < 8; preset++)
+        labels[preset + 1] = noctty_grid_tab_color_preset_name(preset);
     (void)current_shade;
-    return menu;
+    return noctty_tab_color_menu_new(
+        labels, G_N_ELEMENTS(labels), current_preset, page,
+        G_CALLBACK(on_tab_color_preset_toggled),
+        G_CALLBACK(on_tab_color_adjust_activate), root,
+        "Lighten (Ctrl+Alt+=)", "Darken (Ctrl+Alt+-)");
 }
 
 static void popup_menu_at_toplevel_pointer(
@@ -14024,24 +13989,15 @@ static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
                           GdkEventButton *event) {
     NocttyGridContext *root = root_grid_context(context);
     dismiss_grid_popup_windows(root);
-    GtkWidget *menu = gtk_menu_new();
-    GtkWidget *color = gtk_menu_item_new_with_label("Tab Color");
-    GtkWidget *close = gtk_menu_item_new_with_label("Close Tab");
+    GtkWidget *color_menu = create_tab_color_menu(root, page);
+    GtkWidget *menu = noctty_tab_context_menu_new(
+        page, color_menu,
+        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 1,
+        G_CALLBACK(on_tab_close_menu_activate), root);
+    if (menu == NULL) return;
     root->workspace_menu = menu;
     root->tab_context_menu_opened = 1;
     root->tab_color_menu_opened = 1;
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(color),
-                              create_tab_color_menu(root, page));
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), color);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
-                          gtk_separator_menu_item_new());
-    g_object_set_data(G_OBJECT(close), "noctty-tab-page", page);
-    gtk_widget_set_sensitive(
-        close,
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 1);
-    g_signal_connect(close, "activate",
-                     G_CALLBACK(on_tab_close_menu_activate), root);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), close);
     g_signal_connect(menu, "selection-done",
                      G_CALLBACK(gtk_widget_destroy), NULL);
     g_signal_connect(menu, "destroy",

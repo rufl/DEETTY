@@ -58,6 +58,7 @@ const GList = extern struct {
     next: ?*GList,
     prev: ?*GList,
 };
+const GSList = opaque {};
 const GCallback = *const fn () callconv(.c) void;
 const GDestroyNotify = *const fn (?*anyopaque) callconv(.c) void;
 
@@ -104,6 +105,11 @@ extern fn gtk_event_box_set_visible_window(*GtkEventBox, c_int) void;
 extern fn gtk_event_box_set_above_child(*GtkEventBox, c_int) void;
 extern fn gtk_menu_new() ?*GtkWidget;
 extern fn gtk_menu_item_new_with_label([*:0]const u8) ?*GtkWidget;
+extern fn gtk_radio_menu_item_new_with_label(
+    ?*GSList, [*:0]const u8,
+) ?*GtkWidget;
+extern fn gtk_radio_menu_item_get_group(*GtkWidget) ?*GSList;
+extern fn gtk_check_menu_item_set_active(*GtkWidget, c_int) void;
 extern fn gtk_menu_item_set_submenu(*GtkMenuItem, *GtkWidget) void;
 extern fn gtk_menu_shell_append(*GtkMenuShell, *GtkWidget) void;
 extern fn gtk_separator_menu_item_new() ?*GtkWidget;
@@ -1396,6 +1402,158 @@ pub export fn noctty_workspace_menu_new(
     appendCallback(menu, "Settings…", callbacks.settings, context);
     connectSignal(menu, "selection-done", callbacks.selection_done, null);
     connectSignal(menu, "destroy", callbacks.destroy, root);
+    return menu;
+}
+
+const HyperlinkMenuContents = extern struct {
+    menu: ?*GtkWidget,
+    open: ?*GtkWidget,
+    copy: ?*GtkWidget,
+};
+
+fn menuIntegerData(value: c_int) ?*anyopaque {
+    return @ptrFromInt(@as(usize, @bitCast(@as(isize, value))));
+}
+
+pub export fn noctty_hyperlink_menu_new(
+    contents_out: ?*HyperlinkMenuContents,
+) c_int {
+    const output = contents_out orelse return FALSE;
+    const menu = gtk_menu_new() orelse return FALSE;
+    const open = gtk_menu_item_new_with_label(
+        "Open Link in Browser") orelse {
+        g_object_unref(menu);
+        return FALSE;
+    };
+    const copy = gtk_menu_item_new_with_label("Copy Link") orelse {
+        g_object_unref(open);
+        g_object_unref(menu);
+        return FALSE;
+    };
+    setAccessibleName(open, "Open link in default browser");
+    setAccessibleName(copy, "Copy hyperlink address");
+    gtk_menu_shell_append(@ptrCast(menu), open);
+    gtk_menu_shell_append(@ptrCast(menu), copy);
+    output.* = .{ .menu = menu, .open = open, .copy = copy };
+    return TRUE;
+}
+
+pub export fn noctty_profile_preset_menu_new(
+    labels: ?[*]const [*:0]const u8,
+    label_count: c_uint,
+    active: c_int,
+    toggled: ?GCallback,
+    context: ?*anyopaque,
+) ?*GtkWidget {
+    const values = labels orelse return null;
+    if (label_count == 0) return null;
+    const menu = gtk_menu_new() orelse return null;
+    var group: ?*GSList = null;
+    for (0..label_count) |index| {
+        const item = gtk_radio_menu_item_new_with_label(
+            group, values[index]) orelse {
+            g_object_unref(menu);
+            return null;
+        };
+        group = gtk_radio_menu_item_get_group(item);
+        g_object_set_data(
+            object(item), "noctty-profile-preset",
+            menuIntegerData(@intCast(index)));
+        gtk_check_menu_item_set_active(
+            item, @intFromBool(@as(c_int, @intCast(index)) == active));
+        connectSignal(item, "toggled", toggled, context);
+        gtk_menu_shell_append(@ptrCast(menu), item);
+    }
+    return menu;
+}
+
+pub export fn noctty_tab_color_menu_new(
+    labels: ?[*]const [*:0]const u8,
+    label_count: c_uint,
+    active: c_int,
+    page: ?*GtkWidget,
+    preset_toggled: ?GCallback,
+    adjust_activate: ?GCallback,
+    context: ?*anyopaque,
+    lighter_label: [*:0]const u8,
+    darker_label: [*:0]const u8,
+) ?*GtkWidget {
+    const values = labels orelse return null;
+    const target_page = page orelse return null;
+    if (label_count == 0) return null;
+    const menu = gtk_menu_new() orelse return null;
+    var group: ?*GSList = null;
+    for (0..label_count) |index| {
+        const preset: c_int = @as(c_int, @intCast(index)) - 1;
+        const item = gtk_radio_menu_item_new_with_label(
+            group, values[index]) orelse {
+            g_object_unref(menu);
+            return null;
+        };
+        group = gtk_radio_menu_item_get_group(item);
+        g_object_set_data(
+            object(item), "noctty-tab-page", target_page);
+        g_object_set_data(
+            object(item), "noctty-tab-color-preset",
+            menuIntegerData(preset));
+        gtk_check_menu_item_set_active(
+            item, @intFromBool(preset == active));
+        connectSignal(item, "toggled", preset_toggled, context);
+        gtk_menu_shell_append(@ptrCast(menu), item);
+        if (preset == -1) appendSeparator(menu);
+    }
+    appendSeparator(menu);
+    const lighter = gtk_menu_item_new_with_label(lighter_label) orelse {
+        g_object_unref(menu);
+        return null;
+    };
+    const darker = gtk_menu_item_new_with_label(darker_label) orelse {
+        g_object_unref(lighter);
+        g_object_unref(menu);
+        return null;
+    };
+    for ([_]struct { item: *GtkWidget, delta: c_int }{
+        .{ .item = lighter, .delta = 1 },
+        .{ .item = darker, .delta = -1 },
+    }) |adjustment| {
+        g_object_set_data(
+            object(adjustment.item), "noctty-tab-page", target_page);
+        g_object_set_data(
+            object(adjustment.item), "noctty-tab-color-delta",
+            menuIntegerData(adjustment.delta));
+        connectSignal(
+            adjustment.item, "activate", adjust_activate, context);
+        gtk_menu_shell_append(@ptrCast(menu), adjustment.item);
+    }
+    return menu;
+}
+
+pub export fn noctty_tab_context_menu_new(
+    page: ?*GtkWidget,
+    tab_color_menu: ?*GtkWidget,
+    close_sensitive: c_int,
+    close_activate: ?GCallback,
+    context: ?*anyopaque,
+) ?*GtkWidget {
+    const target_page = page orelse return null;
+    const color_menu = tab_color_menu orelse return null;
+    const menu = gtk_menu_new() orelse return null;
+    const color = gtk_menu_item_new_with_label("Tab Color") orelse {
+        g_object_unref(menu);
+        return null;
+    };
+    const close = gtk_menu_item_new_with_label("Close Tab") orelse {
+        g_object_unref(color);
+        g_object_unref(menu);
+        return null;
+    };
+    gtk_menu_item_set_submenu(@ptrCast(color), color_menu);
+    gtk_menu_shell_append(@ptrCast(menu), color);
+    appendSeparator(menu);
+    g_object_set_data(object(close), "noctty-tab-page", target_page);
+    gtk_widget_set_sensitive(close, close_sensitive);
+    connectSignal(close, "activate", close_activate, context);
+    gtk_menu_shell_append(@ptrCast(menu), close);
     return menu;
 }
 
