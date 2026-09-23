@@ -9441,8 +9441,8 @@ static gboolean configure_overlay_window_stacking(
     if (!GTK_IS_WINDOW(dialog) || !GTK_IS_WINDOW(root->window)) return FALSE;
 
     gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root->window));
-    gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
-    gtk_window_set_type_hint(GTK_WINDOW(dialog), GDK_WINDOW_TYPE_HINT_DIALOG);
+    noctty_grid_window_set_destroy_with_parent(dialog, TRUE);
+    noctty_grid_window_set_type_hint(dialog, GDK_WINDOW_TYPE_HINT_DIALOG);
     noctty_grid_window_set_keep_above(GTK_WIDGET(dialog), TRUE);
     root->settings_transient_parent =
         gtk_window_get_transient_for(GTK_WINDOW(dialog)) ==
@@ -10859,10 +10859,10 @@ static void open_grid_settings(NocttyGridContext *context) {
     gtk_window_set_geometry_hints(
         GTK_WINDOW(dialog), NULL, &settings_geometry,
         GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
-    gtk_window_set_default_size(GTK_WINDOW(dialog),
-                                settings_width, settings_height);
+    noctty_grid_window_set_default_size(
+        dialog, settings_width, settings_height);
     gtk_window_resize(GTK_WINDOW(dialog), settings_width, settings_height);
-    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
+    noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
     gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
@@ -11751,8 +11751,8 @@ static void open_project_tools(NocttyGridContext *context) {
     GdkMonitor *project_monitor = grid_monitor_for_window(context->window);
     if (project_monitor != NULL)
         gdk_monitor_get_workarea(project_monitor, &project_workarea);
-    gtk_window_set_default_size(
-        GTK_WINDOW(dialog),
+    noctty_grid_window_set_default_size(
+        dialog,
         noctty_grid_dialog_dimension(project_workarea.width, 680, 1, 32),
         noctty_grid_dialog_dimension(project_workarea.height, 520, 1, 32));
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
@@ -12111,11 +12111,10 @@ static void open_terminal_find(NocttyGridContext *context) {
         root, dialog, "noctty-terminal-find");
     configure_overlay_window_geometry(
         root, dialog, &workarea, dialog_width, dialog_height);
-    gtk_window_set_default_size(
-        GTK_WINDOW(dialog), dialog_width, dialog_height);
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
+    noctty_grid_window_set_modal(dialog, TRUE);
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
-    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
+    noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     g_object_set_data(G_OBJECT(dialog), "noctty-find-target", context);
     root->find_dialog = dialog;
     root->find_entry = entry;
@@ -12229,8 +12228,7 @@ static void open_quick_note(NocttyGridContext *context) {
         root, dialog, "noctty-quick-note");
     configure_overlay_window_geometry(
         root, dialog, &workarea, dialog_width, dialog_height);
-    gtk_window_set_default_size(
-        GTK_WINDOW(dialog), dialog_width, dialog_height);
+    noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
     NocttyQuickNoteContents note_contents = {0};
     if (!noctty_quick_note_contents_new(
             dialog, dialog_width, dialog_height, &note_contents)) {
@@ -12335,8 +12333,7 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
         root, dialog, "noctty-shortcuts");
     configure_overlay_window_geometry(
         root, dialog, &workarea, dialog_width, dialog_height);
-    gtk_window_set_default_size(
-        GTK_WINDOW(dialog), dialog_width, dialog_height);
+    noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
     if (!noctty_shortcuts_contents_new(
             dialog, shortcuts, dialog_width, dialog_height)) {
         g_free(shortcuts);
@@ -12640,11 +12637,10 @@ static void open_command_palette(NocttyGridContext *context) {
                                      GTK_WINDOW(root->window));
     configure_overlay_window_geometry(
         root, dialog, &workarea, dialog_width, dialog_height);
-    gtk_window_set_default_size(
-        GTK_WINDOW(dialog), dialog_width, dialog_height);
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
+    noctty_grid_window_set_modal(dialog, TRUE);
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
-    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER_ON_PARENT);
+    noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 65, 0, (uint64_t)(g_get_monotonic_time() / 1000));
     g_signal_connect(search, "changed", G_CALLBACK(on_palette_search_changed), root);
     g_signal_connect(search, "activate", G_CALLBACK(on_palette_search_activate), root);
@@ -13415,7 +13411,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     height = noctty_grid_dialog_dimension(workarea.height, height, 1, 32);
     configure_overlay_window_geometry(
         root, dialog, &workarea, width, height);
-    gtk_window_set_default_size(GTK_WINDOW(dialog), width, height);
+    noctty_grid_window_set_default_size(dialog, width, height);
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
     const NocttySharingCallbacks callbacks = {
         .action = G_CALLBACK(on_sharing_action),

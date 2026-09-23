@@ -309,6 +309,13 @@ void noctty_grid_widget_set_tooltip_text(
 void noctty_grid_window_set_decorated(GtkWidget *window, gboolean decorated);
 void noctty_grid_window_set_keep_above(GtkWidget *window, gboolean keep_above);
 void noctty_grid_window_set_resizable(GtkWidget *window, gboolean resizable);
+void noctty_grid_window_set_default_size(
+    GtkWidget *window, int width, int height);
+void noctty_grid_window_set_modal(GtkWidget *window, gboolean modal);
+void noctty_grid_window_set_position(GtkWidget *window, int position);
+void noctty_grid_window_set_type_hint(GtkWidget *window, int type_hint);
+void noctty_grid_window_set_destroy_with_parent(
+    GtkWidget *window, gboolean destroy_with_parent);
 
 
 

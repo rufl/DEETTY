@@ -223,6 +223,10 @@ extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
 extern fn gtk_window_set_decorated(*GtkWindow, c_int) void;
 extern fn gtk_window_set_resizable(*GtkWindow, c_int) void;
 extern fn gtk_window_set_keep_above(*GtkWindow, c_int) void;
+extern fn gtk_window_set_modal(*GtkWindow, c_int) void;
+extern fn gtk_window_set_position(*GtkWindow, c_int) void;
+extern fn gtk_window_set_type_hint(*GtkWindow, c_int) void;
+extern fn gtk_window_set_destroy_with_parent(*GtkWindow, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
 extern fn gtk_window_present(*GtkWindow) void;
@@ -1896,6 +1900,46 @@ pub export fn noctty_grid_window_set_resizable(
 ) void {
     const window = window_optional orelse return;
     gtk_window_set_resizable(@ptrCast(window), resizable);
+}
+pub export fn noctty_grid_window_set_default_size(
+    window_optional: ?*GtkWidget,
+    width: c_int,
+    height: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_default_size(@ptrCast(window), width, height);
+}
+
+pub export fn noctty_grid_window_set_modal(
+    window_optional: ?*GtkWidget,
+    modal: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_modal(@ptrCast(window), modal);
+}
+
+pub export fn noctty_grid_window_set_position(
+    window_optional: ?*GtkWidget,
+    position: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_position(@ptrCast(window), position);
+}
+
+pub export fn noctty_grid_window_set_type_hint(
+    window_optional: ?*GtkWidget,
+    type_hint: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_type_hint(@ptrCast(window), type_hint);
+}
+
+pub export fn noctty_grid_window_set_destroy_with_parent(
+    window_optional: ?*GtkWidget,
+    destroy_with_parent: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_destroy_with_parent(@ptrCast(window), destroy_with_parent);
 }
 
 pub export fn noctty_grid_window_set_title(
