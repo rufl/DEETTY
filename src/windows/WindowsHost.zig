@@ -33,6 +33,9 @@ extern "user32" fn LoadIconW(
 ) callconv(.winapi) c.HICON;
 
 const timer_id: usize = 1;
+const global_hotkey_id: c_int = 1;
+const global_hotkey_modifiers: c.UINT = c.MOD_CONTROL | c.MOD_ALT;
+const global_hotkey_key: c.UINT = c.VK_SPACE;
 const timer_interval_ms: c.UINT = 16;
 const output_drain_bytes: usize = 128 * 1024;
 const output_drain_limit: usize = 2 * 1024 * 1024;
@@ -122,6 +125,7 @@ const Host = struct {
     preferences_ready: c_int = 0,
     rows: c_int = default_rows,
     sessions: [max_sessions]Session = [_]Session{.{}} ** max_sessions,
+    hotkey_registered: bool = false,
     workspace: Logic.WorkspaceState = .{ .live_sessions = 0, .pending_close = 0 },
     remote_mode: c_int = 0,
     broadcast_enabled: bool = false,
@@ -1529,6 +1533,10 @@ fn menuSmoke(host: *Host) bool {
     defer host.remote_mode = saved_remote_mode;
     updateMenu(host);
     if (!Menu.qualifyState(menu, false)) return false;
+    if (!visibilitySmoke(host)) {
+        log("windows_menu_smoke_stage=visibility\r\n", .{});
+        return false;
+    }
     if (!tabSmoke(host)) {
         log("windows_menu_smoke_stage=tabs\r\n", .{});
         return false;
@@ -2087,6 +2095,10 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             onTimer(current);
             return 0;
         },
+        c.WM_HOTKEY => {
+            if (word == @as(c.WPARAM, @intCast(global_hotkey_id))) toggleVisibility(current);
+            return 0;
+        },
         c.WM_QUERYENDSESSION => {
             return @intFromBool(saveWorkspaceBeforeClose(current));
         },
@@ -2253,7 +2265,40 @@ fn inputSmokeObservables(host: *Host) void {
     host.mouse.selection_pane = -1;
 }
 
+fn toggleVisibility(host: *Host) void {
+    if (c.IsWindowVisible(host.window) != 0) {
+        _ = c.ShowWindow(host.window, c.SW_HIDE);
+        return;
+    }
+    _ = c.ShowWindow(host.window, c.SW_SHOWNORMAL);
+    _ = c.SetForegroundWindow(host.window);
+    _ = c.SetFocus(host.window);
+}
+
+fn registerGlobalHotkey(host: *Host) void {
+    if (c.RegisterHotKey(host.window, global_hotkey_id, global_hotkey_modifiers, global_hotkey_key) != 0) {
+        host.hotkey_registered = true;
+        return;
+    }
+    log("windows_hotkey registered=false error={d}\r\n", .{c.GetLastError()});
+}
+
+fn unregisterGlobalHotkey(host: *Host) void {
+    if (!host.hotkey_registered) return;
+    _ = c.UnregisterHotKey(host.window, global_hotkey_id);
+    host.hotkey_registered = false;
+}
+
+fn visibilitySmoke(host: *Host) bool {
+    const initial = c.IsWindowVisible(host.window) != 0;
+    _ = windowProc(host.window, c.WM_HOTKEY, @intCast(global_hotkey_id), 0);
+    if ((c.IsWindowVisible(host.window) != 0) == initial) return false;
+    _ = windowProc(host.window, c.WM_HOTKEY, @intCast(global_hotkey_id), 0);
+    return (c.IsWindowVisible(host.window) != 0) == initial;
+}
+
 fn cleanup(host: *Host) void {
+    unregisterGlobalHotkey(host);
     cancelDivider(host);
     host.tabs.cancelDrag();
     cleanupAllSessions(host);
@@ -2340,6 +2385,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
         log("window_create_failed error={d}\r\n", .{c.GetLastError()});
         return exit_code;
     }
+    registerGlobalHotkey(host);
     if (!createMenu(host)) {
         if (menu_smoke) {
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
@@ -2374,7 +2420,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true broadcast_input=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true global_hotkey=true broadcast_input=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);
