@@ -11386,13 +11386,14 @@ static void on_theme_import_clicked(GtkButton *button, gpointer user_data) {
                 "Could not read that theme. Choose a regular file up to 4 MiB.",
                 TRUE);
         } else if (context->text_action != NULL) {
-            int format = g_str_has_suffix(filename, ".Xresources")
-                ? 1 : g_str_has_suffix(filename, ".toml") ? 2 : 0;
-            if (g_str_has_suffix(filename, ".json")) {
+            int format = -1;
+            const gsize filename_length = strlen(filename);
+            if (filename_length >= 5 &&
+                g_ascii_strcasecmp(
+                    filename + filename_length - 5, ".json") == 0) {
                 int variant = gtk_combo_box_get_active(
                     GTK_COMBO_BOX(noctalia_variant));
-                format = variant == 1 ? 3 : variant == 2 ? 4
-                    : strstr(contents, "\"dark\"") != NULL ? 3 : 5;
+                format = variant == 1 ? 3 : variant == 2 ? 4 : -1;
             }
             int result = context->text_action(
                 context->text_action_data, 1, filename, strlen(filename),

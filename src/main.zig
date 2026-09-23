@@ -2291,15 +2291,18 @@ export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*
     const base_start = if (std.mem.lastIndexOfScalar(u8, raw_name, '/')) |index| index + 1 else 0;
     const base = raw_name[base_start..];
     const name_raw = if (std.mem.lastIndexOfScalar(u8, base, '.')) |index| if (index > 0) base[0..index] else "Imported Theme" else if (base.len > 0) base else "Imported Theme";
-    const format: noctty.theme.ImportFormat = switch (format_raw) {
-        0 => .ghostty,
-        1 => .xresources,
-        2 => .alacritty_toml,
-        3 => .noctalia_dark,
-        4 => .noctalia_light,
-        5 => .noctalia_active,
-        else => return -1,
-    };
+    const format: noctty.theme.ImportFormat = if (format_raw >= 0)
+        switch (format_raw) {
+            0 => .ghostty,
+            1 => .xresources,
+            2 => .alacritty_toml,
+            3 => .noctalia_dark,
+            4 => .noctalia_light,
+            5 => .noctalia_active,
+            else => return -1,
+        }
+    else
+        noctty.theme.detectImportFormat(raw_name, second_ptr[0..second_len]) orelse return -1;
     const suffix: []const u8 = switch (format) {
         .noctalia_dark => " Dark",
         .noctalia_light => " Light",

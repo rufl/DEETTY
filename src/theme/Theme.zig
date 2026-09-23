@@ -210,6 +210,34 @@ pub const ImportFormat = enum {
     noctalia_active,
 };
 
+pub fn detectImportFormat(path: []const u8, contents: []const u8) ?ImportFormat {
+    const basename_start = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
+    const name = if (basename_start < path.len and
+        (path[basename_start] == '/' or path[basename_start] == '\\'))
+        path[basename_start + 1 ..]
+    else
+        path;
+    if (std.ascii.endsWithIgnoreCase(name, ".conf") or
+        std.ascii.endsWithIgnoreCase(name, ".ghostty"))
+        return .ghostty;
+    if (std.ascii.endsWithIgnoreCase(name, ".xresources") or
+        std.ascii.endsWithIgnoreCase(name, ".xdefaults"))
+        return .xresources;
+    if (std.ascii.endsWithIgnoreCase(name, ".toml")) return .alacritty_toml;
+    if (!std.ascii.endsWithIgnoreCase(name, ".json")) return null;
+
+    var parsed = std.json.parseFromSlice(std.json.Value, std.heap.page_allocator, contents, .{}) catch
+        return .noctalia_active;
+    defer parsed.deinit();
+    const object = switch (parsed.value) {
+        .object => |value| value,
+        else => return .noctalia_active,
+    };
+    if (object.get("dark") != null) return .noctalia_dark;
+    if (object.get("light") != null) return .noctalia_light;
+    return .noctalia_active;
+}
+
 pub fn validateName(name: []const u8) !void {
     const trimmed = std.mem.trim(u8, name, " \t\r\n");
     if (trimmed.len == 0) return error.InvalidThemeName;
@@ -597,6 +625,33 @@ test "theme preview formats gui-facing summary" {
 test "theme import rejects invalid display names" {
     try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "", "background = #000000"));
     try std.testing.expectError(error.InvalidThemeName, importTheme(std.testing.allocator, .ghostty, "bad/name", "background = #000000"));
+}
+
+test "theme source detection centralizes native format policy" {
+    try std.testing.expectEqual(
+        @as(?ImportFormat, .ghostty),
+        detectImportFormat("C:\\themes\\night.GHOSTTY", ""),
+    );
+    try std.testing.expectEqual(
+        @as(?ImportFormat, .xresources),
+        detectImportFormat("theme.XDEFAULTS", ""),
+    );
+    try std.testing.expectEqual(
+        @as(?ImportFormat, .alacritty_toml),
+        detectImportFormat("theme.TOML", ""),
+    );
+    try std.testing.expectEqual(
+        @as(?ImportFormat, .noctalia_active),
+        detectImportFormat("theme.json", "{\"metadata\":\"dark\"}"),
+    );
+    try std.testing.expectEqual(
+        @as(?ImportFormat, .noctalia_dark),
+        detectImportFormat("theme.json", "{\"dark\":{}}"),
+    );
+    try std.testing.expectEqual(
+        @as(?ImportFormat, null),
+        detectImportFormat("theme.yaml", ""),
+    );
 }
 
 test "theme import rejects empty and out-of-range source data" {
