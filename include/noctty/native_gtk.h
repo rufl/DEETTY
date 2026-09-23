@@ -303,6 +303,19 @@ GtkWidget *noctty_tab_rename_entry_new(
 
 GtkWidget *noctty_recovery_notice_new(
     const char *message, int apply_response, int close_response);
+
+GtkWidget *noctty_tag_combo_new(void);
+GtkWidget *noctty_tag_hint_new(void);
+GtkWidget *noctty_shortcut_recorder_label_new(gboolean plasma);
+GtkWidget *noctty_settings_notifications_box_new(GtkWidget *notifications);
+
+typedef struct {
+    GtkWidget *revealer;
+    GtkWidget *content_box;
+} NocttyGridShellContents;
+
+gboolean noctty_grid_shell_contents_new(
+    NocttyGridShellContents *contents_out);
 typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;

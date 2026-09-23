@@ -2970,7 +2970,7 @@ static gboolean emit_workspace_smoke_tag_filter(gpointer user_data) {
     if (root->event_data == NULL) return G_SOURCE_REMOVE;
     if (noctty_grid_tag_selected_panes(root->event_data, "ci", 2) != 0)
         return G_SOURCE_REMOVE;
-    GtkWidget *suggestions = gtk_combo_box_text_new_with_entry();
+    GtkWidget *suggestions = noctty_tag_combo_new();
     int suggestion_count = populate_tag_suggestions(root, GTK_COMBO_BOX_TEXT(suggestions));
     GtkTreeModel *suggestion_model = gtk_combo_box_get_model(GTK_COMBO_BOX(suggestions));
     root->tag_suggestions_visible = suggestion_count == 1 &&
@@ -4339,16 +4339,14 @@ static void open_grid_shortcut_recorder(NocttyGridContext *context) {
             root->shortcut_recorder_settings_hidden;
         root->shortcut_recorder_settings_restored = 0;
     }
-    GtkWidget *label = gtk_label_new(
-        root->shortcut_transport == 1
-            ? "Press the Plasma shortcut to register. Esc cancels."
-            : "Press a shortcut. NOCTTY will update the Noctalia compositor binding plan. Esc cancels.");
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_margin_start(label, 16);
-    gtk_widget_set_margin_end(label, 16);
-    gtk_widget_set_margin_top(label, 14);
-    gtk_widget_set_margin_bottom(label, 14);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
+    GtkWidget *label = noctty_shortcut_recorder_label_new(
+        root->shortcut_transport == 1);
+    if (label == NULL) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+                      label);
     root->shortcut_recorder_prior_key = root->requested_shortcut_key;
     root->shortcut_recorder_restore_on_destroy =
         root->shortcut_transport == 1;
@@ -10988,9 +10986,12 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *launch_save = launch_contents.save;
     GtkWidget *launch_delete = launch_contents.delete_button;
     GtkWidget *launch_status = launch_contents.status;
-    GtkWidget *notification_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_box_pack_start(GTK_BOX(notification_box), notifications,
-                       FALSE, FALSE, 0);
+    GtkWidget *notification_box =
+        noctty_settings_notifications_box_new(notifications);
+    if (notification_box == NULL) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
     gtk_box_pack_start(GTK_BOX(behavior_page_body),
                        settings_group_new("Notifications", notification_box),
                        FALSE, FALSE, 0);
@@ -13629,18 +13630,19 @@ static gchar *run_tag_entry_dialog(NocttyGridContext *context, const gchar *titl
         GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL,
         "Apply", GTK_RESPONSE_OK);
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    GtkWidget *combo = gtk_combo_box_text_new_with_entry();
+    GtkWidget *combo = noctty_tag_combo_new();
+    if (combo == NULL) {
+        gtk_widget_destroy(dialog);
+        return NULL;
+    }
     GtkWidget *entry = gtk_bin_get_child(GTK_BIN(combo));
-    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "e.g. backend, tests, review");
-    set_widget_accessible_name(entry, "Workspace tag");
     if (value != NULL) gtk_entry_set_text(GTK_ENTRY(entry), value);
     int suggestion_count = populate_tag_suggestions(context, GTK_COMBO_BOX_TEXT(combo));
     gtk_box_pack_start(GTK_BOX(content), combo, FALSE, FALSE, 12);
     if (suggestion_count > 0) {
-        GtkWidget *hint = gtk_label_new("Choose an existing tag or type a new one");
-        gtk_widget_set_halign(hint, GTK_ALIGN_START);
-        gtk_widget_set_opacity(hint, 0.72);
-        gtk_box_pack_start(GTK_BOX(content), hint, FALSE, FALSE, 0);
+        GtkWidget *hint = noctty_tag_hint_new();
+        if (hint != NULL)
+            gtk_box_pack_start(GTK_BOX(content), hint, FALSE, FALSE, 0);
     }
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-tag-dialog");
@@ -16561,8 +16563,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                                    context.window_toolbar_controls,
                                    GTK_PACK_END);
     gtk_widget_show_all(context.window_toolbar_controls);
-    context.revealer = gtk_revealer_new();
-    context.content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    NocttyGridShellContents shell = {0};
+    if (!noctty_grid_shell_contents_new(&shell)) {
+        gtk_widget_destroy(context.window);
+        return 2;
+    }
+    context.revealer = shell.revealer;
+    context.content_box = shell.content_box;
     context.recovery_notice = create_recovery_notice(&context);
     if (context.recovery_notice != NULL)
         gtk_box_pack_start(GTK_BOX(context.content_box),

@@ -176,6 +176,7 @@ extern fn gtk_flow_box_set_row_spacing(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_column_spacing(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_homogeneous(*GtkFlowBox, c_int) void;
 extern fn gtk_combo_box_text_new() ?*GtkWidget;
+extern fn gtk_combo_box_text_new_with_entry() ?*GtkWidget;
 extern fn gtk_color_button_new() ?*GtkWidget;
 extern fn gtk_color_chooser_set_use_alpha(*GtkWidget, c_int) void;
 extern fn gtk_combo_box_text_append_text(*GtkComboBoxText, [*:0]const u8) void;
@@ -256,6 +257,7 @@ extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
 extern fn gtk_box_pack_end(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
 extern fn gtk_box_set_spacing(*GtkBox, c_int) void;
 extern fn gtk_separator_new(c_int) ?*GtkWidget;
+extern fn gtk_revealer_new() ?*GtkWidget;
 extern fn gtk_grid_new() ?*GtkWidget;
 extern fn gtk_grid_set_row_spacing(*GtkGrid, c_uint) void;
 extern fn gtk_grid_set_column_spacing(*GtkGrid, c_uint) void;
@@ -1611,6 +1613,67 @@ pub export fn noctty_color_button_new(
     gtk_color_chooser_set_use_alpha(button, FALSE);
     if (accessible_name) |name| setAccessibleName(button, name);
     return button;
+}
+
+pub export fn noctty_tag_combo_new() ?*GtkWidget {
+    const combo = gtk_combo_box_text_new_with_entry() orelse return null;
+    const entry = gtk_bin_get_child(@ptrCast(combo)) orelse return null;
+    gtk_entry_set_placeholder_text(
+        @ptrCast(entry),
+        "e.g. backend, tests, review",
+    );
+    setAccessibleName(entry, "Workspace tag");
+    return combo;
+}
+
+pub export fn noctty_tag_hint_new() ?*GtkWidget {
+    const hint = gtk_label_new("Choose an existing tag or type a new one") orelse return null;
+    gtk_widget_set_halign(hint, GTK_ALIGN_START);
+    gtk_widget_set_opacity(hint, 0.72);
+    return hint;
+}
+
+pub export fn noctty_shortcut_recorder_label_new(
+    plasma: c_int,
+) ?*GtkWidget {
+    const label = gtk_label_new(
+        if (plasma != 0)
+            "Press the Plasma shortcut to register. Esc cancels."
+        else
+            "Press a shortcut. NOCTTY will update the Noctalia compositor binding plan. Esc cancels.",
+    ) orelse return null;
+    gtk_label_set_line_wrap(@ptrCast(label), TRUE);
+    gtk_widget_set_margin_start(label, 16);
+    gtk_widget_set_margin_end(label, 16);
+    gtk_widget_set_margin_top(label, 14);
+    gtk_widget_set_margin_bottom(label, 14);
+    return label;
+}
+
+pub export fn noctty_settings_notifications_box_new(
+    notifications: ?*GtkWidget,
+) ?*GtkWidget {
+    const child = notifications orelse return null;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return null;
+    gtk_box_pack_start(@ptrCast(box), child, FALSE, FALSE, 0);
+    return box;
+}
+
+const GridShellContents = extern struct {
+    revealer: ?*GtkWidget,
+    content_box: ?*GtkWidget,
+};
+
+pub export fn noctty_grid_shell_contents_new(
+    contents_out: *GridShellContents,
+) c_int {
+    const revealer = gtk_revealer_new() orelse return FALSE;
+    const content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0) orelse return FALSE;
+    contents_out.* = .{
+        .revealer = revealer,
+        .content_box = content_box,
+    };
+    return TRUE;
 }
 
 const WindowResizeLayout = extern struct {
