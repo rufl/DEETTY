@@ -4075,7 +4075,7 @@ static void configure_grid_settings_shortcut_button(
             : "Current shortcut: %s. Select to record and update the Noctalia binding plan.",
         shortcut);
     gtk_button_set_label(GTK_BUTTON(button), label);
-    gtk_widget_set_tooltip_text(button, tooltip);
+    noctty_grid_widget_set_tooltip_text(button, tooltip);
     g_free(tooltip);
     g_free(label);
     g_free(shortcut);
@@ -4527,7 +4527,7 @@ static void update_status_tooltip(NocttyGridContext *context, const gchar *statu
     const gchar *cached = g_object_get_data(
         G_OBJECT(context->area), "noctty-pane-tooltip-cache");
     if (g_strcmp0(cached, text) != 0) {
-        gtk_widget_set_tooltip_text(context->area, text);
+        noctty_grid_widget_set_tooltip_text(context->area, text);
         AtkObject *accessible = gtk_widget_get_accessible(context->area);
         if (accessible != NULL) atk_object_set_description(accessible, text);
         g_object_set_data_full(G_OBJECT(context->area),
@@ -4964,8 +4964,8 @@ static void update_compact_tab(NocttyGridContext *context) {
         ? gtk_widget_get_parent(tab_content) : NULL;
     if (tab_widget != NULL) noctty_grid_widget_show(tab_widget);
     apply_tab_color_style(tab_widget, tab_color_rgb, is_active);
-    gtk_widget_set_size_request(context->tab_label, -1,
-                                MAX(12, root->compact_tab_height));
+    noctty_grid_widget_set_size_request(
+        context->tab_label, -1, MAX(12, root->compact_tab_height));
     char tab_color_tooltip[96] = {0};
     if (tab_color_rgb != 0)
         g_snprintf(tab_color_tooltip, sizeof(tab_color_tooltip),
@@ -4984,9 +4984,9 @@ static void update_compact_tab(NocttyGridContext *context) {
     const gchar *cached_tooltip = g_object_get_data(
         G_OBJECT(context->tab_label), "noctty-tab-tooltip-cache");
     if (g_strcmp0(cached_tooltip, tooltip) != 0) {
-        gtk_widget_set_tooltip_text(context->tab_label, tooltip);
+        noctty_grid_widget_set_tooltip_text(context->tab_label, tooltip);
         if (GTK_IS_EVENT_BOX(tab_widget))
-            gtk_widget_set_tooltip_text(tab_widget, tooltip);
+            noctty_grid_widget_set_tooltip_text(tab_widget, tooltip);
         g_object_set_data_full(G_OBJECT(context->tab_label),
                                "noctty-tab-tooltip-cache",
                                g_strdup(tooltip), g_free);
@@ -4997,7 +4997,7 @@ static void update_compact_tab(NocttyGridContext *context) {
         const gchar *cached_close_name = g_object_get_data(
             G_OBJECT(close_button), "noctty-tab-close-name-cache");
         if (g_strcmp0(cached_close_name, close_name) != 0) {
-            gtk_widget_set_tooltip_text(close_button, close_name);
+            noctty_grid_widget_set_tooltip_text(close_button, close_name);
             set_widget_accessible_name(close_button, close_name);
             g_object_set_data_full(
                 G_OBJECT(close_button), "noctty-tab-close-name-cache",
@@ -5046,8 +5046,9 @@ static void clear_tab_rename_error(NocttyGridContext *root) {
     gtk_style_context_remove_class(style, "error");
     gtk_entry_set_icon_from_icon_name(GTK_ENTRY(root->tab_rename_entry),
                                       GTK_ENTRY_ICON_SECONDARY, NULL);
-    gtk_widget_set_tooltip_text(root->tab_rename_entry,
-                               "Enter to save · Esc or click elsewhere to cancel");
+    noctty_grid_widget_set_tooltip_text(
+        root->tab_rename_entry,
+        "Enter to save · Esc or click elsewhere to cancel");
 }
 
 static void set_tab_rename_error(NocttyGridContext *root,
@@ -5060,7 +5061,7 @@ static void set_tab_rename_error(NocttyGridContext *root,
                                       "dialog-warning-symbolic");
     gtk_entry_set_icon_tooltip_text(GTK_ENTRY(root->tab_rename_entry),
                                     GTK_ENTRY_ICON_SECONDARY, message);
-    gtk_widget_set_tooltip_text(root->tab_rename_entry, message);
+    noctty_grid_widget_set_tooltip_text(root->tab_rename_entry, message);
 }
 
 static void finish_tab_rename(NocttyGridContext *context,
@@ -9326,17 +9327,18 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
         set_margin(GTK_WINDOW(root->window), 1, horizontal_remainder);
         set_margin(GTK_WINDOW(root->window), 3,
                    MAX(0, geometry.height - height));
-        gtk_widget_set_size_request(root->window, width, height);
+        noctty_grid_widget_set_size_request(root->window, width, height);
     } else if (root->mode == 2) {
         set_namespace(GTK_WINDOW(root->window), "noctty-zen");
         for (int edge = 0; edge < 4; edge++)
             set_anchor(GTK_WINDOW(root->window), edge, TRUE);
-        gtk_widget_set_size_request(root->window, -1, -1);
+        noctty_grid_widget_set_size_request(root->window, -1, -1);
     } else {
         set_namespace(GTK_WINDOW(root->window), "noctty-window");
-        gtk_widget_set_size_request(root->window,
-                                    MAX(480, geometry.width * 80 / 100),
-                                    MAX(320, geometry.height * 75 / 100));
+        noctty_grid_widget_set_size_request(
+            root->window,
+            MAX(480, geometry.width * 80 / 100),
+            MAX(320, geometry.height * 75 / 100));
     }
 }
 
@@ -9587,14 +9589,14 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
     int width = noctty_grid_percent_dimension(workarea.width, 80, 480);
     int height = noctty_grid_percent_dimension(workarea.height, 75, 320);
-    gtk_widget_set_size_request(root->window, -1, -1);
+    noctty_grid_widget_set_size_request(root->window, -1, -1);
     gtk_window_resize(GTK_WINDOW(root->window), width, height);
 }
 
 static void apply_fullscreen_dimensions(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (!GTK_IS_WINDOW(root->window)) return;
-    gtk_widget_set_size_request(root->window, -1, -1);
+    noctty_grid_widget_set_size_request(root->window, -1, -1);
     GdkDisplay *display = gtk_widget_get_display(root->window);
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     int monitor_index = -1;
@@ -16005,7 +16007,7 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
             root->window_resize_drag_start_width, horizontal, 320, G_MAXINT);
         int height = noctty_grid_clamp_resize(
             root->window_resize_drag_start_height, vertical, 180, G_MAXINT);
-        gtk_widget_set_size_request(root->window, width, height);
+        noctty_grid_widget_set_size_request(root->window, width, height);
         gtk_window_resize(GTK_WINDOW(root->window), width, height);
         return TRUE;
     }
@@ -16090,7 +16092,7 @@ static void update_window_resize_handles(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     int dragger_px = root->dragger_px;
     if (root->resize_grip != NULL)
-        gtk_widget_set_size_request(root->resize_grip, -1, dragger_px);
+        noctty_grid_widget_set_size_request(root->resize_grip, -1, dragger_px);
     for (int index = 0; index < 8; index++) {
         GtkWidget *handle = root->window_resize_handles[index];
         if (handle == NULL || index == 6) continue;
@@ -16098,8 +16100,8 @@ static void update_window_resize_handles(NocttyGridContext *context) {
         if (noctty_grid_resize_handle_layout(
                 index, root->window_border_px, dragger_px, &handle_layout) == 0)
             continue;
-        gtk_widget_set_size_request(handle, handle_layout.width,
-                                    handle_layout.height);
+        noctty_grid_widget_set_size_request(
+            handle, handle_layout.width, handle_layout.height);
     }
     int visible = 0;
     for (int index = 0; index < 8; index++) {

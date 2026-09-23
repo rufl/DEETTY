@@ -1972,6 +1972,22 @@ pub export fn noctty_grid_widget_set_sensitive(
     const widget = widget_optional orelse return;
     gtk_widget_set_sensitive(widget, sensitive);
 }
+pub export fn noctty_grid_widget_set_size_request(
+    widget_optional: ?*GtkWidget,
+    width: c_int,
+    height: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_size_request(widget, width, height);
+}
+
+pub export fn noctty_grid_widget_set_tooltip_text(
+    widget_optional: ?*GtkWidget,
+    tooltip: ?[*:0]const u8,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_tooltip_text(widget, tooltip);
+}
 
 pub export fn noctty_grid_widget_queue_draw(
     widget_optional: ?*GtkWidget,
