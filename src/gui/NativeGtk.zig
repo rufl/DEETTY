@@ -89,6 +89,8 @@ const GTK_SHADOW_NONE: c_int = 0;
 const GTK_ICON_SIZE_LARGE_TOOLBAR: c_int = 3;
 const GTK_ICON_SIZE_MENU: c_int = 1;
 const GTK_RELIEF_NONE: c_int = 2;
+const GTK_SELECTION_BROWSE: c_int = 2;
+const GTK_STACK_TRANSITION_TYPE_CROSSFADE: c_int = 1;
 const GTK_SELECTION_SINGLE: c_int = 1;
 const GTK_WRAP_WORD_CHAR: c_int = 3;
 const GTK_SHADOW_IN: c_int = 1;
@@ -106,7 +108,8 @@ extern fn gtk_event_box_set_above_child(*GtkEventBox, c_int) void;
 extern fn gtk_menu_new() ?*GtkWidget;
 extern fn gtk_menu_item_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_radio_menu_item_new_with_label(
-    ?*GSList, [*:0]const u8,
+    ?*GSList,
+    [*:0]const u8,
 ) ?*GtkWidget;
 extern fn gtk_radio_menu_item_get_group(*GtkWidget) ?*GSList;
 extern fn gtk_check_menu_item_set_active(*GtkWidget, c_int) void;
@@ -240,6 +243,8 @@ extern fn gtk_paned_get_type() GType;
 extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
 extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
 extern fn gtk_box_pack_end(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
+extern fn gtk_box_set_spacing(*GtkBox, c_int) void;
+extern fn gtk_separator_new(c_int) ?*GtkWidget;
 extern fn gtk_grid_new() ?*GtkWidget;
 extern fn gtk_grid_set_row_spacing(*GtkGrid, c_uint) void;
 extern fn gtk_grid_set_column_spacing(*GtkGrid, c_uint) void;
@@ -254,6 +259,10 @@ extern fn gtk_scrolled_window_set_shadow_type(*GtkScrolledWindow, c_int) void;
 extern fn gtk_list_box_row_new() ?*GtkWidget;
 extern fn gtk_image_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
 extern fn gtk_image_set_pixel_size(*GtkImage, c_int) void;
+extern fn gtk_stack_new() ?*GtkWidget;
+extern fn gtk_stack_set_transition_type(*GtkStack, c_int) void;
+extern fn gtk_stack_set_transition_duration(*GtkStack, c_uint) void;
+extern fn gtk_stack_add_named(*GtkStack, *GtkWidget, [*:0]const u8) void;
 extern fn gtk_stack_set_visible_child_name(*GtkStack, [*:0]const u8) void;
 extern fn gtk_stack_get_visible_child(*GtkStack) ?*GtkWidget;
 extern fn gtk_scrolled_window_get_vadjustment(
@@ -1420,8 +1429,7 @@ pub export fn noctty_hyperlink_menu_new(
 ) c_int {
     const output = contents_out orelse return FALSE;
     const menu = gtk_menu_new() orelse return FALSE;
-    const open = gtk_menu_item_new_with_label(
-        "Open Link in Browser") orelse {
+    const open = gtk_menu_item_new_with_label("Open Link in Browser") orelse {
         g_object_unref(menu);
         return FALSE;
     };
@@ -1450,17 +1458,13 @@ pub export fn noctty_profile_preset_menu_new(
     const menu = gtk_menu_new() orelse return null;
     var group: ?*GSList = null;
     for (0..label_count) |index| {
-        const item = gtk_radio_menu_item_new_with_label(
-            group, values[index]) orelse {
+        const item = gtk_radio_menu_item_new_with_label(group, values[index]) orelse {
             g_object_unref(menu);
             return null;
         };
         group = gtk_radio_menu_item_get_group(item);
-        g_object_set_data(
-            object(item), "noctty-profile-preset",
-            menuIntegerData(@intCast(index)));
-        gtk_check_menu_item_set_active(
-            item, @intFromBool(@as(c_int, @intCast(index)) == active));
+        g_object_set_data(object(item), "noctty-profile-preset", menuIntegerData(@intCast(index)));
+        gtk_check_menu_item_set_active(item, @intFromBool(@as(c_int, @intCast(index)) == active));
         connectSignal(item, "toggled", toggled, context);
         gtk_menu_shell_append(@ptrCast(menu), item);
     }
@@ -1485,19 +1489,14 @@ pub export fn noctty_tab_color_menu_new(
     var group: ?*GSList = null;
     for (0..label_count) |index| {
         const preset: c_int = @as(c_int, @intCast(index)) - 1;
-        const item = gtk_radio_menu_item_new_with_label(
-            group, values[index]) orelse {
+        const item = gtk_radio_menu_item_new_with_label(group, values[index]) orelse {
             g_object_unref(menu);
             return null;
         };
         group = gtk_radio_menu_item_get_group(item);
-        g_object_set_data(
-            object(item), "noctty-tab-page", target_page);
-        g_object_set_data(
-            object(item), "noctty-tab-color-preset",
-            menuIntegerData(preset));
-        gtk_check_menu_item_set_active(
-            item, @intFromBool(preset == active));
+        g_object_set_data(object(item), "noctty-tab-page", target_page);
+        g_object_set_data(object(item), "noctty-tab-color-preset", menuIntegerData(preset));
+        gtk_check_menu_item_set_active(item, @intFromBool(preset == active));
         connectSignal(item, "toggled", preset_toggled, context);
         gtk_menu_shell_append(@ptrCast(menu), item);
         if (preset == -1) appendSeparator(menu);
@@ -1516,13 +1515,9 @@ pub export fn noctty_tab_color_menu_new(
         .{ .item = lighter, .delta = 1 },
         .{ .item = darker, .delta = -1 },
     }) |adjustment| {
-        g_object_set_data(
-            object(adjustment.item), "noctty-tab-page", target_page);
-        g_object_set_data(
-            object(adjustment.item), "noctty-tab-color-delta",
-            menuIntegerData(adjustment.delta));
-        connectSignal(
-            adjustment.item, "activate", adjust_activate, context);
+        g_object_set_data(object(adjustment.item), "noctty-tab-page", target_page);
+        g_object_set_data(object(adjustment.item), "noctty-tab-color-delta", menuIntegerData(adjustment.delta));
+        connectSignal(adjustment.item, "activate", adjust_activate, context);
         gtk_menu_shell_append(@ptrCast(menu), adjustment.item);
     }
     return menu;
@@ -1989,20 +1984,13 @@ pub export fn noctty_dialog_new(
 ) ?*GtkWidget {
     const target = parent orelse return null;
     const dialog = if (cancel_label != null and accept_label != null)
-        gtk_dialog_new_with_buttons(
-            title, target, flags, cancel_label.?, cancel_response,
-            accept_label.?, accept_response, @as(?[*:0]const u8, null))
+        gtk_dialog_new_with_buttons(title, target, flags, cancel_label.?, cancel_response, accept_label.?, accept_response, @as(?[*:0]const u8, null))
     else if (cancel_label != null)
-        gtk_dialog_new_with_buttons(
-            title, target, flags, cancel_label.?, cancel_response,
-            @as(?[*:0]const u8, null))
+        gtk_dialog_new_with_buttons(title, target, flags, cancel_label.?, cancel_response, @as(?[*:0]const u8, null))
     else if (accept_label != null)
-        gtk_dialog_new_with_buttons(
-            title, target, flags, accept_label.?, accept_response,
-            @as(?[*:0]const u8, null))
+        gtk_dialog_new_with_buttons(title, target, flags, accept_label.?, accept_response, @as(?[*:0]const u8, null))
     else
-        gtk_dialog_new_with_buttons(
-            title, target, flags, @as(?[*:0]const u8, null));
+        gtk_dialog_new_with_buttons(title, target, flags, @as(?[*:0]const u8, null));
     return dialog;
 }
 
@@ -2090,6 +2078,82 @@ const SettingsCoreContents = extern struct {
     scroll_lines: ?*GtkWidget,
     smooth_scroll: ?*GtkWidget,
 };
+
+const SettingsShellContents = extern struct {
+    categories: ?*GtkWidget,
+    stack: ?*GtkWidget,
+};
+
+pub export fn noctty_settings_shell_new(
+    dialog: ?*GtkWidget,
+    compact: c_int,
+    window_page: ?*GtkWidget,
+    behavior_page: ?*GtkWidget,
+    appearance_page: ?*GtkWidget,
+    contents_out: *SettingsShellContents,
+) c_int {
+    const target = dialog orelse return FALSE;
+    const window = window_page orelse return FALSE;
+    const behavior = behavior_page orelse return FALSE;
+    const appearance = appearance_page orelse return FALSE;
+    const layout = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0) orelse return FALSE;
+    gtk_widget_set_hexpand(layout, TRUE);
+    gtk_widget_set_vexpand(layout, TRUE);
+
+    const categories = gtk_list_box_new() orelse return FALSE;
+    gtk_list_box_set_selection_mode(@ptrCast(categories), GTK_SELECTION_BROWSE);
+    gtk_widget_set_size_request(
+        categories,
+        if (compact != 0) 136 else 184,
+        -1,
+    );
+    gtk_widget_set_hexpand(categories, FALSE);
+    gtk_widget_set_vexpand(categories, TRUE);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(categories),
+        "sidebar",
+    );
+    gtk_container_set_border_width(@ptrCast(categories), 4);
+    const category_rows = [_][3][*:0]const u8{
+        .{ "preferences-system-windows", "Window", "window" },
+        .{ "preferences-system-windows-actions", "Behavior", "behavior" },
+        .{ "preferences-desktop-theme", "Appearance", "appearance" },
+    };
+    for (category_rows) |row_data| {
+        const row = noctty_settings_category_row_new(
+            row_data[0],
+            row_data[1],
+            row_data[2],
+        ) orelse return FALSE;
+        gtk_container_add(@ptrCast(categories), row);
+    }
+
+    const stack = gtk_stack_new() orelse return FALSE;
+    gtk_stack_set_transition_type(
+        @ptrCast(stack),
+        GTK_STACK_TRANSITION_TYPE_CROSSFADE,
+    );
+    gtk_stack_set_transition_duration(@ptrCast(stack), 120);
+    gtk_widget_set_hexpand(stack, TRUE);
+    gtk_widget_set_vexpand(stack, TRUE);
+    gtk_stack_add_named(@ptrCast(stack), window, "window");
+    gtk_stack_add_named(@ptrCast(stack), behavior, "behavior");
+    gtk_stack_add_named(@ptrCast(stack), appearance, "appearance");
+
+    const separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL) orelse return FALSE;
+    const content = gtk_dialog_get_content_area(@ptrCast(target));
+    gtk_box_set_spacing(@ptrCast(content), 0);
+    gtk_container_set_border_width(@ptrCast(content), 0);
+    gtk_container_add(@ptrCast(content), layout);
+    gtk_box_pack_start(@ptrCast(layout), categories, FALSE, TRUE, 0);
+    gtk_box_pack_start(@ptrCast(layout), separator, FALSE, TRUE, 0);
+    gtk_box_pack_start(@ptrCast(layout), stack, TRUE, TRUE, 0);
+    contents_out.* = .{
+        .categories = categories,
+        .stack = stack,
+    };
+    return TRUE;
+}
 
 fn comboText(labels: []const [*:0]const u8, active: c_int) ?*GtkWidget {
     const combo = gtk_combo_box_text_new() orelse return null;

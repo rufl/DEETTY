@@ -10919,32 +10919,6 @@ static void open_grid_settings(NocttyGridContext *context) {
     gtk_window_set_resizable(GTK_WINDOW(dialog), TRUE);
     gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
-    GtkWidget *layout = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_set_hexpand(layout, TRUE);
-    gtk_widget_set_vexpand(layout, TRUE);
-    GtkWidget *categories = gtk_list_box_new();
-    gtk_list_box_set_selection_mode(GTK_LIST_BOX(categories),
-                                    GTK_SELECTION_BROWSE);
-    gtk_widget_set_size_request(categories,
-                                compact_settings ? 136 : 184, -1);
-    gtk_widget_set_hexpand(categories, FALSE);
-    gtk_widget_set_vexpand(categories, TRUE);
-    gtk_style_context_add_class(gtk_widget_get_style_context(categories),
-                                "sidebar");
-    gtk_container_set_border_width(GTK_CONTAINER(categories), 4);
-    gtk_container_add(GTK_CONTAINER(categories), settings_category_row_new(
-        "preferences-system-windows", "Window", "window"));
-    gtk_container_add(GTK_CONTAINER(categories), settings_category_row_new(
-        "preferences-system-windows-actions", "Behavior", "behavior"));
-    gtk_container_add(GTK_CONTAINER(categories), settings_category_row_new(
-        "preferences-desktop-theme", "Appearance", "appearance"));
-
-    GtkWidget *stack = gtk_stack_new();
-    gtk_stack_set_transition_type(GTK_STACK(stack),
-                                  GTK_STACK_TRANSITION_TYPE_CROSSFADE);
-    gtk_stack_set_transition_duration(GTK_STACK(stack), 120);
-    gtk_widget_set_hexpand(stack, TRUE);
-    gtk_widget_set_vexpand(stack, TRUE);
 
     gchar *shortcut_button_label =
         grid_settings_shortcut_button_label_alloc(context);
@@ -11138,19 +11112,15 @@ static void open_grid_settings(NocttyGridContext *context) {
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-transparency-status",
                       transparency_status);
 
-    gtk_stack_add_named(GTK_STACK(stack), window_page, "window");
-    gtk_stack_add_named(GTK_STACK(stack), behavior_page, "behavior");
-    gtk_stack_add_named(GTK_STACK(stack), appearance_page, "appearance");
-    GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    gtk_box_set_spacing(GTK_BOX(content), 0);
-    gtk_container_set_border_width(GTK_CONTAINER(content), 0);
-    gtk_container_add(GTK_CONTAINER(content), layout);
-    gtk_widget_set_hexpand(stack, TRUE);
-    gtk_widget_set_vexpand(stack, TRUE);
-    gtk_box_pack_start(GTK_BOX(layout), categories, FALSE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(layout), separator, FALSE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(layout), stack, TRUE, TRUE, 0);
+    NocttySettingsShellContents shell = {0};
+    if (!noctty_settings_shell_new(
+            dialog, compact_settings, window_page, behavior_page,
+            appearance_page, &shell)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    GtkWidget *categories = shell.categories;
+    GtkWidget *stack = shell.stack;
 
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-mode", mode);
     g_object_set_data(G_OBJECT(dialog), "noctty-settings-shortcut", shortcut);

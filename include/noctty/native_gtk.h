@@ -259,6 +259,16 @@ gboolean noctty_settings_core_contents_new(
     NocttySettingsCoreContents *contents_out);
 
 typedef struct {
+    GtkWidget *categories;
+    GtkWidget *stack;
+} NocttySettingsShellContents;
+
+gboolean noctty_settings_shell_new(
+    GtkWidget *dialog, gboolean compact,
+    GtkWidget *window_page, GtkWidget *behavior_page,
+    GtkWidget *appearance_page, NocttySettingsShellContents *contents_out);
+
+typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;
     GtkWidget *const *color_buttons;
