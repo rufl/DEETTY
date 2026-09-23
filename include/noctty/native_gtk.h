@@ -274,6 +274,10 @@ GtkWidget *noctty_theme_combo_new(void);
 GtkWidget *noctty_color_button_new(const char *accessible_name);
 
 GtkWidget *noctty_grid_page_new(int panel_padding, GtkWidget *pane_info_strip);
+GtkWidget *noctty_grid_window_new(void);
+GtkWidget *noctty_grid_notebook_new(void);
+GtkIMContext *noctty_grid_input_context_new(void);
+
 
 typedef struct {
     int column;

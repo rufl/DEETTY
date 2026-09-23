@@ -26,6 +26,8 @@ const GtkTextBuffer = opaque {};
 const GtkComboBox = opaque {};
 const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
+const GtkIMContext = opaque {};
+
 const GtkToggleButton = opaque {};
 const GtkRange = opaque {};
 const GtkScale = opaque {};
@@ -193,6 +195,11 @@ extern fn gtk_dialog_new_with_buttons(
     ?[*:0]const u8,
     ...,
 ) ?*GtkWidget;
+extern fn gtk_window_new(window_type: c_int) ?*GtkWidget;
+extern fn gtk_notebook_new() ?*GtkWidget;
+extern fn gtk_notebook_set_scrollable(*GtkNotebook, c_int) void;
+extern fn gtk_im_multicontext_new() ?*GtkIMContext;
+
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
@@ -1778,6 +1785,21 @@ const SmartFilterEmptyContents = extern struct {
     label: ?*GtkWidget,
     clear_button: ?*GtkWidget,
 };
+
+pub export fn noctty_grid_window_new() ?*GtkWidget {
+    return gtk_window_new(0);
+}
+
+pub export fn noctty_grid_notebook_new() ?*GtkWidget {
+    const notebook = gtk_notebook_new() orelse return null;
+    gtk_notebook_set_scrollable(@ptrCast(notebook), TRUE);
+    noctty_install_compact_tab_styles(notebook);
+    return notebook;
+}
+
+pub export fn noctty_grid_input_context_new() ?*GtkIMContext {
+    return gtk_im_multicontext_new();
+}
 
 pub export fn noctty_grid_page_new(
     panel_padding: c_int,

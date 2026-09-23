@@ -9744,7 +9744,7 @@ static void on_window_map(GtkWidget *widget, gpointer user_data) {
 
 static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    GtkWidget *window = noctty_grid_window_new();
     GdkScreen *screen = gtk_widget_get_screen(window);
     GdkVisual *visual = screen != NULL
         ? gdk_screen_get_rgba_visual(screen) : NULL;
@@ -16515,7 +16515,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         noctty_grid_notification_serial(userdata);
     context.window = create_grid_toplevel(&context);
     context.area = noctty_terminal_area_new();
-    context.im_context = gtk_im_multicontext_new();
+    context.im_context = noctty_grid_input_context_new();
     context.contexts = g_ptr_array_new();
     g_ptr_array_add(context.contexts, &context);
     (void)sync_grid_context_profile(&context);
@@ -16535,16 +16535,14 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         secondary.last_cursor_position = UINT32_MAX;
         secondary.window = context.window;
         secondary.area = noctty_terminal_area_new();
-        secondary.im_context = gtk_im_multicontext_new();
+        secondary.im_context = noctty_grid_input_context_new();
         g_ptr_array_add(context.contexts, &secondary);
         (void)sync_grid_context_profile(&secondary);
         context.peer = &secondary;
         secondary.peer = &context;
     }
     if (mode == 2) apply_fullscreen_dimensions(&context);
-    context.notebook = gtk_notebook_new();
-    gtk_notebook_set_scrollable(GTK_NOTEBOOK(context.notebook), TRUE);
-    install_compact_tab_styles(context.notebook);
+    context.notebook = noctty_grid_notebook_new();
     g_signal_connect(context.notebook, "switch-page",
                      G_CALLBACK(on_notebook_switch_page), &context);
     g_signal_connect(context.notebook, "drag-begin",

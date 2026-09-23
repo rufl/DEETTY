@@ -3,6 +3,8 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved GTK grid window, notebook, and IM-context construction into the Zig native adapter; the C host retains lifecycle and event orchestration.
+
 
 - Added native Windows launch-profile management with eight custom entries,
   Unicode names, executable/arguments/directory/environment/scrollback controls,
