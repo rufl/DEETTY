@@ -16,6 +16,8 @@ void noctty_show_all_with_action_affordances(GtkWidget *widget);
 gboolean noctty_grid_sync_split_visibility(
     GtkWidget *content, GtkWidget *const *panes, guint pane_count);
 void noctty_apply_pane_divider_style(GtkWidget *widget, int width_px);
+
+GtkWidget *noctty_paned_new(int orientation, int divider_px);
 gboolean noctty_apply_even_pane_positions(GtkWidget *widget);
 void noctty_apply_pane_gap_style(GtkWidget *widget, guint32 rgb,
                                  gboolean opaque);

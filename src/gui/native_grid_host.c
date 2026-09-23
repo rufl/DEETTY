@@ -6733,8 +6733,7 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
     GtkOrientation orientation = event_code == 21 || event_code == 28
         ? GTK_ORIENTATION_VERTICAL
         : GTK_ORIENTATION_HORIZONTAL;
-    GtkWidget *split = gtk_paned_new(orientation);
-    noctty_apply_pane_divider_style(split, root->pane_divider_px);
+    GtkWidget *split = noctty_paned_new((int)orientation, root->pane_divider_px);
     g_object_ref(source->area);
     gtk_container_remove(GTK_CONTAINER(parent), source->area);
     if (parent_is_paned) {
@@ -6965,9 +6964,9 @@ static GtkWidget *build_hot_session_layout_node(
     GtkWidget *second_widget = build_hot_session_layout_node(
         root, tab_index, second, node_count, page, depth + 1);
     if (first_widget == NULL || second_widget == NULL) return NULL;
-    GtkWidget *split = gtk_paned_new(
-        axis == 0 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);
-    noctty_apply_pane_divider_style(split, root->pane_divider_px);
+    GtkWidget *split = noctty_paned_new(
+        axis == 0 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL,
+        root->pane_divider_px);
     gtk_paned_pack1(GTK_PANED(split), first_widget, TRUE, FALSE);
     gtk_paned_pack2(GTK_PANED(split), second_widget, TRUE, FALSE);
     g_object_set_data(G_OBJECT(split), "noctty-preset-ratio",
@@ -7308,9 +7307,9 @@ static gboolean attach_grid_context(NocttyGridContext *source,
         gtk_widget_get_allocation(target->page, &allocation);
         g_object_ref(content_root);
         gtk_container_remove(GTK_CONTAINER(target->page), content_root);
-        GtkWidget *split = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-        noctty_apply_pane_divider_style(
-            split, root_grid_context(target)->pane_divider_px);
+        GtkWidget *split = noctty_paned_new(
+            GTK_ORIENTATION_HORIZONTAL,
+            root_grid_context(target)->pane_divider_px);
         gtk_paned_pack1(GTK_PANED(split), content_root, TRUE, FALSE);
         gtk_paned_pack2(GTK_PANED(split), source->area, TRUE, FALSE);
         gtk_box_pack_start(GTK_BOX(target->page), split, TRUE, TRUE, 0);
@@ -7935,7 +7934,7 @@ static GtkWidget *build_preset_line(GtkWidget **widgets, guint count,
     GtkWidget *rest = build_preset_line(widgets + 1, count - 1,
                                         orientation);
     if (rest == NULL) return NULL;
-    GtkWidget *split = gtk_paned_new(orientation);
+    GtkWidget *split = noctty_paned_new((int)orientation, 0);
     gtk_paned_pack1(GTK_PANED(split), widgets[0], TRUE, FALSE);
     gtk_paned_pack2(GTK_PANED(split), rest, TRUE, FALSE);
     guint ratio_permille = 1000 / count;
@@ -16593,7 +16592,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.page = first_page;
     secondary.page = first_page;
     if (secondary_userdata != NULL && secondary.active) {
-        context.paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+        context.paned = noctty_paned_new(
+            GTK_ORIENTATION_VERTICAL, context.pane_divider_px);
         secondary.paned = context.paned;
         gtk_paned_pack1(GTK_PANED(context.paned), context.area, TRUE, FALSE);
         gtk_paned_pack2(GTK_PANED(context.paned), secondary.area, TRUE, FALSE);

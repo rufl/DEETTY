@@ -251,6 +251,7 @@ extern fn gtk_box_get_type() GType;
 extern fn gtk_container_get_type() GType;
 extern fn gtk_label_get_type() GType;
 extern fn gtk_notebook_get_type() GType;
+extern fn gtk_paned_new(c_int) ?*GtkWidget;
 extern fn gtk_paned_get_type() GType;
 extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
 extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
@@ -581,6 +582,15 @@ pub export fn noctty_apply_pane_divider_style(
     width_px: c_int,
 ) void {
     applyPaneDividerStyle(widget orelse return, width_px);
+}
+
+pub export fn noctty_paned_new(
+    orientation: c_int,
+    divider_px: c_int,
+) ?*GtkWidget {
+    const paned = gtk_paned_new(orientation) orelse return null;
+    if (divider_px > 0) applyPaneDividerStyle(paned, divider_px);
+    return paned;
 }
 
 fn paneWidgetCount(widget_optional: ?*GtkWidget) u32 {
