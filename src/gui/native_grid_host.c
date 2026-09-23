@@ -6701,10 +6701,8 @@ static gboolean add_grid_tab(NocttyGridContext *source, NocttyGridContext *creat
     GtkWidget *tab_widget = create_compact_tab_widget(source, page, label_text);
     GtkWidget *tab_label = tab_label_from_widget(tab_widget);
     created->tab_label = tab_label;
-    gint page_index = gtk_notebook_append_page(GTK_NOTEBOOK(source->notebook), page,
-                                               tab_widget);
-    gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(source->notebook), page, TRUE);
-    gtk_notebook_set_tab_detachable(GTK_NOTEBOOK(source->notebook), page, FALSE);
+    gint page_index = noctty_grid_notebook_append_page(
+        source->notebook, page, tab_widget);
     g_free(label_text);
     gtk_widget_show_all(page);
     show_all_with_action_affordances(tab_widget);
@@ -7055,12 +7053,8 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
         GtkWidget *tab_widget = create_compact_tab_widget(
             root, page, placeholder);
         g_free(placeholder);
-        gtk_notebook_append_page(GTK_NOTEBOOK(root->notebook), page,
-                                 tab_widget);
-        gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(root->notebook),
-                                         page, TRUE);
-        gtk_notebook_set_tab_detachable(GTK_NOTEBOOK(root->notebook),
-                                        page, FALSE);
+        (void)noctty_grid_notebook_append_page(
+            root->notebook, page, tab_widget);
         pages[tab_index] = page;
     }
     if (root_tab != 0)
@@ -16600,10 +16594,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     GtkWidget *first_tab_label = tab_label_from_widget(first_tab_widget);
     context.tab_label = first_tab_label;
     secondary.tab_label = first_tab_label;
-    gtk_notebook_append_page(GTK_NOTEBOOK(context.notebook), first_page,
-                             first_tab_widget);
-    gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(context.notebook), first_page, TRUE);
-    gtk_notebook_set_tab_detachable(GTK_NOTEBOOK(context.notebook), first_page, FALSE);
+    (void)noctty_grid_notebook_append_page(
+        context.notebook, first_page, first_tab_widget);
     gtk_box_pack_start(GTK_BOX(context.content_box), context.notebook, TRUE, TRUE, 0);
     gtk_box_pack_end(GTK_BOX(context.content_box), context.pane_info_strip,
                      FALSE, FALSE, 0);

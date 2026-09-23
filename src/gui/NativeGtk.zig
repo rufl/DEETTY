@@ -201,6 +201,14 @@ extern fn gtk_window_new(window_type: c_int) ?*GtkWidget;
 extern fn gtk_notebook_new() ?*GtkWidget;
 extern fn gtk_notebook_set_scrollable(*GtkNotebook, c_int) void;
 extern fn gtk_notebook_set_action_widget(*GtkNotebook, *GtkWidget, c_int) void;
+extern fn gtk_notebook_append_page(
+    *GtkNotebook,
+    *GtkWidget,
+    *GtkWidget,
+) c_int;
+extern fn gtk_notebook_set_tab_reorderable(*GtkNotebook, *GtkWidget, c_int) void;
+extern fn gtk_notebook_set_tab_detachable(*GtkNotebook, *GtkWidget, c_int) void;
+
 
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
 extern fn gtk_window_set_icon_name(*GtkWindow, [*:0]const u8) void;
@@ -1886,6 +1894,25 @@ pub export fn noctty_grid_notebook_configure(
     gtk_widget_show_all(toolbar);
     return TRUE;
 }
+pub export fn noctty_grid_notebook_append_page(
+    notebook_optional: ?*GtkWidget,
+    page_optional: ?*GtkWidget,
+    tab_widget_optional: ?*GtkWidget,
+) c_int {
+    const notebook = notebook_optional orelse return -1;
+    const page = page_optional orelse return -1;
+    const tab_widget = tab_widget_optional orelse return -1;
+    const page_index = gtk_notebook_append_page(
+        @ptrCast(notebook),
+        page,
+        tab_widget,
+    );
+    if (page_index < 0) return -1;
+    gtk_notebook_set_tab_reorderable(@ptrCast(notebook), page, TRUE);
+    gtk_notebook_set_tab_detachable(@ptrCast(notebook), page, FALSE);
+    return page_index;
+}
+
 
 
 

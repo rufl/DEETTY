@@ -7,7 +7,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved native grid window configuration policy into the Zig GTK adapter; C retains monitor capability detection, lifecycle signals, and smoke qualification.
 - Moved GTK notebook action widgets and lifecycle signal wiring into the Zig native adapter; C retains callback implementations and workspace orchestration.
 - Moved GTK grid-window lifecycle signal registration into the Zig native adapter; C retains lifecycle callback implementations and monitor signal wiring.
-
+- Centralized GTK notebook page insertion and reorder/detach policy in the Zig native adapter; C retains tab identity and layout orchestration.
 - Added native Windows launch-profile management with eight custom entries,
   Unicode names, executable/arguments/directory/environment/scrollback controls,
   rename/delete/selection, and transactional local persistence. Built-in
