@@ -12451,14 +12451,13 @@ static gboolean save_grid_scrollback_to_path(NocttyGridContext *context,
 }
 
 static void save_grid_encrypted_history(NocttyGridContext *context) {
-    GtkWidget *chooser = gtk_file_chooser_dialog_new(
-        "Export Encrypted Screen History", GTK_WINDOW(context->window),
-        GTK_FILE_CHOOSER_ACTION_SAVE, "Cancel", GTK_RESPONSE_CANCEL,
-        "Export", GTK_RESPONSE_ACCEPT, NULL);
+    GtkWidget *chooser = noctty_save_file_chooser_new(
+        GTK_WIDGET(context->window),
+        "Export Encrypted Screen History",
+        "Export",
+        "noctty-history.nocttyhs");
+    if (chooser == NULL) return;
     prepare_action_button_tree(chooser);
-    gtk_file_chooser_set_current_name(
-        GTK_FILE_CHOOSER(chooser), "noctty-history.nocttyhs");
-    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(chooser), TRUE);
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
         GtkWidget *password_dialog = gtk_dialog_new_with_buttons(
@@ -12563,12 +12562,13 @@ static void clear_agent_resume_reference(NocttyGridContext *context) {
 }
 
 static void save_grid_scrollback(NocttyGridContext *context) {
-    GtkWidget *chooser = gtk_file_chooser_dialog_new("Save Terminal Scrollback",
-        GTK_WINDOW(context->window), GTK_FILE_CHOOSER_ACTION_SAVE,
-        "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_ACCEPT, NULL);
+    GtkWidget *chooser = noctty_save_file_chooser_new(
+        GTK_WIDGET(context->window),
+        "Save Terminal Scrollback",
+        "Save",
+        "noctty-scrollback.txt");
+    if (chooser == NULL) return;
     prepare_action_button_tree(chooser);
-    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser), "noctty-scrollback.txt");
-    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(chooser), TRUE);
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) ==
         GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));

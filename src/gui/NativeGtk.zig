@@ -148,6 +148,7 @@ extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
+extern fn gtk_file_chooser_set_do_overwrite_confirmation(*GtkWidget, c_int) void;
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
@@ -1697,6 +1698,36 @@ pub export fn noctty_workspace_file_chooser_new(
     ) orelse return null;
     if (save != 0) gtk_file_chooser_set_current_name(chooser, "workspace.nocttyws");
     return chooser;
+}
+
+fn saveFileChooser(
+    parent: *GtkWidget,
+    title: [*:0]const u8,
+    accept_label: [*:0]const u8,
+    default_name: [*:0]const u8,
+) ?*GtkWidget {
+    const chooser = gtk_file_chooser_dialog_new(
+        title,
+        parent,
+        GTK_FILE_CHOOSER_ACTION_SAVE,
+        "Cancel",
+        GTK_RESPONSE_CANCEL,
+        accept_label,
+        GTK_RESPONSE_ACCEPT,
+        @as(?[*:0]const u8, null),
+    ) orelse return null;
+    gtk_file_chooser_set_current_name(chooser, default_name);
+    gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+    return chooser;
+}
+
+pub export fn noctty_save_file_chooser_new(
+    parent: ?*GtkWidget,
+    title: [*:0]const u8,
+    accept_label: [*:0]const u8,
+    default_name: [*:0]const u8,
+) ?*GtkWidget {
+    return saveFileChooser(parent orelse return null, title, accept_label, default_name);
 }
 
 const SettingsCoreOptions = extern struct {

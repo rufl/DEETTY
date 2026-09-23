@@ -179,6 +179,10 @@ gboolean noctty_restore_workspace_contents_new(
 GtkWidget *noctty_workspace_file_chooser_new(
     GtkWidget *parent, gboolean save);
 
+GtkWidget *noctty_save_file_chooser_new(
+    GtkWidget *parent, const char *title, const char *accept_label,
+    const char *default_name);
+
 typedef struct {
     GtkWidget *shortcut;
     int mode;
