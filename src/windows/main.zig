@@ -410,6 +410,9 @@ pub export fn wWinMain(
         .share_peer_info = sharePeerInfo,
         .share_peer_revoke = sharePeerRevoke,
         .share_pair = sharePair,
+        .share_role_start = shareRoleStart,
+        .share_role_stop = shareRoleStop,
+        .share_role_status = shareRoleStatus,
         .share_discover = shareDiscover,
         .pane_copy = paneCopy,
     };
@@ -826,6 +829,91 @@ fn sharePair(
 fn shareDiscover(raw: ?*anyopaque) callconv(.c) c_int {
     _ = stateFromRaw(raw) orelse return -1;
     return runDiscovery();
+}
+const share_role_host: c_int = 1;
+const share_role_receive: c_int = 2;
+
+fn startLiveHost(state: *State, peer: Share.identity.Peer, port: u16) !void {
+    state.live_host = try Share.live_host.LiveHost.create(
+        std.heap.page_allocator,
+        state.random.*,
+        state.store.identity,
+        peer,
+        pairedPeerTrusted,
+        null,
+        port,
+        .pane,
+        &.{.{
+            .tab_id = 1,
+            .title = "Windows terminal",
+            .active = true,
+            .active_pane_id = 1,
+            .root_node = 0,
+            .node_count = 1,
+        }},
+        &.{.{ .pane_id = 1, .tab_id = 1, .title = "ConPTY" }},
+        &.{.{
+            .tab_id = 1,
+            .kind = .leaf,
+            .pane_id = 1,
+            .ratio_permille = 0,
+        }},
+    );
+    state.shared_pane = state.workspace.activePaneIndex();
+}
+
+fn startLiveViewer(state: *State, peer: Share.identity.Peer) !void {
+    state.live_viewer = try Share.live_viewer.LiveViewer.create(
+        std.heap.page_allocator,
+        state.random.*,
+        state.store.identity,
+        peer,
+    );
+}
+
+fn shareRoleStart(raw: ?*anyopaque, index_raw: c_int, port: u16, role: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_host != null or state.live_viewer != null or port == 0) return -1;
+    const peer = (activePeerAt(&state.store, index_raw) orelse return -1).*;
+    switch (role) {
+        share_role_host => startLiveHost(state, peer, port) catch return -1,
+        share_role_receive => startLiveViewer(state, peer) catch return -1,
+        else => return -1,
+    }
+    return 0;
+}
+
+fn shareRoleStop(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_host) |host| {
+        host.destroy();
+        state.live_host = null;
+    }
+    if (state.live_viewer) |viewer| {
+        viewer.destroy();
+        state.live_viewer = null;
+    }
+    state.shared_pane = null;
+    return 0;
+}
+
+fn shareRoleStatus(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_host) |host| {
+        return switch (host.currentStatus()) {
+            .failed => -1,
+            .stopped => 0,
+            else => share_role_host,
+        };
+    }
+    if (state.live_viewer) |viewer| {
+        return switch (viewer.currentStatus()) {
+            .failed => -1,
+            .stopped => 0,
+            else => share_role_receive,
+        };
+    }
+    return 0;
 }
 
 fn confirmWindowsControl(owner: windows.HWND) bool {

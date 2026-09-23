@@ -98,6 +98,7 @@ const SharePeerInfo = *const fn (
     *u16,
 ) callconv(.c) c_int;
 const SharePair = *const fn (?*anyopaque, [*]const u8, usize, [*]const u8, usize, u16) callconv(.c) c_int;
+const ShareRoleStart = *const fn (?*anyopaque, c_int, u16, c_int) callconv(.c) c_int;
 const TabTitle = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
 const TabRename = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
 const TabMove = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
@@ -200,6 +201,9 @@ pub const Callbacks = extern struct {
     share_peer_info: SharePeerInfo,
     share_peer_revoke: PaneSelect,
     share_pair: SharePair,
+    share_role_start: ShareRoleStart,
+    share_role_stop: Unary,
+    share_role_status: Unary,
     share_discover: Unary,
     pane_copy: PaneCopy,
 };

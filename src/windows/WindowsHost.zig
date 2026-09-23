@@ -1028,6 +1028,8 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         Menu.id_sharing_manage => {
             if (!SharingDialog.show(host.window, host.callbacks))
                 _ = c.MessageBoxW(host.window, wide("NOCTTY could not open the session sharing manager."), wide("Session sharing"), c.MB_OK | c.MB_ICONERROR);
+            host.remote_mode = @intFromBool(host.callbacks.share_role_status(host.callbacks.userdata) == 2);
+            updateMenu(host);
             _ = c.SetFocus(host.window);
             return true;
         },
@@ -2431,7 +2433,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true global_hotkey=true sharing_dialog=true broadcast_input=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true global_hotkey=true sharing_dialog=true sharing_lifecycle=true broadcast_input=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);

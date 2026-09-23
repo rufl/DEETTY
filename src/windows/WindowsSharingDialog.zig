@@ -13,6 +13,10 @@ const pair_id: u16 = 40904;
 const discover_id: u16 = 40905;
 const revoke_id: u16 = 40906;
 const status_id: u16 = 40907;
+const role_status_id: u16 = 40908;
+const share_id: u16 = 40909;
+const receive_id: u16 = 40910;
+const stop_id: u16 = 40911;
 
 const State = struct {
     callbacks: *const Abi.Callbacks,
@@ -75,8 +79,23 @@ fn readField(window: c.HWND, id: u16, output: []u8) !usize {
         null,
         null,
     );
+
     if (bytes <= 0) return error.InvalidUnicode;
     return @intCast(bytes);
+}
+fn updateRole(window: c.HWND, state: *State) void {
+    const role = state.callbacks.share_role_status(state.callbacks.userdata);
+    const text = switch (role) {
+        0 => "Session: idle",
+        1 => "Session: sharing selected device",
+        2 => "Session: receiving selected device",
+        else => "Session: failed; stop the session before retrying",
+    };
+    _ = setText(window, role_status_id, text, 64);
+    const selected = c.SendDlgItemMessageW(window, list_id, c.LB_GETCURSEL, 0, 0) >= 0;
+    _ = c.EnableWindow(c.GetDlgItem(window, share_id), @intFromBool(selected and role == 0));
+    _ = c.EnableWindow(c.GetDlgItem(window, receive_id), @intFromBool(selected and role == 0));
+    _ = c.EnableWindow(c.GetDlgItem(window, stop_id), @intFromBool(role != 0));
 }
 
 fn refresh(window: c.HWND, state: *State) bool {
@@ -122,6 +141,7 @@ fn refresh(window: c.HWND, state: *State) bool {
         if (c.SendDlgItemMessageW(window, list_id, c.LB_ADDSTRING, 0, pointer(&encoded)) < 0) return false;
     }
     _ = c.EnableWindow(c.GetDlgItem(window, revoke_id), @intFromBool(count > 0));
+    updateRole(window, state);
     return true;
 }
 
@@ -175,6 +195,47 @@ fn discover(window: c.HWND, state: *State) void {
     failure(window, "Discovery completed. Use the reported endpoint to pair.");
 }
 
+fn startRole(window: c.HWND, state: *State, role: c_int) void {
+    const selected = c.SendDlgItemMessageW(window, list_id, c.LB_GETCURSEL, 0, 0);
+    if (selected < 0) {
+        failure(window, "Select a paired device first.");
+        return;
+    }
+    var port_text: [6]u8 = undefined;
+    const port_length = readField(window, port_id, &port_text) catch {
+        failure(window, "Enter a TCP port from 1 to 65535.");
+        return;
+    };
+    const port = std.fmt.parseInt(u16, port_text[0..port_length], 10) catch {
+        failure(window, "Enter a TCP port from 1 to 65535.");
+        return;
+    };
+    if (port == 0) {
+        failure(window, "Enter a TCP port from 1 to 65535.");
+        return;
+    }
+    if (state.callbacks.share_role_start(state.callbacks.userdata, @intCast(selected), port, role) != 0) {
+        failure(window, "Could not start the requested sharing session.");
+        updateRole(window, state);
+        return;
+    }
+    updateRole(window, state);
+    if (role == 1) {
+        failure(window, "Sharing session started.");
+    } else {
+        failure(window, "Receiving session started.");
+    }
+}
+
+fn stopRole(window: c.HWND, state: *State) void {
+    if (state.callbacks.share_role_stop(state.callbacks.userdata) != 0) {
+        failure(window, "Could not stop the sharing session.");
+        return;
+    }
+    updateRole(window, state);
+    failure(window, "Sharing session stopped.");
+}
+
 fn revoke(window: c.HWND, state: *State) void {
     const selected = c.SendDlgItemMessageW(window, list_id, c.LB_GETCURSEL, 0, 0);
     if (selected < 0) return;
@@ -223,11 +284,16 @@ fn dialogProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
     switch (id) {
         pair_id => pair(window, state),
         discover_id => discover(window, state),
+        share_id => startRole(window, state, 1),
+        receive_id => startRole(window, state, 2),
+        stop_id => stopRole(window, state),
         revoke_id => revoke(window, state),
         list_id => {
             if (notification == c.LBN_SELCHANGE) {
-                const selected = c.SendDlgItemMessageW(window, list_id, c.LB_GETCURSEL, 0, 0);
-                _ = c.EnableWindow(c.GetDlgItem(window, revoke_id), @intFromBool(selected >= 0));
+                _ = c.EnableWindow(c.GetDlgItem(window, revoke_id), @intFromBool(
+                    c.SendDlgItemMessageW(window, list_id, c.LB_GETCURSEL, 0, 0) >= 0,
+                ));
+                updateRole(window, state);
             }
         },
         else => return 0,
@@ -270,11 +336,11 @@ fn dialogTemplate() Template {
     var result: Template = .{};
     result.dword(c.WS_POPUP | c.WS_CAPTION | c.WS_SYSMENU | c.DS_MODALFRAME | c.DS_SETFONT | c.DS_CENTER);
     result.dword(0);
-    result.word(13);
+    result.word(17);
     result.word(0);
     result.word(0);
     result.word(500);
-    result.word(250);
+    result.word(290);
     result.word(0);
     result.word(0);
     result.text("Session sharing");
@@ -288,11 +354,15 @@ fn dialogTemplate() Template {
     result.control(c.WS_TABSTOP | c.WS_BORDER | c.ES_NUMBER | c.ES_AUTOHSCROLL, 322, 90, 168, 17, port_id, 0x81, "");
     result.control(0, 322, 116, 70, 12, 0xffff, 0x82, "&Alias:");
     result.control(c.WS_TABSTOP | c.WS_BORDER | c.ES_AUTOHSCROLL, 322, 130, 168, 17, alias_id, 0x81, "");
-    result.control(0, 10, 200, 480, 22, status_id, 0x82, "");
-    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 10, 226, 72, 16, pair_id, 0x80, "&Pair");
-    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 88, 226, 82, 16, discover_id, 0x80, "&Discover");
-    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 178, 226, 82, 16, revoke_id, 0x80, "&Revoke...");
-    result.control(c.WS_TABSTOP | c.BS_DEFPUSHBUTTON, 422, 226, 68, 16, c.IDCANCEL, 0x80, "&Close");
+    result.control(0, 10, 200, 480, 18, role_status_id, 0x82, "");
+    result.control(0, 10, 220, 480, 18, status_id, 0x82, "");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 10, 244, 112, 16, share_id, 0x80, "&Share selected");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 128, 244, 128, 16, receive_id, 0x80, "&Receive selected");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 262, 244, 76, 16, stop_id, 0x80, "S&top");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 10, 266, 72, 16, pair_id, 0x80, "&Pair");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 88, 266, 82, 16, discover_id, 0x80, "&Discover");
+    result.control(c.WS_TABSTOP | c.BS_PUSHBUTTON, 178, 266, 82, 16, revoke_id, 0x80, "&Revoke...");
+    result.control(c.WS_TABSTOP | c.BS_DEFPUSHBUTTON, 422, 266, 68, 16, c.IDCANCEL, 0x80, "&Close");
     return result;
 }
 
