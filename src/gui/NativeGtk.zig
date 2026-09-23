@@ -229,6 +229,7 @@ extern fn gtk_window_present(*GtkWindow) void;
 extern fn gtk_window_fullscreen(*GtkWindow) void;
 extern fn gtk_window_unfullscreen(*GtkWindow) void;
 extern fn gtk_window_set_startup_id(*GtkWindow, [*:0]const u8) void;
+extern fn gtk_window_set_focus(*GtkWindow, *GtkWidget) void;
 
 
 
@@ -263,6 +264,7 @@ extern fn gtk_widget_set_margin_start(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_end(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_top(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_bottom(*GtkWidget, c_int) void;
+extern fn gtk_widget_grab_focus(*GtkWidget) c_int;
 extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
@@ -1904,6 +1906,31 @@ pub export fn noctty_grid_window_set_startup_id(
     const id = startup_id orelse return;
     gtk_window_set_startup_id(@ptrCast(window), id);
 }
+pub export fn noctty_grid_focus_widget(
+    window_optional: ?*GtkWidget,
+    target_optional: ?*GtkWidget,
+) void {
+    const target = target_optional orelse return;
+    if (window_optional) |window| {
+        gtk_window_set_focus(@ptrCast(window), target);
+    }
+    _ = gtk_widget_grab_focus(target);
+}
+
+pub export fn noctty_grid_widget_set_margins(
+    widget_optional: ?*GtkWidget,
+    start: c_int,
+    top: c_int,
+    end: c_int,
+    bottom: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_margin_start(widget, start);
+    gtk_widget_set_margin_top(widget, top);
+    gtk_widget_set_margin_end(widget, end);
+    gtk_widget_set_margin_bottom(widget, bottom);
+}
+
 
 
 const GridWindowCallbacks = extern struct {

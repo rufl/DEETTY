@@ -289,6 +289,11 @@ void noctty_grid_window_set_fullscreen(
     GtkWidget *window, gboolean fullscreen);
 void noctty_grid_window_set_startup_id(
     GtkWidget *window, const char *startup_id);
+void noctty_grid_focus_widget(
+    GtkWidget *window, GtkWidget *target);
+void noctty_grid_widget_set_margins(
+    GtkWidget *widget, int start, int top, int end, int bottom);
+
 
 
 typedef struct {

@@ -19,6 +19,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Centralized GTK notebook page selection through the Zig native adapter across navigation, restore, reorder, split, and close paths.
 - Moved GTK grid-window mode setters and title application into the Zig adapter; C retains mode transitions, title composition, and geometry policy.
 - Moved GTK window presentation, fullscreen toggling, and XDG startup-ID application into the Zig adapter; C retains lifecycle timing and compositor-specific geometry.
+- Centralized GTK focus ownership and terminal-area margin policy in the Zig adapter; C retains pane targeting and layout-state decisions.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.

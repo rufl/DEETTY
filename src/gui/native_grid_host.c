@@ -1948,8 +1948,7 @@ static void focus_notebook_page(NocttyGridContext *context, GtkWidget *page) {
         target->event(target->event_data, target->pane_id, 57, 0,
                       (uint64_t)(g_get_monotonic_time() / 1000));
     if (target->area != NULL) {
-        gtk_window_set_focus(GTK_WINDOW(root->window), target->area);
-        gtk_widget_grab_focus(target->area);
+        noctty_grid_focus_widget(root->window, target->area);
     }
 }
 
@@ -2115,8 +2114,7 @@ static gboolean cycle_grid_pane(NocttyGridContext *context, int direction) {
     }
     if (target == NULL) return TRUE;
     if (target != current) {
-        gtk_window_set_focus(GTK_WINDOW(root->window), target->area);
-        gtk_widget_grab_focus(target->area);
+        noctty_grid_focus_widget(root->window, target->area);
         if (root->workspace_smoke == 22)
             activate_grid_context(target);
         if (direction > 0) root->pane_cycle_next = 1;
@@ -2741,8 +2739,7 @@ static gboolean start_tab_navigation_interactions(gpointer user_data) {
         root->window_presented && gtk_widget_get_mapped(root->window) &&
         focus_target != NULL && focus_target->area != NULL;
     if (surfaces_ready && !grid_context_owns_window_focus(focus_target)) {
-        gtk_window_set_focus(GTK_WINDOW(root->window), focus_target->area);
-        gtk_widget_grab_focus(focus_target->area);
+        noctty_grid_focus_widget(root->window, focus_target->area);
     }
     if ((!surfaces_ready || !grid_context_owns_window_focus(focus_target)) &&
         root->project_smoke_attempts++ < 200) {
@@ -5694,10 +5691,12 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
         NocttyGridContext *candidate =
             g_ptr_array_index(root->contexts, index);
         if (candidate->area == NULL) continue;
-        gtk_widget_set_margin_start(candidate->area, spacing_leading);
-        gtk_widget_set_margin_top(candidate->area, spacing_leading);
-        gtk_widget_set_margin_end(candidate->area, spacing_trailing);
-        gtk_widget_set_margin_bottom(candidate->area, spacing_trailing);
+        noctty_grid_widget_set_margins(
+            candidate->area,
+            spacing_leading,
+            spacing_leading,
+            spacing_trailing,
+            spacing_trailing);
     }
 }
 
@@ -6580,10 +6579,12 @@ static NocttyGridContext *create_grid_context_for_session(
     created->area = noctty_terminal_area_new();
     int spacing_leading = created->pane_spacing_px / 2;
     int spacing_trailing = created->pane_spacing_px - spacing_leading;
-    gtk_widget_set_margin_start(created->area, spacing_leading);
-    gtk_widget_set_margin_top(created->area, spacing_leading);
-    gtk_widget_set_margin_end(created->area, spacing_trailing);
-    gtk_widget_set_margin_bottom(created->area, spacing_trailing);
+    noctty_grid_widget_set_margins(
+        created->area,
+        spacing_leading,
+        spacing_leading,
+        spacing_trailing,
+        spacing_trailing);
     created->im_context = gtk_im_multicontext_new();
     created->font_family = g_strdup(source->font_family != NULL
                                         ? source->font_family
