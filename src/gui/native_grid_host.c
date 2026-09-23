@@ -460,6 +460,7 @@ typedef struct NocttyGridContextTag {
     int settings_geometry_sane;
     int application_icon_ready;
     int theme_imported;
+    int theme_import_dialog_built;
     int system_noctalia_theme_listed;
     int system_noctalia_theme_applied;
     int project_smoke_done;
@@ -11698,6 +11699,13 @@ static void on_theme_menu_activate(GtkWidget *item, gpointer user_data) {
 static gboolean request_theme_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
     open_theme_library(context);
+    GtkWidget *import_variant = NULL;
+    GtkWidget *import_dialog = noctty_theme_import_dialog_new(
+        context->window, &import_variant);
+    if (import_dialog != NULL && import_variant != NULL) {
+        context->theme_import_dialog_built = 1;
+        gtk_widget_destroy(import_dialog);
+    }
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *system_apply = root->theme_dialog != NULL
         ? g_object_get_data(G_OBJECT(root->theme_dialog),
@@ -17273,7 +17281,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.terminal_chord_final_protected &&
          final_page_count == 1 && final_tabs_visible);
     int theme_ok = workspace_smoke != 7 ||
-        (context.theme_imported && context.system_noctalia_theme_listed &&
+        (context.theme_imported && context.theme_import_dialog_built &&
+         context.system_noctalia_theme_listed &&
          context.system_noctalia_theme_applied);
     int project_ok = workspace_smoke != 8 ||
         (context.project_smoke_done && context.recent_workspace_control &&
