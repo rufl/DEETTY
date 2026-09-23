@@ -223,6 +223,9 @@ extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
 extern fn gtk_window_set_decorated(*GtkWindow, c_int) void;
 extern fn gtk_window_set_resizable(*GtkWindow, c_int) void;
 extern fn gtk_window_set_keep_above(*GtkWindow, c_int) void;
+extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
+extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
+
 
 
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
@@ -1848,6 +1851,28 @@ pub export fn noctty_grid_window_configure(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
+pub export fn noctty_grid_window_apply_mode(
+    window_optional: ?*GtkWidget,
+    decorated: c_int,
+    keep_above: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_decorated(@ptrCast(window), decorated);
+    gtk_window_set_resizable(@ptrCast(window), TRUE);
+    gtk_window_set_keep_above(@ptrCast(window), keep_above);
+}
+
+pub export fn noctty_grid_window_set_title(
+    window_optional: ?*GtkWidget,
+    title: ?[*:0]const u8,
+) void {
+    const window = window_optional orelse return;
+    const next_title = title orelse return;
+    if (g_strcmp0(gtk_window_get_title(@ptrCast(window)), next_title) != 0) {
+        gtk_window_set_title(@ptrCast(window), next_title);
+    }
+}
+
 const GridWindowCallbacks = extern struct {
     delete_event: ?GCallback,
     destroy: ?GCallback,

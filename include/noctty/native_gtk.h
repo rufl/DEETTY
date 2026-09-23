@@ -280,6 +280,11 @@ GtkIMContext *noctty_grid_input_context_new(void);
 void noctty_grid_window_configure(
     GtkWidget *window, int default_width, int default_height,
     gboolean decorated, gboolean keep_above);
+void noctty_grid_window_apply_mode(
+    GtkWidget *window, gboolean decorated, gboolean keep_above);
+void noctty_grid_window_set_title(
+    GtkWidget *window, const char *title);
+
 typedef struct {
     GCallback delete_event;
     GCallback destroy;

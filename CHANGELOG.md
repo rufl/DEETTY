@@ -17,6 +17,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   built-in shell when a custom launch fails. `NWS3` layouts remain unchanged.
 - Moved GTK notebook tab-position, toolbar orientation, visibility, and border policy into the Zig adapter; C retains profile state and event notification.
 - Centralized GTK notebook page selection through the Zig native adapter across navigation, restore, reorder, split, and close paths.
+- Moved GTK grid-window mode setters and title application into the Zig adapter; C retains mode transitions, title composition, and geometry policy.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.
