@@ -208,6 +208,11 @@ extern fn gtk_notebook_append_page(
 ) c_int;
 extern fn gtk_notebook_set_tab_reorderable(*GtkNotebook, *GtkWidget, c_int) void;
 extern fn gtk_notebook_set_tab_detachable(*GtkNotebook, *GtkWidget, c_int) void;
+extern fn gtk_notebook_set_tab_pos(*GtkNotebook, c_int) void;
+extern fn gtk_notebook_set_show_tabs(*GtkNotebook, c_int) void;
+extern fn gtk_notebook_set_show_border(*GtkNotebook, c_int) void;
+extern fn gtk_orientable_set_orientation(*GtkOrientable, c_int) void;
+
 
 
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
@@ -1907,10 +1912,35 @@ pub export fn noctty_grid_notebook_append_page(
         page,
         tab_widget,
     );
+
     if (page_index < 0) return -1;
     gtk_notebook_set_tab_reorderable(@ptrCast(notebook), page, TRUE);
     gtk_notebook_set_tab_detachable(@ptrCast(notebook), page, FALSE);
     return page_index;
+}
+pub export fn noctty_grid_notebook_apply_policy(
+    notebook_optional: ?*GtkWidget,
+    toolbar_optional: ?*GtkWidget,
+    tab_position: c_int,
+    show_tabs: c_int,
+) void {
+    const notebook = notebook_optional orelse return;
+    const gtk_position: c_int = switch (tab_position) {
+        0 => 2,
+        1 => 3,
+        2 => 0,
+        3 => 1,
+        else => return,
+    };
+    gtk_notebook_set_tab_pos(@ptrCast(notebook), gtk_position);
+    gtk_notebook_set_show_tabs(@ptrCast(notebook), show_tabs);
+    gtk_notebook_set_show_border(@ptrCast(notebook), FALSE);
+    if (toolbar_optional) |toolbar| {
+        gtk_orientable_set_orientation(
+            @ptrCast(toolbar),
+            if (tab_position < 2) GTK_ORIENTATION_HORIZONTAL else GTK_ORIENTATION_VERTICAL,
+        );
+    }
 }
 
 

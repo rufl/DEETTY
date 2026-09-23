@@ -306,6 +306,10 @@ gboolean noctty_grid_notebook_configure(
     const NocttyGridNotebookCallbacks *callbacks);
 int noctty_grid_notebook_append_page(
     GtkWidget *notebook, GtkWidget *page, GtkWidget *tab_widget);
+void noctty_grid_notebook_apply_policy(
+    GtkWidget *notebook, GtkWidget *toolbar_controls,
+    int tab_position, gboolean show_tabs);
+
 
 
 

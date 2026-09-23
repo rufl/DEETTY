@@ -5709,8 +5709,9 @@ static void update_notebook_chrome(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     gboolean show = root->zoomed_pane_id == 0 &&
         gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
-    gtk_notebook_set_show_tabs(GTK_NOTEBOOK(root->notebook), show);
-    gtk_notebook_set_show_border(GTK_NOTEBOOK(root->notebook), FALSE);
+    noctty_grid_notebook_apply_policy(
+        root->notebook, root->window_toolbar_controls,
+        root->tab_position, show);
 }
 
 typedef struct {
@@ -10191,19 +10192,12 @@ static void on_settings_preset_changed(GtkComboBox *combo, gpointer user_data) {
 
 static void apply_grid_tab_position(NocttyGridContext *context, int value,
                                     gboolean notify) {
-    GtkPositionType position = GTK_POS_TOP;
-    if (value == 1) position = GTK_POS_BOTTOM;
-    else if (value == 2) position = GTK_POS_LEFT;
-    else if (value == 3) position = GTK_POS_RIGHT;
     if (value < 0 || value > 3) return;
-    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(context->notebook), position);
-    if (context->window_toolbar_controls != NULL) {
-        GtkOrientation orientation = value < 2
-            ? GTK_ORIENTATION_HORIZONTAL
-            : GTK_ORIENTATION_VERTICAL;
-        gtk_orientable_set_orientation(
-            GTK_ORIENTABLE(context->window_toolbar_controls), orientation);
-    }
+    NocttyGridContext *root = root_grid_context(context);
+    gboolean show = root->zoomed_pane_id == 0 &&
+        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
+    noctty_grid_notebook_apply_policy(
+        context->notebook, context->window_toolbar_controls, value, show);
     for (guint index = 0; context->contexts != NULL &&
          index < context->contexts->len; index++) {
         NocttyGridContext *candidate =
