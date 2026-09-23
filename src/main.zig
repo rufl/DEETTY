@@ -2132,6 +2132,34 @@ export fn noctty_grid_apply_preset(
 
 export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*]const u8, first_len: usize, second_ptr: [*]const u8, second_len: usize, format_raw: c_int) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    if (action == 22) {
+        const io = bridge.io orelse return -1;
+        if (first_len == 0) return -1;
+        const contents = std.Io.Dir.cwd().readFileAlloc(
+            io,
+            first_ptr[0..first_len],
+            bridge.app.allocator,
+            .limited(4 * 1024 * 1024),
+        ) catch return -1;
+        defer bridge.app.allocator.free(contents);
+        const name_ptr = if (second_len > 0) second_ptr else first_ptr;
+        const name_len = if (second_len > 0) second_len else first_len;
+        const source_format: c_int = switch (format_raw) {
+            0 => -1,
+            1 => 3,
+            2 => 4,
+            else => return -1,
+        };
+        return noctty_grid_text_action(
+            raw,
+            1,
+            name_ptr,
+            name_len,
+            contents.ptr,
+            contents.len,
+            source_format,
+        );
+    }
     if (action == 15 or action == 16) {
         var profile = noctty.launch_profile.Profile{};
         profile.kind = switch (format_raw) {

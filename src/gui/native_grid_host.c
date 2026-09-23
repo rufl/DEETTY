@@ -10410,24 +10410,6 @@ static void set_theme_library_status(NocttyGridContext *context,
     set_status_label_feedback(status, message, is_error);
 }
 
-static gboolean read_theme_file_bounded(const gchar *path, goffset maximum,
-                                         gchar **contents, gsize *length) {
-    if (path == NULL || contents == NULL || length == NULL) return FALSE;
-    *contents = NULL;
-    *length = 0;
-    GStatBuf stat_buffer;
-    if (g_stat(path, &stat_buffer) != 0 ||
-        !S_ISREG(stat_buffer.st_mode) || stat_buffer.st_size <= 0 ||
-        stat_buffer.st_size > maximum)
-        return FALSE;
-    if (!g_file_get_contents(path, contents, length, NULL)) return FALSE;
-    if (*length == 0 || *length > (gsize)maximum) {
-        g_clear_pointer(contents, g_free);
-        *length = 0;
-        return FALSE;
-    }
-    return TRUE;
-}
 
 static void on_settings_theme_changed(GtkComboBox *combo, gpointer user_data) {
     NocttyGridContext *target = active_grid_context(user_data);
@@ -11369,28 +11351,17 @@ static void on_theme_import_clicked(GtkButton *button, gpointer user_data) {
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) ==
         GTK_RESPONSE_ACCEPT) {
         gchar *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-        gchar *contents = NULL;
-        gsize length = 0;
-        if (filename == NULL ||
-            !read_theme_file_bounded(filename, 4 * 1024 * 1024,
-                                     &contents, &length)) {
+        if (filename == NULL) {
             set_theme_library_status(
                 context,
                 "Could not read that theme. Choose a regular file up to 4 MiB.",
                 TRUE);
         } else if (context->text_action != NULL) {
-            int format = -1;
-            const gsize filename_length = strlen(filename);
-            if (filename_length >= 5 &&
-                g_ascii_strcasecmp(
-                    filename + filename_length - 5, ".json") == 0) {
-                int variant = gtk_combo_box_get_active(
-                    GTK_COMBO_BOX(noctalia_variant));
-                format = variant == 1 ? 3 : variant == 2 ? 4 : -1;
-            }
+            int variant = gtk_combo_box_get_active(
+                GTK_COMBO_BOX(noctalia_variant));
             int result = context->text_action(
-                context->text_action_data, 1, filename, strlen(filename),
-                contents, length, format);
+                context->text_action_data, 22, filename, strlen(filename),
+                "", 0, variant);
             if (result == 0) {
                 queue_theme_redraw(context);
                 refresh_open_theme_selectors(context);
@@ -11410,7 +11381,6 @@ static void on_theme_import_clicked(GtkButton *button, gpointer user_data) {
                     TRUE);
             }
         }
-        g_free(contents);
         g_free(filename);
     }
     gtk_widget_destroy(chooser);
@@ -11435,14 +11405,10 @@ static void on_noctalia_current_theme_clicked(GtkButton *button,
     NocttyGridContext *context = user_data;
     gchar *path = g_build_filename(
         g_get_user_config_dir(), "noctalia", "colors.json", NULL);
-    gchar *contents = NULL;
-    gsize length = 0;
     int result = -1;
-    if (read_theme_file_bounded(path, 1024 * 1024, &contents, &length) &&
-        context->text_action != NULL)
+    if (path != NULL && context->text_action != NULL)
         result = context->text_action(
-            context->text_action_data, 1, path, strlen(path),
-            contents, length, 5);
+            context->text_action_data, 22, path, strlen(path), "", 0, 0);
     if (result == 0) {
         queue_theme_redraw(context);
         refresh_open_theme_selectors(context);
@@ -11461,7 +11427,6 @@ static void on_noctalia_current_theme_clicked(GtkButton *button,
             context,
             "Could not import current Noctalia colors from colors.json.", TRUE);
     }
-    g_free(contents);
     g_free(path);
 }
 
@@ -11593,23 +11558,13 @@ static void on_noctalia_system_theme_clicked(GtkButton *button,
         g_free(label);
         return;
     }
-    gchar *contents = NULL;
-    gsize length = 0;
-    int format = variant == 0 ? 3 : 4;
-    if (!read_theme_file_bounded(path, 1024 * 1024, &contents, &length)) {
-        set_status_label_feedback(
-            controls->status, "Theme file is unavailable or too large.", TRUE);
-        g_free(label);
-        return;
-    }
     int result = context->text_action(
-        context->text_action_data, 1, label, strlen(label), contents, length,
-        format);
+        context->text_action_data, 22, path, strlen(path),
+        label, strlen(label), variant + 1);
     if (result != 0 && result != NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED) {
         set_status_label_feedback(
             controls->status,
             "Could not finish importing and saving this Noctalia theme.", TRUE);
-        g_free(contents);
         g_free(label);
         return;
     }
@@ -11625,7 +11580,6 @@ static void on_noctalia_system_theme_clicked(GtkButton *button,
     queue_theme_redraw(context);
     refresh_open_theme_selectors(context);
     context->system_noctalia_theme_applied = 1;
-    g_free(contents);
     g_free(label);
 }
 
