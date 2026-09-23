@@ -126,6 +126,8 @@ extern fn gtk_message_dialog_format_secondary_text(
     [*:0]const u8,
     ...,
 ) void;
+extern fn gtk_dialog_add_buttons(*GtkWidget, [*:0]const u8, c_int, ...) void;
+extern fn gtk_dialog_set_default_response(*GtkWidget, c_int) void;
 extern fn gtk_label_set_markup(*GtkLabel, [*:0]const u8) void;
 extern fn gtk_label_set_line_wrap(*GtkLabel, c_int) void;
 extern fn gtk_label_set_mnemonic_widget(*GtkLabel, *GtkWidget) void;
@@ -1828,6 +1830,38 @@ pub export fn noctty_error_dialog_new(
     if (detail) |text| {
         gtk_message_dialog_format_secondary_text(dialog, "%s", text);
     }
+    return dialog;
+}
+
+pub export fn noctty_message_dialog_new(
+    parent: ?*GtkWidget,
+    message_type: c_int,
+    primary: [*:0]const u8,
+    detail: ?[*:0]const u8,
+    cancel_label: [*:0]const u8,
+    accept_label: [*:0]const u8,
+) ?*GtkWidget {
+    const target = parent orelse return null;
+    const dialog = gtk_message_dialog_new(
+        target,
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        message_type,
+        0,
+        "%s",
+        primary,
+    ) orelse return null;
+    if (detail) |text| {
+        gtk_message_dialog_format_secondary_text(dialog, "%s", text);
+    }
+    gtk_dialog_add_buttons(
+        dialog,
+        cancel_label,
+        GTK_RESPONSE_CANCEL,
+        accept_label,
+        GTK_RESPONSE_ACCEPT,
+        @as(?[*:0]const u8, null),
+    );
+    gtk_dialog_set_default_response(dialog, GTK_RESPONSE_CANCEL);
     return dialog;
 }
 

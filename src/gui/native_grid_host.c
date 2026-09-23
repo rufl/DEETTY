@@ -7644,16 +7644,9 @@ static gboolean confirm_terminal_process_close(NocttyGridContext *context,
             ? g_strdup("A foreground process is still running. Closing will stop it and its child processes.")
             : g_strdup_printf("%u terminals have foreground processes. Closing will stop them and their child processes.",
                               busy_count);
-    GtkWidget *dialog = gtk_message_dialog_new(
-        GTK_WINDOW(root->window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE, "%s", title);
-    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-                                             "%s", detail);
-    gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-                           "Keep Open", GTK_RESPONSE_CANCEL,
-                           "Close Anyway", GTK_RESPONSE_ACCEPT, NULL);
-    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+    GtkWidget *dialog = noctty_message_dialog_new(
+        GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title, detail,
+        "Keep Open", "Close Anyway");
     root->terminal_close_prompt_count++;
     root->terminal_close_prompt_busy_count += (int)busy_count;
     (void)configure_overlay_window_stacking(
@@ -8197,20 +8190,15 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         !(root->workspace_smoke == 21 && !root->layout_preset_finalizing)) {
         guint extra_count = current_count - target_count;
         if (root->workspace_smoke == 21) {
-            GtkWidget *dialog = gtk_message_dialog_new(
-                GTK_WINDOW(root->window), GTK_DIALOG_MODAL,
-                GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-                "Move %u terminal session%s to a new tab?", extra_count,
-                extra_count == 1 ? "" : "s");
-            gtk_message_dialog_format_secondary_text(
-                GTK_MESSAGE_DIALOG(dialog),
+            gchar *title = g_strdup_printf(
+                "Move %u terminal session%s to a new tab?",
+                extra_count, extra_count == 1 ? "" : "s");
+            GtkWidget *dialog = noctty_message_dialog_new(
+                GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title,
                 "Changing this layout would otherwise close live terminals. "
-                "Cancel keeps the current layout.");
-            gtk_dialog_add_buttons(GTK_DIALOG(dialog), "Cancel",
-                                   GTK_RESPONSE_CANCEL, "Move sessions",
-                                   GTK_RESPONSE_ACCEPT, NULL);
-            gtk_dialog_set_default_response(GTK_DIALOG(dialog),
-                                            GTK_RESPONSE_CANCEL);
+                "Cancel keeps the current layout.",
+                "Cancel", "Move sessions");
+            g_free(title);
             gint smoke_response = root->layout_preset_prompt_count++ == 0
                 ? GTK_RESPONSE_CANCEL : GTK_RESPONSE_ACCEPT;
             g_object_set_data(G_OBJECT(dialog), "noctty-layout-prompt-response",
@@ -13391,22 +13379,15 @@ static void on_sharing_action(GtkButton *button, gpointer user_data) {
     if (action == 9 && peer_index >= 0) {
         gchar *peer_label = gtk_combo_box_text_get_active_text(
             GTK_COMBO_BOX_TEXT(peers));
-        GtkWidget *confirmation = gtk_message_dialog_new(
-            GTK_WINDOW(dialog),
-            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-            "Revoke this paired device?");
-        gtk_message_dialog_format_secondary_text(
-            GTK_MESSAGE_DIALOG(confirmation),
+        gchar *detail = g_strdup_printf(
             "%s will lose sharing access immediately. Pairing it again will "
             "require a new matching six-digit confirmation.",
             peer_label != NULL ? peer_label : "The selected device");
-        gtk_dialog_add_buttons(
-            GTK_DIALOG(confirmation),
-            "Keep Device", GTK_RESPONSE_CANCEL,
-            "Revoke Device", GTK_RESPONSE_ACCEPT, NULL);
-        gtk_dialog_set_default_response(
-            GTK_DIALOG(confirmation), GTK_RESPONSE_CANCEL);
+        GtkWidget *confirmation = noctty_message_dialog_new(
+            GTK_WIDGET(dialog), GTK_MESSAGE_WARNING,
+            "Revoke this paired device?", detail,
+            "Keep Device", "Revoke Device");
+        g_free(detail);
         (void)configure_overlay_window_stacking(
             root, confirmation, "noctty-share-revoke-confirmation");
         show_all_with_action_affordances(confirmation);
@@ -13572,20 +13553,13 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
         return;
     }
 
-    GtkWidget *dialog = gtk_message_dialog_new(
-        GTK_WINDOW(context->window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
-        "Enable broadcast input?");
-    gtk_message_dialog_format_secondary_text(
-        GTK_MESSAGE_DIALOG(dialog),
+    GtkWidget *dialog = noctty_message_dialog_new(
+        GTK_WIDGET(context->window), GTK_MESSAGE_WARNING,
+        "Enable broadcast input?",
         "Each keystroke will be sent to every selected terminal, or every "
         "terminal in this tab when none are selected. Review the targets "
-        "before continuing.");
-    gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-                           "Keep Off", GTK_RESPONSE_CANCEL,
-                           "Enable Broadcast", GTK_RESPONSE_ACCEPT, NULL);
-    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+        "before continuing.",
+        "Keep Off", "Enable Broadcast");
     prepare_action_button_tree(dialog);
     if (root->workspace_smoke == 1) {
         GtkWidget *cancel = gtk_dialog_get_widget_for_response(
