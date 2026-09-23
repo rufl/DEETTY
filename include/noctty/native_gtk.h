@@ -274,6 +274,18 @@ GtkWidget *noctty_color_button_new(const char *accessible_name);
 GtkWidget *noctty_grid_page_new(int panel_padding, GtkWidget *pane_info_strip);
 
 typedef struct {
+    int column;
+    int row;
+    int width;
+    int height;
+} NocttyWindowResizeLayout;
+
+GtkWidget *noctty_window_resize_layout_new(
+    GtkWidget *content, GtkWidget *const *handles,
+    const NocttyWindowResizeLayout *layouts, guint handle_count,
+    GtkWidget **resize_grip_out);
+
+typedef struct {
     GtkWidget *box;
     GtkWidget *label;
     GtkWidget *clear_button;

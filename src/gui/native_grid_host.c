@@ -16099,11 +16099,7 @@ static GtkWidget *create_window_resize_handle(NocttyGridContext *context,
 
 static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
                                               GtkWidget *content) {
-    GtkWidget *layout = gtk_grid_new();
-    gtk_widget_set_hexpand(layout, TRUE);
-    gtk_widget_set_vexpand(layout, TRUE);
-    gtk_widget_set_hexpand(content, TRUE);
-    gtk_widget_set_vexpand(content, TRUE);
+    NocttyWindowResizeLayout layouts[8] = {0};
     int border_px = context->window_border_px;
     int dragger_px = context->dragger_px;
     for (int index = 0; index < 8; index++) {
@@ -16111,20 +16107,18 @@ static GtkWidget *create_window_resize_layout(NocttyGridContext *context,
         if (noctty_grid_resize_handle_layout(
                 index, border_px, dragger_px, &handle_layout) == 0)
             continue;
-        GtkWidget *handle = create_window_resize_handle(
+        layouts[index] = (NocttyWindowResizeLayout){
+            .column = handle_layout.column,
+            .row = handle_layout.row,
+            .width = handle_layout.width,
+            .height = handle_layout.height,
+        };
+        (void)create_window_resize_handle(
             context, index, handle_layout.width, handle_layout.height);
-        if (index != 6)
-            gtk_grid_attach(GTK_GRID(layout), handle, handle_layout.column,
-                            handle_layout.row, 1, 1);
     }
-    context->resize_grip = context->window_resize_handles[6];
-    gtk_grid_attach(GTK_GRID(layout), content, 1, 1, 1, 1);
-    GtkWidget *overlay = gtk_overlay_new();
-    gtk_container_add(GTK_CONTAINER(overlay), layout);
-    gtk_widget_set_halign(context->resize_grip, GTK_ALIGN_FILL);
-    gtk_widget_set_valign(context->resize_grip, GTK_ALIGN_END);
-    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), context->resize_grip);
-    return overlay;
+    return noctty_window_resize_layout_new(
+        content, context->window_resize_handles, layouts, 8,
+        &context->resize_grip);
 }
 
 static void update_window_resize_handles(NocttyGridContext *context) {

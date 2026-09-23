@@ -82,6 +82,7 @@ const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
 const GTK_ORIENTATION_VERTICAL: c_int = 1;
 const GTK_ALIGN_FILL: c_int = 0;
 const GTK_ALIGN_START: c_int = 1;
+const GTK_ALIGN_END: c_int = 2;
 const GTK_ALIGN_CENTER: c_int = 3;
 const GTK_POLICY_AUTOMATIC: c_int = 1;
 const GTK_POLICY_NEVER: c_int = 2;
@@ -259,6 +260,8 @@ extern fn gtk_grid_set_row_spacing(*GtkGrid, c_uint) void;
 extern fn gtk_grid_set_column_spacing(*GtkGrid, c_uint) void;
 extern fn gtk_grid_set_column_homogeneous(*GtkGrid, c_int) void;
 extern fn gtk_grid_attach(*GtkGrid, *GtkWidget, c_int, c_int, c_int, c_int) void;
+extern fn gtk_overlay_new() ?*GtkWidget;
+extern fn gtk_overlay_add_overlay(*GtkWidget, *GtkWidget) void;
 extern fn gtk_frame_new(?[*:0]const u8) ?*GtkWidget;
 extern fn gtk_frame_set_label_widget(*GtkFrame, *GtkWidget) void;
 extern fn gtk_container_set_border_width(*GtkContainer, c_uint) void;
@@ -1607,6 +1610,52 @@ pub export fn noctty_color_button_new(
     gtk_color_chooser_set_use_alpha(button, FALSE);
     if (accessible_name) |name| setAccessibleName(button, name);
     return button;
+}
+
+const WindowResizeLayout = extern struct {
+    column: c_int,
+    row: c_int,
+    width: c_int,
+    height: c_int,
+};
+
+pub export fn noctty_window_resize_layout_new(
+    content: ?*GtkWidget,
+    handles: [*]const ?*GtkWidget,
+    layouts: [*]const WindowResizeLayout,
+    handle_count: c_uint,
+    resize_grip_out: *?*GtkWidget,
+) ?*GtkWidget {
+    const child = content orelse return null;
+    const grid = gtk_grid_new() orelse return null;
+    gtk_widget_set_hexpand(grid, TRUE);
+    gtk_widget_set_vexpand(grid, TRUE);
+    gtk_widget_set_hexpand(child, TRUE);
+    gtk_widget_set_vexpand(child, TRUE);
+    const count: usize = @intCast(handle_count);
+    var index: usize = 0;
+    while (index < count) : (index += 1) {
+        const handle = handles[index] orelse continue;
+        if (index == 6) continue;
+        const layout = layouts[index];
+        gtk_grid_attach(
+            @ptrCast(grid),
+            handle,
+            layout.column,
+            layout.row,
+            1,
+            1,
+        );
+    }
+    const grip = handles[6] orelse return null;
+    gtk_grid_attach(@ptrCast(grid), child, 1, 1, 1, 1);
+    const overlay = gtk_overlay_new() orelse return null;
+    gtk_container_add(@ptrCast(overlay), grid);
+    gtk_widget_set_halign(grip, GTK_ALIGN_FILL);
+    gtk_widget_set_valign(grip, GTK_ALIGN_END);
+    gtk_overlay_add_overlay(overlay, grip);
+    resize_grip_out.* = grip;
+    return overlay;
 }
 
 const SmartFilterEmptyContents = extern struct {
