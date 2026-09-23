@@ -116,6 +116,7 @@ extern fn gtk_dialog_get_content_area(*GtkDialog) *GtkWidget;
 extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_set_max_length(*GtkEntry, c_int) void;
+extern fn gtk_entry_set_visibility(*GtkEntry, c_int) void;
 extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_button_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
 extern fn gtk_button_set_relief(*GtkButton, c_int) void;
@@ -1728,6 +1729,69 @@ pub export fn noctty_save_file_chooser_new(
     default_name: [*:0]const u8,
 ) ?*GtkWidget {
     return saveFileChooser(parent orelse return null, title, accept_label, default_name);
+}
+
+pub export fn noctty_history_password_contents_new(
+    dialog: ?*GtkWidget,
+    entry_out: ?**GtkWidget,
+) c_int {
+    const target = dialog orelse return FALSE;
+    const output = entry_out orelse return FALSE;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
+    const label = gtk_label_new(
+        "Use at least 8 characters. The password is not stored by NOCTTY.",
+    ) orelse return FALSE;
+    const entry = gtk_entry_new() orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_entry_set_visibility(@ptrCast(entry), FALSE);
+    gtk_entry_set_max_length(@ptrCast(entry), 4096);
+    setAccessibleName(entry, "Screen history password");
+    gtk_container_set_border_width(@ptrCast(box), 12);
+    gtk_box_pack_start(@ptrCast(box), label, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(box), entry, FALSE, FALSE, 0);
+    gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), box);
+    output.* = entry;
+    return TRUE;
+}
+
+pub export fn noctty_agent_resume_contents_new(
+    dialog: ?*GtkWidget,
+    provider_out: ?**GtkWidget,
+    session_out: ?**GtkWidget,
+    label_out: ?**GtkWidget,
+) c_int {
+    const target = dialog orelse return FALSE;
+    const provider_output = provider_out orelse return FALSE;
+    const session_output = session_out orelse return FALSE;
+    const label_output = label_out orelse return FALSE;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
+    const provider = gtk_combo_box_text_new() orelse return FALSE;
+    const session = gtk_entry_new() orelse return FALSE;
+    const label = gtk_entry_new() orelse return FALSE;
+    for ([_][*:0]const u8{ "Claude Code", "Codex" }) |text|
+        gtk_combo_box_text_append_text(@ptrCast(provider), text);
+    gtk_combo_box_set_active(@ptrCast(provider), 0);
+    gtk_entry_set_placeholder_text(@ptrCast(session), "Opaque session ID");
+    gtk_entry_set_placeholder_text(@ptrCast(label), "Optional label");
+    gtk_entry_set_max_length(@ptrCast(session), 256);
+    gtk_entry_set_max_length(@ptrCast(label), 64);
+    setAccessibleName(provider, "Agent provider");
+    setAccessibleName(session, "Agent session reference");
+    setAccessibleName(label, "Agent display label");
+    for ([_]*GtkWidget{
+        gtk_label_new("Provider") orelse return FALSE,
+        provider,
+        gtk_label_new("Session reference") orelse return FALSE,
+        session,
+        gtk_label_new("Display label") orelse return FALSE,
+        label,
+    }) |widget| gtk_box_pack_start(@ptrCast(box), widget, FALSE, FALSE, 0);
+    gtk_container_set_border_width(@ptrCast(box), 12);
+    gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), box);
+    provider_output.* = provider;
+    session_output.* = session;
+    label_output.* = label;
+    return TRUE;
 }
 
 const SettingsCoreOptions = extern struct {

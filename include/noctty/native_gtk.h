@@ -183,6 +183,12 @@ GtkWidget *noctty_save_file_chooser_new(
     GtkWidget *parent, const char *title, const char *accept_label,
     const char *default_name);
 
+gboolean noctty_history_password_contents_new(
+    GtkWidget *dialog, GtkWidget **entry_out);
+gboolean noctty_agent_resume_contents_new(
+    GtkWidget *dialog, GtkWidget **provider_out,
+    GtkWidget **session_out, GtkWidget **label_out);
+
 typedef struct {
     GtkWidget *shortcut;
     int mode;

@@ -12464,18 +12464,14 @@ static void save_grid_encrypted_history(NocttyGridContext *context) {
             "Protect Screen History", GTK_WINDOW(context->window),
             GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
             "Cancel", GTK_RESPONSE_CANCEL, "Export", GTK_RESPONSE_ACCEPT, NULL);
-        GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-        GtkWidget *label = gtk_label_new(
-            "Use at least 8 characters. The password is not stored by NOCTTY.");
-        GtkWidget *entry = gtk_entry_new();
-        gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-        gtk_entry_set_visibility(GTK_ENTRY(entry), FALSE);
-        gtk_entry_set_max_length(GTK_ENTRY(entry), 4096);
-        set_widget_accessible_name(entry, "Screen history password");
-        gtk_container_set_border_width(GTK_CONTAINER(box), 12);
-        gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
-        gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(password_dialog))), box);
+        GtkWidget *entry = NULL;
+        if (!noctty_history_password_contents_new(
+                password_dialog, &entry)) {
+            gtk_widget_destroy(password_dialog);
+            g_free(path);
+            gtk_widget_destroy(chooser);
+            return;
+        }
         prepare_action_button_tree(password_dialog);
         if (run_grid_modal_dialog(context, GTK_DIALOG(password_dialog)) == GTK_RESPONSE_ACCEPT) {
             const char *password = gtk_entry_get_text(GTK_ENTRY(entry));
@@ -12501,28 +12497,14 @@ static void set_agent_resume_reference(NocttyGridContext *context) {
         "Register Agent Resume Reference", GTK_WINDOW(context->window),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
         "Cancel", GTK_RESPONSE_CANCEL, "Register", GTK_RESPONSE_ACCEPT, NULL);
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    GtkWidget *provider = gtk_combo_box_text_new();
-    GtkWidget *session = gtk_entry_new();
-    GtkWidget *label = gtk_entry_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(provider), "Claude Code");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(provider), "Codex");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(provider), 0);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(session), "Opaque session ID");
-    gtk_entry_set_placeholder_text(GTK_ENTRY(label), "Optional label");
-    gtk_entry_set_max_length(GTK_ENTRY(session), 256);
-    gtk_entry_set_max_length(GTK_ENTRY(label), 64);
-    set_widget_accessible_name(provider, "Agent provider");
-    set_widget_accessible_name(session, "Agent session reference");
-    set_widget_accessible_name(label, "Agent display label");
-    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Provider"), FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), provider, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Session reference"), FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), session, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Display label"), FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    GtkWidget *provider = NULL;
+    GtkWidget *session = NULL;
+    GtkWidget *label = NULL;
+    if (!noctty_agent_resume_contents_new(
+            dialog, &provider, &session, &label)) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
     prepare_action_button_tree(dialog);
     if (run_grid_modal_dialog(context, GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
         const char *session_id = gtk_entry_get_text(GTK_ENTRY(session));
