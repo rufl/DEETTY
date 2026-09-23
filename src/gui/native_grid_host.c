@@ -11730,13 +11730,9 @@ static void on_project_recent_open(GtkButton *button, gpointer user_data) {
     gchar *path = gtk_combo_box_text_get_active_text(
         GTK_COMBO_BOX_TEXT(combo));
     if (path != NULL && !spawn_workspace_window(context, path, 0)) {
-        GtkWidget *dialog = gtk_message_dialog_new(
-            GTK_WINDOW(context->window),
-            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-            "Could not open the selected workspace");
-        gtk_message_dialog_format_secondary_text(
-            GTK_MESSAGE_DIALOG(dialog),
+        GtkWidget *dialog = noctty_error_dialog_new(
+            GTK_WIDGET(context->window),
+            "Could not open the selected workspace",
             "The workspace was not opened. Check that the file still exists and try again.");
         (void)run_grid_modal_dialog(context, GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
@@ -11776,13 +11772,9 @@ static void choose_workspace_file(NocttyGridContext *context, int action) {
                 if (context->text_action(
                         context->text_action_data, action, path, strlen(path),
                         "", 0, 0) != 0) {
-                    GtkWidget *dialog = gtk_message_dialog_new(
-                        GTK_WINDOW(context->window),
-                        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                        GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                        "Could not save the workspace");
-                    gtk_message_dialog_format_secondary_text(
-                        GTK_MESSAGE_DIALOG(dialog),
+                    GtkWidget *dialog = noctty_error_dialog_new(
+                        GTK_WIDGET(context->window),
+                        "Could not save the workspace",
                         "The selected file was not changed. Check the path and permissions, then try again.");
                     (void)run_grid_modal_dialog(context, GTK_DIALOG(dialog));
                     gtk_widget_destroy(dialog);
@@ -11792,13 +11784,9 @@ static void choose_workspace_file(NocttyGridContext *context, int action) {
                 const int restore_mode = choose_restore_mode(context);
                 if (restore_mode >= 0 &&
                     !spawn_workspace_window(context, path, restore_mode)) {
-                    GtkWidget *dialog = gtk_message_dialog_new(
-                        GTK_WINDOW(context->window),
-                        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                        GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                        "Could not restore the workspace");
-                    gtk_message_dialog_format_secondary_text(
-                        GTK_MESSAGE_DIALOG(dialog),
+                    GtkWidget *dialog = noctty_error_dialog_new(
+                        GTK_WIDGET(context->window),
+                        "Could not restore the workspace",
                         "The workspace was not opened. Check the file and NOCTTY installation, then try again.");
                     (void)run_grid_modal_dialog(context, GTK_DIALOG(dialog));
                     gtk_widget_destroy(dialog);
@@ -12478,10 +12466,10 @@ static void save_grid_encrypted_history(NocttyGridContext *context) {
             if (noctty_grid_save_encrypted_history(
                     context->userdata, context->event_data, path, strlen(path),
                     password, strlen(password)) != 0) {
-                GtkWidget *error_dialog = gtk_message_dialog_new(
-                    GTK_WINDOW(context->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                    GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                    "Could not export encrypted screen history");
+                GtkWidget *error_dialog = noctty_error_dialog_new(
+                    GTK_WIDGET(context->window),
+                    "Could not export encrypted screen history",
+                    NULL);
                 (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
                 gtk_widget_destroy(error_dialog);
             }
@@ -12555,13 +12543,9 @@ static void save_grid_scrollback(NocttyGridContext *context) {
         GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
         if (!save_grid_scrollback_to_path(context, path)) {
-            GtkWidget *error_dialog = gtk_message_dialog_new(
-                GTK_WINDOW(context->window),
-                GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                "Could not save terminal scrollback");
-            gtk_message_dialog_format_secondary_text(
-                GTK_MESSAGE_DIALOG(error_dialog),
+            GtkWidget *error_dialog = noctty_error_dialog_new(
+                GTK_WIDGET(context->window),
+                "Could not save terminal scrollback",
                 "The selected file was not changed. Check the path and permissions, then try again.");
             (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
             gtk_widget_destroy(error_dialog);

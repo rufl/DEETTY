@@ -67,6 +67,10 @@ const GTK_FILE_CHOOSER_ACTION_SAVE: c_int = 1;
 const GTK_FILE_CHOOSER_ACTION_OPEN: c_int = 0;
 const GTK_RESPONSE_CANCEL: c_int = -6;
 const GTK_RESPONSE_ACCEPT: c_int = -3;
+const GTK_DIALOG_MODAL: c_int = 1;
+const GTK_DIALOG_DESTROY_WITH_PARENT: c_int = 2;
+const GTK_MESSAGE_ERROR: c_int = 3;
+const GTK_BUTTONS_CLOSE: c_int = 2;
 const PANGO_ELLIPSIZE_MIDDLE: c_int = 2;
 const GTK_STYLE_PROVIDER_PRIORITY_APPLICATION: c_uint = 600;
 const GDK_ENTER_NOTIFY_MASK: c_int = 1 << 12;
@@ -109,6 +113,19 @@ extern fn gtk_label_set_single_line_mode(*GtkLabel, c_int) void;
 extern fn gtk_label_set_ellipsize(*GtkLabel, c_int) void;
 extern fn gtk_label_set_max_width_chars(*GtkLabel, c_int) void;
 extern fn gtk_label_set_text(*GtkLabel, [*:0]const u8) void;
+extern fn gtk_message_dialog_new(
+    *GtkWidget,
+    c_int,
+    c_int,
+    c_int,
+    [*:0]const u8,
+    ...,
+) ?*GtkWidget;
+extern fn gtk_message_dialog_format_secondary_text(
+    *GtkWidget,
+    [*:0]const u8,
+    ...,
+) void;
 extern fn gtk_label_set_markup(*GtkLabel, [*:0]const u8) void;
 extern fn gtk_label_set_line_wrap(*GtkLabel, c_int) void;
 extern fn gtk_label_set_mnemonic_widget(*GtkLabel, *GtkWidget) void;
@@ -1792,6 +1809,26 @@ pub export fn noctty_agent_resume_contents_new(
     session_output.* = session;
     label_output.* = label;
     return TRUE;
+}
+
+pub export fn noctty_error_dialog_new(
+    parent: ?*GtkWidget,
+    title: [*:0]const u8,
+    detail: ?[*:0]const u8,
+) ?*GtkWidget {
+    const target = parent orelse return null;
+    const dialog = gtk_message_dialog_new(
+        target,
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_ERROR,
+        GTK_BUTTONS_CLOSE,
+        "%s",
+        title,
+    ) orelse return null;
+    if (detail) |text| {
+        gtk_message_dialog_format_secondary_text(dialog, "%s", text);
+    }
+    return dialog;
 }
 
 const SettingsCoreOptions = extern struct {

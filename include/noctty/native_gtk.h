@@ -189,6 +189,9 @@ gboolean noctty_agent_resume_contents_new(
     GtkWidget *dialog, GtkWidget **provider_out,
     GtkWidget **session_out, GtkWidget **label_out);
 
+GtkWidget *noctty_error_dialog_new(
+    GtkWidget *parent, const char *title, const char *detail);
+
 typedef struct {
     GtkWidget *shortcut;
     int mode;
