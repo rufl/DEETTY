@@ -165,6 +165,13 @@ extern fn gtk_combo_box_text_append(
     [*:0]const u8,
 ) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
+extern fn gtk_dialog_new_with_buttons(
+    [*:0]const u8,
+    *GtkWidget,
+    c_int,
+    ?[*:0]const u8,
+    ...,
+) ?*GtkWidget;
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
@@ -1811,6 +1818,34 @@ pub export fn noctty_agent_resume_contents_new(
     session_output.* = session;
     label_output.* = label;
     return TRUE;
+}
+
+pub export fn noctty_dialog_new(
+    parent: ?*GtkWidget,
+    title: [*:0]const u8,
+    flags: c_int,
+    cancel_label: ?[*:0]const u8,
+    cancel_response: c_int,
+    accept_label: ?[*:0]const u8,
+    accept_response: c_int,
+) ?*GtkWidget {
+    const target = parent orelse return null;
+    const dialog = if (cancel_label != null and accept_label != null)
+        gtk_dialog_new_with_buttons(
+            title, target, flags, cancel_label.?, cancel_response,
+            accept_label.?, accept_response, @as(?[*:0]const u8, null))
+    else if (cancel_label != null)
+        gtk_dialog_new_with_buttons(
+            title, target, flags, cancel_label.?, cancel_response,
+            @as(?[*:0]const u8, null))
+    else if (accept_label != null)
+        gtk_dialog_new_with_buttons(
+            title, target, flags, accept_label.?, accept_response,
+            @as(?[*:0]const u8, null))
+    else
+        gtk_dialog_new_with_buttons(
+            title, target, flags, @as(?[*:0]const u8, null));
+    return dialog;
 }
 
 pub export fn noctty_error_dialog_new(

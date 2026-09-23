@@ -4331,9 +4331,10 @@ static void open_grid_shortcut_recorder(NocttyGridContext *context) {
         present_configured_window(root->shortcut_recorder_dialog);
         return;
     }
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "Global shortcut", GTK_WINDOW(root->window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, NULL, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "Global shortcut",
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        NULL, 0, NULL, 0);
     (void)configure_overlay_window_stacking(
         root, dialog, "noctty-shortcut-recorder");
     if (GTK_IS_WINDOW(root->settings_dialog) &&
@@ -10879,9 +10880,10 @@ static void open_grid_settings(NocttyGridContext *context) {
         present_configured_window(context->settings_dialog);
         return;
     }
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "Configure NOCTTY", GTK_WINDOW(context->window),
-        GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(context->window), "Configure NOCTTY",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-settings");
     GdkRectangle settings_workarea = {0, 0, 900, 680};
@@ -11517,7 +11519,10 @@ static void open_theme_library(NocttyGridContext *context) {
         present_configured_window(root->theme_dialog);
         return;
     }
-    GtkWidget *dialog = gtk_dialog_new_with_buttons("NOCTTY Theme Library", GTK_WINDOW(context->window), GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(context->window), "NOCTTY Theme Library",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     root->theme_dialog = dialog;
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-theme-library");
@@ -11728,10 +11733,10 @@ static void on_project_recent_open(GtkButton *button, gpointer user_data) {
 }
 
 static int choose_restore_mode(NocttyGridContext *context) {
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "Restore Workspace", GTK_WINDOW(context->window),
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(context->window), "Restore Workspace",
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        "Cancel", GTK_RESPONSE_CANCEL, "Restore", GTK_RESPONSE_ACCEPT, NULL);
+        "Cancel", GTK_RESPONSE_CANCEL, "Restore", GTK_RESPONSE_ACCEPT);
     GtkWidget *combo = NULL;
     if (!noctty_restore_workspace_contents_new(dialog, &combo)) {
         gtk_widget_destroy(dialog);
@@ -11806,7 +11811,10 @@ static void open_project_tools(NocttyGridContext *context) {
     if (context->event != NULL)
         context->event(context->event_data, context->pane_id, 108, 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
-    GtkWidget *dialog = gtk_dialog_new_with_buttons("NOCTTY Project Workspace", GTK_WINDOW(context->window), GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(context->window), "NOCTTY Project Workspace",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-project-workspace");
     GdkRectangle project_workarea = {0, 0, 680, 520};
@@ -12282,8 +12290,10 @@ static void open_quick_note(NocttyGridContext *context) {
         noctty_grid_dialog_dimension(workarea.width, 600, 1, 32);
     int dialog_height =
         noctty_grid_dialog_dimension(workarea.height, 380, 1, 32);
-    GtkWidget *dialog = gtk_dialog_new_with_buttons("Quick Note", GTK_WINDOW(root->window),
-        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "Quick Note",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     (void)configure_overlay_window_stacking(
         root, dialog, "noctty-quick-note");
     configure_overlay_window_geometry(
@@ -12386,8 +12396,10 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
         "Double-click   Zoom pane\n"
         "%-15s Show / hide NOCTTY",
         visibility_shortcut);
-    GtkWidget *dialog = gtk_dialog_new_with_buttons("NOCTTY Shortcuts", GTK_WINDOW(root->window),
-        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "NOCTTY Shortcuts",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     (void)configure_overlay_window_stacking(
         root, dialog, "noctty-shortcuts");
     configure_overlay_window_geometry(
@@ -12435,10 +12447,10 @@ static void save_grid_encrypted_history(NocttyGridContext *context) {
     prepare_action_button_tree(chooser);
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-        GtkWidget *password_dialog = gtk_dialog_new_with_buttons(
-            "Protect Screen History", GTK_WINDOW(context->window),
+        GtkWidget *password_dialog = noctty_dialog_new(
+            GTK_WIDGET(context->window), "Protect Screen History",
             GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-            "Cancel", GTK_RESPONSE_CANCEL, "Export", GTK_RESPONSE_ACCEPT, NULL);
+            "Cancel", GTK_RESPONSE_CANCEL, "Export", GTK_RESPONSE_ACCEPT);
         GtkWidget *entry = NULL;
         if (!noctty_history_password_contents_new(
                 password_dialog, &entry)) {
@@ -12468,10 +12480,10 @@ static void save_grid_encrypted_history(NocttyGridContext *context) {
 }
 
 static void set_agent_resume_reference(NocttyGridContext *context) {
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "Register Agent Resume Reference", GTK_WINDOW(context->window),
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(context->window), "Register Agent Resume Reference",
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        "Cancel", GTK_RESPONSE_CANCEL, "Register", GTK_RESPONSE_ACCEPT, NULL);
+        "Cancel", GTK_RESPONSE_CANCEL, "Register", GTK_RESPONSE_ACCEPT);
     GtkWidget *provider = NULL;
     GtkWidget *session = NULL;
     GtkWidget *label = NULL;
@@ -13454,9 +13466,10 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
         present_configured_window(root->sharing_dialog);
         return;
     }
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        "Session Sharing", GTK_WINDOW(root->window),
-        GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root->window), "Session Sharing",
+        GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE,
+        NULL, 0);
     root->sharing_dialog = dialog;
     GdkRectangle workarea = {0, 0, 900, 700};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
@@ -13659,10 +13672,10 @@ static int populate_tag_suggestions(NocttyGridContext *context,
 
 static gchar *run_tag_entry_dialog(NocttyGridContext *context, const gchar *title,
                                    const gchar *value, gboolean allow_empty) {
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(
-        title, GTK_WINDOW(root_grid_context(context)->window),
+    GtkWidget *dialog = noctty_dialog_new(
+        GTK_WIDGET(root_grid_context(context)->window), title,
         GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL,
-        "Apply", GTK_RESPONSE_OK, NULL);
+        "Apply", GTK_RESPONSE_OK);
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
     GtkWidget *combo = gtk_combo_box_text_new_with_entry();
     GtkWidget *entry = gtk_bin_get_child(GTK_BIN(combo));
