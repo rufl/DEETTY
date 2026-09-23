@@ -280,6 +280,18 @@ GtkIMContext *noctty_grid_input_context_new(void);
 void noctty_grid_window_configure(
     GtkWidget *window, int default_width, int default_height,
     gboolean decorated, gboolean keep_above);
+typedef struct {
+    GCallback switch_page;
+    GCallback drag_begin;
+    GCallback drag_end;
+    GCallback page_reordered;
+} NocttyGridNotebookCallbacks;
+
+gboolean noctty_grid_notebook_configure(
+    GtkWidget *notebook, GtkWidget *new_tab_button,
+    GtkWidget *toolbar_controls, gpointer context,
+    const NocttyGridNotebookCallbacks *callbacks);
+
 
 
 

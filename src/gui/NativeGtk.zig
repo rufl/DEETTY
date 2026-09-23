@@ -200,6 +200,8 @@ extern fn gtk_dialog_new_with_buttons(
 extern fn gtk_window_new(window_type: c_int) ?*GtkWidget;
 extern fn gtk_notebook_new() ?*GtkWidget;
 extern fn gtk_notebook_set_scrollable(*GtkNotebook, c_int) void;
+extern fn gtk_notebook_set_action_widget(*GtkNotebook, *GtkWidget, c_int) void;
+
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
 extern fn gtk_window_set_icon_name(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
@@ -1831,6 +1833,35 @@ pub export fn noctty_grid_window_configure(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
+const GridNotebookCallbacks = extern struct {
+    switch_page: ?GCallback,
+    drag_begin: ?GCallback,
+    drag_end: ?GCallback,
+    page_reordered: ?GCallback,
+};
+
+pub export fn noctty_grid_notebook_configure(
+    notebook_optional: ?*GtkWidget,
+    new_tab_button_optional: ?*GtkWidget,
+    toolbar_optional: ?*GtkWidget,
+    context: ?*anyopaque,
+    callbacks_raw: ?*const GridNotebookCallbacks,
+) c_int {
+    const notebook = notebook_optional orelse return FALSE;
+    const new_tab_button = new_tab_button_optional orelse return FALSE;
+    const toolbar = toolbar_optional orelse return FALSE;
+    const callbacks = callbacks_raw orelse return FALSE;
+    connectSignal(notebook, "switch-page", callbacks.switch_page, context);
+    connectSignal(notebook, "drag-begin", callbacks.drag_begin, context);
+    connectSignal(notebook, "drag-end", callbacks.drag_end, context);
+    connectSignal(notebook, "page-reordered", callbacks.page_reordered, context);
+    gtk_notebook_set_action_widget(@ptrCast(notebook), new_tab_button, 0);
+    gtk_widget_show_all(new_tab_button);
+    gtk_notebook_set_action_widget(@ptrCast(notebook), toolbar, 1);
+    gtk_widget_show_all(toolbar);
+    return TRUE;
+}
+
 
 
 pub export fn noctty_grid_page_new(

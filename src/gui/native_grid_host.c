@@ -16536,23 +16536,24 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     }
     if (mode == 2) apply_fullscreen_dimensions(&context);
     context.notebook = noctty_grid_notebook_new();
-    g_signal_connect(context.notebook, "switch-page",
-                     G_CALLBACK(on_notebook_switch_page), &context);
-    g_signal_connect(context.notebook, "drag-begin",
-                     G_CALLBACK(on_notebook_drag_begin), &context);
-    g_signal_connect(context.notebook, "drag-end",
-                     G_CALLBACK(on_notebook_drag_end), &context);
+    NocttyGridNotebookCallbacks notebook_callbacks = {
+        .switch_page = G_CALLBACK(on_notebook_switch_page),
+        .drag_begin = G_CALLBACK(on_notebook_drag_begin),
+        .drag_end = G_CALLBACK(on_notebook_drag_end),
+        .page_reordered = G_CALLBACK(on_notebook_page_reordered),
+    };
     context.new_tab_button = create_new_tab_button(&context);
-    gtk_notebook_set_action_widget(GTK_NOTEBOOK(context.notebook),
-                                   context.new_tab_button,
-                                   GTK_PACK_START);
-    gtk_widget_show_all(context.new_tab_button);
     context.window_toolbar_controls =
         create_window_toolbar_controls(&context);
-    gtk_notebook_set_action_widget(GTK_NOTEBOOK(context.notebook),
-                                   context.window_toolbar_controls,
-                                   GTK_PACK_END);
-    gtk_widget_show_all(context.window_toolbar_controls);
+    if (!noctty_grid_notebook_configure(
+            context.notebook,
+            context.new_tab_button,
+            context.window_toolbar_controls,
+            &context,
+            &notebook_callbacks)) {
+        gtk_widget_destroy(context.window);
+        return 2;
+    }
     NocttyGridShellContents shell = {0};
     if (!noctty_grid_shell_contents_new(&shell)) {
         gtk_widget_destroy(context.window);
@@ -16600,8 +16601,6 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                              first_tab_widget);
     gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(context.notebook), first_page, TRUE);
     gtk_notebook_set_tab_detachable(GTK_NOTEBOOK(context.notebook), first_page, FALSE);
-    g_signal_connect(context.notebook, "page-reordered",
-                     G_CALLBACK(on_notebook_page_reordered), &context);
     gtk_box_pack_start(GTK_BOX(context.content_box), context.notebook, TRUE, TRUE, 0);
     gtk_box_pack_end(GTK_BOX(context.content_box), context.pane_info_strip,
                      FALSE, FALSE, 0);
