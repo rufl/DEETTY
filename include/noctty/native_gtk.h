@@ -306,6 +306,9 @@ void noctty_grid_widget_set_size_request(
     GtkWidget *widget, int width, int height);
 void noctty_grid_widget_set_tooltip_text(
     GtkWidget *widget, const char *tooltip);
+void noctty_grid_window_set_decorated(GtkWidget *window, gboolean decorated);
+void noctty_grid_window_set_keep_above(GtkWidget *window, gboolean keep_above);
+void noctty_grid_window_set_resizable(GtkWidget *window, gboolean resizable);
 
 
 

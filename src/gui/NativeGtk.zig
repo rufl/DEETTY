@@ -1874,6 +1874,29 @@ pub export fn noctty_grid_window_apply_mode(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
+pub export fn noctty_grid_window_set_decorated(
+    window_optional: ?*GtkWidget,
+    decorated: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_decorated(@ptrCast(window), decorated);
+}
+
+pub export fn noctty_grid_window_set_keep_above(
+    window_optional: ?*GtkWidget,
+    keep_above: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_keep_above(@ptrCast(window), keep_above);
+}
+
+pub export fn noctty_grid_window_set_resizable(
+    window_optional: ?*GtkWidget,
+    resizable: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_set_resizable(@ptrCast(window), resizable);
+}
 
 pub export fn noctty_grid_window_set_title(
     window_optional: ?*GtkWidget,
