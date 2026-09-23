@@ -1602,6 +1602,59 @@ pub export fn noctty_color_button_new(
     return button;
 }
 
+const SmartFilterEmptyContents = extern struct {
+    box: ?*GtkWidget,
+    label: ?*GtkWidget,
+    clear_button: ?*GtkWidget,
+};
+
+pub export fn noctty_grid_page_new(
+    panel_padding: c_int,
+    pane_info_strip: ?*GtkWidget,
+) ?*GtkWidget {
+    const page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0) orelse return null;
+    gtk_container_set_border_width(
+        @ptrCast(page),
+        if (panel_padding > 0) @intCast(panel_padding) else 0,
+    );
+    g_object_set_data(
+        object(page),
+        "noctty-pane-info-strip",
+        @ptrCast(pane_info_strip),
+    );
+    return page;
+}
+
+pub export fn noctty_smart_filter_empty_contents_new(
+    message: ?[*:0]const u8,
+    contents_out: *SmartFilterEmptyContents,
+) c_int {
+    const text = message orelse return FALSE;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
+    gtk_widget_set_margin_top(box, 16);
+    gtk_widget_set_margin_bottom(box, 16);
+    gtk_widget_set_halign(box, GTK_ALIGN_CENTER);
+    const label = gtk_label_new(text) orelse return FALSE;
+    gtk_widget_set_tooltip_text(
+        label,
+        "The current Smart Tab tag matches no visible panes",
+    );
+    gtk_widget_set_opacity(label, 0.72);
+    gtk_box_pack_start(@ptrCast(box), label, FALSE, FALSE, 0);
+    const clear_button = gtk_button_new_with_label("Clear filter") orelse return FALSE;
+    noctty_configure_action_button(
+        clear_button,
+        "Clear the Smart Tab filter and show all panes",
+    );
+    gtk_box_pack_start(@ptrCast(box), clear_button, FALSE, FALSE, 0);
+    contents_out.* = .{
+        .box = box,
+        .label = label,
+        .clear_button = clear_button,
+    };
+    return TRUE;
+}
+
 pub export fn noctty_terminal_find_contents_new(
     dialog: ?*GtkWidget,
     dialog_width: c_int,

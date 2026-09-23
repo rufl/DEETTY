@@ -1895,28 +1895,21 @@ static void apply_smart_filter(NocttyGridContext *context) {
     }
     if (root->smart_filter_tag != NULL && first_visible == NULL && page != NULL) {
         if (root->smart_filter_empty_box == NULL) {
-            root->smart_filter_empty_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-            gtk_widget_set_margin_top(root->smart_filter_empty_box, 16);
-            gtk_widget_set_margin_bottom(root->smart_filter_empty_box, 16);
-            gtk_widget_set_halign(root->smart_filter_empty_box, GTK_ALIGN_CENTER);
             gchar *empty_text = g_strdup_printf("No panes match Smart Tab tag: %s",
                                                 root->smart_filter_tag);
-            root->smart_filter_empty_label = gtk_label_new(empty_text);
-            gtk_widget_set_tooltip_text(root->smart_filter_empty_label,
-                                        "The current Smart Tab tag matches no visible panes");
+            NocttySmartFilterEmptyContents empty_contents = {0};
+            if (!noctty_smart_filter_empty_contents_new(
+                    empty_text, &empty_contents)) {
+                g_free(empty_text);
+                return;
+            }
             g_free(empty_text);
-            gtk_widget_set_opacity(root->smart_filter_empty_label, 0.72);
-            gtk_box_pack_start(GTK_BOX(root->smart_filter_empty_box),
-                               root->smart_filter_empty_label, FALSE, FALSE, 0);
-            root->smart_filter_empty_clear_button = gtk_button_new_with_label("Clear filter");
-            configure_action_button(
-                root->smart_filter_empty_clear_button,
-                "Clear the Smart Tab filter and show all panes");
+            root->smart_filter_empty_box = empty_contents.box;
+            root->smart_filter_empty_label = empty_contents.label;
+            root->smart_filter_empty_clear_button =
+                empty_contents.clear_button;
             g_signal_connect(root->smart_filter_empty_clear_button, "clicked",
                              G_CALLBACK(on_smart_filter_empty_clear_clicked), root);
-            gtk_box_pack_start(GTK_BOX(root->smart_filter_empty_box),
-                               root->smart_filter_empty_clear_button,
-                               FALSE, FALSE, 0);
             gtk_box_pack_start(GTK_BOX(page), root->smart_filter_empty_box,
                                FALSE, FALSE, 0);
         }
@@ -6666,12 +6659,8 @@ static GtkWidget *pane_info_strip_for_page(GtkWidget *page) {
 
 static GtkWidget *create_grid_page(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_container_set_border_width(GTK_CONTAINER(page),
-                                   (guint)root->panel_padding_px);
-    g_object_set_data(G_OBJECT(page), "noctty-pane-info-strip",
-                      root->pane_info_strip);
-    return page;
+    return noctty_grid_page_new(
+        root->panel_padding_px, root->pane_info_strip);
 }
 
 static GtkWidget *grid_page_content_root(NocttyGridContext *context,

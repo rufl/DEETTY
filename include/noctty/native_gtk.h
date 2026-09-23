@@ -271,6 +271,17 @@ gboolean noctty_settings_shell_new(
 GtkWidget *noctty_theme_combo_new(void);
 GtkWidget *noctty_color_button_new(const char *accessible_name);
 
+GtkWidget *noctty_grid_page_new(int panel_padding, GtkWidget *pane_info_strip);
+
+typedef struct {
+    GtkWidget *box;
+    GtkWidget *label;
+    GtkWidget *clear_button;
+} NocttySmartFilterEmptyContents;
+
+gboolean noctty_smart_filter_empty_contents_new(
+    const char *message, NocttySmartFilterEmptyContents *contents_out);
+
 typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;
