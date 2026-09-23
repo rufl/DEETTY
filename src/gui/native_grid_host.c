@@ -11650,13 +11650,9 @@ static gboolean launch_nocted(NocttyGridContext *context,
 
 static void show_nocted_launch_error(NocttyGridContext *context,
                                      const gchar *detail) {
-    GtkWidget *dialog = gtk_message_dialog_new(
-        GTK_WINDOW(context->window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-        "NoctEd could not be started");
-    gtk_message_dialog_format_secondary_text(
-        GTK_MESSAGE_DIALOG(dialog), "%s",
+    GtkWidget *dialog = noctty_error_dialog_new(
+        GTK_WIDGET(context->window),
+        "NoctEd could not be started",
         detail != NULL ? detail : "The standalone editor is unavailable.");
     (void)run_grid_modal_dialog(context, GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -12501,10 +12497,10 @@ static void set_agent_resume_reference(NocttyGridContext *context) {
                 context->event_data, context->pane_id,
                 gtk_combo_box_get_active(GTK_COMBO_BOX(provider)),
                 session_id, strlen(session_id), display_label, strlen(display_label)) != 0) {
-            GtkWidget *error_dialog = gtk_message_dialog_new(
-                GTK_WINDOW(context->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-                "Invalid agent resume reference");
+            GtkWidget *error_dialog = noctty_error_dialog_new(
+                GTK_WIDGET(context->window),
+                "Invalid agent resume reference",
+                NULL);
             (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
             gtk_widget_destroy(error_dialog);
         }
@@ -12519,13 +12515,9 @@ static void clear_agent_resume_reference(NocttyGridContext *context) {
         refresh_active_pane_info(context);
         return;
     }
-    GtkWidget *error_dialog = gtk_message_dialog_new(
-        GTK_WINDOW(context->window),
-        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-        "Could not clear the agent resume reference");
-    gtk_message_dialog_format_secondary_text(
-        GTK_MESSAGE_DIALOG(error_dialog),
+    GtkWidget *error_dialog = noctty_error_dialog_new(
+        GTK_WIDGET(context->window),
+        "Could not clear the agent resume reference",
         "The current reference was left unchanged. Try again after the pane is available.");
     (void)run_grid_modal_dialog(context, GTK_DIALOG(error_dialog));
     gtk_widget_destroy(error_dialog);
