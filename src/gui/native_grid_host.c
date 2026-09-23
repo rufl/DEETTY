@@ -10507,13 +10507,11 @@ static void on_theme_color_changed(GtkColorButton *button, gpointer user_data) {
         apply_panel_layout_metrics(context);
 }
 
-static GtkWidget *theme_color_button_new(NocttyGridContext *context,
-                                         uint32_t role, const char *name) {
-    GtkWidget *button = gtk_color_button_new();
+static void theme_color_button_configure(NocttyGridContext *context,
+                                         GtkWidget *button, uint32_t role) {
+    if (button == NULL) return;
     set_theme_color_button_from_model(
         GTK_COLOR_BUTTON(button), root_grid_context(context), role);
-    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(button), FALSE);
-    set_widget_accessible_name(button, name);
     NocttyThemeColorControl *control = g_new0(NocttyThemeColorControl, 1);
     control->context = root_grid_context(context);
     control->role = role;
@@ -10521,7 +10519,6 @@ static GtkWidget *theme_color_button_new(NocttyGridContext *context,
                      control);
     g_signal_connect(button, "destroy",
                      G_CALLBACK(on_theme_color_control_destroy), control);
-    return button;
 }
 
 static void apply_background_setting(NocttyGridContext *context,
@@ -11025,18 +11022,29 @@ static void open_grid_settings(NocttyGridContext *context) {
                        settings_group_new("Notifications", notification_box),
                        FALSE, FALSE, 0);
 
-    GtkWidget *theme = gtk_combo_box_text_new();
+    GtkWidget *theme = noctty_theme_combo_new();
     populate_theme_combo(target, GTK_COMBO_BOX_TEXT(theme));
-    GtkWidget *background_tint = theme_color_button_new(
-        context, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND, "Background tint");
+    GtkWidget *background_tint = noctty_color_button_new("Background tint");
+    if (theme == NULL || background_tint == NULL) {
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    theme_color_button_configure(
+        context, background_tint, NOCTTY_UI_COLOR_WORKSPACE_BACKGROUND);
     NocttyGridWorkspaceColor workspace_colors[17] = {0};
     for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
         (void)noctty_grid_workspace_color((int)index, &workspace_colors[index]);
     GtkWidget *color_buttons[G_N_ELEMENTS(workspace_colors)] = {0};
-    for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++)
-        color_buttons[index] = theme_color_button_new(
-            context, workspace_colors[index].role,
+    for (guint index = 0; index < G_N_ELEMENTS(workspace_colors); index++) {
+        color_buttons[index] = noctty_color_button_new(
             workspace_colors[index].label);
+        if (color_buttons[index] == NULL) {
+            gtk_widget_destroy(dialog);
+            return;
+        }
+        theme_color_button_configure(
+            context, color_buttons[index], workspace_colors[index].role);
+    }
     int family_active = g_ascii_strcasecmp(
         target->font_family != NULL ? target->font_family : "Monospace",
         "JetBrains Mono") == 0 ? 1 : 0;
@@ -11495,9 +11503,9 @@ static void open_theme_library(NocttyGridContext *context) {
     root->theme_dialog = dialog;
     (void)configure_overlay_window_stacking(
         context, dialog, "noctty-theme-library");
-    GtkWidget *themes = gtk_combo_box_text_new();
+    GtkWidget *themes = noctty_theme_combo_new();
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(themes));
-    GtkWidget *noctalia_scheme = gtk_combo_box_text_new();
+    GtkWidget *noctalia_scheme = noctty_theme_combo_new();
     guint noctalia_count = populate_noctalia_scheme_combo(
         GTK_COMBO_BOX_TEXT(noctalia_scheme), context);
     NocttyThemeLibraryContents contents = {0};

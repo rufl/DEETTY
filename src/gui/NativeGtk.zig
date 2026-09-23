@@ -167,6 +167,8 @@ extern fn gtk_flow_box_set_row_spacing(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_column_spacing(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_homogeneous(*GtkFlowBox, c_int) void;
 extern fn gtk_combo_box_text_new() ?*GtkWidget;
+extern fn gtk_color_button_new() ?*GtkWidget;
+extern fn gtk_color_chooser_set_use_alpha(*GtkWidget, c_int) void;
 extern fn gtk_combo_box_text_append_text(*GtkComboBoxText, [*:0]const u8) void;
 extern fn gtk_combo_box_text_append(
     *GtkComboBoxText,
@@ -1585,6 +1587,19 @@ const ProjectContents = extern struct {
 
 fn setAccessibleName(widget: *GtkWidget, name: [*:0]const u8) void {
     atk_object_set_name(gtk_widget_get_accessible(widget), name);
+}
+
+pub export fn noctty_theme_combo_new() ?*GtkWidget {
+    return gtk_combo_box_text_new();
+}
+
+pub export fn noctty_color_button_new(
+    accessible_name: ?[*:0]const u8,
+) ?*GtkWidget {
+    const button = gtk_color_button_new() orelse return null;
+    gtk_color_chooser_set_use_alpha(button, FALSE);
+    if (accessible_name) |name| setAccessibleName(button, name);
+    return button;
 }
 
 pub export fn noctty_terminal_find_contents_new(

@@ -268,6 +268,9 @@ gboolean noctty_settings_shell_new(
     GtkWidget *window_page, GtkWidget *behavior_page,
     GtkWidget *appearance_page, NocttySettingsShellContents *contents_out);
 
+GtkWidget *noctty_theme_combo_new(void);
+GtkWidget *noctty_color_button_new(const char *accessible_name);
+
 typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;
