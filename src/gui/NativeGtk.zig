@@ -63,6 +63,7 @@ const GDestroyNotify = *const fn (?*anyopaque) callconv(.c) void;
 
 const FALSE: c_int = 0;
 const TRUE: c_int = 1;
+const GTK_FILE_CHOOSER_ACTION_SAVE: c_int = 1;
 const GTK_FILE_CHOOSER_ACTION_OPEN: c_int = 0;
 const GTK_RESPONSE_CANCEL: c_int = -6;
 const GTK_RESPONSE_ACCEPT: c_int = -3;
@@ -145,6 +146,7 @@ extern fn gtk_combo_box_text_append(
 ) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
+extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
@@ -1649,6 +1651,52 @@ pub export fn noctty_project_contents_new(
         .summary_scroll = summary_scroll,
     };
     return TRUE;
+}
+
+pub export fn noctty_restore_workspace_contents_new(
+    dialog: ?*GtkWidget,
+    combo_out: ?**GtkWidget,
+) c_int {
+    const target = dialog orelse return FALSE;
+    const output = combo_out orelse return FALSE;
+    const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
+    const label = gtk_label_new(
+        "Choose what should survive restore. Agent resume uses only registered references.",
+    ) orelse return FALSE;
+    const combo = gtk_combo_box_text_new() orelse return FALSE;
+    gtk_label_set_xalign(@ptrCast(label), 0.0);
+    for ([_][*:0]const u8{
+        "Restart shells (layout and directories)",
+        "Attach persistent tmux/Zellij sessions",
+        "Resume registered agents",
+    }) |text| gtk_combo_box_text_append_text(@ptrCast(combo), text);
+    gtk_combo_box_set_active(@ptrCast(combo), 0);
+    setAccessibleName(combo, "Workspace restore mode");
+    gtk_container_set_border_width(@ptrCast(box), 12);
+    gtk_box_pack_start(@ptrCast(box), label, FALSE, FALSE, 0);
+    gtk_box_pack_start(@ptrCast(box), combo, FALSE, FALSE, 0);
+    gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), box);
+    output.* = combo;
+    return TRUE;
+}
+
+pub export fn noctty_workspace_file_chooser_new(
+    parent: ?*GtkWidget,
+    save: c_int,
+) ?*GtkWidget {
+    const target = parent orelse return null;
+    const chooser = gtk_file_chooser_dialog_new(
+        if (save != 0) "Save NOCTTY Workspace" else "Open NOCTTY Workspace",
+        target,
+        if (save != 0) GTK_FILE_CHOOSER_ACTION_SAVE else GTK_FILE_CHOOSER_ACTION_OPEN,
+        "Cancel",
+        GTK_RESPONSE_CANCEL,
+        if (save != 0) "Save" else "Open",
+        GTK_RESPONSE_ACCEPT,
+        @as(?[*:0]const u8, null),
+    ) orelse return null;
+    if (save != 0) gtk_file_chooser_set_current_name(chooser, "workspace.nocttyws");
+    return chooser;
 }
 
 const SettingsCoreOptions = extern struct {

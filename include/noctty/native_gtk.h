@@ -174,6 +174,11 @@ gboolean noctty_project_contents_new(
     GtkWidget *dialog, const char *summary_text,
     NocttyProjectContents *contents_out);
 
+gboolean noctty_restore_workspace_contents_new(
+    GtkWidget *dialog, GtkWidget **combo_out);
+GtkWidget *noctty_workspace_file_chooser_new(
+    GtkWidget *parent, gboolean save);
+
 typedef struct {
     GtkWidget *shortcut;
     int mode;

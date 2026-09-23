@@ -11749,23 +11749,11 @@ static int choose_restore_mode(NocttyGridContext *context) {
         "Restore Workspace", GTK_WINDOW(context->window),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
         "Cancel", GTK_RESPONSE_CANCEL, "Restore", GTK_RESPONSE_ACCEPT, NULL);
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    GtkWidget *label = gtk_label_new(
-        "Choose what should survive restore. Agent resume uses only registered references.");
-    GtkWidget *combo = gtk_combo_box_text_new();
-    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
-                                   "Restart shells (layout and directories)");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
-                                   "Attach persistent tmux/Zellij sessions");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo),
-                                   "Resume registered agents");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
-    set_widget_accessible_name(combo, "Workspace restore mode");
-    gtk_container_set_border_width(GTK_CONTAINER(box), 12);
-    gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), combo, FALSE, FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), box);
+    GtkWidget *combo = NULL;
+    if (!noctty_restore_workspace_contents_new(dialog, &combo)) {
+        gtk_widget_destroy(dialog);
+        return -1;
+    }
     prepare_action_button_tree(dialog);
     int response = run_grid_modal_dialog(context, GTK_DIALOG(dialog));
     int mode = response == GTK_RESPONSE_ACCEPT
@@ -11775,10 +11763,10 @@ static int choose_restore_mode(NocttyGridContext *context) {
 }
 
 static void choose_workspace_file(NocttyGridContext *context, int action) {
-    GtkFileChooserAction chooser_action = action == 2 ? GTK_FILE_CHOOSER_ACTION_SAVE : GTK_FILE_CHOOSER_ACTION_OPEN;
-    GtkWidget *chooser = gtk_file_chooser_dialog_new(action == 2 ? "Save NOCTTY Workspace" : "Open NOCTTY Workspace", GTK_WINDOW(context->window), chooser_action, "Cancel", GTK_RESPONSE_CANCEL, action == 2 ? "Save" : "Open", GTK_RESPONSE_ACCEPT, NULL);
+    GtkWidget *chooser = noctty_workspace_file_chooser_new(
+        GTK_WIDGET(context->window), action == 2);
+    if (chooser == NULL) return;
     prepare_action_button_tree(chooser);
-    if (action == 2) gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(chooser), "workspace.nocttyws");
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) ==
         GTK_RESPONSE_ACCEPT) {
         gchar *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
