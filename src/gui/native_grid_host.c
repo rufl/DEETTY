@@ -9791,16 +9791,19 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
             screen, "monitors-changed",
             G_CALLBACK(on_screen_geometry_changed), window, 0);
     }
-    g_signal_connect(window, "delete-event",
-                     G_CALLBACK(on_window_delete_event), root);
-    g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
-    g_signal_connect(window, "focus-out-event",
-                     G_CALLBACK(on_window_focus_out), root);
-    g_signal_connect(window, "map", G_CALLBACK(on_window_map), root);
-    g_signal_connect(window, "configure-event",
-                     G_CALLBACK(on_window_resolution_configure), root);
-    g_signal_connect(window, "button-release-event",
-                     G_CALLBACK(on_window_resize_handle_release), root);
+    NocttyGridWindowCallbacks window_callbacks = {
+        .delete_event = G_CALLBACK(on_window_delete_event),
+        .destroy = G_CALLBACK(on_window_destroy),
+        .focus_out_event = G_CALLBACK(on_window_focus_out),
+        .map = G_CALLBACK(on_window_map),
+        .configure_event = G_CALLBACK(on_window_resolution_configure),
+        .button_release_event = G_CALLBACK(on_window_resize_handle_release),
+    };
+    if (!noctty_grid_window_connect_signals(
+            window, root, &window_callbacks)) {
+        gtk_widget_destroy(window);
+        return NULL;
+    }
     return window;
 }
 

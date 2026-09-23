@@ -1833,6 +1833,31 @@ pub export fn noctty_grid_window_configure(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
+const GridWindowCallbacks = extern struct {
+    delete_event: ?GCallback,
+    destroy: ?GCallback,
+    focus_out_event: ?GCallback,
+    map: ?GCallback,
+    configure_event: ?GCallback,
+    button_release_event: ?GCallback,
+};
+
+pub export fn noctty_grid_window_connect_signals(
+    window_optional: ?*GtkWidget,
+    context: ?*anyopaque,
+    callbacks_raw: ?*const GridWindowCallbacks,
+) c_int {
+    const window = window_optional orelse return FALSE;
+    const callbacks = callbacks_raw orelse return FALSE;
+    connectSignal(window, "delete-event", callbacks.delete_event, context);
+    connectSignal(window, "destroy", callbacks.destroy, null);
+    connectSignal(window, "focus-out-event", callbacks.focus_out_event, context);
+    connectSignal(window, "map", callbacks.map, context);
+    connectSignal(window, "configure-event", callbacks.configure_event, context);
+    connectSignal(window, "button-release-event", callbacks.button_release_event, context);
+    return TRUE;
+}
+
 const GridNotebookCallbacks = extern struct {
     switch_page: ?GCallback,
     drag_begin: ?GCallback,

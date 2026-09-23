@@ -281,6 +281,19 @@ void noctty_grid_window_configure(
     GtkWidget *window, int default_width, int default_height,
     gboolean decorated, gboolean keep_above);
 typedef struct {
+    GCallback delete_event;
+    GCallback destroy;
+    GCallback focus_out_event;
+    GCallback map;
+    GCallback configure_event;
+    GCallback button_release_event;
+} NocttyGridWindowCallbacks;
+
+gboolean noctty_grid_window_connect_signals(
+    GtkWidget *window, gpointer context,
+    const NocttyGridWindowCallbacks *callbacks);
+
+typedef struct {
     GCallback switch_page;
     GCallback drag_begin;
     GCallback drag_end;
