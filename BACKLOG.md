@@ -212,3 +212,23 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
 #### Release Operations
 
 - [ ] [status:yellow] Retain both architecture artifacts/signatures, publication, independent dependency-bundle redistribution review and receipts, final compositor acceptance, and consented Wayland HID capture. The NCT-077 follow-through is locally closed; external evidence remains operator-owned. `[truth:build,docs,external]`
+
+<!-- OVERZEER:DOCS_BACKLOG_BEGIN -->
+## OVERZEER project summary
+- Git evidence in selected window: `77` commit(s).
+- Documentation evidence: authored open tasks below; generated text is a proposal and does not mark work complete.
+- [ ] [status:yellow] Retain a clean two-hour Plasma Wayland session on the
+- [ ] [status:yellow] Complete the retained 48-hour `ReleaseSafe` Wayland/X11 hidden/visible matrix. The mode-40 runner, exact phase/resource receipts, 64 MiB root-growth guard, compositor capture, and four-lane Debug/`ReleaseSafe` shakedown pass; elapsed authenticated execution remains open. `[truth:test,measurement]`
+- [ ] [status:yellow] Physically qualify the x86_64 Win32/GDI + ConPTY host on
+- [ ] [status:yellow] Move first-party platform behavior into Zig without
+- [ ] [status:yellow] Qualify the new Windows Workspace/Terminal menus against
+- [ ] [status:yellow] Qualify the native Windows tab strip with supported-Windows
+- [ ] [status:yellow] Qualify Windows divider capture/cancellation, menu resizing,
+- [ ] [status:yellow] Qualify the implemented Windows launch-profile library on
+- [ ] [status:yellow] Add native source-format theme imports for Ghostty,
+- [ ] [status:yellow] Qualify custom theme selection/import/export, replacement
+- [ ] [status:yellow] Complete remaining native Windows workspace parity:
+- [ ] Add native graphical paired-device/session-sharing controls over the
+- [ ] Continue replacing GTK C ownership with cohesive Zig components toward
+- [ ] [status:yellow] Retain both architecture artifacts/signatures, publication, independent dependency-bundle redistribution review and receipts, final compositor acceptance, and consented Wayland HID capture. The NCT-077 follow-through is locally closed; external evidence remains operator-owned. `[truth:build,docs,external]`
+<!-- OVERZEER:DOCS_BACKLOG_END -->
