@@ -301,6 +301,7 @@ void noctty_grid_widget_show(GtkWidget *widget);
 void noctty_grid_widget_hide(GtkWidget *widget);
 void noctty_grid_widget_set_visible(GtkWidget *widget, gboolean visible);
 void noctty_grid_widget_set_can_focus(GtkWidget *widget, gboolean can_focus);
+void noctty_grid_widget_set_sensitive(GtkWidget *widget, gboolean sensitive);
 
 
 

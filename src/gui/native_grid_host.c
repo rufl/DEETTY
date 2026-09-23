@@ -8104,7 +8104,7 @@ static gboolean rebuild_grid_preset_page(
     schedule_grid_preset_settle(page);
     for (guint index = 0; index < count; index++) {
         if (!ordered[index]->active) start_grid_context(ordered[index]);
-        gtk_widget_set_sensitive(ordered[index]->area, TRUE);
+        noctty_grid_widget_set_sensitive(ordered[index]->area, TRUE);
         noctty_grid_widget_set_can_focus(ordered[index]->area, TRUE);
         noctty_grid_widget_show(ordered[index]->area);
         noctty_grid_widget_queue_draw(ordered[index]->area);
@@ -10274,14 +10274,14 @@ static void on_settings_panel_toggle(GtkToggleButton *toggle,
             G_OBJECT(toggle), "noctty-gap-width");
         GtkWidget *transparent = g_object_get_data(
             G_OBJECT(toggle), "noctty-gap-transparent");
-        if (width != NULL) gtk_widget_set_sensitive(width, active);
+        if (width != NULL) noctty_grid_widget_set_sensitive(width, active);
         if (transparent != NULL)
-            gtk_widget_set_sensitive(transparent, active);
+            noctty_grid_widget_set_sensitive(transparent, active);
     } else if (event_code == 129) {
         GtkWidget *brightness = g_object_get_data(
             G_OBJECT(toggle), "noctty-inactive-brightness");
         if (brightness != NULL)
-            gtk_widget_set_sensitive(brightness, active);
+            noctty_grid_widget_set_sensitive(brightness, active);
     }
 }
 
@@ -10496,7 +10496,7 @@ static void on_background_translucency_toggled(
         G_OBJECT(toggle), "noctty-background-opacity");
     NocttyGridContext *context = root_grid_context(user_data);
     if (opacity != NULL)
-        gtk_widget_set_sensitive(
+        noctty_grid_widget_set_sensitive(
             opacity, enabled && context->background_alpha_supported);
     apply_background_setting(context, 115, enabled);
 }
@@ -10573,10 +10573,10 @@ static void sync_launch_profile_sensitivity(NocttyGridContext *context) {
     int kind = gtk_combo_box_get_active(
         GTK_COMBO_BOX(context->settings_launch_kind));
     if (context->settings_launch_command != NULL)
-        gtk_widget_set_sensitive(context->settings_launch_command, kind == 1);
+        noctty_grid_widget_set_sensitive(context->settings_launch_command, kind == 1);
     if (context->settings_launch_ssh_target != NULL)
-        gtk_widget_set_sensitive(context->settings_launch_ssh_target,
-                                 kind >= 2);
+        noctty_grid_widget_set_sensitive(context->settings_launch_ssh_target,
+                                         kind >= 2);
 }
 
 static void load_current_launch_profile(NocttyGridContext *context) {
@@ -10641,8 +10641,8 @@ static void refresh_launch_profile_library(NocttyGridContext *context) {
                 context->event_data, selected, 0, name, sizeof(name));
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_name), name);
     }
-    gtk_widget_set_sensitive(context->settings_launch_delete,
-                             selected >= 0);
+    noctty_grid_widget_set_sensitive(context->settings_launch_delete,
+                                     selected >= 0);
 }
 
 static void on_settings_launch_kind_changed(GtkComboBox *combo,
@@ -10774,7 +10774,7 @@ static void on_settings_launch_library_changed(GtkComboBox *combo,
         if (submit_settings_launch_profile(context, 15, "") == 0) {
             context->launch_profile_setting_applied = 1;
             gtk_entry_set_text(GTK_ENTRY(context->settings_launch_name), "");
-            gtk_widget_set_sensitive(context->settings_launch_delete, FALSE);
+            noctty_grid_widget_set_sensitive(context->settings_launch_delete, FALSE);
         }
         return;
     }
@@ -10787,7 +10787,7 @@ static void on_settings_launch_library_changed(GtkComboBox *combo,
     if (noctty_grid_launch_profile_library(context->event_data, index, 0,
                                            name, sizeof(name)) >= 0)
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_name), name);
-    gtk_widget_set_sensitive(context->settings_launch_delete, TRUE);
+    noctty_grid_widget_set_sensitive(context->settings_launch_delete, TRUE);
     load_current_launch_profile(context);
 }
 
@@ -11799,8 +11799,8 @@ static void open_project_tools(NocttyGridContext *context) {
     }
     if (recent_added > 0)
         gtk_combo_box_set_active(GTK_COMBO_BOX(recent_combo), 0);
-    gtk_widget_set_sensitive(recent_combo, recent_added > 0);
-    gtk_widget_set_sensitive(recent_open, recent_added > 0);
+    noctty_grid_widget_set_sensitive(recent_combo, recent_added > 0);
+    noctty_grid_widget_set_sensitive(recent_open, recent_added > 0);
     context->recent_workspace_control = recent_added > 0 &&
         recent_added == recent_count;
     context->project_dialog = dialog;
@@ -13257,29 +13257,30 @@ static gboolean refresh_sharing_status(gpointer user_data) {
     gboolean session_ready =
         (sharing_actions & NOCTTY_GRID_SHARING_ALLOW_SESSION) != 0 &&
         active_peer_count > 0;
-    gtk_widget_set_sensitive(confirm, status == 102);
-    gtk_widget_set_sensitive(pair_listen, pair_ready);
-    gtk_widget_set_sensitive(pair_connect, pair_ready);
-    gtk_widget_set_sensitive(discover, status == 0 || status == 401);
-    gtk_widget_set_sensitive(share_pane, session_ready);
-    gtk_widget_set_sensitive(share_tab, session_ready);
-    gtk_widget_set_sensitive(share_session, session_ready);
-    gtk_widget_set_sensitive(receive, session_ready);
-    gtk_widget_set_sensitive(peers, active_peer_count > 0);
-    gtk_widget_set_sensitive(revoke_device, active_peer_count > 0);
-    gtk_widget_set_sensitive(
+    noctty_grid_widget_set_sensitive(confirm, status == 102);
+    noctty_grid_widget_set_sensitive(pair_listen, pair_ready);
+    noctty_grid_widget_set_sensitive(pair_connect, pair_ready);
+    noctty_grid_widget_set_sensitive(discover, status == 0 || status == 401);
+    noctty_grid_widget_set_sensitive(share_pane, session_ready);
+    noctty_grid_widget_set_sensitive(share_tab, session_ready);
+    noctty_grid_widget_set_sensitive(share_session, session_ready);
+    noctty_grid_widget_set_sensitive(receive, session_ready);
+    noctty_grid_widget_set_sensitive(peers, active_peer_count > 0);
+    noctty_grid_widget_set_sensitive(revoke_device, active_peer_count > 0);
+    noctty_grid_widget_set_sensitive(
         stop, (sharing_actions & NOCTTY_GRID_SHARING_CLEAR_HOST) != 0);
-    gtk_widget_set_sensitive(cancel_pairing,
-                             status == 101 || status == 102 || status == 104 ||
-                                 status == 105 || status == 400);
-    gtk_widget_set_sensitive(grant, status == 203);
-    gtk_widget_set_sensitive(revoke, status == 203 || status == 204);
-    gtk_widget_set_sensitive(
+    noctty_grid_widget_set_sensitive(
+        cancel_pairing,
+        status == 101 || status == 102 || status == 104 ||
+            status == 105 || status == 400);
+    noctty_grid_widget_set_sensitive(grant, status == 203);
+    noctty_grid_widget_set_sensitive(revoke, status == 203 || status == 204);
+    noctty_grid_widget_set_sensitive(
         stop_receive,
         (sharing_actions & NOCTTY_GRID_SHARING_CLEAR_VIEWER) != 0);
-    gtk_widget_set_sensitive(request_control, status == 302);
-    gtk_widget_set_sensitive(reconnect, status == 305 || status == 306);
-    gtk_widget_set_sensitive(retry_save, status == 106);
+    noctty_grid_widget_set_sensitive(request_control, status == 302);
+    noctty_grid_widget_set_sensitive(reconnect, status == 305 || status == 306);
+    noctty_grid_widget_set_sensitive(retry_save, status == 106);
     gtk_button_set_label(
         GTK_BUTTON(stop),
         status == 205 || status == 206

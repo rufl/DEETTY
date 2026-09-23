@@ -23,6 +23,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed remaining GTK focus requests through the Zig adapter across filters, tabs, dialogs, panes, scrollbars, palette flows, and startup restoration.
 - Routed GTK draw-area, draw, and resize requests through the Zig adapter across terminal rendering, damage tracking, pane transitions, and resize settling.
 - Routed GTK widget visibility, focusability, and zoom-tab hiding through the Zig adapter; C retains pane/filter state and notebook policy decisions.
+- Routed GTK sensitivity updates through the Zig adapter across pane activation, launch-profile controls, workspace dialogs, and sharing actions; C retains enablement decisions.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.

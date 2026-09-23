@@ -1965,6 +1965,13 @@ pub export fn noctty_grid_widget_set_can_focus(
     const widget = widget_optional orelse return;
     gtk_widget_set_can_focus(widget, can_focus);
 }
+pub export fn noctty_grid_widget_set_sensitive(
+    widget_optional: ?*GtkWidget,
+    sensitive: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_sensitive(widget, sensitive);
+}
 
 pub export fn noctty_grid_widget_queue_draw(
     widget_optional: ?*GtkWidget,
