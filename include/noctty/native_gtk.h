@@ -282,6 +282,9 @@ typedef struct {
 gboolean noctty_smart_filter_empty_contents_new(
     const char *message, NocttySmartFilterEmptyContents *contents_out);
 
+
+GtkWidget *noctty_tab_rename_entry_new(
+    const char *title, int width_chars, int height);
 typedef struct {
     GtkWidget *theme;
     GtkWidget *background_tint;

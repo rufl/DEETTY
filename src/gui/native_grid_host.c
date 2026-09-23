@@ -5186,23 +5186,13 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     if (!GTK_IS_EVENT_BOX(tab_widget)) return;
     GtkWidget *content = gtk_bin_get_child(GTK_BIN(tab_widget));
     if (!GTK_IS_BOX(content) || target->tab_label == NULL) return;
-    GtkWidget *entry = gtk_entry_new();
     gchar *title = current_tab_title_alloc(target);
-    gtk_entry_set_text(GTK_ENTRY(entry), title);
     gint title_length = (gint)g_utf8_strlen(title, -1);
+    GtkWidget *entry = noctty_tab_rename_entry_new(
+        title, noctty_grid_tab_title_width(title_length),
+        root->compact_tab_height);
     g_free(title);
-    gtk_entry_set_has_frame(GTK_ENTRY(entry), FALSE);
-    gtk_entry_set_alignment(GTK_ENTRY(entry), 0.5);
-    gtk_entry_set_max_length(GTK_ENTRY(entry), 128);
-    gtk_entry_set_width_chars(
-        GTK_ENTRY(entry), noctty_grid_tab_title_width(title_length));
-    gtk_entry_set_max_width_chars(GTK_ENTRY(entry), 24);
-    gtk_widget_set_size_request(entry, -1, MAX(12, root->compact_tab_height));
-    gtk_style_context_add_class(gtk_widget_get_style_context(entry), "flat");
-    gtk_style_context_add_class(gtk_widget_get_style_context(entry),
-                                "noctty-tab-rename");
-    gtk_widget_set_tooltip_text(entry,
-                               "Enter to save · Esc or click elsewhere to cancel");
+    if (entry == NULL) return;
     gtk_box_pack_start(GTK_BOX(content), entry, TRUE, TRUE, 0);
     gtk_box_reorder_child(GTK_BOX(content), entry, 0);
     gtk_widget_set_no_show_all(target->tab_label, TRUE);

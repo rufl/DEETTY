@@ -152,6 +152,10 @@ extern fn gtk_check_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
+extern fn gtk_entry_set_has_frame(*GtkEntry, c_int) void;
+extern fn gtk_entry_set_alignment(*GtkEntry, f32) void;
+extern fn gtk_entry_set_width_chars(*GtkEntry, c_int) void;
+extern fn gtk_entry_set_max_width_chars(*GtkEntry, c_int) void;
 extern fn gtk_spin_button_new_with_range(f64, f64, f64) ?*GtkWidget;
 extern fn gtk_spin_button_set_value(*GtkSpinButton, f64) void;
 extern fn gtk_scale_new_with_range(c_int, f64, f64, f64) ?*GtkWidget;
@@ -1653,6 +1657,32 @@ pub export fn noctty_smart_filter_empty_contents_new(
         .clear_button = clear_button,
     };
     return TRUE;
+}
+
+pub export fn noctty_tab_rename_entry_new(
+    title: ?[*:0]const u8,
+    width_chars: c_int,
+    height: c_int,
+) ?*GtkWidget {
+    const text = title orelse return null;
+    const entry = gtk_entry_new() orelse return null;
+    gtk_entry_set_text(@ptrCast(entry), text);
+    gtk_entry_set_has_frame(@ptrCast(entry), FALSE);
+    gtk_entry_set_alignment(@ptrCast(entry), 0.5);
+    gtk_entry_set_max_length(@ptrCast(entry), 128);
+    gtk_entry_set_width_chars(@ptrCast(entry), width_chars);
+    gtk_entry_set_max_width_chars(@ptrCast(entry), 24);
+    gtk_widget_set_size_request(entry, -1, if (height > 12) height else 12);
+    gtk_style_context_add_class(gtk_widget_get_style_context(entry), "flat");
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(entry),
+        "noctty-tab-rename",
+    );
+    gtk_widget_set_tooltip_text(
+        entry,
+        "Enter to save · Esc or click elsewhere to cancel",
+    );
+    return entry;
 }
 
 pub export fn noctty_terminal_find_contents_new(
