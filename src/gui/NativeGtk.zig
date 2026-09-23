@@ -212,6 +212,8 @@ extern fn gtk_notebook_set_tab_pos(*GtkNotebook, c_int) void;
 extern fn gtk_notebook_set_show_tabs(*GtkNotebook, c_int) void;
 extern fn gtk_notebook_set_show_border(*GtkNotebook, c_int) void;
 extern fn gtk_orientable_set_orientation(*GtkOrientable, c_int) void;
+extern fn gtk_notebook_set_current_page(*GtkNotebook, c_int) void;
+
 
 
 
@@ -1942,6 +1944,15 @@ pub export fn noctty_grid_notebook_apply_policy(
         );
     }
 }
+pub export fn noctty_grid_notebook_select_page(
+    notebook_optional: ?*GtkWidget,
+    page_index: c_int,
+) void {
+    const notebook = notebook_optional orelse return;
+    if (page_index < 0) return;
+    gtk_notebook_set_current_page(@ptrCast(notebook), page_index);
+}
+
 
 
 

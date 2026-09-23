@@ -309,6 +309,9 @@ int noctty_grid_notebook_append_page(
 void noctty_grid_notebook_apply_policy(
     GtkWidget *notebook, GtkWidget *toolbar_controls,
     int tab_position, gboolean show_tabs);
+void noctty_grid_notebook_select_page(
+    GtkWidget *notebook, int page_index);
+
 
 
 
