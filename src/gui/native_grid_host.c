@@ -11459,70 +11459,47 @@ static gint compare_noctalia_schemes(gconstpointer left_raw,
     return g_utf8_collate(left->label, right->label);
 }
 
-static gchar *find_noctalia_scheme_json(const gchar *root,
-                                         const gchar *entry) {
-    gchar *entry_path = g_build_filename(root, entry, NULL);
-    if (g_file_test(entry_path, G_FILE_TEST_IS_REGULAR) &&
-        g_str_has_suffix(entry, ".json"))
-        return entry_path;
-    if (!g_file_test(entry_path, G_FILE_TEST_IS_DIR)) {
-        g_free(entry_path);
-        return NULL;
-    }
-    gchar *expected_name = g_strdup_printf("%s.json", entry);
-    gchar *expected_path = g_build_filename(
-        entry_path, expected_name, NULL);
-    g_free(expected_name);
-    if (g_file_test(expected_path, G_FILE_TEST_IS_REGULAR)) {
-        g_free(entry_path);
-        return expected_path;
-    }
-    g_free(expected_path);
-
-    GDir *directory = g_dir_open(entry_path, 0, NULL);
-    if (directory == NULL) {
-        g_free(entry_path);
-        return NULL;
-    }
-    gchar *match = NULL;
-    const gchar *child = NULL;
-    while ((child = g_dir_read_name(directory)) != NULL) {
-        if (!g_str_has_suffix(child, ".json")) continue;
-        gchar *candidate = g_build_filename(entry_path, child, NULL);
-        if (g_file_test(candidate, G_FILE_TEST_IS_REGULAR)) {
-            match = candidate;
-            break;
-        }
-        g_free(candidate);
-    }
-    g_dir_close(directory);
-    g_free(entry_path);
-    return match;
-}
-
-static guint populate_noctalia_scheme_combo(GtkComboBoxText *combo) {
+static guint populate_noctalia_scheme_combo(
+    GtkComboBoxText *combo, NocttyGridContext *context) {
+    if (context == NULL || context->text_action == NULL) return 0;
     gchar *root = g_build_filename(
         g_get_user_config_dir(), "noctalia", "colorschemes", NULL);
-    GDir *directory = g_dir_open(root, 0, NULL);
-    if (directory == NULL) {
+    if (root == NULL) return 0;
+    const gsize capacity = 256 * 1024;
+    gchar *records = g_malloc0(capacity);
+    int length = context->text_action(
+        context->text_action_data, 23, root, strlen(root),
+        records, capacity, 0);
+    if (length <= 0 || (gsize)length >= capacity) {
+        g_free(records);
         g_free(root);
         return 0;
     }
     GPtrArray *schemes = g_ptr_array_new_with_free_func(free_noctalia_scheme);
-    const gchar *entry = NULL;
-    while (schemes->len < 128 &&
-           (entry = g_dir_read_name(directory)) != NULL) {
-        if (entry[0] == '.') continue;
-        gchar *path = find_noctalia_scheme_json(root, entry);
-        if (path == NULL) continue;
-        NocttyNoctaliaScheme *scheme = g_new0(NocttyNoctaliaScheme, 1);
-        scheme->path = path;
-        scheme->label = g_str_has_suffix(entry, ".json")
-            ? g_strndup(entry, strlen(entry) - strlen(".json"))
-            : g_strdup(entry);
-        g_ptr_array_add(schemes, scheme);
+    const gchar *cursor = records;
+    const gchar *end = records + length;
+    while (cursor < end && schemes->len < 128) {
+        const gchar *line_end = memchr(
+            cursor, '\n', (size_t)(end - cursor));
+        if (line_end == NULL) line_end = end;
+        const gchar *tab = memchr(
+            cursor, '\t', (size_t)(line_end - cursor));
+        if (tab != NULL && tab > cursor && tab + 1 < line_end) {
+            NocttyNoctaliaScheme *scheme = g_new0(
+                NocttyNoctaliaScheme, 1);
+            scheme->label = g_strndup(
+                cursor, (gsize)(tab - cursor));
+            scheme->path = g_strndup(
+                tab + 1, (gsize)(line_end - tab - 1));
+            if (scheme->label != NULL && scheme->path != NULL) {
+                g_ptr_array_add(schemes, scheme);
+            } else {
+                free_noctalia_scheme(scheme);
+            }
+        }
+        cursor = line_end < end ? line_end + 1 : end;
     }
-    g_dir_close(directory);
+    g_free(records);
     g_free(root);
     g_ptr_array_sort(schemes, compare_noctalia_schemes);
     for (guint index = 0; index < schemes->len; index++) {
@@ -11609,7 +11586,7 @@ static void open_theme_library(NocttyGridContext *context) {
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(themes));
     GtkWidget *noctalia_scheme = gtk_combo_box_text_new();
     guint noctalia_count = populate_noctalia_scheme_combo(
-        GTK_COMBO_BOX_TEXT(noctalia_scheme));
+        GTK_COMBO_BOX_TEXT(noctalia_scheme), context);
     NocttyThemeLibraryContents contents = {0};
     if (!noctty_theme_library_contents_new(
             dialog, themes, noctalia_scheme, noctalia_count, &contents)) {

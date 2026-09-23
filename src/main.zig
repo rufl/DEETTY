@@ -2130,8 +2130,102 @@ export fn noctty_grid_apply_preset(
     return @intCast(tab.panes.items.len);
 }
 
+fn writeNoctaliaSchemeRecord(
+    writer: *std.Io.Writer,
+    root_path: []const u8,
+    label: []const u8,
+    relative_path: []const u8,
+) !void {
+    var full_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const full_path = try std.fmt.bufPrint(
+        &full_path_buffer,
+        "{s}/{s}",
+        .{ root_path, relative_path },
+    );
+    try writer.print("{s}\t{s}\n", .{ label, full_path });
+}
+
+fn writeNoctaliaSchemes(
+    io: std.Io,
+    root_path: []const u8,
+    output: []u8,
+) !usize {
+    var writer = std.Io.Writer.fixed(output);
+    var root = try std.Io.Dir.openDirAbsolute(io, root_path, .{ .iterate = true });
+    defer root.close(io);
+    var iterator = root.iterate();
+    var entries_seen: usize = 0;
+    while (entries_seen < 128) : (entries_seen += 1) {
+        const entry = try iterator.next(io) orelse break;
+        if (entry.name.len == 0 or entry.name[0] == '.') continue;
+        if (entry.kind == .file) {
+            if (!std.ascii.endsWithIgnoreCase(entry.name, ".json")) continue;
+            const label = entry.name[0 .. entry.name.len - 5];
+            if (label.len == 0) continue;
+            try writeNoctaliaSchemeRecord(&writer, root_path, label, entry.name);
+            continue;
+        }
+        if (entry.kind != .directory) continue;
+        var child = root.openDir(io, entry.name, .{ .iterate = true }) catch continue;
+        var selected: [256]u8 = undefined;
+        var selected_len: usize = 0;
+        var expected: [256]u8 = undefined;
+        const expected_name = std.fmt.bufPrint(
+            &expected,
+            "{s}.json",
+            .{entry.name},
+        ) catch {
+            child.close(io);
+            continue;
+        };
+        var child_iterator = child.iterate();
+        var children_seen: usize = 0;
+        while (children_seen < 256) : (children_seen += 1) {
+            const child_entry = child_iterator.next(io) catch break orelse break;
+            if (child_entry.kind != .file or
+                !std.ascii.endsWithIgnoreCase(child_entry.name, ".json"))
+                continue;
+            if (selected_len == 0) {
+                if (child_entry.name.len > selected.len) continue;
+                @memcpy(selected[0..child_entry.name.len], child_entry.name);
+                selected_len = child_entry.name.len;
+            }
+            if (std.mem.eql(u8, child_entry.name, expected_name)) {
+                @memcpy(selected[0..child_entry.name.len], child_entry.name);
+                selected_len = child_entry.name.len;
+                break;
+            }
+        }
+        child.close(io);
+        if (selected_len == 0) continue;
+        var relative: [std.fs.max_path_bytes]u8 = undefined;
+        const relative_path = std.fmt.bufPrint(
+            &relative,
+            "{s}/{s}",
+            .{ entry.name, selected[0..selected_len] },
+        ) catch continue;
+        try writeNoctaliaSchemeRecord(
+            &writer,
+            root_path,
+            entry.name,
+            relative_path,
+        );
+    }
+    return writer.buffered().len;
+}
+
 export fn noctty_grid_text_action(raw: ?*anyopaque, action: c_int, first_ptr: [*]const u8, first_len: usize, second_ptr: [*]const u8, second_len: usize, format_raw: c_int) callconv(.c) c_int {
     const bridge: *NativeGridBridge = @ptrCast(@alignCast(raw orelse return -1));
+    if (action == 23) {
+        const io = bridge.io orelse return -1;
+        if (first_len == 0 or second_len == 0) return -1;
+        const length = writeNoctaliaSchemes(
+            io,
+            first_ptr[0..first_len],
+            @constCast(second_ptr[0..second_len]),
+        ) catch return -1;
+        return @intCast(length);
+    }
     if (action == 22) {
         const io = bridge.io orelse return -1;
         if (first_len == 0) return -1;
