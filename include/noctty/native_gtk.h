@@ -293,6 +293,11 @@ void noctty_grid_focus_widget(
     GtkWidget *window, GtkWidget *target);
 void noctty_grid_widget_set_margins(
     GtkWidget *widget, int start, int top, int end, int bottom);
+void noctty_grid_widget_queue_draw(GtkWidget *widget);
+void noctty_grid_widget_queue_draw_area(
+    GtkWidget *widget, int x, int y, int width, int height);
+void noctty_grid_widget_queue_resize(GtkWidget *widget);
+
 
 
 

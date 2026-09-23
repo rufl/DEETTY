@@ -265,6 +265,10 @@ extern fn gtk_widget_set_margin_end(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_top(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_bottom(*GtkWidget, c_int) void;
 extern fn gtk_widget_grab_focus(*GtkWidget) c_int;
+extern fn gtk_widget_queue_draw(*GtkWidget) void;
+extern fn gtk_widget_queue_draw_area(
+    *GtkWidget, c_int, c_int, c_int, c_int) void;
+extern fn gtk_widget_queue_resize(*GtkWidget) void;
 extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
@@ -1930,6 +1934,31 @@ pub export fn noctty_grid_widget_set_margins(
     gtk_widget_set_margin_end(widget, end);
     gtk_widget_set_margin_bottom(widget, bottom);
 }
+pub export fn noctty_grid_widget_queue_draw(
+    widget_optional: ?*GtkWidget,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_queue_draw(widget);
+}
+
+pub export fn noctty_grid_widget_queue_draw_area(
+    widget_optional: ?*GtkWidget,
+    x: c_int,
+    y: c_int,
+    width: c_int,
+    height: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_queue_draw_area(widget, x, y, width, height);
+}
+
+pub export fn noctty_grid_widget_queue_resize(
+    widget_optional: ?*GtkWidget,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_queue_resize(widget);
+}
+
 
 
 

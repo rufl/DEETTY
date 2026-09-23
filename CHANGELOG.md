@@ -21,6 +21,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved GTK window presentation, fullscreen toggling, and XDG startup-ID application into the Zig adapter; C retains lifecycle timing and compositor-specific geometry.
 - Centralized GTK focus ownership and terminal-area margin policy in the Zig adapter; C retains pane targeting and layout-state decisions.
 - Routed remaining GTK focus requests through the Zig adapter across filters, tabs, dialogs, panes, scrollbars, palette flows, and startup restoration.
+- Routed GTK draw-area, draw, and resize requests through the Zig adapter across terminal rendering, damage tracking, pane transitions, and resize settling.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.
