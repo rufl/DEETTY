@@ -812,6 +812,7 @@ typedef struct NocttyGridContextTag {
     int output_present_is_tick;
     guint synchronized_output_source;
     int synchronized_output_pending;
+    int auto_fit_propagating;
     guint resize_commit_source;
     int pending_resize_columns;
     int pending_resize_rows;
@@ -9812,7 +9813,9 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
                 : root->workspace_smoke == 39
                     ? "NOCTTY installed continuity qualification"
                     : "NOCTTY native grid");
-    gtk_window_set_default_size(GTK_WINDOW(window), 1100, 640);
+    gtk_window_set_default_size(
+        GTK_WINDOW(window), root->workspace_smoke == 21 ? 1200 : 1100,
+        root->workspace_smoke == 21 ? 720 : 640);
     gtk_window_set_decorated(GTK_WINDOW(window), root->mode == 1);
     gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
     gtk_window_set_keep_above(GTK_WINDOW(window), root->mode == 0);
@@ -15308,11 +15311,10 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         gboolean terminals = verify_layout_terminals_ready(root, 16);
         gboolean auto_fit = verify_layout_auto_fit(root);
         gboolean tui = geometry && terminals && verify_layout_tui(root);
-        root->layout_preset_4x4_rendered =
-            root->layout_preset_4x4_applied && geometry && terminals &&
-            auto_fit && tui;
-        if (!root->layout_preset_4x4_rendered &&
-            root->layout_preset_smoke_attempts++ < 40) {
+        gboolean rendered = root->layout_preset_4x4_applied &&
+            geometry && terminals && auto_fit && tui;
+        root->layout_preset_4x4_rendered = rendered;
+        if (!rendered && root->layout_preset_smoke_attempts++ < 40) {
             GtkWidget *page = gtk_notebook_get_nth_page(
                 GTK_NOTEBOOK(root->notebook),
                 gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
@@ -15845,6 +15847,24 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
             candidate->resize_overlay_zoom_percent = zoom_percent;
             clear_ascii_glyph_cache(candidate);
             gtk_widget_queue_draw(candidate->area);
+        }
+        if (!root->auto_fit_propagating) {
+            root->auto_fit_propagating = 1;
+            for (guint index = 0; root->contexts != NULL &&
+                 index < root->contexts->len; index++) {
+                NocttyGridContext *candidate =
+                    g_ptr_array_index(root->contexts, index);
+                if (!candidate->active || candidate->exited ||
+                    candidate->page != context->page ||
+                    candidate->area == NULL)
+                    continue;
+                GtkAllocation candidate_allocation;
+                gtk_widget_get_allocation(
+                    candidate->area, &candidate_allocation);
+                resize_grid_to_allocation(
+                    candidate, &candidate_allocation);
+            }
+            root->auto_fit_propagating = 0;
         }
     }
     context->resize_overlay_zoom_percent = zoom_percent;
