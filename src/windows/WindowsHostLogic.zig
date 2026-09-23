@@ -314,6 +314,7 @@ pub const menu_restore_startup: u32 = 40031;
 pub const menu_workspace_save: u32 = 40041;
 pub const menu_workspace_restore: u32 = 40042;
 pub const menu_open_nocted: u32 = 40051;
+pub const menu_sharing_manage: u32 = 40052;
 pub const menu_font_custom: u32 = 40060;
 pub const menu_font_increase: u32 = 40061;
 pub const menu_font_decrease: u32 = 40062;

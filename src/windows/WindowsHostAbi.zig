@@ -86,6 +86,18 @@ const PaneCopy = *const fn (
     c_int,
     c_int,
 ) callconv(.c) c_int;
+const SharePeerInfo = *const fn (
+    ?*anyopaque,
+    c_int,
+    [*]u8,
+    usize,
+    *usize,
+    [*]u8,
+    usize,
+    *usize,
+    *u16,
+) callconv(.c) c_int;
+const SharePair = *const fn (?*anyopaque, [*]const u8, usize, [*]const u8, usize, u16) callconv(.c) c_int;
 const TabTitle = *const fn (?*anyopaque, c_int, [*]u8, usize) callconv(.c) c_int;
 const TabRename = *const fn (?*anyopaque, c_int, [*]const u8, usize) callconv(.c) c_int;
 const TabMove = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
@@ -184,6 +196,11 @@ pub const Callbacks = extern struct {
     workspace_persistence: WorkspacePersistence,
     pane_mouse_mode: PaneMouseMode,
     pane_mouse_encode: PaneMouseEncode,
+    share_peer_count: Unary,
+    share_peer_info: SharePeerInfo,
+    share_peer_revoke: PaneSelect,
+    share_pair: SharePair,
+    share_discover: Unary,
     pane_copy: PaneCopy,
 };
 

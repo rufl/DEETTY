@@ -21,6 +21,7 @@ const WindowsTitle = @import("WindowsTitle.zig");
 const WindowsRenderer = @import("WindowsRenderer.zig");
 const Dpapi = @import("Dpapi.zig");
 const WindowsHost = @import("WindowsHost.zig");
+const WindowsSharingDialog = @import("WindowsSharingDialog.zig");
 const WindowsThemeSource = @import("WindowsThemeSource.zig");
 const Workspace = @import("WindowsWorkspace.zig");
 const WindowsAppearance = @import("WindowsAppearance.zig");
@@ -91,6 +92,7 @@ comptime {
 const columns_initial: usize = 120;
 const rows_initial: usize = 36;
 const State = struct {
+    random: *Crypto.RandomContext,
     workspace: WindowsWorkspace,
     store: Share.identity.Store,
     preferences: WindowsPreferences = .{},
@@ -198,7 +200,7 @@ pub export fn wWinMain(
 
     var threaded: std.Io.Threaded = .init(std.heap.page_allocator, .{});
     defer threaded.deinit();
-    const random = Crypto.fromIo(threaded.io());
+    var random = Crypto.fromIo(threaded.io());
     var store = loadOrCreateStore() catch return 1;
     const mode = parseShareMode(command) catch {
         showWindowsMessage(
@@ -248,6 +250,7 @@ pub export fn wWinMain(
             return 1;
         },
         .store = store,
+        .random = &random,
     };
     defer {
         if (state.live_host) |host| host.destroy();
@@ -403,6 +406,11 @@ pub export fn wWinMain(
         .workspace_persistence = workspacePersistence,
         .pane_mouse_mode = paneMouseMode,
         .pane_mouse_encode = paneMouseEncode,
+        .share_peer_count = sharePeerCount,
+        .share_peer_info = sharePeerInfo,
+        .share_peer_revoke = sharePeerRevoke,
+        .share_pair = sharePair,
+        .share_discover = shareDiscover,
         .pane_copy = paneCopy,
     };
     return WindowsHost.run(@ptrCast(@alignCast(instance)), show_command, &callbacks);
@@ -738,6 +746,86 @@ fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: 
     };
     showWindowsMessage("Paired device saved. Use --share 0 PORT or --receive 0.");
     return 0;
+}
+fn activePeerAt(store: *Share.identity.Store, index_raw: c_int) ?*Share.identity.Peer {
+    if (index_raw < 0) return null;
+    var active_index: c_int = 0;
+    for (store.peerSlice()) |*peer| {
+        if (peer.revoked) continue;
+        if (active_index == index_raw) return peer;
+        active_index += 1;
+    }
+    return null;
+}
+
+fn sharePeerCount(raw: ?*anyopaque) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    var count: c_int = 0;
+    for (state.store.peerSliceConst()) |peer| count += @intFromBool(!peer.revoked);
+    return count;
+}
+
+fn sharePeerInfo(
+    raw: ?*anyopaque,
+    index_raw: c_int,
+    alias_output: [*]u8,
+    alias_capacity: usize,
+    alias_length: *usize,
+    endpoint_output: [*]u8,
+    endpoint_capacity: usize,
+    endpoint_length: *usize,
+    port: *u16,
+) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    const peer = activePeerAt(&state.store, index_raw) orelse return -1;
+    if (peer.alias().len > alias_capacity or peer.endpoint().len > endpoint_capacity) return -1;
+    @memcpy(alias_output[0..peer.alias().len], peer.alias());
+    @memcpy(endpoint_output[0..peer.endpoint().len], peer.endpoint());
+    alias_length.* = peer.alias().len;
+    endpoint_length.* = peer.endpoint().len;
+    port.* = peer.port;
+    return 0;
+}
+
+fn sharePeerRevoke(raw: ?*anyopaque, index_raw: c_int) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_host != null or state.live_viewer != null) return -1;
+    const peer = activePeerAt(&state.store, index_raw) orelse return -1;
+    const previous = peer.*;
+    peer.revoked = true;
+    saveStore(&state.store) catch {
+        peer.* = previous;
+        return -1;
+    };
+    peer_trust_cache = null;
+    return 0;
+}
+
+fn sharePair(
+    raw: ?*anyopaque,
+    endpoint: [*]const u8,
+    endpoint_length: usize,
+    alias: [*]const u8,
+    alias_length: usize,
+    port: u16,
+) callconv(.c) c_int {
+    const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_host != null or state.live_viewer != null or
+        endpoint_length == 0 or endpoint_length > Share.identity.max_endpoint_bytes or
+        alias_length == 0 or alias_length > Share.protocol.max_alias_bytes or port == 0) return -1;
+    var mode = ShareMode{ .kind = .pair_connect, .port = port };
+    @memcpy(mode.host[0..endpoint_length], endpoint[0..endpoint_length]);
+    mode.host_length = endpoint_length;
+    @memcpy(mode.alias[0..alias_length], alias[0..alias_length]);
+    mode.alias_length = alias_length;
+    const result = runPairing(&state.store, state.random.*, mode);
+    if (result == 0) peer_trust_cache = null;
+    return if (result == 0) 0 else -1;
+}
+
+fn shareDiscover(raw: ?*anyopaque) callconv(.c) c_int {
+    _ = stateFromRaw(raw) orelse return -1;
+    return runDiscovery();
 }
 
 fn confirmWindowsControl(owner: windows.HWND) bool {

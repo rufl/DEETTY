@@ -31,6 +31,7 @@ const id_profile_command = Logic.menu_profile_command;
 const id_restore_startup = Logic.menu_restore_startup;
 const id_workspace_save = Logic.menu_workspace_save;
 const id_workspace_restore = Logic.menu_workspace_restore;
+pub const id_sharing_manage = Logic.menu_sharing_manage;
 const id_open_nocted = Logic.menu_open_nocted;
 
 pub const id_new_tab: u32 = 40101;
@@ -146,6 +147,7 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
         c.AppendMenuW(profile, c.MF_SEPARATOR, 0, null) == 0 or
         !append(profile, c.MF_STRING, id_profile_manage, "&Manage profiles...") or
         !append(settings, c.MF_STRING, id_restore_startup, "&Restore saved workspace on startup") or
+        !append(settings, c.MF_STRING, id_sharing_manage, "Session &sharing...") or
         !append(workspace, c.MF_STRING, id_new_tab, "&New Tab\tCtrl+Shift+T") or
         !append(workspace, c.MF_STRING, id_split_down, "Split &Down\tCtrl+Shift+S") or
         !append(workspace, c.MF_STRING, id_split_left, "Split &Left\tCtrl+Shift+L") or
@@ -399,6 +401,7 @@ pub fn qualifyStateCode(menu: *const Menu, remote_mode: bool) u32 {
     }
     if (!commandStateMatches(menu.root, id_open_nocted, false) or
         !commandStateMatches(menu.settings, id_restore_startup, remote_mode) or
+        !commandStateMatches(menu.settings, id_sharing_manage, false) or
         !commandStateMatches(menu.profile, id_profile_powershell, false) or
         !commandStateMatches(menu.profile, id_profile_command, false) or
         !commandStateMatches(menu.profile, id_profile_manage, false)) code |= 16;

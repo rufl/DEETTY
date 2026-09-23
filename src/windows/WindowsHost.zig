@@ -15,6 +15,7 @@ const Tabs = @import("WindowsTabStrip.zig");
 const Appearance = @import("WindowsAppearance.zig");
 const FontDialog = @import("WindowsFontDialog.zig");
 const ProfileDialog = @import("WindowsProfileDialog.zig");
+const SharingDialog = @import("WindowsSharingDialog.zig");
 const Dividers = @import("WindowsDividers.zig");
 const FileDialog = @import("WindowsFileDialog.zig");
 const Dpapi = @import("Dpapi.zig");
@@ -1024,6 +1025,12 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
             _ = c.SetFocus(host.window);
             return true;
         },
+        Menu.id_sharing_manage => {
+            if (!SharingDialog.show(host.window, host.callbacks))
+                _ = c.MessageBoxW(host.window, wide("NOCTTY could not open the session sharing manager."), wide("Session sharing"), c.MB_OK | c.MB_ICONERROR);
+            _ = c.SetFocus(host.window);
+            return true;
+        },
         Menu.id_theme_import, Menu.id_theme_export => {
             themeFileDialog(host, command == Menu.id_theme_export);
             return true;
@@ -1559,6 +1566,10 @@ fn menuSmoke(host: *Host) bool {
     }
     if (!ProfileDialog.qualify(host.window, host.callbacks) or !Menu.refreshProfiles(menu, host.callbacks)) {
         log("windows_menu_smoke_stage=profiles\r\n", .{});
+        return false;
+    }
+    if (!SharingDialog.qualify(host.window, host.callbacks)) {
+        log("windows_menu_smoke_stage=sharing\r\n", .{});
         return false;
     }
     updateMenu(host);
@@ -2420,7 +2431,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_profile_process_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true global_hotkey=true broadcast_input=true\r\n", .{});
+        log("windows_menu_smoke menu_tree=true local_commands=true remote_disabled=true remote_dispatch_rejected=true cycle_hints=true terminal_commands=true ownership=true conpty=false tab_strip=true tab_selection=true tab_rename=true tab_reorder=true tab_inset=true divider_drag=true divider_cancel=true divider_menu=true appearance_dialog=true tab_drag=true theme_library=true theme_selection=true theme_persistence=true theme_rollback=true theme_export=true theme_paint=true theme_dialog_cancel=true theme_unicode=true profiles=true profile_dialog=true profile_persistence=true profile_process=true theme_sources=true global_hotkey=true sharing_dialog=true broadcast_input=true\r\n", .{});
         return 0;
     }
     const start_mode = callbacks.start(callbacks.userdata);
