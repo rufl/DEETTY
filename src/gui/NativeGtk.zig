@@ -138,6 +138,11 @@ extern fn gtk_flow_box_set_column_spacing(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_homogeneous(*GtkFlowBox, c_int) void;
 extern fn gtk_combo_box_text_new() ?*GtkWidget;
 extern fn gtk_combo_box_text_append_text(*GtkComboBoxText, [*:0]const u8) void;
+extern fn gtk_combo_box_text_append(
+    *GtkComboBoxText,
+    ?[*:0]const u8,
+    [*:0]const u8,
+) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
@@ -2365,6 +2370,65 @@ pub export fn noctty_theme_library_contents_new(
         .import_file = import_file,
     };
     return TRUE;
+}
+
+const NoctaliaSchemeRecord = struct {
+    label: []const u8,
+    path: []const u8,
+};
+
+pub export fn noctty_theme_library_append_noctalia_records(
+    scheme: ?*GtkWidget,
+    records: ?[*]const u8,
+    length: usize,
+) c_uint {
+    const combo = scheme orelse return 0;
+    const bytes = records orelse return 0;
+    var parsed: [128]NoctaliaSchemeRecord = undefined;
+    var count: usize = 0;
+    var cursor = bytes[0..length];
+    while (cursor.len > 0 and count < parsed.len) {
+        const line_length = std.mem.indexOfScalar(u8, cursor, '\n') orelse cursor.len;
+        const line = cursor[0..line_length];
+        if (std.mem.indexOfScalar(u8, line, '\t')) |tab| {
+            if (tab > 0 and tab + 1 < line.len) {
+                parsed[count] = .{
+                    .label = line[0..tab],
+                    .path = line[tab + 1 ..],
+                };
+                count += 1;
+            }
+        }
+        cursor = if (line_length < cursor.len)
+            cursor[line_length + 1 ..]
+        else
+            cursor[cursor.len..];
+    }
+    std.mem.sort(NoctaliaSchemeRecord, parsed[0..count], {}, struct {
+        fn lessThan(_: void, left: NoctaliaSchemeRecord, right: NoctaliaSchemeRecord) bool {
+            return std.mem.lessThan(u8, left.label, right.label);
+        }
+    }.lessThan);
+    var appended: usize = 0;
+    for (parsed[0..count]) |record| {
+        var label_buffer: [std.fs.max_path_bytes + 1]u8 = undefined;
+        var path_buffer: [std.fs.max_path_bytes + 1]u8 = undefined;
+        if (record.label.len > std.fs.max_path_bytes or
+            record.path.len > std.fs.max_path_bytes)
+            continue;
+        @memcpy(label_buffer[0..record.label.len], record.label);
+        @memcpy(path_buffer[0..record.path.len], record.path);
+        label_buffer[record.label.len] = 0;
+        path_buffer[record.path.len] = 0;
+        gtk_combo_box_text_append(
+            @ptrCast(combo),
+            @ptrCast(&path_buffer),
+            @ptrCast(&label_buffer),
+        );
+        appended += 1;
+    }
+    if (appended > 0) gtk_combo_box_set_active(@ptrCast(combo), 0);
+    return @intCast(appended);
 }
 
 const SharingCallbacks = extern struct {

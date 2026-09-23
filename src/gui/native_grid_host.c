@@ -11431,33 +11431,11 @@ static void on_noctalia_current_theme_clicked(GtkButton *button,
 }
 
 typedef struct {
-    gchar *path;
-    gchar *label;
-} NocttyNoctaliaScheme;
-
-typedef struct {
     NocttyGridContext *context;
     GtkWidget *scheme;
     GtkWidget *variant;
     GtkWidget *status;
 } NocttyNoctaliaThemeControls;
-
-static void free_noctalia_scheme(gpointer data) {
-    NocttyNoctaliaScheme *scheme = data;
-    if (scheme == NULL) return;
-    g_free(scheme->path);
-    g_free(scheme->label);
-    g_free(scheme);
-}
-
-static gint compare_noctalia_schemes(gconstpointer left_raw,
-                                     gconstpointer right_raw) {
-    const NocttyNoctaliaScheme *left =
-        *(NocttyNoctaliaScheme * const *)left_raw;
-    const NocttyNoctaliaScheme *right =
-        *(NocttyNoctaliaScheme * const *)right_raw;
-    return g_utf8_collate(left->label, right->label);
-}
 
 static guint populate_noctalia_scheme_combo(
     GtkComboBoxText *combo, NocttyGridContext *context) {
@@ -11475,40 +11453,10 @@ static guint populate_noctalia_scheme_combo(
         g_free(root);
         return 0;
     }
-    GPtrArray *schemes = g_ptr_array_new_with_free_func(free_noctalia_scheme);
-    const gchar *cursor = records;
-    const gchar *end = records + length;
-    while (cursor < end && schemes->len < 128) {
-        const gchar *line_end = memchr(
-            cursor, '\n', (size_t)(end - cursor));
-        if (line_end == NULL) line_end = end;
-        const gchar *tab = memchr(
-            cursor, '\t', (size_t)(line_end - cursor));
-        if (tab != NULL && tab > cursor && tab + 1 < line_end) {
-            NocttyNoctaliaScheme *scheme = g_new0(
-                NocttyNoctaliaScheme, 1);
-            scheme->label = g_strndup(
-                cursor, (gsize)(tab - cursor));
-            scheme->path = g_strndup(
-                tab + 1, (gsize)(line_end - tab - 1));
-            if (scheme->label != NULL && scheme->path != NULL) {
-                g_ptr_array_add(schemes, scheme);
-            } else {
-                free_noctalia_scheme(scheme);
-            }
-        }
-        cursor = line_end < end ? line_end + 1 : end;
-    }
+    guint count = noctty_theme_library_append_noctalia_records(
+        GTK_WIDGET(combo), records, (gsize)length);
     g_free(records);
     g_free(root);
-    g_ptr_array_sort(schemes, compare_noctalia_schemes);
-    for (guint index = 0; index < schemes->len; index++) {
-        NocttyNoctaliaScheme *scheme = g_ptr_array_index(schemes, index);
-        gtk_combo_box_text_append(combo, scheme->path, scheme->label);
-    }
-    guint count = schemes->len;
-    g_ptr_array_unref(schemes);
-    if (count > 0) gtk_combo_box_set_active(GTK_COMBO_BOX(combo), 0);
     return count;
 }
 

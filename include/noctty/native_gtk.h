@@ -321,6 +321,9 @@ gboolean noctty_theme_library_contents_new(
     GtkWidget *dialog, GtkWidget *themes, GtkWidget *scheme,
     guint scheme_count, NocttyThemeLibraryContents *contents_out);
 
+guint noctty_theme_library_append_noctalia_records(
+    GtkWidget *scheme, const char *records, gsize length);
+
 GtkWidget *noctty_theme_import_dialog_new(
     GtkWidget *parent, GtkWidget **variant_out);
 
