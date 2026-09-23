@@ -277,6 +277,10 @@ GtkWidget *noctty_grid_page_new(int panel_padding, GtkWidget *pane_info_strip);
 GtkWidget *noctty_grid_window_new(void);
 GtkWidget *noctty_grid_notebook_new(void);
 GtkIMContext *noctty_grid_input_context_new(void);
+void noctty_grid_window_configure(
+    GtkWidget *window, int default_width, int default_height,
+    gboolean decorated, gboolean keep_above);
+
 
 
 typedef struct {

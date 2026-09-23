@@ -7,6 +7,8 @@ const GtkButton = opaque {};
 const GtkBin = opaque {};
 const GtkContainer = opaque {};
 const GtkNotebook = opaque {};
+const GtkWindow = opaque {};
+
 const GtkCssProvider = opaque {};
 const GtkStyleProvider = opaque {};
 const GtkStyleContext = opaque {};
@@ -199,6 +201,12 @@ extern fn gtk_window_new(window_type: c_int) ?*GtkWidget;
 extern fn gtk_notebook_new() ?*GtkWidget;
 extern fn gtk_notebook_set_scrollable(*GtkNotebook, c_int) void;
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
+extern fn gtk_window_set_icon_name(*GtkWindow, [*:0]const u8) void;
+extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
+extern fn gtk_window_set_decorated(*GtkWindow, c_int) void;
+extern fn gtk_window_set_resizable(*GtkWindow, c_int) void;
+extern fn gtk_window_set_keep_above(*GtkWindow, c_int) void;
+
 
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
@@ -1800,6 +1808,30 @@ pub export fn noctty_grid_notebook_new() ?*GtkWidget {
 pub export fn noctty_grid_input_context_new() ?*GtkIMContext {
     return gtk_im_multicontext_new();
 }
+pub export fn noctty_grid_window_configure(
+    window_optional: ?*GtkWidget,
+    default_width: c_int,
+    default_height: c_int,
+    decorated: c_int,
+    keep_above: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(window),
+        "noctty-terminal-window",
+    );
+    noctty_install_compact_tab_styles(window);
+    gtk_window_set_icon_name(@ptrCast(window), "com.noctty.NOCTTY");
+    gtk_window_set_default_size(
+        @ptrCast(window),
+        @max(1, default_width),
+        @max(1, default_height),
+    );
+    gtk_window_set_decorated(@ptrCast(window), decorated);
+    gtk_window_set_resizable(@ptrCast(window), TRUE);
+    gtk_window_set_keep_above(@ptrCast(window), keep_above);
+}
+
 
 pub export fn noctty_grid_page_new(
     panel_padding: c_int,

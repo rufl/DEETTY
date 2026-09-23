@@ -9756,12 +9756,12 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
         gtk_widget_set_visual(window, visual);
         gtk_widget_set_app_paintable(window, TRUE);
     }
-    gtk_style_context_add_class(
-        gtk_widget_get_style_context(window), "noctty-terminal-window");
-    // Install transparent root/container CSS before the first realization.
-    // Installing it later with the notebook lets Wayland commit an opaque
-    // initial buffer and opaque region that only changes when a modal maps.
-    install_compact_tab_styles(window);
+    noctty_grid_window_configure(
+        window,
+        root->workspace_smoke == 21 ? 1200 : 1100,
+        root->workspace_smoke == 21 ? 720 : 640,
+        root->mode == 1,
+        root->mode == 0);
     root->translucent_surface_ready =
         g_object_get_data(G_OBJECT(window),
                           "noctty-style-provider-installed") != NULL &&
@@ -9769,7 +9769,6 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
                                     "noctty-terminal-window") &&
         (!root->background_alpha_supported ||
          gtk_widget_get_app_paintable(window));
-    gtk_window_set_icon_name(GTK_WINDOW(window), "com.noctty.NOCTTY");
     root->application_icon_ready = g_strcmp0(
         gtk_window_get_icon_name(GTK_WINDOW(window)),
         "com.noctty.NOCTTY") == 0;
@@ -9783,12 +9782,6 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
                 : root->workspace_smoke == 39
                     ? "NOCTTY installed continuity qualification"
                     : "NOCTTY native grid");
-    gtk_window_set_default_size(
-        GTK_WINDOW(window), root->workspace_smoke == 21 ? 1200 : 1100,
-        root->workspace_smoke == 21 ? 720 : 640);
-    gtk_window_set_decorated(GTK_WINDOW(window), root->mode == 1);
-    gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
-    gtk_window_set_keep_above(GTK_WINDOW(window), root->mode == 0);
     g_object_set_data(G_OBJECT(window), "noctty-grid-root-context", root);
     if (screen != NULL) {
         g_signal_connect_object(
