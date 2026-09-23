@@ -321,6 +321,9 @@ gboolean noctty_theme_library_contents_new(
     GtkWidget *dialog, GtkWidget *themes, GtkWidget *scheme,
     guint scheme_count, NocttyThemeLibraryContents *contents_out);
 
+GtkWidget *noctty_theme_import_dialog_new(
+    GtkWidget *parent, GtkWidget **variant_out);
+
 typedef struct {
     GCallback action;
     GCallback tab_changed;

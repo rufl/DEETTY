@@ -11356,22 +11356,14 @@ static void on_settings_menu_activate(GtkWidget *item, gpointer user_data) {
 static void on_theme_import_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     NocttyGridContext *context = user_data;
-    GtkWidget *chooser = gtk_file_chooser_dialog_new("Import Terminal Theme", GTK_WINDOW(context->window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel", GTK_RESPONSE_CANCEL, "Import", GTK_RESPONSE_ACCEPT, NULL);
-    GtkWidget *noctalia_variant = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(noctalia_variant),
-                                   "Noctalia: auto / active colors");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(noctalia_variant),
-                                   "Noctalia: dark variant");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(noctalia_variant),
-                                   "Noctalia: light variant");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(noctalia_variant), 0);
-    gtk_widget_set_tooltip_text(
-        noctalia_variant,
-        "Used for Noctalia colors.json and colorscheme JSON files");
-    set_widget_accessible_name(noctalia_variant,
-                               "Noctalia import variant");
-    gtk_file_chooser_set_extra_widget(GTK_FILE_CHOOSER(chooser),
-                                      noctalia_variant);
+    GtkWidget *noctalia_variant = NULL;
+    GtkWidget *chooser = noctty_theme_import_dialog_new(
+        context->window, &noctalia_variant);
+    if (chooser == NULL) {
+        set_theme_library_status(
+            context, "Could not open the theme import dialog.", TRUE);
+        return;
+    }
     prepare_action_button_tree(chooser);
     if (run_grid_modal_dialog(context, GTK_DIALOG(chooser)) ==
         GTK_RESPONSE_ACCEPT) {

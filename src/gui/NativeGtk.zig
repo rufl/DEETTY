@@ -63,6 +63,9 @@ const GDestroyNotify = *const fn (?*anyopaque) callconv(.c) void;
 
 const FALSE: c_int = 0;
 const TRUE: c_int = 1;
+const GTK_FILE_CHOOSER_ACTION_OPEN: c_int = 0;
+const GTK_RESPONSE_CANCEL: c_int = -6;
+const GTK_RESPONSE_ACCEPT: c_int = -3;
 const PANGO_ELLIPSIZE_MIDDLE: c_int = 2;
 const GTK_STYLE_PROVIDER_PRIORITY_APPLICATION: c_uint = 600;
 const GDK_ENTER_NOTIFY_MASK: c_int = 1 << 12;
@@ -136,6 +139,8 @@ extern fn gtk_flow_box_set_homogeneous(*GtkFlowBox, c_int) void;
 extern fn gtk_combo_box_text_new() ?*GtkWidget;
 extern fn gtk_combo_box_text_append_text(*GtkComboBoxText, [*:0]const u8) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
+extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
+extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
@@ -2231,6 +2236,43 @@ pub export fn noctty_launch_profile_contents_new(
         .status = status,
     };
     return TRUE;
+}
+
+pub export fn noctty_theme_import_dialog_new(
+    parent: ?*GtkWidget,
+    variant_out: ?**GtkWidget,
+) ?*GtkWidget {
+    const target = parent orelse return null;
+    const output = variant_out orelse return null;
+    const chooser = gtk_file_chooser_dialog_new(
+        "Import Terminal Theme",
+        target,
+        GTK_FILE_CHOOSER_ACTION_OPEN,
+        "Cancel",
+        GTK_RESPONSE_CANCEL,
+        "Import",
+        GTK_RESPONSE_ACCEPT,
+        @as(?[*:0]const u8, null),
+    ) orelse return null;
+    const variant = comboText(
+        &.{
+            "Noctalia: auto / active colors",
+            "Noctalia: dark variant",
+            "Noctalia: light variant",
+        },
+        0,
+    ) orelse {
+        gtk_widget_destroy(chooser);
+        return null;
+    };
+    gtk_widget_set_tooltip_text(
+        variant,
+        "Used for Noctalia colors.json and colorscheme JSON files",
+    );
+    setAccessibleName(variant, "Noctalia import variant");
+    gtk_file_chooser_set_extra_widget(chooser, variant);
+    output.* = variant;
+    return chooser;
 }
 
 const ThemeLibraryContents = extern struct {
