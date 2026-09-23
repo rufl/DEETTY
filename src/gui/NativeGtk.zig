@@ -102,6 +102,7 @@ const GDK_KEY_PRESS_MASK: c_int = 1 << 10;
 const GDK_BUTTON_PRESS_MASK: c_int = 1 << 8;
 const GDK_SCROLL_MASK: c_int = 1 << 21;
 const GDK_SMOOTH_SCROLL_MASK: c_int = 1 << 23;
+const GDK_POINTER_MOTION_MASK: c_int = 1 << 2;
 
 extern fn gtk_event_box_new() ?*GtkWidget;
 extern fn gtk_event_box_set_visible_window(*GtkEventBox, c_int) void;
@@ -1656,6 +1657,47 @@ pub export fn noctty_window_resize_layout_new(
     gtk_overlay_add_overlay(overlay, grip);
     resize_grip_out.* = grip;
     return overlay;
+}
+
+pub export fn noctty_resize_handle_new(
+    index: c_int,
+    width: c_int,
+    height: c_int,
+    cursor_name: ?[*:0]const u8,
+) ?*GtkWidget {
+    const handle = gtk_event_box_new() orelse return null;
+    gtk_event_box_set_visible_window(@ptrCast(handle), FALSE);
+    gtk_event_box_set_above_child(@ptrCast(handle), TRUE);
+    gtk_widget_set_size_request(handle, width, height);
+    gtk_widget_set_hexpand(handle, if (width < 0) TRUE else FALSE);
+    gtk_widget_set_vexpand(handle, if (height < 0) TRUE else FALSE);
+    gtk_widget_set_tooltip_text(
+        handle,
+        if (index == 6)
+            "Drag to resize; double-click to maximize / minimize height"
+        else
+            "Drag to resize NOCTTY",
+    );
+    gtk_widget_set_no_show_all(handle, TRUE);
+    gtk_widget_add_events(
+        handle,
+        GDK_BUTTON_PRESS_MASK |
+            GDK_BUTTON_RELEASE_MASK |
+            GDK_POINTER_MOTION_MASK,
+    );
+    g_object_set_data(
+        object(handle),
+        "noctty-resize-index",
+        @ptrFromInt(@as(usize, @intCast(index + 1))),
+    );
+    if (cursor_name) |name| {
+        g_object_set_data(
+            object(handle),
+            "noctty-resize-cursor-name",
+            @ptrCast(@constCast(name)),
+        );
+    }
+    return handle;
 }
 
 const SmartFilterEmptyContents = extern struct {

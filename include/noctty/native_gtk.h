@@ -285,6 +285,9 @@ GtkWidget *noctty_window_resize_layout_new(
     const NocttyWindowResizeLayout *layouts, guint handle_count,
     GtkWidget **resize_grip_out);
 
+GtkWidget *noctty_resize_handle_new(
+    int index, int width, int height, const char *cursor_name);
+
 typedef struct {
     GtkWidget *box;
     GtkWidget *label;

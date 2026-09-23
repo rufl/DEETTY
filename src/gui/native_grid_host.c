@@ -16066,24 +16066,10 @@ static gboolean on_window_resize_handle_release(GtkWidget *widget,
 static GtkWidget *create_window_resize_handle(NocttyGridContext *context,
                                               int index, int width,
                                               int height) {
-    GtkWidget *handle = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(handle), FALSE);
-    gtk_event_box_set_above_child(GTK_EVENT_BOX(handle), TRUE);
-    gtk_widget_set_size_request(handle, width, height);
-    gtk_widget_set_hexpand(handle, width < 0);
-    gtk_widget_set_vexpand(handle, height < 0);
-    gtk_widget_set_tooltip_text(
-        handle,
-        index == 6
-            ? "Drag to resize; double-click to maximize / minimize height"
-            : "Drag to resize NOCTTY");
-    gtk_widget_set_no_show_all(handle, TRUE);
-    gtk_widget_add_events(handle, GDK_BUTTON_PRESS_MASK |
-        GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-    g_object_set_data(G_OBJECT(handle), "noctty-resize-index",
-                      GINT_TO_POINTER(index + 1));
-    g_object_set_data(G_OBJECT(handle), "noctty-resize-cursor-name",
-                      (gpointer)noctty_grid_window_resize_cursor_name(index));
+    GtkWidget *handle = noctty_resize_handle_new(
+        index, width, height,
+        noctty_grid_window_resize_cursor_name(index));
+    if (handle == NULL) return NULL;
     g_signal_connect(handle, "realize",
                      G_CALLBACK(on_window_resize_handle_realize), context);
     g_signal_connect(handle, "button-press-event",
