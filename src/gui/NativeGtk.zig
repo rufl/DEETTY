@@ -2759,6 +2759,11 @@ pub export fn noctty_grid_object_unref(object_optional: ?*anyopaque) void {
     if (object_optional) |object_value| g_object_unref(object_value);
 }
 
+pub export fn noctty_grid_object_clear(object_optional: ?*anyopaque) ?*anyopaque {
+    if (object_optional) |object_value| g_object_unref(object_value);
+    return null;
+}
+
 pub export fn noctty_grid_widget_show_all(
     widget_optional: ?*GtkWidget,
 ) void {

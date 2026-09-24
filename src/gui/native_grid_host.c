@@ -3301,7 +3301,7 @@ static void cancel_grid_dbus_operations(NocttyGridContext *context) {
         g_cancellable_cancel(root->dbus_cancellable);
     while (root->dbus_pending_operations > 0)
         g_main_context_iteration(NULL, TRUE);
-    g_clear_object(&root->dbus_cancellable);
+    root->dbus_cancellable = noctty_grid_object_clear(root->dbus_cancellable);
 }
 
 static void drain_grid_dbus_operations(NocttyGridContext *context) {
@@ -3392,7 +3392,7 @@ static void unregister_grid_control(NocttyGridContext *context) {
         g_variant_new("(s)", "com.noctty.NOCTTY"), G_VARIANT_TYPE("(u)"),
         G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL, NULL);
     g_clear_pointer(&root->control_node, g_dbus_node_info_unref);
-    g_clear_object(&root->control_bus);
+    root->control_bus = noctty_grid_object_clear(root->control_bus);
     root->control_registered = 0;
 }
 
@@ -3878,7 +3878,7 @@ static void unregister_grid_tray(NocttyGridContext *context) {
     g_clear_pointer(&root->tray_node, g_dbus_node_info_unref);
     g_clear_pointer(&root->tray_menu_node, g_dbus_node_info_unref);
     g_clear_pointer(&root->tray_icon_pixmaps, g_variant_unref);
-    g_clear_object(&root->tray_bus);
+    root->tray_bus = noctty_grid_object_clear(root->tray_bus);
     root->tray_registered = 0;
     root->tray_menu_registered = 0;
     root->tray_watcher_registered = 0;
@@ -7404,7 +7404,7 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     g_clear_pointer(&context->dirty_row_buffer, g_free);
     g_clear_pointer(&context->dirty_span_buffer, g_free);
     destroy_grid_glyph_cache(context);
-    g_clear_object(&context->im_context);
+    context->im_context = noctty_grid_object_clear(context->im_context);
     g_ptr_array_remove(root->contexts, context);
     g_free(context);
 }
@@ -16721,7 +16721,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         destroy_grid_glyph_cache(candidate);
         g_clear_pointer(&candidate->note_overlay_font,
                         pango_font_description_free);
-        g_clear_object(&candidate->im_context);
+        candidate->im_context = noctty_grid_object_clear(candidate->im_context);
         if (candidate->heap_allocated) g_free(candidate);
     }
     g_ptr_array_free(context.contexts, TRUE);
@@ -17270,7 +17270,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         g_clear_pointer(&candidate->dirty_span_buffer, g_free);
         destroy_grid_glyph_cache(candidate);
         g_clear_pointer(&candidate->note_overlay_font, pango_font_description_free);
-        g_clear_object(&candidate->im_context);
+        candidate->im_context = noctty_grid_object_clear(candidate->im_context);
         if (candidate->heap_allocated) g_free(candidate);
     }
     g_ptr_array_free(context.contexts, TRUE);

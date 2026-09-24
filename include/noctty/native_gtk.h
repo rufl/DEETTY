@@ -405,6 +405,7 @@ void noctty_grid_object_set_data_full(
     GDestroyNotify destroy);
 gpointer noctty_grid_object_ref(gpointer object);
 void noctty_grid_object_unref(gpointer object);
+gpointer noctty_grid_object_clear(gpointer object);
 void noctty_grid_widget_set_app_paintable(
     GtkWidget *widget, gboolean app_paintable);
 void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);

@@ -141,6 +141,9 @@ grep -F 'noctty_grid_object_set_data(' "$grid" >/dev/null
 ! grep -F 'g_object_get_data(' "$grid" >/dev/null
 ! grep -F 'g_object_set_data(' "$grid" >/dev/null
 ! grep -F 'g_object_set_data_full(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_object_clear(' "$native_gtk" >/dev/null
+grep -F 'noctty_grid_object_clear(' "$grid" >/dev/null
+! grep -F 'g_clear_object(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null
