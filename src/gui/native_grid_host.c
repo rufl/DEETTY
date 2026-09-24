@@ -9576,10 +9576,12 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
     int height = noctty_grid_dropdown_dimension(
         root->dropdown_height_px, root->dropdown_height_percent,
         workarea.height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
-    gtk_window_resize(GTK_WINDOW(root->window), width, height);
+    noctty_grid_window_resize(root->window, width, height);
     if (root->mode == 0)
-        gtk_window_move(GTK_WINDOW(root->window),
-                        workarea.x + (workarea.width - width) / 2, workarea.y);
+        noctty_grid_window_move(
+            root->window,
+            workarea.x + (workarea.width - width) / 2,
+            workarea.y);
 }
 
 static void apply_window_dimensions(NocttyGridContext *context) {
@@ -9590,7 +9592,7 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     int width = noctty_grid_percent_dimension(workarea.width, 80, 480);
     int height = noctty_grid_percent_dimension(workarea.height, 75, 320);
     noctty_grid_widget_set_size_request(root->window, -1, -1);
-    gtk_window_resize(GTK_WINDOW(root->window), width, height);
+    noctty_grid_window_resize(root->window, width, height);
 }
 
 static void apply_fullscreen_dimensions(NocttyGridContext *context) {
@@ -9673,9 +9675,8 @@ static gboolean adapt_window_to_resolution(gpointer user_data) {
     } else if (root->mode == 2) {
         apply_fullscreen_dimensions(root);
     } else {
-        gtk_window_resize(
-            GTK_WINDOW(root->window), geometry.width, geometry.height);
-        gtk_window_move(GTK_WINDOW(root->window), geometry.x, geometry.y);
+        noctty_grid_window_resize(root->window, geometry.width, geometry.height);
+        noctty_grid_window_move(root->window, geometry.x, geometry.y);
     }
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
@@ -10861,7 +10862,7 @@ static void open_grid_settings(NocttyGridContext *context) {
         GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
     noctty_grid_window_set_default_size(
         dialog, settings_width, settings_height);
-    gtk_window_resize(GTK_WINDOW(dialog), settings_width, settings_height);
+    noctty_grid_window_resize(dialog, settings_width, settings_height);
     noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
     gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
@@ -14757,7 +14758,7 @@ static gboolean inspect_and_resize_pane_close_layout(gpointer user_data) {
     gint width = 0;
     gint height = 0;
     gtk_window_get_size(GTK_WINDOW(root->window), &width, &height);
-    gtk_window_resize(GTK_WINDOW(root->window), width + 320, height + 180);
+    noctty_grid_window_resize(root->window, width + 320, height + 180);
     return G_SOURCE_REMOVE;
 }
 
@@ -16003,7 +16004,7 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
         int height = noctty_grid_clamp_resize(
             root->window_resize_drag_start_height, vertical, 180, G_MAXINT);
         noctty_grid_widget_set_size_request(root->window, width, height);
-        gtk_window_resize(GTK_WINDOW(root->window), width, height);
+        noctty_grid_window_resize(root->window, width, height);
         return TRUE;
     }
     if (root->mode != 0) return FALSE;
@@ -16158,9 +16159,10 @@ static gboolean request_window_resize_smoke(gpointer user_data) {
     root->window_resize_affordance_ready =
         custom_handles_hidden && root->window_native_decorated &&
         root->window_native_resizable;
-    gtk_window_resize(GTK_WINDOW(root->window),
-                      root->window_resize_initial_width + 120,
-                      root->window_resize_initial_height + 80);
+    noctty_grid_window_resize(
+        root->window,
+        root->window_resize_initial_width + 120,
+        root->window_resize_initial_height + 80);
     g_timeout_add(500, check_window_resize_smoke, root);
     return G_SOURCE_REMOVE;
 }

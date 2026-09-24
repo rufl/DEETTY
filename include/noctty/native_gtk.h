@@ -319,6 +319,10 @@ void noctty_grid_window_set_destroy_with_parent(
 void noctty_grid_widget_add_events(GtkWidget *widget, int events);
 void noctty_grid_window_set_transient_for(
     GtkWidget *window, GtkWidget *parent);
+void noctty_grid_window_resize(
+    GtkWidget *window, int width, int height);
+void noctty_grid_window_move(
+    GtkWidget *window, int x, int y);
 
 
 

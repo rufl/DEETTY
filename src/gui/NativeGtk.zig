@@ -235,6 +235,8 @@ extern fn gtk_window_unfullscreen(*GtkWindow) void;
 extern fn gtk_window_set_startup_id(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_set_focus(*GtkWindow, *GtkWidget) void;
 extern fn gtk_window_set_transient_for(*GtkWindow, ?*GtkWindow) void;
+extern fn gtk_window_resize(*GtkWindow, c_int, c_int) void;
+extern fn gtk_window_move(*GtkWindow, c_int, c_int) void;
 
 
 
@@ -1952,6 +1954,23 @@ pub export fn noctty_grid_window_set_transient_for(
         @ptrCast(window),
         @ptrCast(parent),
     );
+}
+pub export fn noctty_grid_window_resize(
+    window_optional: ?*GtkWidget,
+    width: c_int,
+    height: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_resize(@ptrCast(window), width, height);
+}
+
+pub export fn noctty_grid_window_move(
+    window_optional: ?*GtkWidget,
+    x: c_int,
+    y: c_int,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_move(@ptrCast(window), x, y);
 }
 
 pub export fn noctty_grid_window_set_title(
