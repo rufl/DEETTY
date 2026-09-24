@@ -15895,70 +15895,71 @@ static gboolean on_window_resize_handle_button(GtkWidget *widget,
     NocttyGridContext *root = root_grid_context(user_data);
     int index = noctty_grid_resize_handle_index(GPOINTER_TO_INT(
         noctty_grid_object_get_data(G_OBJECT(widget), "noctty-resize-index")));
-    if (index < 0 || index >= 8 || event->button != 1 || root->mode == 2)
-        return FALSE;
-
-    if (index == 6 && root->mode == 0) {
-        if (event->type == GDK_2BUTTON_PRESS)
-            return toggle_dragger_height(root);
-        if (event->type == GDK_BUTTON_PRESS) {
-            gboolean within_double_click = root->dragger_click_pending == 1 &&
-                (event->time - root->dragger_last_press_time) <= 500;
-            if (within_double_click) {
-                // GTK may deliver this press immediately before the
-                // GDK_2BUTTON_PRESS. Wait briefly so one physical double
-                // click cannot toggle twice; retain a fallback for backends
-                // that expose only ordinary button presses.
-                root->dragger_click_pending = 2;
-                cancel_dragger_double_click_timer(root);
-                root->dragger_double_click_source = noctty_grid_source_timeout_add(
-                    75, finish_dragger_click_fallback, root);
-                return TRUE;
-            }
-            // Do not start a resize until motion proves this is a drag. This
-            // leaves the second click free to be the height toggle.
-            cancel_dragger_double_click_timer(root);
-            root->dragger_click_pending = 1;
-            root->dragger_last_press_time = event->time;
-            root->window_resize_drag_start_x = event->x_root;
-            root->window_resize_drag_start_y = event->y_root;
-            root->dragger_double_click_source = noctty_grid_source_timeout_add(
-                500, finish_dragger_click_fallback, root);
-            return TRUE;
-        }
+    NocttyGridResizeEventPlan plan = {0};
+    int event_kind = event->type == GDK_2BUTTON_PRESS
+        ? NOCTTY_GRID_RESIZE_EVENT_DOUBLE_PRESS
+        : NOCTTY_GRID_RESIZE_EVENT_PRESS;
+    noctty_grid_resize_event_plan(
+        event_kind, index, (int)event->button, root->mode,
+        root->window_resize_drag_active, root->dragger_click_pending,
+        0, 0.0, &plan);
+    switch (plan.action) {
+    case NOCTTY_GRID_RESIZE_ACTION_TOGGLE_HEIGHT:
+        return toggle_dragger_height(root);
+    case NOCTTY_GRID_RESIZE_ACTION_DELAY_DOUBLE_CLICK:
+        root->dragger_click_pending = 2;
+        cancel_dragger_double_click_timer(root);
+        root->dragger_double_click_source = noctty_grid_source_timeout_add(
+            75, finish_dragger_click_fallback, root);
+        return TRUE;
+    case NOCTTY_GRID_RESIZE_ACTION_ARM_CLICK:
+        cancel_dragger_double_click_timer(root);
+        root->dragger_click_pending = 1;
+        root->dragger_last_press_time = event->time;
+        root->window_resize_drag_start_x = event->x_root;
+        root->window_resize_drag_start_y = event->y_root;
+        root->dragger_double_click_source = noctty_grid_source_timeout_add(
+            500, finish_dragger_click_fallback, root);
+        return TRUE;
+    case NOCTTY_GRID_RESIZE_ACTION_BEGIN_DRAG:
+        return begin_window_resize_drag(
+            widget, root, index, event->button,
+            event->x_root, event->y_root, event->time);
+    default:
         return FALSE;
     }
-    if (event->type != GDK_BUTTON_PRESS) return FALSE;
-    return begin_window_resize_drag(widget, root, index, event->button,
-                                    event->x_root, event->y_root,
-                                    event->time);
 }
 
 static gboolean on_window_resize_handle_motion(GtkWidget *widget,
                                                 GdkEventMotion *event,
                                                 gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    if (!root->window_resize_drag_active &&
-        noctty_grid_resize_handle_index(GPOINTER_TO_INT(
-            noctty_grid_object_get_data(G_OBJECT(widget), "noctty-resize-index"))) == 6 && root->mode == 0 &&
-        root->dragger_click_pending == 1 && (event->state & GDK_BUTTON1_MASK)) {
-        double delta_x = event->x_root - root->window_resize_drag_start_x;
-        double delta_y = event->y_root - root->window_resize_drag_start_y;
-        if (delta_x * delta_x + delta_y * delta_y >= 16.0) {
-            cancel_dragger_double_click_timer(root);
-            root->dragger_click_pending = 0;
-            return begin_window_resize_drag(
-                widget, root, 6, 1, root->window_resize_drag_start_x,
-                root->window_resize_drag_start_y, event->time);
-        }
-        return TRUE;
+    int index = noctty_grid_resize_handle_index(GPOINTER_TO_INT(
+        noctty_grid_object_get_data(G_OBJECT(widget), "noctty-resize-index")));
+    double delta_x = event->x_root - root->window_resize_drag_start_x;
+    double delta_y = event->y_root - root->window_resize_drag_start_y;
+    NocttyGridResizeEventPlan plan = {0};
+    noctty_grid_resize_event_plan(
+        NOCTTY_GRID_RESIZE_EVENT_MOTION, index, 1, root->mode,
+        root->window_resize_drag_active, root->dragger_click_pending,
+        (event->state & GDK_BUTTON1_MASK) != 0,
+        delta_x * delta_x + delta_y * delta_y, &plan);
+    if (plan.action == NOCTTY_GRID_RESIZE_ACTION_BEGIN_DRAG) {
+        cancel_dragger_double_click_timer(root);
+        root->dragger_click_pending = 0;
+        return begin_window_resize_drag(
+            widget, root, index, 1,
+            root->window_resize_drag_start_x,
+            root->window_resize_drag_start_y, event->time);
     }
-    if (!root->window_resize_drag_active) return FALSE;
-    if (!(event->state & GDK_BUTTON1_MASK)) {
+    if (plan.action == NOCTTY_GRID_RESIZE_ACTION_CONSUME)
+        return TRUE;
+    if (plan.action == NOCTTY_GRID_RESIZE_ACTION_FINISH_DRAG) {
         finish_window_resize_drag(root);
         return FALSE;
     }
-    int index = root->window_resize_drag_handle;
+    if (plan.action != NOCTTY_GRID_RESIZE_ACTION_UPDATE_DRAG)
+        return FALSE;
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
     if (monitor != NULL) noctty_grid_gdk_monitor_get_geometry(monitor, &geometry);
@@ -16004,7 +16005,17 @@ static gboolean on_window_resize_handle_release(GtkWidget *widget,
                                                  gpointer user_data) {
     (void)widget;
     NocttyGridContext *root = root_grid_context(user_data);
-    if (!root->window_resize_drag_active || event->button != 1) return FALSE;
+    NocttyGridResizeEventPlan plan = {0};
+    noctty_grid_resize_event_plan(
+        NOCTTY_GRID_RESIZE_EVENT_RELEASE,
+        noctty_grid_resize_handle_index(GPOINTER_TO_INT(
+            noctty_grid_object_get_data(G_OBJECT(widget),
+                                        "noctty-resize-index"))),
+        (int)event->button, root->mode,
+        root->window_resize_drag_active, root->dragger_click_pending,
+        0, 0.0, &plan);
+    if (plan.action != NOCTTY_GRID_RESIZE_ACTION_FINISH_DRAG)
+        return FALSE;
     finish_window_resize_drag(root);
     NocttyGridContext *focus_target = active_grid_context(root);
     if (focus_target->area != NULL)

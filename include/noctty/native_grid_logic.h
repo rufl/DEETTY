@@ -203,6 +203,30 @@ const char *noctty_grid_window_resize_cursor_name(int index);
 const char *noctty_grid_tray_menu_label(int id, int window_presented);
 const char *noctty_grid_tray_menu_icon_name(int id);
 int noctty_grid_resize_edge(int index);
+
+typedef struct {
+    int action;
+} NocttyGridResizeEventPlan;
+
+enum {
+    NOCTTY_GRID_RESIZE_EVENT_PRESS = 1,
+    NOCTTY_GRID_RESIZE_EVENT_MOTION = 2,
+    NOCTTY_GRID_RESIZE_EVENT_RELEASE = 3,
+    NOCTTY_GRID_RESIZE_EVENT_DOUBLE_PRESS = 4,
+    NOCTTY_GRID_RESIZE_ACTION_NONE = 0,
+    NOCTTY_GRID_RESIZE_ACTION_TOGGLE_HEIGHT = 1,
+    NOCTTY_GRID_RESIZE_ACTION_ARM_CLICK = 2,
+    NOCTTY_GRID_RESIZE_ACTION_DELAY_DOUBLE_CLICK = 3,
+    NOCTTY_GRID_RESIZE_ACTION_BEGIN_DRAG = 4,
+    NOCTTY_GRID_RESIZE_ACTION_CONSUME = 5,
+    NOCTTY_GRID_RESIZE_ACTION_UPDATE_DRAG = 6,
+    NOCTTY_GRID_RESIZE_ACTION_FINISH_DRAG = 7
+};
+
+void noctty_grid_resize_event_plan(
+    int event_kind, int handle, int button, int mode,
+    int drag_active, int click_pending, int button1_down,
+    double motion_distance_squared, NocttyGridResizeEventPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

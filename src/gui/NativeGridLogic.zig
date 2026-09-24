@@ -106,6 +106,10 @@ pub const PointerEventPlan = extern struct {
     action: c_int,
 };
 
+pub const ResizeEventPlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -691,6 +695,18 @@ pub const pointer_action_begin_selection: c_int = 7;
 pub const pointer_action_update_selection: c_int = 8;
 pub const pointer_action_deliver_mouse: c_int = 9;
 pub const pointer_action_consume: c_int = 10;
+pub const resize_event_press: c_int = 1;
+pub const resize_event_motion: c_int = 2;
+pub const resize_event_release: c_int = 3;
+pub const resize_event_double_press: c_int = 4;
+pub const resize_action_none: c_int = 0;
+pub const resize_action_toggle_height: c_int = 1;
+pub const resize_action_arm_click: c_int = 2;
+pub const resize_action_delay_double_click: c_int = 3;
+pub const resize_action_begin_drag: c_int = 4;
+pub const resize_action_consume: c_int = 5;
+pub const resize_action_update_drag: c_int = 6;
+pub const resize_action_finish_drag: c_int = 7;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -942,6 +958,64 @@ pub export fn noctty_grid_pointer_event_plan(
         return;
     }
     output.* = .{ .action = pointer_action_consume };
+}
+
+pub export fn noctty_grid_resize_event_plan(
+    event_kind: c_int,
+    handle: c_int,
+    button: c_int,
+    mode: c_int,
+    drag_active: c_int,
+    click_pending: c_int,
+    button1_down: c_int,
+    motion_distance_squared: f64,
+    output_optional: ?*ResizeEventPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{ .action = resize_action_none };
+    if (handle < 0 or handle >= 8) return;
+    if (event_kind == resize_event_double_press) {
+        if (button != 1 or mode != 0 or handle != 6) return;
+        output.* = .{ .action = resize_action_toggle_height };
+        return;
+    }
+    if (event_kind == resize_event_press) {
+        if (button != 1 or mode == 2) return;
+        if (handle == 6 and mode == 0) {
+            output.* = .{
+                .action = if (click_pending != 0)
+                    resize_action_delay_double_click
+                else
+                    resize_action_arm_click,
+            };
+            return;
+        }
+        output.* = .{ .action = resize_action_begin_drag };
+        return;
+    }
+    if (event_kind == resize_event_motion) {
+        if (handle == 6 and mode == 0 and drag_active == 0 and
+            click_pending == 1) {
+            if (motion_distance_squared >= 16.0) {
+                output.* = .{ .action = resize_action_begin_drag };
+            } else {
+                output.* = .{ .action = resize_action_consume };
+            }
+            return;
+        }
+        if (drag_active == 0) return;
+        output.* = .{
+            .action = if (button1_down != 0)
+                resize_action_update_drag
+            else
+                resize_action_finish_drag,
+        };
+        return;
+    }
+    if (event_kind == resize_event_release and
+        drag_active != 0 and button == 1) {
+        output.* = .{ .action = resize_action_finish_drag };
+    }
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -2622,6 +2696,38 @@ test "resize handle layout preserves the complete grid geometry" {
     try std.testing.expectEqual(@as(c_int, -1), layout.width);
     try std.testing.expectEqual(@as(c_int, 4), layout.height);
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_handle_layout(8, 6, 4, &layout));
+}
+
+test "resize event planner preserves dragger and native resize precedence" {
+    var plan = ResizeEventPlan{ .action = resize_action_none };
+    noctty_grid_resize_event_plan(
+        resize_event_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_arm_click), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_press, 6, 1, 0, 0, 1, 0, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_delay_double_click), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_double_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_toggle_height), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_motion, 6, 1, 0, 0, 1, 1, 25.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_begin_drag), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_press, 2, 1, 1, 0, 0, 0, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_begin_drag), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_motion, 2, 1, 1, 1, 0, 1, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_update_drag), plan.action);
+    noctty_grid_resize_event_plan(
+        resize_event_motion, 2, 1, 1, 1, 0, 0, 0.0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, resize_action_finish_drag), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {
