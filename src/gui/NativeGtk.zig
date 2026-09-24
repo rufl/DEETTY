@@ -315,6 +315,20 @@ extern fn gtk_orientable_get_orientation(*GtkOrientable) c_int;
 extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
+extern fn gtk_drag_source_set(
+    *GtkWidget,
+    c_uint,
+    ?*anyopaque,
+    c_int,
+    c_uint,
+) void;
+extern fn gtk_drag_dest_set(
+    *GtkWidget,
+    c_uint,
+    ?*anyopaque,
+    c_int,
+    c_uint,
+) void;
 extern fn gtk_widget_show_all(*GtkWidget) void;
 extern fn gtk_widget_destroy(*GtkWidget) void;
 extern fn gtk_widget_get_style_context(*GtkWidget) *GtkStyleContext;
@@ -2266,6 +2280,39 @@ pub export fn noctty_grid_widget_add_events(
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_add_events(widget, events);
+}
+pub export fn noctty_grid_drag_source_set(
+    widget_optional: ?*GtkWidget,
+    start_button_mask: c_uint,
+    targets: ?*anyopaque,
+    target_count: c_int,
+    actions: c_uint,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_drag_source_set(
+        widget,
+        start_button_mask,
+        targets,
+        target_count,
+        actions,
+    );
+}
+
+pub export fn noctty_grid_drag_dest_set(
+    widget_optional: ?*GtkWidget,
+    dest_defaults: c_uint,
+    targets: ?*anyopaque,
+    target_count: c_int,
+    actions: c_uint,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_drag_dest_set(
+        widget,
+        dest_defaults,
+        targets,
+        target_count,
+        actions,
+    );
 }
 pub export fn noctty_grid_widget_set_size_request(
     widget_optional: ?*GtkWidget,

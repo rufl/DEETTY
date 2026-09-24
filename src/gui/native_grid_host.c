@@ -16254,8 +16254,8 @@ static void connect_grid_area(NocttyGridContext *context) {
             GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
             GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK |
             GDK_SMOOTH_SCROLL_MASK);
-    gtk_drag_source_set(context->area, GDK_BUTTON2_MASK, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
-    gtk_drag_dest_set(context->area, GTK_DEST_DEFAULT_ALL, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
+    noctty_grid_drag_source_set(context->area, GDK_BUTTON2_MASK, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
+    noctty_grid_drag_dest_set(context->area, GTK_DEST_DEFAULT_ALL, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
     noctty_grid_signal_connect(context->area, "drag-data-get", G_CALLBACK(on_pane_drag_data_get), context);
     noctty_grid_signal_connect(context->area, "drag-data-received", G_CALLBACK(on_pane_drag_data_received), context);
     context->resize_overlay_arm_source =

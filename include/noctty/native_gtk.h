@@ -358,6 +358,18 @@ gulong noctty_grid_signal_connect_object(
     GCallback callback,
     gpointer object,
     unsigned int flags);
+void noctty_grid_drag_source_set(
+    GtkWidget *widget,
+    unsigned int start_button_mask,
+    gpointer targets,
+    int target_count,
+    unsigned int actions);
+void noctty_grid_drag_dest_set(
+    GtkWidget *widget,
+    unsigned int dest_defaults,
+    gpointer targets,
+    int target_count,
+    unsigned int actions);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);
