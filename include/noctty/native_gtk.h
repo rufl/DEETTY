@@ -396,6 +396,22 @@ gboolean noctty_grid_widget_translate_coordinates(
     int *dest_x,
     int *dest_y);
 GdkWindow *noctty_grid_widget_get_window(GtkWidget *widget);
+unsigned int noctty_grid_widget_add_tick_callback(
+    GtkWidget *widget,
+    GCallback callback,
+    gpointer data,
+    GDestroyNotify destroy_notify);
+void noctty_grid_drag_finish(
+    gpointer drag, gboolean delete_data, gboolean success, unsigned int time);
+void noctty_grid_window_begin_resize_drag(
+    gpointer window,
+    int edge,
+    int button,
+    int root_x,
+    int root_y,
+    unsigned int time);
+gboolean noctty_grid_events_pending(void);
+void noctty_grid_main_iteration_do(gboolean blocking);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);

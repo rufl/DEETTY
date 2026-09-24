@@ -6243,8 +6243,8 @@ static void schedule_output_present(NocttyGridContext *context) {
         context->output_present_source != 0) return;
     if (context->area != NULL && noctty_grid_widget_get_mapped(context->area)) {
         context->output_present_is_tick = 1;
-        context->output_present_source = gtk_widget_add_tick_callback(
-            context->area, on_output_frame, context, NULL);
+        context->output_present_source = noctty_grid_widget_add_tick_callback(
+            context->area, G_CALLBACK(on_output_frame), context, NULL);
         if (context->output_present_source != 0) return;
         context->output_present_is_tick = 0;
     }
@@ -9820,7 +9820,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
         noctty_grid_widget_get_visible(root->settings_dialog);
     if (reopen_settings) noctty_grid_widget_destroy(root->settings_dialog);
     dismiss_grid_popup_windows(root);
-    while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
+    while (noctty_grid_events_pending()) noctty_grid_main_iteration_do(FALSE);
 
     g_signal_handlers_disconnect_by_func(
         old_window, G_CALLBACK(on_window_delete_event), root);
@@ -15605,7 +15605,7 @@ static void on_pane_drag_data_received(GtkWidget *widget, GdkDragContext *drag, 
     NocttyGridContext *context = user_data;
     gboolean moved = FALSE;
     if (!grid_context_session_available(context) || context->exited) {
-        gtk_drag_finish(drag, FALSE, FALSE, time);
+        noctty_grid_drag_finish(drag, FALSE, FALSE, time);
         return;
     }
     gchar *text = (gchar *)gtk_selection_data_get_text(selection);
@@ -15624,7 +15624,7 @@ static void on_pane_drag_data_received(GtkWidget *widget, GdkDragContext *drag, 
         }
         g_free(text);
     }
-    gtk_drag_finish(drag, moved, moved, time);
+    noctty_grid_drag_finish(drag, moved, moved, time);
 }
 
 static gboolean arm_resize_overlay(gpointer user_data) {
@@ -15874,8 +15874,8 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
     root->window_resize_drag_start_height_percent =
         root->dropdown_height_percent;
     if (!root->layer_shell_active) {
-        gtk_window_begin_resize_drag(
-            GTK_WINDOW(root->window), (GdkWindowEdge)noctty_grid_resize_edge(index),
+        noctty_grid_window_begin_resize_drag(
+            GTK_WINDOW(root->window), (int)noctty_grid_resize_edge(index),
             (gint)button, (gint)x_root, (gint)y_root, time);
         return TRUE;
     }
@@ -16708,7 +16708,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         stop_grid_context_sources(candidate);
     }
     dismiss_grid_popup_windows(&context);
-    while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
+    while (noctty_grid_events_pending()) noctty_grid_main_iteration_do(FALSE);
     noctty_grid_widget_destroy(context.window);
     if (context.layer_shell_library != NULL) {
         dlclose(context.layer_shell_library);
@@ -16888,7 +16888,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         (final_window_title != NULL &&
          g_str_has_prefix(final_window_title, "NOCTTY Dropdown"));
     dismiss_grid_popup_windows(&context);
-    while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
+    while (noctty_grid_events_pending()) noctty_grid_main_iteration_do(FALSE);
     noctty_grid_widget_destroy(context.window);
     if (context.layer_shell_library != NULL) {
         dlclose(context.layer_shell_library);

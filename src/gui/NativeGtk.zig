@@ -77,6 +77,11 @@ const GList = extern struct {
 };
 const GSList = opaque {};
 const GCallback = *const fn () callconv(.c) void;
+const GtkTickCallback = *const fn (
+    *GtkWidget,
+    *anyopaque,
+    ?*anyopaque,
+) callconv(.c) c_int;
 const GDestroyNotify = *const fn (?*anyopaque) callconv(.c) void;
 
 const FALSE: c_int = 0;
@@ -251,6 +256,14 @@ extern fn gtk_window_is_active(*GtkWindow) c_int;
 extern fn gtk_window_get_decorated(*GtkWindow) c_int;
 extern fn gtk_window_get_resizable(*GtkWindow) c_int;
 extern fn gtk_window_present(*GtkWindow) void;
+extern fn gtk_window_begin_resize_drag(
+    *GtkWindow,
+    c_int,
+    c_int,
+    c_int,
+    c_int,
+    c_uint,
+) void;
 extern fn gtk_window_fullscreen(*GtkWindow) void;
 extern fn gtk_window_unfullscreen(*GtkWindow) void;
 extern fn gtk_window_set_startup_id(*GtkWindow, [*:0]const u8) void;
@@ -331,6 +344,20 @@ extern fn gtk_widget_translate_coordinates(
 ) c_int;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
+extern fn gtk_widget_add_tick_callback(
+    *GtkWidget,
+    GtkTickCallback,
+    ?*anyopaque,
+    ?GDestroyNotify,
+) c_uint;
+extern fn gtk_drag_finish(
+    ?*anyopaque,
+    c_int,
+    c_int,
+    c_uint,
+) void;
+extern fn gtk_events_pending() c_int;
+extern fn gtk_main_iteration_do(c_int) void;
 extern fn gtk_drag_source_set(
     *GtkWidget,
     c_uint,
@@ -2178,6 +2205,24 @@ pub export fn noctty_grid_window_resize(
     const window = window_optional orelse return;
     gtk_window_resize(@ptrCast(window), width, height);
 }
+pub export fn noctty_grid_window_begin_resize_drag(
+    window_optional: ?*anyopaque,
+    edge: c_int,
+    button: c_int,
+    root_x: c_int,
+    root_y: c_int,
+    time: c_uint,
+) void {
+    const window = window_optional orelse return;
+    gtk_window_begin_resize_drag(
+        @ptrCast(window),
+        edge,
+        button,
+        root_x,
+        root_y,
+        time,
+    );
+}
 
 pub export fn noctty_grid_window_move(
     window_optional: ?*GtkWidget,
@@ -2373,6 +2418,38 @@ pub export fn noctty_grid_widget_get_window(
 ) ?*GdkWindow {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_window(widget);
+}
+pub export fn noctty_grid_widget_add_tick_callback(
+    widget_optional: ?*GtkWidget,
+    callback_optional: ?GCallback,
+    data: ?*anyopaque,
+    destroy_notify: ?GDestroyNotify,
+) c_uint {
+    const widget = widget_optional orelse return 0;
+    const callback = callback_optional orelse return 0;
+    return gtk_widget_add_tick_callback(
+        widget,
+        @ptrCast(callback),
+        data,
+        destroy_notify,
+    );
+}
+
+pub export fn noctty_grid_drag_finish(
+    drag: ?*anyopaque,
+    delete_data: c_int,
+    success: c_int,
+    time: c_uint,
+) void {
+    gtk_drag_finish(drag, delete_data, success, time);
+}
+
+pub export fn noctty_grid_events_pending() c_int {
+    return gtk_events_pending();
+}
+
+pub export fn noctty_grid_main_iteration_do(blocking: c_int) void {
+    gtk_main_iteration_do(blocking);
 }
 
 pub export fn noctty_grid_widget_set_app_paintable(
