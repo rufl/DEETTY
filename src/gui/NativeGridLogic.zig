@@ -110,6 +110,10 @@ pub const ResizeEventPlan = extern struct {
     action: c_int,
 };
 
+pub const WindowModePlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -707,6 +711,12 @@ pub const resize_action_begin_drag: c_int = 4;
 pub const resize_action_consume: c_int = 5;
 pub const resize_action_update_drag: c_int = 6;
 pub const resize_action_finish_drag: c_int = 7;
+pub const window_mode_action_none: c_int = 0;
+pub const window_mode_action_recreate: c_int = 1;
+pub const window_mode_action_apply_dropdown: c_int = 2;
+pub const window_mode_action_apply_window: c_int = 3;
+pub const window_mode_action_apply_fullscreen: c_int = 4;
+pub const window_mode_action_apply_layer_geometry: c_int = 5;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1016,6 +1026,34 @@ pub export fn noctty_grid_resize_event_plan(
         drag_active != 0 and button == 1) {
         output.* = .{ .action = resize_action_finish_drag };
     }
+}
+
+pub export fn noctty_grid_window_mode_plan(
+    previous_mode: c_int,
+    mode: c_int,
+    layer_shell_active: c_int,
+    output_optional: ?*WindowModePlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{ .action = window_mode_action_none };
+    if (previous_mode < 0 or previous_mode > 2 or mode < 0 or mode > 2)
+        return;
+    if ((previous_mode == 0) != (mode == 0)) {
+        output.* = .{ .action = window_mode_action_recreate };
+        return;
+    }
+    if (layer_shell_active != 0) {
+        output.* = .{ .action = window_mode_action_apply_layer_geometry };
+        return;
+    }
+    output.* = .{
+        .action = switch (mode) {
+            0 => window_mode_action_apply_dropdown,
+            1 => window_mode_action_apply_window,
+            2 => window_mode_action_apply_fullscreen,
+            else => window_mode_action_none,
+        },
+    };
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -2728,6 +2766,28 @@ test "resize event planner preserves dragger and native resize precedence" {
         resize_event_motion, 2, 1, 1, 1, 0, 0, 0.0, &plan);
     try std.testing.expectEqual(
         @as(c_int, resize_action_finish_drag), plan.action);
+}
+
+test "window mode planner preserves recreation and surface precedence" {
+    var plan = WindowModePlan{ .action = window_mode_action_none };
+    noctty_grid_window_mode_plan(0, 1, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_recreate), plan.action);
+    noctty_grid_window_mode_plan(1, 2, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_apply_fullscreen), plan.action);
+    noctty_grid_window_mode_plan(2, 1, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_apply_window), plan.action);
+    noctty_grid_window_mode_plan(1, 0, 1, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_recreate), plan.action);
+    noctty_grid_window_mode_plan(1, 1, 1, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_apply_layer_geometry), plan.action);
+    noctty_grid_window_mode_plan(-1, 1, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, window_mode_action_none), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {

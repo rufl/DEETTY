@@ -10026,23 +10026,40 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
     int previous_mode = root->mode;
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++)
         ((NocttyGridContext *)g_ptr_array_index(root->contexts, index))->mode = mode;
-    if ((previous_mode == 0) != (mode == 0)) {
+    NocttyGridWindowModePlan mode_plan = {0};
+    noctty_grid_window_mode_plan(
+        previous_mode, mode, root->layer_shell_active, &mode_plan);
+    if (mode_plan.action == NOCTTY_GRID_WINDOW_MODE_ACTION_RECREATE) {
         if (root->window_mode_recreate_source == 0)
             root->window_mode_recreate_source =
                 noctty_grid_source_idle_add(recreate_grid_toplevel_idle, root);
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 40, mode, (uint64_t)(g_get_monotonic_time() / 1000));
+        if (context->event != NULL)
+            context->event(context->event_data, context->pane_id, 40, mode,
+                           (uint64_t)(g_get_monotonic_time() / 1000));
         return;
     }
+    if (mode_plan.action == NOCTTY_GRID_WINDOW_MODE_ACTION_NONE) return;
     noctty_grid_window_apply_mode(
         root->window, mode == 1, mode == 0);
     update_window_resize_handles(root);
-    if (root->layer_shell_active) apply_grid_layer_geometry(root);
-    else if (mode == 2) apply_fullscreen_dimensions(root);
-    else {
+    switch (mode_plan.action) {
+    case NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_LAYER_GEOMETRY:
+        apply_grid_layer_geometry(root);
+        break;
+    case NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_FULLSCREEN:
+        apply_fullscreen_dimensions(root);
+        break;
+    case NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_WINDOW:
         noctty_grid_window_set_fullscreen(root->window, FALSE);
-        if (mode == 1) apply_window_dimensions(root);
+        apply_window_dimensions(root);
+        break;
+    case NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_DROPDOWN:
+        noctty_grid_window_set_fullscreen(root->window, FALSE);
+        apply_dropdown_dimensions(root);
+        break;
+    default:
+        return;
     }
-    if (mode == 0) apply_dropdown_dimensions(root);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 40, mode, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 

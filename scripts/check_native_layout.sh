@@ -122,6 +122,9 @@ grep -F 'NocttyGridPointerEventPlan;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_resize_event_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_resize_event_plan(' "$grid" >/dev/null
 grep -F 'NocttyGridResizeEventPlan;' "$grid_logic_header" >/dev/null
+grep -F 'pub export fn noctty_grid_window_mode_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_window_mode_plan(' "$grid" >/dev/null
+grep -F 'NocttyGridWindowModePlan;' "$grid_logic_header" >/dev/null
 grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
 grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
 grep -F 'noctty_grid_cycle_target(' "$grid" >/dev/null

@@ -27,6 +27,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved GTK resize-handle event classification for dragger double-clicks,
   click-to-drag promotion, drag updates, and release completion into the Zig
   grid-logic adapter; C retains native resize, dropdown, and focus effects.
+- Moved GTK presentation-mode transition classification for dropdown surface
+  recreation, layer-shell geometry, fullscreen, windowed, and dropdown updates
+  into the Zig grid-logic adapter; C retains GTK lifecycle and geometry effects.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.

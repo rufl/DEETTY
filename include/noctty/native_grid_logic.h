@@ -227,6 +227,23 @@ void noctty_grid_resize_event_plan(
     int event_kind, int handle, int button, int mode,
     int drag_active, int click_pending, int button1_down,
     double motion_distance_squared, NocttyGridResizeEventPlan *plan);
+
+typedef struct {
+    int action;
+} NocttyGridWindowModePlan;
+
+enum {
+    NOCTTY_GRID_WINDOW_MODE_ACTION_NONE = 0,
+    NOCTTY_GRID_WINDOW_MODE_ACTION_RECREATE = 1,
+    NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_DROPDOWN = 2,
+    NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_WINDOW = 3,
+    NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_FULLSCREEN = 4,
+    NOCTTY_GRID_WINDOW_MODE_ACTION_APPLY_LAYER_GEOMETRY = 5
+};
+
+void noctty_grid_window_mode_plan(
+    int previous_mode, int mode, int layer_shell_active,
+    NocttyGridWindowModePlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {
