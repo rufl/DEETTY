@@ -429,6 +429,19 @@ void noctty_grid_spin_button_set_value(gpointer spin, double value);
 void noctty_grid_toggle_button_set_active(
     gpointer toggle, gboolean active);
 void noctty_grid_range_set_value(gpointer range, double value);
+const char *noctty_grid_combo_box_get_active_id(gpointer combo);
+char *noctty_grid_combo_box_text_get_active_text(gpointer combo);
+char *noctty_grid_file_chooser_get_filename(gpointer chooser);
+GtkListBoxRow *noctty_grid_list_box_get_row_at_index(
+    gpointer list, int index);
+void noctty_grid_list_box_select_row(
+    gpointer list, GtkListBoxRow *row);
+void noctty_grid_event_box_set_above_child(
+    gpointer event_box, gboolean above_child);
+void noctty_grid_entry_set_icon_from_icon_name(
+    gpointer entry, int icon_pos, const char *icon_name);
+void noctty_grid_entry_set_icon_tooltip_text(
+    gpointer entry, int icon_pos, const char *tooltip);
 gpointer noctty_grid_clipboard_get(gpointer selection);
 void noctty_grid_clipboard_request_text(
     gpointer clipboard,

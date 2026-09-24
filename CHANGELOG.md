@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK combo active IDs/text, file chooser filenames, list-box row
+  lookup/selection, event-box stacking, and entry icon operations through the
+  Zig adapter; C retains workspace and dialog policy.
 - Routed GTK dialog content, run/response/default-response, window
   transient/icon reads, screen/app-paintable reads, URI opening, and main-loop
   exit operations through the Zig adapter; C retains modal and presentation

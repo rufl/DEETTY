@@ -22,6 +22,7 @@ const GtkListBox = opaque {};
 const GtkListBoxRow = opaque {};
 const GtkStack = opaque {};
 const GtkDialog = opaque {};
+const GtkFileChooser = opaque {};
 const GtkEntry = opaque {};
 const GtkTextView = opaque {};
 const GtkTextBuffer = opaque {};
@@ -221,6 +222,10 @@ extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_get_text(*GtkEntry) ?[*:0]const u8;
+extern fn gtk_entry_set_icon_from_icon_name(
+    *GtkEntry, c_int, ?[*:0]const u8) void;
+extern fn gtk_entry_set_icon_tooltip_text(
+    *GtkEntry, c_int, ?[*:0]const u8) void;
 extern fn gtk_entry_set_has_frame(*GtkEntry, c_int) void;
 extern fn gtk_entry_set_alignment(*GtkEntry, f32) void;
 extern fn gtk_entry_set_width_chars(*GtkEntry, c_int) void;
@@ -255,6 +260,10 @@ extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
 extern fn gtk_combo_box_set_active_id(
     *GtkComboBox, [*:0]const u8) c_int;
 extern fn gtk_combo_box_get_active(*GtkComboBox) c_int;
+extern fn gtk_combo_box_get_active_id(
+    *GtkComboBox) ?[*:0]const u8;
+extern fn gtk_combo_box_text_get_active_text(
+    *GtkComboBoxText) ?[*:0]u8;
 extern fn gtk_dialog_new_with_buttons(
     [*:0]const u8,
     *GtkWidget,
@@ -354,6 +363,12 @@ extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]con
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
 extern fn gtk_file_chooser_set_do_overwrite_confirmation(*GtkWidget, c_int) void;
+extern fn gtk_file_chooser_get_filename(
+    *GtkFileChooser) ?[*:0]u8;
+extern fn gtk_list_box_get_row_at_index(
+    *GtkListBox, c_int) ?*GtkListBoxRow;
+extern fn gtk_list_box_select_row(
+    *GtkListBox, ?*GtkListBoxRow) void;
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
@@ -2704,6 +2719,68 @@ pub export fn noctty_grid_widget_get_scale_factor(
 ) c_int {
     const widget = widget_optional orelse return 1;
     return gtk_widget_get_scale_factor(@ptrCast(widget));
+}
+pub export fn noctty_grid_combo_box_get_active_id(
+    combo_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const combo = combo_optional orelse return null;
+    return gtk_combo_box_get_active_id(@ptrCast(combo));
+}
+
+pub export fn noctty_grid_combo_box_text_get_active_text(
+    combo_optional: ?*anyopaque,
+) ?[*:0]u8 {
+    const combo = combo_optional orelse return null;
+    return gtk_combo_box_text_get_active_text(@ptrCast(combo));
+}
+
+pub export fn noctty_grid_file_chooser_get_filename(
+    chooser_optional: ?*anyopaque,
+) ?[*:0]u8 {
+    const chooser = chooser_optional orelse return null;
+    return gtk_file_chooser_get_filename(@ptrCast(chooser));
+}
+
+pub export fn noctty_grid_list_box_get_row_at_index(
+    list_optional: ?*anyopaque,
+    index: c_int,
+) ?*GtkListBoxRow {
+    const list = list_optional orelse return null;
+    return gtk_list_box_get_row_at_index(@ptrCast(list), index);
+}
+
+pub export fn noctty_grid_list_box_select_row(
+    list_optional: ?*anyopaque,
+    row_optional: ?*GtkListBoxRow,
+) void {
+    const list = list_optional orelse return;
+    gtk_list_box_select_row(@ptrCast(list), row_optional);
+}
+
+pub export fn noctty_grid_event_box_set_above_child(
+    event_box_optional: ?*anyopaque,
+    above_child: c_int,
+) void {
+    const event_box = event_box_optional orelse return;
+    gtk_event_box_set_above_child(@ptrCast(event_box), above_child);
+}
+
+pub export fn noctty_grid_entry_set_icon_from_icon_name(
+    entry_optional: ?*anyopaque,
+    icon_pos: c_int,
+    icon_name: ?[*:0]const u8,
+) void {
+    const entry = entry_optional orelse return;
+    gtk_entry_set_icon_from_icon_name(@ptrCast(entry), icon_pos, icon_name);
+}
+
+pub export fn noctty_grid_entry_set_icon_tooltip_text(
+    entry_optional: ?*anyopaque,
+    icon_pos: c_int,
+    tooltip: ?[*:0]const u8,
+) void {
+    const entry = entry_optional orelse return;
+    gtk_entry_set_icon_tooltip_text(@ptrCast(entry), icon_pos, tooltip);
 }
 pub export fn noctty_grid_label_set_text(
     label_optional: ?*anyopaque,
