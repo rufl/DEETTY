@@ -95,6 +95,29 @@ enum {
     NOCTTY_GRID_CHORD_CTRL_D = 16,
     NOCTTY_GRID_CHORD_CTRL_C = 17,
 };
+typedef struct {
+    int action;
+} NocttyGridPointerEventPlan;
+
+enum {
+    NOCTTY_GRID_POINTER_EVENT_PRESS = 1,
+    NOCTTY_GRID_POINTER_EVENT_RELEASE = 2,
+    NOCTTY_GRID_POINTER_EVENT_DOUBLE_PRESS = 3,
+};
+
+enum {
+    NOCTTY_GRID_POINTER_ACTION_NONE = 0,
+    NOCTTY_GRID_POINTER_ACTION_ZOOM = 1,
+    NOCTTY_GRID_POINTER_ACTION_SELECT_WORD = 2,
+    NOCTTY_GRID_POINTER_ACTION_CLEAR_SELECTION = 3,
+    NOCTTY_GRID_POINTER_ACTION_OPEN_HYPERLINK = 4,
+    NOCTTY_GRID_POINTER_ACTION_SHOW_HYPERLINK_MENU = 5,
+    NOCTTY_GRID_POINTER_ACTION_SHOW_WORKSPACE_MENU = 6,
+    NOCTTY_GRID_POINTER_ACTION_BEGIN_SELECTION = 7,
+    NOCTTY_GRID_POINTER_ACTION_UPDATE_SELECTION = 8,
+    NOCTTY_GRID_POINTER_ACTION_DELIVER_MOUSE = 9,
+    NOCTTY_GRID_POINTER_ACTION_CONSUME = 10,
+};
 
 typedef struct {
     double source_center_x;
@@ -224,6 +247,11 @@ void noctty_grid_key_command_plan(
     NocttyGridKeyCommandPlan *plan);
 void noctty_grid_key_chord_plan(
     uint32_t keyval, uint32_t state, NocttyGridKeyChordPlan *plan);
+void noctty_grid_pointer_event_plan(
+    int event_kind, int button, int route, int hyperlink_point,
+    int control_pressed, int background, int multiple_panes,
+    int suppress_primary_release, int preserve_double_click_selection,
+    NocttyGridPointerEventPlan *plan);
 
 int noctty_grid_input_route(int input_kind, int scrollbar_owned,
                             int terminal_mode_flags, int history_available,

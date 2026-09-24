@@ -8855,90 +8855,127 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
     int hyperlink_row = 0;
     gboolean hyperlink_point = grid_cell_at_point(
         context, event->x, event->y, &hyperlink_column, &hyperlink_row);
-    int button = event->button >= 1 && event->button <= 3 ? (int)event->button - 1 : 0;
-    int pressed = event->type == GDK_BUTTON_PRESS;
-    if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
+    int button = event->button >= 1 && event->button <= 3
+        ? (int)event->button - 1 : 0;
+    int event_kind = event->type == GDK_BUTTON_PRESS
+        ? NOCTTY_GRID_POINTER_EVENT_PRESS
+        : event->type == GDK_BUTTON_RELEASE
+            ? NOCTTY_GRID_POINTER_EVENT_RELEASE
+            : event->type == GDK_2BUTTON_PRESS
+                ? NOCTTY_GRID_POINTER_EVENT_DOUBLE_PRESS : 0;
+    int pressed = event_kind == NOCTTY_GRID_POINTER_EVENT_PRESS;
+    if (event_kind == NOCTTY_GRID_POINTER_EVENT_PRESS &&
+        event->button == 1) {
         context->preserve_double_click_selection = 0;
         context->suppress_primary_release = 0;
     }
-    if (event->type == GDK_2BUTTON_PRESS && event->button == 1) {
-        gboolean background = grid_cell_is_background(context, column, row);
-        if (background &&
-            grid_contexts_on_page(root_grid_context(context), context->page) > 1) {
+    gboolean background = FALSE;
+    gboolean multiple_panes = FALSE;
+    if (event_kind == NOCTTY_GRID_POINTER_EVENT_DOUBLE_PRESS &&
+        event->button == 1) {
+        background = grid_cell_is_background(context, column, row);
+        multiple_panes =
+            grid_contexts_on_page(root_grid_context(context), context->page) > 1;
+    }
+    NocttyGridPointerEventPlan pointer_plan = {0};
+    noctty_grid_pointer_event_plan(
+        event_kind, (int)event->button, route, hyperlink_point,
+        (event->state & GDK_CONTROL_MASK) != 0,
+        background, multiple_panes,
+        context->suppress_primary_release,
+        context->preserve_double_click_selection,
+        &pointer_plan);
+    switch (pointer_plan.action) {
+        case NOCTTY_GRID_POINTER_ACTION_ZOOM:
             clear_grid_selection(context);
             context->suppress_primary_release = 1;
             toggle_grid_zoom(context);
             return TRUE;
-        }
-        if (!background && select_grid_word(context, column, row)) {
-            context->preserve_double_click_selection = 1;
+        case NOCTTY_GRID_POINTER_ACTION_SELECT_WORD:
+            if (select_grid_word(context, column, row)) {
+                context->preserve_double_click_selection = 1;
+                context->suppress_primary_release = 1;
+                return TRUE;
+            }
+            clear_grid_selection(context);
             context->suppress_primary_release = 1;
             return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_CLEAR_SELECTION:
+            clear_grid_selection(context);
+            context->suppress_primary_release = 1;
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_OPEN_HYPERLINK:
+            if (open_grid_hyperlink(
+                    context, hyperlink_column, hyperlink_row, event->time)) {
+                clear_grid_selection(context);
+                context->suppress_primary_release = 1;
+                if (terminal_mouse_mode && context->workspace_smoke == 15)
+                    root_grid_context(context)->compact_hyperlink_mouse_mode_override = 1;
+                return TRUE;
+            }
+            break;
+        case NOCTTY_GRID_POINTER_ACTION_CONSUME: {
+            const int preserve_selection =
+                context->preserve_double_click_selection;
+            context->preserve_double_click_selection = 0;
+            context->suppress_primary_release = 0;
+            if (!preserve_selection) clear_grid_selection(context);
+            return TRUE;
         }
-        clear_grid_selection(context);
-        context->suppress_primary_release = 1;
-        return TRUE;
-    }
-    if (event->type == GDK_BUTTON_RELEASE && event->button == 1 &&
-        context->suppress_primary_release) {
-        const int preserve_selection = context->preserve_double_click_selection;
-        context->preserve_double_click_selection = 0;
-        context->suppress_primary_release = 0;
-        if (!preserve_selection) clear_grid_selection(context);
-        return TRUE;
-    }
-    if (pressed && event->button == 1 && hyperlink_point &&
-        (event->state & GDK_CONTROL_MASK) &&
-        open_grid_hyperlink(
-            context, hyperlink_column, hyperlink_row, event->time)) {
-        clear_grid_selection(context);
-        context->suppress_primary_release = 1;
-        if (terminal_mouse_mode && context->workspace_smoke == 15)
-            root_grid_context(context)->compact_hyperlink_mouse_mode_override = 1;
-        return TRUE;
+        default:
+            break;
     }
     if (pressed) {
-        if (!noctty_grid_widget_has_focus(widget)) noctty_grid_focus_widget(NULL, widget);
+        if (!noctty_grid_widget_has_focus(widget))
+            noctty_grid_focus_widget(NULL, widget);
         activate_grid_context(context);
     }
-    if (pressed && event->button == 3 && hyperlink_point &&
-        show_hyperlink_menu(
-            context, event, hyperlink_column, hyperlink_row))
-        return TRUE;
-    if (pressed && event->button == 3) {
-        show_workspace_menu(context, event);
-        return TRUE;
-    }
-    if (route == NOCTTY_GRID_ROUTE_SELECTION) {
-        if (pressed) {
+    switch (pointer_plan.action) {
+        case NOCTTY_GRID_POINTER_ACTION_SHOW_HYPERLINK_MENU:
+            if (show_hyperlink_menu(
+                    context, event, hyperlink_column, hyperlink_row))
+                return TRUE;
+            show_workspace_menu(context, event);
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_SHOW_WORKSPACE_MENU:
+            show_workspace_menu(context, event);
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_BEGIN_SELECTION:
             context->selecting = 0;
             context->selection_dragging = 1;
             context->selection_start_column = column;
             context->selection_start_row = row;
             context->selection_end_column = column;
             context->selection_end_row = row;
-        } else {
+            noctty_grid_widget_queue_draw(context->area);
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_UPDATE_SELECTION:
             context->selection_end_column = column;
             context->selection_end_row = row;
             context->selection_dragging = 0;
             context->selecting =
                 context->selection_start_column != context->selection_end_column ||
                 context->selection_start_row != context->selection_end_row;
-        }
-        noctty_grid_widget_queue_draw(context->area);
-        return TRUE;
+            noctty_grid_widget_queue_draw(context->area);
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_DELIVER_MOUSE:
+            acknowledge_grid_attention(context);
+            {
+                int delivered = context->mouse(
+                    context->userdata, column, row, button, pressed);
+                if (delivered <= 0) {
+                    show_status_feedback(
+                        context, "The application did not accept pointer input.");
+                } else {
+                    schedule_grid_write_flush(context);
+                }
+            }
+            return TRUE;
+        case NOCTTY_GRID_POINTER_ACTION_CONSUME:
+        case NOCTTY_GRID_POINTER_ACTION_NONE:
+        default:
+            return TRUE;
     }
-    if (route != NOCTTY_GRID_ROUTE_APPLICATION_MOUSE) return TRUE;
-    acknowledge_grid_attention(context);
-    int delivered = context->mouse(
-        context->userdata, column, row, button, pressed);
-    if (delivered <= 0) {
-        show_status_feedback(
-            context, "The application did not accept pointer input.");
-    } else {
-        schedule_grid_write_flush(context);
-    }
-    return TRUE;
 }
 
 static gboolean on_mouse_motion(GtkWidget *widget, GdkEventMotion *event,

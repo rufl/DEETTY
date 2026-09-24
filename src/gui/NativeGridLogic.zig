@@ -102,6 +102,10 @@ pub const KeyChordPlan = extern struct {
     value: c_int,
 };
 
+pub const PointerEventPlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -672,6 +676,21 @@ pub const chord_copy: c_int = 14;
 pub const chord_scroll_keyboard: c_int = 15;
 pub const chord_ctrl_d: c_int = 16;
 pub const chord_ctrl_c: c_int = 17;
+
+pub const pointer_event_press: c_int = 1;
+pub const pointer_event_release: c_int = 2;
+pub const pointer_event_double_press: c_int = 3;
+pub const pointer_action_none: c_int = 0;
+pub const pointer_action_zoom: c_int = 1;
+pub const pointer_action_select_word: c_int = 2;
+pub const pointer_action_clear_selection: c_int = 3;
+pub const pointer_action_open_hyperlink: c_int = 4;
+pub const pointer_action_show_hyperlink_menu: c_int = 5;
+pub const pointer_action_show_workspace_menu: c_int = 6;
+pub const pointer_action_begin_selection: c_int = 7;
+pub const pointer_action_update_selection: c_int = 8;
+pub const pointer_action_deliver_mouse: c_int = 9;
+pub const pointer_action_consume: c_int = 10;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -855,6 +874,74 @@ pub export fn noctty_grid_key_chord_plan(
             return;
         }
     }
+}
+
+pub export fn noctty_grid_pointer_event_plan(
+    event_kind: c_int,
+    button: c_int,
+    route: c_int,
+    hyperlink_point: c_int,
+    control_pressed: c_int,
+    background: c_int,
+    multiple_panes: c_int,
+    suppress_primary_release: c_int,
+    preserve_double_click_selection: c_int,
+    output_optional: ?*PointerEventPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{ .action = pointer_action_none };
+    if (event_kind == pointer_event_double_press and button == 1) {
+        if (background != 0 and multiple_panes != 0) {
+            output.* = .{ .action = pointer_action_zoom };
+            return;
+        }
+        if (background == 0) {
+            output.* = .{ .action = pointer_action_select_word };
+            return;
+        }
+        output.* = .{ .action = pointer_action_clear_selection };
+        return;
+    }
+    if (event_kind == pointer_event_release and button == 1 and
+        suppress_primary_release != 0) {
+        output.* = .{
+            .action = if (preserve_double_click_selection != 0)
+                pointer_action_consume
+            else
+                pointer_action_clear_selection,
+        };
+        return;
+    }
+    if (event_kind == pointer_event_press and button == 1 and
+        hyperlink_point != 0 and control_pressed != 0) {
+        output.* = .{ .action = pointer_action_open_hyperlink };
+        return;
+    }
+    if (event_kind == pointer_event_press and button == 3) {
+        output.* = .{
+            .action = if (hyperlink_point != 0)
+                pointer_action_show_hyperlink_menu
+            else
+                pointer_action_show_workspace_menu,
+        };
+        return;
+    }
+    if (route == route_selection) {
+        output.* = .{
+            .action = if (event_kind == pointer_event_press)
+                pointer_action_begin_selection
+            else if (event_kind == pointer_event_release)
+                pointer_action_update_selection
+            else
+                pointer_action_consume,
+        };
+        return;
+    }
+    if (route == route_application_mouse) {
+        output.* = .{ .action = pointer_action_deliver_mouse };
+        return;
+    }
+    output.* = .{ .action = pointer_action_consume };
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -4504,4 +4591,32 @@ test "keyboard chord planner preserves shortcut precedence" {
     noctty_grid_key_chord_plan(
         'b', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_broadcast), plan.action);
+}
+
+test "pointer planner preserves double-click and routing precedence" {
+    var plan = PointerEventPlan{ .action = pointer_action_none };
+    noctty_grid_pointer_event_plan(
+        pointer_event_double_press, 1, route_local_pointer,
+        0, 0, 1, 1, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, pointer_action_zoom), plan.action);
+    noctty_grid_pointer_event_plan(
+        pointer_event_double_press, 1, route_local_pointer,
+        0, 0, 0, 1, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, pointer_action_select_word), plan.action);
+    noctty_grid_pointer_event_plan(
+        pointer_event_press, 3, route_local_pointer,
+        1, 0, 0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, pointer_action_show_hyperlink_menu), plan.action);
+    noctty_grid_pointer_event_plan(
+        pointer_event_release, 1, route_selection,
+        0, 0, 0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, pointer_action_update_selection), plan.action);
+    noctty_grid_pointer_event_plan(
+        pointer_event_press, 1, route_application_mouse,
+        0, 0, 0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, pointer_action_deliver_mouse), plan.action);
 }
