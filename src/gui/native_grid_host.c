@@ -4069,7 +4069,7 @@ static gchar *grid_settings_shortcut_button_label_alloc(
 static void configure_grid_settings_shortcut_button(
     NocttyGridContext *context, GtkWidget *button) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_BUTTON(button)) return;
+    if (!noctty_grid_widget_is_type(button, NOCTTY_GTK_BUTTON)) return;
     gchar *shortcut = grid_shortcut_label_alloc(root);
     gchar *label = g_strdup_printf("%s — Change shortcut…", shortcut);
     gchar *tooltip = g_strdup_printf(
@@ -4989,14 +4989,14 @@ static void update_compact_tab(NocttyGridContext *context) {
         G_OBJECT(context->tab_label), "noctty-tab-tooltip-cache");
     if (g_strcmp0(cached_tooltip, tooltip) != 0) {
         noctty_grid_widget_set_tooltip_text(context->tab_label, tooltip);
-        if (GTK_IS_EVENT_BOX(tab_widget))
+        if (noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_EVENT_BOX))
             noctty_grid_widget_set_tooltip_text(tab_widget, tooltip);
         g_object_set_data_full(G_OBJECT(context->tab_label),
                                "noctty-tab-tooltip-cache",
                                g_strdup(tooltip), g_free);
     }
     GtkWidget *close_button = tab_close_button_from_widget(tab_widget);
-    if (GTK_IS_BUTTON(close_button)) {
+    if (noctty_grid_widget_is_type(close_button, NOCTTY_GTK_BUTTON)) {
         gchar *close_name = g_strdup_printf("Close tab: %s", title);
         const gchar *cached_close_name = g_object_get_data(
             G_OBJECT(close_button), "noctty-tab-close-name-cache");
@@ -5045,7 +5045,7 @@ static void on_notebook_switch_page(GtkNotebook *notebook, GtkWidget *page,
 static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page);
 
 static void clear_tab_rename_error(NocttyGridContext *root) {
-    if (!GTK_IS_ENTRY(root->tab_rename_entry)) return;
+    if (!noctty_grid_widget_is_type(root->tab_rename_entry, NOCTTY_GTK_ENTRY)) return;
     GtkStyleContext *style = noctty_grid_widget_get_style_context(root->tab_rename_entry);
     noctty_grid_style_context_remove_class(style, "error");
     noctty_grid_entry_set_icon_from_icon_name(GTK_ENTRY(root->tab_rename_entry),
@@ -5057,7 +5057,7 @@ static void clear_tab_rename_error(NocttyGridContext *root) {
 
 static void set_tab_rename_error(NocttyGridContext *root,
                                  const gchar *message) {
-    if (!GTK_IS_ENTRY(root->tab_rename_entry)) return;
+    if (!noctty_grid_widget_is_type(root->tab_rename_entry, NOCTTY_GTK_ENTRY)) return;
     GtkStyleContext *style = noctty_grid_widget_get_style_context(root->tab_rename_entry);
     noctty_grid_style_context_add_class(style, "error");
     noctty_grid_entry_set_icon_from_icon_name(GTK_ENTRY(root->tab_rename_entry),
@@ -5079,7 +5079,7 @@ static void finish_tab_rename(NocttyGridContext *context,
     root->tab_rename_entry = NULL;
     root->tab_rename_page = NULL;
     root->tab_rename_event_box = NULL;
-    if (GTK_IS_EVENT_BOX(event_box))
+    if (noctty_grid_widget_is_type(event_box, NOCTTY_GTK_EVENT_BOX))
         noctty_grid_event_box_set_above_child(GTK_EVENT_BOX(event_box), FALSE);
     if (noctty_grid_widget_is_type(entry, NOCTTY_GTK_WIDGET)) noctty_grid_widget_destroy(entry);
     if (target != NULL && target->tab_label != NULL) {
@@ -5094,7 +5094,7 @@ static void finish_tab_rename(NocttyGridContext *context,
 }
 
 static gboolean apply_tab_rename(NocttyGridContext *root) {
-    if (!GTK_IS_ENTRY(root->tab_rename_entry)) return FALSE;
+    if (!noctty_grid_widget_is_type(root->tab_rename_entry, NOCTTY_GTK_ENTRY)) return FALSE;
     GtkWidget *page = root->tab_rename_page;
     NocttyGridContext *target = grid_context_for_page(root, page);
     if (target == NULL) {
@@ -5133,7 +5133,7 @@ static void on_tab_rename_entry_destroy(GtkWidget *widget, gpointer user_data) {
     root->tab_rename_entry = NULL;
     root->tab_rename_page = NULL;
     root->tab_rename_event_box = NULL;
-    if (GTK_IS_EVENT_BOX(event_box))
+    if (noctty_grid_widget_is_type(event_box, NOCTTY_GTK_EVENT_BOX))
         noctty_grid_event_box_set_above_child(GTK_EVENT_BOX(event_box), FALSE);
     NocttyGridContext *target = grid_context_for_page(root, page);
     if (target != NULL && target->tab_label != NULL) {
@@ -5181,7 +5181,7 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     GtkWidget *tab_widget = page != NULL
         ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
-    if (!GTK_IS_EVENT_BOX(tab_widget)) return;
+    if (!noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_EVENT_BOX)) return;
     GtkWidget *content = noctty_grid_bin_get_child(GTK_BIN(tab_widget));
     if (!noctty_grid_widget_is_type(content, NOCTTY_GTK_BOX) ||
         target->tab_label == NULL) return;
@@ -5475,12 +5475,12 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
 static gboolean request_new_tab_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *button = root->new_tab_button;
-    GtkWidget *icon = GTK_IS_BUTTON(button)
+    GtkWidget *icon = noctty_grid_widget_is_type(button, NOCTTY_GTK_BUTTON)
         ? noctty_grid_button_get_image(GTK_BUTTON(button))
         : NULL;
     const gchar *icon_name = NULL;
     GtkIconSize icon_size = GTK_ICON_SIZE_INVALID;
-    if (GTK_IS_IMAGE(icon))
+    if (noctty_grid_widget_is_type(icon, NOCTTY_GTK_IMAGE))
         noctty_grid_image_get_icon_name(GTK_IMAGE(icon), &icon_name, &icon_size);
     AtkObject *accessible = button != NULL
         ? noctty_grid_widget_get_accessible(button)
@@ -5492,7 +5492,7 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
     root->new_tab_button_at_start = button != NULL &&
         noctty_grid_notebook_get_action_widget(GTK_NOTEBOOK(root->notebook),
                                        GTK_PACK_START) == button;
-    root->new_tab_button_icon = GTK_IS_IMAGE(icon) &&
+    root->new_tab_button_icon = noctty_grid_widget_is_type(icon, NOCTTY_GTK_IMAGE) &&
         icon_size == GTK_ICON_SIZE_MENU &&
         g_strcmp0(icon_name, "list-add-symbolic") == 0;
     root->new_tab_button_accessible = accessible != NULL &&
@@ -5516,12 +5516,12 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     GtkWidget *close = tab_close_button_from_widget(tab_widget);
-    GtkWidget *close_icon = GTK_IS_BUTTON(close)
+    GtkWidget *close_icon = noctty_grid_widget_is_type(close, NOCTTY_GTK_BUTTON)
         ? noctty_grid_button_get_image(GTK_BUTTON(close))
         : NULL;
     const gchar *close_icon_name = NULL;
     GtkIconSize close_icon_size = GTK_ICON_SIZE_INVALID;
-    if (GTK_IS_IMAGE(close_icon))
+    if (noctty_grid_widget_is_type(close_icon, NOCTTY_GTK_IMAGE))
         noctty_grid_image_get_icon_name(GTK_IMAGE(close_icon),
                                         &close_icon_name, &close_icon_size);
     GtkAllocation notebook_allocation = {0};
@@ -5570,7 +5570,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         root->compact_tab_strip_extent <= strip_limit &&
         root->compact_tab_widget_extent <= strip_limit &&
         root->compact_tab_max_width <= 150 &&
-        GTK_IS_IMAGE(close_icon) &&
+        noctty_grid_widget_is_type(close_icon, NOCTTY_GTK_IMAGE) &&
         close_icon_size == GTK_ICON_SIZE_MENU &&
         g_strcmp0(close_icon_name, "window-close-symbolic") == 0 &&
         root->compact_tab_close_extent >= 24 &&
@@ -5667,7 +5667,7 @@ static gboolean request_tab_rename_smoke(gpointer user_data) {
 }
 
 static void apply_panel_layout_metrics(NocttyGridContext *root) {
-    if (GTK_IS_NOTEBOOK(root->notebook)) {
+    if (noctty_grid_widget_is_type(root->notebook, NOCTTY_GTK_NOTEBOOK)) {
         int pages = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
         for (int index = 0; index < pages; index++) {
             GtkWidget *page = noctty_grid_notebook_get_nth_page(
@@ -7170,7 +7170,7 @@ static NocttyGridContext *grid_context_on_other_page(NocttyGridContext *source) 
 
 static gboolean replace_grid_widget(GtkWidget *parent, GtkWidget *old_widget,
                                     GtkWidget *replacement) {
-    if (GTK_IS_PANED(parent)) {
+    if (noctty_grid_widget_is_type(parent, NOCTTY_GTK_PANED)) {
         gboolean was_first =
             noctty_grid_paned_get_child1(GTK_PANED(parent)) == old_widget;
         noctty_container_remove(parent, old_widget);
@@ -7588,7 +7588,7 @@ static guint foreground_process_count(NocttyGridContext *context,
 
 static gboolean accept_dialog_smoke(gpointer user_data) {
     GtkWidget *dialog = user_data;
-    if (GTK_IS_DIALOG(dialog))
+    if (noctty_grid_widget_is_type(dialog, NOCTTY_GTK_DIALOG))
         noctty_grid_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
     return G_SOURCE_REMOVE;
 }
@@ -10336,7 +10336,7 @@ static void populate_theme_combo(NocttyGridContext *context,
 
 static void refresh_theme_combo(NocttyGridContext *context,
                                 GtkWidget *combo) {
-    if (!GTK_IS_COMBO_BOX_TEXT(combo)) return;
+    if (!noctty_grid_widget_is_type(combo, NOCTTY_GTK_COMBO_BOX_TEXT)) return;
     noctty_grid_combo_box_text_remove_all(combo);
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(combo));
 }
@@ -10369,7 +10369,7 @@ static void on_settings_theme_changed(GtkComboBox *combo, gpointer user_data) {
     if (name == NULL || context->text_action == NULL || target == NULL) return;
     GtkWidget *scope = g_object_get_data(
         G_OBJECT(combo), "noctty-theme-scope-tab");
-    gboolean current_tab_only = GTK_IS_TOGGLE_BUTTON(scope) &&
+    gboolean current_tab_only = noctty_grid_widget_is_type(scope, NOCTTY_GTK_TOGGLE_BUTTON) &&
         noctty_grid_toggle_button_get_active(GTK_TOGGLE_BUTTON(scope));
     int result = current_tab_only
         ? noctty_grid_set_tab_theme(
@@ -10582,7 +10582,7 @@ static void on_settings_shortcut_clicked(GtkButton *button, gpointer user_data) 
 }
 
 static void sync_launch_profile_sensitivity(NocttyGridContext *context) {
-    if (!GTK_IS_COMBO_BOX(context->settings_launch_kind)) return;
+    if (!noctty_grid_widget_is_type(context->settings_launch_kind, NOCTTY_GTK_COMBO_BOX)) return;
     int kind = noctty_grid_combo_box_get_active(
         GTK_COMBO_BOX(context->settings_launch_kind));
     if (context->settings_launch_command != NULL)
@@ -10629,7 +10629,7 @@ static void load_current_launch_profile(NocttyGridContext *context) {
 
 static void refresh_launch_profile_library(NocttyGridContext *context) {
     if (context->event_data == NULL ||
-        !GTK_IS_COMBO_BOX_TEXT(context->settings_launch_library))
+        !noctty_grid_widget_is_type(context->settings_launch_library, NOCTTY_GTK_COMBO_BOX_TEXT))
         return;
     GtkComboBoxText *combo =
         GTK_COMBO_BOX_TEXT(context->settings_launch_library);
@@ -10647,7 +10647,7 @@ static void refresh_launch_profile_library(NocttyGridContext *context) {
     }
     noctty_grid_combo_box_set_active(GTK_COMBO_BOX(combo),
                              selected >= 0 ? selected + 1 : 0);
-    if (GTK_IS_ENTRY(context->settings_launch_name)) {
+    if (noctty_grid_widget_is_type(context->settings_launch_name, NOCTTY_GTK_ENTRY)) {
         name[0] = '\0';
         if (selected >= 0)
             (void)noctty_grid_launch_profile_library(
@@ -10668,13 +10668,13 @@ static int submit_settings_launch_profile(NocttyGridContext *context,
                                           int action,
                                           const char *name) {
     if (context->text_action == NULL ||
-        !GTK_IS_COMBO_BOX(context->settings_launch_kind) ||
-        !GTK_IS_ENTRY(context->settings_launch_shell) ||
-        !GTK_IS_ENTRY(context->settings_launch_command) ||
-        !GTK_IS_ENTRY(context->settings_launch_cwd) ||
-        !GTK_IS_ENTRY(context->settings_launch_environment) ||
-        !GTK_IS_ENTRY(context->settings_launch_ssh_target) ||
-        !GTK_IS_SPIN_BUTTON(context->settings_launch_scrollback))
+        !noctty_grid_widget_is_type(context->settings_launch_kind, NOCTTY_GTK_COMBO_BOX) ||
+        !noctty_grid_widget_is_type(context->settings_launch_shell, NOCTTY_GTK_ENTRY) ||
+        !noctty_grid_widget_is_type(context->settings_launch_command, NOCTTY_GTK_ENTRY) ||
+        !noctty_grid_widget_is_type(context->settings_launch_cwd, NOCTTY_GTK_ENTRY) ||
+        !noctty_grid_widget_is_type(context->settings_launch_environment, NOCTTY_GTK_ENTRY) ||
+        !noctty_grid_widget_is_type(context->settings_launch_ssh_target, NOCTTY_GTK_ENTRY) ||
+        !noctty_grid_widget_is_type(context->settings_launch_scrollback, NOCTTY_GTK_SPIN_BUTTON))
         return -1;
     int kind = noctty_grid_combo_box_get_active(
         GTK_COMBO_BOX(context->settings_launch_kind));
@@ -10705,7 +10705,7 @@ static int submit_settings_launch_profile(NocttyGridContext *context,
 static void set_launch_profile_status(
     NocttyGridContext *context, const char *message, gboolean error,
     GtkWidget *focus) {
-    if (!GTK_IS_LABEL(context->settings_launch_status)) return;
+    if (!noctty_grid_widget_is_type(context->settings_launch_status, NOCTTY_GTK_LABEL)) return;
     noctty_grid_label_set_text(
         GTK_LABEL(context->settings_launch_status), message);
     noctty_grid_widget_set_visible(context->settings_launch_status, TRUE);
@@ -10747,7 +10747,7 @@ static void on_settings_launch_apply(GtkButton *button, gpointer user_data) {
 static void on_settings_launch_save(GtkButton *button, gpointer user_data) {
     (void)button;
     NocttyGridContext *context = root_grid_context(user_data);
-    if (!GTK_IS_ENTRY(context->settings_launch_name)) return;
+    if (!noctty_grid_widget_is_type(context->settings_launch_name, NOCTTY_GTK_ENTRY)) return;
     const char *name = noctty_grid_entry_get_text(
         GTK_ENTRY(context->settings_launch_name));
     gchar *trimmed = g_strdup(name);
@@ -10807,7 +10807,7 @@ static void on_settings_launch_library_changed(GtkComboBox *combo,
 static void on_settings_launch_delete(GtkButton *button, gpointer user_data) {
     (void)button;
     NocttyGridContext *context = root_grid_context(user_data);
-    if (!GTK_IS_COMBO_BOX(context->settings_launch_library) ||
+    if (!noctty_grid_widget_is_type(context->settings_launch_library, NOCTTY_GTK_COMBO_BOX) ||
         context->text_action == NULL)
         return;
     int active = noctty_grid_combo_box_get_active(
@@ -11165,16 +11165,21 @@ static void open_grid_settings(NocttyGridContext *context) {
     context->settings_launch_save = launch_save;
     context->settings_launch_delete = launch_delete;
     context->settings_launch_status = launch_status;
-    context->pane_info_setting_control = GTK_IS_CHECK_BUTTON(pane_info);
+    context->pane_info_setting_control = noctty_grid_widget_is_type(pane_info, NOCTTY_GTK_CHECK_BUTTON);
     context->launch_profile_setting_control =
-        GTK_IS_COMBO_BOX(launch_kind) && GTK_IS_ENTRY(launch_shell_entry) &&
-        GTK_IS_ENTRY(launch_command_entry) && GTK_IS_ENTRY(launch_cwd_entry) &&
-        GTK_IS_ENTRY(launch_environment_entry) &&
-        GTK_IS_ENTRY(launch_ssh_entry) &&
-        GTK_IS_SPIN_BUTTON(launch_scrollback) && GTK_IS_BUTTON(launch_apply);
+        noctty_grid_widget_is_type(launch_kind, NOCTTY_GTK_COMBO_BOX) &&
+        noctty_grid_widget_is_type(launch_shell_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_command_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_cwd_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_environment_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_ssh_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_scrollback, NOCTTY_GTK_SPIN_BUTTON) &&
+        noctty_grid_widget_is_type(launch_apply, NOCTTY_GTK_BUTTON);
     context->launch_profile_library_control =
-        GTK_IS_COMBO_BOX(launch_library) && GTK_IS_ENTRY(launch_name_entry) &&
-        GTK_IS_BUTTON(launch_save) && GTK_IS_BUTTON(launch_delete);
+        noctty_grid_widget_is_type(launch_library, NOCTTY_GTK_COMBO_BOX) &&
+        noctty_grid_widget_is_type(launch_name_entry, NOCTTY_GTK_ENTRY) &&
+        noctty_grid_widget_is_type(launch_save, NOCTTY_GTK_BUTTON) &&
+        noctty_grid_widget_is_type(launch_delete, NOCTTY_GTK_BUTTON);
     refresh_launch_profile_library(context);
     GList *category_rows = noctty_grid_container_get_children(GTK_CONTAINER(categories));
     context->settings_category_count = (int)g_list_length(category_rows);
@@ -11528,7 +11533,7 @@ static gboolean request_theme_smoke(gpointer user_data) {
         ? g_object_get_data(G_OBJECT(root->theme_dialog),
                             "noctty-system-noctalia-apply")
         : NULL;
-    if (GTK_IS_BUTTON(system_apply))
+    if (noctty_grid_widget_is_type(system_apply, NOCTTY_GTK_BUTTON))
         noctty_grid_button_clicked(GTK_BUTTON(system_apply));
     const char *name = "Imported Night";
     const char *contents = "background = #000011\nforeground = #eeeeee\ncursor-color = #ff00aa\npalette = 1=#cc0000\n";
@@ -11660,7 +11665,7 @@ static void on_project_recent_open(GtkButton *button, gpointer user_data) {
     NocttyGridContext *context = user_data;
     GtkWidget *combo = g_object_get_data(
         G_OBJECT(button), "noctty-recent-workspace-combo");
-    if (!GTK_IS_COMBO_BOX_TEXT(combo)) return;
+    if (!noctty_grid_widget_is_type(combo, NOCTTY_GTK_COMBO_BOX_TEXT)) return;
     gchar *path = noctty_grid_combo_box_text_get_active_text(
         GTK_COMBO_BOX_TEXT(combo));
     if (path != NULL && !spawn_workspace_window(context, path, 0)) {
@@ -11790,7 +11795,7 @@ static void open_project_tools(NocttyGridContext *context) {
         noctty_grid_widget_get_accessible(contents.summary);
     AtkObject *recent_accessible = noctty_grid_widget_get_accessible(recent_combo);
     context->project_summary_scrollable =
-        GTK_IS_SCROLLED_WINDOW(contents.summary_scroll);
+        noctty_grid_widget_is_type(contents.summary_scroll, NOCTTY_GTK_SCROLLED_WINDOW);
     context->project_summary_accessible = summary_accessible != NULL &&
         g_strcmp0(noctty_grid_atk_object_get_name(summary_accessible),
                   "Workspace summary") == 0 &&
@@ -11845,7 +11850,7 @@ static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
     GtkWidget *match = NULL;
     for (GList *item = items; item != NULL && match == NULL;
          item = item->next) {
-        if (!GTK_IS_MENU_ITEM(item->data)) continue;
+        if (!noctty_grid_widget_is_type(item->data, NOCTTY_GTK_MENU_ITEM)) continue;
         const gchar *candidate = noctty_grid_menu_item_get_label(
             GTK_MENU_ITEM(item->data));
         if (g_strcmp0(candidate, label) == 0) {
@@ -11875,7 +11880,7 @@ static gboolean workspace_split_menu_has_order(GtkWidget *menu) {
     guint index = 0;
     for (GList *item = items; matches && item != NULL;
          item = item->next, index++) {
-        if (!GTK_IS_MENU_ITEM(item->data) ||
+        if (!noctty_grid_widget_is_type(item->data, NOCTTY_GTK_MENU_ITEM) ||
             g_strcmp0(noctty_grid_menu_item_get_label(GTK_MENU_ITEM(item->data)),
                       expected[index]) != 0)
             matches = FALSE;
@@ -12007,7 +12012,7 @@ static void set_widget_accessible_name(GtkWidget *widget, const char *name) {
 
 static void set_status_label_feedback(GtkWidget *label, const char *message,
                                       gboolean is_error) {
-    if (!GTK_IS_LABEL(label) || message == NULL) return;
+    if (!noctty_grid_widget_is_type(label, NOCTTY_GTK_LABEL) || message == NULL) return;
     AtkObject *accessible = noctty_grid_widget_get_accessible(label);
     AtkRole target_role = is_error ? ATK_ROLE_ALERT : ATK_ROLE_STATUSBAR;
     gboolean text_changed =
@@ -12763,10 +12768,10 @@ static gboolean send_sharing_input(
 static void set_sharing_transient_feedback(
     NocttyGridContext *root, const char *text, gboolean is_error) {
     GtkWidget *dialog = root->sharing_dialog;
-    if (!GTK_IS_DIALOG(dialog) || noctty_grid_widget_in_destruction(dialog)) return;
+    if (!noctty_grid_widget_is_type(dialog, NOCTTY_GTK_DIALOG) || noctty_grid_widget_in_destruction(dialog)) return;
     GtkWidget *status = g_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-status");
-    if (GTK_IS_LABEL(status))
+    if (noctty_grid_widget_is_type(status, NOCTTY_GTK_LABEL))
         set_status_label_feedback(status, text, is_error);
     root->sharing_feedback_until_us =
         g_get_monotonic_time() + 3 * G_USEC_PER_SEC;
@@ -13107,7 +13112,7 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
 static gboolean refresh_sharing_status(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *dialog = root->sharing_dialog;
-    if (!GTK_IS_DIALOG(dialog) || noctty_grid_widget_in_destruction(dialog)) {
+    if (!noctty_grid_widget_is_type(dialog, NOCTTY_GTK_DIALOG) || noctty_grid_widget_in_destruction(dialog)) {
         root->sharing_status_source = 0;
         return G_SOURCE_REMOVE;
     }
@@ -13524,7 +13529,8 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
         GtkWidget *accept = noctty_grid_dialog_get_widget_for_response(
             dialog, GTK_RESPONSE_ACCEPT);
         root->broadcast_confirmation_explicit =
-            GTK_IS_BUTTON(cancel) && GTK_IS_BUTTON(accept) &&
+            noctty_grid_widget_is_type(cancel, NOCTTY_GTK_BUTTON) &&
+            noctty_grid_widget_is_type(accept, NOCTTY_GTK_BUTTON) &&
             g_strcmp0(noctty_grid_button_get_label(cancel),
                       "Keep Off") == 0 &&
             g_strcmp0(noctty_grid_button_get_label(accept),
@@ -13997,7 +14003,7 @@ static gboolean lighten_tab_color_smoke(gpointer user_data) {
     GtkWidget *tab_widget = page != NULL
         ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
-    GtkWidget *content = GTK_IS_BIN(tab_widget)
+    GtkWidget *content = noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_BIN)
         ? noctty_grid_bin_get_child(GTK_BIN(tab_widget)) : NULL;
     GtkWidget *label = tab_label_from_widget(tab_widget);
     guint rendered_rgb = 0;
@@ -14018,7 +14024,7 @@ static gboolean lighten_tab_color_smoke(gpointer user_data) {
         rendered_alpha = sample >> 24;
         cairo_surface_destroy(surface);
     }
-    const gchar *markup = GTK_IS_LABEL(label)
+    const gchar *markup = noctty_grid_widget_is_type(label, NOCTTY_GTK_LABEL)
         ? noctty_grid_label_get_label(label) : "";
     gchar *tooltip = label != NULL
         ? noctty_grid_widget_get_tooltip_text(label) : NULL;
@@ -14428,7 +14434,7 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
     if (submenu != NULL) {
         GList *items = noctty_grid_container_get_children(GTK_CONTAINER(submenu));
         for (GList *item = items; item != NULL; item = item->next)
-            if (GTK_IS_RADIO_MENU_ITEM(item->data)) preset_count++;
+            if (noctty_grid_widget_is_type(item->data, NOCTTY_GTK_RADIO_MENU_ITEM)) preset_count++;
         g_list_free(items);
     }
     gboolean current_ready = current != NULL &&
@@ -16813,7 +16819,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         GtkWidget *tab_widget = noctty_grid_notebook_get_tab_label(
             GTK_NOTEBOOK(context.notebook), page);
         GtkWidget *label = tab_label_from_widget(tab_widget);
-        const gchar *text = GTK_IS_LABEL(label)
+        const gchar *text = noctty_grid_widget_is_type(label, NOCTTY_GTK_LABEL)
             ? noctty_grid_label_get_text(GTK_LABEL(label))
             : NULL;
         if (text != NULL && strstr(text, "Build logs") != NULL) {

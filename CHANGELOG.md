@@ -15,9 +15,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed the final direct GTK calls in the C adapter—accessible-class setup,
   input-context construction, recursive container traversal, and popup-window
   type reads—through Zig ABI adapters.
-- Routed core GTK window, paned, widget, menu, container, and box type
-  predicates through a shared Zig GType adapter; remaining specialized
-  predicate sites retain their existing C contracts for the next slice.
+- Routed all GTK widget type predicates in the native grid host through a
+  shared Zig GType adapter; C retains UI policy and GTK casts.
 - Routed GTK combo active IDs/text, file chooser filenames, list-box row
   lookup/selection, event-box stacking, and entry icon operations through the
   Zig adapter; C retains workspace and dialog policy.

@@ -238,6 +238,7 @@ grep -F 'noctty_grid_container_forall(' "$grid" >/dev/null
 grep -F 'noctty_grid_input_context_new(' "$grid" >/dev/null
 grep -F 'noctty_grid_window_get_window_type(' "$grid" >/dev/null
 grep -F 'noctty_grid_widget_is_type(' "$grid" >/dev/null
+! grep -F 'GTK_IS_' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_remove_all(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append_text(' "$grid" >/dev/null
