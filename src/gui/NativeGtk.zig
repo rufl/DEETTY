@@ -26,6 +26,7 @@ const GtkFileChooser = opaque {};
 const GtkEntry = opaque {};
 const GtkTextView = opaque {};
 const GtkTextBuffer = opaque {};
+const GtkTreeModel = opaque {};
 const GtkComboBox = opaque {};
 const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
@@ -379,6 +380,16 @@ extern fn gtk_text_view_set_monospace(*GtkTextView, c_int) void;
 extern fn gtk_text_view_set_wrap_mode(*GtkTextView, c_int) void;
 extern fn gtk_text_view_get_buffer(*GtkTextView) *GtkTextBuffer;
 extern fn gtk_text_buffer_set_text(*GtkTextBuffer, [*:0]const u8, c_int) void;
+extern fn gtk_text_buffer_get_bounds(
+    *GtkTextBuffer, *anyopaque, *anyopaque) void;
+extern fn gtk_text_buffer_get_text(
+    *GtkTextBuffer, *anyopaque, *anyopaque, c_int) ?[*:0]u8;
+extern fn gtk_combo_box_get_model(*GtkComboBox) ?*GtkTreeModel;
+extern fn gtk_tree_model_iter_n_children(
+    *GtkTreeModel, ?*anyopaque) c_int;
+extern fn gtk_button_get_image(*GtkButton) ?*GtkWidget;
+extern fn gtk_image_get_icon_name(
+    *GtkImage, ?*?[*:0]const u8, ?*c_int) void;
 extern fn gtk_button_get_label(*GtkButton) ?[*:0]const u8;
 extern fn gtk_bin_get_child(*GtkBin) ?*GtkWidget;
 extern fn gtk_container_add(*GtkContainer, *GtkWidget) void;
@@ -2719,6 +2730,76 @@ pub export fn noctty_grid_widget_get_scale_factor(
 ) c_int {
     const widget = widget_optional orelse return 1;
     return gtk_widget_get_scale_factor(@ptrCast(widget));
+}
+pub export fn noctty_grid_text_view_get_buffer(
+    view_optional: ?*anyopaque,
+) ?*GtkTextBuffer {
+    const view = view_optional orelse return null;
+    return gtk_text_view_get_buffer(@ptrCast(view));
+}
+
+pub export fn noctty_grid_text_buffer_get_bounds(
+    buffer_optional: ?*anyopaque,
+    start_optional: ?*anyopaque,
+    end_optional: ?*anyopaque,
+) void {
+    const buffer = buffer_optional orelse return;
+    const start = start_optional orelse return;
+    const end = end_optional orelse return;
+    gtk_text_buffer_get_bounds(@ptrCast(buffer), start, end);
+}
+
+pub export fn noctty_grid_text_buffer_get_text(
+    buffer_optional: ?*anyopaque,
+    start_optional: ?*anyopaque,
+    end_optional: ?*anyopaque,
+    include_hidden: c_int,
+) ?[*:0]u8 {
+    const buffer = buffer_optional orelse return null;
+    const start = start_optional orelse return null;
+    const end = end_optional orelse return null;
+    return gtk_text_buffer_get_text(
+        @ptrCast(buffer), start, end, include_hidden);
+}
+
+pub export fn noctty_grid_text_buffer_set_text(
+    buffer_optional: ?*anyopaque,
+    text: [*:0]const u8,
+    length: c_int,
+) void {
+    const buffer = buffer_optional orelse return;
+    gtk_text_buffer_set_text(@ptrCast(buffer), text, length);
+}
+
+pub export fn noctty_grid_combo_box_get_model(
+    combo_optional: ?*anyopaque,
+) ?*GtkTreeModel {
+    const combo = combo_optional orelse return null;
+    return gtk_combo_box_get_model(@ptrCast(combo));
+}
+
+pub export fn noctty_grid_tree_model_iter_n_children(
+    model_optional: ?*anyopaque,
+    parent: ?*anyopaque,
+) c_int {
+    const model = model_optional orelse return 0;
+    return gtk_tree_model_iter_n_children(@ptrCast(model), parent);
+}
+
+pub export fn noctty_grid_button_get_image(
+    button_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const button = button_optional orelse return null;
+    return gtk_button_get_image(@ptrCast(button));
+}
+
+pub export fn noctty_grid_image_get_icon_name(
+    image_optional: ?*anyopaque,
+    icon_name: ?*?[*:0]const u8,
+    icon_size: ?*c_int,
+) void {
+    const image = image_optional orelse return;
+    gtk_image_get_icon_name(@ptrCast(image), icon_name, icon_size);
 }
 pub export fn noctty_grid_combo_box_get_active_id(
     combo_optional: ?*anyopaque,

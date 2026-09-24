@@ -2970,9 +2970,9 @@ static gboolean emit_workspace_smoke_tag_filter(gpointer user_data) {
         return G_SOURCE_REMOVE;
     GtkWidget *suggestions = noctty_tag_combo_new();
     int suggestion_count = populate_tag_suggestions(root, GTK_COMBO_BOX_TEXT(suggestions));
-    GtkTreeModel *suggestion_model = gtk_combo_box_get_model(GTK_COMBO_BOX(suggestions));
+    GtkTreeModel *suggestion_model = noctty_grid_combo_box_get_model(GTK_COMBO_BOX(suggestions));
     root->tag_suggestions_visible = suggestion_count == 1 &&
-        gtk_tree_model_iter_n_children(suggestion_model, NULL) == 1;
+        noctty_grid_tree_model_iter_n_children(suggestion_model, NULL) == 1;
     noctty_grid_widget_destroy(suggestions);
     if (noctty_grid_set_smart_filter(root->event_data, "missing", 7) != 0)
         return G_SOURCE_REMOVE;
@@ -5472,12 +5472,12 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *button = root->new_tab_button;
     GtkWidget *icon = GTK_IS_BUTTON(button)
-        ? gtk_button_get_image(GTK_BUTTON(button))
+        ? noctty_grid_button_get_image(GTK_BUTTON(button))
         : NULL;
     const gchar *icon_name = NULL;
     GtkIconSize icon_size = GTK_ICON_SIZE_INVALID;
     if (GTK_IS_IMAGE(icon))
-        gtk_image_get_icon_name(GTK_IMAGE(icon), &icon_name, &icon_size);
+        noctty_grid_image_get_icon_name(GTK_IMAGE(icon), &icon_name, &icon_size);
     AtkObject *accessible = button != NULL
         ? noctty_grid_widget_get_accessible(button)
         : NULL;
@@ -5513,13 +5513,13 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         : NULL;
     GtkWidget *close = tab_close_button_from_widget(tab_widget);
     GtkWidget *close_icon = GTK_IS_BUTTON(close)
-        ? gtk_button_get_image(GTK_BUTTON(close))
+        ? noctty_grid_button_get_image(GTK_BUTTON(close))
         : NULL;
     const gchar *close_icon_name = NULL;
     GtkIconSize close_icon_size = GTK_ICON_SIZE_INVALID;
     if (GTK_IS_IMAGE(close_icon))
-        gtk_image_get_icon_name(GTK_IMAGE(close_icon),
-                                &close_icon_name, &close_icon_size);
+        noctty_grid_image_get_icon_name(GTK_IMAGE(close_icon),
+                                        &close_icon_name, &close_icon_size);
     GtkAllocation notebook_allocation = {0};
     GtkAllocation page_allocation = {0};
     GtkAllocation tab_allocation = {0};
@@ -12137,10 +12137,10 @@ static void open_terminal_find(NocttyGridContext *context) {
 static gboolean save_quick_note(NocttyGridContext *root) {
     if (root->note_load_failed) return TRUE;
     if (root->note_view == NULL || root->text_action == NULL) return FALSE;
-    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(root->note_view));
+    GtkTextBuffer *buffer = noctty_grid_text_view_get_buffer(GTK_TEXT_VIEW(root->note_view));
     GtkTextIter start, end;
-    gtk_text_buffer_get_bounds(buffer, &start, &end);
-    gchar *text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+    noctty_grid_text_buffer_get_bounds(buffer, &start, &end);
+    gchar *text = noctty_grid_text_buffer_get_text(buffer, &start, &end, FALSE);
     gboolean saved = root->text_action(
         root->text_action_data, 9, "", 0, text, strlen(text), 0) == 0;
     g_free(text);
@@ -12260,13 +12260,13 @@ static void open_quick_note(NocttyGridContext *context) {
             TRUE);
     } else {
         if (length > 0)
-            gtk_text_buffer_set_text(
-                gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), contents, length);
+            noctty_grid_text_buffer_set_text(
+                noctty_grid_text_view_get_buffer(GTK_TEXT_VIEW(view)), contents, length);
         set_status_label_feedback(
             hint, "Workspace note · saved automatically", FALSE);
     }
     g_free(contents);
-    noctty_grid_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), "changed",
+    noctty_grid_signal_connect(noctty_grid_text_view_get_buffer(GTK_TEXT_VIEW(view)), "changed",
                      G_CALLBACK(on_quick_note_changed), root);
     noctty_grid_signal_connect(dialog, "response", G_CALLBACK(on_quick_note_response), root);
     noctty_grid_signal_connect(dialog, "delete-event", G_CALLBACK(on_quick_note_delete), root);

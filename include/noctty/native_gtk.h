@@ -442,6 +442,20 @@ void noctty_grid_entry_set_icon_from_icon_name(
     gpointer entry, int icon_pos, const char *icon_name);
 void noctty_grid_entry_set_icon_tooltip_text(
     gpointer entry, int icon_pos, const char *tooltip);
+gpointer noctty_grid_text_view_get_buffer(gpointer view);
+void noctty_grid_text_buffer_get_bounds(
+    gpointer buffer, gpointer start, gpointer end);
+char *noctty_grid_text_buffer_get_text(
+    gpointer buffer, gpointer start, gpointer end,
+    gboolean include_hidden);
+void noctty_grid_text_buffer_set_text(
+    gpointer buffer, const char *text, int length);
+gpointer noctty_grid_combo_box_get_model(gpointer combo);
+int noctty_grid_tree_model_iter_n_children(
+    gpointer model, gpointer parent);
+GtkWidget *noctty_grid_button_get_image(gpointer button);
+void noctty_grid_image_get_icon_name(
+    gpointer image, const char **icon_name, GtkIconSize *icon_size);
 gpointer noctty_grid_clipboard_get(gpointer selection);
 void noctty_grid_clipboard_request_text(
     gpointer clipboard,
