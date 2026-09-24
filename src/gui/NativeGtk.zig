@@ -32,6 +32,7 @@ const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
 const GtkClipboard = opaque {};
 const GtkIMContext = opaque {};
+const GtkSelectionData = opaque {};
 
 const GtkToggleButton = opaque {};
 const GtkRange = opaque {};
@@ -211,6 +212,7 @@ extern fn gtk_label_set_ellipsize(*GtkLabel, c_int) void;
 extern fn gtk_label_set_max_width_chars(*GtkLabel, c_int) void;
 extern fn gtk_label_set_text(*GtkLabel, [*:0]const u8) void;
 extern fn gtk_label_get_text(*GtkLabel) ?[*:0]const u8;
+extern fn gtk_label_get_label(*GtkLabel) ?[*:0]const u8;
 extern fn gtk_message_dialog_new(
     *GtkWidget,
     c_int,
@@ -233,6 +235,10 @@ extern fn gtk_info_bar_new_with_buttons([*:0]const u8, c_int, ...) ?*GtkWidget;
 extern fn gtk_info_bar_set_message_type(*GtkWidget, c_int) void;
 extern fn gtk_info_bar_get_content_area(*GtkWidget) *GtkWidget;
 extern fn gtk_dialog_get_content_area(*GtkDialog) *GtkWidget;
+extern fn gtk_dialog_get_widget_for_response(
+    *GtkDialog,
+    c_int,
+) ?*GtkWidget;
 extern fn gtk_dialog_run(*GtkDialog) c_int;
 extern fn gtk_dialog_response(*GtkDialog, c_int) void;
 extern fn gtk_search_entry_new() ?*GtkWidget;
@@ -261,6 +267,7 @@ extern fn gtk_entry_set_max_width_chars(*GtkEntry, c_int) void;
 extern fn gtk_spin_button_new_with_range(f64, f64, f64) ?*GtkWidget;
 extern fn gtk_spin_button_set_value(*GtkSpinButton, f64) void;
 extern fn gtk_spin_button_get_value_as_int(*GtkSpinButton) c_int;
+extern fn gtk_spin_button_get_value(*GtkSpinButton) f64;
 extern fn gtk_scale_new_with_range(c_int, f64, f64, f64) ?*GtkWidget;
 extern fn gtk_range_set_value(*GtkRange, f64) void;
 extern fn gtk_range_get_value(*GtkRange) f64;
@@ -343,11 +350,21 @@ extern fn gtk_clipboard_request_text(
 ) void;
 extern fn gtk_clipboard_set_text(
     *GtkClipboard, [*:0]const u8, c_int) void;
+extern fn gtk_selection_data_set_text(
+    *GtkSelectionData,
+    [*:0]const u8,
+    c_int,
+) void;
+extern fn gtk_selection_data_get_text(*GtkSelectionData) ?[*:0]u8;
 extern fn gtk_im_context_focus_in(*GtkIMContext) void;
 extern fn gtk_im_context_focus_out(*GtkIMContext) void;
 extern fn gtk_im_context_filter_keypress(
     *GtkIMContext, ?*anyopaque) c_int;
 extern fn gtk_editable_select_region(*GtkWidget, c_int, c_int) void;
+extern fn gtk_im_context_set_client_window(
+    *GtkIMContext,
+    ?*GdkWindow,
+) void;
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
 extern fn gtk_window_set_icon_name(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
@@ -362,6 +379,7 @@ extern fn gtk_window_set_geometry_hints(
     *GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
+extern fn gtk_window_get_default_widget(*GtkWindow) ?*GtkWidget;
 extern fn gtk_window_get_focus(*GtkWindow) ?*GtkWidget;
 extern fn gtk_window_get_size(*GtkWindow, *c_int, *c_int) void;
 extern fn gtk_window_get_position(*GtkWindow, *c_int, *c_int) void;
@@ -403,6 +421,7 @@ extern fn gtk_list_box_select_row(
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
+extern fn gtk_list_box_get_selected_row(*GtkListBox) ?*GtkListBoxRow;
 extern fn gtk_text_view_new() ?*GtkWidget;
 extern fn gtk_text_view_set_editable(*GtkTextView, c_int) void;
 extern fn gtk_render_background(
@@ -429,6 +448,7 @@ extern fn gtk_button_get_image(*GtkButton) ?*GtkWidget;
 extern fn gtk_image_get_icon_name(
     *GtkImage, ?*?[*:0]const u8, ?*c_int) void;
 extern fn gtk_button_get_label(*GtkButton) ?[*:0]const u8;
+extern fn gtk_widget_get_sensitive(*GtkWidget) c_int;
 extern fn gtk_bin_get_child(*GtkBin) ?*GtkWidget;
 extern fn gtk_container_add(*GtkContainer, *GtkWidget) void;
 extern fn gtk_container_remove(*GtkContainer, *GtkWidget) void;
@@ -505,6 +525,7 @@ extern fn gtk_widget_add_tick_callback(
     ?*anyopaque,
     ?GDestroyNotify,
 ) c_uint;
+extern fn gtk_widget_remove_tick_callback(*GtkWidget, c_uint) void;
 extern fn gtk_drag_finish(
     ?*anyopaque,
     c_int,
@@ -515,6 +536,9 @@ extern fn gtk_events_pending() c_int;
 extern fn gtk_main_iteration_do(c_int) void;
 extern fn gtk_main_level() c_uint;
 extern fn gtk_main_quit() void;
+extern fn gtk_init_check(?*anyopaque, ?*anyopaque) c_int;
+extern fn gtk_main() void;
+extern fn gtk_window_set_default_icon_name([*:0]const u8) void;
 extern fn gtk_show_uri_on_window(
     *GtkWindow,
     [*:0]const u8,
@@ -2442,6 +2466,20 @@ pub export fn noctty_grid_window_set_title(
         gtk_window_set_title(@ptrCast(window), next_title);
     }
 }
+pub export fn noctty_grid_window_get_title(
+    window_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const window = window_optional orelse return null;
+    return gtk_window_get_title(@ptrCast(window));
+}
+
+pub export fn noctty_grid_window_get_default_widget(
+    window_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const window = window_optional orelse return null;
+    return gtk_window_get_default_widget(@ptrCast(window));
+}
+
 pub export fn noctty_grid_window_get_focus(
     window_optional: ?*anyopaque,
 ) ?*GtkWidget {
@@ -2525,6 +2563,14 @@ pub export fn noctty_grid_dialog_get_content_area(
     const dialog = dialog_optional orelse return null;
     return gtk_dialog_get_content_area(@ptrCast(dialog));
 }
+pub export fn noctty_grid_dialog_get_widget_for_response(
+    dialog_optional: ?*anyopaque,
+    response: c_int,
+) ?*GtkWidget {
+    const dialog = dialog_optional orelse return null;
+    return gtk_dialog_get_widget_for_response(@ptrCast(dialog), response);
+}
+
 
 pub export fn noctty_grid_dialog_run(
     dialog_optional: ?*anyopaque,
@@ -2742,6 +2788,13 @@ pub export fn noctty_grid_widget_get_toplevel(
     const widget = widget_optional orelse return null;
     return gtk_widget_get_toplevel(@ptrCast(widget));
 }
+pub export fn noctty_grid_label_get_label(
+    label_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const label = label_optional orelse return null;
+    return gtk_label_get_label(@ptrCast(label));
+}
+
 pub export fn noctty_grid_label_get_text(
     label_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
@@ -2769,6 +2822,13 @@ pub export fn noctty_grid_spin_button_get_value_as_int(
     const spin = spin_optional orelse return 0;
     return gtk_spin_button_get_value_as_int(@ptrCast(spin));
 }
+pub export fn noctty_grid_spin_button_get_value(
+    spin_optional: ?*anyopaque,
+) f64 {
+    const spin = spin_optional orelse return 0.0;
+    return gtk_spin_button_get_value(@ptrCast(spin));
+}
+
 
 pub export fn noctty_grid_toggle_button_get_active(
     toggle_optional: ?*anyopaque,
@@ -2811,6 +2871,13 @@ pub export fn noctty_grid_color_chooser_get_rgb(
     blue_out.* = rgba.blue;
     return TRUE;
 }
+pub export fn noctty_grid_widget_get_sensitive(
+    widget_optional: ?*anyopaque,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_get_sensitive(@ptrCast(widget));
+}
+
 
 pub export fn noctty_grid_widget_get_allocated_width(
     widget_optional: ?*anyopaque,
@@ -3153,6 +3220,13 @@ pub export fn noctty_grid_button_get_image(
     const button = button_optional orelse return null;
     return gtk_button_get_image(@ptrCast(button));
 }
+pub export fn noctty_grid_button_get_label(
+    button_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const button = button_optional orelse return null;
+    return gtk_button_get_label(@ptrCast(button));
+}
+
 
 pub export fn noctty_grid_image_get_icon_name(
     image_optional: ?*anyopaque,
@@ -3189,6 +3263,13 @@ pub export fn noctty_grid_combo_box_text_append(
 ) void {
     const combo = combo_optional orelse return;
     gtk_combo_box_text_append(@ptrCast(combo), id, text);
+}
+
+pub export fn noctty_grid_list_box_get_selected_row(
+    list_optional: ?*anyopaque,
+) ?*GtkListBoxRow {
+    const list = list_optional orelse return null;
+    return gtk_list_box_get_selected_row(@ptrCast(list));
 }
 
 pub export fn noctty_grid_combo_box_text_append_text(
@@ -3269,6 +3350,12 @@ pub export fn noctty_grid_entry_set_text(
 ) void {
     const entry = entry_optional orelse return;
     gtk_entry_set_text(@ptrCast(entry), text);
+}
+
+pub export fn noctty_grid_button_new_with_label(
+    label: [*:0]const u8,
+) ?*GtkWidget {
+    return gtk_button_new_with_label(label);
 }
 
 pub export fn noctty_grid_button_set_label(
@@ -3374,6 +3461,30 @@ pub export fn noctty_grid_im_context_filter_keypress(
         event_optional,
     );
 }
+pub export fn noctty_grid_im_context_set_client_window(
+    context_optional: ?*anyopaque,
+    window_optional: ?*anyopaque,
+) void {
+    const context = context_optional orelse return;
+    gtk_im_context_set_client_window(@ptrCast(context), @ptrCast(window_optional));
+}
+
+pub export fn noctty_grid_selection_data_set_text(
+    selection_optional: ?*anyopaque,
+    text: [*:0]const u8,
+    length: c_int,
+) void {
+    const selection = selection_optional orelse return;
+    gtk_selection_data_set_text(@ptrCast(selection), text, length);
+}
+
+pub export fn noctty_grid_selection_data_get_text(
+    selection_optional: ?*anyopaque,
+) ?[*:0]u8 {
+    const selection = selection_optional orelse return null;
+    return gtk_selection_data_get_text(@ptrCast(selection));
+}
+
 
 pub export fn noctty_grid_editable_select_region(
     editable_optional: ?*anyopaque,
@@ -3574,6 +3685,28 @@ pub export fn noctty_grid_widget_add_tick_callback(
         destroy_notify,
     );
 }
+pub export fn noctty_grid_widget_remove_tick_callback(
+    widget_optional: ?*GtkWidget,
+    source: c_uint,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_remove_tick_callback(widget, source);
+}
+
+pub export fn noctty_grid_gtk_init_check() c_int {
+    return gtk_init_check(null, null);
+}
+
+pub export fn noctty_grid_gtk_main() void {
+    gtk_main();
+}
+
+pub export fn noctty_grid_window_set_default_icon_name(
+    name: [*:0]const u8,
+) void {
+    gtk_window_set_default_icon_name(name);
+}
+
 
 pub export fn noctty_grid_drag_finish(
     drag: ?*anyopaque,

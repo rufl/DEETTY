@@ -387,11 +387,15 @@ const char *noctty_grid_window_get_icon_name(gpointer window);
 GdkScreen *noctty_grid_widget_get_screen(gpointer widget);
 gboolean noctty_grid_widget_get_app_paintable(gpointer widget);
 GtkWidget *noctty_grid_dialog_get_content_area(gpointer dialog);
+GtkWidget *noctty_grid_dialog_get_widget_for_response(
+    gpointer dialog, int response);
 int noctty_grid_dialog_run(gpointer dialog);
 void noctty_grid_dialog_response(gpointer dialog, int response);
 void noctty_grid_dialog_set_default_response(
     gpointer dialog, int response);
 unsigned int noctty_grid_main_level(void);
+void noctty_grid_gtk_main(void);
+gboolean noctty_grid_gtk_init_check(void);
 void noctty_grid_main_quit(void);
 gboolean noctty_grid_show_uri_on_window(
     gpointer window, const char *uri, unsigned int time,
@@ -409,18 +413,25 @@ int noctty_grid_orientable_get_orientation(gpointer orientable);
 GtkWidget *noctty_grid_bin_get_child(gpointer bin);
 GList *noctty_grid_container_get_children(gpointer container);
 GtkWidget *noctty_grid_widget_get_toplevel(gpointer widget);
+const char *noctty_grid_window_get_title(gpointer window);
+GtkWidget *noctty_grid_window_get_default_widget(gpointer window);
 const char *noctty_grid_label_get_text(gpointer label);
+const char *noctty_grid_label_get_label(gpointer label);
 char *noctty_grid_widget_get_tooltip_text(gpointer widget);
 const char *noctty_grid_entry_get_text(gpointer entry);
 int noctty_grid_spin_button_get_value_as_int(gpointer spin);
+double noctty_grid_spin_button_get_value(gpointer spin);
 gboolean noctty_grid_toggle_button_get_active(gpointer toggle);
 int noctty_grid_combo_box_get_active(gpointer combo);
 double noctty_grid_range_get_value(gpointer range);
 int noctty_grid_widget_get_scale_factor(gpointer widget);
+gboolean noctty_grid_widget_get_sensitive(gpointer widget);
 void noctty_grid_label_set_text(gpointer label, const char *text);
 void noctty_grid_label_set_markup(gpointer label, const char *markup);
 void noctty_grid_entry_set_text(gpointer entry, const char *text);
 void noctty_grid_button_set_label(gpointer button, const char *label);
+GtkWidget *noctty_grid_button_new_with_label(const char *label);
+const char *noctty_grid_button_get_label(gpointer button);
 void noctty_grid_button_clicked(gpointer button);
 void noctty_grid_combo_box_set_active(gpointer combo, int index);
 gboolean noctty_grid_combo_box_set_active_id(
@@ -446,6 +457,7 @@ gboolean noctty_grid_check_menu_item_get_active(gpointer item);
 char *noctty_grid_file_chooser_get_filename(gpointer chooser);
 GtkListBoxRow *noctty_grid_list_box_get_row_at_index(
     gpointer list, int index);
+GtkListBoxRow *noctty_grid_list_box_get_selected_row(gpointer list);
 void noctty_grid_list_box_select_row(
     gpointer list, GtkListBoxRow *row);
 void noctty_grid_event_box_set_above_child(
@@ -519,6 +531,11 @@ void noctty_grid_clipboard_request_text(
 void noctty_grid_clipboard_set_text(
     gpointer clipboard, const char *text, int length);
 void noctty_grid_im_context_focus_in(gpointer context);
+void noctty_grid_im_context_set_client_window(
+    gpointer context, gpointer window);
+void noctty_grid_selection_data_set_text(
+    gpointer selection, const char *text, int length);
+char *noctty_grid_selection_data_get_text(gpointer selection);
 void noctty_grid_im_context_focus_out(gpointer context);
 gboolean noctty_grid_im_context_filter_keypress(
     gpointer context, gpointer event);
@@ -622,6 +639,9 @@ void noctty_grid_revealer_set_transition_duration(
 void noctty_grid_revealer_set_transition_type(
     gpointer revealer, int transition_type);
 void noctty_grid_main_iteration_do(gboolean blocking);
+void noctty_grid_widget_remove_tick_callback(
+    GtkWidget *widget, unsigned int source);
+void noctty_grid_window_set_default_icon_name(const char *name);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);

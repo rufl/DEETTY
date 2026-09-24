@@ -6187,7 +6187,7 @@ static void remove_grid_source(guint *source) {
 static void remove_output_present(NocttyGridContext *context) {
     if (context->output_present_source == 0) return;
     if (context->output_present_is_tick && context->area != NULL)
-        gtk_widget_remove_tick_callback(
+        noctty_grid_widget_remove_tick_callback(
             context->area, context->output_present_source);
     else
         g_source_remove(context->output_present_source);
@@ -10168,7 +10168,8 @@ static gboolean sync_grid_context_profile(NocttyGridContext *context) {
 
 static void on_settings_font_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
-    (void)apply_grid_font_size(context, gtk_spin_button_get_value(spin), TRUE);
+    (void)apply_grid_font_size(
+        context, noctty_grid_spin_button_get_value(spin), TRUE);
 }
 
 static void on_settings_notifications_toggled(GtkToggleButton *toggle, gpointer user_data) {
@@ -10872,7 +10873,7 @@ static void open_grid_settings(NocttyGridContext *context) {
 
     gchar *shortcut_button_label =
         grid_settings_shortcut_button_label_alloc(context);
-    GtkWidget *shortcut = gtk_button_new_with_label(shortcut_button_label);
+    GtkWidget *shortcut = noctty_grid_button_new_with_label(shortcut_button_label);
     g_free(shortcut_button_label);
     configure_grid_settings_shortcut_button(context, shortcut);
     int scrollback_lines = context->event_data != NULL
@@ -12578,8 +12579,9 @@ static void on_palette_row_activated(GtkListBox *box, GtkListBoxRow *row,
 static void on_palette_search_activate(GtkEntry *entry, gpointer user_data) {
     (void)entry;
     NocttyGridContext *root = user_data;
-    GtkListBoxRow *row = gtk_list_box_get_selected_row(GTK_LIST_BOX(root->palette_list));
-    if (row != NULL) on_palette_row_activated(GTK_LIST_BOX(root->palette_list), row, root);
+    GtkListBoxRow *row = noctty_grid_list_box_get_selected_row(root->palette_list);
+    if (row != NULL)
+        on_palette_row_activated(GTK_LIST_BOX(root->palette_list), row, root);
 }
 
 static void on_palette_destroy(GtkWidget *widget, gpointer user_data) {
@@ -13510,18 +13512,18 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
         "Keep Off", "Enable Broadcast");
     prepare_action_button_tree(dialog);
     if (root->workspace_smoke == 1) {
-        GtkWidget *cancel = gtk_dialog_get_widget_for_response(
-            GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-        GtkWidget *accept = gtk_dialog_get_widget_for_response(
-            GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+        GtkWidget *cancel = noctty_grid_dialog_get_widget_for_response(
+            dialog, GTK_RESPONSE_CANCEL);
+        GtkWidget *accept = noctty_grid_dialog_get_widget_for_response(
+            dialog, GTK_RESPONSE_ACCEPT);
         root->broadcast_confirmation_explicit =
             GTK_IS_BUTTON(cancel) && GTK_IS_BUTTON(accept) &&
-            g_strcmp0(gtk_button_get_label(GTK_BUTTON(cancel)),
+            g_strcmp0(noctty_grid_button_get_label(cancel),
                       "Keep Off") == 0 &&
-            g_strcmp0(gtk_button_get_label(GTK_BUTTON(accept)),
+            g_strcmp0(noctty_grid_button_get_label(accept),
                       "Enable Broadcast") == 0;
         root->broadcast_confirmation_cancel_default =
-            gtk_window_get_default_widget(GTK_WINDOW(dialog)) == cancel;
+            noctty_grid_window_get_default_widget(dialog) == cancel;
         g_idle_add(accept_dialog_smoke, dialog);
     }
     if (run_grid_modal_dialog(context, GTK_DIALOG(dialog)) ==
@@ -14011,7 +14013,7 @@ static gboolean lighten_tab_color_smoke(gpointer user_data) {
         cairo_surface_destroy(surface);
     }
     const gchar *markup = GTK_IS_LABEL(label)
-        ? gtk_label_get_label(GTK_LABEL(label)) : "";
+        ? noctty_grid_label_get_label(label) : "";
     gchar *tooltip = label != NULL
         ? noctty_grid_widget_get_tooltip_text(label) : NULL;
     root->tab_color_rendered = tab_widget != NULL && content != NULL &&
@@ -14571,7 +14573,7 @@ static gboolean finish_pane_close_resize_smoke(gpointer user_data) {
             ? find_workspace_menu_item(root->workspace_menu, "Close Terminal")
             : NULL;
         root->pane_close_last_terminal_protected = close_terminal != NULL &&
-            !gtk_widget_get_sensitive(close_terminal);
+            !noctty_grid_widget_get_sensitive(close_terminal);
         dismiss_workspace_menu(root);
         if (!remaining->exited && remaining->write != NULL)
             (void)remaining->write(remaining->userdata, "\n", 1);
@@ -14704,7 +14706,7 @@ static gboolean continue_pane_close_smoke(gpointer user_data) {
     GtkWidget *close_terminal = menu_ready
         ? find_workspace_menu_item(menu, "Close Terminal")
         : NULL;
-    if (close_terminal == NULL || !gtk_widget_get_sensitive(close_terminal)) {
+    if (close_terminal == NULL || !noctty_grid_widget_get_sensitive(close_terminal)) {
         if (root->pane_close_smoke_attempts++ < 80) {
             if (root->pane_close_smoke_attempts % 20 == 0) {
                 NocttyGridContext *target = grid_context_for_pane(root, 1);
@@ -15577,7 +15579,7 @@ static void on_pane_drag_data_get(GtkWidget *widget, GdkDragContext *drag, GtkSe
     if (!grid_context_session_available(context) || context->exited) return;
     char pane[32];
     int length = g_snprintf(pane, sizeof(pane), "%" G_GUINT64_FORMAT, context->pane_id);
-    gtk_selection_data_set_text(selection, pane, length);
+    noctty_grid_selection_data_set_text(selection, pane, length);
 }
 
 static void on_pane_drag_data_received(GtkWidget *widget, GdkDragContext *drag, gint x, gint y, GtkSelectionData *selection, guint info, guint time, gpointer user_data) {
@@ -15588,7 +15590,7 @@ static void on_pane_drag_data_received(GtkWidget *widget, GdkDragContext *drag, 
         noctty_grid_drag_finish(drag, FALSE, FALSE, time);
         return;
     }
-    gchar *text = (gchar *)gtk_selection_data_get_text(selection);
+    gchar *text = noctty_grid_selection_data_get_text(selection);
     if (text != NULL) {
         guint64 source_pane = g_ascii_strtoull(text, NULL, 10);
         NocttyGridContext *source =
@@ -16166,15 +16168,14 @@ static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {
                               (gpointer)"text");
     }
     if (context->im_context != NULL)
-        gtk_im_context_set_client_window(context->im_context,
-                                         window);
+        noctty_grid_im_context_set_client_window(context->im_context, window);
 }
 
 static void on_grid_area_unrealize(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     NocttyGridContext *context = user_data;
     if (context->im_context != NULL)
-        gtk_im_context_set_client_window(context->im_context, NULL);
+        noctty_grid_im_context_set_client_window(context->im_context, NULL);
 }
 
 static void on_grid_area_map(GtkWidget *widget, gpointer user_data) {
@@ -16307,14 +16308,14 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
 #endif
     g_set_prgname("com.noctty.NOCTTY");
     g_set_application_name("NOCTTY");
-    if (!gtk_init_check(NULL, NULL)) {
+    if (!noctty_grid_gtk_init_check()) {
         g_printerr("native_grid_gtk_init_failed display=%s wayland_display=%s gdk_backend=%s\n",
                    g_getenv("DISPLAY") != NULL ? g_getenv("DISPLAY") : "",
                    g_getenv("WAYLAND_DISPLAY") != NULL ? g_getenv("WAYLAND_DISPLAY") : "",
                    g_getenv("GDK_BACKEND") != NULL ? g_getenv("GDK_BACKEND") : "");
         return -1;
     }
-    gtk_window_set_default_icon_name("com.noctty.NOCTTY");
+    noctty_grid_window_set_default_icon_name("com.noctty.NOCTTY");
     NocttyGridContext context = {0};
     NocttyGridContext secondary = {0};
     context.root = &context;
@@ -16654,7 +16655,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
 #if NOCTTY_ENABLE_SMOKE
 #include "../../tests/native_grid_smoke_schedule.inc"
 #endif
-    gtk_main();
+    noctty_grid_gtk_main();
 #if !NOCTTY_ENABLE_SMOKE
     if (context.layout_save_source != 0) {
         g_source_remove(context.layout_save_source);
@@ -16853,7 +16854,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          hot_session_profile);
     int layer_shell_was_active = context.layer_shell_active;
     const gchar *final_window_title =
-        gtk_window_get_title(GTK_WINDOW(context.window));
+        noctty_grid_window_get_title(context.window);
     int dropdown_identity_ready = workspace_smoke != 16 ||
         (final_window_title != NULL &&
          g_str_has_prefix(final_window_title, "NOCTTY Dropdown"));

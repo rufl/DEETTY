@@ -221,6 +221,18 @@ grep -F 'noctty_grid_combo_box_text_remove_all(' "$grid" >/dev/null
 grep -F 'noctty_grid_color_chooser_set_rgb(' "$grid" >/dev/null
 grep -F 'noctty_grid_widget_get_allocated_width(' "$grid" >/dev/null
 grep -F 'noctty_grid_check_menu_item_get_active(' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_remove_tick_callback(' "$grid" >/dev/null
+grep -F 'noctty_grid_spin_button_get_value(' "$grid" >/dev/null
+grep -F 'noctty_grid_button_new_with_label(' "$grid" >/dev/null
+grep -F 'noctty_grid_list_box_get_selected_row(' "$grid" >/dev/null
+grep -F 'noctty_grid_dialog_get_widget_for_response(' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_get_sensitive(' "$grid" >/dev/null
+grep -F 'noctty_grid_selection_data_get_text(' "$grid" >/dev/null
+grep -F 'noctty_grid_im_context_set_client_window(' "$grid" >/dev/null
+grep -F 'noctty_grid_gtk_init_check(' "$grid" >/dev/null
+grep -F 'noctty_grid_gtk_main(' "$grid" >/dev/null
+grep -F 'noctty_grid_window_set_default_icon_name(' "$grid" >/dev/null
+grep -F 'noctty_grid_window_get_title(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_remove_all(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append_text(' "$grid" >/dev/null
@@ -229,7 +241,21 @@ grep -F 'noctty_grid_check_menu_item_get_active(' "$grid" >/dev/null
 ! grep -F 'gtk_widget_get_allocated_width(' "$grid" >/dev/null
 ! grep -F 'gtk_widget_get_allocated_height(' "$grid" >/dev/null
 ! grep -F 'gtk_check_menu_item_get_active(' "$grid" >/dev/null
-grep -F 'gtk_window_set_default_icon_name("com.noctty.NOCTTY");' "$grid" >/dev/null
+! grep -F 'gtk_widget_remove_tick_callback(' "$grid" >/dev/null
+! grep -F 'gtk_spin_button_get_value(' "$grid" >/dev/null
+! grep -F 'gtk_button_new_with_label(' "$grid" >/dev/null
+! grep -F 'gtk_list_box_get_selected_row(' "$grid" >/dev/null
+! grep -F 'gtk_dialog_get_widget_for_response(' "$grid" >/dev/null
+! grep -F 'gtk_button_get_label(' "$grid" >/dev/null
+! grep -F 'gtk_window_get_default_widget(' "$grid" >/dev/null
+! grep -F 'gtk_label_get_label(' "$grid" >/dev/null
+! grep -F 'gtk_widget_get_sensitive(' "$grid" >/dev/null
+! grep -F 'gtk_selection_data_set_text(' "$grid" >/dev/null
+! grep -F 'gtk_selection_data_get_text(' "$grid" >/dev/null
+! grep -F 'gtk_im_context_set_client_window(' "$grid" >/dev/null
+! grep -F 'gtk_init_check(' "$grid" >/dev/null
+! grep -F 'gtk_main(' "$grid" >/dev/null
+! grep -F 'gtk_window_set_default_icon_name(' "$grid" >/dev/null
 grep -F 'gtk_window_set_icon_name(@ptrCast(window), "com.noctty.NOCTTY");' "$native_gtk" >/dev/null
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
 grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \
