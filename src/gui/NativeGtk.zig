@@ -329,6 +329,8 @@ extern fn gtk_drag_dest_set(
     c_int,
     c_uint,
 ) void;
+extern fn gtk_widget_set_app_paintable(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_visual(*GtkWidget, ?*anyopaque) void;
 extern fn gtk_widget_show_all(*GtkWidget) void;
 extern fn gtk_widget_destroy(*GtkWidget) void;
 extern fn gtk_widget_get_style_context(*GtkWidget) *GtkStyleContext;
@@ -2236,6 +2238,28 @@ pub export fn noctty_grid_widget_show(
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_show(widget);
+}
+pub export fn noctty_grid_widget_show_all(
+    widget_optional: ?*GtkWidget,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_show_all(widget);
+}
+
+pub export fn noctty_grid_widget_set_app_paintable(
+    widget_optional: ?*GtkWidget,
+    app_paintable: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_app_paintable(widget, app_paintable);
+}
+
+pub export fn noctty_grid_widget_set_visual(
+    widget_optional: ?*GtkWidget,
+    visual: ?*anyopaque,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_visual(widget, visual);
 }
 
 pub export fn noctty_grid_widget_hide(

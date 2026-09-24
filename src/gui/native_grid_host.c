@@ -1172,7 +1172,7 @@ static void noctty_terminal_area_init(NocttyTerminalArea *area) {
 static GtkWidget *noctty_terminal_area_new(void) {
     GtkWidget *area = GTK_WIDGET(
         g_object_new(noctty_terminal_area_get_type(), NULL));
-    gtk_widget_set_app_paintable(area, TRUE);
+    noctty_grid_widget_set_app_paintable(area, TRUE);
     return area;
 }
 
@@ -6701,7 +6701,7 @@ static gboolean add_grid_tab(NocttyGridContext *source, NocttyGridContext *creat
     gint page_index = noctty_grid_notebook_append_page(
         source->notebook, page, tab_widget);
     g_free(label_text);
-    gtk_widget_show_all(page);
+    noctty_grid_widget_show_all(page);
     show_all_with_action_affordances(tab_widget);
     noctty_grid_notebook_select_page(source->notebook, page_index);
     update_compact_tab(created);
@@ -6746,7 +6746,7 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         noctty_paned_pack2(split, created->area, TRUE, FALSE);
     }
     g_object_unref(source->area);
-    gtk_widget_show_all(split);
+    noctty_grid_widget_show_all(split);
     noctty_grid_widget_queue_resize(parent);
     gint midpoint = orientation == GTK_ORIENTATION_VERTICAL
         ? source_allocation.height / 2
@@ -7305,7 +7305,7 @@ static gboolean attach_grid_context(NocttyGridContext *source,
         noctty_paned_pack2(split, source->area, TRUE, FALSE);
         noctty_box_pack_start(target->page, split, TRUE, TRUE, 0);
         g_object_unref(content_root);
-        gtk_widget_show_all(split);
+        noctty_grid_widget_show_all(split);
         if (allocation.width > 0) {
             noctty_paned_set_position(split, allocation.width / 2);
         }
@@ -7320,7 +7320,7 @@ static gboolean attach_grid_context(NocttyGridContext *source,
     if (page_index >= 0) {
         noctty_grid_notebook_select_page(source->notebook, page_index);
     }
-    gtk_widget_show_all(target->page);
+    noctty_grid_widget_show_all(target->page);
     apply_smart_filter(root_grid_context(target));
     update_compact_tab(target);
     noctty_grid_focus_widget(NULL, source->area);
@@ -7348,7 +7348,7 @@ static void restore_zoomed_page(NocttyGridContext *root) {
     if (root->zoomed_pane_id == 0) return;
     NocttyGridContext *zoomed = grid_context_for_pane(root, root->zoomed_pane_id);
     GtkWidget *page = zoomed != NULL ? zoomed->page : NULL;
-    if (page != NULL) gtk_widget_show_all(page);
+    if (page != NULL) noctty_grid_widget_show_all(page);
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->page != page) continue;
@@ -7703,7 +7703,7 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
         remaining = active_grid_context(root);
     if (rendered_closed && model_tab_closed == 0 && remaining != NULL &&
         remaining->page == page && grid_contexts_on_page(root, page) > 1) {
-        gtk_widget_show_all(page);
+        noctty_grid_widget_show_all(page);
         noctty_grid_widget_queue_resize(page);
         (void)bind_grid_layout_for_page(remaining);
         schedule_even_pane_distribution(
@@ -7714,7 +7714,7 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
                                                 remaining->page);
         if (page_index >= 0)
             noctty_grid_notebook_select_page(root->notebook, page_index);
-        gtk_widget_show_all(remaining->page);
+        noctty_grid_widget_show_all(remaining->page);
         apply_smart_filter(root);
         update_compact_tab(remaining);
         if (gtk_widget_get_visible(remaining->area))
@@ -7837,7 +7837,7 @@ static void toggle_grid_zoom(NocttyGridContext *context) {
     gboolean unzoom = root->zoomed_pane_id == context->pane_id;
     restore_zoomed_page(root);
     if (!unzoom) {
-        gtk_widget_show_all(context->page);
+        noctty_grid_widget_show_all(context->page);
         for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
             NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
             if (candidate->page != context->page) continue;
@@ -8101,7 +8101,7 @@ static gboolean rebuild_grid_preset_page(
         ordered[index]->tab_label = source->tab_label;
         if (held[index]) g_object_unref(areas[index]);
     }
-    gtk_widget_show_all(page);
+    noctty_grid_widget_show_all(page);
     noctty_grid_widget_queue_resize(page);
     schedule_even_pane_distribution(source, grid_root);
     schedule_grid_preset_settle(page);
@@ -8832,7 +8832,7 @@ static gboolean show_hyperlink_menu(
     noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_hyperlink_menu_destroy), root);
     root->workspace_menu = menu;
-    gtk_widget_show_all(menu);
+    noctty_grid_widget_show_all(menu);
     if (root->workspace_smoke == 15) {
         root->compact_hyperlink_context_menu =
             g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(open)),
@@ -9748,8 +9748,8 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     root->background_alpha_supported = visual != NULL && screen != NULL &&
         (wayland || gdk_screen_is_composited(screen));
     if (root->background_alpha_supported) {
-        gtk_widget_set_visual(window, visual);
-        gtk_widget_set_app_paintable(window, TRUE);
+        noctty_grid_widget_set_visual(window, visual);
+        noctty_grid_widget_set_app_paintable(window, TRUE);
     }
     noctty_grid_window_configure(
         window,
@@ -13447,7 +13447,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     if (root->sharing_status_source == 0)
         root->sharing_status_source =
             g_timeout_add(200, refresh_sharing_status, root);
-    gtk_widget_show_all(dialog);
+    noctty_grid_widget_show_all(dialog);
 }
 
 static void on_session_sharing_menu_activate(GtkMenuItem *item,
@@ -13934,7 +13934,7 @@ static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
                      G_CALLBACK(noctty_grid_widget_destroy), NULL);
     noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_workspace_menu_destroy), root);
-    gtk_widget_show_all(menu);
+    noctty_grid_widget_show_all(menu);
     GtkWidget *anchor = gtk_notebook_get_tab_label(
         GTK_NOTEBOOK(root->notebook), page);
     popup_menu_at_toplevel_pointer(
@@ -14296,7 +14296,7 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
     root->workspace_menu = menu;
     root->context_menu_opened = 1;
     root->pane_close_menu_opened = 1;
-    gtk_widget_show_all(menu);
+    noctty_grid_widget_show_all(menu);
     if (event != NULL && event->send_event) {
         /* Smoke events are constructed in-process rather than dispatched by
          * GDK, so popup-at-pointer has no compositor-owned trigger event to

@@ -370,6 +370,10 @@ void noctty_grid_drag_dest_set(
     gpointer targets,
     int target_count,
     unsigned int actions);
+void noctty_grid_widget_show_all(GtkWidget *widget);
+void noctty_grid_widget_set_app_paintable(
+    GtkWidget *widget, gboolean app_paintable);
+void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);
