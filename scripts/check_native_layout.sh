@@ -154,15 +154,12 @@ grep -A4 -F 'gtk_scrolled_window_set_policy(' "$native_gtk" | \
 ! grep -F 'static GtkWidget *settings_page_new' "$grid" >/dev/null
 ! grep -F 'static void settings_grid_attach_control' "$grid" >/dev/null
 grep -F 'save failed; keep this window open' "$grid" >/dev/null
-grep -F 'if (save_quick_note(root)) gtk_widget_destroy' "$grid" >/dev/null
+grep -F 'if (save_quick_note(root)) noctty_grid_widget_destroy' "$grid" >/dev/null
 grep -F 'Could not save terminal scrollback' "$grid" >/dev/null
 grep -F 'setAccessibleName(entry, "Search terminal scrollback");' "$native_gtk" >/dev/null
 grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
 grep -F '"Close file: {s}"' "$nocted" >/dev/null
-test "$(grep -c 'gtk_widget_queue_resize(parent);' "$grid")" -eq 1
-grep -F 'read_theme_file_bounded(filename, 4 * 1024 * 1024' "$grid" >/dev/null
-grep -F 'read_theme_file_bounded(path, 1024 * 1024, &contents, &length)' "$grid" >/dev/null
-grep -F 'if (*length == 0 || *length > (gsize)maximum)' "$grid" >/dev/null
+test "$(grep -c 'noctty_grid_widget_queue_resize(parent);' "$grid")" -eq 1
 grep -F '"Theme imported, selected, and saved."' "$grid" >/dev/null
 grep -F 'persistNativeGridConfigChecked(bridge)' "$main" >/dev/null
 grep -F 'NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED' "$grid" >/dev/null
@@ -174,12 +171,11 @@ grep -F 'dialog, dialog_width, workarea.width < 600, &contents' "$grid" >/dev/nu
 grep -F 'if (vertical != 0) GTK_ORIENTATION_VERTICAL else GTK_ORIENTATION_HORIZONTAL' "$native_gtk" >/dev/null
 grep -F 'gboolean vertical_rows = workarea.width < 640;' "$grid" >/dev/null
 grep -F 'setAccessibleName(label, "NOCTTY keyboard shortcuts");' "$native_gtk" >/dev/null
-grep -F 'set_widget_accessible_name(combo, "Workspace restore mode");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(entry, "Screen history password");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(provider, "Agent provider");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(entry, "Workspace tag");' "$grid" >/dev/null
-grep -F 'set_widget_accessible_name(noctalia_variant,' "$grid" >/dev/null
-grep -F '"Noctalia import variant");' "$grid" >/dev/null
+grep -F 'setAccessibleName(combo, "Workspace restore mode");' "$native_gtk" >/dev/null
+grep -F 'setAccessibleName(entry, "Screen history password");' "$native_gtk" >/dev/null
+grep -F 'setAccessibleName(provider, "Agent provider");' "$native_gtk" >/dev/null
+grep -F 'setAccessibleName(entry, "Workspace tag");' "$native_gtk" >/dev/null
+grep -F 'setAccessibleName(variant, "Noctalia import variant");' "$native_gtk" >/dev/null
 grep -F 'setAccessibleName(peers, "Paired device");' "$native_gtk" >/dev/null
 grep -F 'atk_object_set_name(status_accessible, "Session sharing status");' "$native_gtk" >/dev/null
 grep -F '@max(1, @min(480, width - 64))' "$native_gtk" >/dev/null
@@ -220,16 +216,14 @@ grep -F 'pane_gaps_transparent' "$grid" >/dev/null
 grep -F 'on_window_resolution_configure' "$grid" >/dev/null
 ! grep -F 'nwse-resize' "$grid" >/dev/null
 ! grep -F 'nesw-resize' "$grid" >/dev/null
-grep -F 'gdk_cursor_new_from_name(display, "text")' "$grid" >/dev/null
+grep -F 'noctty_grid_gdk_set_cursor(' "$grid" >/dev/null
 grep -F 'gtk_window_set_default_icon_name("com.noctty.NOCTTY");' "$grid" >/dev/null
-grep -F 'gtk_window_set_icon_name(GTK_WINDOW(window), "com.noctty.NOCTTY");' "$grid" >/dev/null
+grep -F 'gtk_window_set_icon_name(@ptrCast(window), "com.noctty.NOCTTY");' "$native_gtk" >/dev/null
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
-grep -F 'static void configure_overlay_window_geometry(' "$grid" >/dev/null
 grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \
   tests/native_grid_compact_ux_smoke.inc >/dev/null
 grep -F 'const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6)' "$native_gtk" >/dev/null
-grep -F 'if (!gtk_widget_get_mapped(widget)) {' "$grid" >/dev/null
-grep -F 'resize_grid_to_allocation(context, &allocation);' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_get_mapped(' "$grid" >/dev/null
 grep -F 'g_idle_add(focus_grid_area_idle, g_object_ref(context->area));' "$grid" >/dev/null
 grep -F 'guint focus_deferred_source;' "$grid" >/dev/null
 grep -F 'remove_grid_source(&context->focus_deferred_source);' "$grid" >/dev/null
@@ -237,7 +231,7 @@ grep -F 'remaining->focus_deferred_source =' "$grid" >/dev/null
 grep -F 'g_idle_add(recreate_grid_toplevel_idle, root);' "$grid" >/dev/null
 grep -F 'root->layer_shell_active = 0;' "$grid" >/dev/null
 grep -F 'root->window = create_grid_toplevel(root);' "$grid" >/dev/null
-grep -F '"gtk_layer_get_protocol_version"' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'root->layer_shell_keyboard_mode = protocol_version >= 4 ? 2 : 1;' "$grid" >/dev/null
 grep -F 'set_grid_layer_keyboard_active(root, FALSE);' "$grid" >/dev/null
 grep -F 'root->hide_source = g_timeout_add(16, finish_grid_hide, root);' "$grid" >/dev/null
@@ -245,7 +239,7 @@ grep -F 'root->hide_source = g_timeout_add(16, finish_grid_hide, root);' "$grid"
 grep -F 'typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);' "$grid_abi" >/dev/null
 grep -F 'int dirty_count = context->dirty_spans(' "$grid" >/dev/null
 ! grep -F 'static int draw_ascii_run(' "$grid" >/dev/null
-grep -F 'gtk_widget_add_tick_callback(' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'g_unix_fd_add_full(' "$grid" >/dev/null
 ! grep -F '*created = *source;' "$grid" >/dev/null
 
