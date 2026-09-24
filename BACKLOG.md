@@ -156,8 +156,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
-  Physical Windows behavior and isolated mapped GTK proof remain required
-  acceptance boundaries. `[truth:build,test,docs]`
+  The isolated mapped GTK proof now passes in Debug presentation mode and
+  ReleaseSafe full-stack mode under both private X11 and private Wayland
+  sessions; physical Windows behavior remains a separate required acceptance
+  boundary. `[truth:build,test,docs,external]`
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

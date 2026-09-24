@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
+  full-stack qualification pass under isolated X11 and Wayland sessions;
+  physical Windows acceptance remains external.
 - Routed GTK combo active IDs/text, file chooser filenames, list-box row
   lookup/selection, event-box stacking, and entry icon operations through the
   Zig adapter; C retains workspace and dialog policy.
