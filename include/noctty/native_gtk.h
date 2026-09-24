@@ -411,6 +411,20 @@ void noctty_grid_window_begin_resize_drag(
     int root_y,
     unsigned int time);
 gboolean noctty_grid_events_pending(void);
+int noctty_grid_notebook_get_n_pages(gpointer notebook);
+int noctty_grid_notebook_get_current_page(gpointer notebook);
+GtkWidget *noctty_grid_notebook_get_nth_page(
+    gpointer notebook, int page_index);
+GtkWidget *noctty_grid_notebook_get_tab_label(
+    gpointer notebook, gpointer page);
+gboolean noctty_grid_notebook_get_show_tabs(gpointer notebook);
+GtkWidget *noctty_grid_notebook_get_action_widget(
+    gpointer notebook, int pack_type);
+int noctty_grid_notebook_get_tab_pos(gpointer notebook);
+int noctty_grid_notebook_page_num(gpointer notebook, gpointer page);
+void noctty_grid_notebook_reorder_child(
+    gpointer notebook, gpointer page, int page_index);
+void noctty_grid_notebook_remove_page(gpointer notebook, int page_index);
 void noctty_grid_main_iteration_do(gboolean blocking);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,

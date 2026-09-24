@@ -231,6 +231,19 @@ extern fn gtk_notebook_set_show_tabs(*GtkNotebook, c_int) void;
 extern fn gtk_notebook_set_show_border(*GtkNotebook, c_int) void;
 extern fn gtk_orientable_set_orientation(*GtkOrientable, c_int) void;
 extern fn gtk_notebook_set_current_page(*GtkNotebook, c_int) void;
+extern fn gtk_notebook_get_n_pages(*GtkNotebook) c_int;
+extern fn gtk_notebook_get_current_page(*GtkNotebook) c_int;
+extern fn gtk_notebook_get_nth_page(*GtkNotebook, c_int) ?*GtkWidget;
+extern fn gtk_notebook_get_tab_label(
+    *GtkNotebook, *GtkWidget) ?*GtkWidget;
+extern fn gtk_notebook_get_show_tabs(*GtkNotebook) c_int;
+extern fn gtk_notebook_get_action_widget(
+    *GtkNotebook, c_int) ?*GtkWidget;
+extern fn gtk_notebook_get_tab_pos(*GtkNotebook) c_int;
+extern fn gtk_notebook_page_num(*GtkNotebook, *GtkWidget) c_int;
+extern fn gtk_notebook_reorder_child(
+    *GtkNotebook, *GtkWidget, c_int) void;
+extern fn gtk_notebook_remove_page(*GtkNotebook, c_int) void;
 
 
 
@@ -2692,6 +2705,85 @@ pub export fn noctty_grid_notebook_select_page(
     const notebook = notebook_optional orelse return;
     if (page_index < 0) return;
     gtk_notebook_set_current_page(@ptrCast(notebook), page_index);
+}
+pub export fn noctty_grid_notebook_get_n_pages(
+    notebook_optional: ?*anyopaque,
+) c_int {
+    const notebook = notebook_optional orelse return 0;
+    return gtk_notebook_get_n_pages(@ptrCast(notebook));
+}
+
+pub export fn noctty_grid_notebook_get_current_page(
+    notebook_optional: ?*anyopaque,
+) c_int {
+    const notebook = notebook_optional orelse return -1;
+    return gtk_notebook_get_current_page(@ptrCast(notebook));
+}
+
+pub export fn noctty_grid_notebook_get_nth_page(
+    notebook_optional: ?*anyopaque,
+    page_index: c_int,
+) ?*GtkWidget {
+    const notebook = notebook_optional orelse return null;
+    return gtk_notebook_get_nth_page(@ptrCast(notebook), page_index);
+}
+
+pub export fn noctty_grid_notebook_get_tab_label(
+    notebook_optional: ?*anyopaque,
+    page_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const notebook = notebook_optional orelse return null;
+    const page = page_optional orelse return null;
+    return gtk_notebook_get_tab_label(@ptrCast(notebook), @ptrCast(page));
+}
+
+pub export fn noctty_grid_notebook_get_show_tabs(
+    notebook_optional: ?*anyopaque,
+) c_int {
+    const notebook = notebook_optional orelse return FALSE;
+    return gtk_notebook_get_show_tabs(@ptrCast(notebook));
+}
+
+pub export fn noctty_grid_notebook_get_action_widget(
+    notebook_optional: ?*anyopaque,
+    pack_type: c_int,
+) ?*GtkWidget {
+    const notebook = notebook_optional orelse return null;
+    return gtk_notebook_get_action_widget(@ptrCast(notebook), pack_type);
+}
+
+pub export fn noctty_grid_notebook_get_tab_pos(
+    notebook_optional: ?*anyopaque,
+) c_int {
+    const notebook = notebook_optional orelse return 0;
+    return gtk_notebook_get_tab_pos(@ptrCast(notebook));
+}
+
+pub export fn noctty_grid_notebook_page_num(
+    notebook_optional: ?*anyopaque,
+    page_optional: ?*anyopaque,
+) c_int {
+    const notebook = notebook_optional orelse return -1;
+    const page = page_optional orelse return -1;
+    return gtk_notebook_page_num(@ptrCast(notebook), @ptrCast(page));
+}
+
+pub export fn noctty_grid_notebook_reorder_child(
+    notebook_optional: ?*anyopaque,
+    page_optional: ?*anyopaque,
+    page_index: c_int,
+) void {
+    const notebook = notebook_optional orelse return;
+    const page = page_optional orelse return;
+    gtk_notebook_reorder_child(@ptrCast(notebook), @ptrCast(page), page_index);
+}
+
+pub export fn noctty_grid_notebook_remove_page(
+    notebook_optional: ?*anyopaque,
+    page_index: c_int,
+) void {
+    const notebook = notebook_optional orelse return;
+    gtk_notebook_remove_page(@ptrCast(notebook), page_index);
 }
 
 

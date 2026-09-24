@@ -1868,8 +1868,8 @@ static void on_smart_filter_empty_clear_clicked(GtkButton *button, gpointer user
 static void apply_smart_filter(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *page = root->notebook != NULL
-        ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
-                                    gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)))
+        ? noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+                                    noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)))
         : NULL;
     NocttyGridContext *first_visible = NULL;
     gboolean focused_visible = FALSE;
@@ -1954,12 +1954,12 @@ static void focus_notebook_page(NocttyGridContext *context, GtkWidget *page) {
 
 static gboolean cycle_grid_tab(NocttyGridContext *context, int direction) {
     NocttyGridContext *root = root_grid_context(context);
-    gint count = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
+    gint count = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
     if (count < 2) return FALSE;
-    gint current = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    gint current = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
     gint next = noctty_grid_cycle_target(count, current, TRUE, direction);
     if (next < 0) return FALSE;
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), next);
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), next);
     if (page == NULL) return FALSE;
     noctty_grid_notebook_select_page(root->notebook, next);
     focus_notebook_page(root, page);
@@ -2058,10 +2058,10 @@ static void show_tab_cycle_feedback(NocttyGridContext *context,
 
 static void show_active_tab_cycle_feedback(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gint count = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
-    gint index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    gint count = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
+    gint index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
     if (count <= 0 || index < 0) return;
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 index);
     NocttyGridContext *target = focused_grid_context(root);
     if (target == NULL || target->page != page)
@@ -2072,8 +2072,8 @@ static void show_active_tab_cycle_feedback(NocttyGridContext *context) {
 
 static gboolean cycle_grid_pane(NocttyGridContext *context, int direction) {
     NocttyGridContext *root = root_grid_context(context);
-    gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 page_index);
     NocttyGridContext *current = focused_grid_context(context);
     guint count = 0;
@@ -2285,9 +2285,9 @@ static gboolean announce_reorder_drag_smoke(gpointer user_data) {
     }
     NocttyGridContext *source = g_ptr_array_index(root->contexts, 0);
     NocttyGridContext *target = g_ptr_array_index(root->contexts, 2);
-    GtkWidget *source_tab = gtk_notebook_get_tab_label(
+    GtkWidget *source_tab = noctty_grid_notebook_get_tab_label(
         GTK_NOTEBOOK(root->notebook), source->page);
-    GtkWidget *target_tab = gtk_notebook_get_tab_label(
+    GtkWidget *target_tab = noctty_grid_notebook_get_tab_label(
         GTK_NOTEBOOK(root->notebook), target->page);
     GtkAllocation source_allocation;
     GtkAllocation target_allocation;
@@ -2330,12 +2330,12 @@ static gboolean check_reorder_smoke(gpointer user_data) {
     NocttyGridContext *first = g_ptr_array_index(root->contexts, 0);
     NocttyGridContext *second = g_ptr_array_index(root->contexts, 1);
     NocttyGridContext *third = g_ptr_array_index(root->contexts, 2);
-    GtkWidget *page_zero = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 0);
-    GtkWidget *page_one = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 1);
-    GtkWidget *page_two = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 2);
-    GtkWidget *active = gtk_notebook_get_nth_page(
+    GtkWidget *page_zero = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 0);
+    GtkWidget *page_one = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 1);
+    GtkWidget *page_two = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 2);
+    GtkWidget *active = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
     gboolean valid = page_zero == second->page && page_one == third->page &&
         page_two == first->page && active == third->page &&
         root->tab_reorder_pointer_press_seen &&
@@ -2473,9 +2473,9 @@ static gboolean emit_alt_scroll_next_smoke(gpointer user_data) {
                    focused != NULL && grid_context_owns_window_focus(focused),
                    focused != NULL && focused->pane_cycle_feedback_visible);
     root->alt_scroll_current_tab = root->alt_scroll_cycle_next &&
-        gtk_notebook_get_nth_page(
+        noctty_grid_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook),
-            gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook))) ==
+            noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook))) ==
             root->alt_scroll_start_page;
     return G_SOURCE_REMOVE;
 }
@@ -2510,16 +2510,16 @@ static gboolean emit_alt_scroll_previous_smoke(gpointer user_data) {
 static gboolean emit_ctrl_alt_scroll_next_smoke(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
     NocttyGridContext *root = root_grid_context(context);
-    gint count = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
-    gint before = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    gint count = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
+    gint before = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
     root->ctrl_alt_scroll_start_page = context->page;
     GdkEventScroll event = {0};
     event.type = GDK_SCROLL;
     event.direction = GDK_SCROLL_DOWN;
     event.state = GDK_CONTROL_MASK | GDK_MOD1_MASK;
     gboolean handled = on_scroll(context->area, &event, context);
-    gint after = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    gint after = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 after);
     NocttyGridContext *focused = focused_grid_context(root);
     root->ctrl_alt_scroll_cycle_next = handled && count >= 2 &&
@@ -2551,8 +2551,8 @@ static gboolean emit_ctrl_alt_scroll_previous_smoke(gpointer user_data) {
     event.direction = GDK_SCROLL_UP;
     event.state = GDK_CONTROL_MASK | GDK_MOD1_MASK;
     gboolean handled = on_scroll(context->area, &event, context);
-    gint after = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    gint after = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 after);
     NocttyGridContext *focused = focused_grid_context(root);
     root->ctrl_alt_scroll_cycle_previous = handled && feedback_drawn &&
@@ -2636,14 +2636,14 @@ static gboolean emit_alt_scroll_filtered_smoke(gpointer user_data) {
 static gboolean emit_smart_tab_cycle_shortcut_smoke(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
     NocttyGridContext *root = root_grid_context(context);
-    gint before = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    gint before = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
     GdkEventKey event = {0};
     event.type = GDK_KEY_PRESS;
     event.keyval = GDK_KEY_ISO_Left_Tab;
     event.state = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
     gboolean handled = on_key_press(context->area, &event, context);
-    gint after = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), after);
+    gint after = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), after);
     NocttyGridContext *target = grid_context_for_page(root, page);
     const gchar *label = target != NULL && target->tab_label != NULL
         ? gtk_label_get_text(GTK_LABEL(target->tab_label)) : "";
@@ -2717,9 +2717,9 @@ static gboolean finish_tab_navigation_smoke(gpointer user_data) {
 
 static gboolean start_tab_navigation_interactions(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gint page_index = gtk_notebook_get_current_page(
+    gint page_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     guint visible_drawn = 0;
     for (guint index = 0; root->contexts != NULL &&
@@ -2734,7 +2734,7 @@ static gboolean start_tab_navigation_interactions(gpointer user_data) {
     }
     NocttyGridContext *focus_target = focused_grid_context(root);
     gboolean surfaces_ready =
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
         page_index == 1 && visible_drawn == 2 &&
         root->window_presented && noctty_grid_widget_get_mapped(root->window) &&
         focus_target != NULL && focus_target->area != NULL;
@@ -2749,7 +2749,7 @@ static gboolean start_tab_navigation_interactions(gpointer user_data) {
     root->project_smoke_attempts = 0;
     if (!surfaces_ready || !grid_context_owns_window_focus(focus_target)) {
         g_printerr("native_grid_navigation_start pages=%d page=%d visible_drawn=%u window_presented=%d window_mapped=%d focus_target=%d widget_focus=%d\n",
-                   gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
+                   noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
                    page_index, visible_drawn, root->window_presented,
                    noctty_grid_widget_get_mapped(root->window),
                    focus_target != NULL && focus_target->area != NULL,
@@ -2778,8 +2778,8 @@ static gboolean start_tab_navigation_interactions(gpointer user_data) {
 static NocttyGridContext *active_grid_context(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->notebook != NULL) {
-        gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                     page_index);
         for (guint index = 0; root->contexts != NULL &&
              index < root->contexts->len; index++) {
@@ -3053,7 +3053,7 @@ static gboolean finish_workspace_smoke(gpointer user_data) {
         pending_page = selected->page;
     if (!visual_ready && root->workspace_visual_attempts++ < 200) {
         if (pending_page != NULL) {
-            gint page_index = gtk_notebook_page_num(
+            gint page_index = noctty_grid_notebook_page_num(
                 GTK_NOTEBOOK(root->notebook), pending_page);
             if (page_index >= 0)
                 noctty_grid_notebook_select_page(root->notebook, page_index);
@@ -3071,7 +3071,7 @@ static gboolean finish_workspace_smoke(gpointer user_data) {
     }
     root->workspace_visual_attempts = 0;
     if (selected != NULL && selected->page != NULL) {
-        gint page_index = gtk_notebook_page_num(
+        gint page_index = noctty_grid_notebook_page_num(
             GTK_NOTEBOOK(root->notebook), selected->page);
         if (page_index >= 0)
             noctty_grid_notebook_select_page(root->notebook, page_index);
@@ -4852,7 +4852,7 @@ static gchar *current_tab_title_alloc(NocttyGridContext *context) {
             g_free(basename);
         }
     }
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook),
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                             context->page);
     return g_strdup_printf("Tab %d", page_index >= 0 ? page_index + 1 : 1);
 }
@@ -4912,10 +4912,10 @@ static void update_compact_tab(NocttyGridContext *context) {
     char pane_suffix[32] = {0};
     if (panes > 1)
         g_snprintf(pane_suffix, sizeof(pane_suffix), " ×%u", panes);
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook),
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                             context->page);
     gboolean is_active = page_index >= 0 &&
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == page_index;
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == page_index;
     gchar *title_color_attribute = tab_color_rgb != 0
         ? g_strdup_printf(
               " foreground='%s'",
@@ -5175,7 +5175,7 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     if (root->tab_rename_entry != NULL) finish_tab_rename(root, FALSE);
 
     GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     if (!GTK_IS_EVENT_BOX(tab_widget)) return;
     GtkWidget *content = gtk_bin_get_child(GTK_BIN(tab_widget));
@@ -5216,10 +5216,10 @@ static gboolean on_tab_button_press(GtkWidget *widget, GdkEventButton *event,
     if (page == NULL) return FALSE;
     NocttyGridContext *root = root_grid_context(user_data);
     if (event->button == 1 && event->type == GDK_BUTTON_PRESS) {
-        gint active_index = gtk_notebook_get_current_page(
+        gint active_index = noctty_grid_notebook_get_current_page(
             GTK_NOTEBOOK(root->notebook));
         root->tab_reorder_pressed_active_page = active_index >= 0
-            ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+            ? noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                         active_index)
             : NULL;
         root->tab_reorder_pointer_press_seen = 1;
@@ -5257,10 +5257,10 @@ static void on_notebook_drag_begin(GtkWidget *widget, GdkDragContext *drag,
     root->tab_reorder_drag_active_page =
         root->tab_reorder_pressed_active_page;
     if (root->tab_reorder_drag_active_page == NULL) {
-        gint active_index = gtk_notebook_get_current_page(
+        gint active_index = noctty_grid_notebook_get_current_page(
             GTK_NOTEBOOK(root->notebook));
         root->tab_reorder_drag_active_page = active_index >= 0
-            ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+            ? noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                         active_index)
             : NULL;
     }
@@ -5273,7 +5273,7 @@ static void on_notebook_drag_end(GtkWidget *widget, GdkDragContext *drag,
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *active_page = root->tab_reorder_drag_active_page;
     if (active_page != NULL) {
-        gint active_index = gtk_notebook_page_num(
+        gint active_index = noctty_grid_notebook_page_num(
             GTK_NOTEBOOK(root->notebook), active_page);
         if (active_index >= 0)
             noctty_grid_notebook_select_page(root->notebook, active_index);
@@ -5332,9 +5332,9 @@ static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
         ? root->tab_reorder_drag_active_page
         : root->tab_reorder_pressed_active_page;
     if (active_page == NULL) {
-        gint active_index = gtk_notebook_get_current_page(notebook);
+        gint active_index = noctty_grid_notebook_get_current_page(notebook);
         active_page = active_index >= 0
-            ? gtk_notebook_get_nth_page(notebook, active_index) : NULL;
+            ? noctty_grid_notebook_get_nth_page(notebook, active_index) : NULL;
     }
     if (noctty_grid_reorder_tab(root->event_data, representative->pane_id,
                                 (int)page_num) != 0) {
@@ -5342,14 +5342,14 @@ static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
             root->event_data, representative->pane_id);
         if (model_index >= 0) {
             root->tab_reorder_syncing = 1;
-            gtk_notebook_reorder_child(notebook, page, model_index);
+            noctty_grid_notebook_reorder_child(notebook, page, model_index);
             root->tab_reorder_syncing = 0;
         }
         return;
     }
     root->tab_reorder_count++;
     gint active_page_num = active_page != NULL
-        ? gtk_notebook_page_num(notebook, active_page) : -1;
+        ? noctty_grid_notebook_page_num(notebook, active_page) : -1;
     if (active_page_num >= 0)
         noctty_grid_notebook_select_page(GTK_WIDGET(notebook), active_page_num);
     update_compact_tab(representative);
@@ -5481,11 +5481,11 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
         ? gtk_widget_get_accessible(button)
         : NULL;
     root->new_tab_button_visible = button != NULL &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
-        gtk_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
+        noctty_grid_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
         noctty_grid_widget_get_mapped(button);
     root->new_tab_button_at_start = button != NULL &&
-        gtk_notebook_get_action_widget(GTK_NOTEBOOK(root->notebook),
+        noctty_grid_notebook_get_action_widget(GTK_NOTEBOOK(root->notebook),
                                        GTK_PACK_START) == button;
     root->new_tab_button_icon = GTK_IS_IMAGE(icon) &&
         icon_size == GTK_ICON_SIZE_MENU &&
@@ -5494,21 +5494,21 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
         g_strcmp0(atk_object_get_name(accessible), "New Tab, Ctrl+Shift+T") == 0;
     if (button != NULL) gtk_button_clicked(GTK_BUTTON(button));
     root->new_tab_button_clicked =
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == 1;
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == 1;
     return G_SOURCE_REMOVE;
 }
 
 static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gint page_count = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
-    gint active_index = gtk_notebook_get_current_page(
+    gint page_count = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
+    gint active_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
     GtkWidget *page = active_index >= 0
-        ? gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), active_index)
+        ? noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), active_index)
         : NULL;
     GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     GtkWidget *close = tab_close_button_from_widget(tab_widget);
     GtkWidget *close_icon = GTK_IS_BUTTON(close)
@@ -5532,7 +5532,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
     if (close != NULL) noctty_grid_widget_get_allocation(close, &close_allocation);
     if (root->new_tab_button != NULL)
         noctty_grid_widget_get_allocation(root->new_tab_button, &action_allocation);
-    GtkPositionType position = gtk_notebook_get_tab_pos(
+    GtkPositionType position = (GtkPositionType)noctty_grid_notebook_get_tab_pos(
         GTK_NOTEBOOK(root->notebook));
     gboolean horizontal = position == GTK_POS_TOP || position == GTK_POS_BOTTOM;
     root->compact_tab_strip_extent = horizontal
@@ -5543,9 +5543,9 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         : tab_allocation.width;
     root->compact_tab_max_width = tab_allocation.width;
     for (gint index = 1; index < page_count; index++) {
-        GtkWidget *candidate_page = gtk_notebook_get_nth_page(
+        GtkWidget *candidate_page = noctty_grid_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook), index);
-        GtkWidget *candidate_tab = gtk_notebook_get_tab_label(
+        GtkWidget *candidate_tab = noctty_grid_notebook_get_tab_label(
             GTK_NOTEBOOK(root->notebook), candidate_page);
         GtkAllocation candidate_allocation = {0};
         if (candidate_tab != NULL)
@@ -5577,14 +5577,14 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
 
 static gboolean request_tab_rename_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gint page_index = gtk_notebook_get_current_page(
+    gint page_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), 1);
-    GtkWidget *tab_widget = gtk_notebook_get_tab_label(
+    GtkWidget *tab_widget = noctty_grid_notebook_get_tab_label(
         GTK_NOTEBOOK(root->notebook), page);
     NocttyGridContext *target = grid_context_for_page(root, page);
-    gboolean ready = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+    gboolean ready = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
         page_index == 1 && page != NULL && tab_widget != NULL &&
         noctty_grid_widget_get_mapped(tab_widget) && target != NULL &&
         root->saw_draw && target->saw_draw;
@@ -5663,9 +5663,9 @@ static gboolean request_tab_rename_smoke(gpointer user_data) {
 
 static void apply_panel_layout_metrics(NocttyGridContext *root) {
     if (GTK_IS_NOTEBOOK(root->notebook)) {
-        int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
+        int pages = noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook));
         for (int index = 0; index < pages; index++) {
-            GtkWidget *page = gtk_notebook_get_nth_page(
+            GtkWidget *page = noctty_grid_notebook_get_nth_page(
                 GTK_NOTEBOOK(root->notebook), index);
             if (GTK_IS_CONTAINER(page))
                 noctty_container_set_border_width(
@@ -5704,7 +5704,7 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
 static void update_notebook_chrome(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     gboolean show = root->zoomed_pane_id == 0 &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
     noctty_grid_notebook_apply_policy(
         root->notebook, root->window_toolbar_controls,
         root->tab_position, show);
@@ -6663,8 +6663,8 @@ static GtkWidget *grid_page_content_root(NocttyGridContext *context,
 static void refresh_active_pane_info(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->notebook == NULL) return;
-    gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     GtkWidget *strip = pane_info_strip_for_page(page);
     if (strip == NULL) return;
@@ -6694,7 +6694,7 @@ static gboolean add_grid_tab(NocttyGridContext *source, NocttyGridContext *creat
     created->page = page;
     noctty_box_pack_start(page, created->area, TRUE, TRUE, 0);
     gchar *label_text = g_strdup_printf("Tab %u",
-                                        gtk_notebook_get_n_pages(GTK_NOTEBOOK(source->notebook)) + 1);
+                                        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(source->notebook)) + 1);
     GtkWidget *tab_widget = create_compact_tab_widget(source, page, label_text);
     GtkWidget *tab_label = tab_label_from_widget(tab_widget);
     created->tab_label = tab_label;
@@ -7055,7 +7055,7 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
         pages[tab_index] = page;
     }
     if (root_tab != 0)
-        gtk_notebook_reorder_child(GTK_NOTEBOOK(root->notebook),
+        noctty_grid_notebook_reorder_child(GTK_NOTEBOOK(root->notebook),
                                    root->page, root_tab);
 
     int pane_total = 0;
@@ -7076,7 +7076,7 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
         }
         if (tab_index == active_tab) active_pane_id = tab_active_pane_id;
         GtkWidget *page = pages[tab_index];
-        GtkWidget *tab_widget = gtk_notebook_get_tab_label(
+        GtkWidget *tab_widget = noctty_grid_notebook_get_tab_label(
             GTK_NOTEBOOK(root->notebook), page);
         GtkWidget *tab_label = tab_label_from_widget(tab_widget);
         for (int pane_index = 0; pane_index < pane_count; pane_index++) {
@@ -7188,10 +7188,10 @@ static gboolean detach_grid_context(NocttyGridContext *source) {
     if (source->page == NULL) return FALSE;
     if (grid_contexts_on_page(source, source->page) == 1) {
         gint page_index =
-            gtk_notebook_page_num(GTK_NOTEBOOK(source->notebook), source->page);
+            noctty_grid_notebook_page_num(GTK_NOTEBOOK(source->notebook), source->page);
         if (page_index < 0) return FALSE;
         g_object_ref(source->area);
-        gtk_notebook_remove_page(GTK_NOTEBOOK(source->notebook), page_index);
+        noctty_grid_notebook_remove_page(GTK_NOTEBOOK(source->notebook), page_index);
         update_notebook_chrome(source);
         return TRUE;
     }
@@ -7315,7 +7315,7 @@ static gboolean attach_grid_context(NocttyGridContext *source,
     source->tab_label = target->tab_label;
     source->pane_move_applied = 1;
     target->pane_move_applied = 1;
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(source->notebook),
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(source->notebook),
                                             target->page);
     if (page_index >= 0) {
         noctty_grid_notebook_select_page(source->notebook, page_index);
@@ -7540,7 +7540,7 @@ static gboolean focus_grid_context_idle(gpointer user_data) {
     if (!grid_context_session_available(context) || context->exited ||
         context->area == NULL || context->page == NULL) return G_SOURCE_REMOVE;
     NocttyGridContext *root = root_grid_context(context);
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook),
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                             context->page);
     if (page_index >= 0)
         noctty_grid_notebook_select_page(root->notebook, page_index);
@@ -7679,10 +7679,10 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
     GtkWidget *page = context->page;
     gboolean rendered_closed = FALSE;
     if (model_tab_closed != 0) {
-        gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook),
+        gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                                 page);
         if (page_index >= 0) {
-            gtk_notebook_remove_page(GTK_NOTEBOOK(root->notebook), page_index);
+            noctty_grid_notebook_remove_page(GTK_NOTEBOOK(root->notebook), page_index);
             rendered_closed = TRUE;
         }
     } else if (detach_grid_context(context)) {
@@ -7710,7 +7710,7 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
             remaining, grid_page_content_root(remaining, page));
     }
     if (remaining != NULL && remaining->active && remaining->area != NULL) {
-        gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook),
+        gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                                 remaining->page);
         if (page_index >= 0)
             noctty_grid_notebook_select_page(root->notebook, page_index);
@@ -7741,8 +7741,8 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
 static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page) {
     NocttyGridContext *root = root_grid_context(context);
     if (page == NULL || root->notebook == NULL ||
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) <= 1) return FALSE;
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(root->notebook), page);
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) <= 1) return FALSE;
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook), page);
     NocttyGridContext *representative = grid_context_for_page(root, page);
     guint context_count = grid_contexts_on_page(root, page);
     if (page_index < 0 || representative == NULL || context_count == 0 ||
@@ -7783,7 +7783,7 @@ static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page) {
         if (!candidate->primary) candidate->exited = 1;
     }
 
-    gtk_notebook_remove_page(GTK_NOTEBOOK(root->notebook), page_index);
+    noctty_grid_notebook_remove_page(GTK_NOTEBOOK(root->notebook), page_index);
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
@@ -7811,7 +7811,7 @@ static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page) {
         stopped_sessions == context_count &&
         context_count == (guint)model_pane_count;
     root->tab_close_applied = root->tab_close_session_stopped &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) >= 1;
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) >= 1;
     root->tab_close_remaining_focused = remaining->area != NULL &&
         gtk_widget_has_focus(remaining->area);
     return root->tab_close_applied;
@@ -8113,7 +8113,7 @@ static gboolean rebuild_grid_preset_page(
         noctty_grid_widget_queue_draw(ordered[index]->area);
         update_compact_tab(ordered[index]);
     }
-    gint page_index = gtk_notebook_page_num(GTK_NOTEBOOK(source->notebook),
+    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(source->notebook),
                                             page);
     if (page_index >= 0)
         noctty_grid_notebook_select_page(source->notebook, page_index);
@@ -8516,15 +8516,15 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_w || event->keyval == GDK_KEY_W)) {
-        gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
+        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
         root->tab_shortcut_close = close_grid_tab(root, page);
         return TRUE;
     }
     if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
         (event->keyval == GDK_KEY_r || event->keyval == GDK_KEY_R)) {
-        gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
+        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
         open_tab_rename(root, page);
         return TRUE;
     }
@@ -10194,7 +10194,7 @@ static void apply_grid_tab_position(NocttyGridContext *context, int value,
     if (value < 0 || value > 3) return;
     NocttyGridContext *root = root_grid_context(context);
     gboolean show = root->zoomed_pane_id == 0 &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
     noctty_grid_notebook_apply_policy(
         context->notebook, context->window_toolbar_controls, value, show);
     for (guint index = 0; context->contexts != NULL &&
@@ -12547,8 +12547,8 @@ static void execute_palette_action(NocttyGridContext *context, int id) {
         apply_grid_tab_position(context, position, TRUE);
     } else if (id == 17) {
         NocttyGridContext *root = root_grid_context(context);
-        gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
+        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
         open_tab_rename(root, page);
     } else if (id == 19) {
         on_smart_filter_button_clicked(NULL, context);
@@ -13833,9 +13833,9 @@ static gboolean adjust_tab_color_for_page(NocttyGridContext *context,
 static gboolean adjust_active_tab_color(NocttyGridContext *context,
                                         int delta) {
     NocttyGridContext *root = root_grid_context(context);
-    gint page_index = gtk_notebook_get_current_page(
+    gint page_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     return page != NULL && adjust_tab_color_for_page(root, page, delta);
 }
@@ -13924,7 +13924,7 @@ static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
     GtkWidget *color_menu = create_tab_color_menu(root, page);
     GtkWidget *menu = noctty_tab_context_menu_new(
         page, color_menu,
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 1,
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 1,
         G_CALLBACK(on_tab_close_menu_activate), root);
     if (menu == NULL) return;
     root->workspace_menu = menu;
@@ -13935,7 +13935,7 @@ static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
     noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_workspace_menu_destroy), root);
     noctty_grid_widget_show_all(menu);
-    GtkWidget *anchor = gtk_notebook_get_tab_label(
+    GtkWidget *anchor = noctty_grid_notebook_get_tab_label(
         GTK_NOTEBOOK(root->notebook), page);
     popup_menu_at_toplevel_pointer(
         root, menu, anchor != NULL ? anchor : root->notebook, event);
@@ -13982,12 +13982,12 @@ static gboolean darken_tab_color_smoke(gpointer user_data) {
 
 static gboolean lighten_tab_color_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gint page_index = gtk_notebook_get_current_page(
+    gint page_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     GtkWidget *content = GTK_IS_BIN(tab_widget)
         ? gtk_bin_get_child(GTK_BIN(tab_widget)) : NULL;
@@ -14065,12 +14065,12 @@ static gboolean choose_tab_color_smoke(gpointer user_data) {
 
 static gboolean request_tab_color_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gint page_index = gtk_notebook_get_current_page(
+    gint page_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     if (tab_widget == NULL) return G_SOURCE_REMOVE;
     GdkEventButton event = {0};
@@ -14095,15 +14095,15 @@ static gboolean finish_tab_close_smoke(gpointer user_data) {
     NocttyGridContext *remaining = active_grid_context(root);
     if (remaining->area != NULL)
         noctty_grid_focus_widget(NULL, remaining->area);
-    gint current_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-    GtkWidget *current_page = gtk_notebook_get_nth_page(
+    gint current_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
+    GtkWidget *current_page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), current_index);
     root->tab_close_remaining_focused = remaining->area != NULL &&
         remaining->pane_id == 2 && remaining->page == current_page;
     root->new_tab_button_visible_after_close =
         root->new_tab_button != NULL &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
-        gtk_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
+        noctty_grid_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
         noctty_grid_widget_get_mapped(root->new_tab_button);
     if (!root->tab_close_remaining_focused ||
         !root->new_tab_button_visible_after_close)
@@ -14111,8 +14111,8 @@ static gboolean finish_tab_close_smoke(gpointer user_data) {
                    remaining != NULL ? remaining->pane_id : 0,
                    current_index,
                    remaining != NULL && remaining->page == current_page,
-                   gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
-                   gtk_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)),
+                   noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
+                   noctty_grid_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)),
                    root->new_tab_button != NULL &&
                        noctty_grid_widget_get_mapped(root->new_tab_button));
     if (root->tab_close_remaining_focused &&
@@ -14133,10 +14133,10 @@ static gboolean probe_retired_tab_callback(gpointer user_data) {
 }
 
 static gboolean open_tab_close_smoke_menu(NocttyGridContext *root) {
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), 0);
     GtkWidget *tab_widget = page != NULL
-        ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
+        ? noctty_grid_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
     if (tab_widget == NULL || noctty_grid_widget_get_window(tab_widget) == NULL)
         return FALSE;
@@ -14198,10 +14198,10 @@ static gboolean focus_out_tab_close_smoke(gpointer user_data) {
 
 static gboolean request_tab_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 0);
-    GtkWidget *current = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), 0);
+    GtkWidget *current = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
     root->tab_close_targeted_background = page != NULL && page != current;
     if (!root->tab_close_targeted_background) return G_SOURCE_REMOVE;
     root->tab_close_smoke_attempts = 0;
@@ -14226,8 +14226,8 @@ static gboolean request_new_tab_after_close_smoke(gpointer user_data) {
         gtk_button_clicked(GTK_BUTTON(root->new_tab_button));
     NocttyGridContext *created = active_grid_context(root);
     root->new_tab_button_reopened_after_close =
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == 1;
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == 1;
     root->new_tab_button_fresh_context = retired_safely &&
         root->contexts != NULL && root->contexts->len == context_count + 1 &&
         created != NULL && created != retired && created != source &&
@@ -14243,16 +14243,16 @@ static gboolean cleanup_new_tab_after_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     int first_close_focused = root->tab_close_remaining_focused;
     int first_close_add_visible = root->new_tab_button_visible_after_close;
-    gint current_index = gtk_notebook_get_current_page(
+    gint current_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 current_index);
     gboolean closed =
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
         close_grid_tab(root, page);
     root->new_tab_button_cleanup = closed &&
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
-        gtk_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
+        noctty_grid_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
         root->new_tab_button != NULL &&
         noctty_grid_widget_get_mapped(root->new_tab_button);
     root->tab_close_remaining_focused = first_close_focused;
@@ -14683,9 +14683,9 @@ static gboolean finish_pane_close_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *closed = grid_context_for_pane(root, 1);
     NocttyGridContext *remaining = grid_context_for_pane(root, 2);
-    gint current_index = gtk_notebook_get_current_page(
+    gint current_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *current_page = gtk_notebook_get_nth_page(
+    GtkWidget *current_page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), current_index);
     root->pane_close_rendered_collapsed = closed != NULL &&
         !closed->active && closed->area == NULL && closed->page == NULL &&
@@ -14939,9 +14939,9 @@ static guint preset_unique_band_count(const gint *values, guint count) {
 static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
                                               guint rows, guint cols) {
     NocttyGridContext *root = root_grid_context(context);
-    gint current_index = gtk_notebook_get_current_page(
+    gint current_index = noctty_grid_notebook_get_current_page(
         GTK_NOTEBOOK(root->notebook));
-    GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook),
                                                 current_index);
     gint centers_x[16] = {0};
     gint centers_y[16] = {0};
@@ -15002,9 +15002,9 @@ static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
 static gboolean verify_layout_terminals_ready(NocttyGridContext *context,
                                                guint expected) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
     guint ready = 0;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
@@ -15036,9 +15036,9 @@ static gboolean verify_layout_terminals_ready(NocttyGridContext *context,
 
 static gboolean verify_layout_auto_fit(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
     guint count = 0;
     gboolean fitted = TRUE;
     gboolean overlay = TRUE;
@@ -15075,9 +15075,9 @@ static gboolean verify_layout_tui(NocttyGridContext *context) {
     const char *tui = g_getenv("NOCTTY_LAYOUT_TUI");
     NocttyGridContext *root = root_grid_context(context);
     if (tui == NULL || tui[0] == '\0') return TRUE;
-    GtkWidget *page = gtk_notebook_get_nth_page(
+    GtkWidget *page = noctty_grid_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook),
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
     guint rendered = 0;
     guint input = 0;
     for (guint index = 0; root->contexts != NULL &&
@@ -15149,9 +15149,9 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             root->layout_preset_4x4_applied && geometry && terminals && tui;
         if (!root->layout_preset_4x4_rendered &&
             root->layout_preset_smoke_attempts++ < 40) {
-            GtkWidget *page = gtk_notebook_get_nth_page(
+            GtkWidget *page = noctty_grid_notebook_get_nth_page(
                 GTK_NOTEBOOK(root->notebook),
-                gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+                noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
             if (page != NULL) queue_grid_preset_widget_draw(page, NULL);
             g_timeout_add(50, check_layout_preset_smoke, root);
             return G_SOURCE_REMOVE;
@@ -15203,9 +15203,9 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
         root->layout_preset_smoke_stage = 7;
         g_timeout_add(180, apply_layout_preset_smoke_stage, root);
     } else if (root->layout_preset_smoke_stage == 8) {
-        gint current_index = gtk_notebook_get_current_page(
+        gint current_index = noctty_grid_notebook_get_current_page(
             GTK_NOTEBOOK(root->notebook));
-        GtkWidget *production_page = gtk_notebook_get_nth_page(
+        GtkWidget *production_page = noctty_grid_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook), current_index);
         gboolean geometry = verify_layout_preset_geometry(root, 4, 4);
         gboolean terminals = verify_layout_terminals_ready(root, 16);
@@ -15215,9 +15215,9 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             geometry && terminals && auto_fit && tui;
         root->layout_preset_4x4_rendered = rendered;
         if (!rendered && root->layout_preset_smoke_attempts++ < 40) {
-            GtkWidget *page = gtk_notebook_get_nth_page(
+            GtkWidget *page = noctty_grid_notebook_get_nth_page(
                 GTK_NOTEBOOK(root->notebook),
-                gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
+                noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)));
             if (page != NULL) {
                 noctty_grid_widget_queue_resize(page);
                 queue_grid_preset_widget_draw(page, NULL);
@@ -15229,9 +15229,9 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             (void)close_grid_tab(root, production_page);
         finish_layout_preset_smoke_sessions(root);
     } else if (root->layout_preset_smoke_stage == 7) {
-        gint source_index = gtk_notebook_page_num(
+        gint source_index = noctty_grid_notebook_page_num(
             GTK_NOTEBOOK(root->notebook), root->page);
-        GtkWidget *overflow_page = gtk_notebook_get_nth_page(
+        GtkWidget *overflow_page = noctty_grid_notebook_get_nth_page(
             GTK_NOTEBOOK(root->notebook), source_index == 0 ? 1 : 0);
         if (source_index >= 0)
             noctty_grid_notebook_select_page(root->notebook, source_index);
@@ -15251,7 +15251,7 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             verify_layout_preset_geometry(root, 1, 1) &&
             root->layout_preset_prompt_accepted == 1 &&
             root->layout_preset_moved_count == 15 &&
-            gtk_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
+            noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
             grid_contexts_on_page(root, overflow_page) == 15 &&
             sessions_ready;
         remaining = root;
@@ -16783,13 +16783,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
             !candidate->pty_event_source_started) contexts_ok = 0;
     }
     GtkPositionType final_tab_position =
-        gtk_notebook_get_tab_pos(GTK_NOTEBOOK(context.notebook));
+        (GtkPositionType)noctty_grid_notebook_get_tab_pos(GTK_NOTEBOOK(context.notebook));
     gint final_page_count =
-        gtk_notebook_get_n_pages(GTK_NOTEBOOK(context.notebook));
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(context.notebook));
     gint final_active_page =
-        gtk_notebook_get_current_page(GTK_NOTEBOOK(context.notebook));
+        noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(context.notebook));
     gboolean final_tabs_visible =
-        gtk_notebook_get_show_tabs(GTK_NOTEBOOK(context.notebook));
+        noctty_grid_notebook_get_show_tabs(GTK_NOTEBOOK(context.notebook));
     int resize_grip_request_height = -1;
     if (context.resize_grip != NULL)
         gtk_widget_get_size_request(context.resize_grip, NULL,
@@ -16831,9 +16831,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     int hot_session_titles_rendered = 0;
     int hot_session_color_rendered = 0;
     for (gint page_index = 0; page_index < final_page_count; page_index++) {
-        GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(context.notebook),
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(context.notebook),
                                                     page_index);
-        GtkWidget *tab_widget = gtk_notebook_get_tab_label(
+        GtkWidget *tab_widget = noctty_grid_notebook_get_tab_label(
             GTK_NOTEBOOK(context.notebook), page);
         GtkWidget *label = tab_label_from_widget(tab_widget);
         const gchar *text = GTK_IS_LABEL(label)
