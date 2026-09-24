@@ -9569,18 +9569,20 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
-    int width = noctty_grid_dropdown_dimension(
+    int dropdown_width = noctty_grid_dropdown_dimension(
         root->dropdown_width_px, root->dropdown_width_percent,
         workarea.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
-    int height = noctty_grid_dropdown_dimension(
+    int dropdown_height = noctty_grid_dropdown_dimension(
         root->dropdown_height_px, root->dropdown_height_percent,
         workarea.height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
-    noctty_grid_window_resize(root->window, width, height);
-    if (root->mode == 0)
-        noctty_grid_window_move(
-            root->window,
-            workarea.x + (workarea.width - width) / 2,
-            workarea.y);
+    NocttyGridAdaptiveWindowGeometry geometry = {0};
+    if (!noctty_grid_adapt_window_geometry(
+            0, 0, 0, 0, 0,
+            workarea.x, workarea.y, workarea.width, workarea.height,
+            dropdown_width, dropdown_height, &geometry))
+        return;
+    noctty_grid_window_resize(root->window, geometry.width, geometry.height);
+    noctty_grid_window_move(root->window, geometry.x, geometry.y);
 }
 
 static void apply_window_dimensions(NocttyGridContext *context) {
