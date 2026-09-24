@@ -2298,18 +2298,18 @@ static gboolean announce_reorder_drag_smoke(gpointer user_data) {
     if (source_tab == NULL || target_tab == NULL) return G_SOURCE_REMOVE;
     noctty_grid_widget_get_allocation(source_tab, &source_allocation);
     noctty_grid_widget_get_allocation(target_tab, &target_allocation);
-    if (!gtk_widget_translate_coordinates(
+    if (!noctty_grid_widget_translate_coordinates(
             source_tab, root->window,
             MAX(4, source_allocation.width / 3),
             MAX(4, source_allocation.height / 2),
             &source_x, &source_y) ||
-        !gtk_widget_translate_coordinates(
+        !noctty_grid_widget_translate_coordinates(
             target_tab, root->window,
             MAX(4, target_allocation.width - 3),
             MAX(4, target_allocation.height / 2),
             &target_x, &target_y))
         return G_SOURCE_REMOVE;
-    GdkWindow *native_window = gtk_widget_get_window(root->window);
+    GdkWindow *native_window = noctty_grid_widget_get_window(root->window);
     if (native_window == NULL) return G_SOURCE_CONTINUE;
     gint origin_x = 0;
     gint origin_y = 0;
@@ -7872,7 +7872,7 @@ static gboolean focus_grid_direction(NocttyGridContext *context, int dx, int dy)
     gint source_x = 0, source_y = 0;
     GtkAllocation source_allocation;
     noctty_grid_widget_get_allocation(context->area, &source_allocation);
-    if (!gtk_widget_translate_coordinates(context->area, root->window, 0, 0,
+    if (!noctty_grid_widget_translate_coordinates(context->area, root->window, 0, 0,
                                           &source_x, &source_y)) return FALSE;
     NocttyGridRectangle source = {
         .x = source_x,
@@ -7894,7 +7894,7 @@ static gboolean focus_grid_direction(NocttyGridContext *context, int dx, int dy)
         gint x = 0, y = 0;
         GtkAllocation allocation;
         noctty_grid_widget_get_allocation(candidate->area, &allocation);
-        if (!gtk_widget_translate_coordinates(candidate->area, root->window,
+        if (!noctty_grid_widget_translate_coordinates(candidate->area, root->window,
                                               0, 0, &x, &y))
             continue;
         NocttyGridRectangle rectangle = {
@@ -9247,7 +9247,7 @@ static void set_grid_layer_keyboard_active(NocttyGridContext *context,
 
 static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     GdkDisplay *display = gtk_widget_get_display(window);
-    GdkWindow *gdk_window = gtk_widget_get_window(window);
+    GdkWindow *gdk_window = noctty_grid_widget_get_window(window);
     GdkMonitor *monitor = gdk_window != NULL
         ? gdk_display_get_monitor_at_window(display, gdk_window)
         : NULL;
@@ -9611,7 +9611,7 @@ static void apply_fullscreen_dimensions(NocttyGridContext *context) {
             break;
         }
     }
-    GdkWindow *gdk_window = gtk_widget_get_window(root->window);
+    GdkWindow *gdk_window = noctty_grid_widget_get_window(root->window);
     if (gdk_window == NULL) {
         noctty_grid_window_set_fullscreen(root->window, TRUE);
     } else {
@@ -13900,9 +13900,9 @@ static void popup_menu_at_toplevel_pointer(
     gint x = event != NULL ? (gint)event->x : 0;
     gint y = event != NULL ? (gint)event->y : 0;
     if (anchor != root->window)
-        (void)gtk_widget_translate_coordinates(
+        (void)noctty_grid_widget_translate_coordinates(
             anchor, root->window, x, y, &x, &y);
-    GdkWindow *window = gtk_widget_get_window(root->window);
+    GdkWindow *window = noctty_grid_widget_get_window(root->window);
     if (window == NULL) {
         gtk_menu_popup_at_widget(GTK_MENU(menu), anchor,
                                  GDK_GRAVITY_SOUTH_WEST,
@@ -14075,7 +14075,7 @@ static gboolean request_tab_color_smoke(gpointer user_data) {
     if (tab_widget == NULL) return G_SOURCE_REMOVE;
     GdkEventButton event = {0};
     event.type = GDK_BUTTON_PRESS;
-    event.window = gtk_widget_get_window(tab_widget);
+    event.window = noctty_grid_widget_get_window(tab_widget);
     event.send_event = TRUE;
     event.time = GDK_CURRENT_TIME;
     event.button = 3;
@@ -14138,11 +14138,11 @@ static gboolean open_tab_close_smoke_menu(NocttyGridContext *root) {
     GtkWidget *tab_widget = page != NULL
         ? gtk_notebook_get_tab_label(GTK_NOTEBOOK(root->notebook), page)
         : NULL;
-    if (tab_widget == NULL || gtk_widget_get_window(tab_widget) == NULL)
+    if (tab_widget == NULL || noctty_grid_widget_get_window(tab_widget) == NULL)
         return FALSE;
     GdkEventButton event = {0};
     event.type = GDK_BUTTON_PRESS;
-    event.window = gtk_widget_get_window(tab_widget);
+    event.window = noctty_grid_widget_get_window(tab_widget);
     event.send_event = TRUE;
     event.time = GDK_CURRENT_TIME;
     event.button = 3;
@@ -14334,7 +14334,7 @@ static gboolean open_smoke_workspace_menu(NocttyGridContext *context) {
         !noctty_grid_widget_get_mapped(context->area)) return FALSE;
     GdkEventButton event = {0};
     event.type = GDK_BUTTON_PRESS;
-    event.window = gtk_widget_get_window(context->area);
+    event.window = noctty_grid_widget_get_window(context->area);
     event.send_event = TRUE;
     event.time = GDK_CURRENT_TIME;
     event.x = 12.0;
@@ -14484,7 +14484,7 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
     root->profile_smoke_attempts = 0;
     gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), profile);
     GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
-    GdkWindow *window = gtk_widget_get_window(profile);
+    GdkWindow *window = noctty_grid_widget_get_window(profile);
     trigger->button.window = window != NULL ? g_object_ref(window) : NULL;
     trigger->button.send_event = TRUE;
     trigger->button.time = GDK_CURRENT_TIME;
@@ -14634,7 +14634,7 @@ static gboolean smoke_page_is_even_two_by_two(
         if (measured >= G_N_ELEMENTS(x_positions)) return FALSE;
         GtkAllocation allocation;
         noctty_grid_widget_get_allocation(candidate->area, &allocation);
-        if (!gtk_widget_translate_coordinates(
+        if (!noctty_grid_widget_translate_coordinates(
                 candidate->area, page, 0, 0,
                 &x_positions[measured], &y_positions[measured]))
             return FALSE;
@@ -14838,7 +14838,7 @@ static gboolean request_terminal_interrupt_chord_smoke(gpointer user_data) {
         noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == target->area;
     GdkEventKey enter_event = {0};
     enter_event.type = GDK_KEY_PRESS;
-    enter_event.window = gtk_widget_get_window(target->area);
+    enter_event.window = noctty_grid_widget_get_window(target->area);
     enter_event.keyval = GDK_KEY_Return;
     root->terminal_chord_enter_forwarded =
         on_key_press(target->area, &enter_event, target) &&
@@ -14962,7 +14962,7 @@ static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
         gint x = 0;
         gint y = 0;
         noctty_grid_widget_get_allocation(candidate->area, &allocation);
-        gboolean translated = gtk_widget_translate_coordinates(
+        gboolean translated = noctty_grid_widget_translate_coordinates(
             candidate->area, page, 0, 0, &x, &y);
         mapped = mapped && noctty_grid_widget_get_mapped(candidate->area) &&
             translated;
@@ -15817,7 +15817,7 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
     int index = noctty_grid_resize_handle_index(GPOINTER_TO_INT(
         g_object_get_data(G_OBJECT(widget), "noctty-resize-index")));
     if (index < 0 || index >= 8) return;
-    GdkWindow *window = gtk_widget_get_window(widget);
+    GdkWindow *window = noctty_grid_widget_get_window(widget);
     if (window == NULL) return;
     GdkDisplay *display = gtk_widget_get_display(widget);
     GdkCursor *cursor = gdk_cursor_new_from_name(
@@ -16182,7 +16182,7 @@ static void on_im_commit(GtkIMContext *im_context, const gchar *text,
 
 static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {
     NocttyGridContext *context = user_data;
-    GdkWindow *window = gtk_widget_get_window(widget);
+    GdkWindow *window = noctty_grid_widget_get_window(widget);
     if (window != NULL) {
         GdkDisplay *display = gtk_widget_get_display(widget);
         GdkCursor *cursor = gdk_cursor_new_from_name(display, "text");

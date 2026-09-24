@@ -321,6 +321,14 @@ extern fn gtk_paned_pack1(*GtkPaned, *GtkWidget, c_int, c_int) void;
 extern fn gtk_paned_pack2(*GtkPaned, *GtkWidget, c_int, c_int) void;
 extern fn gtk_orientable_get_orientation(*GtkOrientable) c_int;
 extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
+extern fn gtk_widget_translate_coordinates(
+    *GtkWidget,
+    *GtkWidget,
+    c_int,
+    c_int,
+    *c_int,
+    *c_int,
+) c_int;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
 extern fn gtk_drag_source_set(
@@ -2337,6 +2345,34 @@ pub export fn noctty_grid_widget_get_allocation(
     const widget = widget_optional orelse return;
     const allocation_out = allocation orelse return;
     gtk_widget_get_allocation(widget, allocation_out);
+}
+pub export fn noctty_grid_widget_translate_coordinates(
+    source_optional: ?*GtkWidget,
+    dest_optional: ?*GtkWidget,
+    src_x: c_int,
+    src_y: c_int,
+    dest_x: ?*c_int,
+    dest_y: ?*c_int,
+) c_int {
+    const source = source_optional orelse return FALSE;
+    const dest = dest_optional orelse return FALSE;
+    const dest_x_out = dest_x orelse return FALSE;
+    const dest_y_out = dest_y orelse return FALSE;
+    return gtk_widget_translate_coordinates(
+        source,
+        dest,
+        src_x,
+        src_y,
+        dest_x_out,
+        dest_y_out,
+    );
+}
+
+pub export fn noctty_grid_widget_get_window(
+    widget_optional: ?*GtkWidget,
+) ?*GdkWindow {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_window(widget);
 }
 
 pub export fn noctty_grid_widget_set_app_paintable(

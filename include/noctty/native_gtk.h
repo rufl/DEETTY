@@ -388,6 +388,14 @@ gboolean noctty_grid_widget_get_mapped(GtkWidget *widget);
 gboolean noctty_grid_widget_in_destruction(GtkWidget *widget);
 void noctty_grid_widget_get_allocation(
     GtkWidget *widget, GtkAllocation *allocation);
+gboolean noctty_grid_widget_translate_coordinates(
+    GtkWidget *source,
+    GtkWidget *dest,
+    int src_x,
+    int src_y,
+    int *dest_x,
+    int *dest_y);
+GdkWindow *noctty_grid_widget_get_window(GtkWidget *widget);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);
