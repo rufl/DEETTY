@@ -9444,14 +9444,21 @@ static gboolean configure_overlay_window_stacking(
         root->overlay_dialog_count > 0 ? 1 : 0;
     root->settings_parent_layer_restored = !root->layer_shell_active;
 
-    if (noctty_grid_object_get_data(
-            dialog, "noctty-overlay-window") != NULL) {
+    NocttyGridOverlayStackingPlan stacking_plan = {0};
+    noctty_grid_overlay_stacking_plan(
+        root->layer_shell_active,
+        root->layer_shell_library != NULL,
+        noctty_grid_object_get_data(
+            dialog, "noctty-overlay-window") != NULL,
+        (int)root->overlay_dialog_count, &stacking_plan);
+    if (stacking_plan.action == NOCTTY_GRID_OVERLAY_STACKING_EXISTING) {
         root->settings_layer_overlay = 1;
         return TRUE;
     }
-
-    if (!root->layer_shell_active || root->layer_shell_library == NULL)
+    if (stacking_plan.action == NOCTTY_GRID_OVERLAY_STACKING_BASIC)
         return root->settings_transient_parent && root->settings_keep_above;
+    if (stacking_plan.action != NOCTTY_GRID_OVERLAY_STACKING_LAYER)
+        return FALSE;
 
     NocttyLayerInitForWindow init_for_window =
         (NocttyLayerInitForWindow)dlsym(root->layer_shell_library,
@@ -9483,7 +9490,7 @@ static gboolean configure_overlay_window_stacking(
         return FALSE;
 
     init_for_window(GTK_WINDOW(dialog));
-    if (root->overlay_dialog_count == 0) {
+    if (stacking_plan.lower_parent != 0) {
         set_layer(GTK_WINDOW(root->window), 2);
         root->settings_parent_layer_lowered =
             get_layer(GTK_WINDOW(root->window)) == 2;

@@ -114,6 +114,11 @@ pub const WindowModePlan = extern struct {
     action: c_int,
 };
 
+pub const OverlayStackingPlan = extern struct {
+    action: c_int,
+    lower_parent: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -717,6 +722,10 @@ pub const window_mode_action_apply_dropdown: c_int = 2;
 pub const window_mode_action_apply_window: c_int = 3;
 pub const window_mode_action_apply_fullscreen: c_int = 4;
 pub const window_mode_action_apply_layer_geometry: c_int = 5;
+pub const overlay_stacking_none: c_int = 0;
+pub const overlay_stacking_basic: c_int = 1;
+pub const overlay_stacking_existing: c_int = 2;
+pub const overlay_stacking_layer: c_int = 3;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1053,6 +1062,32 @@ pub export fn noctty_grid_window_mode_plan(
             2 => window_mode_action_apply_fullscreen,
             else => window_mode_action_none,
         },
+    };
+}
+
+pub export fn noctty_grid_overlay_stacking_plan(
+    layer_shell_active: c_int,
+    layer_shell_library_available: c_int,
+    existing_overlay: c_int,
+    overlay_count: c_int,
+    output_optional: ?*OverlayStackingPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = overlay_stacking_none,
+        .lower_parent = 0,
+    };
+    if (existing_overlay != 0) {
+        output.* = .{ .action = overlay_stacking_existing, .lower_parent = 0 };
+        return;
+    }
+    if (layer_shell_active == 0 or layer_shell_library_available == 0) {
+        output.* = .{ .action = overlay_stacking_basic, .lower_parent = 0 };
+        return;
+    }
+    output.* = .{
+        .action = overlay_stacking_layer,
+        .lower_parent = @intFromBool(overlay_count <= 0),
     };
 }
 
@@ -2788,6 +2823,26 @@ test "window mode planner preserves recreation and surface precedence" {
     noctty_grid_window_mode_plan(-1, 1, 0, &plan);
     try std.testing.expectEqual(
         @as(c_int, window_mode_action_none), plan.action);
+}
+
+test "overlay stacking planner preserves layer and existing precedence" {
+    var plan = OverlayStackingPlan{ .action = overlay_stacking_none, .lower_parent = 0 };
+    noctty_grid_overlay_stacking_plan(0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, overlay_stacking_basic), plan.action);
+    try std.testing.expectEqual(@as(c_int, 0), plan.lower_parent);
+    noctty_grid_overlay_stacking_plan(1, 1, 0, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, overlay_stacking_layer), plan.action);
+    try std.testing.expectEqual(@as(c_int, 1), plan.lower_parent);
+    noctty_grid_overlay_stacking_plan(1, 1, 0, 2, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.lower_parent);
+    noctty_grid_overlay_stacking_plan(1, 1, 1, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, overlay_stacking_existing), plan.action);
+    noctty_grid_overlay_stacking_plan(0, 1, 1, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, overlay_stacking_existing), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {

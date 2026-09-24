@@ -30,6 +30,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved GTK presentation-mode transition classification for dropdown surface
   recreation, layer-shell geometry, fullscreen, windowed, and dropdown updates
   into the Zig grid-logic adapter; C retains GTK lifecycle and geometry effects.
+- Moved GTK overlay stacking classification for basic dialogs, existing
+  overlays, layer-shell overlays, and parent-layer lowering into the Zig
+  grid-logic adapter; C retains GTK stacking, monitor, and lifecycle effects.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.

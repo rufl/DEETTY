@@ -244,6 +244,23 @@ enum {
 void noctty_grid_window_mode_plan(
     int previous_mode, int mode, int layer_shell_active,
     NocttyGridWindowModePlan *plan);
+
+typedef struct {
+    int action;
+    int lower_parent;
+} NocttyGridOverlayStackingPlan;
+
+enum {
+    NOCTTY_GRID_OVERLAY_STACKING_NONE = 0,
+    NOCTTY_GRID_OVERLAY_STACKING_BASIC = 1,
+    NOCTTY_GRID_OVERLAY_STACKING_EXISTING = 2,
+    NOCTTY_GRID_OVERLAY_STACKING_LAYER = 3
+};
+
+void noctty_grid_overlay_stacking_plan(
+    int layer_shell_active, int layer_shell_library_available,
+    int existing_overlay, int overlay_count,
+    NocttyGridOverlayStackingPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {
