@@ -42,6 +42,7 @@ const GObject = opaque {};
 const AtkObject = opaque {};
 const GdkWindow = opaque {};
 const GdkDisplay = opaque {};
+const GdkFrameClock = opaque {};
 const GdkCursor = opaque {};
 const GdkScreen = opaque {};
 const GtkAllocation = extern struct {
@@ -362,6 +363,16 @@ extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_tooltip_text(*GtkWidget, ?[*:0]const u8) void;
 extern fn gtk_widget_get_tooltip_text(*GtkWidget) ?[*:0]u8;
 extern fn gtk_widget_style_get(*GtkWidget, [*:0]const u8, ...) void;
+extern fn gtk_widget_has_focus(*GtkWidget) c_int;
+extern fn gtk_widget_get_frame_clock(*GtkWidget) ?*GdkFrameClock;
+extern fn gtk_widget_get_display(*GtkWidget) ?*GdkDisplay;
+extern fn gtk_widget_get_ancestor(*GtkWidget, GType) ?*GtkWidget;
+extern fn gtk_widget_get_size_request(
+    *GtkWidget, ?*c_int, ?*c_int) void;
+extern fn gtk_widget_has_grab(*GtkWidget) c_int;
+extern fn gtk_grab_get_current() ?*GtkWidget;
+extern fn gtk_grab_add(*GtkWidget) void;
+extern fn gtk_grab_remove(*GtkWidget) void;
 extern fn gtk_widget_is_ancestor(*GtkWidget, *GtkWidget) c_int;
 extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
 extern fn gtk_widget_get_visible(*GtkWidget) c_int;
@@ -434,6 +445,10 @@ extern fn gtk_box_reorder_child(*GtkBox, *GtkWidget, c_int) void;
 extern fn gtk_box_set_spacing(*GtkBox, c_int) void;
 extern fn gtk_separator_new(c_int) ?*GtkWidget;
 extern fn gtk_revealer_new() ?*GtkWidget;
+extern fn gtk_revealer_set_reveal_child(*GtkWidget, c_int) void;
+extern fn gtk_revealer_set_transition_duration(*GtkWidget, c_uint) void;
+extern fn gtk_revealer_set_transition_type(*GtkWidget, c_int) void;
+extern fn gtk_window_list_toplevels() ?*GList;
 extern fn gtk_grid_new() ?*GtkWidget;
 extern fn gtk_grid_set_row_spacing(*GtkGrid, c_uint) void;
 extern fn gtk_grid_set_column_spacing(*GtkGrid, c_uint) void;
@@ -2459,6 +2474,100 @@ pub export fn noctty_grid_widget_get_window(
 ) ?*GdkWindow {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_window(widget);
+}
+pub export fn noctty_grid_widget_has_focus(
+    widget_optional: ?*GtkWidget,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_has_focus(widget);
+}
+
+pub export fn noctty_grid_widget_get_display(
+    widget_optional: ?*GtkWidget,
+) ?*GdkDisplay {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_display(widget);
+}
+
+pub export fn noctty_grid_widget_get_ancestor(
+    widget_optional: ?*GtkWidget,
+    widget_type: GType,
+) ?*GtkWidget {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_ancestor(widget, widget_type);
+}
+
+pub export fn noctty_grid_widget_get_frame_clock(
+    widget_optional: ?*GtkWidget,
+) ?*GdkFrameClock {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_frame_clock(widget);
+}
+
+pub export fn noctty_grid_grab_get_current() ?*GtkWidget {
+    return gtk_grab_get_current();
+}
+
+pub export fn noctty_grid_grab_add(widget_optional: ?*GtkWidget) void {
+    const widget = widget_optional orelse return;
+    gtk_grab_add(widget);
+}
+
+pub export fn noctty_grid_grab_remove(widget_optional: ?*GtkWidget) void {
+    const widget = widget_optional orelse return;
+    gtk_grab_remove(widget);
+}
+
+pub export fn noctty_grid_widget_has_grab(
+    widget_optional: ?*GtkWidget,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_has_grab(widget);
+}
+
+pub export fn noctty_grid_widget_get_size_request(
+    widget_optional: ?*GtkWidget,
+    width: ?*c_int,
+    height: ?*c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_get_size_request(widget, width, height);
+}
+
+pub export fn noctty_grid_window_list_toplevels() ?*GList {
+    return gtk_window_list_toplevels();
+}
+
+pub export fn noctty_grid_check_menu_item_set_active(
+    item_optional: ?*GtkWidget,
+    active: c_int,
+) void {
+    const item = item_optional orelse return;
+    gtk_check_menu_item_set_active(item, active);
+}
+
+pub export fn noctty_grid_revealer_set_reveal_child(
+    revealer_optional: ?*GtkWidget,
+    reveal: c_int,
+) void {
+    const revealer = revealer_optional orelse return;
+    gtk_revealer_set_reveal_child(revealer, reveal);
+}
+
+pub export fn noctty_grid_revealer_set_transition_duration(
+    revealer_optional: ?*GtkWidget,
+    duration: c_uint,
+) void {
+    const revealer = revealer_optional orelse return;
+    gtk_revealer_set_transition_duration(revealer, duration);
+}
+
+pub export fn noctty_grid_revealer_set_transition_type(
+    revealer_optional: ?*GtkWidget,
+    transition_type: c_int,
+) void {
+    const revealer = revealer_optional orelse return;
+    gtk_revealer_set_transition_type(revealer, transition_type);
 }
 pub export fn noctty_grid_widget_add_tick_callback(
     widget_optional: ?*GtkWidget,

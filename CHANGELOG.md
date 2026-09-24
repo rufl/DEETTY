@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed remaining GTK focus, display, ancestor, grab, revealer, menu-state,
+  size-request, frame-clock, and toplevel-list operations through the Zig
+  adapter; C retains interaction and compositor decisions.
 - Routed GTK widget destruction, including callback-bound destroy handlers, through the Zig adapter; C retains dialog, menu, and window lifecycle decisions.
 - Routed direct GTK signal registrations through the Zig adapter; C retains signal names, callbacks, data ownership, and lifecycle decisions.
 - Routed GTK swapped and object-bound signal registrations through dedicated Zig adapters; C retains callback semantics and lifetime decisions.

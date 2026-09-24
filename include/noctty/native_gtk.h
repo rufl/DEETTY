@@ -447,6 +447,26 @@ void noctty_grid_menu_popup_at_rect(
     int rect_gravity,
     int menu_gravity,
     gpointer event);
+gboolean noctty_grid_widget_has_focus(gpointer widget);
+GdkFrameClock *noctty_grid_widget_get_frame_clock(gpointer widget);
+GdkDisplay *noctty_grid_widget_get_display(gpointer widget);
+GtkWidget *noctty_grid_widget_get_ancestor(
+    gpointer widget, GType widget_type);
+GtkWidget *noctty_grid_grab_get_current(void);
+void noctty_grid_grab_add(gpointer widget);
+void noctty_grid_grab_remove(gpointer widget);
+gboolean noctty_grid_widget_has_grab(gpointer widget);
+void noctty_grid_widget_get_size_request(
+    gpointer widget, int *width, int *height);
+GList *noctty_grid_window_list_toplevels(void);
+void noctty_grid_check_menu_item_set_active(
+    gpointer item, gboolean active);
+void noctty_grid_revealer_set_reveal_child(
+    gpointer revealer, gboolean reveal);
+void noctty_grid_revealer_set_transition_duration(
+    gpointer revealer, unsigned int duration);
+void noctty_grid_revealer_set_transition_type(
+    gpointer revealer, int transition_type);
 void noctty_grid_main_iteration_do(gboolean blocking);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
