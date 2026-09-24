@@ -9,6 +9,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed residual GTK combo population, color chooser, allocated-size, and
   check-menu reads through the Zig adapter; C retains theme, sharing, and menu
   policy.
+- Routed GTK object lifetime ownership through shared Zig GObject adapters;
+  C retains callback, metadata, and UI policy.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.

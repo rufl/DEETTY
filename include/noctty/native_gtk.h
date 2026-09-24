@@ -397,6 +397,14 @@ void noctty_grid_drag_dest_set(
     int target_count,
     unsigned int actions);
 void noctty_grid_widget_show_all(GtkWidget *widget);
+gpointer noctty_grid_object_get_data(gpointer object, const char *key);
+void noctty_grid_object_set_data(
+    gpointer object, const char *key, gpointer value);
+void noctty_grid_object_set_data_full(
+    gpointer object, const char *key, gpointer value,
+    GDestroyNotify destroy);
+gpointer noctty_grid_object_ref(gpointer object);
+void noctty_grid_object_unref(gpointer object);
 void noctty_grid_widget_set_app_paintable(
     GtkWidget *widget, gboolean app_paintable);
 void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);

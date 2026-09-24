@@ -128,7 +128,12 @@ grep -F '"--native-grid-authenticated-agent-qualification"' "$main" >/dev/null
 grep -F '"--native-grid-installed-continuity-qualification"' "$main" >/dev/null
 ! grep -F 'fn noctty_native_grid_host_run(' "$main" >/dev/null
 
-grep -F 'pub export fn noctty_grid_sync_split_visibility(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_object_ref(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_object_unref(' "$native_gtk" >/dev/null
+grep -F 'noctty_grid_object_ref(' "$grid" >/dev/null
+grep -F 'noctty_grid_object_unref(' "$grid" >/dev/null
+! grep -F 'g_object_ref(' "$grid" >/dev/null
+! grep -F 'g_object_unref(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null
@@ -272,7 +277,7 @@ grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \
   tests/native_grid_compact_ux_smoke.inc >/dev/null
 grep -F 'const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6)' "$native_gtk" >/dev/null
 grep -F 'noctty_grid_widget_get_mapped(' "$grid" >/dev/null
-grep -F 'g_idle_add(focus_grid_area_idle, g_object_ref(context->area));' "$grid" >/dev/null
+grep -F 'g_idle_add(focus_grid_area_idle, noctty_grid_object_ref(context->area));' "$grid" >/dev/null
 grep -F 'guint focus_deferred_source;' "$grid" >/dev/null
 grep -F 'remove_grid_source(&context->focus_deferred_source);' "$grid" >/dev/null
 grep -F 'remaining->focus_deferred_source =' "$grid" >/dev/null

@@ -656,10 +656,15 @@ extern fn atk_object_get_role(*AtkObject) c_int;
 extern fn atk_object_set_role(*AtkObject, c_int) void;
 extern fn atk_object_get_name(*AtkObject) ?[*:0]const u8;
 extern fn g_type_check_instance_is_a(*GTypeInstance, GType) c_int;
-extern fn g_signal_connect_data(?*anyopaque, [*:0]const u8, GCallback, ?*anyopaque, ?*anyopaque, c_uint) c_ulong;
+extern fn g_signal_connect_data(
+    ?*anyopaque, [*:0]const u8, GCallback, ?*anyopaque,
+    ?*anyopaque, c_uint,
+) c_ulong;
 extern fn g_object_unref(?*anyopaque) void;
 extern fn g_object_set_data(*GObject, [*:0]const u8, ?*anyopaque) void;
-extern fn g_object_set_data_full(*GObject, [*:0]const u8, ?*anyopaque, GDestroyNotify) void;
+extern fn g_object_set_data_full(
+    *GObject, [*:0]const u8, ?*anyopaque, ?GDestroyNotify,
+) void;
 extern fn g_object_get_data(*GObject, [*:0]const u8) ?*anyopaque;
 extern fn g_strdup([*:0]const u8) ?*anyopaque;
 extern fn g_strdup_printf([*:0]const u8, ...) ?[*:0]u8;
@@ -2714,6 +2719,46 @@ pub export fn noctty_grid_widget_show(
     const widget = widget_optional orelse return;
     gtk_widget_show(widget);
 }
+
+pub export fn noctty_grid_object_get_data(
+    object_optional: ?*anyopaque,
+    key: [*:0]const u8,
+) ?*anyopaque {
+    const object_value = object_optional orelse return null;
+    return g_object_get_data(@ptrCast(@alignCast(object_value)), key);
+}
+
+pub export fn noctty_grid_object_set_data(
+    object_optional: ?*anyopaque,
+    key: [*:0]const u8,
+    value: ?*anyopaque,
+) void {
+    const object_value = object_optional orelse return;
+    g_object_set_data(@ptrCast(@alignCast(object_value)), key, value);
+}
+
+pub export fn noctty_grid_object_set_data_full(
+    object_optional: ?*anyopaque,
+    key: [*:0]const u8,
+    value: ?*anyopaque,
+    destroy: ?GDestroyNotify,
+) void {
+    const object_value = object_optional orelse return;
+    g_object_set_data_full(
+        @ptrCast(@alignCast(object_value)), key, value, destroy);
+}
+
+pub export fn noctty_grid_object_ref(
+    object_optional: ?*anyopaque,
+) ?*anyopaque {
+    const object_value = object_optional orelse return null;
+    return g_object_ref(object_value);
+}
+
+pub export fn noctty_grid_object_unref(object_optional: ?*anyopaque) void {
+    if (object_optional) |object_value| g_object_unref(object_value);
+}
+
 pub export fn noctty_grid_widget_show_all(
     widget_optional: ?*GtkWidget,
 ) void {
