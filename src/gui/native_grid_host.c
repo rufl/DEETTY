@@ -1161,8 +1161,8 @@ G_DEFINE_TYPE(
 
 static void noctty_terminal_area_class_init(
     NocttyTerminalAreaClass *class) {
-    gtk_widget_class_set_accessible_type(
-        GTK_WIDGET_CLASS(class), noctty_terminal_accessible_get_type());
+    noctty_grid_widget_class_set_accessible_type(
+        class, noctty_terminal_accessible_get_type());
 }
 
 static void noctty_terminal_area_init(NocttyTerminalArea *area) {
@@ -6587,7 +6587,7 @@ static NocttyGridContext *create_grid_context_for_session(
         spacing_leading,
         spacing_trailing,
         spacing_trailing);
-    created->im_context = gtk_im_multicontext_new();
+    created->im_context = noctty_grid_input_context_new();
     created->font_family = g_strdup(source->font_family != NULL
                                         ? source->font_family
                                         : "monospace");
@@ -8021,8 +8021,8 @@ static void queue_grid_preset_widget_draw(GtkWidget *widget,
     (void)user_data;
     noctty_grid_widget_queue_draw(widget);
     if (GTK_IS_CONTAINER(widget))
-        gtk_container_forall(GTK_CONTAINER(widget),
-                             queue_grid_preset_widget_draw, NULL);
+        noctty_grid_container_forall(
+            widget, queue_grid_preset_widget_draw, NULL);
 }
 
 static void destroy_grid_preset_settle_request(gpointer user_data) {
@@ -13801,8 +13801,7 @@ static void dismiss_grid_popup_windows(NocttyGridContext *context) {
     for (GList *item = windows; item != NULL; item = item->next) {
         GtkWidget *window = item->data;
         if (!GTK_IS_WINDOW(window) || window == root->window ||
-            gtk_window_get_window_type(GTK_WINDOW(window)) !=
-                GTK_WINDOW_POPUP ||
+            noctty_grid_window_get_window_type(window) != GTK_WINDOW_POPUP ||
             !noctty_grid_widget_get_visible(window))
             continue;
         noctty_grid_widget_hide(window);

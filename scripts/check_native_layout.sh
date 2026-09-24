@@ -233,6 +233,10 @@ grep -F 'noctty_grid_gtk_init_check(' "$grid" >/dev/null
 grep -F 'noctty_grid_gtk_main(' "$grid" >/dev/null
 grep -F 'noctty_grid_window_set_default_icon_name(' "$grid" >/dev/null
 grep -F 'noctty_grid_window_get_title(' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_class_set_accessible_type(' "$grid" >/dev/null
+grep -F 'noctty_grid_container_forall(' "$grid" >/dev/null
+grep -F 'noctty_grid_input_context_new(' "$grid" >/dev/null
+grep -F 'noctty_grid_window_get_window_type(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_remove_all(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append(' "$grid" >/dev/null
 ! grep -F 'gtk_combo_box_text_append_text(' "$grid" >/dev/null
@@ -256,6 +260,10 @@ grep -F 'noctty_grid_window_get_title(' "$grid" >/dev/null
 ! grep -F 'gtk_init_check(' "$grid" >/dev/null
 ! grep -F 'gtk_main(' "$grid" >/dev/null
 ! grep -F 'gtk_window_set_default_icon_name(' "$grid" >/dev/null
+! grep -F 'gtk_widget_class_set_accessible_type(' "$grid" >/dev/null
+! grep -F 'gtk_im_multicontext_new(' "$grid" >/dev/null
+! grep -F 'gtk_container_forall(' "$grid" >/dev/null
+! grep -F 'gtk_window_get_window_type(' "$grid" >/dev/null
 grep -F 'gtk_window_set_icon_name(@ptrCast(window), "com.noctty.NOCTTY");' "$native_gtk" >/dev/null
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null
 grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \

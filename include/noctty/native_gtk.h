@@ -293,6 +293,8 @@ GtkWidget *noctty_grid_page_new(int panel_padding, GtkWidget *pane_info_strip);
 GtkWidget *noctty_grid_window_new(void);
 GtkWidget *noctty_grid_notebook_new(void);
 GtkIMContext *noctty_grid_input_context_new(void);
+void noctty_grid_widget_class_set_accessible_type(
+    gpointer widget_class, GType accessible_type);
 void noctty_grid_window_configure(
     GtkWidget *window, int default_width, int default_height,
     gboolean decorated, gboolean keep_above);
@@ -383,6 +385,7 @@ gboolean noctty_grid_window_is_active(gpointer window);
 gboolean noctty_grid_window_get_decorated(gpointer window);
 gboolean noctty_grid_window_get_resizable(gpointer window);
 GtkWindow *noctty_grid_window_get_transient_for(gpointer window);
+int noctty_grid_window_get_window_type(gpointer window);
 const char *noctty_grid_window_get_icon_name(gpointer window);
 GdkScreen *noctty_grid_widget_get_screen(gpointer widget);
 gboolean noctty_grid_widget_get_app_paintable(gpointer widget);
@@ -412,6 +415,8 @@ int noctty_grid_paned_get_position(gpointer paned);
 int noctty_grid_orientable_get_orientation(gpointer orientable);
 GtkWidget *noctty_grid_bin_get_child(gpointer bin);
 GList *noctty_grid_container_get_children(gpointer container);
+void noctty_grid_container_forall(
+    gpointer container, gpointer callback, gpointer data);
 GtkWidget *noctty_grid_widget_get_toplevel(gpointer widget);
 const char *noctty_grid_window_get_title(gpointer window);
 GtkWidget *noctty_grid_window_get_default_widget(gpointer window);

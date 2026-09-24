@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const GtkWidget = opaque {};
+const GtkWidgetClass = opaque {};
 const GtkEventBox = opaque {};
 const GtkLabel = opaque {};
 const GtkButton = opaque {};
@@ -124,6 +125,10 @@ const GtkTickCallback = *const fn (
     ?*anyopaque,
 ) callconv(.c) c_int;
 const GDestroyNotify = *const fn (?*anyopaque) callconv(.c) void;
+const GtkContainerCallback = *const fn (
+    *GtkWidget,
+    ?*anyopaque,
+) callconv(.c) void;
 
 const FALSE: c_int = 0;
 const TRUE: c_int = 1;
@@ -378,6 +383,7 @@ extern fn gtk_window_set_destroy_with_parent(*GtkWindow, c_int) void;
 extern fn gtk_window_set_geometry_hints(
     *GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
+extern fn gtk_window_get_window_type(*GtkWindow) c_int;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
 extern fn gtk_window_get_default_widget(*GtkWindow) ?*GtkWidget;
 extern fn gtk_window_get_focus(*GtkWindow) ?*GtkWidget;
@@ -434,6 +440,11 @@ extern fn gdk_event_free(*GdkEvent) void;
 extern fn g_object_ref(?*anyopaque) ?*anyopaque;
 extern fn gtk_text_view_set_cursor_visible(*GtkTextView, c_int) void;
 extern fn gtk_text_view_set_monospace(*GtkTextView, c_int) void;
+extern fn gtk_container_forall(
+    *GtkContainer,
+    GtkContainerCallback,
+    ?*anyopaque,
+) void;
 extern fn gtk_text_view_set_wrap_mode(*GtkTextView, c_int) void;
 extern fn gtk_text_view_get_buffer(*GtkTextView) *GtkTextBuffer;
 extern fn gtk_text_buffer_set_text(*GtkTextBuffer, [*:0]const u8, c_int) void;
@@ -571,6 +582,10 @@ extern fn gtk_box_get_type() GType;
 extern fn gtk_container_get_type() GType;
 extern fn gtk_label_get_type() GType;
 extern fn gtk_notebook_get_type() GType;
+extern fn gtk_widget_class_set_accessible_type(
+    *GtkWidgetClass,
+    GType,
+) void;
 extern fn gtk_paned_new(c_int) ?*GtkWidget;
 extern fn gtk_paned_get_type() GType;
 extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
@@ -2277,6 +2292,14 @@ pub export fn noctty_grid_notebook_new() ?*GtkWidget {
 pub export fn noctty_grid_input_context_new() ?*GtkIMContext {
     return gtk_im_multicontext_new();
 }
+pub export fn noctty_grid_widget_class_set_accessible_type(
+    class_optional: ?*anyopaque,
+    accessible_type: GType,
+) void {
+    const class = class_optional orelse return;
+    gtk_widget_class_set_accessible_type(@ptrCast(class), accessible_type);
+}
+
 pub export fn noctty_grid_window_configure(
     window_optional: ?*GtkWidget,
     default_width: c_int,
@@ -2472,6 +2495,13 @@ pub export fn noctty_grid_window_get_title(
     const window = window_optional orelse return null;
     return gtk_window_get_title(@ptrCast(window));
 }
+pub export fn noctty_grid_window_get_window_type(
+    window_optional: ?*anyopaque,
+) c_int {
+    const window = window_optional orelse return -1;
+    return gtk_window_get_window_type(@ptrCast(window));
+}
+
 
 pub export fn noctty_grid_window_get_default_widget(
     window_optional: ?*anyopaque,
@@ -2780,6 +2810,20 @@ pub export fn noctty_grid_container_get_children(
 ) ?*GList {
     const container = container_optional orelse return null;
     return gtk_container_get_children(@ptrCast(container));
+}
+
+pub export fn noctty_grid_container_forall(
+    container_optional: ?*anyopaque,
+    callback_optional: ?*anyopaque,
+    data: ?*anyopaque,
+) void {
+    const container = container_optional orelse return;
+    const callback = callback_optional orelse return;
+    gtk_container_forall(
+        @ptrCast(container),
+        @ptrCast(callback),
+        data,
+    );
 }
 
 pub export fn noctty_grid_widget_get_toplevel(

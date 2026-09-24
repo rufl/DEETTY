@@ -12,6 +12,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.
+- Routed the final direct GTK calls in the C adapter—accessible-class setup,
+  input-context construction, recursive container traversal, and popup-window
+  type reads—through Zig ABI adapters.
 - Routed GTK combo active IDs/text, file chooser filenames, list-box row
   lookup/selection, event-box stacking, and entry icon operations through the
   Zig adapter; C retains workspace and dialog policy.
