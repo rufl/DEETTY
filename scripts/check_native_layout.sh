@@ -131,6 +131,9 @@ grep -F 'NocttyGridOverlayStackingPlan;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_window_visibility_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_window_visibility_plan(' "$grid" >/dev/null
 grep -F 'NocttyGridWindowVisibilityPlan;' "$grid_logic_header" >/dev/null
+grep -F 'pub export fn noctty_grid_overlay_geometry_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_overlay_geometry_plan(' "$grid" >/dev/null
+grep -F 'NocttyGridOverlayGeometryPlan;' "$grid_logic_header" >/dev/null
 grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
 grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
 grep -F 'noctty_grid_cycle_target(' "$grid" >/dev/null

@@ -123,6 +123,13 @@ pub const WindowVisibilityPlan = extern struct {
     action: c_int,
 };
 
+pub const OverlayGeometryPlan = extern struct {
+    left: c_int,
+    right: c_int,
+    top: c_int,
+    bottom: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -1107,6 +1114,30 @@ pub export fn noctty_grid_window_visibility_plan(
     output.* = .{ .action = visibility_action_show };
     if (window_presented != 0 and window_visible != 0)
         output.* = .{ .action = visibility_action_hide };
+}
+
+pub export fn noctty_grid_overlay_geometry_plan(
+    workarea_x: c_int,
+    workarea_y: c_int,
+    workarea_width: c_int,
+    workarea_height: c_int,
+    monitor_x: c_int,
+    monitor_y: c_int,
+    monitor_width: c_int,
+    monitor_height: c_int,
+    window_width: c_int,
+    window_height: c_int,
+    output_optional: ?*OverlayGeometryPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const left = workarea_x - monitor_x + @divTrunc(workarea_width - window_width, 2);
+    const top = workarea_y - monitor_y + @divTrunc(workarea_height - window_height, 2);
+    output.* = .{
+        .left = @max(0, left),
+        .right = @max(0, monitor_width - left - window_width),
+        .top = @max(0, top),
+        .bottom = @max(0, monitor_height - top - window_height),
+    };
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -2873,6 +2904,20 @@ test "window visibility planner preserves hide and show transitions" {
     try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
     noctty_grid_window_visibility_plan(0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
+}
+
+test "overlay geometry planner preserves centered monitor margins" {
+    var plan = OverlayGeometryPlan{ .left = -1, .right = -1, .top = -1, .bottom = -1 };
+    noctty_grid_overlay_geometry_plan(100, 50, 800, 600, 0, 0, 1920, 1080, 400, 200, &plan);
+    try std.testing.expectEqual(@as(c_int, 300), plan.left);
+    try std.testing.expectEqual(@as(c_int, 1220), plan.right);
+    try std.testing.expectEqual(@as(c_int, 250), plan.top);
+    try std.testing.expectEqual(@as(c_int, 630), plan.bottom);
+    noctty_grid_overlay_geometry_plan(0, 0, 100, 100, 0, 0, 100, 100, 140, 140, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.left);
+    try std.testing.expectEqual(@as(c_int, 0), plan.right);
+    try std.testing.expectEqual(@as(c_int, 0), plan.top);
+    try std.testing.expectEqual(@as(c_int, 0), plan.bottom);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {

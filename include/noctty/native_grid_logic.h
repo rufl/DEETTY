@@ -275,6 +275,19 @@ enum {
 void noctty_grid_window_visibility_plan(
     int window_presented, int window_visible,
     NocttyGridWindowVisibilityPlan *plan);
+
+typedef struct {
+    int left;
+    int right;
+    int top;
+    int bottom;
+} NocttyGridOverlayGeometryPlan;
+
+void noctty_grid_overlay_geometry_plan(
+    int workarea_x, int workarea_y, int workarea_width, int workarea_height,
+    int monitor_x, int monitor_y, int monitor_width, int monitor_height,
+    int window_width, int window_height,
+    NocttyGridOverlayGeometryPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

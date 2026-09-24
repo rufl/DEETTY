@@ -9546,18 +9546,18 @@ static void configure_overlay_window_geometry(
     GdkRectangle monitor_geometry = *workarea;
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     if (monitor != NULL) noctty_grid_gdk_monitor_get_geometry(monitor, &monitor_geometry);
-    int left = MAX(0, workarea->x - monitor_geometry.x +
-                          (workarea->width - width) / 2);
-    int top = MAX(0, workarea->y - monitor_geometry.y +
-                         (workarea->height - height) / 2);
-    int right = MAX(0, monitor_geometry.width - left - width);
-    int bottom = MAX(0, monitor_geometry.height - top - height);
+    NocttyGridOverlayGeometryPlan geometry_plan = {0};
+    noctty_grid_overlay_geometry_plan(
+        workarea->x, workarea->y, workarea->width, workarea->height,
+        monitor_geometry.x, monitor_geometry.y,
+        monitor_geometry.width, monitor_geometry.height,
+        width, height, &geometry_plan);
     for (int edge = 0; edge < 4; edge++)
         set_anchor(GTK_WINDOW(window), edge, TRUE);
-    set_margin(GTK_WINDOW(window), 0, left);
-    set_margin(GTK_WINDOW(window), 1, right);
-    set_margin(GTK_WINDOW(window), 2, top);
-    set_margin(GTK_WINDOW(window), 3, bottom);
+    set_margin(GTK_WINDOW(window), 0, geometry_plan.left);
+    set_margin(GTK_WINDOW(window), 1, geometry_plan.right);
+    set_margin(GTK_WINDOW(window), 2, geometry_plan.top);
+    set_margin(GTK_WINDOW(window), 3, geometry_plan.bottom);
 }
 
 static void apply_dropdown_dimensions(NocttyGridContext *context) {

@@ -5,6 +5,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 ## Unreleased
 - Moved GTK window visibility toggle classification into the Zig grid-logic
   adapter; C retains activation, focus, overlay, and hide/show effects.
+- Moved overlay dialog monitor-margin arithmetic into the Zig grid-logic
+  adapter; C retains monitor lookup, layer anchors, and native margin effects.
 - Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
   full-stack qualification pass under isolated X11 and Wayland sessions;
   physical Windows acceptance remains external.
