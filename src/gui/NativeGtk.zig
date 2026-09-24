@@ -1340,6 +1340,16 @@ fn connectSignal(
     const handler = callback orelse return;
     _ = g_signal_connect_data(widget, signal, handler, data, null, 0);
 }
+pub export fn noctty_grid_signal_connect(
+    instance: ?*anyopaque,
+    signal: [*:0]const u8,
+    callback_optional: ?GCallback,
+    data: ?*anyopaque,
+) c_ulong {
+    const target = instance orelse return 0;
+    const callback = callback_optional orelse return 0;
+    return g_signal_connect_data(target, signal, callback, data, null, 0);
+}
 
 fn appendSeparator(menu: *GtkWidget) void {
     const separator = gtk_separator_menu_item_new() orelse return;

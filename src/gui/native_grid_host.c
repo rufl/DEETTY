@@ -1908,7 +1908,7 @@ static void apply_smart_filter(NocttyGridContext *context) {
             root->smart_filter_empty_label = empty_contents.label;
             root->smart_filter_empty_clear_button =
                 empty_contents.clear_button;
-            g_signal_connect(root->smart_filter_empty_clear_button, "clicked",
+            noctty_grid_signal_connect(root->smart_filter_empty_clear_button, "clicked",
                              G_CALLBACK(on_smart_filter_empty_clear_clicked), root);
             noctty_box_pack_start(
                 page, root->smart_filter_empty_box, FALSE, FALSE, 0);
@@ -4349,9 +4349,9 @@ static void open_grid_shortcut_recorder(NocttyGridContext *context) {
     root->shortcut_recorder_dialog = dialog;
     root->shortcut_recorder_feedback = label;
     root->shortcut_recorder_shown = 1;
-    g_signal_connect(dialog, "key-press-event",
+    noctty_grid_signal_connect(dialog, "key-press-event",
                      G_CALLBACK(on_grid_shortcut_capture), root);
-    g_signal_connect(dialog, "destroy",
+    noctty_grid_signal_connect(dialog, "destroy",
                      G_CALLBACK(on_grid_shortcut_recorder_destroy), root);
     show_all_with_action_affordances(dialog);
     present_configured_window(dialog);
@@ -5198,10 +5198,10 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     root->tab_rename_inline_shown = 1;
     root->tab_rename_inline_embedded =
         gtk_widget_get_toplevel(entry) == root->window;
-    g_signal_connect(entry, "activate", G_CALLBACK(on_tab_rename_activate), root);
-    g_signal_connect(entry, "key-press-event", G_CALLBACK(on_tab_rename_key), root);
-    g_signal_connect(entry, "focus-out-event", G_CALLBACK(on_tab_rename_focus_out), root);
-    g_signal_connect(entry, "destroy", G_CALLBACK(on_tab_rename_entry_destroy), root);
+    noctty_grid_signal_connect(entry, "activate", G_CALLBACK(on_tab_rename_activate), root);
+    noctty_grid_signal_connect(entry, "key-press-event", G_CALLBACK(on_tab_rename_key), root);
+    noctty_grid_signal_connect(entry, "focus-out-event", G_CALLBACK(on_tab_rename_focus_out), root);
+    noctty_grid_signal_connect(entry, "destroy", G_CALLBACK(on_tab_rename_entry_destroy), root);
     noctty_grid_widget_show(entry);
     noctty_grid_focus_widget(NULL, entry);
     gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
@@ -5411,7 +5411,7 @@ static GtkWidget *create_recovery_notice(NocttyGridContext *context) {
         g_string_free(message, TRUE);
         return NULL;
     }
-    g_signal_connect(bar, "response",
+    noctty_grid_signal_connect(bar, "response",
                      G_CALLBACK(on_recovery_notice_response), root);
     g_print("noctty_startup_recovery_notice flags=%u "
             "config_backup=%d config_defaults=%d theme_backup=%d "
@@ -6886,7 +6886,7 @@ static gboolean bind_grid_layout_node(
                       GINT_TO_POINTER(node_index + 1));
     if (g_object_get_data(G_OBJECT(widget),
                           "noctty-layout-position-bound") == NULL) {
-        g_signal_connect(widget, "notify::position",
+        noctty_grid_signal_connect(widget, "notify::position",
                          G_CALLBACK(on_grid_layout_position_changed), root);
         g_object_set_data(G_OBJECT(widget),
                           "noctty-layout-position-bound",
@@ -6894,7 +6894,7 @@ static gboolean bind_grid_layout_node(
     }
     if (g_object_get_data(G_OBJECT(widget), "noctty-layout-snap-bound") == NULL) {
         noctty_grid_widget_add_events(widget, GDK_BUTTON_RELEASE_MASK);
-        g_signal_connect(widget, "button-release-event",
+        noctty_grid_signal_connect(widget, "button-release-event",
                          G_CALLBACK(on_grid_layout_button_release), root);
         g_object_set_data(G_OBJECT(widget), "noctty-layout-snap-bound",
                           GINT_TO_POINTER(1));
@@ -6970,10 +6970,10 @@ static GtkWidget *build_hot_session_layout_node(
                       GINT_TO_POINTER(tab_index + 1));
     g_object_set_data(G_OBJECT(split), "noctty-layout-node-index",
                       GINT_TO_POINTER(node_index + 1));
-    g_signal_connect(split, "notify::position",
+    noctty_grid_signal_connect(split, "notify::position",
                      G_CALLBACK(on_grid_layout_position_changed), root);
     noctty_grid_widget_add_events(split, GDK_BUTTON_RELEASE_MASK);
-    g_signal_connect(split, "button-release-event",
+    noctty_grid_signal_connect(split, "button-release-event",
                      G_CALLBACK(on_grid_layout_button_release), root);
     g_object_set_data(G_OBJECT(split), "noctty-layout-position-bound",
                       GINT_TO_POINTER(1));
@@ -7019,7 +7019,7 @@ static gboolean rebuild_hot_session_page(
         root, tab_index, root_node, node_count, page, 0);
     if (layout != NULL) {
         noctty_box_pack_start(page, layout, TRUE, TRUE, 0);
-        g_signal_connect(layout, "size-allocate",
+        noctty_grid_signal_connect(layout, "size-allocate",
                          G_CALLBACK(on_restored_layout_size_allocate), NULL);
     }
     for (guint index = 0; index < held_areas->len; index++)
@@ -7278,7 +7278,7 @@ static void schedule_even_pane_distribution(NocttyGridContext *context,
     /* GTK can report provisional allocations for several frames after a split
      * tree is mapped. Retry briefly, but bind cancellation to widget teardown
      * so an early tab/window close cannot leave a source holding the layout. */
-    request->layout_destroy_handler_id = g_signal_connect(
+    request->layout_destroy_handler_id = noctty_grid_signal_connect(
         layout, "destroy",
         G_CALLBACK(stop_even_pane_distribution_on_layout_destroy), request);
     request->source_id = g_timeout_add_full(
@@ -7994,7 +7994,7 @@ static void bind_preset_max_positions(NocttyGridContext *root,
     g_object_set_data(G_OBJECT(widget), "noctty-grid-root-context", root);
     if (g_object_get_data(G_OBJECT(widget),
                           "noctty-max-position-bound") == NULL) {
-        g_signal_connect(widget, "notify::max-position",
+        noctty_grid_signal_connect(widget, "notify::max-position",
                          G_CALLBACK(on_preset_max_position_changed), root);
         g_object_set_data(G_OBJECT(widget), "noctty-max-position-bound",
                           GINT_TO_POINTER(1));
@@ -8821,15 +8821,15 @@ static gboolean show_hyperlink_menu(
     g_object_set_data_full(
         G_OBJECT(menu), "noctty-hyperlink-menu", data,
         destroy_hyperlink_menu_data);
-    g_signal_connect(open, "activate", G_CALLBACK(on_hyperlink_menu_open), data);
-    g_signal_connect(copy, "activate", G_CALLBACK(on_hyperlink_menu_copy), data);
+    noctty_grid_signal_connect(open, "activate", G_CALLBACK(on_hyperlink_menu_open), data);
+    noctty_grid_signal_connect(copy, "activate", G_CALLBACK(on_hyperlink_menu_copy), data);
     g_signal_connect_swapped(
         open, "activate", G_CALLBACK(noctty_grid_widget_destroy), menu);
     g_signal_connect_swapped(
         copy, "activate", G_CALLBACK(noctty_grid_widget_destroy), menu);
     g_signal_connect_swapped(
         menu, "selection-done", G_CALLBACK(noctty_grid_widget_destroy), menu);
-    g_signal_connect(menu, "destroy",
+    noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_hyperlink_menu_destroy), root);
     root->workspace_menu = menu;
     gtk_widget_show_all(menu);
@@ -9524,7 +9524,7 @@ static gboolean configure_overlay_window_stacking(
     root->overlay_dialog_count++;
     g_object_set_data(G_OBJECT(dialog), "noctty-overlay-window",
                       GINT_TO_POINTER(1));
-    g_signal_connect(dialog, "destroy",
+    noctty_grid_signal_connect(dialog, "destroy",
                      G_CALLBACK(on_overlay_window_destroy), root);
     return TRUE;
 }
@@ -10468,9 +10468,9 @@ static void theme_color_button_configure(NocttyGridContext *context,
     NocttyThemeColorControl *control = g_new0(NocttyThemeColorControl, 1);
     control->context = root_grid_context(context);
     control->role = role;
-    g_signal_connect(button, "color-set", G_CALLBACK(on_theme_color_changed),
+    noctty_grid_signal_connect(button, "color-set", G_CALLBACK(on_theme_color_changed),
                      control);
-    g_signal_connect(button, "destroy",
+    noctty_grid_signal_connect(button, "destroy",
                      G_CALLBACK(on_theme_color_control_destroy), control);
 }
 
@@ -11171,66 +11171,66 @@ static void open_grid_settings(NocttyGridContext *context) {
     GList *category_rows = gtk_container_get_children(GTK_CONTAINER(categories));
     context->settings_category_count = (int)g_list_length(category_rows);
     g_list_free(category_rows);
-    g_signal_connect(categories, "row-selected",
+    noctty_grid_signal_connect(categories, "row-selected",
                      G_CALLBACK(on_settings_category_selected), stack);
-    g_signal_connect(mode, "changed", G_CALLBACK(on_settings_mode_changed), target);
-    g_signal_connect(shortcut, "clicked", G_CALLBACK(on_settings_shortcut_clicked), target);
-    g_signal_connect(dropdown_width, "value-changed", G_CALLBACK(on_settings_dropdown_width_changed), target);
-    g_signal_connect(dropdown_height, "value-changed", G_CALLBACK(on_settings_dropdown_height_changed), target);
-    g_signal_connect(animation, "value-changed", G_CALLBACK(on_settings_animation_changed), target);
-    g_signal_connect(hide_focus, "toggled", G_CALLBACK(on_settings_hide_focus_toggled), target);
-    g_signal_connect(focus_pointer, "toggled", G_CALLBACK(on_settings_focus_pointer_toggled), target);
-    g_signal_connect(pane_info, "toggled", G_CALLBACK(on_settings_pane_info_toggled), target);
-    g_signal_connect(scrollback, "value-changed",
+    noctty_grid_signal_connect(mode, "changed", G_CALLBACK(on_settings_mode_changed), target);
+    noctty_grid_signal_connect(shortcut, "clicked", G_CALLBACK(on_settings_shortcut_clicked), target);
+    noctty_grid_signal_connect(dropdown_width, "value-changed", G_CALLBACK(on_settings_dropdown_width_changed), target);
+    noctty_grid_signal_connect(dropdown_height, "value-changed", G_CALLBACK(on_settings_dropdown_height_changed), target);
+    noctty_grid_signal_connect(animation, "value-changed", G_CALLBACK(on_settings_animation_changed), target);
+    noctty_grid_signal_connect(hide_focus, "toggled", G_CALLBACK(on_settings_hide_focus_toggled), target);
+    noctty_grid_signal_connect(focus_pointer, "toggled", G_CALLBACK(on_settings_focus_pointer_toggled), target);
+    noctty_grid_signal_connect(pane_info, "toggled", G_CALLBACK(on_settings_pane_info_toggled), target);
+    noctty_grid_signal_connect(scrollback, "value-changed",
                      G_CALLBACK(on_settings_scrollback_changed), target);
-    g_signal_connect(scroll_lines, "value-changed",
+    noctty_grid_signal_connect(scroll_lines, "value-changed",
                      G_CALLBACK(on_settings_scroll_lines_changed), target);
-    g_signal_connect(smooth_scroll, "toggled",
+    noctty_grid_signal_connect(smooth_scroll, "toggled",
                      G_CALLBACK(on_settings_smooth_scroll_toggled), target);
-    g_signal_connect(launch_kind, "changed",
+    noctty_grid_signal_connect(launch_kind, "changed",
                      G_CALLBACK(on_settings_launch_kind_changed), context);
-    g_signal_connect(launch_library, "changed",
+    noctty_grid_signal_connect(launch_library, "changed",
                      G_CALLBACK(on_settings_launch_library_changed), context);
-    g_signal_connect(launch_apply, "clicked",
+    noctty_grid_signal_connect(launch_apply, "clicked",
                      G_CALLBACK(on_settings_launch_apply), context);
-    g_signal_connect(launch_save, "clicked",
+    noctty_grid_signal_connect(launch_save, "clicked",
                      G_CALLBACK(on_settings_launch_save), context);
-    g_signal_connect(launch_delete, "clicked",
+    noctty_grid_signal_connect(launch_delete, "clicked",
                      G_CALLBACK(on_settings_launch_delete), context);
-    g_signal_connect(font, "value-changed", G_CALLBACK(on_settings_font_changed), target);
-    g_signal_connect(notifications, "toggled", G_CALLBACK(on_settings_notifications_toggled), target);
-    g_signal_connect(preset, "changed", G_CALLBACK(on_settings_preset_changed), target);
-    g_signal_connect(tabs, "changed", G_CALLBACK(on_settings_tabs_changed), target);
-    g_signal_connect(status, "changed", G_CALLBACK(on_settings_status_changed), target);
+    noctty_grid_signal_connect(font, "value-changed", G_CALLBACK(on_settings_font_changed), target);
+    noctty_grid_signal_connect(notifications, "toggled", G_CALLBACK(on_settings_notifications_toggled), target);
+    noctty_grid_signal_connect(preset, "changed", G_CALLBACK(on_settings_preset_changed), target);
+    noctty_grid_signal_connect(tabs, "changed", G_CALLBACK(on_settings_tabs_changed), target);
+    noctty_grid_signal_connect(status, "changed", G_CALLBACK(on_settings_status_changed), target);
     GtkWidget *panel_metric_controls[] = {
         padding, spacing, divider, pane_border, focused_border,
         selected_border, status_border, overlay_border,
         window_border, dragger,
     };
     for (guint index = 0; index < G_N_ELEMENTS(panel_metric_controls); index++)
-        g_signal_connect(panel_metric_controls[index], "value-changed",
+        noctty_grid_signal_connect(panel_metric_controls[index], "value-changed",
                          G_CALLBACK(on_settings_panel_metric_changed), target);
-    g_signal_connect(pane_gaps_enabled, "toggled",
+    noctty_grid_signal_connect(pane_gaps_enabled, "toggled",
                      G_CALLBACK(on_settings_panel_toggle), target);
-    g_signal_connect(pane_gaps_transparent, "toggled",
+    noctty_grid_signal_connect(pane_gaps_transparent, "toggled",
                      G_CALLBACK(on_settings_panel_toggle), target);
-    g_signal_connect(inactive_pane_dim_enabled, "toggled",
+    noctty_grid_signal_connect(inactive_pane_dim_enabled, "toggled",
                      G_CALLBACK(on_settings_panel_toggle), target);
-    g_signal_connect(inactive_pane_brightness, "value-changed",
+    noctty_grid_signal_connect(inactive_pane_brightness, "value-changed",
                      G_CALLBACK(on_settings_inactive_brightness_changed),
                      target);
-    g_signal_connect(theme, "changed", G_CALLBACK(on_settings_theme_changed), target);
-    g_signal_connect(theme_library, "clicked",
+    noctty_grid_signal_connect(theme, "changed", G_CALLBACK(on_settings_theme_changed), target);
+    noctty_grid_signal_connect(theme_library, "clicked",
                      G_CALLBACK(on_open_theme_library_clicked), target);
-    g_signal_connect(translucency, "toggled",
+    noctty_grid_signal_connect(translucency, "toggled",
                      G_CALLBACK(on_background_translucency_toggled), target);
-    g_signal_connect(background_opacity, "value-changed",
+    noctty_grid_signal_connect(background_opacity, "value-changed",
                      G_CALLBACK(on_background_opacity_changed), target);
-    g_signal_connect(family, "changed", G_CALLBACK(on_settings_family_changed), target);
-    g_signal_connect(antialias, "changed", G_CALLBACK(on_settings_antialias_changed), target);
-    g_signal_connect(hinting, "changed", G_CALLBACK(on_settings_hinting_changed), target);
-    g_signal_connect(dialog, "response", G_CALLBACK(on_settings_response), NULL);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_settings_destroy), context);
+    noctty_grid_signal_connect(family, "changed", G_CALLBACK(on_settings_family_changed), target);
+    noctty_grid_signal_connect(antialias, "changed", G_CALLBACK(on_settings_antialias_changed), target);
+    noctty_grid_signal_connect(hinting, "changed", G_CALLBACK(on_settings_hinting_changed), target);
+    noctty_grid_signal_connect(dialog, "response", G_CALLBACK(on_settings_response), NULL);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_settings_destroy), context);
     GtkListBoxRow *first = gtk_list_box_get_row_at_index(
         GTK_LIST_BOX(categories), 0);
     gtk_list_box_select_row(GTK_LIST_BOX(categories), first);
@@ -11484,18 +11484,18 @@ static void open_theme_library(NocttyGridContext *context) {
     noctalia_controls->variant = noctalia_variant;
     noctalia_controls->status = noctalia_status;
     root->system_noctalia_theme_listed = noctalia_count > 0;
-    g_signal_connect(themes, "changed", G_CALLBACK(on_settings_theme_changed), context);
-    g_signal_connect(use_noctalia, "clicked",
+    noctty_grid_signal_connect(themes, "changed", G_CALLBACK(on_settings_theme_changed), context);
+    noctty_grid_signal_connect(use_noctalia, "clicked",
                      G_CALLBACK(on_noctalia_system_theme_clicked),
                      noctalia_controls);
-    g_signal_connect(use_noctalia, "destroy",
+    noctty_grid_signal_connect(use_noctalia, "destroy",
                      G_CALLBACK(on_noctalia_theme_controls_destroy),
                      noctalia_controls);
-    g_signal_connect(import_noctalia, "clicked",
+    noctty_grid_signal_connect(import_noctalia, "clicked",
                      G_CALLBACK(on_noctalia_current_theme_clicked), context);
-    g_signal_connect(import, "clicked", G_CALLBACK(on_theme_import_clicked), context);
-    g_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
-    g_signal_connect(dialog, "destroy",
+    noctty_grid_signal_connect(import, "clicked", G_CALLBACK(on_theme_import_clicked), context);
+    noctty_grid_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
+    noctty_grid_signal_connect(dialog, "destroy",
                      G_CALLBACK(on_theme_library_destroy), root);
     show_all_with_action_affordances(dialog);
 }
@@ -11812,15 +11812,15 @@ static void open_project_tools(NocttyGridContext *context) {
     context->project_dialog = dialog;
     context->recent_workspace_combo = recent_combo;
     context->recent_workspace_open = recent_open;
-    g_signal_connect(save, "clicked", G_CALLBACK(on_project_workspace_save), context);
-    g_signal_connect(open, "clicked", G_CALLBACK(on_project_workspace_open), context);
+    noctty_grid_signal_connect(save, "clicked", G_CALLBACK(on_project_workspace_save), context);
+    noctty_grid_signal_connect(open, "clicked", G_CALLBACK(on_project_workspace_open), context);
     g_object_set_data(G_OBJECT(recent_open),
                       "noctty-recent-workspace-combo", recent_combo);
-    g_signal_connect(recent_open, "clicked",
+    noctty_grid_signal_connect(recent_open, "clicked",
                      G_CALLBACK(on_project_recent_open), context);
-    g_signal_connect(editor, "clicked", G_CALLBACK(on_project_editor_open), context);
-    g_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_project_destroy), context);
+    noctty_grid_signal_connect(editor, "clicked", G_CALLBACK(on_project_editor_open), context);
+    noctty_grid_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_project_destroy), context);
     show_all_with_action_affordances(dialog);
 }
 
@@ -12126,9 +12126,9 @@ static void open_terminal_find(NocttyGridContext *context) {
     root->find_ordinal = 0;
     root->compact_find_shown = 1;
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 66, 0, (uint64_t)(g_get_monotonic_time() / 1000));
-    g_signal_connect(entry, "changed", G_CALLBACK(on_find_changed), root);
-    g_signal_connect(entry, "key-press-event", G_CALLBACK(on_find_key), root);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_find_destroy), root);
+    noctty_grid_signal_connect(entry, "changed", G_CALLBACK(on_find_changed), root);
+    noctty_grid_signal_connect(entry, "key-press-event", G_CALLBACK(on_find_key), root);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_find_destroy), root);
     show_all_with_action_affordances(dialog);
     noctty_grid_focus_widget(NULL, entry);
 }
@@ -12265,12 +12265,12 @@ static void open_quick_note(NocttyGridContext *context) {
             hint, "Workspace note · saved automatically", FALSE);
     }
     g_free(contents);
-    g_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), "changed",
+    noctty_grid_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), "changed",
                      G_CALLBACK(on_quick_note_changed), root);
-    g_signal_connect(dialog, "response", G_CALLBACK(on_quick_note_response), root);
-    g_signal_connect(dialog, "delete-event", G_CALLBACK(on_quick_note_delete), root);
-    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_quick_note_key), root);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_quick_note_destroy), root);
+    noctty_grid_signal_connect(dialog, "response", G_CALLBACK(on_quick_note_response), root);
+    noctty_grid_signal_connect(dialog, "delete-event", G_CALLBACK(on_quick_note_delete), root);
+    noctty_grid_signal_connect(dialog, "key-press-event", G_CALLBACK(on_quick_note_key), root);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_quick_note_destroy), root);
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
     show_all_with_action_affordances(dialog);
     noctty_grid_focus_widget(NULL, view);
@@ -12348,9 +12348,9 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
     g_free(shortcuts);
     g_free(visibility_shortcut);
     root->shortcuts_dialog = dialog;
-    g_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
-    g_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_shortcuts_destroy), root);
+    noctty_grid_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
+    noctty_grid_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_shortcuts_destroy), root);
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
     show_all_with_action_affordances(dialog);
 }
@@ -12645,11 +12645,11 @@ static void open_command_palette(NocttyGridContext *context) {
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
     noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, 65, 0, (uint64_t)(g_get_monotonic_time() / 1000));
-    g_signal_connect(search, "changed", G_CALLBACK(on_palette_search_changed), root);
-    g_signal_connect(search, "activate", G_CALLBACK(on_palette_search_activate), root);
-    g_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(on_palette_destroy), root);
-    g_signal_connect(list, "row-activated", G_CALLBACK(on_palette_row_activated), root);
+    noctty_grid_signal_connect(search, "changed", G_CALLBACK(on_palette_search_changed), root);
+    noctty_grid_signal_connect(search, "activate", G_CALLBACK(on_palette_search_activate), root);
+    noctty_grid_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
+    noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_palette_destroy), root);
+    noctty_grid_signal_connect(list, "row-activated", G_CALLBACK(on_palette_row_activated), root);
     show_all_with_action_affordances(dialog);
     GtkListBoxRow *first = gtk_list_box_get_row_at_index(GTK_LIST_BOX(list), 0);
     if (first != NULL) gtk_list_box_select_row(GTK_LIST_BOX(list), first);
@@ -13436,7 +13436,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
 
     g_signal_connect_swapped(dialog, "response",
                              G_CALLBACK(noctty_grid_widget_destroy), dialog);
-    g_signal_connect(dialog, "destroy",
+    noctty_grid_signal_connect(dialog, "destroy",
                      G_CALLBACK(on_sharing_dialog_destroy), root);
     refresh_sharing_peers(root);
     g_object_set_data(G_OBJECT(dialog), "noctty-sharing-peer-count",
@@ -13930,9 +13930,9 @@ static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
     root->workspace_menu = menu;
     root->tab_context_menu_opened = 1;
     root->tab_color_menu_opened = 1;
-    g_signal_connect(menu, "selection-done",
+    noctty_grid_signal_connect(menu, "selection-done",
                      G_CALLBACK(noctty_grid_widget_destroy), NULL);
-    g_signal_connect(menu, "destroy",
+    noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_workspace_menu_destroy), root);
     gtk_widget_show_all(menu);
     GtkWidget *anchor = gtk_notebook_get_tab_label(
@@ -16049,13 +16049,13 @@ static GtkWidget *create_window_resize_handle(NocttyGridContext *context,
         index, width, height,
         noctty_grid_window_resize_cursor_name(index));
     if (handle == NULL) return NULL;
-    g_signal_connect(handle, "realize",
+    noctty_grid_signal_connect(handle, "realize",
                      G_CALLBACK(on_window_resize_handle_realize), context);
-    g_signal_connect(handle, "button-press-event",
+    noctty_grid_signal_connect(handle, "button-press-event",
                      G_CALLBACK(on_window_resize_handle_button), context);
-    g_signal_connect(handle, "button-release-event",
+    noctty_grid_signal_connect(handle, "button-release-event",
                      G_CALLBACK(on_window_resize_handle_release), context);
-    g_signal_connect(handle, "motion-notify-event",
+    noctty_grid_signal_connect(handle, "motion-notify-event",
                      G_CALLBACK(on_window_resize_handle_motion), context);
     context->window_resize_handles[index] = handle;
     context->window_resize_handle_count++;
@@ -16230,24 +16230,24 @@ static void connect_grid_area(NocttyGridContext *context) {
                    context->pane_id);
         atk_object_set_name(accessible, name);
     }
-    g_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
-    g_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);
-    g_signal_connect(context->area, "key-release-event",
+    noctty_grid_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
+    noctty_grid_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);
+    noctty_grid_signal_connect(context->area, "key-release-event",
                      G_CALLBACK(on_key_release), context);
-    g_signal_connect(context->area, "focus-in-event", G_CALLBACK(on_focus_in), context);
-    g_signal_connect(context->area, "focus-out-event", G_CALLBACK(on_focus_out), context);
-    g_signal_connect(context->area, "button-press-event", G_CALLBACK(on_mouse_button), context);
-    g_signal_connect(context->area, "button-release-event", G_CALLBACK(on_mouse_button), context);
-    g_signal_connect(context->area, "motion-notify-event", G_CALLBACK(on_mouse_motion), context);
-    g_signal_connect(context->area, "leave-notify-event",
+    noctty_grid_signal_connect(context->area, "focus-in-event", G_CALLBACK(on_focus_in), context);
+    noctty_grid_signal_connect(context->area, "focus-out-event", G_CALLBACK(on_focus_out), context);
+    noctty_grid_signal_connect(context->area, "button-press-event", G_CALLBACK(on_mouse_button), context);
+    noctty_grid_signal_connect(context->area, "button-release-event", G_CALLBACK(on_mouse_button), context);
+    noctty_grid_signal_connect(context->area, "motion-notify-event", G_CALLBACK(on_mouse_motion), context);
+    noctty_grid_signal_connect(context->area, "leave-notify-event",
                      G_CALLBACK(on_grid_area_leave), context);
-    g_signal_connect(context->area, "scroll-event", G_CALLBACK(on_scroll), context);
-    g_signal_connect(context->area, "size-allocate", G_CALLBACK(on_size_allocate), context);
-    g_signal_connect(context->area, "map", G_CALLBACK(on_grid_area_map), context);
-    g_signal_connect(context->area, "realize", G_CALLBACK(on_grid_area_realize), context);
-    g_signal_connect(context->area, "unrealize", G_CALLBACK(on_grid_area_unrealize), context);
+    noctty_grid_signal_connect(context->area, "scroll-event", G_CALLBACK(on_scroll), context);
+    noctty_grid_signal_connect(context->area, "size-allocate", G_CALLBACK(on_size_allocate), context);
+    noctty_grid_signal_connect(context->area, "map", G_CALLBACK(on_grid_area_map), context);
+    noctty_grid_signal_connect(context->area, "realize", G_CALLBACK(on_grid_area_realize), context);
+    noctty_grid_signal_connect(context->area, "unrealize", G_CALLBACK(on_grid_area_unrealize), context);
     if (context->im_context != NULL)
-        g_signal_connect(context->im_context, "commit", G_CALLBACK(on_im_commit), context);
+        noctty_grid_signal_connect(context->im_context, "commit", G_CALLBACK(on_im_commit), context);
     noctty_grid_widget_add_events(
         context->area,
         GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK |
@@ -16256,8 +16256,8 @@ static void connect_grid_area(NocttyGridContext *context) {
             GDK_SMOOTH_SCROLL_MASK);
     gtk_drag_source_set(context->area, GDK_BUTTON2_MASK, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
     gtk_drag_dest_set(context->area, GTK_DEST_DEFAULT_ALL, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
-    g_signal_connect(context->area, "drag-data-get", G_CALLBACK(on_pane_drag_data_get), context);
-    g_signal_connect(context->area, "drag-data-received", G_CALLBACK(on_pane_drag_data_received), context);
+    noctty_grid_signal_connect(context->area, "drag-data-get", G_CALLBACK(on_pane_drag_data_get), context);
+    noctty_grid_signal_connect(context->area, "drag-data-received", G_CALLBACK(on_pane_drag_data_received), context);
     context->resize_overlay_arm_source =
         g_timeout_add(250, arm_resize_overlay, context);
 }
