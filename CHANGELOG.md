@@ -31,6 +31,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed GTK window resize and move operations through the Zig adapter across dropdown, fullscreen, settings, pane-close, and native-resize paths; C retains geometry calculations.
 - Routed GTK no-show-all and settings geometry-hint application through the Zig adapter; C retains dialog bounds and tab-rename state decisions.
 - Routed GTK paned packing and divider-position mutations through the Zig adapter across split, restore, close, and resize paths; C retains workspace topology decisions.
+- Routed GTK container and box packing, removal, border, and reorder mutations through the Zig adapter across dialogs, tabs, restored layouts, and window roots; C retains topology decisions.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.

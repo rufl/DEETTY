@@ -273,6 +273,8 @@ extern fn gtk_text_buffer_set_text(*GtkTextBuffer, [*:0]const u8, c_int) void;
 extern fn gtk_button_get_label(*GtkButton) ?[*:0]const u8;
 extern fn gtk_bin_get_child(*GtkBin) ?*GtkWidget;
 extern fn gtk_container_add(*GtkContainer, *GtkWidget) void;
+extern fn gtk_container_remove(*GtkContainer, *GtkWidget) void;
+extern fn gtk_container_set_border_width(*GtkContainer, c_uint) void;
 extern fn gtk_container_get_children(*GtkContainer) ?*GList;
 extern fn gtk_widget_set_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_widget_set_size_request(*GtkWidget, c_int, c_int) void;
@@ -328,6 +330,7 @@ extern fn gtk_paned_get_type() GType;
 extern fn gtk_box_new(c_int, c_int) ?*GtkWidget;
 extern fn gtk_box_pack_start(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
 extern fn gtk_box_pack_end(*GtkBox, *GtkWidget, c_int, c_int, c_uint) void;
+extern fn gtk_box_reorder_child(*GtkBox, *GtkWidget, c_int) void;
 extern fn gtk_box_set_spacing(*GtkBox, c_int) void;
 extern fn gtk_separator_new(c_int) ?*GtkWidget;
 extern fn gtk_revealer_new() ?*GtkWidget;
@@ -340,7 +343,6 @@ extern fn gtk_overlay_new() ?*GtkWidget;
 extern fn gtk_overlay_add_overlay(*GtkWidget, *GtkWidget) void;
 extern fn gtk_frame_new(?[*:0]const u8) ?*GtkWidget;
 extern fn gtk_frame_set_label_widget(*GtkFrame, *GtkWidget) void;
-extern fn gtk_container_set_border_width(*GtkContainer, c_uint) void;
 extern fn gtk_scrolled_window_new(?*anyopaque, ?*anyopaque) ?*GtkWidget;
 extern fn gtk_scrolled_window_set_policy(*GtkScrolledWindow, c_int, c_int) void;
 extern fn gtk_scrolled_window_set_shadow_type(*GtkScrolledWindow, c_int) void;
@@ -692,6 +694,65 @@ pub export fn noctty_paned_set_position(
 ) void {
     const paned = paned_optional orelse return;
     gtk_paned_set_position(@ptrCast(paned), position);
+}
+pub export fn noctty_container_add(
+    container_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+) void {
+    const container = container_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_container_add(@ptrCast(container), child);
+}
+
+pub export fn noctty_container_remove(
+    container_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+) void {
+    const container = container_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_container_remove(@ptrCast(container), child);
+}
+
+pub export fn noctty_container_set_border_width(
+    container_optional: ?*GtkWidget,
+    width: c_uint,
+) void {
+    const container = container_optional orelse return;
+    gtk_container_set_border_width(@ptrCast(container), width);
+}
+
+pub export fn noctty_box_pack_start(
+    box_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+    expand: c_int,
+    fill: c_int,
+    padding: c_uint,
+) void {
+    const box = box_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_box_pack_start(@ptrCast(box), child, expand, fill, padding);
+}
+
+pub export fn noctty_box_pack_end(
+    box_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+    expand: c_int,
+    fill: c_int,
+    padding: c_uint,
+) void {
+    const box = box_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_box_pack_end(@ptrCast(box), child, expand, fill, padding);
+}
+
+pub export fn noctty_box_reorder_child(
+    box_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+    position: c_int,
+) void {
+    const box = box_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_box_reorder_child(@ptrCast(box), child, position);
 }
 
 fn paneWidgetCount(widget_optional: ?*GtkWidget) u32 {

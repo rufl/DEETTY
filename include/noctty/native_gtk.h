@@ -23,6 +23,17 @@ void noctty_paned_pack1(
 void noctty_paned_pack2(
     GtkWidget *paned, GtkWidget *child, gboolean resize, gboolean shrink);
 void noctty_paned_set_position(GtkWidget *paned, int position);
+void noctty_container_add(GtkWidget *container, GtkWidget *child);
+void noctty_container_remove(GtkWidget *container, GtkWidget *child);
+void noctty_container_set_border_width(GtkWidget *container, unsigned width);
+void noctty_box_pack_start(
+    GtkWidget *box, GtkWidget *child,
+    gboolean expand, gboolean fill, unsigned padding);
+void noctty_box_pack_end(
+    GtkWidget *box, GtkWidget *child,
+    gboolean expand, gboolean fill, unsigned padding);
+void noctty_box_reorder_child(
+    GtkWidget *box, GtkWidget *child, int position);
 gboolean noctty_apply_even_pane_positions(GtkWidget *widget);
 void noctty_apply_pane_gap_style(GtkWidget *widget, guint32 rgb,
                                  gboolean opaque);
