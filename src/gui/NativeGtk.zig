@@ -307,6 +307,8 @@ extern fn gtk_widget_is_ancestor(*GtkWidget, *GtkWidget) c_int;
 extern fn gtk_paned_get_child1(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_get_child2(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_set_position(*GtkPaned, c_int) void;
+extern fn gtk_paned_pack1(*GtkPaned, *GtkWidget, c_int, c_int) void;
+extern fn gtk_paned_pack2(*GtkPaned, *GtkWidget, c_int, c_int) void;
 extern fn gtk_orientable_get_orientation(*GtkOrientable) c_int;
 extern fn gtk_widget_get_window(*GtkWidget) ?*GdkWindow;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
@@ -661,6 +663,35 @@ pub export fn noctty_paned_new(
     const paned = gtk_paned_new(orientation) orelse return null;
     if (divider_px > 0) applyPaneDividerStyle(paned, divider_px);
     return paned;
+}
+pub export fn noctty_paned_pack1(
+    paned_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+    resize: c_int,
+    shrink: c_int,
+) void {
+    const paned = paned_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_paned_pack1(@ptrCast(paned), child, resize, shrink);
+}
+
+pub export fn noctty_paned_pack2(
+    paned_optional: ?*GtkWidget,
+    child_optional: ?*GtkWidget,
+    resize: c_int,
+    shrink: c_int,
+) void {
+    const paned = paned_optional orelse return;
+    const child = child_optional orelse return;
+    gtk_paned_pack2(@ptrCast(paned), child, resize, shrink);
+}
+
+pub export fn noctty_paned_set_position(
+    paned_optional: ?*GtkWidget,
+    position: c_int,
+) void {
+    const paned = paned_optional orelse return;
+    gtk_paned_set_position(@ptrCast(paned), position);
 }
 
 fn paneWidgetCount(widget_optional: ?*GtkWidget) u32 {

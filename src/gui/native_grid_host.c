@@ -2883,7 +2883,7 @@ static gboolean move_resize_overlay_divider(gpointer user_data) {
         : allocation.width;
     root->resize_overlay_smoke_moves++;
     gint numerator = root->resize_overlay_smoke_moves % 2 == 1 ? 1 : 2;
-    gtk_paned_set_position(GTK_PANED(split), MAX(24, extent * numerator / 3));
+    noctty_paned_set_position(split, MAX(24, extent * numerator / 3));
     return G_SOURCE_REMOVE;
 }
 
@@ -6732,18 +6732,18 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
     g_object_ref(source->area);
     gtk_container_remove(GTK_CONTAINER(parent), source->area);
     if (parent_is_paned) {
-        if (source_was_first) gtk_paned_pack1(GTK_PANED(parent), split, TRUE, FALSE);
-        else gtk_paned_pack2(GTK_PANED(parent), split, TRUE, FALSE);
+        if (source_was_first) noctty_paned_pack1(parent, split, TRUE, FALSE);
+        else noctty_paned_pack2(parent, split, TRUE, FALSE);
     } else {
         gtk_box_pack_start(GTK_BOX(parent), split, TRUE, TRUE, 0);
     }
 
     if (event_code == 22 || event_code == 28) {
-        gtk_paned_pack1(GTK_PANED(split), created->area, TRUE, FALSE);
-        gtk_paned_pack2(GTK_PANED(split), source->area, TRUE, FALSE);
+        noctty_paned_pack1(split, created->area, TRUE, FALSE);
+        noctty_paned_pack2(split, source->area, TRUE, FALSE);
     } else {
-        gtk_paned_pack1(GTK_PANED(split), source->area, TRUE, FALSE);
-        gtk_paned_pack2(GTK_PANED(split), created->area, TRUE, FALSE);
+        noctty_paned_pack1(split, source->area, TRUE, FALSE);
+        noctty_paned_pack2(split, created->area, TRUE, FALSE);
     }
     g_object_unref(source->area);
     gtk_widget_show_all(split);
@@ -6751,7 +6751,7 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
     gint midpoint = orientation == GTK_ORIENTATION_VERTICAL
         ? source_allocation.height / 2
         : source_allocation.width / 2;
-    if (midpoint > 0) gtk_paned_set_position(GTK_PANED(split), midpoint);
+    if (midpoint > 0) noctty_paned_set_position(split, midpoint);
     if (source->event != NULL) {
         int rendered_event = event_code == 21 ? 58
             : event_code == 22 ? 59
@@ -6849,7 +6849,7 @@ static gboolean on_grid_layout_button_release(
     int snapped_position = noctty_grid_snap_pane_position(
         max_position, position);
     if (snapped_position >= 0)
-        gtk_paned_set_position(GTK_PANED(widget), snapped_position);
+        noctty_paned_set_position(widget, snapped_position);
     return FALSE;
 }
 
@@ -6962,8 +6962,8 @@ static GtkWidget *build_hot_session_layout_node(
     GtkWidget *split = noctty_paned_new(
         axis == 0 ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL,
         root->pane_divider_px);
-    gtk_paned_pack1(GTK_PANED(split), first_widget, TRUE, FALSE);
-    gtk_paned_pack2(GTK_PANED(split), second_widget, TRUE, FALSE);
+    noctty_paned_pack1(split, first_widget, TRUE, FALSE);
+    noctty_paned_pack2(split, second_widget, TRUE, FALSE);
     g_object_set_data(G_OBJECT(split), "noctty-preset-ratio",
                       GUINT_TO_POINTER((guint)ratio_permille));
     g_object_set_data(G_OBJECT(split), "noctty-layout-tab-index",
@@ -7170,9 +7170,9 @@ static gboolean replace_grid_widget(GtkWidget *parent, GtkWidget *old_widget,
             gtk_paned_get_child1(GTK_PANED(parent)) == old_widget;
         gtk_container_remove(GTK_CONTAINER(parent), old_widget);
         if (was_first) {
-            gtk_paned_pack1(GTK_PANED(parent), replacement, TRUE, FALSE);
+            noctty_paned_pack1(parent, replacement, TRUE, FALSE);
         } else {
-            gtk_paned_pack2(GTK_PANED(parent), replacement, TRUE, FALSE);
+            noctty_paned_pack2(parent, replacement, TRUE, FALSE);
         }
         return TRUE;
     }
@@ -7301,13 +7301,13 @@ static gboolean attach_grid_context(NocttyGridContext *source,
         GtkWidget *split = noctty_paned_new(
             GTK_ORIENTATION_HORIZONTAL,
             root_grid_context(target)->pane_divider_px);
-        gtk_paned_pack1(GTK_PANED(split), content_root, TRUE, FALSE);
-        gtk_paned_pack2(GTK_PANED(split), source->area, TRUE, FALSE);
+        noctty_paned_pack1(split, content_root, TRUE, FALSE);
+        noctty_paned_pack2(split, source->area, TRUE, FALSE);
         gtk_box_pack_start(GTK_BOX(target->page), split, TRUE, TRUE, 0);
         g_object_unref(content_root);
         gtk_widget_show_all(split);
         if (allocation.width > 0) {
-            gtk_paned_set_position(GTK_PANED(split), allocation.width / 2);
+            noctty_paned_set_position(split, allocation.width / 2);
         }
     }
     g_object_unref(source->area);
@@ -7927,8 +7927,8 @@ static GtkWidget *build_preset_line(GtkWidget **widgets, guint count,
                                         orientation);
     if (rest == NULL) return NULL;
     GtkWidget *split = noctty_paned_new((int)orientation, 0);
-    gtk_paned_pack1(GTK_PANED(split), widgets[0], TRUE, FALSE);
-    gtk_paned_pack2(GTK_PANED(split), rest, TRUE, FALSE);
+    noctty_paned_pack1(split, widgets[0], TRUE, FALSE);
+    noctty_paned_pack2(split, rest, TRUE, FALSE);
     guint ratio_permille = 1000 / count;
     g_object_set_data(G_OBJECT(split), "noctty-preset-ratio",
                       GUINT_TO_POINTER(ratio_permille));
@@ -7945,7 +7945,8 @@ static void apply_preset_paned_positions(GtkWidget *widget,
     guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
         G_OBJECT(widget), "noctty-preset-ratio"));
     if (max_position > 0 && max_position < G_MAXINT / 2)
-        gtk_paned_set_position(GTK_PANED(widget),
+        noctty_paned_set_position(
+            widget,
             noctty_grid_split_position(max_position, (int)ratio_permille));
     apply_preset_paned_positions(
         gtk_paned_get_child1(GTK_PANED(widget)), 0, 0);
@@ -7965,7 +7966,8 @@ static gboolean apply_preset_split_position(gpointer user_data) {
         guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
             G_OBJECT(widget), "noctty-preset-ratio"));
         if (max_position > 0 && max_position < G_MAXINT / 2)
-            gtk_paned_set_position(GTK_PANED(widget),
+            noctty_paned_set_position(
+                widget,
                 noctty_grid_split_position(max_position, (int)ratio_permille));
         root->layout_restore_applying = 0;
     }
@@ -14705,8 +14707,8 @@ static gboolean finish_pane_close_smoke(gpointer user_data) {
         if (max_position > 0) {
             root->pane_close_resize_split = layout;
             root->pane_close_resize_position = MAX(1, max_position / 4);
-            gtk_paned_set_position(GTK_PANED(layout),
-                                   root->pane_close_resize_position);
+            noctty_paned_set_position(
+                layout, root->pane_close_resize_position);
         }
     }
     g_timeout_add(120, finish_pane_close_resize_smoke, root);
@@ -14773,8 +14775,7 @@ static gboolean disturb_pane_close_layout(gpointer user_data) {
         gint max_position = 0;
         g_object_get(G_OBJECT(layout), "max-position", &max_position, NULL);
         if (max_position > 0)
-            gtk_paned_set_position(GTK_PANED(layout),
-                                   MAX(1, max_position / 5));
+            noctty_paned_set_position(layout, MAX(1, max_position / 5));
     }
     return G_SOURCE_REMOVE;
 }
@@ -16572,8 +16573,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         context.paned = noctty_paned_new(
             GTK_ORIENTATION_VERTICAL, context.pane_divider_px);
         secondary.paned = context.paned;
-        gtk_paned_pack1(GTK_PANED(context.paned), context.area, TRUE, FALSE);
-        gtk_paned_pack2(GTK_PANED(context.paned), secondary.area, TRUE, FALSE);
+        noctty_paned_pack1(context.paned, context.area, TRUE, FALSE);
+        noctty_paned_pack2(context.paned, secondary.area, TRUE, FALSE);
         gtk_box_pack_start(GTK_BOX(first_page), context.paned, TRUE, TRUE, 0);
     } else {
         gtk_box_pack_start(GTK_BOX(first_page), context.area, TRUE, TRUE, 0);
