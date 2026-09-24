@@ -466,6 +466,39 @@ gpointer noctty_grid_button_event_new(
     unsigned int state, unsigned int button, double x_root, double y_root);
 void noctty_grid_event_set_device(gpointer event, gpointer device);
 void noctty_grid_event_free(gpointer event);
+void noctty_grid_gdk_window_get_origin(
+    gpointer window, int *x, int *y);
+gpointer noctty_grid_gdk_monitor_at_window(
+    gpointer display, gpointer window);
+gpointer noctty_grid_gdk_primary_monitor(gpointer display);
+gboolean noctty_grid_gdk_pointer_position(
+    gpointer display, int *x, int *y);
+gpointer noctty_grid_gdk_monitor_at_point(
+    gpointer display, int x, int y);
+int noctty_grid_gdk_monitor_count(gpointer display);
+gpointer noctty_grid_gdk_monitor_at_index(
+    gpointer display, int index);
+void noctty_grid_gdk_monitor_get_geometry(
+    gpointer monitor, GdkRectangle *geometry);
+void noctty_grid_gdk_monitor_get_workarea(
+    gpointer monitor, GdkRectangle *workarea);
+int noctty_grid_gdk_monitor_get_scale_factor(gpointer monitor);
+void noctty_grid_gdk_window_set_fullscreen_mode(
+    gpointer window, int mode);
+void noctty_grid_gdk_window_fullscreen_on_monitor(
+    gpointer window, int monitor_index);
+void noctty_grid_gdk_window_fullscreen(gpointer window);
+gboolean noctty_grid_gdk_set_cursor(
+    gpointer window, gpointer display,
+    const char *name, int fallback_cursor);
+void noctty_grid_gdk_request_paint(gpointer clock, int phase);
+unsigned int noctty_grid_gdk_keyval_to_unicode(unsigned int keyval);
+gpointer noctty_grid_gdk_screen_get_rgba_visual(gpointer screen);
+gboolean noctty_grid_gdk_screen_is_composited(gpointer screen);
+gboolean noctty_grid_gdk_display_is_wayland(gpointer display);
+gboolean noctty_grid_gdk_default_display_is_wayland(void);
+void noctty_grid_event_set_pointer_device(
+    gpointer event, gpointer display);
 gpointer noctty_grid_clipboard_get(gpointer selection);
 void noctty_grid_clipboard_request_text(
     gpointer clipboard,

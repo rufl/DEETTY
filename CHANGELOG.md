@@ -12,6 +12,13 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed remaining GTK text-view editable state, style-background rendering,
   scroll-delta reads, synthetic button events, device attachment, and event
   cleanup through the Zig adapter; C retains popup and smoke-test policy.
+- Routed GDK window origins, monitor lookup, enumeration, geometry, workarea,
+  scale, pointer positioning, fullscreen dispatch, and cursor
+  creation/application through the Zig adapter; C retains monitor and pointer
+  policy.
+- Routed remaining GDK paint scheduling, keyval conversion, screen visual and
+  compositing reads, Wayland display detection, and synthetic event pointer
+  attachment through the Zig adapter; C retains input and presentation policy.
 - Routed GTK dialog content, run/response/default-response, window
   transient/icon reads, screen/app-paintable reads, URI opening, and main-loop
   exit operations through the Zig adapter; C retains modal and presentation

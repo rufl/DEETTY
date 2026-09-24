@@ -45,10 +45,13 @@ const GObject = opaque {};
 const AtkObject = opaque {};
 const GdkWindow = opaque {};
 const GdkDisplay = opaque {};
+const GdkVisual = opaque {};
 const GdkFrameClock = opaque {};
 const GdkCursor = opaque {};
 const GdkEvent = opaque {};
 const GdkDevice = opaque {};
+const GdkSeat = opaque {};
+const GdkMonitor = opaque {};
 const GdkScreen = opaque {};
 const GtkAllocation = extern struct {
     x: c_int,
@@ -601,9 +604,35 @@ extern fn g_strcmp0(?[*:0]const u8, ?[*:0]const u8) c_int;
 extern fn g_list_free(?*GList) void;
 extern fn gdk_window_get_display(*GdkWindow) *GdkDisplay;
 extern fn gdk_window_set_cursor(*GdkWindow, ?*GdkCursor) void;
-extern fn gdk_cursor_new_from_name(*GdkDisplay, [*:0]const u8) ?*GdkCursor;
-extern fn gdk_cursor_new_for_display(*GdkDisplay, c_int) ?*GdkCursor;
+extern fn gdk_cursor_new_from_name(
+    *GdkDisplay, [*:0]const u8) ?*GdkCursor;
+extern fn gdk_cursor_new_for_display(
+    *GdkDisplay, c_int) ?*GdkCursor;
 extern fn gdk_screen_get_default() ?*GdkScreen;
+extern fn gdk_window_get_origin(*GdkWindow, *c_int, *c_int) void;
+extern fn gdk_display_get_monitor_at_window(
+    *GdkDisplay, *GdkWindow) ?*GdkMonitor;
+extern fn gdk_display_get_primary_monitor(*GdkDisplay) ?*GdkMonitor;
+extern fn gdk_display_get_default_seat(*GdkDisplay) ?*GdkSeat;
+extern fn gdk_seat_get_pointer(*GdkSeat) ?*GdkDevice;
+extern fn gdk_device_get_position(
+    *GdkDevice, ?*?*GdkScreen, *c_int, *c_int) void;
+extern fn gdk_monitor_get_geometry(*GdkMonitor, *GdkRectangle) void;
+extern fn gdk_monitor_get_workarea(*GdkMonitor, *GdkRectangle) void;
+extern fn gdk_monitor_get_scale_factor(*GdkMonitor) c_int;
+extern fn gdk_display_get_monitor_at_point(
+    *GdkDisplay, c_int, c_int) ?*GdkMonitor;
+extern fn gdk_display_get_n_monitors(*GdkDisplay) c_int;
+extern fn gdk_display_get_monitor(*GdkDisplay, c_int) ?*GdkMonitor;
+extern fn gdk_window_set_fullscreen_mode(*GdkWindow, c_int) void;
+extern fn gdk_window_fullscreen_on_monitor(*GdkWindow, c_int) void;
+extern fn gdk_window_fullscreen(*GdkWindow) void;
+extern fn gdk_frame_clock_request_phase(*GdkFrameClock, c_int) void;
+extern fn gdk_keyval_to_unicode(c_uint) c_uint;
+extern fn gdk_screen_get_rgba_visual(*GdkScreen) ?*GdkVisual;
+extern fn gdk_screen_is_composited(*GdkScreen) c_int;
+extern fn gdk_wayland_display_get_type() GType;
+extern fn gdk_display_get_default() ?*GdkDisplay;
 
 const label_key = "noctty-pane-info-label";
 const text_key = "noctty-pane-info-text";
@@ -2878,6 +2907,185 @@ pub export fn noctty_grid_event_free(event_optional: ?*anyopaque) void {
     const event = event_optional orelse return;
     gdk_event_free(@ptrCast(event));
 }
+pub export fn noctty_grid_gdk_window_get_origin(
+    window_optional: ?*anyopaque,
+    x: ?*c_int,
+    y: ?*c_int,
+) void {
+    const window = window_optional orelse return;
+    const x_out = x orelse return;
+    const y_out = y orelse return;
+    gdk_window_get_origin(@ptrCast(window), x_out, y_out);
+}
+
+pub export fn noctty_grid_gdk_monitor_at_window(
+    display_optional: ?*anyopaque,
+    window_optional: ?*anyopaque,
+) ?*GdkMonitor {
+    const display = display_optional orelse return null;
+    const window = window_optional orelse return null;
+    return gdk_display_get_monitor_at_window(@ptrCast(display), @ptrCast(window));
+}
+
+pub export fn noctty_grid_gdk_primary_monitor(
+    display_optional: ?*anyopaque,
+) ?*GdkMonitor {
+    const display = display_optional orelse return null;
+    return gdk_display_get_primary_monitor(@ptrCast(display));
+}
+
+pub export fn noctty_grid_gdk_pointer_position(
+    display_optional: ?*anyopaque,
+    x: ?*c_int,
+    y: ?*c_int,
+) c_int {
+    const display = display_optional orelse return 0;
+    const x_out = x orelse return 0;
+    const y_out = y orelse return 0;
+    const seat = gdk_display_get_default_seat(@ptrCast(display)) orelse return 0;
+    const pointer = gdk_seat_get_pointer(seat) orelse return 0;
+    gdk_device_get_position(pointer, null, x_out, y_out);
+    return 1;
+}
+
+pub export fn noctty_grid_gdk_monitor_at_point(
+    display_optional: ?*anyopaque,
+    x: c_int,
+    y: c_int,
+) ?*GdkMonitor {
+    const display = display_optional orelse return null;
+    return gdk_display_get_monitor_at_point(@ptrCast(display), x, y);
+}
+
+pub export fn noctty_grid_gdk_monitor_count(
+    display_optional: ?*anyopaque,
+) c_int {
+    const display = display_optional orelse return 0;
+    return gdk_display_get_n_monitors(@ptrCast(display));
+}
+
+pub export fn noctty_grid_gdk_monitor_at_index(
+    display_optional: ?*anyopaque,
+    index: c_int,
+) ?*GdkMonitor {
+    const display = display_optional orelse return null;
+    return gdk_display_get_monitor(@ptrCast(display), index);
+}
+
+pub export fn noctty_grid_gdk_monitor_get_geometry(
+    monitor_optional: ?*anyopaque,
+    geometry: ?*GdkRectangle,
+) void {
+    const monitor = monitor_optional orelse return;
+    const output = geometry orelse return;
+    gdk_monitor_get_geometry(@ptrCast(monitor), output);
+}
+
+pub export fn noctty_grid_gdk_monitor_get_workarea(
+    monitor_optional: ?*anyopaque,
+    workarea: ?*GdkRectangle,
+) void {
+    const monitor = monitor_optional orelse return;
+    const output = workarea orelse return;
+    gdk_monitor_get_workarea(@ptrCast(monitor), output);
+}
+
+pub export fn noctty_grid_gdk_monitor_get_scale_factor(
+    monitor_optional: ?*anyopaque,
+) c_int {
+    const monitor = monitor_optional orelse return 1;
+    return gdk_monitor_get_scale_factor(@ptrCast(monitor));
+}
+
+pub export fn noctty_grid_gdk_window_set_fullscreen_mode(
+    window_optional: ?*anyopaque,
+    mode: c_int,
+) void {
+    const window = window_optional orelse return;
+    gdk_window_set_fullscreen_mode(@ptrCast(window), mode);
+}
+
+pub export fn noctty_grid_gdk_window_fullscreen_on_monitor(
+    window_optional: ?*anyopaque,
+    monitor_index: c_int,
+) void {
+    const window = window_optional orelse return;
+    gdk_window_fullscreen_on_monitor(@ptrCast(window), monitor_index);
+}
+
+pub export fn noctty_grid_gdk_window_fullscreen(
+    window_optional: ?*anyopaque,
+) void {
+    const window = window_optional orelse return;
+    gdk_window_fullscreen(@ptrCast(window));
+}
+
+pub export fn noctty_grid_gdk_set_cursor(
+    window_optional: ?*anyopaque,
+    display_optional: ?*anyopaque,
+    name: [*:0]const u8,
+    fallback_cursor: c_int,
+) c_int {
+    const window = window_optional orelse return 0;
+    const display = display_optional orelse return 0;
+    var cursor = gdk_cursor_new_from_name(@ptrCast(display), name);
+    if (cursor == null and fallback_cursor >= 0)
+        cursor = gdk_cursor_new_for_display(@ptrCast(display), fallback_cursor);
+    const value = cursor orelse return 0;
+    gdk_window_set_cursor(@ptrCast(window), value);
+    g_object_unref(value);
+    return 1;
+}
+pub export fn noctty_grid_gdk_request_paint(
+    clock_optional: ?*anyopaque,
+    phase: c_int,
+) void {
+    const clock = clock_optional orelse return;
+    gdk_frame_clock_request_phase(@ptrCast(clock), phase);
+}
+
+pub export fn noctty_grid_gdk_keyval_to_unicode(keyval: c_uint) c_uint {
+    return gdk_keyval_to_unicode(keyval);
+}
+
+pub export fn noctty_grid_gdk_screen_get_rgba_visual(
+    screen_optional: ?*anyopaque,
+) ?*GdkVisual {
+    const screen = screen_optional orelse return null;
+    return gdk_screen_get_rgba_visual(@ptrCast(screen));
+}
+
+pub export fn noctty_grid_gdk_screen_is_composited(
+    screen_optional: ?*anyopaque,
+) c_int {
+    const screen = screen_optional orelse return 0;
+    return gdk_screen_is_composited(@ptrCast(screen));
+}
+
+pub export fn noctty_grid_gdk_display_is_wayland(
+    display_optional: ?*anyopaque,
+) c_int {
+    const display = display_optional orelse return 0;
+    return if (g_type_check_instance_is_a(
+        @alignCast(@ptrCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
+}
+pub export fn noctty_grid_gdk_default_display_is_wayland() c_int {
+    const display = gdk_display_get_default() orelse return 0;
+    return if (g_type_check_instance_is_a(
+        @alignCast(@ptrCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
+}
+
+pub export fn noctty_grid_event_set_pointer_device(
+    event_optional: ?*anyopaque,
+    display_optional: ?*anyopaque,
+) void {
+    const event = event_optional orelse return;
+    const display = display_optional orelse return;
+    const seat = gdk_display_get_default_seat(@ptrCast(display)) orelse return;
+    const pointer = gdk_seat_get_pointer(seat) orelse return;
+    gdk_event_set_device(@ptrCast(event), pointer);
+}
+
 pub export fn noctty_grid_button_get_image(
     button_optional: ?*anyopaque,
 ) ?*GtkWidget {

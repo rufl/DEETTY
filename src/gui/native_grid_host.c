@@ -2313,7 +2313,7 @@ static gboolean announce_reorder_drag_smoke(gpointer user_data) {
     if (native_window == NULL) return G_SOURCE_CONTINUE;
     gint origin_x = 0;
     gint origin_y = 0;
-    gdk_window_get_origin(native_window, &origin_x, &origin_y);
+    noctty_grid_gdk_window_get_origin(native_window, &origin_x, &origin_y);
     source_x += origin_x;
     source_y += origin_y;
     target_x += origin_x;
@@ -3134,7 +3134,7 @@ static void apply_xdg_activation_token(NocttyGridContext *context) {
     root->xdg_activation_token_applied = 1;
     if (g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL)
         g_printerr("noctty_xdg_activation applied=true backend=%s\n",
-                   GDK_IS_WAYLAND_DISPLAY(gdk_display_get_default())
+                   noctty_grid_gdk_default_display_is_wayland()
                        ? "wayland" : "x11");
     clear_xdg_activation_token(root);
 }
@@ -6007,7 +6007,7 @@ static void queue_grid_output_when_ready(NocttyGridContext *context) {
     if (context->area != NULL && noctty_grid_widget_get_mapped(context->area)) {
         GdkFrameClock *clock = noctty_grid_widget_get_frame_clock(context->area);
         if (clock != NULL)
-            gdk_frame_clock_request_phase(clock, GDK_FRAME_CLOCK_PHASE_PAINT);
+            noctty_grid_gdk_request_paint(clock, GDK_FRAME_CLOCK_PHASE_PAINT);
     }
 }
 
@@ -8619,7 +8619,7 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     }
     if (context->im_context != NULL &&
         noctty_grid_im_context_filter_keypress(context->im_context, event)) return TRUE;
-    gunichar unicode = gdk_keyval_to_unicode(event->keyval);
+    gunichar unicode = noctty_grid_gdk_keyval_to_unicode(event->keyval);
     uint32_t modifiers = 0;
     if ((event->state & GDK_CONTROL_MASK) != 0)
         modifiers |= NOCTTY_GRID_MODIFIER_CONTROL;
@@ -9250,21 +9250,17 @@ static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     GdkDisplay *display = noctty_grid_widget_get_display(window);
     GdkWindow *gdk_window = noctty_grid_widget_get_window(window);
     GdkMonitor *monitor = gdk_window != NULL
-        ? gdk_display_get_monitor_at_window(display, gdk_window)
+        ? noctty_grid_gdk_monitor_at_window(display, gdk_window)
         : NULL;
-    if (monitor == NULL) monitor = gdk_display_get_primary_monitor(display);
+    if (monitor == NULL) monitor = noctty_grid_gdk_primary_monitor(display);
     if (monitor == NULL) {
-        GdkSeat *seat = gdk_display_get_default_seat(display);
-        GdkDevice *pointer = seat != NULL ? gdk_seat_get_pointer(seat) : NULL;
         gint x = 0;
         gint y = 0;
-        if (pointer != NULL) {
-            gdk_device_get_position(pointer, NULL, &x, &y);
-            monitor = gdk_display_get_monitor_at_point(display, x, y);
-        }
+        if (noctty_grid_gdk_pointer_position(display, &x, &y))
+            monitor = noctty_grid_gdk_monitor_at_point(display, x, y);
     }
-    if (monitor == NULL && gdk_display_get_n_monitors(display) > 0)
-        monitor = gdk_display_get_monitor(display, 0);
+    if (monitor == NULL && noctty_grid_gdk_monitor_count(display) > 0)
+        monitor = noctty_grid_gdk_monitor_at_index(display, 0);
     return monitor;
 }
 
@@ -9275,10 +9271,12 @@ static gboolean grid_monitor_metrics(
     GdkMonitor *monitor = grid_monitor_for_window(window);
     if (monitor == NULL) return FALSE;
     if (monitor_output != NULL) *monitor_output = monitor;
-    if (geometry_output != NULL) gdk_monitor_get_geometry(monitor, geometry_output);
-    if (workarea_output != NULL) gdk_monitor_get_workarea(monitor, workarea_output);
+    if (geometry_output != NULL)
+        noctty_grid_gdk_monitor_get_geometry(monitor, geometry_output);
+    if (workarea_output != NULL)
+        noctty_grid_gdk_monitor_get_workarea(monitor, workarea_output);
     if (scale_factor_output != NULL)
-        *scale_factor_output = MAX(1, gdk_monitor_get_scale_factor(monitor));
+        *scale_factor_output = MAX(1, noctty_grid_gdk_monitor_get_scale_factor(monitor));
     return TRUE;
 }
 
@@ -9298,7 +9296,7 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
 
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
-    if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_geometry(monitor, &geometry);
     NocttyLayerSetMonitor set_monitor =
         (NocttyLayerSetMonitor)dlsym(root->layer_shell_library,
                                      "gtk_layer_set_monitor");
@@ -9549,7 +9547,7 @@ static void configure_overlay_window_geometry(
 
     GdkRectangle monitor_geometry = *workarea;
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_geometry(monitor, &monitor_geometry);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_geometry(monitor, &monitor_geometry);
     int left = MAX(0, workarea->x - monitor_geometry.x +
                           (workarea->width - width) / 2);
     int top = MAX(0, workarea->y - monitor_geometry.y +
@@ -9572,7 +9570,7 @@ static void apply_dropdown_dimensions(NocttyGridContext *context) {
     }
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int width = noctty_grid_dropdown_dimension(
         root->dropdown_width_px, root->dropdown_width_percent,
         workarea.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
@@ -9591,7 +9589,7 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int width = noctty_grid_percent_dimension(workarea.width, 80, 480);
     int height = noctty_grid_percent_dimension(workarea.height, 75, 320);
     noctty_grid_widget_set_size_request(root->window, -1, -1);
@@ -9606,8 +9604,8 @@ static void apply_fullscreen_dimensions(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     int monitor_index = -1;
     for (int index = 0; monitor != NULL && display != NULL &&
-         index < gdk_display_get_n_monitors(display); index++) {
-        if (gdk_display_get_monitor(display, index) == monitor) {
+         index < noctty_grid_gdk_monitor_count(display); index++) {
+        if (noctty_grid_gdk_monitor_at_index(display, index) == monitor) {
             monitor_index = index;
             break;
         }
@@ -9616,12 +9614,12 @@ static void apply_fullscreen_dimensions(NocttyGridContext *context) {
     if (gdk_window == NULL) {
         noctty_grid_window_set_fullscreen(root->window, TRUE);
     } else {
-        gdk_window_set_fullscreen_mode(
+        noctty_grid_gdk_window_set_fullscreen_mode(
             gdk_window, GDK_FULLSCREEN_ON_CURRENT_MONITOR);
         if (!GDK_IS_WAYLAND_DISPLAY(display) && monitor_index >= 0)
-            gdk_window_fullscreen_on_monitor(gdk_window, monitor_index);
+            noctty_grid_gdk_window_fullscreen_on_monitor(gdk_window, monitor_index);
         else
-            gdk_window_fullscreen(gdk_window);
+            noctty_grid_gdk_window_fullscreen(gdk_window);
     }
 }
 
@@ -9743,11 +9741,11 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     GtkWidget *window = noctty_grid_window_new();
     GdkScreen *screen = noctty_grid_widget_get_screen(window);
     GdkVisual *visual = screen != NULL
-        ? gdk_screen_get_rgba_visual(screen) : NULL;
+        ? noctty_grid_gdk_screen_get_rgba_visual(screen) : NULL;
     gboolean wayland = GDK_IS_WAYLAND_DISPLAY(
         noctty_grid_widget_get_display(window));
     root->background_alpha_supported = visual != NULL && screen != NULL &&
-        (wayland || gdk_screen_is_composited(screen));
+        (wayland || noctty_grid_gdk_screen_is_composited(screen));
     if (root->background_alpha_supported) {
         noctty_grid_widget_set_visual(window, visual);
         noctty_grid_widget_set_app_paintable(window, TRUE);
@@ -9898,9 +9896,9 @@ static gboolean normalize_dropdown_pixel_dimensions(
     if (monitor == NULL) return FALSE;
     GdkRectangle available = {0};
     if (root->layer_shell_active)
-        gdk_monitor_get_geometry(monitor, &available);
+        noctty_grid_gdk_monitor_get_geometry(monitor, &available);
     else
-        gdk_monitor_get_workarea(monitor, &available);
+        noctty_grid_gdk_monitor_get_workarea(monitor, &available);
     int width_percent = noctty_grid_dropdown_percent(
         root->dropdown_width_px, available.width,
         root->dropdown_width_percent);
@@ -10839,7 +10837,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     GdkRectangle settings_workarea = {0, 0, 900, 680};
     GdkMonitor *settings_monitor = grid_monitor_for_window(context->window);
     if (settings_monitor != NULL)
-        gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
+        noctty_grid_gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
     gboolean compact_settings = settings_workarea.width < 800;
     int settings_width =
         noctty_grid_dialog_dimension(settings_workarea.width, 980, 720, 96);
@@ -11755,7 +11753,7 @@ static void open_project_tools(NocttyGridContext *context) {
     GdkRectangle project_workarea = {0, 0, 680, 520};
     GdkMonitor *project_monitor = grid_monitor_for_window(context->window);
     if (project_monitor != NULL)
-        gdk_monitor_get_workarea(project_monitor, &project_workarea);
+        noctty_grid_gdk_monitor_get_workarea(project_monitor, &project_workarea);
     noctty_grid_window_set_default_size(
         dialog,
         noctty_grid_dialog_dimension(project_workarea.width, 680, 1, 32),
@@ -12096,7 +12094,7 @@ static void open_terminal_find(NocttyGridContext *context) {
     }
     GdkRectangle workarea = {0, 0, 640, 360};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int dialog_width =
         noctty_grid_dialog_dimension(workarea.width, 640, 1, 32);
     int dialog_height = workarea.width < 600 ? 132 : 76;
@@ -12220,7 +12218,7 @@ static void open_quick_note(NocttyGridContext *context) {
     }
     GdkRectangle workarea = {0, 0, 640, 480};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int dialog_width =
         noctty_grid_dialog_dimension(workarea.width, 600, 1, 32);
     int dialog_height =
@@ -12290,7 +12288,7 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
     }
     GdkRectangle workarea = {0, 0, 640, 560};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int dialog_width =
         noctty_grid_dialog_dimension(workarea.width, 620, 1, 32);
     int dialog_height =
@@ -12601,7 +12599,7 @@ static void open_command_palette(NocttyGridContext *context) {
     }
     GdkRectangle workarea = {0, 0, 680, 460};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int dialog_width =
         noctty_grid_dialog_dimension(workarea.width, 660, 1, 32);
     int dialog_height =
@@ -13406,7 +13404,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     root->sharing_dialog = dialog;
     GdkRectangle workarea = {0, 0, 900, 700};
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
-    if (monitor != NULL) gdk_monitor_get_workarea(monitor, &workarea);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
     int width =
         noctty_grid_dialog_dimension(workarea.width, 920, 480, 64);
     int height =
@@ -14312,13 +14310,8 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
             event->button,
             event->x_root,
             event->y_root);
-        GdkDisplay *display = noctty_grid_widget_get_display(context->area);
-        GdkSeat *seat = display != NULL
-            ? gdk_display_get_default_seat(display) : NULL;
-        GdkDevice *pointer = seat != NULL
-            ? gdk_seat_get_pointer(seat) : NULL;
-        if (pointer != NULL)
-            noctty_grid_event_set_device(trigger, pointer);
+        noctty_grid_event_set_pointer_device(
+            trigger, noctty_grid_widget_get_display(context->area));
         noctty_grid_menu_popup_at_widget(GTK_MENU(menu), context->area,
                                  GDK_GRAVITY_SOUTH_WEST,
                                  GDK_GRAVITY_NORTH_WEST,
@@ -14485,18 +14478,8 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
     GdkWindow *window = noctty_grid_widget_get_window(profile);
     GdkEvent *trigger = noctty_grid_button_event_new(
         window, GDK_CURRENT_TIME, 0.0, 0.0, 0, 3, 0.0, 0.0);
-    GdkDisplay *display = noctty_grid_widget_get_display(profile);
-    GdkSeat *seat = display != NULL
-        ? gdk_display_get_default_seat(display) : NULL;
-    GdkDevice *pointer = seat != NULL
-        ? gdk_seat_get_pointer(seat) : NULL;
-    if (pointer != NULL)
-        noctty_grid_event_set_device(trigger, pointer);
-    noctty_grid_menu_popup_at_widget(GTK_MENU(submenu), profile,
-                             GDK_GRAVITY_NORTH_EAST,
-                             GDK_GRAVITY_NORTH_WEST,
-                             trigger);
-    noctty_grid_event_free(trigger);
+    noctty_grid_event_set_pointer_device(
+        trigger, noctty_grid_widget_get_display(profile));
     g_timeout_add(140, activate_profile_preset_smoke, target);
     return G_SOURCE_REMOVE;
 }
@@ -15816,18 +15799,13 @@ static void on_window_resize_handle_realize(GtkWidget *widget,
     GdkWindow *window = noctty_grid_widget_get_window(widget);
     if (window == NULL) return;
     GdkDisplay *display = noctty_grid_widget_get_display(widget);
-    GdkCursor *cursor = gdk_cursor_new_from_name(
-        display, noctty_grid_window_resize_cursor_name(index));
-    if (cursor == NULL)
-        cursor = gdk_cursor_new_for_display(
-            display,
+    if (!noctty_grid_gdk_set_cursor(
+            window, display, noctty_grid_window_resize_cursor_name(index),
             g_strcmp0(noctty_grid_window_resize_cursor_name(index), "ew-resize") == 0
-                ? GDK_SB_H_DOUBLE_ARROW : GDK_SB_V_DOUBLE_ARROW);
-    if (cursor == NULL) return;
-    gdk_window_set_cursor(window, cursor);
+                ? GDK_SB_H_DOUBLE_ARROW : GDK_SB_V_DOUBLE_ARROW))
+        return;
     g_object_set_data(G_OBJECT(widget), "noctty-resize-cursor-name",
                       (gpointer)noctty_grid_window_resize_cursor_name(index));
-    g_object_unref(cursor);
 }
 
 static void finish_window_resize_drag(NocttyGridContext *root) {
@@ -15987,7 +15965,7 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     int index = root->window_resize_drag_handle;
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle geometry = {0, 0, 900, 420};
-    if (monitor != NULL) gdk_monitor_get_geometry(monitor, &geometry);
+    if (monitor != NULL) noctty_grid_gdk_monitor_get_geometry(monitor, &geometry);
 
     double horizontal = 0.0;
     double vertical = 0.0;
@@ -16181,15 +16159,10 @@ static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {
     GdkWindow *window = noctty_grid_widget_get_window(widget);
     if (window != NULL) {
         GdkDisplay *display = noctty_grid_widget_get_display(widget);
-        GdkCursor *cursor = gdk_cursor_new_from_name(display, "text");
-        if (cursor == NULL)
-            cursor = gdk_cursor_new_for_display(display, GDK_XTERM);
-        if (cursor != NULL) {
-            gdk_window_set_cursor(window, cursor);
-            g_object_unref(cursor);
+        if (noctty_grid_gdk_set_cursor(
+                window, display, "text", GDK_XTERM))
             g_object_set_data(G_OBJECT(widget), "noctty-cursor-name",
                               (gpointer)"text");
-        }
     }
     if (context->im_context != NULL)
         gtk_im_context_set_client_window(context->im_context,
