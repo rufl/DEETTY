@@ -119,6 +119,7 @@ const GtkClipboardTextReceivedCallback = *const fn (
     ?*anyopaque,
 ) callconv(.c) void;
 const GCallback = *const fn () callconv(.c) void;
+const GSourceFunc = *const fn (?*anyopaque) callconv(.c) c_int;
 const GtkTickCallback = *const fn (
     *GtkWidget,
     *anyopaque,
@@ -661,6 +662,17 @@ extern fn g_signal_connect_data(
     ?*anyopaque, c_uint,
 ) c_ulong;
 extern fn g_object_unref(?*anyopaque) void;
+extern fn g_idle_add(function: GSourceFunc, data: ?*anyopaque) c_uint;
+extern fn g_timeout_add(
+    interval: c_uint, function: GSourceFunc, data: ?*anyopaque,
+) c_uint;
+extern fn g_timeout_add_seconds(
+    interval: c_uint, function: GSourceFunc, data: ?*anyopaque,
+) c_uint;
+extern fn g_source_remove(source_id: c_uint) c_int;
+extern fn g_main_context_iteration(
+    context: ?*anyopaque, may_block: c_int,
+) c_int;
 extern fn g_object_set_data(*GObject, [*:0]const u8, ?*anyopaque) void;
 extern fn g_object_set_data_full(
     *GObject, [*:0]const u8, ?*anyopaque, ?GDestroyNotify,
@@ -2762,6 +2774,41 @@ pub export fn noctty_grid_object_unref(object_optional: ?*anyopaque) void {
 pub export fn noctty_grid_object_clear(object_optional: ?*anyopaque) ?*anyopaque {
     if (object_optional) |object_value| g_object_unref(object_value);
     return null;
+}
+
+pub export fn noctty_grid_source_idle_add(
+    function_optional: ?*anyopaque,
+    data: ?*anyopaque,
+) c_uint {
+    const function = function_optional orelse return 0;
+    return g_idle_add(@ptrCast(@alignCast(function)), data);
+}
+
+pub export fn noctty_grid_source_timeout_add(
+    interval: c_uint,
+    function_optional: ?*anyopaque,
+    data: ?*anyopaque,
+) c_uint {
+    const function = function_optional orelse return 0;
+    return g_timeout_add(interval, @ptrCast(@alignCast(function)), data);
+}
+
+pub export fn noctty_grid_source_timeout_add_seconds(
+    interval: c_uint,
+    function_optional: ?*anyopaque,
+    data: ?*anyopaque,
+) c_uint {
+    const function = function_optional orelse return 0;
+    return g_timeout_add_seconds(interval, @ptrCast(@alignCast(function)), data);
+}
+
+pub export fn noctty_grid_source_remove(source_id: c_uint) c_int {
+    if (source_id == 0) return FALSE;
+    return g_source_remove(source_id);
+}
+
+pub export fn noctty_grid_main_context_iteration(may_block: c_int) c_int {
+    return g_main_context_iteration(null, may_block);
 }
 
 pub export fn noctty_grid_widget_show_all(
