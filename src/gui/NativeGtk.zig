@@ -512,8 +512,14 @@ extern fn gtk_style_context_add_provider(*GtkStyleContext, *GtkStyleProvider, c_
 extern fn gtk_style_context_remove_provider(*GtkStyleContext, *GtkStyleProvider) void;
 extern fn gtk_style_context_add_provider_for_screen(*GdkScreen, *GtkStyleProvider, c_uint) void;
 extern fn gtk_style_context_add_class(*GtkStyleContext, [*:0]const u8) void;
+extern fn gtk_style_context_remove_class(
+    *GtkStyleContext, [*:0]const u8) void;
+extern fn gtk_style_context_has_class(
+    *GtkStyleContext, [*:0]const u8) c_int;
 extern fn atk_object_set_name(*AtkObject, [*:0]const u8) void;
 extern fn atk_object_set_description(*AtkObject, [*:0]const u8) void;
+extern fn atk_object_get_description(*AtkObject) ?[*:0]const u8;
+extern fn atk_object_get_role(*AtkObject) c_int;
 extern fn atk_object_set_role(*AtkObject, c_int) void;
 extern fn atk_object_get_name(*AtkObject) ?[*:0]const u8;
 extern fn g_type_check_instance_is_a(*GTypeInstance, GType) c_int;
@@ -2746,6 +2752,88 @@ pub export fn noctty_grid_editable_select_region(
 ) void {
     const editable = editable_optional orelse return;
     gtk_editable_select_region(@ptrCast(editable), start_pos, end_pos);
+}
+pub export fn noctty_grid_widget_get_accessible(
+    widget_optional: ?*anyopaque,
+) ?*AtkObject {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_accessible(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_widget_get_style_context(
+    widget_optional: ?*anyopaque,
+) ?*GtkStyleContext {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_style_context(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_style_context_add_class(
+    style_optional: ?*anyopaque,
+    class_name: [*:0]const u8,
+) void {
+    const style = style_optional orelse return;
+    gtk_style_context_add_class(@ptrCast(style), class_name);
+}
+
+pub export fn noctty_grid_style_context_remove_class(
+    style_optional: ?*anyopaque,
+    class_name: [*:0]const u8,
+) void {
+    const style = style_optional orelse return;
+    gtk_style_context_remove_class(@ptrCast(style), class_name);
+}
+
+pub export fn noctty_grid_style_context_has_class(
+    style_optional: ?*anyopaque,
+    class_name: [*:0]const u8,
+) c_int {
+    const style = style_optional orelse return FALSE;
+    return gtk_style_context_has_class(@ptrCast(style), class_name);
+}
+
+pub export fn noctty_grid_atk_object_set_name(
+    accessible_optional: ?*anyopaque,
+    name: [*:0]const u8,
+) void {
+    const accessible = accessible_optional orelse return;
+    atk_object_set_name(@ptrCast(accessible), name);
+}
+
+pub export fn noctty_grid_atk_object_set_description(
+    accessible_optional: ?*anyopaque,
+    description: [*:0]const u8,
+) void {
+    const accessible = accessible_optional orelse return;
+    atk_object_set_description(@ptrCast(accessible), description);
+}
+
+pub export fn noctty_grid_atk_object_set_role(
+    accessible_optional: ?*anyopaque,
+    role: c_int,
+) void {
+    const accessible = accessible_optional orelse return;
+    atk_object_set_role(@ptrCast(accessible), role);
+}
+
+pub export fn noctty_grid_atk_object_get_name(
+    accessible_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const accessible = accessible_optional orelse return null;
+    return atk_object_get_name(@ptrCast(accessible));
+}
+
+pub export fn noctty_grid_atk_object_get_description(
+    accessible_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const accessible = accessible_optional orelse return null;
+    return atk_object_get_description(@ptrCast(accessible));
+}
+
+pub export fn noctty_grid_atk_object_get_role(
+    accessible_optional: ?*anyopaque,
+) c_int {
+    const accessible = accessible_optional orelse return 0;
+    return atk_object_get_role(@ptrCast(accessible));
 }
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,

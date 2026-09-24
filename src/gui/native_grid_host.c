@@ -1119,7 +1119,7 @@ static void noctty_terminal_accessible_initialize(
     AtkObject *object, gpointer data) {
     ATK_OBJECT_CLASS(noctty_terminal_accessible_parent_class)
         ->initialize(object, data);
-    atk_object_set_role(object, ATK_ROLE_TERMINAL);
+    noctty_grid_atk_object_set_role(object, ATK_ROLE_TERMINAL);
 }
 
 static void noctty_terminal_accessible_class_init(
@@ -1181,7 +1181,7 @@ static void refresh_terminal_accessible_text(NocttyGridContext *context) {
         context->cell_text == NULL ||
         !grid_context_session_available(context))
         return;
-    AtkObject *object = gtk_widget_get_accessible(context->area);
+    AtkObject *object = noctty_grid_widget_get_accessible(context->area);
     if (!ATK_IS_TEXT(object) ||
         !G_TYPE_CHECK_INSTANCE_TYPE(
             object, noctty_terminal_accessible_get_type()))
@@ -4529,8 +4529,8 @@ static void update_status_tooltip(NocttyGridContext *context, const gchar *statu
         G_OBJECT(context->area), "noctty-pane-tooltip-cache");
     if (g_strcmp0(cached, text) != 0) {
         noctty_grid_widget_set_tooltip_text(context->area, text);
-        AtkObject *accessible = gtk_widget_get_accessible(context->area);
-        if (accessible != NULL) atk_object_set_description(accessible, text);
+        AtkObject *accessible = noctty_grid_widget_get_accessible(context->area);
+        if (accessible != NULL) noctty_grid_atk_object_set_description(accessible, text);
         g_object_set_data_full(G_OBJECT(context->area),
                                "noctty-pane-tooltip-cache",
                                g_strdup(text), g_free);
@@ -5043,8 +5043,8 @@ static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page);
 
 static void clear_tab_rename_error(NocttyGridContext *root) {
     if (!GTK_IS_ENTRY(root->tab_rename_entry)) return;
-    GtkStyleContext *style = gtk_widget_get_style_context(root->tab_rename_entry);
-    gtk_style_context_remove_class(style, "error");
+    GtkStyleContext *style = noctty_grid_widget_get_style_context(root->tab_rename_entry);
+    noctty_grid_style_context_remove_class(style, "error");
     gtk_entry_set_icon_from_icon_name(GTK_ENTRY(root->tab_rename_entry),
                                       GTK_ENTRY_ICON_SECONDARY, NULL);
     noctty_grid_widget_set_tooltip_text(
@@ -5055,8 +5055,8 @@ static void clear_tab_rename_error(NocttyGridContext *root) {
 static void set_tab_rename_error(NocttyGridContext *root,
                                  const gchar *message) {
     if (!GTK_IS_ENTRY(root->tab_rename_entry)) return;
-    GtkStyleContext *style = gtk_widget_get_style_context(root->tab_rename_entry);
-    gtk_style_context_add_class(style, "error");
+    GtkStyleContext *style = noctty_grid_widget_get_style_context(root->tab_rename_entry);
+    noctty_grid_style_context_add_class(style, "error");
     gtk_entry_set_icon_from_icon_name(GTK_ENTRY(root->tab_rename_entry),
                                       GTK_ENTRY_ICON_SECONDARY,
                                       "dialog-warning-symbolic");
@@ -5479,7 +5479,7 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
     if (GTK_IS_IMAGE(icon))
         gtk_image_get_icon_name(GTK_IMAGE(icon), &icon_name, &icon_size);
     AtkObject *accessible = button != NULL
-        ? gtk_widget_get_accessible(button)
+        ? noctty_grid_widget_get_accessible(button)
         : NULL;
     root->new_tab_button_visible = button != NULL &&
         noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 1 &&
@@ -5492,7 +5492,7 @@ static gboolean request_new_tab_button_smoke(gpointer user_data) {
         icon_size == GTK_ICON_SIZE_MENU &&
         g_strcmp0(icon_name, "list-add-symbolic") == 0;
     root->new_tab_button_accessible = accessible != NULL &&
-        g_strcmp0(atk_object_get_name(accessible), "New Tab, Ctrl+Shift+T") == 0;
+        g_strcmp0(noctty_grid_atk_object_get_name(accessible), "New Tab, Ctrl+Shift+T") == 0;
     if (button != NULL) noctty_grid_button_clicked(GTK_BUTTON(button));
     root->new_tab_button_clicked =
         noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) == 2 &&
@@ -9761,7 +9761,7 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     root->translucent_surface_ready =
         g_object_get_data(G_OBJECT(window),
                           "noctty-style-provider-installed") != NULL &&
-        gtk_style_context_has_class(gtk_widget_get_style_context(window),
+        noctty_grid_style_context_has_class(noctty_grid_widget_get_style_context(window),
                                     "noctty-terminal-window") &&
         (!root->background_alpha_supported ||
          gtk_widget_get_app_paintable(window));
@@ -10704,17 +10704,17 @@ static void set_launch_profile_status(
     noctty_grid_widget_set_visible(context->settings_launch_status, TRUE);
     context->launch_profile_feedback = message != NULL && message[0] != '\0';
     GtkStyleContext *style =
-        gtk_widget_get_style_context(context->settings_launch_status);
+        noctty_grid_widget_get_style_context(context->settings_launch_status);
     if (error)
-        gtk_style_context_add_class(style, "error");
+        noctty_grid_style_context_add_class(style, "error");
     else
-        gtk_style_context_remove_class(style, "error");
+        noctty_grid_style_context_remove_class(style, "error");
     AtkObject *accessible =
-        gtk_widget_get_accessible(context->settings_launch_status);
+        noctty_grid_widget_get_accessible(context->settings_launch_status);
     if (accessible != NULL) {
-        atk_object_set_role(
+        noctty_grid_atk_object_set_role(
             accessible, error ? ATK_ROLE_ALERT : ATK_ROLE_STATUSBAR);
-        atk_object_set_description(accessible, message);
+        noctty_grid_atk_object_set_description(accessible, message);
         g_signal_emit_by_name(accessible, "visible-data-changed");
     }
     if (error && focus != NULL) noctty_grid_focus_widget(NULL, focus);
@@ -11780,15 +11780,15 @@ static void open_project_tools(NocttyGridContext *context) {
     GtkWidget *recent_open = contents.recent_open;
     GtkWidget *editor = contents.editor;
     AtkObject *summary_accessible =
-        gtk_widget_get_accessible(contents.summary);
-    AtkObject *recent_accessible = gtk_widget_get_accessible(recent_combo);
+        noctty_grid_widget_get_accessible(contents.summary);
+    AtkObject *recent_accessible = noctty_grid_widget_get_accessible(recent_combo);
     context->project_summary_scrollable =
         GTK_IS_SCROLLED_WINDOW(contents.summary_scroll);
     context->project_summary_accessible = summary_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(summary_accessible),
+        g_strcmp0(noctty_grid_atk_object_get_name(summary_accessible),
                   "Workspace summary") == 0 &&
         recent_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(recent_accessible),
+        g_strcmp0(noctty_grid_atk_object_get_name(recent_accessible),
                   "Recent workspaces") == 0;
     int recent_count = context->event_data != NULL
         ? noctty_grid_recent_workspace(
@@ -11994,35 +11994,35 @@ static void on_find_destroy(GtkWidget *widget, gpointer user_data) {
 }
 
 static void set_widget_accessible_name(GtkWidget *widget, const char *name) {
-    AtkObject *accessible = gtk_widget_get_accessible(widget);
-    if (accessible != NULL) atk_object_set_name(accessible, name);
+    AtkObject *accessible = noctty_grid_widget_get_accessible(widget);
+    if (accessible != NULL) noctty_grid_atk_object_set_name(accessible, name);
 }
 
 static void set_status_label_feedback(GtkWidget *label, const char *message,
                                       gboolean is_error) {
     if (!GTK_IS_LABEL(label) || message == NULL) return;
-    AtkObject *accessible = gtk_widget_get_accessible(label);
+    AtkObject *accessible = noctty_grid_widget_get_accessible(label);
     AtkRole target_role = is_error ? ATK_ROLE_ALERT : ATK_ROLE_STATUSBAR;
     gboolean text_changed =
         g_strcmp0(noctty_grid_label_get_text(GTK_LABEL(label)), message) != 0;
     gboolean role_changed =
-        accessible != NULL && atk_object_get_role(accessible) != target_role;
+        accessible != NULL && noctty_grid_atk_object_get_role(accessible) != target_role;
     gboolean description_changed =
         accessible != NULL &&
-        g_strcmp0(atk_object_get_description(accessible), message) != 0;
+        g_strcmp0(noctty_grid_atk_object_get_description(accessible), message) != 0;
     if (text_changed) noctty_grid_label_set_text(GTK_LABEL(label), message);
     if (accessible == NULL) return;
-    if (role_changed) atk_object_set_role(accessible, target_role);
-    if (description_changed) atk_object_set_description(accessible, message);
+    if (role_changed) noctty_grid_atk_object_set_role(accessible, target_role);
+    if (description_changed) noctty_grid_atk_object_set_description(accessible, message);
     if (text_changed || role_changed || description_changed)
         g_signal_emit_by_name(accessible, "visible-data-changed");
 }
 
 static gboolean widget_has_accessible_name(GtkWidget *widget,
                                            const char *name) {
-    AtkObject *accessible = gtk_widget_get_accessible(widget);
+    AtkObject *accessible = noctty_grid_widget_get_accessible(widget);
     const char *actual = accessible != NULL
-        ? atk_object_get_name(accessible) : NULL;
+        ? noctty_grid_atk_object_get_name(accessible) : NULL;
     return g_strcmp0(actual, name) == 0;
 }
 
@@ -13999,7 +13999,7 @@ static gboolean lighten_tab_color_smoke(gpointer user_data) {
         cairo_surface_t *surface = cairo_image_surface_create(
             CAIRO_FORMAT_ARGB32, 8, 8);
         cairo_t *cr = cairo_create(surface);
-        gtk_render_background(gtk_widget_get_style_context(content), cr,
+        gtk_render_background(noctty_grid_widget_get_style_context(content), cr,
                               0, 0, 8, 8);
         cairo_destroy(cr);
         cairo_surface_flush(surface);
@@ -16219,17 +16219,17 @@ static void on_grid_area_map(GtkWidget *widget, gpointer user_data) {
 
 static void connect_grid_area(NocttyGridContext *context) {
     context->resize_overlay_initial_suppressed = 1;
-    gtk_style_context_add_class(gtk_widget_get_style_context(context->area),
+    noctty_grid_style_context_add_class(noctty_grid_widget_get_style_context(context->area),
                                 "noctty-grid-area");
     noctty_grid_widget_set_can_focus(context->area, TRUE);
     g_object_set_data(
         G_OBJECT(context->area), "noctty-grid-context", context);
-    AtkObject *accessible = gtk_widget_get_accessible(context->area);
+    AtkObject *accessible = noctty_grid_widget_get_accessible(context->area);
     if (accessible != NULL) {
         char name[64];
         g_snprintf(name, sizeof(name), "Terminal pane %" G_GUINT64_FORMAT,
                    context->pane_id);
-        atk_object_set_name(accessible, name);
+        noctty_grid_atk_object_set_name(accessible, name);
     }
     noctty_grid_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
     noctty_grid_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);

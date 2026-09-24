@@ -428,6 +428,24 @@ gboolean noctty_grid_im_context_filter_keypress(
     gpointer context, gpointer event);
 void noctty_grid_editable_select_region(
     gpointer editable, int start_pos, int end_pos);
+gpointer noctty_grid_widget_get_accessible(gpointer widget);
+gpointer noctty_grid_widget_get_style_context(gpointer widget);
+void noctty_grid_style_context_add_class(
+    gpointer style_context, const char *class_name);
+void noctty_grid_style_context_remove_class(
+    gpointer style_context, const char *class_name);
+gboolean noctty_grid_style_context_has_class(
+    gpointer style_context, const char *class_name);
+void noctty_grid_atk_object_set_name(
+    gpointer accessible, const char *name);
+void noctty_grid_atk_object_set_description(
+    gpointer accessible, const char *description);
+void noctty_grid_atk_object_set_role(
+    gpointer accessible, AtkRole role);
+const char *noctty_grid_atk_object_get_name(gpointer accessible);
+const char *noctty_grid_atk_object_get_description(
+    gpointer accessible);
+AtkRole noctty_grid_atk_object_get_role(gpointer accessible);
 gboolean noctty_grid_widget_translate_coordinates(
     GtkWidget *source,
     GtkWidget *dest,

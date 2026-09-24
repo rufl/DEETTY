@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK accessibility objects and style contexts, including class
+  mutations, accessible names/descriptions/roles, and state reads through the
+  Zig adapter; C retains UI policy and qualification assertions.
 - Routed GTK clipboard retrieval/publication, IM focus and key filtering,
   and editable selection through the Zig adapter; C retains paste, sharing,
   and focus policy.
