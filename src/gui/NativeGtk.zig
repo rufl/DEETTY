@@ -204,6 +204,8 @@ extern fn gtk_info_bar_new_with_buttons([*:0]const u8, c_int, ...) ?*GtkWidget;
 extern fn gtk_info_bar_set_message_type(*GtkWidget, c_int) void;
 extern fn gtk_info_bar_get_content_area(*GtkWidget) *GtkWidget;
 extern fn gtk_dialog_get_content_area(*GtkDialog) *GtkWidget;
+extern fn gtk_dialog_run(*GtkDialog) c_int;
+extern fn gtk_dialog_response(*GtkDialog, c_int) void;
 extern fn gtk_search_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_placeholder_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_set_max_length(*GtkEntry, c_int) void;
@@ -326,6 +328,8 @@ extern fn gtk_window_get_position(*GtkWindow, *c_int, *c_int) void;
 extern fn gtk_window_is_active(*GtkWindow) c_int;
 extern fn gtk_window_get_decorated(*GtkWindow) c_int;
 extern fn gtk_window_get_resizable(*GtkWindow) c_int;
+extern fn gtk_window_get_transient_for(*GtkWindow) ?*GtkWindow;
+extern fn gtk_window_get_icon_name(*GtkWindow) ?[*:0]const u8;
 extern fn gtk_window_present(*GtkWindow) void;
 extern fn gtk_window_begin_resize_drag(
     *GtkWindow,
@@ -426,6 +430,7 @@ extern fn gtk_widget_translate_coordinates(
     *c_int,
     *c_int,
 ) c_int;
+extern fn gtk_widget_get_app_paintable(*GtkWidget) c_int;
 extern fn gtk_widget_get_screen(*GtkWidget) ?*GdkScreen;
 extern fn gtk_widget_add_events(*GtkWidget, c_int) void;
 extern fn gtk_widget_add_tick_callback(
@@ -442,6 +447,14 @@ extern fn gtk_drag_finish(
 ) void;
 extern fn gtk_events_pending() c_int;
 extern fn gtk_main_iteration_do(c_int) void;
+extern fn gtk_main_level() c_uint;
+extern fn gtk_main_quit() void;
+extern fn gtk_show_uri_on_window(
+    *GtkWindow,
+    [*:0]const u8,
+    c_uint,
+    ?*?*GError,
+) c_int;
 extern fn gtk_drag_source_set(
     *GtkWidget,
     c_uint,
@@ -2385,6 +2398,81 @@ pub export fn noctty_grid_window_get_resizable(
 ) c_int {
     const window = window_optional orelse return FALSE;
     return gtk_window_get_resizable(@ptrCast(window));
+}
+pub export fn noctty_grid_window_get_transient_for(
+    window_optional: ?*anyopaque,
+) ?*GtkWindow {
+    const window = window_optional orelse return null;
+    return @ptrCast(gtk_window_get_transient_for(@ptrCast(window)));
+}
+
+pub export fn noctty_grid_window_get_icon_name(
+    window_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const window = window_optional orelse return null;
+    return gtk_window_get_icon_name(@ptrCast(window));
+}
+
+pub export fn noctty_grid_widget_get_screen(
+    widget_optional: ?*anyopaque,
+) ?*GdkScreen {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_screen(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_widget_get_app_paintable(
+    widget_optional: ?*anyopaque,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_get_app_paintable(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_dialog_get_content_area(
+    dialog_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const dialog = dialog_optional orelse return null;
+    return gtk_dialog_get_content_area(@ptrCast(dialog));
+}
+
+pub export fn noctty_grid_dialog_run(
+    dialog_optional: ?*anyopaque,
+) c_int {
+    const dialog = dialog_optional orelse return -1;
+    return gtk_dialog_run(@ptrCast(dialog));
+}
+
+pub export fn noctty_grid_dialog_response(
+    dialog_optional: ?*anyopaque,
+    response: c_int,
+) void {
+    const dialog = dialog_optional orelse return;
+    gtk_dialog_response(@ptrCast(dialog), response);
+}
+
+pub export fn noctty_grid_dialog_set_default_response(
+    dialog_optional: ?*anyopaque,
+    response: c_int,
+) void {
+    const dialog = dialog_optional orelse return;
+    gtk_dialog_set_default_response(@ptrCast(dialog), response);
+}
+
+pub export fn noctty_grid_main_level() c_uint {
+    return gtk_main_level();
+}
+
+pub export fn noctty_grid_main_quit() void {
+    gtk_main_quit();
+}
+
+pub export fn noctty_grid_show_uri_on_window(
+    window_optional: ?*anyopaque,
+    uri: [*:0]const u8,
+    time: c_uint,
+    error_out: ?*?*GError,
+) c_int {
+    const window = window_optional orelse return FALSE;
+    return gtk_show_uri_on_window(@ptrCast(window), uri, time, error_out);
 }
 pub export fn noctty_grid_window_present(
     window_optional: ?*GtkWidget,

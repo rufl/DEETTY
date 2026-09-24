@@ -382,6 +382,20 @@ void noctty_grid_window_get_position(
 gboolean noctty_grid_window_is_active(gpointer window);
 gboolean noctty_grid_window_get_decorated(gpointer window);
 gboolean noctty_grid_window_get_resizable(gpointer window);
+GtkWindow *noctty_grid_window_get_transient_for(gpointer window);
+const char *noctty_grid_window_get_icon_name(gpointer window);
+GdkScreen *noctty_grid_widget_get_screen(gpointer widget);
+gboolean noctty_grid_widget_get_app_paintable(gpointer widget);
+GtkWidget *noctty_grid_dialog_get_content_area(gpointer dialog);
+int noctty_grid_dialog_run(gpointer dialog);
+void noctty_grid_dialog_response(gpointer dialog, int response);
+void noctty_grid_dialog_set_default_response(
+    gpointer dialog, int response);
+unsigned int noctty_grid_main_level(void);
+void noctty_grid_main_quit(void);
+gboolean noctty_grid_show_uri_on_window(
+    gpointer window, const char *uri, unsigned int time,
+    GError **error);
 GtkWidget *noctty_grid_widget_get_parent(GtkWidget *widget);
 gboolean noctty_grid_widget_get_visible(GtkWidget *widget);
 gboolean noctty_grid_widget_get_mapped(GtkWidget *widget);

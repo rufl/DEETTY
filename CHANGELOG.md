@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK dialog content, run/response/default-response, window
+  transient/icon reads, screen/app-paintable reads, URI opening, and main-loop
+  exit operations through the Zig adapter; C retains modal and presentation
+  policy.
 - Routed GTK accessibility objects and style contexts, including class
   mutations, accessible names/descriptions/roles, and state reads through the
   Zig adapter; C retains UI policy and qualification assertions.

@@ -3406,7 +3406,7 @@ static int register_grid_control(NocttyGridContext *context) {
 static gboolean quit_control_name_conflict(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->window_presented = 0;
-    gtk_main_quit();
+    noctty_grid_main_quit();
     return G_SOURCE_REMOVE;
 }
 
@@ -4342,7 +4342,7 @@ static void open_grid_shortcut_recorder(NocttyGridContext *context) {
         return;
     }
     noctty_container_add(
-        gtk_dialog_get_content_area(GTK_DIALOG(dialog)), label);
+        noctty_grid_dialog_get_content_area(GTK_DIALOG(dialog)), label);
     root->shortcut_recorder_prior_key = root->requested_shortcut_key;
     root->shortcut_recorder_restore_on_destroy =
         root->shortcut_transport == 1;
@@ -4379,7 +4379,7 @@ static gboolean mark_shortcut_smoke_ready(gpointer user_data) {
 static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     (void)user_data;
-    if (gtk_main_level() > 0) gtk_main_quit();
+    if (noctty_grid_main_level() > 0) noctty_grid_main_quit();
 }
 
 static gboolean on_window_delete_event(GtkWidget *widget, GdkEvent *event,
@@ -4397,7 +4397,7 @@ static gboolean grid_has_visible_transient(NocttyGridContext *root) {
     gboolean found = FALSE;
     for (GList *item = windows; item != NULL; item = item->next) {
         if (!GTK_IS_WINDOW(item->data) || item->data == root->window) continue;
-        if (gtk_window_get_transient_for(GTK_WINDOW(item->data)) == GTK_WINDOW(root->window) &&
+        if (noctty_grid_window_get_transient_for(GTK_WINDOW(item->data)) == GTK_WINDOW(root->window) &&
             noctty_grid_widget_get_visible(GTK_WIDGET(item->data))) {
             found = TRUE;
             break;
@@ -7460,7 +7460,7 @@ static void commit_grid_application_close(
         origin == NOCTTY_CLOSE_ORIGIN_TRAY && all_sessions_stopped;
     root->window_close_session_stopped =
         origin == NOCTTY_CLOSE_ORIGIN_TOOLBAR && all_sessions_stopped;
-    if (gtk_main_level() > 0) gtk_main_quit();
+    if (noctty_grid_main_level() > 0) noctty_grid_main_quit();
 }
 
 static void dispatch_grid_application_close_effects(
@@ -7509,7 +7509,7 @@ static gint run_grid_modal_dialog(NocttyGridContext *context,
     (void)configure_overlay_window_stacking(
         context, GTK_WIDGET(dialog), "noctty-dialog");
     begin_grid_modal(context);
-    gint response = gtk_dialog_run(dialog);
+    gint response = noctty_grid_dialog_run(dialog);
     end_grid_modal(context);
     return response;
 }
@@ -7584,7 +7584,7 @@ static guint foreground_process_count(NocttyGridContext *context,
 static gboolean accept_dialog_smoke(gpointer user_data) {
     GtkWidget *dialog = user_data;
     if (GTK_IS_DIALOG(dialog))
-        gtk_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+        noctty_grid_dialog_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
     return G_SOURCE_REMOVE;
 }
 
@@ -8126,7 +8126,7 @@ static gboolean rebuild_grid_preset_page(
 
 static gboolean respond_layout_preset_prompt_smoke(gpointer user_data) {
     GtkDialog *dialog = GTK_DIALOG(user_data);
-    gtk_dialog_response(dialog, GPOINTER_TO_INT(g_object_get_data(
+    noctty_grid_dialog_response(dialog, GPOINTER_TO_INT(g_object_get_data(
         G_OBJECT(dialog), "noctty-layout-prompt-response")));
     return G_SOURCE_REMOVE;
 }
@@ -8749,7 +8749,7 @@ static gboolean open_grid_uri(NocttyGridContext *context,
         return TRUE;
     }
     GError *error = NULL;
-    gboolean opened = gtk_show_uri_on_window(
+    gboolean opened = noctty_grid_show_uri_on_window(
         GTK_WINDOW(context->window), uri, time, &error);
     if (!opened)
         show_status_feedback(
@@ -9448,7 +9448,7 @@ static gboolean configure_overlay_window_stacking(
     noctty_grid_window_set_type_hint(dialog, GDK_WINDOW_TYPE_HINT_DIALOG);
     noctty_grid_window_set_keep_above(GTK_WIDGET(dialog), TRUE);
     root->settings_transient_parent =
-        gtk_window_get_transient_for(GTK_WINDOW(dialog)) ==
+        noctty_grid_window_get_transient_for(GTK_WINDOW(dialog)) ==
         GTK_WINDOW(root->window);
     root->settings_keep_above = 1;
     root->settings_layer_overlay = 0;
@@ -9741,7 +9741,7 @@ static void on_window_map(GtkWidget *widget, gpointer user_data) {
 static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *window = noctty_grid_window_new();
-    GdkScreen *screen = gtk_widget_get_screen(window);
+    GdkScreen *screen = noctty_grid_widget_get_screen(window);
     GdkVisual *visual = screen != NULL
         ? gdk_screen_get_rgba_visual(screen) : NULL;
     gboolean wayland = GDK_IS_WAYLAND_DISPLAY(
@@ -9764,9 +9764,9 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
         noctty_grid_style_context_has_class(noctty_grid_widget_get_style_context(window),
                                     "noctty-terminal-window") &&
         (!root->background_alpha_supported ||
-         gtk_widget_get_app_paintable(window));
+         noctty_grid_widget_get_app_paintable(window));
     root->application_icon_ready = g_strcmp0(
-        gtk_window_get_icon_name(GTK_WINDOW(window)),
+        noctty_grid_window_get_icon_name(GTK_WINDOW(window)),
         "com.noctty.NOCTTY") == 0;
     set_grid_window_title(
         root,
@@ -10868,7 +10868,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     noctty_grid_window_resize(dialog, settings_width, settings_height);
     noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
-    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
+    noctty_grid_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
 
     gchar *shortcut_button_label =
@@ -13609,7 +13609,7 @@ static gchar *run_tag_entry_dialog(NocttyGridContext *context, const gchar *titl
         GTK_WIDGET(root_grid_context(context)->window), title,
         GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL,
         "Apply", GTK_RESPONSE_OK);
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *content = noctty_grid_dialog_get_content_area(GTK_DIALOG(dialog));
     GtkWidget *combo = noctty_tag_combo_new();
     if (combo == NULL) {
         noctty_grid_widget_destroy(dialog);
