@@ -12,6 +12,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed GTK object lifetime, metadata, clear operations, and GLib main-loop
   source scheduling through shared Zig adapters; C retains callback and UI
   policy.
+- Routed GLib heap frees and clear-to-null ownership transitions through Zig
+  memory adapters; C retains destruction ordering and policy.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.

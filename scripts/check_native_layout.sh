@@ -156,6 +156,11 @@ grep -F 'noctty_grid_source_timeout_add(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_main_context_iteration(' "$native_gtk" >/dev/null
 grep -F 'noctty_grid_main_context_iteration(' "$grid" >/dev/null
 ! grep -F 'g_main_context_iteration(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_memory_free(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_memory_clear(' "$native_gtk" >/dev/null
+grep -F 'noctty_grid_memory_free(' "$grid" >/dev/null
+grep -F 'noctty_grid_memory_clear(' "$grid" >/dev/null
+! grep -F 'g_free(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null
@@ -299,17 +304,17 @@ grep -F 'gint width = gtk_widget_get_allocated_width(dialog);' \
   tests/native_grid_compact_ux_smoke.inc >/dev/null
 grep -F 'const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6)' "$native_gtk" >/dev/null
 grep -F 'noctty_grid_widget_get_mapped(' "$grid" >/dev/null
-grep -F 'g_idle_add(focus_grid_area_idle, noctty_grid_object_ref(context->area));' "$grid" >/dev/null
+grep -F 'noctty_grid_source_idle_add(focus_grid_area_idle, noctty_grid_object_ref(context->area));' "$grid" >/dev/null
 grep -F 'guint focus_deferred_source;' "$grid" >/dev/null
 grep -F 'remove_grid_source(&context->focus_deferred_source);' "$grid" >/dev/null
 grep -F 'remaining->focus_deferred_source =' "$grid" >/dev/null
-grep -F 'g_idle_add(recreate_grid_toplevel_idle, root);' "$grid" >/dev/null
+grep -F 'noctty_grid_source_idle_add(recreate_grid_toplevel_idle, root);' "$grid" >/dev/null
 grep -F 'root->layer_shell_active = 0;' "$grid" >/dev/null
 grep -F 'root->window = create_grid_toplevel(root);' "$grid" >/dev/null
 grep -F 'noctty_grid_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'root->layer_shell_keyboard_mode = protocol_version >= 4 ? 2 : 1;' "$grid" >/dev/null
 grep -F 'set_grid_layer_keyboard_active(root, FALSE);' "$grid" >/dev/null
-grep -F 'root->hide_source = g_timeout_add(16, finish_grid_hide, root);' "$grid" >/dev/null
+grep -F 'root->hide_source = noctty_grid_source_timeout_add(16, finish_grid_hide, root);' "$grid" >/dev/null
 
 grep -F 'typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);' "$grid_abi" >/dev/null
 grep -F 'int dirty_count = context->dirty_spans(' "$grid" >/dev/null

@@ -413,6 +413,8 @@ guint noctty_grid_source_timeout_add_seconds(
     guint interval, GSourceFunc function, gpointer data);
 gboolean noctty_grid_source_remove(guint source_id);
 gboolean noctty_grid_main_context_iteration(gboolean may_block);
+void noctty_grid_memory_free(gpointer value);
+gpointer noctty_grid_memory_clear(gpointer value);
 void noctty_grid_widget_set_app_paintable(
     GtkWidget *widget, gboolean app_paintable);
 void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);

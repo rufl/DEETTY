@@ -2811,6 +2811,15 @@ pub export fn noctty_grid_main_context_iteration(may_block: c_int) c_int {
     return g_main_context_iteration(null, may_block);
 }
 
+pub export fn noctty_grid_memory_free(value: ?*anyopaque) void {
+    g_free(value);
+}
+
+pub export fn noctty_grid_memory_clear(value: ?*anyopaque) ?*anyopaque {
+    g_free(value);
+    return null;
+}
+
 pub export fn noctty_grid_widget_show_all(
     widget_optional: ?*GtkWidget,
 ) void {
