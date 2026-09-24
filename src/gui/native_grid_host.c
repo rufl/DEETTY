@@ -6893,7 +6893,7 @@ static gboolean bind_grid_layout_node(
                           GINT_TO_POINTER(1));
     }
     if (g_object_get_data(G_OBJECT(widget), "noctty-layout-snap-bound") == NULL) {
-        gtk_widget_add_events(widget, GDK_BUTTON_RELEASE_MASK);
+        noctty_grid_widget_add_events(widget, GDK_BUTTON_RELEASE_MASK);
         g_signal_connect(widget, "button-release-event",
                          G_CALLBACK(on_grid_layout_button_release), root);
         g_object_set_data(G_OBJECT(widget), "noctty-layout-snap-bound",
@@ -6972,7 +6972,7 @@ static GtkWidget *build_hot_session_layout_node(
                       GINT_TO_POINTER(node_index + 1));
     g_signal_connect(split, "notify::position",
                      G_CALLBACK(on_grid_layout_position_changed), root);
-    gtk_widget_add_events(split, GDK_BUTTON_RELEASE_MASK);
+    noctty_grid_widget_add_events(split, GDK_BUTTON_RELEASE_MASK);
     g_signal_connect(split, "button-release-event",
                      G_CALLBACK(on_grid_layout_button_release), root);
     g_object_set_data(G_OBJECT(split), "noctty-layout-position-bound",
@@ -9440,7 +9440,7 @@ static gboolean configure_overlay_window_stacking(
     NocttyGridContext *root = root_grid_context(context);
     if (!GTK_IS_WINDOW(dialog) || !GTK_IS_WINDOW(root->window)) return FALSE;
 
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root->window));
+    noctty_grid_window_set_transient_for(dialog, root->window);
     noctty_grid_window_set_destroy_with_parent(dialog, TRUE);
     noctty_grid_window_set_type_hint(dialog, GDK_WINDOW_TYPE_HINT_DIALOG);
     noctty_grid_window_set_keep_above(GTK_WIDGET(dialog), TRUE);
@@ -12633,8 +12633,7 @@ static void open_command_palette(NocttyGridContext *context) {
         (void)configure_overlay_window_stacking(
             root, dialog, "noctty-command-palette");
     else
-        gtk_window_set_transient_for(GTK_WINDOW(dialog),
-                                     GTK_WINDOW(root->window));
+        noctty_grid_window_set_transient_for(dialog, root->window);
     configure_overlay_window_geometry(
         root, dialog, &workarea, dialog_width, dialog_height);
     noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
@@ -16245,11 +16244,12 @@ static void connect_grid_area(NocttyGridContext *context) {
     g_signal_connect(context->area, "unrealize", G_CALLBACK(on_grid_area_unrealize), context);
     if (context->im_context != NULL)
         g_signal_connect(context->im_context, "commit", G_CALLBACK(on_im_commit), context);
-    gtk_widget_add_events(context->area,
-                          GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK |
-                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
-                          GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK |
-                          GDK_LEAVE_NOTIFY_MASK);
+    noctty_grid_widget_add_events(
+        context->area,
+        GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK |
+            GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+            GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK |
+            GDK_SMOOTH_SCROLL_MASK);
     gtk_drag_source_set(context->area, GDK_BUTTON2_MASK, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
     gtk_drag_dest_set(context->area, GTK_DEST_DEFAULT_ALL, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
     g_signal_connect(context->area, "drag-data-get", G_CALLBACK(on_pane_drag_data_get), context);

@@ -316,6 +316,9 @@ void noctty_grid_window_set_position(GtkWidget *window, int position);
 void noctty_grid_window_set_type_hint(GtkWidget *window, int type_hint);
 void noctty_grid_window_set_destroy_with_parent(
     GtkWidget *window, gboolean destroy_with_parent);
+void noctty_grid_widget_add_events(GtkWidget *widget, int events);
+void noctty_grid_window_set_transient_for(
+    GtkWidget *window, GtkWidget *parent);
 
 
 

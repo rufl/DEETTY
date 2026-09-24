@@ -234,6 +234,7 @@ extern fn gtk_window_fullscreen(*GtkWindow) void;
 extern fn gtk_window_unfullscreen(*GtkWindow) void;
 extern fn gtk_window_set_startup_id(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_set_focus(*GtkWindow, *GtkWidget) void;
+extern fn gtk_window_set_transient_for(*GtkWindow, ?*GtkWindow) void;
 
 
 
@@ -1941,6 +1942,17 @@ pub export fn noctty_grid_window_set_destroy_with_parent(
     const window = window_optional orelse return;
     gtk_window_set_destroy_with_parent(@ptrCast(window), destroy_with_parent);
 }
+pub export fn noctty_grid_window_set_transient_for(
+    window_optional: ?*GtkWidget,
+    parent_optional: ?*GtkWidget,
+) void {
+    const window = window_optional orelse return;
+    const parent = parent_optional orelse return;
+    gtk_window_set_transient_for(
+        @ptrCast(window),
+        @ptrCast(parent),
+    );
+}
 
 pub export fn noctty_grid_window_set_title(
     window_optional: ?*GtkWidget,
@@ -2038,6 +2050,13 @@ pub export fn noctty_grid_widget_set_sensitive(
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_set_sensitive(widget, sensitive);
+}
+pub export fn noctty_grid_widget_add_events(
+    widget_optional: ?*GtkWidget,
+    events: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_add_events(widget, events);
 }
 pub export fn noctty_grid_widget_set_size_request(
     widget_optional: ?*GtkWidget,
