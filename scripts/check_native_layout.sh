@@ -161,6 +161,17 @@ grep -F 'pub export fn noctty_grid_memory_clear(' "$native_gtk" >/dev/null
 grep -F 'noctty_grid_memory_free(' "$grid" >/dev/null
 grep -F 'noctty_grid_memory_clear(' "$grid" >/dev/null
 ! grep -F 'g_free(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_error_clear(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_variant_unref(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_variant_clear(' "$native_gtk" >/dev/null
+grep -F 'pub export fn noctty_grid_variant_ref(' "$native_gtk" >/dev/null
+grep -F 'noctty_grid_error_clear(' "$grid" >/dev/null
+grep -F 'noctty_grid_variant_unref(' "$grid" >/dev/null
+grep -F 'noctty_grid_variant_clear(' "$grid" >/dev/null
+grep -F 'noctty_grid_variant_ref(' "$grid" >/dev/null
+! grep -F 'g_clear_error(' "$grid" >/dev/null
+! grep -F 'g_variant_unref(' "$grid" >/dev/null
+! grep -F 'g_variant_ref(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_divider_style(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_even_pane_positions(' "$native_gtk" >/dev/null
 grep -F 'pub export fn noctty_apply_pane_gap_style(' "$native_gtk" >/dev/null

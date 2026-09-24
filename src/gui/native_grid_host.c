@@ -3330,9 +3330,9 @@ static void on_grid_control_name_requested(GObject *source,
             g_printerr("noctty_control_ownership pid=%ld result=%u owner=%d conflict=%d\n",
                        (long)getpid(), request_result,
                        root->control_registered, root->control_name_conflict);
-        g_variant_unref(reply);
+        noctty_grid_variant_unref(reply);
     }
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     if (root->control_name_conflict && root->show_on_control_conflict) {
         GVariant *forwarded = g_dbus_connection_call_sync(
             root->control_bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY",
@@ -3340,7 +3340,7 @@ static void on_grid_control_name_requested(GObject *source,
             G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
         if (forwarded != NULL) {
             root->control_conflict_forwarded = 1;
-            g_variant_unref(forwarded);
+            noctty_grid_variant_unref(forwarded);
         }
     }
     if (root->control_registered && root->shortcut_transport == 2 &&
@@ -3374,7 +3374,7 @@ static void on_grid_control_bus_ready(GObject *source, GAsyncResult *result,
     return;
 
 failed:
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     finish_grid_dbus_operation(root);
 }
 
@@ -3606,7 +3606,7 @@ static void on_grid_tray_menu_method_call(
         GVariant *property_names = NULL;
         g_variant_get(parameters, "(ii@as)", &parent_id, &recursion_depth,
                       &property_names);
-        g_variant_unref(property_names);
+        noctty_grid_variant_unref(property_names);
         if (!noctty_grid_tray_menu_id_valid(parent_id)) {
             g_dbus_method_invocation_return_error(
                 invocation, G_DBUS_ERROR, G_DBUS_ERROR_INVALID_ARGS,
@@ -3635,8 +3635,8 @@ static void on_grid_tray_menu_method_call(
             g_variant_builder_add(&properties, "(i@a{sv})", id,
                                   new_grid_tray_menu_properties(root, id));
         }
-        g_variant_unref(ids);
-        g_variant_unref(property_names);
+        noctty_grid_variant_unref(ids);
+        noctty_grid_variant_unref(property_names);
         g_dbus_method_invocation_return_value(
             invocation,
             g_variant_new("(@a(ia{sv}))",
@@ -3666,7 +3666,7 @@ static void on_grid_tray_menu_method_call(
         g_variant_get(parameters, "(i&s@vu)", &id, &event_id, &data,
                       &timestamp);
         (void)timestamp;
-        g_variant_unref(data);
+        noctty_grid_variant_unref(data);
         if (g_strcmp0(event_id, "clicked") == 0) {
             if (id == NOCTTY_TRAY_MENU_TOGGLE) {
                 toggle_grid_window(root);
@@ -3728,7 +3728,7 @@ static GVariant *on_grid_tray_get_property(
         return g_variant_new_string("com.noctty.NOCTTY");
     if (g_strcmp0(property_name, "IconPixmap") == 0)
         return root->tray_icon_pixmaps != NULL
-            ? g_variant_ref(root->tray_icon_pixmaps)
+            ? noctty_grid_variant_ref(root->tray_icon_pixmaps)
             : new_empty_grid_tray_pixmaps();
     if (g_strcmp0(property_name, "OverlayIconName") == 0 ||
         g_strcmp0(property_name, "AttentionIconName") == 0 ||
@@ -3739,7 +3739,7 @@ static GVariant *on_grid_tray_get_property(
         return new_empty_grid_tray_pixmaps();
     if (g_strcmp0(property_name, "ToolTip") == 0) {
         GVariant *pixmaps = root->tray_icon_pixmaps != NULL
-            ? g_variant_ref(root->tray_icon_pixmaps)
+            ? noctty_grid_variant_ref(root->tray_icon_pixmaps)
             : new_empty_grid_tray_pixmaps();
         return g_variant_new(
             "(s@a(iiay)ss)", "com.noctty.NOCTTY", pixmaps, "NOCTTY",
@@ -3803,8 +3803,8 @@ static void on_grid_tray_watcher_registered(GObject *source,
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
     root->tray_watcher_registered = reply != NULL;
-    if (reply != NULL) g_variant_unref(reply);
-    g_clear_error(&error);
+    if (reply != NULL) noctty_grid_variant_unref(reply);
+    noctty_grid_error_clear(&error);
     finish_grid_dbus_operation(root);
 }
 
@@ -3877,7 +3877,7 @@ static void unregister_grid_tray(NocttyGridContext *context) {
     }
     g_clear_pointer(&root->tray_node, g_dbus_node_info_unref);
     g_clear_pointer(&root->tray_menu_node, g_dbus_node_info_unref);
-    g_clear_pointer(&root->tray_icon_pixmaps, g_variant_unref);
+    root->tray_icon_pixmaps = noctty_grid_variant_clear(root->tray_icon_pixmaps);
     root->tray_bus = noctty_grid_object_clear(root->tray_bus);
     root->tray_registered = 0;
     root->tray_menu_registered = 0;
@@ -3919,7 +3919,7 @@ static void on_grid_tray_bus_ready(GObject *source, GAsyncResult *result,
     return;
 
 failed:
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     finish_grid_dbus_operation(root);
 }
 
@@ -4105,8 +4105,8 @@ static void on_grid_shortcut_set(GObject *source, GAsyncResult *result,
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
     if (!grid_shortcut_request_current(request) || reply == NULL) {
-        if (reply != NULL) g_variant_unref(reply);
-        g_clear_error(&error);
+        if (reply != NULL) noctty_grid_variant_unref(reply);
+        noctty_grid_error_clear(&error);
         finish_grid_shortcut_request(request, -1);
         return;
     }
@@ -4117,8 +4117,8 @@ static void on_grid_shortcut_set(GObject *source, GAsyncResult *result,
         accepted_keys, &accepted_count, sizeof(gint32));
     gboolean accepted_requested = accepted_count == 1 && accepted != NULL &&
         accepted[0] == request->requested_key;
-    g_variant_unref(accepted_keys);
-    g_variant_unref(reply);
+    noctty_grid_variant_unref(accepted_keys);
+    noctty_grid_variant_unref(reply);
     finish_grid_shortcut_request(request, accepted_requested ? 1 : 0);
 }
 
@@ -4129,14 +4129,14 @@ static void on_grid_shortcut_available(GObject *source, GAsyncResult *result,
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
     if (!grid_shortcut_request_current(request) || reply == NULL) {
-        if (reply != NULL) g_variant_unref(reply);
-        g_clear_error(&error);
+        if (reply != NULL) noctty_grid_variant_unref(reply);
+        noctty_grid_error_clear(&error);
         finish_grid_shortcut_request(request, -1);
         return;
     }
     gboolean available = FALSE;
     g_variant_get(reply, "(b)", &available);
-    g_variant_unref(reply);
+    noctty_grid_variant_unref(reply);
     if (!available) {
         finish_grid_shortcut_request(request, 0);
         return;
@@ -4166,12 +4166,12 @@ static void on_grid_shortcut_action_registered(GObject *source,
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
     if (!grid_shortcut_request_current(request) || reply == NULL) {
-        if (reply != NULL) g_variant_unref(reply);
-        g_clear_error(&error);
+        if (reply != NULL) noctty_grid_variant_unref(reply);
+        noctty_grid_error_clear(&error);
         finish_grid_shortcut_request(request, -1);
         return;
     }
-    g_variant_unref(reply);
+    noctty_grid_variant_unref(reply);
     request->root->shortcut_action_registered = 1;
     const char *component = grid_shortcut_component_name(request->root);
     g_dbus_connection_call(
@@ -4191,7 +4191,7 @@ static void on_grid_shortcut_bus_ready(GObject *source, GAsyncResult *result,
     GDBusConnection *bus = g_bus_get_finish(result, &error);
     if (!grid_shortcut_request_current(request) || bus == NULL) {
         if (bus != NULL) noctty_grid_object_unref(bus);
-        g_clear_error(&error);
+        noctty_grid_error_clear(&error);
         finish_grid_shortcut_request(request, -1);
         return;
     }
@@ -4245,8 +4245,8 @@ static void unregister_grid_shortcut(NocttyGridContext *context) {
         g_variant_new("(ss)", component, action),
         G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1000,
         NULL, &error);
-    if (reply != NULL) g_variant_unref(reply);
-    g_clear_error(&error);
+    if (reply != NULL) noctty_grid_variant_unref(reply);
+    noctty_grid_error_clear(&error);
     noctty_grid_object_unref(context->shortcut_bus);
     context->shortcut_bus = NULL;
     context->shortcut_subscription = 0;
@@ -5729,9 +5729,9 @@ static void on_grid_notification_sent(GObject *source, GAsyncResult *result,
         G_DBUS_CONNECTION(source), result, &error);
     if (reply != NULL) {
         request->root->notification_delivered = 1;
-        g_variant_unref(reply);
+        noctty_grid_variant_unref(reply);
     }
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     finish_grid_dbus_operation(request->root);
     noctty_grid_memory_free(request);
 }
@@ -5744,7 +5744,7 @@ static void on_grid_notification_bus_ready(GObject *source,
     GError *error = NULL;
     GDBusConnection *bus = g_bus_get_finish(result, &error);
     if (bus == NULL) {
-        g_clear_error(&error);
+        noctty_grid_error_clear(&error);
         finish_grid_dbus_operation(request->root);
         noctty_grid_memory_free(request);
         return;
@@ -11559,7 +11559,7 @@ static gboolean confirm_grid_application_close(NocttyGridContext *context) {
 static gchar *find_nocted_binary(void) {
     GError *error = NULL;
     gchar *self_path = g_file_read_link("/proc/self/exe", &error);
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     if (self_path != NULL) {
         gchar *directory = g_path_get_dirname(self_path);
         gchar *candidate = g_build_filename(directory, "nocted", NULL);
@@ -11628,7 +11628,7 @@ static void open_editor_here(NocttyGridContext *context) {
     if (!launched && context->workspace_smoke != 8)
         show_nocted_launch_error(
             context, error != NULL ? error->message : NULL);
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     noctty_grid_memory_free(directory);
 }
 
@@ -11644,7 +11644,7 @@ static gboolean spawn_workspace_window(NocttyGridContext *context,
     GError *error = NULL;
     gchar *executable = g_file_read_link("/proc/self/exe", &error);
     if (executable == NULL) {
-        g_clear_error(&error);
+        noctty_grid_error_clear(&error);
         return FALSE;
     }
     gchar restore_mode_text[8];
@@ -11664,7 +11664,7 @@ static gboolean spawn_workspace_window(NocttyGridContext *context,
     if (launched && context->text_action != NULL)
         (void)context->text_action(
             context->text_action_data, 19, path, strlen(path), "", 0, restore_mode);
-    g_clear_error(&error);
+    noctty_grid_error_clear(&error);
     noctty_grid_memory_free(executable);
     return launched;
 }

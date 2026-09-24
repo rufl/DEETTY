@@ -415,6 +415,10 @@ gboolean noctty_grid_source_remove(guint source_id);
 gboolean noctty_grid_main_context_iteration(gboolean may_block);
 void noctty_grid_memory_free(gpointer value);
 gpointer noctty_grid_memory_clear(gpointer value);
+void noctty_grid_error_clear(GError **error);
+void noctty_grid_variant_unref(GVariant *value);
+GVariant *noctty_grid_variant_clear(GVariant *value);
+GVariant *noctty_grid_variant_ref(GVariant *value);
 void noctty_grid_widget_set_app_paintable(
     GtkWidget *widget, gboolean app_paintable);
 void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);

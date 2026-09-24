@@ -107,6 +107,7 @@ const GError = extern struct {
     code: c_int,
     message: [*:0]u8,
 };
+const GVariant = opaque {};
 const GList = extern struct {
     data: ?*anyopaque,
     next: ?*GList,
@@ -683,6 +684,8 @@ extern fn g_strdup_printf([*:0]const u8, ...) ?[*:0]u8;
 extern fn g_markup_printf_escaped([*:0]const u8, ...) ?[*:0]u8;
 extern fn g_free(?*anyopaque) void;
 extern fn g_error_free(*GError) void;
+extern fn g_variant_unref(?*GVariant) void;
+extern fn g_variant_ref(*GVariant) *GVariant;
 extern fn g_strcmp0(?[*:0]const u8, ?[*:0]const u8) c_int;
 extern fn g_list_free(?*GList) void;
 extern fn gdk_window_get_display(*GdkWindow) *GdkDisplay;
@@ -2818,6 +2821,28 @@ pub export fn noctty_grid_memory_free(value: ?*anyopaque) void {
 pub export fn noctty_grid_memory_clear(value: ?*anyopaque) ?*anyopaque {
     g_free(value);
     return null;
+}
+
+pub export fn noctty_grid_error_clear(error_optional: ?*?*GError) void {
+    const error_slot = error_optional orelse return;
+    if (error_slot.*) |error_value| {
+        g_error_free(error_value);
+        error_slot.* = null;
+    }
+}
+
+pub export fn noctty_grid_variant_unref(value: ?*GVariant) void {
+    g_variant_unref(value);
+}
+
+pub export fn noctty_grid_variant_clear(value: ?*GVariant) ?*GVariant {
+    g_variant_unref(value);
+    return null;
+}
+
+pub export fn noctty_grid_variant_ref(value: ?*GVariant) ?*GVariant {
+    const variant = value orelse return null;
+    return g_variant_ref(variant);
 }
 
 pub export fn noctty_grid_widget_show_all(
