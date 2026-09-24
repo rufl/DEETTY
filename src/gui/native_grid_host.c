@@ -1723,7 +1723,7 @@ static void on_clipboard_text(GtkClipboard *clipboard, const gchar *text, gpoint
 static void request_grid_clipboard_text(NocttyGridContext *context) {
     if (!grid_context_session_available(context)) return;
     context->clipboard_requests++;
-    gtk_clipboard_request_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
+    noctty_grid_clipboard_request_text(noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD),
                                on_clipboard_text, context);
 }
 static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
@@ -1748,8 +1748,8 @@ static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
     }
     if (copied_length > 0 && (gsize)copied_length < capacity) {
         text[copied_length] = '\0';
-        gtk_clipboard_set_text(
-            gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), text, copied_length);
+        noctty_grid_clipboard_set_text(
+            noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD), text, copied_length);
     } else if (copied_length < 0 ||
                (gsize)copied_length >= NOCTTY_SELECTION_COPY_MAX_BYTES) {
         show_status_feedback(context, "Could not copy the terminal selection.");
@@ -1809,11 +1809,11 @@ static gboolean read_clipboard_smoke(gpointer user_data) {
 }
 static gboolean request_clipboard_smoke(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    GtkClipboard *clipboard = noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD);
     const gchar *command =
         "printf 'NOCTTY_CLIPBOARD_OK NOCTTY_COPY_\xF0\x9F\x98\x80_END'; "
         "sleep 1; exit 0\n";
-    gtk_clipboard_set_text(clipboard, command, -1);
+    noctty_grid_clipboard_set_text(clipboard, command, -1);
     g_timeout_add(200, read_clipboard_smoke, context);
     return G_SOURCE_REMOVE;
 }
@@ -5170,7 +5170,7 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     if (root->tab_rename_entry != NULL && root->tab_rename_page == page) {
         clear_tab_rename_error(root);
         noctty_grid_focus_widget(NULL, root->tab_rename_entry);
-        gtk_editable_select_region(GTK_EDITABLE(root->tab_rename_entry), 0, -1);
+        noctty_grid_editable_select_region(GTK_EDITABLE(root->tab_rename_entry), 0, -1);
         return;
     }
     if (root->tab_rename_entry != NULL) finish_tab_rename(root, FALSE);
@@ -5205,7 +5205,7 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
     noctty_grid_signal_connect(entry, "destroy", G_CALLBACK(on_tab_rename_entry_destroy), root);
     noctty_grid_widget_show(entry);
     noctty_grid_focus_widget(NULL, entry);
-    gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
+    noctty_grid_editable_select_region(GTK_EDITABLE(entry), 0, -1);
 }
 
 static void show_tab_menu(NocttyGridContext *context, GtkWidget *page,
@@ -7380,7 +7380,7 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     if (context->shortcuts_dialog != NULL) noctty_grid_widget_destroy(context->shortcuts_dialog);
     if (context->project_dialog != NULL) noctty_grid_widget_destroy(context->project_dialog);
     if (context->workspace_menu != NULL) noctty_grid_widget_destroy(context->workspace_menu);
-    if (context->im_context != NULL) gtk_im_context_focus_out(context->im_context);
+    if (context->im_context != NULL) noctty_grid_im_context_focus_out(context->im_context);
     g_clear_pointer(&context->note_overlay_text, g_free);
     g_clear_pointer(&context->note_overlay_label, g_free);
     g_clear_pointer(&context->note_overlay_font, pango_font_description_free);
@@ -7437,7 +7437,7 @@ static void commit_grid_application_close(
         candidate->focused = 0;
         stop_grid_context_sources(candidate);
         if (candidate->im_context != NULL)
-            gtk_im_context_focus_out(candidate->im_context);
+            noctty_grid_im_context_focus_out(candidate->im_context);
         active_sessions++;
         int close_status = already_exited
             ? 1 : noctty_grid_close_session(candidate->userdata,
@@ -7666,7 +7666,7 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
     stop_grid_context_sources(context);
     context->retiring = 1;
     context->focused = 0;
-    if (context->im_context != NULL) gtk_im_context_focus_out(context->im_context);
+    if (context->im_context != NULL) noctty_grid_im_context_focus_out(context->im_context);
     int close_status = noctty_grid_close_session(context->userdata,
                                                   root->event_data);
     if (close_status > 1) context->userdata = NULL;
@@ -7771,7 +7771,7 @@ static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page) {
         candidate->active = 0;
         candidate->focused = 0;
         if (candidate->im_context != NULL)
-            gtk_im_context_focus_out(candidate->im_context);
+            noctty_grid_im_context_focus_out(candidate->im_context);
         int close_status = noctty_grid_close_session(candidate->userdata,
                                                       root->event_data);
         if (close_status > 1) candidate->userdata = NULL;
@@ -8360,7 +8360,7 @@ static void deactivate_grid_context(NocttyGridContext *context) {
     context->selection_dragging = 0;
     context->suppress_primary_release = 0;
     if (context->im_context != NULL)
-        gtk_im_context_focus_out(context->im_context);
+        noctty_grid_im_context_focus_out(context->im_context);
     if (grid_context_session_available(context))
         (void)context->focus(context->userdata, 0);
     if (context->area != NULL) noctty_grid_widget_queue_draw(context->area);
@@ -8392,7 +8392,7 @@ static void activate_grid_context(NocttyGridContext *context) {
     }
     if (changed) {
         if (context->im_context != NULL)
-            gtk_im_context_focus_in(context->im_context);
+            noctty_grid_im_context_focus_in(context->im_context);
         (void)context->focus(context->userdata, 1);
         record_dogfood_omp_action(
             context, "omp_focus", &context->dogfood_omp_focus_seen);
@@ -8618,7 +8618,7 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         return TRUE;
     }
     if (context->im_context != NULL &&
-        gtk_im_context_filter_keypress(context->im_context, event)) return TRUE;
+        noctty_grid_im_context_filter_keypress(context->im_context, event)) return TRUE;
     gunichar unicode = gdk_keyval_to_unicode(event->keyval);
     uint32_t modifiers = 0;
     if ((event->state & GDK_CONTROL_MASK) != 0)
@@ -8785,8 +8785,8 @@ static void on_hyperlink_menu_open(GtkMenuItem *item, gpointer user_data) {
 static void on_hyperlink_menu_copy(GtkMenuItem *item, gpointer user_data) {
     (void)item;
     NocttyHyperlinkMenu *menu = user_data;
-    gtk_clipboard_set_text(
-        gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), menu->uri, -1);
+    noctty_grid_clipboard_set_text(
+        noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD), menu->uri, -1);
     show_status_feedback(menu->context, "Link copied.");
 }
 
@@ -12824,8 +12824,8 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
     gboolean alt = (event->state & GDK_MOD1_MASK) != 0;
     if ((control && shift && event->keyval == GDK_KEY_v) ||
         (shift && event->keyval == GDK_KEY_Insert)) {
-        gtk_clipboard_request_text(
-            gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
+        noctty_grid_clipboard_request_text(
+            noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD),
             on_sharing_clipboard_text,
             root);
         return TRUE;

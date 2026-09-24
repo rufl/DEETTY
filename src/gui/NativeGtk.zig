@@ -28,6 +28,7 @@ const GtkTextBuffer = opaque {};
 const GtkComboBox = opaque {};
 const GtkComboBoxText = opaque {};
 const GtkSpinButton = opaque {};
+const GtkClipboard = opaque {};
 const GtkIMContext = opaque {};
 
 const GtkToggleButton = opaque {};
@@ -83,6 +84,11 @@ const GList = extern struct {
     prev: ?*GList,
 };
 const GSList = opaque {};
+const GtkClipboardTextReceivedCallback = *const fn (
+    ?*GtkClipboard,
+    ?[*:0]const u8,
+    ?*anyopaque,
+) callconv(.c) void;
 const GCallback = *const fn () callconv(.c) void;
 const GtkTickCallback = *const fn (
     *GtkWidget,
@@ -287,6 +293,19 @@ extern fn gtk_notebook_remove_page(*GtkNotebook, c_int) void;
 
 
 
+extern fn gtk_clipboard_get(?*anyopaque) ?*GtkClipboard;
+extern fn gtk_clipboard_request_text(
+    *GtkClipboard,
+    GtkClipboardTextReceivedCallback,
+    ?*anyopaque,
+) void;
+extern fn gtk_clipboard_set_text(
+    *GtkClipboard, [*:0]const u8, c_int) void;
+extern fn gtk_im_context_focus_in(*GtkIMContext) void;
+extern fn gtk_im_context_focus_out(*GtkIMContext) void;
+extern fn gtk_im_context_filter_keypress(
+    *GtkIMContext, ?*anyopaque) c_int;
+extern fn gtk_editable_select_region(*GtkWidget, c_int, c_int) void;
 extern fn gtk_im_multicontext_new() ?*GtkIMContext;
 extern fn gtk_window_set_icon_name(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_set_default_size(*GtkWindow, c_int, c_int) void;
@@ -2669,6 +2688,64 @@ pub export fn noctty_grid_range_set_value(
 ) void {
     const range = range_optional orelse return;
     gtk_range_set_value(@ptrCast(range), value);
+}
+pub export fn noctty_grid_clipboard_get(
+    selection_optional: ?*anyopaque,
+) ?*GtkClipboard {
+    return gtk_clipboard_get(selection_optional);
+}
+
+pub export fn noctty_grid_clipboard_request_text(
+    clipboard_optional: ?*anyopaque,
+    callback_optional: ?GtkClipboardTextReceivedCallback,
+    data: ?*anyopaque,
+) void {
+    const clipboard = clipboard_optional orelse return;
+    const callback = callback_optional orelse return;
+    gtk_clipboard_request_text(@ptrCast(clipboard), callback, data);
+}
+
+pub export fn noctty_grid_clipboard_set_text(
+    clipboard_optional: ?*anyopaque,
+    text: [*:0]const u8,
+    length: c_int,
+) void {
+    const clipboard = clipboard_optional orelse return;
+    gtk_clipboard_set_text(@ptrCast(clipboard), text, length);
+}
+
+pub export fn noctty_grid_im_context_focus_in(
+    context_optional: ?*anyopaque,
+) void {
+    const context = context_optional orelse return;
+    gtk_im_context_focus_in(@ptrCast(context));
+}
+
+pub export fn noctty_grid_im_context_focus_out(
+    context_optional: ?*anyopaque,
+) void {
+    const context = context_optional orelse return;
+    gtk_im_context_focus_out(@ptrCast(context));
+}
+
+pub export fn noctty_grid_im_context_filter_keypress(
+    context_optional: ?*anyopaque,
+    event_optional: ?*anyopaque,
+) c_int {
+    const context = context_optional orelse return FALSE;
+    return gtk_im_context_filter_keypress(
+        @ptrCast(context),
+        event_optional,
+    );
+}
+
+pub export fn noctty_grid_editable_select_region(
+    editable_optional: ?*anyopaque,
+    start_pos: c_int,
+    end_pos: c_int,
+) void {
+    const editable = editable_optional orelse return;
+    gtk_editable_select_region(@ptrCast(editable), start_pos, end_pos);
 }
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,

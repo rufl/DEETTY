@@ -415,6 +415,19 @@ void noctty_grid_spin_button_set_value(gpointer spin, double value);
 void noctty_grid_toggle_button_set_active(
     gpointer toggle, gboolean active);
 void noctty_grid_range_set_value(gpointer range, double value);
+gpointer noctty_grid_clipboard_get(gpointer selection);
+void noctty_grid_clipboard_request_text(
+    gpointer clipboard,
+    void (*callback)(GtkClipboard *, const gchar *, gpointer),
+    gpointer data);
+void noctty_grid_clipboard_set_text(
+    gpointer clipboard, const char *text, int length);
+void noctty_grid_im_context_focus_in(gpointer context);
+void noctty_grid_im_context_focus_out(gpointer context);
+gboolean noctty_grid_im_context_filter_keypress(
+    gpointer context, gpointer event);
+void noctty_grid_editable_select_region(
+    gpointer editable, int start_pos, int end_pos);
 gboolean noctty_grid_widget_translate_coordinates(
     GtkWidget *source,
     GtkWidget *dest,
