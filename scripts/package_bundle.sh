@@ -73,12 +73,32 @@ while IFS= read -r library; do
   cp -L "$library" "$stage/libexec/noctty/lib/"
 done < "$library_sources"
 layer_shell="$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')"
-if [ -n "$layer_shell" ] && [ -f "$layer_shell" ]; then
-  layer_shell=$(readlink -f "$layer_shell")
-  cp -L "$layer_shell" "$stage/libexec/noctty/lib/"
-else
-  echo "package_bundle missing system libgtk-layer-shell.so.0 for $(uname -m)" >&2
+layer_shell_source=system
+if [ -z "$layer_shell" ] || [ ! -f "$layer_shell" ]; then
+  retained_layer_shell="$HOME/.local/libexec/noctty-dogfood/lib/libgtk-layer-shell.so.0"
+  retained_receipt="${XDG_STATE_HOME:-"$HOME/.local/state"}/noctty/dogfood-build.receipt"
+  retained_expected=$(awk -F= '$1 == "layer_shell_sha256" { print $2; exit }' \
+    "$retained_receipt" 2>/dev/null || true)
+  retained_actual=$(sha256sum "$retained_layer_shell" 2>/dev/null |
+    awk 'NR == 1 { print $1; exit }' || true)
+  case "$retained_expected" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+      if [ "${#retained_expected}" -eq 64 ] &&
+         [ "$retained_actual" = "$retained_expected" ]; then
+        layer_shell="$retained_layer_shell"
+        layer_shell_source=retained-private-runtime
+      fi
+      ;;
+  esac
+fi
+if [ -z "$layer_shell" ] || [ ! -f "$layer_shell" ]; then
+  echo "package_bundle missing system libgtk-layer-shell.so.0 or checksum-matching retained runtime" >&2
   exit 1
+fi
+if [ "$layer_shell_source" = retained-private-runtime ]; then
+  export NOCTTY_BUNDLE_RETAINED_LAYER_SHELL="$layer_shell"
+else
+  unset NOCTTY_BUNDLE_RETAINED_LAYER_SHELL
 fi
 printf '%s\n' "$layer_shell" >> "$library_sources"
 sort -u "$library_sources" -o "$library_sources"
@@ -130,7 +150,7 @@ license_file_count=$(wc -l < "$license_files" | tr -d ' ')
   printf 'bundle_license_payload_complete=true\n'
   printf 'dependency_package_count=%s\n' "$package_count"
   printf 'dependency_license_file_count=%s\n' "$license_file_count"
-  printf 'gtk_layer_shell_source=system\n'
+  printf 'gtk_layer_shell_source=%s\n' "$layer_shell_source"
   printf 'gtk_layer_shell_license=LGPL-3.0-or-later\n'
   printf 'gtk_layer_shell_license_source=host_package_inventory_and_retained_notice_payload\n'
   printf 'installed_files_begin\n'

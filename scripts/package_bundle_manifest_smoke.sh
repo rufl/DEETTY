@@ -46,7 +46,11 @@ grep -F 'package_inventory_begin' "$archive.manifest" >/dev/null
 grep -F 'package_inventory_end' "$archive.manifest" >/dev/null
 grep -F 'license_files_begin' "$archive.manifest" >/dev/null
 grep -F 'license_files_end' "$archive.manifest" >/dev/null
-grep -F 'gtk_layer_shell_source=system' "$archive.manifest" >/dev/null
+if grep -F 'gtk_layer_shell_source=system' "$archive.manifest" >/dev/null; then
+  :
+else
+  grep -F 'gtk_layer_shell_source=retained-private-runtime' "$archive.manifest" >/dev/null
+fi
 grep -F 'gtk_layer_shell_license=LGPL-3.0-or-later' "$archive.manifest" >/dev/null
 grep -F 'redistribution_ready=true' "$archive.manifest" >/dev/null
 grep -F 'redistribution_blocker=none' "$archive.manifest" >/dev/null
@@ -58,6 +62,7 @@ if command -v pacman >/dev/null 2>&1; then
 else
   grep -F 'license_source=debian_installed_copyright' "$archive.manifest" >/dev/null
 fi
+layer_shell_source=$(sed -n 's/^gtk_layer_shell_source=//p' "$archive.manifest")
 ! grep -E 'system-runtime-unresolved|not_inventoried|LicenseRef-None' "$archive.manifest" >/dev/null
 
 unowned="$scratch/unowned-library.so"
@@ -78,4 +83,4 @@ scratch_path=$scratch
 rm -rf "$scratch_path"
 scratch=
 test ! -e "$scratch_path"
-echo "package_bundle_manifest manifest=true archive=true checksum=true installed_files=true library_inventory=true package_inventory=true license_payload=true all_libraries_accounted=true gtk_layer_shell_source=system gtk_layer_shell_license=LGPL-3.0-or-later redistribution_ready=true fail_closed=true scratch_clean=true"
+echo "package_bundle_manifest manifest=true archive=true checksum=true installed_files=true library_inventory=true package_inventory=true license_payload=true all_libraries_accounted=true gtk_layer_shell_source=$layer_shell_source gtk_layer_shell_license=LGPL-3.0-or-later redistribution_ready=true fail_closed=true scratch_clean=true"

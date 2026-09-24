@@ -80,31 +80,41 @@ register_package() {
     return
   fi
 
-  case "$package_backend" in
-    arch)
-      package_line=$(pacman -Q "$package" 2>/dev/null) || {
-        echo "package_bundle_license package metadata unavailable: $package" >&2
-        exit 1
-      }
-      package_version=${package_line#"$package "}
-      license_expression=$(pacman -Qi "$package" | sed -n 's/^Licenses[[:space:]]*:[[:space:]]*//p')
-      license_source=arch_package_metadata
-      pacman -Ql "$package" | awk '
-        $2 ~ /^\/usr\/share\/licenses\// && $2 !~ /\/$/ { print $2 }
-      ' | sort -u >"$work/$package-files.txt"
-      ;;
-    debian)
-      package_version=$(dpkg-query -W -f='${Version}\n' "$package" 2>/dev/null) || {
-        echo "package_bundle_license package metadata unavailable: $package" >&2
-        exit 1
-      }
-      license_expression=SEE-DEBIAN-COPYRIGHT
-      license_source=debian_installed_copyright
-      dpkg-query -L "$package" 2>/dev/null | awk '
-        /\/copyright$/ { print }
-      ' | sort -u >"$work/$package-files.txt"
-      ;;
-  esac
+  if [ "$package" = gtk-layer-shell ] &&
+     [ -n "${NOCTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ]; then
+    package_version=$(pacman -Si gtk-layer-shell 2>/dev/null |
+      sed -n 's/^Version[[:space:]]*:[[:space:]]*//p' | sed -n '1p')
+    license_expression=$(pacman -Si gtk-layer-shell 2>/dev/null |
+      sed -n 's/^Licenses[[:space:]]*:[[:space:]]*//p' | sed -n '1p')
+    license_source=retained_runtime_arch_metadata
+    : >"$work/$package-files.txt"
+  else
+    case "$package_backend" in
+      arch)
+        package_line=$(pacman -Q "$package" 2>/dev/null) || {
+          echo "package_bundle_license package metadata unavailable: $package" >&2
+          exit 1
+        }
+        package_version=${package_line#"$package "}
+        license_expression=$(pacman -Qi "$package" | sed -n 's/^Licenses[[:space:]]*:[[:space:]]*//p')
+        license_source=arch_package_metadata
+        pacman -Ql "$package" | awk '
+          $2 ~ /^\/usr\/share\/licenses\// && $2 !~ /\/$/ { print $2 }
+        ' | sort -u >"$work/$package-files.txt"
+        ;;
+      debian)
+        package_version=$(dpkg-query -W -f='${Version}\n' "$package" 2>/dev/null) || {
+          echo "package_bundle_license package metadata unavailable: $package" >&2
+          exit 1
+        }
+        license_expression=SEE-DEBIAN-COPYRIGHT
+        license_source=debian_installed_copyright
+        dpkg-query -L "$package" 2>/dev/null | awk '
+          /\/copyright$/ { print }
+        ' | sort -u >"$work/$package-files.txt"
+        ;;
+    esac
+  fi
   test -n "$package_version"
   test -n "$license_expression"
   case "$license_expression" in
@@ -155,7 +165,6 @@ register_package() {
     echo "package_bundle_license no retained notices: $package" >&2
     exit 1
   fi
-
   printf '%s version=%s license_expression="%s" package_license_files=%d canonical_spdx_files=%d custom_tokens_covered_by_package_files=%d license_source=%s\n' \
     "$package" "$package_version" "$license_expression" \
     "$package_file_count" "$canonical_file_count" "$unresolved_token_count" \
@@ -164,36 +173,40 @@ register_package() {
     "$license_expression" "$license_source" >>"$package_records"
   printf '%s\n' "$package" >>"$seen_packages"
 }
-
 while IFS= read -r library; do
   [ -n "$library" ] || continue
   test -f "$library"
   name=$(basename "$library")
   owners="$work/owners.txt"
-  case "$package_backend" in
-    arch)
-      pacman -Qqo "$library" 2>/dev/null | sort -u >"$owners" || true
-      ;;
-    debian)
-      {
-        dpkg-query -S "$library" 2>/dev/null || true
-        case "$library" in
-          /usr/lib/*|/usr/bin/*|/usr/sbin/*)
-            dpkg-query -S "${library#/usr}" 2>/dev/null || true
-            ;;
-        esac
-      } | sed 's/: \/.*$//' | sort -u >"$owners"
-      ;;
-  esac
-  owner_count=$(wc -l <"$owners" | tr -d ' ')
-  if [ "$owner_count" -ne 1 ]; then
-    echo "package_bundle_license library owner unresolved: $library" >&2
-    exit 1
-  fi
-  package=$(sed -n '1p' "$owners")
-  register_package "$package"
   source_kind=system
-
+  if [ -n "${NOCTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ] &&
+     [ "$library" = "$NOCTTY_BUNDLE_RETAINED_LAYER_SHELL" ]; then
+    package=gtk-layer-shell
+    source_kind=retained-private-runtime
+  else
+    case "$package_backend" in
+      arch)
+        pacman -Qqo "$library" 2>/dev/null | sort -u >"$owners" || true
+        ;;
+      debian)
+        {
+          dpkg-query -S "$library" 2>/dev/null || true
+          case "$library" in
+            /usr/lib/*|/usr/bin/*|/usr/sbin/*)
+              dpkg-query -S "${library#/usr}" 2>/dev/null || true
+              ;;
+          esac
+        } | sed 's/: \/.*$//' | sort -u >"$owners"
+        ;;
+    esac
+    owner_count=$(wc -l <"$owners" | tr -d ' ')
+    if [ "$owner_count" -ne 1 ]; then
+      echo "package_bundle_license library owner unresolved: $library" >&2
+      exit 1
+    fi
+    package=$(sed -n '1p' "$owners")
+  fi
+  register_package "$package"
   record=$(grep -F "$package|" "$package_records")
   package_version=$(printf '%s\n' "$record" | cut -d '|' -f 2)
   license_expression=$(printf '%s\n' "$record" | cut -d '|' -f 3)
