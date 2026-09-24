@@ -909,7 +909,7 @@ static gboolean configure_overlay_window_stacking(
     NocttyGridContext *context, GtkWidget *dialog,
     const char *namespace_name);
 static void present_configured_window(GtkWidget *window) {
-    if (!GTK_IS_WINDOW(window) ||
+    if (!noctty_grid_widget_is_type(window, NOCTTY_GTK_WINDOW) ||
         g_object_get_data(G_OBJECT(window),
                           "noctty-overlay-window") != NULL)
         return;
@@ -2869,7 +2869,7 @@ static gboolean move_resize_overlay_divider(gpointer user_data) {
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         GtkWidget *parent = noctty_grid_widget_get_parent(candidate->area);
-        if (GTK_IS_PANED(parent)) {
+        if (noctty_grid_widget_is_type(parent, NOCTTY_GTK_PANED)) {
             split = parent;
             break;
         }
@@ -3128,7 +3128,7 @@ static void clear_xdg_activation_token(NocttyGridContext *context) {
 static void apply_xdg_activation_token(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (root->xdg_activation_token == NULL ||
-        !GTK_IS_WINDOW(root->window)) return;
+        !noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WINDOW)) return;
     noctty_grid_window_set_startup_id(
         root->window, root->xdg_activation_token);
     root->xdg_activation_token_applied = 1;
@@ -3141,7 +3141,7 @@ static void apply_xdg_activation_token(NocttyGridContext *context) {
 
 static void toggle_grid_window(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gboolean visible = GTK_IS_WIDGET(root->window) &&
+    gboolean visible = noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WIDGET) &&
         !noctty_grid_widget_in_destruction(root->window) &&
         noctty_grid_widget_get_visible(root->window);
     if (root->window_presented && visible) {
@@ -3158,7 +3158,9 @@ static void toggle_grid_window(NocttyGridContext *context) {
                                (int)dogfood_omp_count, "active");
         }
         GtkWidget *grab = noctty_grid_grab_get_current();
-        if (grab != NULL && GTK_IS_MENU(grab)) noctty_grid_menu_popdown(GTK_MENU(grab));
+        if (grab != NULL && noctty_grid_widget_is_type(grab, NOCTTY_GTK_MENU)) {
+            noctty_grid_menu_popdown(GTK_MENU(grab));
+        }
         if (root->revealer != NULL && root->dropdown_animation_ms > 0) {
             noctty_grid_revealer_set_reveal_child(GTK_REVEALER(root->revealer), FALSE);
             if (root->hide_source != 0) g_source_remove(root->hide_source);
@@ -4085,7 +4087,7 @@ static void configure_grid_settings_shortcut_button(
 static void refresh_grid_settings_shortcut_button(
     NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_WINDOW(root->settings_dialog)) return;
+    if (!noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW)) return;
     GtkWidget *button = g_object_get_data(
         G_OBJECT(root->settings_dialog), "noctty-settings-shortcut");
     configure_grid_settings_shortcut_button(root, button);
@@ -4265,7 +4267,7 @@ static void on_grid_shortcut_recorder_destroy(GtkWidget *widget,
     refresh_grid_settings_shortcut_button(root);
     if (root->shortcut_recorder_settings_hidden) {
         root->shortcut_recorder_settings_hidden = 0;
-        if (GTK_IS_WINDOW(root->settings_dialog)) {
+        if (noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW)) {
             noctty_grid_widget_show(root->settings_dialog);
             present_configured_window(root->settings_dialog);
             root->shortcut_recorder_settings_restored =
@@ -4326,7 +4328,7 @@ static void open_grid_shortcut_recorder(NocttyGridContext *context) {
         NULL, 0, NULL, 0);
     (void)configure_overlay_window_stacking(
         root, dialog, "noctty-shortcut-recorder");
-    if (GTK_IS_WINDOW(root->settings_dialog) &&
+    if (noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW) &&
         noctty_grid_widget_get_visible(root->settings_dialog)) {
         noctty_grid_widget_hide(root->settings_dialog);
         root->shortcut_recorder_settings_hidden =
@@ -4396,7 +4398,7 @@ static gboolean grid_has_visible_transient(NocttyGridContext *root) {
     GList *windows = noctty_grid_window_list_toplevels();
     gboolean found = FALSE;
     for (GList *item = windows; item != NULL; item = item->next) {
-        if (!GTK_IS_WINDOW(item->data) || item->data == root->window) continue;
+        if (!noctty_grid_widget_is_type(item->data, NOCTTY_GTK_WINDOW) || item->data == root->window) continue;
         if (noctty_grid_window_get_transient_for(GTK_WINDOW(item->data)) == GTK_WINDOW(root->window) &&
             noctty_grid_widget_get_visible(GTK_WIDGET(item->data))) {
             found = TRUE;
@@ -4409,7 +4411,8 @@ static gboolean grid_has_visible_transient(NocttyGridContext *root) {
 
 static gboolean grid_has_open_menu(NocttyGridContext *root) {
     GtkWidget *grab = noctty_grid_grab_get_current();
-    return (grab != NULL && GTK_IS_MENU(grab)) ||
+    return (grab != NULL &&
+            noctty_grid_widget_is_type(grab, NOCTTY_GTK_MENU)) ||
            (root->workspace_menu != NULL &&
             noctty_grid_widget_get_visible(root->workspace_menu));
 }
@@ -5078,7 +5081,7 @@ static void finish_tab_rename(NocttyGridContext *context,
     root->tab_rename_event_box = NULL;
     if (GTK_IS_EVENT_BOX(event_box))
         noctty_grid_event_box_set_above_child(GTK_EVENT_BOX(event_box), FALSE);
-    if (GTK_IS_WIDGET(entry)) noctty_grid_widget_destroy(entry);
+    if (noctty_grid_widget_is_type(entry, NOCTTY_GTK_WIDGET)) noctty_grid_widget_destroy(entry);
     if (target != NULL && target->tab_label != NULL) {
         noctty_grid_widget_set_no_show_all(target->tab_label, FALSE);
         noctty_grid_widget_show(target->tab_label);
@@ -5180,7 +5183,8 @@ static void open_tab_rename(NocttyGridContext *context, GtkWidget *page) {
         : NULL;
     if (!GTK_IS_EVENT_BOX(tab_widget)) return;
     GtkWidget *content = noctty_grid_bin_get_child(GTK_BIN(tab_widget));
-    if (!GTK_IS_BOX(content) || target->tab_label == NULL) return;
+    if (!noctty_grid_widget_is_type(content, NOCTTY_GTK_BOX) ||
+        target->tab_label == NULL) return;
     gchar *title = current_tab_title_alloc(target);
     gint title_length = (gint)g_utf8_strlen(title, -1);
     GtkWidget *entry = noctty_tab_rename_entry_new(
@@ -5668,7 +5672,7 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
         for (int index = 0; index < pages; index++) {
             GtkWidget *page = noctty_grid_notebook_get_nth_page(
                 GTK_NOTEBOOK(root->notebook), index);
-            if (GTK_IS_CONTAINER(page))
+            if (noctty_grid_widget_is_type(page, NOCTTY_GTK_CONTAINER))
                 noctty_container_set_border_width(
                     page, (guint)root->panel_padding_px);
             NocttyGridContext *representative =
@@ -6034,7 +6038,7 @@ static void set_grid_window_title(NocttyGridContext *context,
                                   GtkWidget *window,
                                   const char *title) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_WINDOW(window) || title == NULL || title[0] == '\0')
+    if (!noctty_grid_widget_is_type(window, NOCTTY_GTK_WINDOW) || title == NULL || title[0] == '\0')
         return;
     const char *prefix = root->mode == 0
         ? "NOCTTY Dropdown — "
@@ -6633,7 +6637,7 @@ static NocttyGridContext *restore_grid_context(
 }
 
 static GtkWidget *pane_info_strip_for_page(GtkWidget *page) {
-    if (!GTK_IS_WIDGET(page)) return NULL;
+    if (!noctty_grid_widget_is_type(page, NOCTTY_GTK_WIDGET)) return NULL;
     return g_object_get_data(G_OBJECT(page), "noctty-pane-info-strip");
 }
 
@@ -6645,7 +6649,7 @@ static GtkWidget *create_grid_page(NocttyGridContext *context) {
 
 static GtkWidget *grid_page_content_root(NocttyGridContext *context,
                                          GtkWidget *page) {
-    if (!GTK_IS_CONTAINER(page)) return NULL;
+    if (!noctty_grid_widget_is_type(page, NOCTTY_GTK_CONTAINER)) return NULL;
     NocttyGridContext *root = root_grid_context(context);
     GtkWidget *strip = pane_info_strip_for_page(page);
     GList *children = noctty_grid_container_get_children(GTK_CONTAINER(page));
@@ -6721,10 +6725,10 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
     GtkAllocation source_allocation;
     noctty_grid_widget_get_allocation(source->area, &source_allocation);
 
-    gboolean parent_is_paned = GTK_IS_PANED(parent);
+    gboolean parent_is_paned = noctty_grid_widget_is_type(parent, NOCTTY_GTK_PANED);
     gboolean source_was_first = parent_is_paned &&
         noctty_grid_paned_get_child1(GTK_PANED(parent)) == source->area;
-    if (!parent_is_paned && !GTK_IS_BOX(parent)) return FALSE;
+    if (!parent_is_paned && !noctty_grid_widget_is_type(parent, NOCTTY_GTK_BOX)) return FALSE;
 
     GtkOrientation orientation = event_code == 21 || event_code == 28
         ? GTK_ORIENTATION_VERTICAL
@@ -6814,7 +6818,7 @@ static void schedule_grid_hot_session_flush(NocttyGridContext *context) {
 static void on_grid_layout_position_changed(
     GObject *object, GParamSpec *parameter, gpointer user_data) {
     (void)parameter;
-    if (!GTK_IS_PANED(object)) return;
+    if (!noctty_grid_widget_is_type(object, NOCTTY_GTK_PANED)) return;
     NocttyGridContext *root = root_grid_context(user_data);
     int tab_index = GPOINTER_TO_INT(g_object_get_data(
         object, "noctty-layout-tab-index")) - 1;
@@ -6841,7 +6845,7 @@ static gboolean on_grid_layout_button_release(
     GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     (void)user_data;
     if (event->type != GDK_BUTTON_RELEASE || event->button != 1 ||
-        !GTK_IS_PANED(widget))
+        !noctty_grid_widget_is_type(widget, NOCTTY_GTK_PANED))
         return FALSE;
     gint max_position = 0;
     g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
@@ -6874,7 +6878,7 @@ static gboolean bind_grid_layout_node(
         NocttyGridContext *pane = grid_context_for_pane(root, pane_id);
         return pane != NULL && pane->area == widget;
     }
-    if (kind != 1 || !GTK_IS_PANED(widget) || first < 0 || second < 0)
+    if (kind != 1 || !noctty_grid_widget_is_type(widget, NOCTTY_GTK_PANED) || first < 0 || second < 0)
         return FALSE;
     GtkOrientation orientation = (GtkOrientation)
         noctty_grid_orientable_get_orientation(GTK_ORIENTABLE(widget));
@@ -6911,7 +6915,7 @@ static gboolean bind_grid_layout_node(
 static gboolean bind_grid_layout_for_page(NocttyGridContext *context) {
     if (context == NULL) return FALSE;
     NocttyGridContext *root = root_grid_context(context);
-    if (root->event_data == NULL || !GTK_IS_BOX(context->page))
+    if (root->event_data == NULL || !noctty_grid_widget_is_type(context->page, NOCTTY_GTK_BOX))
         return FALSE;
     NocttyGridContext *representative = grid_context_for_page(
         root, context->page);
@@ -6995,7 +6999,7 @@ static void on_restored_layout_size_allocate(GtkWidget *widget,
 static gboolean rebuild_hot_session_page(
     NocttyGridContext *root, int tab_index, GtkWidget *page,
     int node_count, int root_node) {
-    if (root == NULL || !GTK_IS_BOX(page)) return FALSE;
+    if (root == NULL || !noctty_grid_widget_is_type(page, NOCTTY_GTK_BOX)) return FALSE;
     GPtrArray *held_areas = g_ptr_array_new();
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
@@ -7177,7 +7181,7 @@ static gboolean replace_grid_widget(GtkWidget *parent, GtkWidget *old_widget,
         }
         return TRUE;
     }
-    if (GTK_IS_BOX(parent)) {
+    if (noctty_grid_widget_is_type(parent, NOCTTY_GTK_BOX)) {
         noctty_container_remove(parent, old_widget);
         noctty_box_pack_start(parent, replacement, TRUE, TRUE, 0);
         return TRUE;
@@ -7197,13 +7201,14 @@ static gboolean detach_grid_context(NocttyGridContext *source) {
         return TRUE;
     }
     GtkWidget *split = noctty_grid_widget_get_parent(source->area);
-    if (!GTK_IS_PANED(split)) return FALSE;
+    if (!noctty_grid_widget_is_type(split, NOCTTY_GTK_PANED)) return FALSE;
     GtkWidget *first = noctty_grid_paned_get_child1(GTK_PANED(split));
     GtkWidget *second = noctty_grid_paned_get_child2(GTK_PANED(split));
     GtkWidget *sibling = first == source->area ? second : first;
     GtkWidget *grandparent = noctty_grid_widget_get_parent(split);
     if (sibling == NULL || grandparent == NULL ||
-        (!GTK_IS_PANED(grandparent) && !GTK_IS_BOX(grandparent))) return FALSE;
+        (!noctty_grid_widget_is_type(grandparent, NOCTTY_GTK_PANED) &&
+         !noctty_grid_widget_is_type(grandparent, NOCTTY_GTK_BOX))) return FALSE;
 
     g_object_ref(source->area);
     g_object_ref(sibling);
@@ -7646,10 +7651,11 @@ static gboolean close_grid_pane(NocttyGridContext *context) {
     gboolean closes_tab = page_context_count == 1;
     if (!closes_tab) {
         GtkWidget *split = noctty_grid_widget_get_parent(context->area);
-        if (!GTK_IS_PANED(split)) return FALSE;
+        if (!noctty_grid_widget_is_type(split, NOCTTY_GTK_PANED)) return FALSE;
         GtkWidget *grandparent = noctty_grid_widget_get_parent(split);
         if (grandparent == NULL ||
-            (!GTK_IS_PANED(grandparent) && !GTK_IS_BOX(grandparent)))
+            (!noctty_grid_widget_is_type(grandparent, NOCTTY_GTK_PANED) &&
+             !noctty_grid_widget_is_type(grandparent, NOCTTY_GTK_BOX)))
             return FALSE;
     }
     if (noctty_grid_has_foreground_process(context->userdata) > 0 &&
@@ -7940,7 +7946,7 @@ static void apply_preset_paned_positions(GtkWidget *widget,
                                          gint width, gint height) {
     (void)width;
     (void)height;
-    if (!GTK_IS_PANED(widget)) return;
+    if (!noctty_grid_widget_is_type(widget, NOCTTY_GTK_PANED)) return;
     gint max_position = 0;
     g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
     guint ratio_permille = GPOINTER_TO_UINT(g_object_get_data(
@@ -7960,7 +7966,7 @@ static gboolean apply_preset_split_position(gpointer user_data) {
     g_object_set_data(G_OBJECT(widget), "noctty-preset-position-source", NULL);
     NocttyGridContext *root = g_object_get_data(
         G_OBJECT(widget), "noctty-grid-root-context");
-    if (root != NULL && GTK_IS_PANED(widget)) {
+    if (root != NULL && noctty_grid_widget_is_type(widget, NOCTTY_GTK_PANED)) {
         root->layout_restore_applying = 1;
         gint max_position = 0;
         g_object_get(G_OBJECT(widget), "max-position", &max_position, NULL);
@@ -7980,7 +7986,7 @@ static void on_preset_max_position_changed(
     GObject *object, GParamSpec *parameter, gpointer user_data) {
     (void)parameter;
     (void)user_data;
-    if (!GTK_IS_PANED(object) ||
+    if (!noctty_grid_widget_is_type(object, NOCTTY_GTK_PANED) ||
         g_object_get_data(object, "noctty-preset-position-source") != NULL)
         return;
     guint source = g_idle_add(apply_preset_split_position,
@@ -7991,7 +7997,7 @@ static void on_preset_max_position_changed(
 
 static void bind_preset_max_positions(NocttyGridContext *root,
                                       GtkWidget *widget) {
-    if (!GTK_IS_PANED(widget)) return;
+    if (!noctty_grid_widget_is_type(widget, NOCTTY_GTK_PANED)) return;
     g_object_set_data(G_OBJECT(widget), "noctty-grid-root-context", root);
     if (g_object_get_data(G_OBJECT(widget),
                           "noctty-max-position-bound") == NULL) {
@@ -8020,7 +8026,7 @@ static void queue_grid_preset_widget_draw(GtkWidget *widget,
                                           gpointer user_data) {
     (void)user_data;
     noctty_grid_widget_queue_draw(widget);
-    if (GTK_IS_CONTAINER(widget))
+    if (noctty_grid_widget_is_type(widget, NOCTTY_GTK_CONTAINER))
         noctty_grid_container_forall(
             widget, queue_grid_preset_widget_draw, NULL);
 }
@@ -9082,7 +9088,7 @@ static void run_zoom_selection_smoke(NocttyGridContext *root) {
                                                   root->contexts->len - 1);
     clear_grid_selection(target);
     GtkWidget *split = noctty_grid_widget_get_parent(target->area);
-    int original_split_position = GTK_IS_PANED(split)
+    int original_split_position = noctty_grid_widget_is_type(split, NOCTTY_GTK_PANED)
         ? noctty_grid_paned_get_position(GTK_PANED(split)) : -1;
     emit_zoom_double_click(target, 900, 300);
     root->focus_double_click_zoom_clean =
@@ -9094,7 +9100,7 @@ static void run_zoom_selection_smoke(NocttyGridContext *root) {
         root->zoomed_pane_id == 0 &&
         !target->selection_dragging && !target->selecting &&
         !target->suppress_primary_release &&
-        (!GTK_IS_PANED(split) ||
+        (!noctty_grid_widget_is_type(split, NOCTTY_GTK_PANED) ||
          noctty_grid_paned_get_position(GTK_PANED(split)) == original_split_position);
     int word_column = -1;
     int word_row = -1;
@@ -9439,7 +9445,8 @@ static gboolean configure_overlay_window_stacking(
     NocttyGridContext *context, GtkWidget *dialog,
     const char *namespace_name) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_WINDOW(dialog) || !GTK_IS_WINDOW(root->window)) return FALSE;
+    if (!noctty_grid_widget_is_type(dialog, NOCTTY_GTK_WINDOW) ||
+        !noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WINDOW)) return FALSE;
 
     noctty_grid_window_set_transient_for(dialog, root->window);
     noctty_grid_window_set_destroy_with_parent(dialog, TRUE);
@@ -9598,7 +9605,7 @@ static void apply_window_dimensions(NocttyGridContext *context) {
 
 static void apply_fullscreen_dimensions(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_WINDOW(root->window)) return;
+    if (!noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WINDOW)) return;
     noctty_grid_widget_set_size_request(root->window, -1, -1);
     GdkDisplay *display = noctty_grid_widget_get_display(root->window);
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
@@ -9633,7 +9640,7 @@ static void schedule_resolution_adapt(NocttyGridContext *context) {
 static gboolean adapt_window_to_resolution(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->resolution_adapt_source = 0;
-    if (!GTK_IS_WINDOW(root->window)) return G_SOURCE_REMOVE;
+    if (!noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WINDOW)) return G_SOURCE_REMOVE;
     GdkMonitor *monitor = NULL;
     GdkRectangle monitor_geometry = {0};
     GdkRectangle workarea = {0};
@@ -9806,7 +9813,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     root->window_mode_recreate_source = 0;
     GtkWidget *old_window = root->window;
     GtkWidget *layout = root->window_layout;
-    if (!GTK_IS_WINDOW(old_window) || layout == NULL ||
+    if (!noctty_grid_widget_is_type(old_window, NOCTTY_GTK_WINDOW) || layout == NULL ||
         noctty_grid_widget_in_destruction(old_window))
         return G_SOURCE_REMOVE;
 
@@ -9815,7 +9822,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     NocttyGridContext *title_context = active_grid_context(root);
     const char *title = title_context != NULL
         ? title_context->display_title : NULL;
-    gboolean reopen_settings = GTK_IS_WINDOW(root->settings_dialog) &&
+    gboolean reopen_settings = noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW) &&
         noctty_grid_widget_get_visible(root->settings_dialog);
     if (reopen_settings) noctty_grid_widget_destroy(root->settings_dialog);
     dismiss_grid_popup_windows(root);
@@ -9865,7 +9872,7 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
     if (reopen_settings && was_presented) {
         open_grid_settings(root);
         root->settings_reopened_after_mode_change =
-            GTK_IS_WINDOW(root->settings_dialog) &&
+            noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW) &&
             noctty_grid_widget_get_visible(root->settings_dialog);
     }
     root->window_mode_surface_recreated = 1;
@@ -10336,10 +10343,10 @@ static void refresh_theme_combo(NocttyGridContext *context,
 
 static void refresh_open_theme_selectors(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    if (GTK_IS_WINDOW(root->settings_dialog))
+    if (noctty_grid_widget_is_type(root->settings_dialog, NOCTTY_GTK_WINDOW))
         refresh_theme_combo(active_grid_context(root), g_object_get_data(
             G_OBJECT(root->settings_dialog), "noctty-settings-theme"));
-    if (GTK_IS_WINDOW(root->theme_dialog))
+    if (noctty_grid_widget_is_type(root->theme_dialog, NOCTTY_GTK_WINDOW))
         refresh_theme_combo(root, g_object_get_data(
             G_OBJECT(root->theme_dialog), "noctty-theme-selector"));
 }
@@ -10348,7 +10355,7 @@ static void set_theme_library_status(NocttyGridContext *context,
                                      const gchar *message,
                                      gboolean is_error) {
     NocttyGridContext *root = root_grid_context(context);
-    if (!GTK_IS_WINDOW(root->theme_dialog)) return;
+    if (!noctty_grid_widget_is_type(root->theme_dialog, NOCTTY_GTK_WINDOW)) return;
     GtkWidget *status = g_object_get_data(
         G_OBJECT(root->theme_dialog), "noctty-theme-status");
     set_status_label_feedback(status, message, is_error);
@@ -11450,7 +11457,7 @@ static void on_theme_library_destroy(GtkWidget *widget,
 
 static void open_theme_library(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    if (GTK_IS_WINDOW(root->theme_dialog)) {
+    if (noctty_grid_widget_is_type(root->theme_dialog, NOCTTY_GTK_WINDOW)) {
         present_configured_window(root->theme_dialog);
         return;
     }
@@ -11833,7 +11840,7 @@ static void on_project_menu_activate(GtkWidget *item, gpointer user_data) { (voi
 
 static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
                                            const gchar *label) {
-    if (!GTK_IS_CONTAINER(menu)) return NULL;
+    if (!noctty_grid_widget_is_type(menu, NOCTTY_GTK_CONTAINER)) return NULL;
     GList *items = noctty_grid_container_get_children(GTK_CONTAINER(menu));
     GtkWidget *match = NULL;
     for (GList *item = items; item != NULL && match == NULL;
@@ -13299,7 +13306,7 @@ static gboolean refresh_sharing_status(gpointer user_data) {
     noctty_grid_button_set_label(
         GTK_BUTTON(cancel_pairing),
         status == 104 || status == 105 ? "Clear pairing result" : "Cancel pairing");
-    if (GTK_IS_WIDGET(preview) && !noctty_grid_widget_in_destruction(preview))
+    if (noctty_grid_widget_is_type(preview, NOCTTY_GTK_WIDGET) && !noctty_grid_widget_in_destruction(preview))
         noctty_grid_widget_queue_draw(preview);
     refresh_sharing_tabs(root);
     refresh_sharing_streams(root);
@@ -13470,7 +13477,7 @@ static gboolean request_window_close_button_smoke(gpointer user_data) {
 
 static void mark_workspace_menu_action(GtkWidget *item) {
     GtkWidget *menu = noctty_grid_widget_get_ancestor(item, GTK_TYPE_MENU);
-    while (GTK_IS_MENU(menu)) {
+    while (noctty_grid_widget_is_type(menu, NOCTTY_GTK_MENU)) {
         g_object_set_data(G_OBJECT(menu), "noctty-workspace-action",
                           GINT_TO_POINTER(1));
         GtkWidget *attach = noctty_grid_menu_get_attach_widget(GTK_MENU(menu));
@@ -13537,7 +13544,7 @@ static void on_pane_close_menu_activate(GtkWidget *item, gpointer user_data) {
     NocttyGridContext *root = root_grid_context(context);
     mark_workspace_menu_action(item);
     GtkWidget *menu = noctty_grid_widget_get_ancestor(item, GTK_TYPE_MENU);
-    if (GTK_IS_MENU(menu)) {
+    if (noctty_grid_widget_is_type(menu, NOCTTY_GTK_MENU)) {
         noctty_grid_menu_popdown(GTK_MENU(menu));
         root->pane_close_menu_popped_down = 1;
     }
@@ -13695,7 +13702,7 @@ static void on_command_palette_menu_activate(GtkWidget *item,
                                              gpointer user_data) {
     NocttyGridContext *context = user_data;
     GtkWidget *menu = noctty_grid_widget_get_ancestor(item, GTK_TYPE_MENU);
-    if (!GTK_IS_MENU(menu)) return;
+    if (!noctty_grid_widget_is_type(menu, NOCTTY_GTK_MENU)) return;
     mark_workspace_menu_action(item);
     NocttyGridContext *root = root_grid_context(context);
     if (root->workspace_menu != NULL)
@@ -13785,7 +13792,7 @@ static void dismiss_workspace_menu(NocttyGridContext *context) {
     GtkWidget *menu = root->workspace_menu;
     if (menu == NULL) return;
     g_object_ref(menu);
-    if (GTK_IS_MENU(menu) && noctty_grid_widget_get_mapped(menu))
+    if (noctty_grid_widget_is_type(menu, NOCTTY_GTK_MENU) && noctty_grid_widget_get_mapped(menu))
         noctty_grid_menu_popdown(GTK_MENU(menu));
     if (!noctty_grid_widget_in_destruction(menu)) noctty_grid_widget_destroy(menu);
     g_object_unref(menu);
@@ -13795,12 +13802,12 @@ static void dismiss_grid_popup_windows(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     dismiss_workspace_menu(root);
     GtkWidget *grab = noctty_grid_grab_get_current();
-    if (grab != NULL && GTK_IS_MENU(grab))
+    if (grab != NULL && noctty_grid_widget_is_type(grab, NOCTTY_GTK_MENU))
         noctty_grid_menu_popdown(GTK_MENU(grab));
     GList *windows = noctty_grid_window_list_toplevels();
     for (GList *item = windows; item != NULL; item = item->next) {
         GtkWidget *window = item->data;
-        if (!GTK_IS_WINDOW(window) || window == root->window ||
+        if (!noctty_grid_widget_is_type(window, NOCTTY_GTK_WINDOW) || window == root->window ||
             noctty_grid_window_get_window_type(window) != GTK_WINDOW_POPUP ||
             !noctty_grid_widget_get_visible(window))
             continue;
@@ -14546,7 +14553,7 @@ static gboolean request_profile_preset_smoke(gpointer user_data) {
 static gboolean finish_pane_close_resize_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     root->pane_close_user_resize_preserved =
-        GTK_IS_PANED(root->pane_close_resize_split) &&
+        noctty_grid_widget_is_type(root->pane_close_resize_split, NOCTTY_GTK_PANED) &&
         noctty_grid_paned_get_position(GTK_PANED(root->pane_close_resize_split)) ==
             root->pane_close_resize_position;
     root->pane_close_resize_split = NULL;
@@ -14683,7 +14690,7 @@ static gboolean finish_pane_close_smoke(gpointer user_data) {
 
     GtkWidget *layout = remaining != NULL
         ? grid_page_content_root(remaining, current_page) : NULL;
-    if (GTK_IS_PANED(layout)) {
+    if (noctty_grid_widget_is_type(layout, NOCTTY_GTK_PANED)) {
         gint max_position = 0;
         g_object_get(G_OBJECT(layout), "max-position", &max_position, NULL);
         if (max_position > 0) {
@@ -14753,7 +14760,7 @@ static gboolean disturb_pane_close_layout(gpointer user_data) {
     root->pane_split_resize_equal = smoke_page_is_even_two_by_two(root, page);
     GtkWidget *layout = pane != NULL
         ? grid_page_content_root(pane, page) : NULL;
-    if (GTK_IS_PANED(layout)) {
+    if (noctty_grid_widget_is_type(layout, NOCTTY_GTK_PANED)) {
         gint max_position = 0;
         g_object_get(G_OBJECT(layout), "max-position", &max_position, NULL);
         if (max_position > 0)

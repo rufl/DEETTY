@@ -2,6 +2,30 @@
 #define NOCTTY_NATIVE_GTK_H
 
 #include <gtk/gtk.h>
+enum NocttyGtkWidgetType {
+    NOCTTY_GTK_WIDGET = 0,
+    NOCTTY_GTK_WINDOW = 1,
+    NOCTTY_GTK_CONTAINER = 2,
+    NOCTTY_GTK_BOX = 3,
+    NOCTTY_GTK_PANED = 4,
+    NOCTTY_GTK_BUTTON = 5,
+    NOCTTY_GTK_MENU = 6,
+    NOCTTY_GTK_ENTRY = 7,
+    NOCTTY_GTK_EVENT_BOX = 8,
+    NOCTTY_GTK_IMAGE = 9,
+    NOCTTY_GTK_NOTEBOOK = 10,
+    NOCTTY_GTK_DIALOG = 11,
+    NOCTTY_GTK_COMBO_BOX = 12,
+    NOCTTY_GTK_COMBO_BOX_TEXT = 13,
+    NOCTTY_GTK_SPIN_BUTTON = 14,
+    NOCTTY_GTK_TOGGLE_BUTTON = 15,
+    NOCTTY_GTK_CHECK_BUTTON = 16,
+    NOCTTY_GTK_SCROLLED_WINDOW = 17,
+    NOCTTY_GTK_LABEL = 18,
+    NOCTTY_GTK_BIN = 19,
+    NOCTTY_GTK_MENU_ITEM = 20,
+    NOCTTY_GTK_RADIO_MENU_ITEM = 21,
+};
 
 GtkWidget *noctty_pane_info_strip_new(gboolean enabled);
 void noctty_pane_info_strip_set_enabled(GtkWidget *strip, gboolean enabled);
@@ -383,6 +407,7 @@ void noctty_grid_window_get_position(
     gpointer window, int *x, int *y);
 gboolean noctty_grid_window_is_active(gpointer window);
 gboolean noctty_grid_window_get_decorated(gpointer window);
+gboolean noctty_grid_widget_is_type(gpointer widget, int type);
 gboolean noctty_grid_window_get_resizable(gpointer window);
 GtkWindow *noctty_grid_window_get_transient_for(gpointer window);
 int noctty_grid_window_get_window_type(gpointer window);

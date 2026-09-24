@@ -577,6 +577,21 @@ extern fn gtk_widget_destroy(*GtkWidget) void;
 extern fn gtk_widget_get_style_context(*GtkWidget) *GtkStyleContext;
 extern fn gtk_widget_get_accessible(*GtkWidget) *AtkObject;
 extern fn gtk_button_get_type() GType;
+extern fn gtk_widget_get_type() GType;
+extern fn gtk_window_get_type() GType;
+extern fn gtk_event_box_get_type() GType;
+extern fn gtk_image_get_type() GType;
+extern fn gtk_menu_get_type() GType;
+extern fn gtk_entry_get_type() GType;
+extern fn gtk_dialog_get_type() GType;
+extern fn gtk_combo_box_get_type() GType;
+extern fn gtk_combo_box_text_get_type() GType;
+extern fn gtk_spin_button_get_type() GType;
+extern fn gtk_toggle_button_get_type() GType;
+extern fn gtk_check_button_get_type() GType;
+extern fn gtk_scrolled_window_get_type() GType;
+extern fn gtk_menu_item_get_type() GType;
+extern fn gtk_radio_menu_item_get_type() GType;
 extern fn gtk_bin_get_type() GType;
 extern fn gtk_box_get_type() GType;
 extern fn gtk_container_get_type() GType;
@@ -3620,6 +3635,40 @@ pub export fn noctty_grid_atk_object_get_role(
     const accessible = accessible_optional orelse return 0;
     return atk_object_get_role(@ptrCast(accessible));
 }
+pub export fn noctty_grid_widget_is_type(
+    widget_optional: ?*anyopaque,
+    type_id: c_int,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    const get_type: *const fn () callconv(.c) GType = switch (type_id) {
+        0 => gtk_widget_get_type,
+        1 => gtk_window_get_type,
+        2 => gtk_container_get_type,
+        3 => gtk_box_get_type,
+        4 => gtk_paned_get_type,
+        5 => gtk_button_get_type,
+        6 => gtk_menu_get_type,
+        7 => gtk_entry_get_type,
+        8 => gtk_event_box_get_type,
+        9 => gtk_image_get_type,
+        10 => gtk_notebook_get_type,
+        11 => gtk_dialog_get_type,
+        12 => gtk_combo_box_get_type,
+        13 => gtk_combo_box_text_get_type,
+        14 => gtk_spin_button_get_type,
+        15 => gtk_toggle_button_get_type,
+        16 => gtk_check_button_get_type,
+        17 => gtk_scrolled_window_get_type,
+        18 => gtk_label_get_type,
+        19 => gtk_bin_get_type,
+        20 => gtk_menu_item_get_type,
+        21 => gtk_radio_menu_item_get_type,
+        else => return FALSE,
+    };
+    return if (g_type_check_instance_is_a(
+        @ptrCast(@alignCast(widget)), get_type()) != 0) TRUE else FALSE;
+}
+
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,
 ) c_int {
