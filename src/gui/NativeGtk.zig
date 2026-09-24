@@ -307,11 +307,13 @@ extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_tooltip_text(*GtkWidget, ?[*:0]const u8) void;
 extern fn gtk_widget_get_tooltip_text(*GtkWidget) ?[*:0]u8;
-extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
-extern fn gtk_widget_get_visible(*GtkWidget) c_int;
-extern fn gtk_widget_get_allocation(*GtkWidget, *GtkAllocation) void;
 extern fn gtk_widget_style_get(*GtkWidget, [*:0]const u8, ...) void;
 extern fn gtk_widget_is_ancestor(*GtkWidget, *GtkWidget) c_int;
+extern fn gtk_widget_get_parent(*GtkWidget) ?*GtkWidget;
+extern fn gtk_widget_get_visible(*GtkWidget) c_int;
+extern fn gtk_widget_get_mapped(*GtkWidget) c_int;
+extern fn gtk_widget_in_destruction(*GtkWidget) c_int;
+extern fn gtk_widget_get_allocation(*GtkWidget, *GtkAllocation) void;
 extern fn gtk_paned_get_child1(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_get_child2(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_set_position(*GtkPaned, c_int) void;
@@ -2299,6 +2301,42 @@ pub export fn noctty_grid_widget_show_all(
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_show_all(widget);
+}
+pub export fn noctty_grid_widget_get_parent(
+    widget_optional: ?*GtkWidget,
+) ?*GtkWidget {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_parent(widget);
+}
+
+pub export fn noctty_grid_widget_get_visible(
+    widget_optional: ?*GtkWidget,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_get_visible(widget);
+}
+
+pub export fn noctty_grid_widget_get_mapped(
+    widget_optional: ?*GtkWidget,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_get_mapped(widget);
+}
+
+pub export fn noctty_grid_widget_in_destruction(
+    widget_optional: ?*GtkWidget,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    return gtk_widget_in_destruction(widget);
+}
+
+pub export fn noctty_grid_widget_get_allocation(
+    widget_optional: ?*GtkWidget,
+    allocation: ?*GtkAllocation,
+) void {
+    const widget = widget_optional orelse return;
+    const allocation_out = allocation orelse return;
+    gtk_widget_get_allocation(widget, allocation_out);
 }
 
 pub export fn noctty_grid_widget_set_app_paintable(
