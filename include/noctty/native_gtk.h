@@ -388,6 +388,13 @@ gboolean noctty_grid_widget_get_mapped(GtkWidget *widget);
 gboolean noctty_grid_widget_in_destruction(GtkWidget *widget);
 void noctty_grid_widget_get_allocation(
     GtkWidget *widget, GtkAllocation *allocation);
+GtkWidget *noctty_grid_paned_get_child1(gpointer paned);
+GtkWidget *noctty_grid_paned_get_child2(gpointer paned);
+int noctty_grid_paned_get_position(gpointer paned);
+int noctty_grid_orientable_get_orientation(gpointer orientable);
+GtkWidget *noctty_grid_bin_get_child(gpointer bin);
+GList *noctty_grid_container_get_children(gpointer container);
+GtkWidget *noctty_grid_widget_get_toplevel(gpointer widget);
 gboolean noctty_grid_widget_translate_coordinates(
     GtkWidget *source,
     GtkWidget *dest,

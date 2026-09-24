@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK pane topology, orientation, container-child, bin-child, and
+  widget-toplevel reads through the Zig adapter; C retains layout decisions
+  and topology traversal policy.
 - Routed remaining GTK focus, display, ancestor, grab, revealer, menu-state,
   size-request, frame-clock, and toplevel-list operations through the Zig
   adapter; C retains interaction and compositor decisions.

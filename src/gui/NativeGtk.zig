@@ -379,6 +379,8 @@ extern fn gtk_widget_get_visible(*GtkWidget) c_int;
 extern fn gtk_widget_get_mapped(*GtkWidget) c_int;
 extern fn gtk_widget_in_destruction(*GtkWidget) c_int;
 extern fn gtk_widget_get_allocation(*GtkWidget, *GtkAllocation) void;
+extern fn gtk_widget_get_toplevel(*GtkWidget) ?*GtkWidget;
+extern fn gtk_paned_get_position(*GtkPaned) c_int;
 extern fn gtk_paned_get_child1(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_get_child2(*GtkPaned) ?*GtkWidget;
 extern fn gtk_paned_set_position(*GtkPaned, c_int) void;
@@ -2474,6 +2476,55 @@ pub export fn noctty_grid_widget_get_window(
 ) ?*GdkWindow {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_window(widget);
+}
+
+pub export fn noctty_grid_paned_get_child1(
+    paned_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const paned = paned_optional orelse return null;
+    return gtk_paned_get_child1(@ptrCast(paned));
+}
+
+pub export fn noctty_grid_paned_get_child2(
+    paned_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const paned = paned_optional orelse return null;
+    return gtk_paned_get_child2(@ptrCast(paned));
+}
+
+pub export fn noctty_grid_paned_get_position(
+    paned_optional: ?*anyopaque,
+) c_int {
+    const paned = paned_optional orelse return 0;
+    return gtk_paned_get_position(@ptrCast(paned));
+}
+
+pub export fn noctty_grid_orientable_get_orientation(
+    orientable_optional: ?*anyopaque,
+) c_int {
+    const orientable = orientable_optional orelse return 0;
+    return gtk_orientable_get_orientation(@ptrCast(orientable));
+}
+
+pub export fn noctty_grid_bin_get_child(
+    bin_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const bin = bin_optional orelse return null;
+    return gtk_bin_get_child(@ptrCast(bin));
+}
+
+pub export fn noctty_grid_container_get_children(
+    container_optional: ?*anyopaque,
+) ?*GList {
+    const container = container_optional orelse return null;
+    return gtk_container_get_children(@ptrCast(container));
+}
+
+pub export fn noctty_grid_widget_get_toplevel(
+    widget_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_toplevel(@ptrCast(widget));
 }
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,
