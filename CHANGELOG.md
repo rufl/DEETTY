@@ -8,6 +8,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed GTK swapped and object-bound signal registrations through dedicated Zig adapters; C retains callback semantics and lifetime decisions.
 - Routed GTK drag source and destination setup through the Zig adapter; C retains pane drag targets, modifiers, actions, and event orchestration.
 - Routed GTK recursive show, app-paintable, and visual state mutations through the Zig adapter; C retains surface visibility and compositor policy.
+- Routed GTK window focus, geometry, activity, decoration, and resizeability reads through the Zig adapter; C retains sizing policy and smoke assertions.
 - Moved GTK grid window, notebook, and IM-context construction into the Zig native adapter; the C host retains lifecycle and event orchestration.
 - Moved native grid window configuration policy into the Zig GTK adapter; C retains monitor capability detection, lifecycle signals, and smoke qualification.
 - Moved GTK notebook action widgets and lifecycle signal wiring into the Zig native adapter; C retains callback implementations and workspace orchestration.

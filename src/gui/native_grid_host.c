@@ -2427,7 +2427,7 @@ static gboolean emit_tab_cycle_next_smoke(gpointer user_data) {
 static gboolean grid_context_owns_window_focus(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     return context != NULL && context->area != NULL && root->window != NULL &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == context->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == context->area;
 }
 
 static gboolean emit_pane_cycle_shortcut_smoke(gpointer user_data) {
@@ -2803,7 +2803,7 @@ static NocttyGridContext *focused_grid_context(NocttyGridContext *fallback) {
     NocttyGridContext *root = root_grid_context(fallback);
     if (root->contexts == NULL) return fallback;
     GtkWidget *focus = root->window != NULL
-        ? gtk_window_get_focus(GTK_WINDOW(root->window)) : NULL;
+        ? noctty_grid_window_get_focus(GTK_WINDOW(root->window)) : NULL;
     if (focus != NULL) {
         for (guint index = 0; index < root->contexts->len; index++) {
             NocttyGridContext *candidate =
@@ -3031,7 +3031,7 @@ static gboolean finish_workspace_smoke(gpointer user_data) {
     GtkWidget *pending_page = NULL;
     int window_width = 0;
     int window_height = 0;
-    gtk_window_get_size(GTK_WINDOW(root->window),
+    noctty_grid_window_get_size(GTK_WINDOW(root->window),
                         &window_width, &window_height);
     root->dropdown_minimum_geometry =
         window_width >= NOCTTY_DROPDOWN_MIN_WIDTH_PX &&
@@ -4494,7 +4494,7 @@ static gboolean deferred_focus_hide(gpointer user_data) {
     if (root->mode == 0 && root->hide_on_focus_loss &&
         root->window_presented &&
         gtk_widget_get_visible(root->window) &&
-        !gtk_window_is_active(GTK_WINDOW(root->window)) &&
+        !noctty_grid_window_is_active(GTK_WINDOW(root->window)) &&
         !grid_has_visible_transient(root)) toggle_grid_window(root);
     return G_SOURCE_REMOVE;
 }
@@ -9006,7 +9006,7 @@ static gboolean focus_click_smoke_surface_ready(
         !gtk_widget_get_mapped(target->area))
         return FALSE;
     if (!root->layer_shell_active &&
-        !gtk_window_is_active(GTK_WINDOW(root->window)))
+        !noctty_grid_window_is_active(GTK_WINDOW(root->window)))
         noctty_grid_window_present(root->window);
     return TRUE;
 }
@@ -9032,7 +9032,7 @@ static gboolean inspect_focus_click_smoke(NocttyGridContext *root,
                                           NocttyGridContext *target,
                                           const char *command,
                                           int *verified) {
-    if (gtk_window_get_focus(GTK_WINDOW(root->window)) != target->area ||
+    if (noctty_grid_window_get_focus(GTK_WINDOW(root->window)) != target->area ||
         !target->focused)
         return FALSE;
     *verified = !target->selection_dragging && !target->selecting &&
@@ -9050,7 +9050,7 @@ static gboolean wait_for_focus_click_smoke(NocttyGridContext *root) {
     g_printerr("native_grid_click_focus_timeout stage=%d mapped=%d active=%d contexts=%u\n",
                root->focus_click_smoke_stage,
                root->window != NULL && gtk_widget_get_mapped(root->window),
-               root->window != NULL && gtk_window_is_active(GTK_WINDOW(root->window)),
+               root->window != NULL && noctty_grid_window_is_active(GTK_WINDOW(root->window)),
                root->contexts != NULL ? root->contexts->len : 0);
     root->focus_click_smoke_attempts = 0;
     root->focus_click_smoke_stage = NOCTTY_FOCUS_SMOKE_RELEASE;
@@ -9655,8 +9655,8 @@ static gboolean adapt_window_to_resolution(gpointer user_data) {
     int current_y = 0;
     int current_width = 1;
     int current_height = 1;
-    gtk_window_get_position(GTK_WINDOW(root->window), &current_x, &current_y);
-    gtk_window_get_size(GTK_WINDOW(root->window),
+    noctty_grid_window_get_position(GTK_WINDOW(root->window), &current_x, &current_y);
+    noctty_grid_window_get_size(GTK_WINDOW(root->window),
                         &current_width, &current_height);
     const GdkRectangle *dropdown_space =
         root->layer_shell_active ? &monitor_geometry : &workarea;
@@ -11239,7 +11239,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     present_configured_window(dialog);
     gint rendered_width = 0;
     gint rendered_height = 0;
-    gtk_window_get_size(GTK_WINDOW(dialog), &rendered_width,
+    noctty_grid_window_get_size(GTK_WINDOW(dialog), &rendered_width,
                         &rendered_height);
     context->settings_geometry_sane =
         rendered_width >= settings_min_width &&
@@ -14445,7 +14445,7 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
         ? g_ptr_array_index(root->contexts, 0) : NULL;
     root->profile_exact_target = root->profile_exact_target &&
         neighbor != NULL && focused_grid_context(root) == neighbor &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == neighbor->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == neighbor->area;
     if (current_ready) root->profile_menu_current++;
     root->profile_menu_survived = root->profile_menu_survived ||
         (menus_mapped && preset_count == 5);
@@ -14557,7 +14557,7 @@ static gboolean request_profile_preset_smoke(gpointer user_data) {
     root->profile_exact_target = neighbor != target &&
         neighbor->pane_id != target->pane_id && target->active &&
         neighbor->active && focused_grid_context(root) == neighbor &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == neighbor->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == neighbor->area;
     root->profile_smoke_stage = 1;
     return open_profile_preset_smoke_menu(target);
 }
@@ -14760,7 +14760,7 @@ static gboolean inspect_and_resize_pane_close_layout(gpointer user_data) {
     root->pane_split_two_by_two = smoke_page_is_even_two_by_two(root, page);
     gint width = 0;
     gint height = 0;
-    gtk_window_get_size(GTK_WINDOW(root->window), &width, &height);
+    noctty_grid_window_get_size(GTK_WINDOW(root->window), &width, &height);
     noctty_grid_window_resize(root->window, width + 320, height + 180);
     return G_SOURCE_REMOVE;
 }
@@ -14835,14 +14835,14 @@ static gboolean request_terminal_interrupt_chord_smoke(gpointer user_data) {
     gboolean handled = on_key_press(target->area, &event, target);
     root->terminal_chord_interrupt_focused = handled &&
         root->ctrl_c_local_interrupt &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == target->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == target->area;
     GdkEventKey enter_event = {0};
     enter_event.type = GDK_KEY_PRESS;
     enter_event.window = gtk_widget_get_window(target->area);
     enter_event.keyval = GDK_KEY_Return;
     root->terminal_chord_enter_forwarded =
         on_key_press(target->area, &enter_event, target) &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == target->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == target->area;
     if (root->event != NULL)
         root->event(root->event_data, target->pane_id, 102,
                     root->terminal_chord_interrupt_focused &&
@@ -14882,7 +14882,7 @@ static gboolean finish_terminal_close_focus_smoke(gpointer user_data) {
     NocttyGridContext *remaining = active_grid_context(root);
     root->terminal_chord_remaining_focused = remaining != NULL &&
         remaining->active && remaining->area != NULL &&
-        gtk_window_get_focus(GTK_WINDOW(root->window)) == remaining->area;
+        noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == remaining->area;
     if (root->event != NULL && remaining != NULL)
         root->event(root->event_data, remaining->pane_id, 103,
                     root->terminal_chord_close_exact &&
@@ -15845,7 +15845,7 @@ static void finish_window_resize_drag(NocttyGridContext *root) {
     if (commit_dropdown_size && !root->layer_shell_active) {
         int width = 0;
         int height = 0;
-        gtk_window_get_size(GTK_WINDOW(root->window), &width, &height);
+        noctty_grid_window_get_size(GTK_WINDOW(root->window), &width, &height);
         sync_compact_setting(root, 14, width);
         sync_compact_setting(root, 15, height);
     }
@@ -15866,7 +15866,7 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
     root->window_resize_drag_handle = index;
     root->window_resize_drag_start_x = x_root;
     root->window_resize_drag_start_y = y_root;
-    gtk_window_get_size(GTK_WINDOW(root->window),
+    noctty_grid_window_get_size(GTK_WINDOW(root->window),
                         &root->window_resize_drag_start_width,
                         &root->window_resize_drag_start_height);
     root->window_resize_drag_start_width_percent =
@@ -16117,8 +16117,8 @@ static void update_window_resize_handles(NocttyGridContext *context) {
     }
     root->window_resize_affordance_ready =
         (root->mode == 1 && visible == 0 &&
-         gtk_window_get_decorated(GTK_WINDOW(root->window)) &&
-         gtk_window_get_resizable(GTK_WINDOW(root->window))) ||
+         noctty_grid_window_get_decorated(GTK_WINDOW(root->window)) &&
+         noctty_grid_window_get_resizable(GTK_WINDOW(root->window))) ||
         (root->mode == 0 && visible == 3);
     noctty_grid_window_set_resizable(root->window, TRUE);
 }
@@ -16127,7 +16127,7 @@ static gboolean check_window_resize_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     int width = 0;
     int height = 0;
-    gtk_window_get_size(GTK_WINDOW(root->window), &width, &height);
+    noctty_grid_window_get_size(GTK_WINDOW(root->window), &width, &height);
     root->window_resize_geometry_changed =
         width > root->window_resize_initial_width &&
         height > root->window_resize_initial_height;
@@ -16145,7 +16145,7 @@ static gboolean check_window_resize_smoke(gpointer user_data) {
 
 static gboolean request_window_resize_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    gtk_window_get_size(GTK_WINDOW(root->window),
+    noctty_grid_window_get_size(GTK_WINDOW(root->window),
                         &root->window_resize_initial_width,
                         &root->window_resize_initial_height);
     gboolean custom_handles_hidden = root->window_resize_handle_count == 8;
@@ -16155,9 +16155,9 @@ static gboolean request_window_resize_smoke(gpointer user_data) {
             !gtk_widget_get_visible(handle);
     }
     root->window_native_decorated =
-        gtk_window_get_decorated(GTK_WINDOW(root->window));
+        noctty_grid_window_get_decorated(GTK_WINDOW(root->window));
     root->window_native_resizable =
-        gtk_window_get_resizable(GTK_WINDOW(root->window));
+        noctty_grid_window_get_resizable(GTK_WINDOW(root->window));
     root->window_resize_affordance_ready =
         custom_handles_hidden && root->window_native_decorated &&
         root->window_native_resizable;

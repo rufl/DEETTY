@@ -374,6 +374,14 @@ void noctty_grid_widget_show_all(GtkWidget *widget);
 void noctty_grid_widget_set_app_paintable(
     GtkWidget *widget, gboolean app_paintable);
 void noctty_grid_widget_set_visual(GtkWidget *widget, gpointer visual);
+GtkWidget *noctty_grid_window_get_focus(gpointer window);
+void noctty_grid_window_get_size(
+    gpointer window, int *width, int *height);
+void noctty_grid_window_get_position(
+    gpointer window, int *x, int *y);
+gboolean noctty_grid_window_is_active(gpointer window);
+gboolean noctty_grid_window_get_decorated(gpointer window);
+gboolean noctty_grid_window_get_resizable(gpointer window);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);

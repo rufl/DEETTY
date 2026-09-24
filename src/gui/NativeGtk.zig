@@ -244,6 +244,12 @@ extern fn gtk_window_set_geometry_hints(
     *GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
+extern fn gtk_window_get_focus(*GtkWindow) ?*GtkWidget;
+extern fn gtk_window_get_size(*GtkWindow, *c_int, *c_int) void;
+extern fn gtk_window_get_position(*GtkWindow, *c_int, *c_int) void;
+extern fn gtk_window_is_active(*GtkWindow) c_int;
+extern fn gtk_window_get_decorated(*GtkWindow) c_int;
+extern fn gtk_window_get_resizable(*GtkWindow) c_int;
 extern fn gtk_window_present(*GtkWindow) void;
 extern fn gtk_window_fullscreen(*GtkWindow) void;
 extern fn gtk_window_unfullscreen(*GtkWindow) void;
@@ -2181,6 +2187,55 @@ pub export fn noctty_grid_window_set_title(
     if (g_strcmp0(gtk_window_get_title(@ptrCast(window)), next_title) != 0) {
         gtk_window_set_title(@ptrCast(window), next_title);
     }
+}
+pub export fn noctty_grid_window_get_focus(
+    window_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const window = window_optional orelse return null;
+    return gtk_window_get_focus(@ptrCast(window));
+}
+
+pub export fn noctty_grid_window_get_size(
+    window_optional: ?*anyopaque,
+    width: ?*c_int,
+    height: ?*c_int,
+) void {
+    const window = window_optional orelse return;
+    const width_out = width orelse return;
+    const height_out = height orelse return;
+    gtk_window_get_size(@ptrCast(window), width_out, height_out);
+}
+
+pub export fn noctty_grid_window_get_position(
+    window_optional: ?*anyopaque,
+    x: ?*c_int,
+    y: ?*c_int,
+) void {
+    const window = window_optional orelse return;
+    const x_out = x orelse return;
+    const y_out = y orelse return;
+    gtk_window_get_position(@ptrCast(window), x_out, y_out);
+}
+
+pub export fn noctty_grid_window_is_active(
+    window_optional: ?*anyopaque,
+) c_int {
+    const window = window_optional orelse return FALSE;
+    return gtk_window_is_active(@ptrCast(window));
+}
+
+pub export fn noctty_grid_window_get_decorated(
+    window_optional: ?*anyopaque,
+) c_int {
+    const window = window_optional orelse return FALSE;
+    return gtk_window_get_decorated(@ptrCast(window));
+}
+
+pub export fn noctty_grid_window_get_resizable(
+    window_optional: ?*anyopaque,
+) c_int {
+    const window = window_optional orelse return FALSE;
+    return gtk_window_get_resizable(@ptrCast(window));
 }
 pub export fn noctty_grid_window_present(
     window_optional: ?*GtkWidget,
