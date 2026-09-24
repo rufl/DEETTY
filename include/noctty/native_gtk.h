@@ -395,6 +395,14 @@ int noctty_grid_orientable_get_orientation(gpointer orientable);
 GtkWidget *noctty_grid_bin_get_child(gpointer bin);
 GList *noctty_grid_container_get_children(gpointer container);
 GtkWidget *noctty_grid_widget_get_toplevel(gpointer widget);
+const char *noctty_grid_label_get_text(gpointer label);
+char *noctty_grid_widget_get_tooltip_text(gpointer widget);
+const char *noctty_grid_entry_get_text(gpointer entry);
+int noctty_grid_spin_button_get_value_as_int(gpointer spin);
+gboolean noctty_grid_toggle_button_get_active(gpointer toggle);
+int noctty_grid_combo_box_get_active(gpointer combo);
+double noctty_grid_range_get_value(gpointer range);
+int noctty_grid_widget_get_scale_factor(gpointer widget);
 gboolean noctty_grid_widget_translate_coordinates(
     GtkWidget *source,
     GtkWidget *dest,

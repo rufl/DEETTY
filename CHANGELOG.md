@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK label, tooltip, entry, spin, toggle, combo, range, and scale
+  factor reads through the Zig adapter; C retains validation and settings
+  policy.
 - Routed GTK pane topology, orientation, container-child, bin-child, and
   widget-toplevel reads through the Zig adapter; C retains layout decisions
   and topology traversal policy.

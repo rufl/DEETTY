@@ -175,6 +175,7 @@ extern fn gtk_label_set_single_line_mode(*GtkLabel, c_int) void;
 extern fn gtk_label_set_ellipsize(*GtkLabel, c_int) void;
 extern fn gtk_label_set_max_width_chars(*GtkLabel, c_int) void;
 extern fn gtk_label_set_text(*GtkLabel, [*:0]const u8) void;
+extern fn gtk_label_get_text(*GtkLabel) ?[*:0]const u8;
 extern fn gtk_message_dialog_new(
     *GtkWidget,
     c_int,
@@ -205,17 +206,21 @@ extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_button_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
 extern fn gtk_button_set_relief(*GtkButton, c_int) void;
 extern fn gtk_check_button_new_with_label([*:0]const u8) ?*GtkWidget;
+extern fn gtk_toggle_button_get_active(*GtkToggleButton) c_int;
 extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
+extern fn gtk_entry_get_text(*GtkEntry) ?[*:0]const u8;
 extern fn gtk_entry_set_has_frame(*GtkEntry, c_int) void;
 extern fn gtk_entry_set_alignment(*GtkEntry, f32) void;
 extern fn gtk_entry_set_width_chars(*GtkEntry, c_int) void;
 extern fn gtk_entry_set_max_width_chars(*GtkEntry, c_int) void;
 extern fn gtk_spin_button_new_with_range(f64, f64, f64) ?*GtkWidget;
 extern fn gtk_spin_button_set_value(*GtkSpinButton, f64) void;
+extern fn gtk_spin_button_get_value_as_int(*GtkSpinButton) c_int;
 extern fn gtk_scale_new_with_range(c_int, f64, f64, f64) ?*GtkWidget;
 extern fn gtk_range_set_value(*GtkRange, f64) void;
+extern fn gtk_range_get_value(*GtkRange) f64;
 extern fn gtk_scale_set_draw_value(*GtkScale, c_int) void;
 extern fn gtk_scale_set_value_pos(*GtkScale, c_int) void;
 extern fn gtk_drawing_area_new() ?*GtkWidget;
@@ -237,6 +242,7 @@ extern fn gtk_combo_box_text_append(
     [*:0]const u8,
 ) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
+extern fn gtk_combo_box_get_active(*GtkComboBox) c_int;
 extern fn gtk_dialog_new_with_buttons(
     [*:0]const u8,
     *GtkWidget,
@@ -357,6 +363,7 @@ extern fn gtk_widget_queue_draw(*GtkWidget) void;
 extern fn gtk_widget_queue_draw_area(
     *GtkWidget, c_int, c_int, c_int, c_int) void;
 extern fn gtk_widget_queue_resize(*GtkWidget) void;
+extern fn gtk_widget_get_scale_factor(*GtkWidget) c_int;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
@@ -2525,6 +2532,61 @@ pub export fn noctty_grid_widget_get_toplevel(
 ) ?*GtkWidget {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_toplevel(@ptrCast(widget));
+}
+pub export fn noctty_grid_label_get_text(
+    label_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const label = label_optional orelse return null;
+    return gtk_label_get_text(@ptrCast(label));
+}
+
+pub export fn noctty_grid_widget_get_tooltip_text(
+    widget_optional: ?*anyopaque,
+) ?[*:0]u8 {
+    const widget = widget_optional orelse return null;
+    return gtk_widget_get_tooltip_text(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_entry_get_text(
+    entry_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const entry = entry_optional orelse return null;
+    return gtk_entry_get_text(@ptrCast(entry));
+}
+
+pub export fn noctty_grid_spin_button_get_value_as_int(
+    spin_optional: ?*anyopaque,
+) c_int {
+    const spin = spin_optional orelse return 0;
+    return gtk_spin_button_get_value_as_int(@ptrCast(spin));
+}
+
+pub export fn noctty_grid_toggle_button_get_active(
+    toggle_optional: ?*anyopaque,
+) c_int {
+    const toggle = toggle_optional orelse return FALSE;
+    return gtk_toggle_button_get_active(@ptrCast(toggle));
+}
+
+pub export fn noctty_grid_combo_box_get_active(
+    combo_optional: ?*anyopaque,
+) c_int {
+    const combo = combo_optional orelse return -1;
+    return gtk_combo_box_get_active(@ptrCast(combo));
+}
+
+pub export fn noctty_grid_range_get_value(
+    range_optional: ?*anyopaque,
+) f64 {
+    const range = range_optional orelse return 0;
+    return gtk_range_get_value(@ptrCast(range));
+}
+
+pub export fn noctty_grid_widget_get_scale_factor(
+    widget_optional: ?*anyopaque,
+) c_int {
+    const widget = widget_optional orelse return 1;
+    return gtk_widget_get_scale_factor(@ptrCast(widget));
 }
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,
