@@ -261,6 +261,20 @@ void noctty_grid_overlay_stacking_plan(
     int layer_shell_active, int layer_shell_library_available,
     int existing_overlay, int overlay_count,
     NocttyGridOverlayStackingPlan *plan);
+
+typedef struct {
+    int action;
+} NocttyGridWindowVisibilityPlan;
+
+enum {
+    NOCTTY_GRID_WINDOW_VISIBILITY_NONE = 0,
+    NOCTTY_GRID_WINDOW_VISIBILITY_HIDE = 1,
+    NOCTTY_GRID_WINDOW_VISIBILITY_SHOW = 2
+};
+
+void noctty_grid_window_visibility_plan(
+    int window_presented, int window_visible,
+    NocttyGridWindowVisibilityPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

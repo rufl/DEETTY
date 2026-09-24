@@ -3143,7 +3143,9 @@ static void toggle_grid_window(NocttyGridContext *context) {
     gboolean visible = noctty_grid_widget_is_type(root->window, NOCTTY_GTK_WIDGET) &&
         !noctty_grid_widget_in_destruction(root->window) &&
         noctty_grid_widget_get_visible(root->window);
-    if (root->window_presented && visible) {
+    NocttyGridWindowVisibilityPlan visibility_plan = {0};
+    noctty_grid_window_visibility_plan(root->window_presented, visible ? 1 : 0, &visibility_plan);
+    if (visibility_plan.action == NOCTTY_GRID_WINDOW_VISIBILITY_HIDE) {
         clear_xdg_activation_token(root);
         set_grid_layer_keyboard_active(root, FALSE);
         hide_quick_note_overlays(root);

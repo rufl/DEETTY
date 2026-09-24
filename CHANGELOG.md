@@ -3,6 +3,8 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved GTK window visibility toggle classification into the Zig grid-logic
+  adapter; C retains activation, focus, overlay, and hide/show effects.
 - Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
   full-stack qualification pass under isolated X11 and Wayland sessions;
   physical Windows acceptance remains external.

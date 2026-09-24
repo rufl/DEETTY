@@ -119,6 +119,10 @@ pub const OverlayStackingPlan = extern struct {
     lower_parent: c_int,
 };
 
+pub const WindowVisibilityPlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -726,6 +730,9 @@ pub const overlay_stacking_none: c_int = 0;
 pub const overlay_stacking_basic: c_int = 1;
 pub const overlay_stacking_existing: c_int = 2;
 pub const overlay_stacking_layer: c_int = 3;
+pub const visibility_action_none: c_int = 0;
+pub const visibility_action_hide: c_int = 1;
+pub const visibility_action_show: c_int = 2;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1089,6 +1096,17 @@ pub export fn noctty_grid_overlay_stacking_plan(
         .action = overlay_stacking_layer,
         .lower_parent = @intFromBool(overlay_count <= 0),
     };
+}
+
+pub export fn noctty_grid_window_visibility_plan(
+    window_presented: c_int,
+    window_visible: c_int,
+    output_optional: ?*WindowVisibilityPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{ .action = visibility_action_show };
+    if (window_presented != 0 and window_visible != 0)
+        output.* = .{ .action = visibility_action_hide };
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -2843,6 +2861,18 @@ test "overlay stacking planner preserves layer and existing precedence" {
     noctty_grid_overlay_stacking_plan(0, 1, 1, 0, &plan);
     try std.testing.expectEqual(
         @as(c_int, overlay_stacking_existing), plan.action);
+}
+
+test "window visibility planner preserves hide and show transitions" {
+    var plan = WindowVisibilityPlan{ .action = visibility_action_none };
+    noctty_grid_window_visibility_plan(1, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, visibility_action_hide), plan.action);
+    noctty_grid_window_visibility_plan(1, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
+    noctty_grid_window_visibility_plan(0, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
+    noctty_grid_window_visibility_plan(0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {
