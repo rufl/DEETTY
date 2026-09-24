@@ -47,12 +47,28 @@ const GdkWindow = opaque {};
 const GdkDisplay = opaque {};
 const GdkFrameClock = opaque {};
 const GdkCursor = opaque {};
+const GdkEvent = opaque {};
+const GdkDevice = opaque {};
 const GdkScreen = opaque {};
 const GtkAllocation = extern struct {
     x: c_int,
     y: c_int,
     width: c_int,
     height: c_int,
+};
+const GdkEventButton = extern struct {
+    event_type: c_int,
+    window: ?*GdkWindow,
+    send_event: i8,
+    time: c_uint,
+    x: f64,
+    y: f64,
+    axes: ?*f64,
+    state: c_uint,
+    button: c_uint,
+    device: ?*GdkDevice,
+    x_root: f64,
+    y_root: f64,
 };
 const GdkRectangle = extern struct {
     x: c_int,
@@ -153,6 +169,7 @@ extern fn gtk_radio_menu_item_new_with_label(
 extern fn gtk_radio_menu_item_get_group(*GtkWidget) ?*GSList;
 extern fn gtk_check_menu_item_set_active(*GtkWidget, c_int) void;
 extern fn gtk_menu_item_set_submenu(*GtkMenuItem, *GtkWidget) void;
+const GDK_BUTTON_PRESS: c_int = 4;
 extern fn gtk_menu_shell_append(*GtkMenuShell, *GtkWidget) void;
 extern fn gtk_menu_popdown(*GtkWidget) void;
 extern fn gtk_menu_item_get_label(*GtkMenuItem) ?[*:0]const u8;
@@ -375,6 +392,14 @@ extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
 extern fn gtk_text_view_new() ?*GtkWidget;
 extern fn gtk_text_view_set_editable(*GtkTextView, c_int) void;
+extern fn gtk_render_background(
+    *GtkStyleContext, *anyopaque, f64, f64, f64, f64) void;
+extern fn gdk_event_get_scroll_deltas(
+    *GdkEvent, ?*f64, ?*f64) c_int;
+extern fn gdk_event_new(c_int) ?*GdkEvent;
+extern fn gdk_event_set_device(*GdkEvent, *GdkDevice) void;
+extern fn gdk_event_free(*GdkEvent) void;
+extern fn g_object_ref(?*anyopaque) ?*anyopaque;
 extern fn gtk_text_view_set_cursor_visible(*GtkTextView, c_int) void;
 extern fn gtk_text_view_set_monospace(*GtkTextView, c_int) void;
 extern fn gtk_text_view_set_wrap_mode(*GtkTextView, c_int) void;
@@ -2786,6 +2811,73 @@ pub export fn noctty_grid_tree_model_iter_n_children(
     return gtk_tree_model_iter_n_children(@ptrCast(model), parent);
 }
 
+pub export fn noctty_grid_text_view_set_editable(
+    view_optional: ?*anyopaque,
+    editable: c_int,
+) void {
+    const view = view_optional orelse return;
+    gtk_text_view_set_editable(@ptrCast(view), editable);
+}
+
+pub export fn noctty_grid_render_background(
+    style_optional: ?*anyopaque,
+    surface: ?*anyopaque,
+    width: f64,
+    height: f64,
+) void {
+    const style = style_optional orelse return;
+    const target = surface orelse return;
+    gtk_render_background(@ptrCast(style), target, 0, 0, width, height);
+}
+
+pub export fn noctty_grid_event_get_scroll_deltas(
+    event_optional: ?*anyopaque,
+    delta_x: ?*f64,
+    delta_y: ?*f64,
+) c_int {
+    const event = event_optional orelse return 0;
+    return gdk_event_get_scroll_deltas(@ptrCast(event), delta_x, delta_y);
+}
+
+pub export fn noctty_grid_button_event_new(
+    window_optional: ?*anyopaque,
+    time: c_uint,
+    x: f64,
+    y: f64,
+    state: c_uint,
+    button: c_uint,
+    x_root: f64,
+    y_root: f64,
+) ?*GdkEvent {
+    const event = gdk_event_new(GDK_BUTTON_PRESS) orelse return null;
+    const event_button: *GdkEventButton = @alignCast(@ptrCast(event));
+    if (window_optional) |window| {
+        event_button.window = @ptrCast(g_object_ref(window) orelse return event);
+    }
+    event_button.send_event = 1;
+    event_button.time = time;
+    event_button.x = x;
+    event_button.y = y;
+    event_button.state = state;
+    event_button.button = button;
+    event_button.x_root = x_root;
+    event_button.y_root = y_root;
+    return event;
+}
+
+pub export fn noctty_grid_event_set_device(
+    event_optional: ?*anyopaque,
+    device_optional: ?*anyopaque,
+) void {
+    const event = event_optional orelse return;
+    const device = device_optional orelse return;
+    gdk_event_set_device(@ptrCast(event), @ptrCast(device));
+}
+
+pub export fn noctty_grid_event_free(event_optional: ?*anyopaque) void {
+    const event = event_optional orelse return;
+    gdk_event_free(@ptrCast(event));
+}
 pub export fn noctty_grid_button_get_image(
     button_optional: ?*anyopaque,
 ) ?*GtkWidget {

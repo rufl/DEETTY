@@ -9,6 +9,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed GTK text-buffer reads/writes, combo model row counts, and button/image
   icon reads through the Zig adapter; C retains note, suggestion, and icon
   presentation policy.
+- Routed remaining GTK text-view editable state, style-background rendering,
+  scroll-delta reads, synthetic button events, device attachment, and event
+  cleanup through the Zig adapter; C retains popup and smoke-test policy.
 - Routed GTK dialog content, run/response/default-response, window
   transient/icon reads, screen/app-paintable reads, URI opening, and main-loop
   exit operations through the Zig adapter; C retains modal and presentation

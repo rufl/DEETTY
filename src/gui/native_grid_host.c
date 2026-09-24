@@ -12253,7 +12253,7 @@ static void open_quick_note(NocttyGridContext *context) {
         : 0;
     if (length < 0) {
         root->note_load_failed = 1;
-        gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
+        noctty_grid_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
         set_status_label_feedback(
             hint,
             "Workspace note could not be loaded; close this window and try again.",
@@ -12732,7 +12732,7 @@ static gboolean on_sharing_preview_scroll(
     NocttyGridContext *root = root_grid_context(user_data);
     double delta_y = 0.0;
     if (event->direction == GDK_SCROLL_SMOOTH)
-        (void)gdk_event_get_scroll_deltas(
+        (void)noctty_grid_event_get_scroll_deltas(
             (GdkEvent *)event, &(double){0.0}, &delta_y);
     int lines = noctty_grid_sharing_preview_scroll_lines(
         (int)event->direction, delta_y);
@@ -13999,8 +13999,8 @@ static gboolean lighten_tab_color_smoke(gpointer user_data) {
         cairo_surface_t *surface = cairo_image_surface_create(
             CAIRO_FORMAT_ARGB32, 8, 8);
         cairo_t *cr = cairo_create(surface);
-        gtk_render_background(noctty_grid_widget_get_style_context(content), cr,
-                              0, 0, 8, 8);
+        noctty_grid_render_background(
+            noctty_grid_widget_get_style_context(content), cr, 8, 8);
         cairo_destroy(cr);
         cairo_surface_flush(surface);
         unsigned char *data = cairo_image_surface_get_data(surface);
@@ -14303,29 +14303,27 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
          * GDK, so popup-at-pointer has no compositor-owned trigger event to
          * position from. Anchor those menus to the pane itself; real pointer
          * events keep the normal desktop placement path. */
-        GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
-        trigger->button.window = event->window != NULL
-            ? g_object_ref(event->window) : NULL;
-        trigger->button.send_event = TRUE;
-        trigger->button.time = event->time;
-        trigger->button.x = event->x;
-        trigger->button.y = event->y;
-        trigger->button.state = event->state;
-        trigger->button.button = event->button;
-        trigger->button.x_root = event->x_root;
-        trigger->button.y_root = event->y_root;
+        GdkEvent *trigger = noctty_grid_button_event_new(
+            event->window,
+            event->time,
+            event->x,
+            event->y,
+            event->state,
+            event->button,
+            event->x_root,
+            event->y_root);
         GdkDisplay *display = noctty_grid_widget_get_display(context->area);
         GdkSeat *seat = display != NULL
             ? gdk_display_get_default_seat(display) : NULL;
         GdkDevice *pointer = seat != NULL
             ? gdk_seat_get_pointer(seat) : NULL;
         if (pointer != NULL)
-            gdk_event_set_device(trigger, pointer);
+            noctty_grid_event_set_device(trigger, pointer);
         noctty_grid_menu_popup_at_widget(GTK_MENU(menu), context->area,
                                  GDK_GRAVITY_SOUTH_WEST,
                                  GDK_GRAVITY_NORTH_WEST,
                                  trigger);
-        gdk_event_free(trigger);
+        noctty_grid_event_free(trigger);
     } else
         popup_menu_at_toplevel_pointer(context, menu, context->area, event);
 }
@@ -14484,24 +14482,21 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
     }
     root->profile_smoke_attempts = 0;
     noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), profile);
-    GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
     GdkWindow *window = noctty_grid_widget_get_window(profile);
-    trigger->button.window = window != NULL ? g_object_ref(window) : NULL;
-    trigger->button.send_event = TRUE;
-    trigger->button.time = GDK_CURRENT_TIME;
-    trigger->button.button = 3;
+    GdkEvent *trigger = noctty_grid_button_event_new(
+        window, GDK_CURRENT_TIME, 0.0, 0.0, 0, 3, 0.0, 0.0);
     GdkDisplay *display = noctty_grid_widget_get_display(profile);
     GdkSeat *seat = display != NULL
         ? gdk_display_get_default_seat(display) : NULL;
     GdkDevice *pointer = seat != NULL
         ? gdk_seat_get_pointer(seat) : NULL;
     if (pointer != NULL)
-        gdk_event_set_device(trigger, pointer);
+        noctty_grid_event_set_device(trigger, pointer);
     noctty_grid_menu_popup_at_widget(GTK_MENU(submenu), profile,
                              GDK_GRAVITY_NORTH_EAST,
                              GDK_GRAVITY_NORTH_WEST,
                              trigger);
-    gdk_event_free(trigger);
+    noctty_grid_event_free(trigger);
     g_timeout_add(140, activate_profile_preset_smoke, target);
     return G_SOURCE_REMOVE;
 }

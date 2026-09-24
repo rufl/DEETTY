@@ -456,6 +456,16 @@ int noctty_grid_tree_model_iter_n_children(
 GtkWidget *noctty_grid_button_get_image(gpointer button);
 void noctty_grid_image_get_icon_name(
     gpointer image, const char **icon_name, GtkIconSize *icon_size);
+void noctty_grid_text_view_set_editable(gpointer view, gboolean editable);
+void noctty_grid_render_background(
+    gpointer style, gpointer surface, double width, double height);
+gboolean noctty_grid_event_get_scroll_deltas(
+    gpointer event, double *delta_x, double *delta_y);
+gpointer noctty_grid_button_event_new(
+    gpointer window, unsigned int time, double x, double y,
+    unsigned int state, unsigned int button, double x_root, double y_root);
+void noctty_grid_event_set_device(gpointer event, gpointer device);
+void noctty_grid_event_free(gpointer event);
 gpointer noctty_grid_clipboard_get(gpointer selection);
 void noctty_grid_clipboard_request_text(
     gpointer clipboard,
