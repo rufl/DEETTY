@@ -79,6 +79,12 @@ const GdkRectangle = extern struct {
     width: c_int,
     height: c_int,
 };
+const GdkRGBA = extern struct {
+    red: f64,
+    green: f64,
+    blue: f64,
+    alpha: f64,
+};
 const GdkGeometry = extern struct {
     min_width: c_int,
     min_height: c_int,
@@ -164,6 +170,7 @@ extern fn gtk_event_box_new() ?*GtkWidget;
 extern fn gtk_event_box_set_visible_window(*GtkEventBox, c_int) void;
 extern fn gtk_event_box_set_above_child(*GtkEventBox, c_int) void;
 extern fn gtk_menu_new() ?*GtkWidget;
+extern fn gtk_check_menu_item_get_active(*GtkWidget) c_int;
 extern fn gtk_menu_item_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_radio_menu_item_new_with_label(
     ?*GSList,
@@ -261,6 +268,9 @@ extern fn gtk_scale_set_draw_value(*GtkScale, c_int) void;
 extern fn gtk_scale_set_value_pos(*GtkScale, c_int) void;
 extern fn gtk_drawing_area_new() ?*GtkWidget;
 extern fn gtk_flow_box_new() ?*GtkWidget;
+extern fn gtk_combo_box_text_remove_all(*GtkComboBoxText) void;
+extern fn gtk_color_chooser_set_rgba(*GtkWidget, *const GdkRGBA) void;
+extern fn gtk_color_chooser_get_rgba(*GtkWidget, *GdkRGBA) void;
 extern fn gtk_flow_box_set_selection_mode(*GtkFlowBox, c_int) void;
 extern fn gtk_flow_box_set_min_children_per_line(*GtkFlowBox, c_uint) void;
 extern fn gtk_flow_box_set_max_children_per_line(*GtkFlowBox, c_uint) void;
@@ -457,6 +467,8 @@ extern fn gtk_widget_get_display(*GtkWidget) ?*GdkDisplay;
 extern fn gtk_widget_get_ancestor(*GtkWidget, GType) ?*GtkWidget;
 extern fn gtk_widget_get_size_request(
     *GtkWidget, ?*c_int, ?*c_int) void;
+extern fn gtk_widget_get_allocated_width(*GtkWidget) c_int;
+extern fn gtk_widget_get_allocated_height(*GtkWidget) c_int;
 extern fn gtk_widget_has_grab(*GtkWidget) c_int;
 extern fn gtk_grab_get_current() ?*GtkWidget;
 extern fn gtk_grab_add(*GtkWidget) void;
@@ -2771,6 +2783,55 @@ pub export fn noctty_grid_combo_box_get_active(
     const combo = combo_optional orelse return -1;
     return gtk_combo_box_get_active(@ptrCast(combo));
 }
+pub export fn noctty_grid_color_chooser_set_rgb(
+    widget_optional: ?*anyopaque,
+    red: f64,
+    green: f64,
+    blue: f64,
+) void {
+    const widget = widget_optional orelse return;
+    const rgba = GdkRGBA{ .red = red, .green = green, .blue = blue, .alpha = 1.0 };
+    gtk_color_chooser_set_rgba(@ptrCast(widget), &rgba);
+}
+
+pub export fn noctty_grid_color_chooser_get_rgb(
+    widget_optional: ?*anyopaque,
+    red: ?*f64,
+    green: ?*f64,
+    blue: ?*f64,
+) c_int {
+    const widget = widget_optional orelse return FALSE;
+    const red_out = red orelse return FALSE;
+    const green_out = green orelse return FALSE;
+    const blue_out = blue orelse return FALSE;
+    var rgba: GdkRGBA = undefined;
+    gtk_color_chooser_get_rgba(@ptrCast(widget), &rgba);
+    red_out.* = rgba.red;
+    green_out.* = rgba.green;
+    blue_out.* = rgba.blue;
+    return TRUE;
+}
+
+pub export fn noctty_grid_widget_get_allocated_width(
+    widget_optional: ?*anyopaque,
+) c_int {
+    const widget = widget_optional orelse return 0;
+    return gtk_widget_get_allocated_width(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_widget_get_allocated_height(
+    widget_optional: ?*anyopaque,
+) c_int {
+    const widget = widget_optional orelse return 0;
+    return gtk_widget_get_allocated_height(@ptrCast(widget));
+}
+
+pub export fn noctty_grid_check_menu_item_get_active(
+    item_optional: ?*anyopaque,
+) c_int {
+    const item = item_optional orelse return FALSE;
+    return gtk_check_menu_item_get_active(@ptrCast(item));
+}
 
 pub export fn noctty_grid_range_get_value(
     range_optional: ?*anyopaque,
@@ -3113,6 +3174,29 @@ pub export fn noctty_grid_combo_box_text_get_active_text(
 ) ?[*:0]u8 {
     const combo = combo_optional orelse return null;
     return gtk_combo_box_text_get_active_text(@ptrCast(combo));
+}
+pub export fn noctty_grid_combo_box_text_remove_all(
+    combo_optional: ?*anyopaque,
+) void {
+    const combo = combo_optional orelse return;
+    gtk_combo_box_text_remove_all(@ptrCast(combo));
+}
+
+pub export fn noctty_grid_combo_box_text_append(
+    combo_optional: ?*anyopaque,
+    id: ?[*:0]const u8,
+    text: [*:0]const u8,
+) void {
+    const combo = combo_optional orelse return;
+    gtk_combo_box_text_append(@ptrCast(combo), id, text);
+}
+
+pub export fn noctty_grid_combo_box_text_append_text(
+    combo_optional: ?*anyopaque,
+    text: [*:0]const u8,
+) void {
+    const combo = combo_optional orelse return;
+    gtk_combo_box_text_append_text(@ptrCast(combo), text);
 }
 
 pub export fn noctty_grid_file_chooser_get_filename(

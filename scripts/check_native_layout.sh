@@ -217,6 +217,18 @@ grep -F 'on_window_resolution_configure' "$grid" >/dev/null
 ! grep -F 'nwse-resize' "$grid" >/dev/null
 ! grep -F 'nesw-resize' "$grid" >/dev/null
 grep -F 'noctty_grid_gdk_set_cursor(' "$grid" >/dev/null
+grep -F 'noctty_grid_combo_box_text_remove_all(' "$grid" >/dev/null
+grep -F 'noctty_grid_color_chooser_set_rgb(' "$grid" >/dev/null
+grep -F 'noctty_grid_widget_get_allocated_width(' "$grid" >/dev/null
+grep -F 'noctty_grid_check_menu_item_get_active(' "$grid" >/dev/null
+! grep -F 'gtk_combo_box_text_remove_all(' "$grid" >/dev/null
+! grep -F 'gtk_combo_box_text_append(' "$grid" >/dev/null
+! grep -F 'gtk_combo_box_text_append_text(' "$grid" >/dev/null
+! grep -F 'gtk_color_chooser_set_rgba(' "$grid" >/dev/null
+! grep -F 'gtk_color_chooser_get_rgba(' "$grid" >/dev/null
+! grep -F 'gtk_widget_get_allocated_width(' "$grid" >/dev/null
+! grep -F 'gtk_widget_get_allocated_height(' "$grid" >/dev/null
+! grep -F 'gtk_check_menu_item_get_active(' "$grid" >/dev/null
 grep -F 'gtk_window_set_default_icon_name("com.noctty.NOCTTY");' "$grid" >/dev/null
 grep -F 'gtk_window_set_icon_name(@ptrCast(window), "com.noctty.NOCTTY");' "$native_gtk" >/dev/null
 grep -F 'root, dialog, "noctty-terminal-find"' "$grid" >/dev/null

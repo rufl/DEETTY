@@ -10318,7 +10318,7 @@ static void populate_theme_combo(NocttyGridContext *context,
                 ? "Paseo Black Zinc"
                 : g_strcmp0(name, "noctty-high-contrast") == 0
                     ? "NOCTTY High Contrast" : name;
-        gtk_combo_box_text_append(combo, name, label);
+        noctty_grid_combo_box_text_append(combo, name, label);
     }
     if (active[0] != '\0')
         noctty_grid_combo_box_set_active_id(GTK_COMBO_BOX(combo), active);
@@ -10329,7 +10329,7 @@ static void populate_theme_combo(NocttyGridContext *context,
 static void refresh_theme_combo(NocttyGridContext *context,
                                 GtkWidget *combo) {
     if (!GTK_IS_COMBO_BOX_TEXT(combo)) return;
-    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(combo));
+    noctty_grid_combo_box_text_remove_all(combo);
     populate_theme_combo(context, GTK_COMBO_BOX_TEXT(combo));
 }
 
@@ -10412,13 +10412,11 @@ static void set_theme_color_button_from_model(GtkColorButton *button,
     uint32_t rgb = context->ui_color_rgb != NULL
         ? context->ui_color_rgb(context->event_data, role) : UINT32_MAX;
     if (rgb == UINT32_MAX) rgb = 0x000000;
-    GdkRGBA rgba = {
-        .red = noctty_grid_theme_color_channel(rgb, 0),
-        .green = noctty_grid_theme_color_channel(rgb, 1),
-        .blue = noctty_grid_theme_color_channel(rgb, 2),
-        .alpha = 1.0,
-    };
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(button), &rgba);
+    noctty_grid_color_chooser_set_rgb(
+        button,
+        noctty_grid_theme_color_channel(rgb, 0),
+        noctty_grid_theme_color_channel(rgb, 1),
+        noctty_grid_theme_color_channel(rgb, 2));
 }
 
 static void on_theme_color_control_destroy(GtkWidget *widget,
@@ -10431,11 +10429,14 @@ static void on_theme_color_changed(GtkColorButton *button, gpointer user_data) {
     NocttyThemeColorControl *control = user_data;
     NocttyGridContext *context = root_grid_context(control->context);
     if (context->text_action == NULL) return;
-    GdkRGBA rgba;
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(button), &rgba);
+    double red = 0.0;
+    double green = 0.0;
+    double blue = 0.0;
+    if (!noctty_grid_color_chooser_get_rgb(button, &red, &green, &blue))
+        return;
     gchar value[8] = {0};
     if (noctty_grid_theme_color_text(
-            rgba.red, rgba.green, rgba.blue,
+            red, green, blue,
             (uint8_t *)value, sizeof(value)) != 7)
         return;
     if (context->text_action(context->text_action_data, 20, value,
@@ -10629,12 +10630,12 @@ static void refresh_launch_profile_library(NocttyGridContext *context) {
         context->event_data, -1, 0, name, sizeof(name));
     int selected = noctty_grid_launch_profile_library(
         context->event_data, -2, 0, name, sizeof(name));
-    gtk_combo_box_text_remove_all(combo);
-    gtk_combo_box_text_append_text(combo, "Custom current");
+    noctty_grid_combo_box_text_remove_all(combo);
+    noctty_grid_combo_box_text_append_text(combo, "Custom current");
     for (int index = 0; index < count; index++) {
         if (noctty_grid_launch_profile_library(
                 context->event_data, index, 0, name, sizeof(name)) >= 0)
-            gtk_combo_box_text_append_text(combo, name);
+            noctty_grid_combo_box_text_append_text(combo, name);
     }
     noctty_grid_combo_box_set_active(GTK_COMBO_BOX(combo),
                              selected >= 0 ? selected + 1 : 0);
@@ -11799,7 +11800,7 @@ static void open_project_tools(NocttyGridContext *context) {
             context->event_data, index, path, sizeof(path) - 1);
         if (length <= 0 || length >= (int)sizeof(path)) continue;
         path[length] = '\0';
-        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(recent_combo), path);
+        noctty_grid_combo_box_text_append_text(recent_combo, path);
         recent_added++;
     }
     if (recent_added > 0)
@@ -12666,8 +12667,8 @@ static gboolean draw_sharing_preview(GtkWidget *widget, cairo_t *cr,
     NocttyGridSharingPreviewResult result = {0};
     if (noctty_grid_render_sharing_preview(
             cr, root->event_data,
-            gtk_widget_get_allocated_width(widget),
-            gtk_widget_get_allocated_height(widget), &result)) {
+            noctty_grid_widget_get_allocated_width(widget),
+            noctty_grid_widget_get_allocated_height(widget), &result)) {
         root->sharing_layout_pane_mask |= result.pane_mask;
         root->sharing_layout_selected_seen |= result.selected_seen;
         root->sharing_layout_host_active_seen |= result.host_active_seen;
@@ -12679,8 +12680,8 @@ static gboolean on_sharing_preview_button(GtkWidget *widget,
                                           GdkEventButton *event,
                                           gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    int width = gtk_widget_get_allocated_width(widget);
-    int height = gtk_widget_get_allocated_height(widget);
+    int width = noctty_grid_widget_get_allocated_width(widget);
+    int height = noctty_grid_widget_get_allocated_height(widget);
     uint64_t pane_id = 0;
     uint64_t tab_id = 0;
     int ignored = 0;
@@ -12913,7 +12914,7 @@ static int refresh_sharing_peers(NocttyGridContext *context) {
     if (combo == NULL) return 0;
     const char *active_id = noctty_grid_combo_box_get_active_id(GTK_COMBO_BOX(combo));
     char *previous_id = active_id != NULL ? g_strdup(active_id) : NULL;
-    gtk_combo_box_text_remove_all(combo);
+    noctty_grid_combo_box_text_remove_all(combo);
     int count = noctty_grid_share_peer(root->event_data, -1, NULL, 0, NULL, 0,
                                        &(uint16_t){0}, &(int){0});
     int visible_count = 0;
@@ -12931,7 +12932,7 @@ static int refresh_sharing_peers(NocttyGridContext *context) {
             "%s — %s:%u", alias, endpoint, (unsigned)port);
         char index_id[24];
         g_snprintf(index_id, sizeof(index_id), "%d", index);
-        gtk_combo_box_text_append(combo, index_id, label);
+        noctty_grid_combo_box_text_append(combo, index_id, label);
         g_free(label);
         visible_count++;
     }
@@ -13007,7 +13008,7 @@ static void refresh_sharing_tabs(NocttyGridContext *context) {
         &(int){0});
     g_object_set_data(G_OBJECT(combo), "noctty-sharing-tab-refreshing",
                       GINT_TO_POINTER(1));
-    gtk_combo_box_text_remove_all(combo);
+    noctty_grid_combo_box_text_remove_all(combo);
     int selected = -1;
     for (int index = 0; index < count; index++) {
         uint8_t title[4097] = {0};
@@ -13023,7 +13024,7 @@ static void refresh_sharing_tabs(NocttyGridContext *context) {
             "%s%s%llu%s", title_length == 0 ? "Tab " : (char *)title,
             title_length == 0 ? "" : " — tab ", (unsigned long long)tab_id,
             is_active ? " (host active)" : "");
-        gtk_combo_box_text_append_text(combo, label);
+        noctty_grid_combo_box_text_append_text(combo, label);
         g_free(label);
         if (is_selected) selected = index;
     }
@@ -13060,7 +13061,7 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
         &(uint64_t){0}, &(int){0});
     g_object_set_data(G_OBJECT(combo), "noctty-sharing-stream-refreshing",
                       GINT_TO_POINTER(1));
-    gtk_combo_box_text_remove_all(combo);
+    noctty_grid_combo_box_text_remove_all(combo);
     char selected_id[24] = {0};
     int visible_count = 0;
     for (int index = 0; index < count; index++) {
@@ -13079,7 +13080,7 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
             (unsigned long long)pane_id);
         char index_id[24];
         g_snprintf(index_id, sizeof(index_id), "%d", index);
-        gtk_combo_box_text_append(combo, index_id, label);
+        noctty_grid_combo_box_text_append(combo, index_id, label);
         g_free(label);
         visible_count++;
         if (is_selected)
@@ -13594,7 +13595,7 @@ static int populate_tag_suggestions(NocttyGridContext *context,
     int count = 0;
     for (gchar **tag = tags; tag != NULL && *tag != NULL; tag++) {
         if ((*tag)[0] == '\0') continue;
-        gtk_combo_box_text_append_text(combo, *tag);
+        noctty_grid_combo_box_text_append_text(combo, *tag);
         count++;
     }
     g_strfreev(tags);
@@ -13710,7 +13711,7 @@ static void on_compact_menu_activate(GtkWidget *item, gpointer user_data) {
 
 static void on_profile_preset_toggled(GtkCheckMenuItem *item,
                                       gpointer user_data) {
-    if (!gtk_check_menu_item_get_active(item)) return;
+    if (!noctty_grid_check_menu_item_get_active(item)) return;
     NocttyGridContext *context = user_data;
     NocttyGridContext *root = root_grid_context(context);
     int preset = GPOINTER_TO_INT(g_object_get_data(
@@ -13841,7 +13842,7 @@ static gboolean adjust_active_tab_color(NocttyGridContext *context,
 
 static void on_tab_color_preset_toggled(GtkCheckMenuItem *item,
                                         gpointer user_data) {
-    if (!gtk_check_menu_item_get_active(item)) return;
+    if (!noctty_grid_check_menu_item_get_active(item)) return;
     NocttyGridContext *root = root_grid_context(user_data);
     GtkWidget *page = g_object_get_data(G_OBJECT(item), "noctty-tab-page");
     NocttyGridContext *representative = grid_context_for_page(root, page);
@@ -14423,7 +14424,7 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
         g_list_free(items);
     }
     gboolean current_ready = current != NULL &&
-        gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(current));
+        noctty_grid_check_menu_item_get_active(current);
     gboolean menus_mapped = menu != NULL && submenu != NULL &&
         noctty_grid_widget_get_mapped(menu) && noctty_grid_widget_get_mapped(submenu);
     if ((!menus_mapped || !current_ready || choice == NULL ||

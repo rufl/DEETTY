@@ -431,6 +431,18 @@ void noctty_grid_toggle_button_set_active(
 void noctty_grid_range_set_value(gpointer range, double value);
 const char *noctty_grid_combo_box_get_active_id(gpointer combo);
 char *noctty_grid_combo_box_text_get_active_text(gpointer combo);
+void noctty_grid_combo_box_text_remove_all(gpointer combo);
+void noctty_grid_combo_box_text_append(
+    gpointer combo, const char *id, const char *text);
+void noctty_grid_combo_box_text_append_text(
+    gpointer combo, const char *text);
+void noctty_grid_color_chooser_set_rgb(
+    gpointer widget, double red, double green, double blue);
+gboolean noctty_grid_color_chooser_get_rgb(
+    gpointer widget, double *red, double *green, double *blue);
+int noctty_grid_widget_get_allocated_width(gpointer widget);
+int noctty_grid_widget_get_allocated_height(gpointer widget);
+gboolean noctty_grid_check_menu_item_get_active(gpointer item);
 char *noctty_grid_file_chooser_get_filename(gpointer chooser);
 GtkListBoxRow *noctty_grid_list_box_get_row_at_index(
     gpointer list, int index);
