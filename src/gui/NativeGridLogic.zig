@@ -97,6 +97,11 @@ pub const KeyCommandPlan = extern struct {
     consume_without_effect: c_int,
 };
 
+pub const KeyChordPlan = extern struct {
+    action: c_int,
+    value: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -264,6 +269,9 @@ const gdk_key_meta_r: u32 = 0xffe8;
 const gdk_shift_mask: u32 = 1 << 0;
 const gdk_control_mask: u32 = 1 << 2;
 const gdk_mod1_mask: u32 = 1 << 3;
+const gdk_super_mask: u32 = 1 << 26;
+const gdk_key_kp_add: u32 = 0xffab;
+const gdk_key_kp_subtract: u32 = 0xffad;
 
 pub export fn noctty_grid_is_alt_key(keyval: u32) callconv(.c) c_int {
     return @intFromBool(
@@ -646,6 +654,24 @@ pub const key_action_cycle_tab: c_int = 4;
 pub const key_action_cycle_pane: c_int = 5;
 pub const key_action_focus_direction: c_int = 6;
 
+pub const chord_none: c_int = 0;
+pub const chord_command_palette: c_int = 1;
+pub const chord_terminal_find: c_int = 2;
+pub const chord_quick_note: c_int = 3;
+pub const chord_smart_filter: c_int = 4;
+pub const chord_tag_selected: c_int = 5;
+pub const chord_zoom: c_int = 6;
+pub const chord_shortcuts: c_int = 7;
+pub const chord_close_tab: c_int = 8;
+pub const chord_rename_tab: c_int = 9;
+pub const chord_emit_event: c_int = 10;
+pub const chord_broadcast: c_int = 11;
+pub const chord_tab_color: c_int = 12;
+pub const chord_paste: c_int = 13;
+pub const chord_copy: c_int = 14;
+pub const chord_scroll_keyboard: c_int = 15;
+pub const chord_ctrl_d: c_int = 16;
+pub const chord_ctrl_c: c_int = 17;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -653,6 +679,7 @@ fn keyCommandPlan(
     dy: c_int,
     consume_without_effect: bool,
 ) KeyCommandPlan {
+
     return .{
         .action = action,
         .direction = direction,
@@ -741,6 +768,92 @@ pub export fn noctty_grid_key_command_plan(
             direction[1],
             false,
         );
+    }
+}
+
+fn keyChordPlan(action: c_int, value: c_int) KeyChordPlan {
+    return .{ .action = action, .value = value };
+}
+
+pub export fn noctty_grid_key_chord_plan(
+    keyval: u32,
+    state: u32,
+    output_optional: ?*KeyChordPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = keyChordPlan(chord_none, 0);
+    const control = state & gdk_control_mask != 0;
+    const shift = state & gdk_shift_mask != 0;
+    const alt = state & gdk_mod1_mask != 0;
+    const super = state & gdk_super_mask != 0;
+    const lower = if (keyval >= 'A' and keyval <= 'Z')
+        keyval + ('a' - 'A')
+    else
+        keyval;
+
+    if (control and shift) {
+        output.* = switch (lower) {
+            'p' => keyChordPlan(chord_command_palette, 0),
+            'f' => keyChordPlan(chord_terminal_find, 0),
+            'n' => keyChordPlan(chord_quick_note, 0),
+            'g' => keyChordPlan(chord_smart_filter, 0),
+            'y' => keyChordPlan(chord_tag_selected, 0),
+            'z' => keyChordPlan(chord_zoom, 0),
+            'k' => keyChordPlan(chord_shortcuts, 0),
+            'w' => keyChordPlan(chord_close_tab, 0),
+            'r' => keyChordPlan(chord_rename_tab, 0),
+            't' => keyChordPlan(chord_emit_event, 26),
+            's' => keyChordPlan(chord_emit_event, 21),
+            'l' => keyChordPlan(chord_emit_event, 22),
+            'v' => keyChordPlan(chord_paste, 0),
+            'c' => keyChordPlan(chord_copy, 0),
+            else => output.*,
+        };
+        if (output.action != chord_none) return;
+    }
+    if (control and (shift or alt) and lower == 'b') {
+        output.* = keyChordPlan(chord_broadcast, 0);
+        return;
+    }
+    if (control and alt) {
+        if (keyval == '=' or keyval == '+' or keyval == gdk_key_kp_add) {
+            output.* = keyChordPlan(chord_tab_color, 1);
+            return;
+        }
+        if (keyval == '-' or keyval == gdk_key_kp_subtract) {
+            output.* = keyChordPlan(chord_tab_color, -1);
+            return;
+        }
+        if (keyval >= '1' and keyval <= '9') {
+            output.* = keyChordPlan(
+                chord_emit_event, @intCast(30 + keyval - '0'));
+            return;
+        }
+        if (keyval == '[') {
+            output.* = keyChordPlan(chord_emit_event, 25);
+            return;
+        }
+        if (keyval == ']') {
+            output.* = keyChordPlan(chord_emit_event, 24);
+            return;
+        }
+    }
+    if (shift and !control and !alt and !super and
+        (keyval == gdk_key_page_up or keyval == gdk_key_page_down or
+         keyval == gdk_key_home or keyval == gdk_key_end)) {
+        output.* = keyChordPlan(
+            chord_scroll_keyboard, @intCast(keyval));
+        return;
+    }
+    if (control and !shift and !alt and !super) {
+        if (lower == 'd') {
+            output.* = keyChordPlan(chord_ctrl_d, 0);
+            return;
+        }
+        if (lower == 'c') {
+            output.* = keyChordPlan(chord_ctrl_c, 0);
+            return;
+        }
     }
 }
 
@@ -4368,4 +4481,27 @@ test "key command planner bounds lifecycle filter and invalid inputs" {
         std.math.maxInt(u32),
     );
     noctty_grid_key_command_plan(1, 0, 0, gdk_key_tab, modifier_control, null);
+}
+
+test "keyboard chord planner preserves shortcut precedence" {
+    var plan = KeyChordPlan{ .action = chord_none, .value = 0 };
+    noctty_grid_key_chord_plan(
+        'p', gdk_control_mask | gdk_shift_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_command_palette), plan.action);
+    noctty_grid_key_chord_plan(
+        'c', gdk_control_mask | gdk_shift_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_copy), plan.action);
+    noctty_grid_key_chord_plan('c', gdk_control_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_ctrl_c), plan.action);
+    noctty_grid_key_chord_plan(
+        '1', gdk_control_mask | gdk_mod1_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_emit_event), plan.action);
+    try std.testing.expectEqual(@as(c_int, 31), plan.value);
+    noctty_grid_key_chord_plan(
+        gdk_key_page_up, gdk_shift_mask, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, chord_scroll_keyboard), plan.action);
+    noctty_grid_key_chord_plan(
+        'b', gdk_control_mask | gdk_mod1_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_broadcast), plan.action);
 }

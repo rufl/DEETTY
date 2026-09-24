@@ -71,6 +71,32 @@ typedef int (*NocttyGridCellHyperlinkReader)(
     void *, int, int, char *, size_t);
 
 typedef struct {
+    int action;
+    int value;
+} NocttyGridKeyChordPlan;
+
+enum {
+    NOCTTY_GRID_CHORD_NONE = 0,
+    NOCTTY_GRID_CHORD_COMMAND_PALETTE = 1,
+    NOCTTY_GRID_CHORD_TERMINAL_FIND = 2,
+    NOCTTY_GRID_CHORD_QUICK_NOTE = 3,
+    NOCTTY_GRID_CHORD_SMART_FILTER = 4,
+    NOCTTY_GRID_CHORD_TAG_SELECTED = 5,
+    NOCTTY_GRID_CHORD_ZOOM = 6,
+    NOCTTY_GRID_CHORD_SHORTCUTS = 7,
+    NOCTTY_GRID_CHORD_CLOSE_TAB = 8,
+    NOCTTY_GRID_CHORD_RENAME_TAB = 9,
+    NOCTTY_GRID_CHORD_EMIT_EVENT = 10,
+    NOCTTY_GRID_CHORD_BROADCAST = 11,
+    NOCTTY_GRID_CHORD_TAB_COLOR = 12,
+    NOCTTY_GRID_CHORD_PASTE = 13,
+    NOCTTY_GRID_CHORD_COPY = 14,
+    NOCTTY_GRID_CHORD_SCROLL_KEYBOARD = 15,
+    NOCTTY_GRID_CHORD_CTRL_D = 16,
+    NOCTTY_GRID_CHORD_CTRL_C = 17,
+};
+
+typedef struct {
     double source_center_x;
     double source_center_y;
     double best_score;
@@ -196,6 +222,8 @@ void noctty_grid_key_command_plan(
     int pressed, int alt_key, int smart_filter_clear_available,
     uint32_t keyval, uint32_t modifier_flags,
     NocttyGridKeyCommandPlan *plan);
+void noctty_grid_key_chord_plan(
+    uint32_t keyval, uint32_t state, NocttyGridKeyChordPlan *plan);
 
 int noctty_grid_input_route(int input_kind, int scrollbar_owned,
                             int terminal_mode_flags, int history_available,

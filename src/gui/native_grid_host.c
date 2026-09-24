@@ -8495,142 +8495,88 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         default:
             break;
     }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_p || event->keyval == GDK_KEY_P)) {
-        open_command_palette(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_f || event->keyval == GDK_KEY_F)) {
-        open_terminal_find(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_n || event->keyval == GDK_KEY_N)) {
-        open_quick_note(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
-        on_smart_filter_button_clicked(NULL, context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_y || event->keyval == GDK_KEY_Y)) {
-        on_tag_selected_menu_activate(NULL, context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_z || event->keyval == GDK_KEY_Z)) {
-        toggle_grid_zoom(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_k || event->keyval == GDK_KEY_K)) {
-        open_shortcuts_overlay(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_w || event->keyval == GDK_KEY_W)) {
-        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
-        root->tab_shortcut_close = close_grid_tab(root, page);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_r || event->keyval == GDK_KEY_R)) {
-        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
-        open_tab_rename(root, page);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_t || event->keyval == GDK_KEY_T)) {
-        emit_grid_workspace_event(context, 26);
-        root_grid_context(context)->tab_shortcut_reopen = 1;
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_s || event->keyval == GDK_KEY_S)) {
-        emit_grid_workspace_event(context, 21);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_l || event->keyval == GDK_KEY_L)) {
-        emit_grid_workspace_event(context, 22);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) &&
-        (event->state & (GDK_SHIFT_MASK | GDK_MOD1_MASK)) &&
-        (event->keyval == GDK_KEY_b || event->keyval == GDK_KEY_B)) {
-        on_broadcast_menu_activate(NULL, context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) &&
-        (event->state & GDK_MOD1_MASK) &&
-        (event->keyval == GDK_KEY_equal ||
-         event->keyval == GDK_KEY_plus ||
-         event->keyval == GDK_KEY_KP_Add)) {
-        return adjust_active_tab_color(context, 1);
-    }
-    if ((event->state & GDK_CONTROL_MASK) &&
-        (event->state & GDK_MOD1_MASK) &&
-        (event->keyval == GDK_KEY_minus ||
-         event->keyval == GDK_KEY_KP_Subtract)) {
-        return adjust_active_tab_color(context, -1);
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_MOD1_MASK) &&
-        event->keyval >= GDK_KEY_1 && event->keyval <= GDK_KEY_9) {
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 30 + (int)(event->keyval - GDK_KEY_0), 0, (uint64_t)(g_get_monotonic_time() / 1000));
-        noctty_grid_widget_queue_draw(context->area);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_MOD1_MASK) && event->keyval == GDK_KEY_bracketright) {
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 24, 0, (uint64_t)(g_get_monotonic_time() / 1000));
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_MOD1_MASK) && event->keyval == GDK_KEY_bracketleft) {
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 25, 0, (uint64_t)(g_get_monotonic_time() / 1000));
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_v || event->keyval == GDK_KEY_V)) {
-        request_grid_clipboard_text(context);
-        return TRUE;
-    }
-    if ((event->state & GDK_CONTROL_MASK) && (event->state & GDK_SHIFT_MASK) &&
-        (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
-        copy_grid_selection_to_clipboard(context);
-        return TRUE;
-    }
-    gboolean plain_shift = (event->state & GDK_SHIFT_MASK) &&
-        !(event->state &
-          (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK));
-    if (plain_shift &&
-        (event->keyval == GDK_KEY_Page_Up ||
-         event->keyval == GDK_KEY_Page_Down ||
-         event->keyval == GDK_KEY_Home ||
-         event->keyval == GDK_KEY_End))
-        return scroll_terminal_from_keyboard(context, event->keyval);
-
-    gboolean plain_control = (event->state & GDK_CONTROL_MASK) &&
-        !(event->state & (GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK));
-    if (plain_control &&
-        (event->keyval == GDK_KEY_d || event->keyval == GDK_KEY_D)) {
-        root->ctrl_d_close_attempted = 1;
-        if (close_grid_pane(context)) root->ctrl_d_close_succeeded = 1;
-        return TRUE;
-    }
-    if (plain_control &&
-        (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
-        acknowledge_grid_attention(context);
-        if (context->write(context->userdata, "\x03", 1) == 1) {
-            schedule_grid_write_flush(context);
-            root->ctrl_c_local_interrupt = 1;
-        } else {
-            show_status_feedback(context, "Could not interrupt the terminal.");
+    NocttyGridKeyChordPlan chord_plan = {0};
+    noctty_grid_key_chord_plan(
+        event->keyval, event->state, &chord_plan);
+    switch (chord_plan.action) {
+        case NOCTTY_GRID_CHORD_COMMAND_PALETTE:
+            open_command_palette(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_TERMINAL_FIND:
+            open_terminal_find(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_QUICK_NOTE:
+            open_quick_note(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_SMART_FILTER:
+            on_smart_filter_button_clicked(NULL, context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_TAG_SELECTED:
+            on_tag_selected_menu_activate(NULL, context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_ZOOM:
+            toggle_grid_zoom(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_SHORTCUTS:
+            open_shortcuts_overlay(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_CLOSE_TAB: {
+            gint page_index = noctty_grid_notebook_get_current_page(
+                GTK_NOTEBOOK(root->notebook));
+            GtkWidget *page = noctty_grid_notebook_get_nth_page(
+                GTK_NOTEBOOK(root->notebook), page_index);
+            root->tab_shortcut_close = close_grid_tab(root, page);
+            return TRUE;
         }
-        return TRUE;
+        case NOCTTY_GRID_CHORD_RENAME_TAB: {
+            gint page_index = noctty_grid_notebook_get_current_page(
+                GTK_NOTEBOOK(root->notebook));
+            GtkWidget *page = noctty_grid_notebook_get_nth_page(
+                GTK_NOTEBOOK(root->notebook), page_index);
+            open_tab_rename(root, page);
+            return TRUE;
+        }
+        case NOCTTY_GRID_CHORD_EMIT_EVENT:
+            if (context->event != NULL)
+                context->event(
+                    context->event_data, context->pane_id,
+                    chord_plan.value, 0,
+                    (uint64_t)(g_get_monotonic_time() / 1000));
+            if (chord_plan.value == 26)
+                root->tab_shortcut_reopen = 1;
+            if (chord_plan.value >= 31 && chord_plan.value <= 39)
+                noctty_grid_widget_queue_draw(context->area);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_BROADCAST:
+            on_broadcast_menu_activate(NULL, context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_TAB_COLOR:
+            return adjust_active_tab_color(context, chord_plan.value);
+        case NOCTTY_GRID_CHORD_PASTE:
+            request_grid_clipboard_text(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_COPY:
+            copy_grid_selection_to_clipboard(context);
+            return TRUE;
+        case NOCTTY_GRID_CHORD_SCROLL_KEYBOARD:
+            return scroll_terminal_from_keyboard(
+                context, (guint)chord_plan.value);
+        case NOCTTY_GRID_CHORD_CTRL_D:
+            root->ctrl_d_close_attempted = 1;
+            if (close_grid_pane(context)) root->ctrl_d_close_succeeded = 1;
+            return TRUE;
+        case NOCTTY_GRID_CHORD_CTRL_C:
+            acknowledge_grid_attention(context);
+            if (context->write(context->userdata, "\x03", 1) == 1) {
+                schedule_grid_write_flush(context);
+                root->ctrl_c_local_interrupt = 1;
+            } else {
+                show_status_feedback(
+                    context, "Could not interrupt the terminal.");
+            }
+            return TRUE;
+        default:
+            break;
     }
     if (context->im_context != NULL &&
         noctty_grid_im_context_filter_keypress(context->im_context, event)) return TRUE;

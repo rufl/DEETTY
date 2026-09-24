@@ -19,6 +19,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved GTK wheel route/accumulator planning, double-click word-boundary
   selection, and hyperlink-buffer validation into the Zig grid-logic adapter;
   C retains event extraction and native effects.
+- Moved GTK keyboard chord classification into the Zig grid-logic adapter;
+  C retains shortcut effects, terminal dispatch, and widget interaction.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.
