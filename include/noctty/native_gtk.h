@@ -341,6 +341,7 @@ void noctty_grid_window_move(
     GtkWidget *window, int x, int y);
 void noctty_grid_widget_set_no_show_all(
     GtkWidget *widget, gboolean no_show_all);
+void noctty_grid_widget_destroy(GtkWidget *widget);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);

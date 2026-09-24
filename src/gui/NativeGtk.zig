@@ -2091,6 +2091,13 @@ pub export fn noctty_grid_window_set_transient_for(
         @ptrCast(parent),
     );
 }
+pub export fn noctty_grid_widget_destroy(
+    widget_optional: ?*GtkWidget,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_destroy(widget);
+}
+
 pub export fn noctty_grid_window_resize(
     window_optional: ?*GtkWidget,
     width: c_int,
