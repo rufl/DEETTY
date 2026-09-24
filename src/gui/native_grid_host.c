@@ -3157,7 +3157,7 @@ static void toggle_grid_window(NocttyGridContext *context) {
                                (int)dogfood_omp_count, "active");
         }
         GtkWidget *grab = gtk_grab_get_current();
-        if (grab != NULL && GTK_IS_MENU(grab)) gtk_menu_popdown(GTK_MENU(grab));
+        if (grab != NULL && GTK_IS_MENU(grab)) noctty_grid_menu_popdown(GTK_MENU(grab));
         if (root->revealer != NULL && root->dropdown_animation_ms > 0) {
             gtk_revealer_set_reveal_child(GTK_REVEALER(root->revealer), FALSE);
             if (root->hide_source != 0) g_source_remove(root->hide_source);
@@ -8835,11 +8835,11 @@ static gboolean show_hyperlink_menu(
     noctty_grid_widget_show_all(menu);
     if (root->workspace_smoke == 15) {
         root->compact_hyperlink_context_menu =
-            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(open)),
+            g_strcmp0(noctty_grid_menu_item_get_label(GTK_MENU_ITEM(open)),
                       "Open Link in Browser") == 0 &&
-            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(copy)),
+            g_strcmp0(noctty_grid_menu_item_get_label(GTK_MENU_ITEM(copy)),
                       "Copy Link") == 0;
-        gtk_menu_item_activate(GTK_MENU_ITEM(open));
+        noctty_grid_menu_item_activate(GTK_MENU_ITEM(open));
         root->compact_hyperlink_context_open =
             root->compact_hyperlink_open_attempted;
         return TRUE;
@@ -11838,13 +11838,13 @@ static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
     for (GList *item = items; item != NULL && match == NULL;
          item = item->next) {
         if (!GTK_IS_MENU_ITEM(item->data)) continue;
-        const gchar *candidate = gtk_menu_item_get_label(
+        const gchar *candidate = noctty_grid_menu_item_get_label(
             GTK_MENU_ITEM(item->data));
         if (g_strcmp0(candidate, label) == 0) {
             match = item->data;
             break;
         }
-        GtkWidget *submenu = gtk_menu_item_get_submenu(
+        GtkWidget *submenu = noctty_grid_menu_item_get_submenu(
             GTK_MENU_ITEM(item->data));
         if (submenu != NULL)
             match = find_workspace_menu_item(submenu, label);
@@ -11856,7 +11856,7 @@ static GtkWidget *find_workspace_menu_item(GtkWidget *menu,
 static gboolean workspace_split_menu_has_order(GtkWidget *menu) {
     GtkWidget *split_parent = find_workspace_menu_item(menu, "Split Pane");
     if (split_parent == NULL) return FALSE;
-    GtkWidget *split_menu = gtk_menu_item_get_submenu(
+    GtkWidget *split_menu = noctty_grid_menu_item_get_submenu(
         GTK_MENU_ITEM(split_parent));
     if (split_menu == NULL) return FALSE;
     const gchar *expected[] = {
@@ -11868,7 +11868,7 @@ static gboolean workspace_split_menu_has_order(GtkWidget *menu) {
     for (GList *item = items; matches && item != NULL;
          item = item->next, index++) {
         if (!GTK_IS_MENU_ITEM(item->data) ||
-            g_strcmp0(gtk_menu_item_get_label(GTK_MENU_ITEM(item->data)),
+            g_strcmp0(noctty_grid_menu_item_get_label(GTK_MENU_ITEM(item->data)),
                       expected[index]) != 0)
             matches = FALSE;
     }
@@ -11919,8 +11919,8 @@ static gboolean continue_project_smoke(gpointer user_data) {
         context->project_smoke_done = 0;
         return G_SOURCE_REMOVE;
     }
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), editor_item);
-    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), editor_item, TRUE);
+    noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), editor_item);
+    noctty_grid_menu_shell_activate_item(GTK_MENU_SHELL(menu), editor_item, TRUE);
     context->project_smoke_attempts = 0;
     g_timeout_add(250, finish_project_smoke, context);
     return G_SOURCE_REMOVE;
@@ -13471,7 +13471,7 @@ static void mark_workspace_menu_action(GtkWidget *item) {
     while (GTK_IS_MENU(menu)) {
         g_object_set_data(G_OBJECT(menu), "noctty-workspace-action",
                           GINT_TO_POINTER(1));
-        GtkWidget *attach = gtk_menu_get_attach_widget(GTK_MENU(menu));
+        GtkWidget *attach = noctty_grid_menu_get_attach_widget(GTK_MENU(menu));
         menu = attach != NULL
             ? gtk_widget_get_ancestor(attach, GTK_TYPE_MENU) : NULL;
     }
@@ -13536,7 +13536,7 @@ static void on_pane_close_menu_activate(GtkWidget *item, gpointer user_data) {
     mark_workspace_menu_action(item);
     GtkWidget *menu = gtk_widget_get_ancestor(item, GTK_TYPE_MENU);
     if (GTK_IS_MENU(menu)) {
-        gtk_menu_popdown(GTK_MENU(menu));
+        noctty_grid_menu_popdown(GTK_MENU(menu));
         root->pane_close_menu_popped_down = 1;
     }
     (void)close_grid_pane(context);
@@ -13784,7 +13784,7 @@ static void dismiss_workspace_menu(NocttyGridContext *context) {
     if (menu == NULL) return;
     g_object_ref(menu);
     if (GTK_IS_MENU(menu) && noctty_grid_widget_get_mapped(menu))
-        gtk_menu_popdown(GTK_MENU(menu));
+        noctty_grid_menu_popdown(GTK_MENU(menu));
     if (!noctty_grid_widget_in_destruction(menu)) noctty_grid_widget_destroy(menu);
     g_object_unref(menu);
 }
@@ -13794,7 +13794,7 @@ static void dismiss_grid_popup_windows(NocttyGridContext *context) {
     dismiss_workspace_menu(root);
     GtkWidget *grab = gtk_grab_get_current();
     if (grab != NULL && GTK_IS_MENU(grab))
-        gtk_menu_popdown(GTK_MENU(grab));
+        noctty_grid_menu_popdown(GTK_MENU(grab));
     GList *windows = gtk_window_list_toplevels();
     for (GList *item = windows; item != NULL; item = item->next) {
         GtkWidget *window = item->data;
@@ -13891,7 +13891,7 @@ static void popup_menu_at_toplevel_pointer(
     GdkEventButton *event) {
     NocttyGridContext *root = root_grid_context(context);
     if (event != NULL && event->send_event) {
-        gtk_menu_popup_at_widget(GTK_MENU(menu), anchor,
+        noctty_grid_menu_popup_at_widget(GTK_MENU(menu), anchor,
                                  GDK_GRAVITY_SOUTH_WEST,
                                  GDK_GRAVITY_NORTH_WEST,
                                  (GdkEvent *)event);
@@ -13904,14 +13904,14 @@ static void popup_menu_at_toplevel_pointer(
             anchor, root->window, x, y, &x, &y);
     GdkWindow *window = noctty_grid_widget_get_window(root->window);
     if (window == NULL) {
-        gtk_menu_popup_at_widget(GTK_MENU(menu), anchor,
+        noctty_grid_menu_popup_at_widget(GTK_MENU(menu), anchor,
                                  GDK_GRAVITY_SOUTH_WEST,
                                  GDK_GRAVITY_NORTH_WEST,
                                  (GdkEvent *)event);
         return;
     }
     GdkRectangle point = {x, y, 1, 1};
-    gtk_menu_popup_at_rect(GTK_MENU(menu), window, &point,
+    noctty_grid_menu_popup_at_rect(GTK_MENU(menu), window, &point,
                            GDK_GRAVITY_SOUTH_WEST,
                            GDK_GRAVITY_NORTH_WEST,
                            (GdkEvent *)event);
@@ -14042,7 +14042,7 @@ static gboolean choose_tab_color_smoke(gpointer user_data) {
         ? find_workspace_menu_item(root->workspace_menu, "Tab Color")
         : NULL;
     GtkWidget *submenu = color != NULL
-        ? gtk_menu_item_get_submenu(GTK_MENU_ITEM(color)) : NULL;
+        ? noctty_grid_menu_item_get_submenu(GTK_MENU_ITEM(color)) : NULL;
     GtkWidget *blue = submenu != NULL
         ? find_workspace_menu_item(submenu, "Blue") : NULL;
     if (blue != NULL)
@@ -14170,8 +14170,8 @@ static gboolean continue_tab_close_smoke(gpointer user_data) {
     root->tab_context_menu_survived = 1;
     GtkWidget *page = g_object_get_data(G_OBJECT(close), "noctty-tab-page");
     NocttyGridContext *closing = grid_context_for_page(root, page);
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), close);
-    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), close, TRUE);
+    noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), close);
+    noctty_grid_menu_shell_activate_item(GTK_MENU_SHELL(menu), close, TRUE);
     if (closing != NULL && !closing->heap_allocated)
         g_timeout_add(25, probe_retired_tab_callback, closing);
     g_timeout_add(150, finish_tab_close_smoke, root);
@@ -14320,7 +14320,7 @@ static void show_workspace_menu(NocttyGridContext *context, GdkEventButton *even
             ? gdk_seat_get_pointer(seat) : NULL;
         if (pointer != NULL)
             gdk_event_set_device(trigger, pointer);
-        gtk_menu_popup_at_widget(GTK_MENU(menu), context->area,
+        noctty_grid_menu_popup_at_widget(GTK_MENU(menu), context->area,
                                  GDK_GRAVITY_SOUTH_WEST,
                                  GDK_GRAVITY_NORTH_WEST,
                                  trigger);
@@ -14413,7 +14413,7 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
     GtkWidget *profile = menu != NULL
         ? find_workspace_menu_item(menu, "Profile") : NULL;
     GtkWidget *submenu = profile != NULL
-        ? gtk_menu_item_get_submenu(GTK_MENU_ITEM(profile)) : NULL;
+        ? noctty_grid_menu_item_get_submenu(GTK_MENU_ITEM(profile)) : NULL;
     const int stage = root->profile_smoke_stage;
     const int expected = stage == 1 ? 0 : stage == 2 ? 2 : 3;
     const int selected = stage == 1 ? 2 : stage == 2 ? 3 : 4;
@@ -14450,14 +14450,14 @@ static gboolean activate_profile_preset_smoke(gpointer user_data) {
     root->profile_menu_survived = root->profile_menu_survived ||
         (menus_mapped && preset_count == 5);
     if (choice == NULL) {
-        if (submenu != NULL) gtk_menu_popdown(GTK_MENU(submenu));
+        if (submenu != NULL) noctty_grid_menu_popdown(GTK_MENU(submenu));
         if (menu != NULL && root->workspace_menu == menu)
             noctty_grid_widget_destroy(menu);
         g_timeout_add(100, finish_profile_preset_smoke, root);
         return G_SOURCE_REMOVE;
     }
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(choice), TRUE);
-    if (submenu != NULL) gtk_menu_popdown(GTK_MENU(submenu));
+    if (submenu != NULL) noctty_grid_menu_popdown(GTK_MENU(submenu));
     if (menu != NULL && root->workspace_menu == menu)
         noctty_grid_widget_destroy(menu);
     g_timeout_add(240, check_profile_preset_smoke, target);
@@ -14471,7 +14471,7 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
     GtkWidget *profile = menu != NULL && noctty_grid_widget_get_mapped(menu)
         ? find_workspace_menu_item(menu, "Profile") : NULL;
     GtkWidget *submenu = profile != NULL
-        ? gtk_menu_item_get_submenu(GTK_MENU_ITEM(profile)) : NULL;
+        ? noctty_grid_menu_item_get_submenu(GTK_MENU_ITEM(profile)) : NULL;
     if (profile == NULL || submenu == NULL) {
         if (root->profile_smoke_attempts++ < 20) {
             g_timeout_add(25, present_profile_preset_submenu_smoke, target);
@@ -14482,7 +14482,7 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
     root->profile_smoke_attempts = 0;
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), profile);
+    noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), profile);
     GdkEvent *trigger = gdk_event_new(GDK_BUTTON_PRESS);
     GdkWindow *window = noctty_grid_widget_get_window(profile);
     trigger->button.window = window != NULL ? g_object_ref(window) : NULL;
@@ -14496,7 +14496,7 @@ static gboolean present_profile_preset_submenu_smoke(gpointer user_data) {
         ? gdk_seat_get_pointer(seat) : NULL;
     if (pointer != NULL)
         gdk_event_set_device(trigger, pointer);
-    gtk_menu_popup_at_widget(GTK_MENU(submenu), profile,
+    noctty_grid_menu_popup_at_widget(GTK_MENU(submenu), profile,
                              GDK_GRAVITY_NORTH_EAST,
                              GDK_GRAVITY_NORTH_WEST,
                              trigger);
@@ -14745,8 +14745,8 @@ static gboolean continue_pane_close_smoke(gpointer user_data) {
     }
     root->pane_close_smoke_attempts = 0;
     root->pane_close_menu_survived = 1;
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), close_terminal);
-    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), close_terminal, TRUE);
+    noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), close_terminal);
+    noctty_grid_menu_shell_activate_item(GTK_MENU_SHELL(menu), close_terminal, TRUE);
     g_timeout_add(180, finish_pane_close_smoke, root);
     return G_SOURCE_REMOVE;
 }
@@ -15309,8 +15309,8 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
         }
         root->layout_preset_menu_survived = 1;
         root->layout_preset_smoke_attempts = 0;
-        gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x4);
-        gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x4, TRUE);
+        noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x4);
+        noctty_grid_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x4, TRUE);
         g_timeout_add(600, check_layout_preset_smoke, root);
         return G_SOURCE_REMOVE;
     }
@@ -15348,8 +15348,8 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
     root->layout_preset_menu_survived = 1;
-    gtk_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x2);
-    gtk_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x2, TRUE);
+    noctty_grid_menu_shell_select_item(GTK_MENU_SHELL(menu), layout_4x2);
+    noctty_grid_menu_shell_activate_item(GTK_MENU_SHELL(menu), layout_4x2, TRUE);
     g_timeout_add(420, check_layout_preset_smoke, root);
     return G_SOURCE_REMOVE;
 }

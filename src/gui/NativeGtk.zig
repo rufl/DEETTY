@@ -50,6 +50,12 @@ const GtkAllocation = extern struct {
     width: c_int,
     height: c_int,
 };
+const GdkRectangle = extern struct {
+    x: c_int,
+    y: c_int,
+    width: c_int,
+    height: c_int,
+};
 const GdkGeometry = extern struct {
     min_width: c_int,
     min_height: c_int,
@@ -139,6 +145,28 @@ extern fn gtk_radio_menu_item_get_group(*GtkWidget) ?*GSList;
 extern fn gtk_check_menu_item_set_active(*GtkWidget, c_int) void;
 extern fn gtk_menu_item_set_submenu(*GtkMenuItem, *GtkWidget) void;
 extern fn gtk_menu_shell_append(*GtkMenuShell, *GtkWidget) void;
+extern fn gtk_menu_popdown(*GtkWidget) void;
+extern fn gtk_menu_item_get_label(*GtkMenuItem) ?[*:0]const u8;
+extern fn gtk_menu_item_get_submenu(*GtkMenuItem) ?*GtkWidget;
+extern fn gtk_menu_item_activate(*GtkMenuItem) void;
+extern fn gtk_menu_shell_select_item(*GtkMenuShell, *GtkWidget) void;
+extern fn gtk_menu_shell_activate_item(*GtkMenuShell, *GtkWidget, c_int) c_int;
+extern fn gtk_menu_get_attach_widget(*GtkWidget) ?*GtkWidget;
+extern fn gtk_menu_popup_at_widget(
+    *GtkWidget,
+    *GtkWidget,
+    c_int,
+    c_int,
+    ?*anyopaque,
+) void;
+extern fn gtk_menu_popup_at_rect(
+    *GtkWidget,
+    *GdkWindow,
+    *const GdkRectangle,
+    c_int,
+    c_int,
+    ?*anyopaque,
+) void;
 extern fn gtk_separator_menu_item_new() ?*GtkWidget;
 extern fn gtk_label_new(?[*:0]const u8) ?*GtkWidget;
 extern fn gtk_label_set_xalign(*GtkLabel, f32) void;
@@ -2784,6 +2812,94 @@ pub export fn noctty_grid_notebook_remove_page(
 ) void {
     const notebook = notebook_optional orelse return;
     gtk_notebook_remove_page(@ptrCast(notebook), page_index);
+}
+pub export fn noctty_grid_menu_popdown(menu_optional: ?*anyopaque) void {
+    const menu = menu_optional orelse return;
+    gtk_menu_popdown(@ptrCast(menu));
+}
+
+pub export fn noctty_grid_menu_item_get_label(
+    item_optional: ?*anyopaque,
+) ?[*:0]const u8 {
+    const item = item_optional orelse return null;
+    return gtk_menu_item_get_label(@ptrCast(item));
+}
+
+pub export fn noctty_grid_menu_item_get_submenu(
+    item_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const item = item_optional orelse return null;
+    return gtk_menu_item_get_submenu(@ptrCast(item));
+}
+
+pub export fn noctty_grid_menu_item_activate(item_optional: ?*anyopaque) void {
+    const item = item_optional orelse return;
+    gtk_menu_item_activate(@ptrCast(item));
+}
+
+pub export fn noctty_grid_menu_shell_select_item(
+    shell_optional: ?*anyopaque,
+    item_optional: ?*anyopaque,
+) void {
+    const shell = shell_optional orelse return;
+    const item = item_optional orelse return;
+    gtk_menu_shell_select_item(@ptrCast(shell), @ptrCast(item));
+}
+
+pub export fn noctty_grid_menu_shell_activate_item(
+    shell_optional: ?*anyopaque,
+    item_optional: ?*anyopaque,
+    force: c_int,
+) c_int {
+    const shell = shell_optional orelse return FALSE;
+    const item = item_optional orelse return FALSE;
+    return gtk_menu_shell_activate_item(@ptrCast(shell), @ptrCast(item), force);
+}
+
+pub export fn noctty_grid_menu_get_attach_widget(
+    menu_optional: ?*anyopaque,
+) ?*GtkWidget {
+    const menu = menu_optional orelse return null;
+    return gtk_menu_get_attach_widget(@ptrCast(menu));
+}
+
+pub export fn noctty_grid_menu_popup_at_widget(
+    menu_optional: ?*anyopaque,
+    anchor_optional: ?*GtkWidget,
+    widget_gravity: c_int,
+    menu_gravity: c_int,
+    event: ?*anyopaque,
+) void {
+    const menu = menu_optional orelse return;
+    const anchor = anchor_optional orelse return;
+    gtk_menu_popup_at_widget(
+        @ptrCast(menu),
+        anchor,
+        widget_gravity,
+        menu_gravity,
+        event,
+    );
+}
+
+pub export fn noctty_grid_menu_popup_at_rect(
+    menu_optional: ?*anyopaque,
+    window_optional: ?*GdkWindow,
+    rect: ?*const GdkRectangle,
+    rect_gravity: c_int,
+    menu_gravity: c_int,
+    event: ?*anyopaque,
+) void {
+    const menu = menu_optional orelse return;
+    const window = window_optional orelse return;
+    const rectangle = rect orelse return;
+    gtk_menu_popup_at_rect(
+        @ptrCast(menu),
+        window,
+        rectangle,
+        rect_gravity,
+        menu_gravity,
+        event,
+    );
 }
 
 

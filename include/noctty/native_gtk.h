@@ -425,6 +425,28 @@ int noctty_grid_notebook_page_num(gpointer notebook, gpointer page);
 void noctty_grid_notebook_reorder_child(
     gpointer notebook, gpointer page, int page_index);
 void noctty_grid_notebook_remove_page(gpointer notebook, int page_index);
+void noctty_grid_menu_popdown(gpointer menu);
+const char *noctty_grid_menu_item_get_label(gpointer item);
+GtkWidget *noctty_grid_menu_item_get_submenu(gpointer item);
+void noctty_grid_menu_item_activate(gpointer item);
+void noctty_grid_menu_shell_select_item(
+    gpointer menu_shell, gpointer item);
+gboolean noctty_grid_menu_shell_activate_item(
+    gpointer menu_shell, gpointer item, gboolean force);
+GtkWidget *noctty_grid_menu_get_attach_widget(gpointer menu);
+void noctty_grid_menu_popup_at_widget(
+    gpointer menu,
+    GtkWidget *anchor,
+    int widget_gravity,
+    int menu_gravity,
+    gpointer event);
+void noctty_grid_menu_popup_at_rect(
+    gpointer menu,
+    GdkWindow *rect_window,
+    const GdkRectangle *rect,
+    int rect_gravity,
+    int menu_gravity,
+    gpointer event);
 void noctty_grid_main_iteration_do(gboolean blocking);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
