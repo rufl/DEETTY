@@ -205,6 +205,8 @@ extern fn gtk_entry_set_visibility(*GtkEntry, c_int) void;
 extern fn gtk_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_button_new_from_icon_name([*:0]const u8, c_int) ?*GtkWidget;
 extern fn gtk_button_set_relief(*GtkButton, c_int) void;
+extern fn gtk_button_set_label(*GtkButton, [*:0]const u8) void;
+extern fn gtk_button_clicked(*GtkButton) void;
 extern fn gtk_check_button_new_with_label([*:0]const u8) ?*GtkWidget;
 extern fn gtk_toggle_button_get_active(*GtkToggleButton) c_int;
 extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
@@ -242,6 +244,8 @@ extern fn gtk_combo_box_text_append(
     [*:0]const u8,
 ) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
+extern fn gtk_combo_box_set_active_id(
+    *GtkComboBox, [*:0]const u8) c_int;
 extern fn gtk_combo_box_get_active(*GtkComboBox) c_int;
 extern fn gtk_dialog_new_with_buttons(
     [*:0]const u8,
@@ -2587,6 +2591,84 @@ pub export fn noctty_grid_widget_get_scale_factor(
 ) c_int {
     const widget = widget_optional orelse return 1;
     return gtk_widget_get_scale_factor(@ptrCast(widget));
+}
+pub export fn noctty_grid_label_set_text(
+    label_optional: ?*anyopaque,
+    text: [*:0]const u8,
+) void {
+    const label = label_optional orelse return;
+    gtk_label_set_text(@ptrCast(label), text);
+}
+
+pub export fn noctty_grid_label_set_markup(
+    label_optional: ?*anyopaque,
+    markup: [*:0]const u8,
+) void {
+    const label = label_optional orelse return;
+    gtk_label_set_markup(@ptrCast(label), markup);
+}
+
+pub export fn noctty_grid_entry_set_text(
+    entry_optional: ?*anyopaque,
+    text: [*:0]const u8,
+) void {
+    const entry = entry_optional orelse return;
+    gtk_entry_set_text(@ptrCast(entry), text);
+}
+
+pub export fn noctty_grid_button_set_label(
+    button_optional: ?*anyopaque,
+    label: [*:0]const u8,
+) void {
+    const button = button_optional orelse return;
+    gtk_button_set_label(@ptrCast(button), label);
+}
+
+pub export fn noctty_grid_button_clicked(
+    button_optional: ?*anyopaque,
+) void {
+    const button = button_optional orelse return;
+    gtk_button_clicked(@ptrCast(button));
+}
+
+pub export fn noctty_grid_combo_box_set_active(
+    combo_optional: ?*anyopaque,
+    index: c_int,
+) void {
+    const combo = combo_optional orelse return;
+    gtk_combo_box_set_active(@ptrCast(combo), index);
+}
+
+pub export fn noctty_grid_combo_box_set_active_id(
+    combo_optional: ?*anyopaque,
+    id: [*:0]const u8,
+) c_int {
+    const combo = combo_optional orelse return FALSE;
+    return gtk_combo_box_set_active_id(@ptrCast(combo), id);
+}
+
+pub export fn noctty_grid_spin_button_set_value(
+    spin_optional: ?*anyopaque,
+    value: f64,
+) void {
+    const spin = spin_optional orelse return;
+    gtk_spin_button_set_value(@ptrCast(spin), value);
+}
+
+pub export fn noctty_grid_toggle_button_set_active(
+    toggle_optional: ?*anyopaque,
+    active: c_int,
+) void {
+    const toggle = toggle_optional orelse return;
+    gtk_toggle_button_set_active(@ptrCast(toggle), active);
+}
+
+pub export fn noctty_grid_range_set_value(
+    range_optional: ?*anyopaque,
+    value: f64,
+) void {
+    const range = range_optional orelse return;
+    gtk_range_set_value(@ptrCast(range), value);
 }
 pub export fn noctty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,

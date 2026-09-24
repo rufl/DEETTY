@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Routed GTK label, markup, entry, button, combo, spin, toggle, and range
+  mutations through the Zig adapter; C retains validation, settings, and
+  action policy.
 - Routed GTK label, tooltip, entry, spin, toggle, combo, range, and scale
   factor reads through the Zig adapter; C retains validation and settings
   policy.

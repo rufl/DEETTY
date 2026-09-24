@@ -403,6 +403,18 @@ gboolean noctty_grid_toggle_button_get_active(gpointer toggle);
 int noctty_grid_combo_box_get_active(gpointer combo);
 double noctty_grid_range_get_value(gpointer range);
 int noctty_grid_widget_get_scale_factor(gpointer widget);
+void noctty_grid_label_set_text(gpointer label, const char *text);
+void noctty_grid_label_set_markup(gpointer label, const char *markup);
+void noctty_grid_entry_set_text(gpointer entry, const char *text);
+void noctty_grid_button_set_label(gpointer button, const char *label);
+void noctty_grid_button_clicked(gpointer button);
+void noctty_grid_combo_box_set_active(gpointer combo, int index);
+gboolean noctty_grid_combo_box_set_active_id(
+    gpointer combo, const char *id);
+void noctty_grid_spin_button_set_value(gpointer spin, double value);
+void noctty_grid_toggle_button_set_active(
+    gpointer toggle, gboolean active);
+void noctty_grid_range_set_value(gpointer range, double value);
 gboolean noctty_grid_widget_translate_coordinates(
     GtkWidget *source,
     GtkWidget *dest,
