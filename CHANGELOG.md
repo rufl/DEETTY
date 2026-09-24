@@ -29,6 +29,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Routed GTK dialog default-size, modality, positioning, type-hint, and parent-destroy policy through the Zig adapter; C retains surface lifecycle and geometry calculations.
 - Routed GTK event-mask registration and dialog transient-parent binding through the Zig adapter; C retains event routing and overlay ownership decisions.
 - Routed GTK window resize and move operations through the Zig adapter across dropdown, fullscreen, settings, pane-close, and native-resize paths; C retains geometry calculations.
+- Routed GTK no-show-all and settings geometry-hint application through the Zig adapter; C retains dialog bounds and tab-rename state decisions.
 
 - Fixed GTK settings qualification to select high contrast by stable theme ID
   rather than a palette-list position, and to own its maintenance autosave path.

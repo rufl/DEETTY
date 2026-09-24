@@ -50,6 +50,19 @@ const GtkAllocation = extern struct {
     width: c_int,
     height: c_int,
 };
+const GdkGeometry = extern struct {
+    min_width: c_int,
+    min_height: c_int,
+    max_width: c_int,
+    max_height: c_int,
+    base_width: c_int,
+    base_height: c_int,
+    width_inc: c_int,
+    height_inc: c_int,
+    min_aspect: f64,
+    max_aspect: f64,
+    win_gravity: c_int,
+};
 const GType = usize;
 const GTypeInstance = extern struct { g_class: ?*anyopaque };
 const GError = extern struct {
@@ -227,6 +240,8 @@ extern fn gtk_window_set_modal(*GtkWindow, c_int) void;
 extern fn gtk_window_set_position(*GtkWindow, c_int) void;
 extern fn gtk_window_set_type_hint(*GtkWindow, c_int) void;
 extern fn gtk_window_set_destroy_with_parent(*GtkWindow, c_int) void;
+extern fn gtk_window_set_geometry_hints(
+    *GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
 extern fn gtk_window_present(*GtkWindow) void;
@@ -266,6 +281,7 @@ extern fn gtk_widget_set_vexpand(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_can_focus(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_focus_on_click(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_sensitive(*GtkWidget, c_int) void;
+extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_opacity(*GtkWidget, f64) void;
 extern fn gtk_widget_set_margin_start(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_margin_end(*GtkWidget, c_int) void;
@@ -278,7 +294,6 @@ extern fn gtk_widget_queue_draw(*GtkWidget) void;
 extern fn gtk_widget_queue_draw_area(
     *GtkWidget, c_int, c_int, c_int, c_int) void;
 extern fn gtk_widget_queue_resize(*GtkWidget) void;
-extern fn gtk_widget_set_no_show_all(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_halign(*GtkWidget, c_int) void;
 extern fn gtk_widget_set_valign(*GtkWidget, c_int) void;
@@ -1944,6 +1959,35 @@ pub export fn noctty_grid_window_set_destroy_with_parent(
     const window = window_optional orelse return;
     gtk_window_set_destroy_with_parent(@ptrCast(window), destroy_with_parent);
 }
+pub export fn noctty_grid_window_set_geometry_hints(
+    window_optional: ?*GtkWidget,
+    min_width: c_int,
+    min_height: c_int,
+    max_width: c_int,
+    max_height: c_int,
+    hints: c_int,
+) void {
+    const window = window_optional orelse return;
+    const geometry = GdkGeometry{
+        .min_width = min_width,
+        .min_height = min_height,
+        .max_width = max_width,
+        .max_height = max_height,
+        .base_width = 0,
+        .base_height = 0,
+        .width_inc = 0,
+        .height_inc = 0,
+        .min_aspect = 0,
+        .max_aspect = 0,
+        .win_gravity = 0,
+    };
+    gtk_window_set_geometry_hints(
+        @ptrCast(window),
+        null,
+        &geometry,
+        hints,
+    );
+}
 pub export fn noctty_grid_window_set_transient_for(
     window_optional: ?*GtkWidget,
     parent_optional: ?*GtkWidget,
@@ -2069,6 +2113,13 @@ pub export fn noctty_grid_widget_set_sensitive(
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_set_sensitive(widget, sensitive);
+}
+pub export fn noctty_grid_widget_set_no_show_all(
+    widget_optional: ?*GtkWidget,
+    no_show_all: c_int,
+) void {
+    const widget = widget_optional orelse return;
+    gtk_widget_set_no_show_all(widget, no_show_all);
 }
 pub export fn noctty_grid_widget_add_events(
     widget_optional: ?*GtkWidget,
