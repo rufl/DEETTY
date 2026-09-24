@@ -8721,40 +8721,31 @@ static gboolean grid_cell_is_background(NocttyGridContext *context,
 
 static gboolean select_grid_word(NocttyGridContext *context,
                                  int column, int row) {
-    if (grid_cell_is_background(context, column, row)) return FALSE;
-    int start = column;
-    int end = column;
-    while (start > 0 &&
-           !grid_cell_is_background(context, start - 1, row))
-        start--;
-    while (end + 1 < context->columns &&
-           !grid_cell_is_background(context, end + 1, row))
-        end++;
+    NocttyGridSelectionWordPlan plan = {0};
+    noctty_grid_selection_word_plan(
+        context->userdata, column, row, context->columns,
+        context->cell_text, &plan);
+    if (!plan.valid) return FALSE;
     context->selecting = 1;
     context->selection_dragging = 0;
-    context->selection_start_column = start;
+    context->selection_start_column = plan.start_column;
     context->selection_start_row = row;
-    context->selection_end_column = end;
+    context->selection_end_column = plan.end_column;
     context->selection_end_row = row;
     noctty_grid_widget_queue_draw(context->area);
     return TRUE;
+}
+static int read_grid_hyperlink(NocttyGridContext *context,
+                               int column, int row,
+                               char uri[2049]) {
+    return noctty_grid_read_hyperlink(
+        context->userdata, column, row, uri, 2049, context->cell_hyperlink);
 }
 
 static void popup_menu_at_toplevel_pointer(
     NocttyGridContext *context, GtkWidget *menu, GtkWidget *anchor,
     GdkEventButton *event);
 
-static int read_grid_hyperlink(NocttyGridContext *context,
-                               int column, int row,
-                               char uri[2049]) {
-    int length = context->cell_hyperlink(
-        context->userdata, column, row, uri, 2048);
-    if (length <= 0) return 0;
-    length = MIN(length, 2048);
-    uri[length] = '\0';
-    return noctty_grid_hyperlink_valid(
-        (const uint8_t *)uri, (uint32_t)length) ? length : -1;
-}
 
 static gboolean open_grid_uri(NocttyGridContext *context,
                               const char *uri, guint32 time) {
@@ -15530,9 +15521,20 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
                 &visible_rows) == 0)
             history_available = history_lines > 0;
     }
-    int route = noctty_grid_input_route(
-        NOCTTY_GRID_INPUT_WHEEL, scrollbar_owned, terminal_mode_flags,
-        history_available, 0, noctty_grid_input_modifiers(event->state));
+    NocttyGridContext *root = root_grid_context(context);
+    NocttyGridScrollRoutePlan scroll_plan = {0};
+    noctty_grid_scroll_route_plan(
+        scrollbar_owned,
+        terminal_mode_flags,
+        history_available,
+        noctty_grid_input_modifiers(event->state),
+        noctty_grid_scroll_direction((int)event->direction),
+        event->delta_y,
+        &root->tab_cycle_scroll_accumulator,
+        &root->pane_cycle_scroll_accumulator,
+        &context->font_scroll_accumulator,
+        &scroll_plan);
+    const int route = scroll_plan.route;
     /* The native rail owns pointer events inside its visible hit target even
      * when the foreground TUI enables terminal mouse reporting. Otherwise
      * apps such as Codex consume the wheel before NOCTTY can move history. */
@@ -15546,29 +15548,19 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     if (route == NOCTTY_GRID_ROUTE_TAB_CYCLE ||
         route == NOCTTY_GRID_ROUTE_PANE_CYCLE ||
         route == NOCTTY_GRID_ROUTE_FONT_ZOOM) {
-        NocttyGridContext *root = root_grid_context(context);
-        double *accumulator = route == NOCTTY_GRID_ROUTE_TAB_CYCLE
-            ? &root->tab_cycle_scroll_accumulator
-            : route == NOCTTY_GRID_ROUTE_PANE_CYCLE
-                ? &root->pane_cycle_scroll_accumulator
-                : &context->font_scroll_accumulator;
-        NocttyGridWheelActionPlan plan;
-        noctty_grid_wheel_action_plan(
-            route, noctty_grid_scroll_direction((int)event->direction),
-            event->delta_y, accumulator,
-            &plan);
         if (route == NOCTTY_GRID_ROUTE_TAB_CYCLE) {
-            for (int step = 0; step < plan.steps; step++) {
-                (void)cycle_grid_tab(context, plan.direction);
+            for (int step = 0; step < scroll_plan.steps; step++) {
+                (void)cycle_grid_tab(context, scroll_plan.direction);
                 show_active_tab_cycle_feedback(root);
             }
         } else if (route == NOCTTY_GRID_ROUTE_PANE_CYCLE) {
-            for (int step = 0; step < plan.steps; step++)
-                (void)cycle_grid_pane(context, plan.direction);
-        } else if (plan.steps != 0) {
+            for (int step = 0; step < scroll_plan.steps; step++)
+                (void)cycle_grid_pane(context, scroll_plan.direction);
+        } else if (scroll_plan.steps != 0) {
             (void)apply_pane_font_size(
                 context,
-                context->requested_font_size + plan.steps * plan.direction,
+                context->requested_font_size +
+                    scroll_plan.steps * scroll_plan.direction,
                 TRUE);
         }
         return TRUE;

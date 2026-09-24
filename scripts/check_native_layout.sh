@@ -99,6 +99,12 @@ grep -F 'pub export fn noctty_grid_dimensions(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_resize_delta(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_clamp_resize(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_pointer_cell(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_scroll_route_plan(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_selection_word_plan(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_read_hyperlink(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_scroll_route_plan(' "$grid" >/dev/null
+grep -F 'noctty_grid_selection_word_plan(' "$grid" >/dev/null
+grep -F 'noctty_grid_read_hyperlink(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_input_route(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_terminal_key_sequence(' "$grid_logic" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcut_label(' "$grid_logic" >/dev/null

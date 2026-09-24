@@ -60,6 +60,25 @@ pub const WheelActionPlan = extern struct {
     direction: c_int,
 };
 
+pub const ScrollRoutePlan = extern struct {
+    route: c_int,
+    steps: c_int,
+    direction: c_int,
+};
+
+pub const SelectionWordPlan = extern struct {
+    valid: c_int,
+    start_column: c_int,
+    end_column: c_int,
+};
+
+const CellTextReader = *const fn (
+    ?*anyopaque, c_int, c_int, [*]u8, usize,
+) callconv(.c) c_int;
+const CellHyperlinkReader = *const fn (
+    ?*anyopaque, c_int, c_int, [*]u8, usize,
+) callconv(.c) c_int;
+
 pub const DirectionalFocusPlan = extern struct {
     source_center_x: f64,
     source_center_y: f64,
@@ -481,6 +500,100 @@ pub export fn noctty_grid_wheel_action_plan(
     accumulator.* -= @floatFromInt(signed_steps);
     plan.steps = if (signed_steps < 0) -signed_steps else signed_steps;
     plan.direction = if (signed_steps < 0) -1 else 1;
+}
+
+pub export fn noctty_grid_scroll_route_plan(
+    scrollbar_owned: c_int,
+    terminal_mode_flags: c_int,
+    history_available: c_int,
+    modifier_flags: u32,
+    scroll_direction: c_int,
+    delta_y: f64,
+    tab_accumulator: ?*f64,
+    pane_accumulator: ?*f64,
+    font_accumulator: ?*f64,
+    output: ?*ScrollRoutePlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{ .route = route_ignore, .steps = 0, .direction = 0 };
+    const route = noctty_grid_input_route(
+        input_wheel, scrollbar_owned, terminal_mode_flags,
+        history_available, 0, modifier_flags);
+    plan.route = route;
+    const accumulator: ?*f64 = switch (route) {
+        route_tab_cycle => tab_accumulator,
+        route_pane_cycle => pane_accumulator,
+        route_font_zoom => font_accumulator,
+        else => null,
+    };
+    var wheel_plan = WheelActionPlan{ .steps = 0, .direction = 0 };
+    noctty_grid_wheel_action_plan(
+        route, scroll_direction, delta_y, accumulator, &wheel_plan);
+    plan.steps = wheel_plan.steps;
+    plan.direction = wheel_plan.direction;
+}
+
+fn cell_is_background(
+    reader: CellTextReader,
+    userdata: ?*anyopaque,
+    column: c_int,
+    row: c_int,
+) bool {
+    var text: [64]u8 = undefined;
+    const length = reader(userdata, column, row, &text, text.len);
+    return noctty_grid_cell_is_background(&text, length) != 0;
+}
+
+pub export fn noctty_grid_selection_word_plan(
+    userdata: ?*anyopaque,
+    column: c_int,
+    row: c_int,
+    columns: c_int,
+    reader_optional: ?CellTextReader,
+    output: ?*SelectionWordPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{ .valid = 0, .start_column = 0, .end_column = 0 };
+    const reader = reader_optional orelse return;
+    if (column < 0 or row < 0 or column >= columns) return;
+    if (cell_is_background(reader, userdata, column, row)) return;
+    var start = column;
+    var end = column;
+    while (start > 0 and
+        !cell_is_background(reader, userdata, start - 1, row))
+        start -= 1;
+    while (end + 1 < columns and
+        !cell_is_background(reader, userdata, end + 1, row))
+        end += 1;
+    plan.* = .{
+        .valid = 1,
+        .start_column = start,
+        .end_column = end,
+    };
+}
+
+pub export fn noctty_grid_read_hyperlink(
+    userdata: ?*anyopaque,
+    column: c_int,
+    row: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+    reader_optional: ?CellHyperlinkReader,
+) callconv(.c) c_int {
+    const bytes = output orelse return 0;
+    const reader = reader_optional orelse return 0;
+    if (capacity < 2) return 0;
+    const payload_capacity = capacity - 1;
+    const length = reader(userdata, column, row, bytes, payload_capacity);
+    if (length <= 0) return length;
+    const bounded: usize = @min(@as(usize, @intCast(length)), payload_capacity);
+    bytes[bounded] = 0;
+    if (bounded > std.math.maxInt(u32)) return -1;
+    return if (noctty_grid_hyperlink_valid(
+        bytes, @intCast(bounded)) != 0)
+        @intCast(bounded)
+    else
+        -1;
 }
 
 pub export fn noctty_grid_wheel_key_sequence(

@@ -16,6 +16,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   memory adapters; C retains destruction ordering and policy.
 - Routed GVariant reference/clear operations and GError cleanup through Zig
   adapters; C retains D-Bus protocol and failure policy.
+- Moved GTK wheel route/accumulator planning, double-click word-boundary
+  selection, and hyperlink-buffer validation into the Zig grid-logic adapter;
+  C retains event extraction and native effects.
 - Routed remaining GTK tick cleanup, spin-button values, list selection,
   dialog response widgets, sensitivity/label reads, drag selection text,
   IM client windows, initialization, and main-loop entry through the Zig adapter.

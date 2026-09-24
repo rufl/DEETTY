@@ -53,6 +53,22 @@ typedef struct {
     int steps;
     int direction;
 } NocttyGridWheelActionPlan;
+typedef struct {
+    int route;
+    int steps;
+    int direction;
+} NocttyGridScrollRoutePlan;
+
+typedef struct {
+    int valid;
+    int start_column;
+    int end_column;
+} NocttyGridSelectionWordPlan;
+
+typedef int (*NocttyGridCellTextReader)(
+    void *, int, int, char *, size_t);
+typedef int (*NocttyGridCellHyperlinkReader)(
+    void *, int, int, char *, size_t);
 
 typedef struct {
     double source_center_x;
@@ -187,6 +203,18 @@ int noctty_grid_input_route(int input_kind, int scrollbar_owned,
 void noctty_grid_wheel_action_plan(
     int route, int scroll_direction, double delta_y, double *accumulator,
     NocttyGridWheelActionPlan *plan);
+void noctty_grid_scroll_route_plan(
+    int scrollbar_owned, int terminal_mode_flags, int history_available,
+    uint32_t modifier_flags, int scroll_direction, double delta_y,
+    double *tab_accumulator, double *pane_accumulator,
+    double *font_accumulator, NocttyGridScrollRoutePlan *plan);
+void noctty_grid_selection_word_plan(
+    void *userdata, int column, int row, int columns,
+    NocttyGridCellTextReader cell_text,
+    NocttyGridSelectionWordPlan *plan);
+int noctty_grid_read_hyperlink(
+    void *userdata, int column, int row, char *output, size_t capacity,
+    NocttyGridCellHyperlinkReader cell_hyperlink);
 int noctty_grid_wheel_key_sequence(int application_cursor, int steps,
                                    uint8_t *output, uint32_t capacity);
 int noctty_grid_terminal_key_sequence(uint32_t keyval, uint32_t codepoint,
