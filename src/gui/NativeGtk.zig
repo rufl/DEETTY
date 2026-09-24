@@ -1350,6 +1350,36 @@ pub export fn noctty_grid_signal_connect(
     const callback = callback_optional orelse return 0;
     return g_signal_connect_data(target, signal, callback, data, null, 0);
 }
+pub export fn noctty_grid_signal_connect_swapped(
+    instance: ?*anyopaque,
+    signal: [*:0]const u8,
+    callback_optional: ?GCallback,
+    data: ?*anyopaque,
+) c_ulong {
+    const target = instance orelse return 0;
+    const callback = callback_optional orelse return 0;
+    return g_signal_connect_data(target, signal, callback, data, null, 1);
+}
+
+pub export fn noctty_grid_signal_connect_object(
+    instance: ?*anyopaque,
+    signal: [*:0]const u8,
+    callback_optional: ?GCallback,
+    object_optional: ?*anyopaque,
+    flags: c_uint,
+) c_ulong {
+    const target = instance orelse return 0;
+    const callback = callback_optional orelse return 0;
+    const object_target = object_optional orelse return 0;
+    return g_signal_connect_data(
+        target,
+        signal,
+        callback,
+        object_target,
+        null,
+        flags | 2,
+    );
+}
 
 fn appendSeparator(menu: *GtkWidget) void {
     const separator = gtk_separator_menu_item_new() orelse return;

@@ -347,6 +347,17 @@ gulong noctty_grid_signal_connect(
     const char *signal,
     GCallback callback,
     gpointer data);
+gulong noctty_grid_signal_connect_swapped(
+    gpointer instance,
+    const char *signal,
+    GCallback callback,
+    gpointer data);
+gulong noctty_grid_signal_connect_object(
+    gpointer instance,
+    const char *signal,
+    GCallback callback,
+    gpointer object,
+    unsigned int flags);
 void noctty_grid_window_set_geometry_hints(
     GtkWidget *window, int min_width, int min_height,
     int max_width, int max_height, int hints);

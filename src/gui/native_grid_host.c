@@ -8823,11 +8823,11 @@ static gboolean show_hyperlink_menu(
         destroy_hyperlink_menu_data);
     noctty_grid_signal_connect(open, "activate", G_CALLBACK(on_hyperlink_menu_open), data);
     noctty_grid_signal_connect(copy, "activate", G_CALLBACK(on_hyperlink_menu_copy), data);
-    g_signal_connect_swapped(
+    noctty_grid_signal_connect_swapped(
         open, "activate", G_CALLBACK(noctty_grid_widget_destroy), menu);
-    g_signal_connect_swapped(
+    noctty_grid_signal_connect_swapped(
         copy, "activate", G_CALLBACK(noctty_grid_widget_destroy), menu);
-    g_signal_connect_swapped(
+    noctty_grid_signal_connect_swapped(
         menu, "selection-done", G_CALLBACK(noctty_grid_widget_destroy), menu);
     noctty_grid_signal_connect(menu, "destroy",
                      G_CALLBACK(on_hyperlink_menu_destroy), root);
@@ -9779,10 +9779,10 @@ static GtkWidget *create_grid_toplevel(NocttyGridContext *context) {
                     : "NOCTTY native grid");
     g_object_set_data(G_OBJECT(window), "noctty-grid-root-context", root);
     if (screen != NULL) {
-        g_signal_connect_object(
+        noctty_grid_signal_connect_object(
             screen, "size-changed", G_CALLBACK(on_screen_geometry_changed),
             window, 0);
-        g_signal_connect_object(
+        noctty_grid_signal_connect_object(
             screen, "monitors-changed",
             G_CALLBACK(on_screen_geometry_changed), window, 0);
     }
@@ -13434,7 +13434,7 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
     root->sharing_dialog_scrollable = TRUE;
     root->sharing_dialog_grouped_actions = TRUE;
 
-    g_signal_connect_swapped(dialog, "response",
+    noctty_grid_signal_connect_swapped(dialog, "response",
                              G_CALLBACK(noctty_grid_widget_destroy), dialog);
     noctty_grid_signal_connect(dialog, "destroy",
                      G_CALLBACK(on_sharing_dialog_destroy), root);

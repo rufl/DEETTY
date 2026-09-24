@@ -5,6 +5,7 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 ## Unreleased
 - Routed GTK widget destruction, including callback-bound destroy handlers, through the Zig adapter; C retains dialog, menu, and window lifecycle decisions.
 - Routed direct GTK signal registrations through the Zig adapter; C retains signal names, callbacks, data ownership, and lifecycle decisions.
+- Routed GTK swapped and object-bound signal registrations through dedicated Zig adapters; C retains callback semantics and lifetime decisions.
 - Moved GTK grid window, notebook, and IM-context construction into the Zig native adapter; the C host retains lifecycle and event orchestration.
 - Moved native grid window configuration policy into the Zig GTK adapter; C retains monitor capability detection, lifecycle signals, and smoke qualification.
 - Moved GTK notebook action widgets and lifecycle signal wiring into the Zig native adapter; C retains callback implementations and workspace orchestration.
