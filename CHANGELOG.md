@@ -9,6 +9,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   adapter; C retains monitor lookup, layer anchors, and native margin effects.
 - Routed dropdown window sizing and centering through the existing Zig
   adaptive-geometry planner; C retains monitor discovery and native resize/move.
+- Moved fullscreen target selection for GTK and Wayland into the Zig
+  grid-logic adapter; C retains monitor enumeration and native fullscreen calls.
 - Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
   full-stack qualification pass under isolated X11 and Wayland sessions;
   physical Windows acceptance remains external.

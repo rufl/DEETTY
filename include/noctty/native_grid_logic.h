@@ -288,6 +288,20 @@ void noctty_grid_overlay_geometry_plan(
     int monitor_x, int monitor_y, int monitor_width, int monitor_height,
     int window_width, int window_height,
     NocttyGridOverlayGeometryPlan *plan);
+
+typedef struct {
+    int action;
+} NocttyGridFullscreenPlan;
+
+enum {
+    NOCTTY_GRID_FULLSCREEN_WINDOW = 1,
+    NOCTTY_GRID_FULLSCREEN_CURRENT_MONITOR = 2,
+    NOCTTY_GRID_FULLSCREEN_MONITOR = 3
+};
+
+void noctty_grid_fullscreen_plan(
+    int gdk_window_present, int wayland_display, int monitor_index,
+    NocttyGridFullscreenPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

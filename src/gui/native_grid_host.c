@@ -9611,12 +9611,17 @@ static void apply_fullscreen_dimensions(NocttyGridContext *context) {
         }
     }
     GdkWindow *gdk_window = noctty_grid_widget_get_window(root->window);
-    if (gdk_window == NULL) {
+    NocttyGridFullscreenPlan fullscreen_plan = {0};
+    noctty_grid_fullscreen_plan(
+        gdk_window != NULL ? 1 : 0,
+        (display != NULL && GDK_IS_WAYLAND_DISPLAY(display)) ? 1 : 0,
+        monitor_index, &fullscreen_plan);
+    if (fullscreen_plan.action == NOCTTY_GRID_FULLSCREEN_WINDOW) {
         noctty_grid_window_set_fullscreen(root->window, TRUE);
     } else {
         noctty_grid_gdk_window_set_fullscreen_mode(
             gdk_window, GDK_FULLSCREEN_ON_CURRENT_MONITOR);
-        if (!GDK_IS_WAYLAND_DISPLAY(display) && monitor_index >= 0)
+        if (fullscreen_plan.action == NOCTTY_GRID_FULLSCREEN_MONITOR)
             noctty_grid_gdk_window_fullscreen_on_monitor(gdk_window, monitor_index);
         else
             noctty_grid_gdk_window_fullscreen(gdk_window);

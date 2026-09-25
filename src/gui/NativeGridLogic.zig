@@ -130,6 +130,10 @@ pub const OverlayGeometryPlan = extern struct {
     bottom: c_int,
 };
 
+pub const FullscreenPlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -740,6 +744,9 @@ pub const overlay_stacking_layer: c_int = 3;
 pub const visibility_action_none: c_int = 0;
 pub const visibility_action_hide: c_int = 1;
 pub const visibility_action_show: c_int = 2;
+pub const fullscreen_action_window: c_int = 1;
+pub const fullscreen_action_current_monitor: c_int = 2;
+pub const fullscreen_action_monitor: c_int = 3;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1138,6 +1145,22 @@ pub export fn noctty_grid_overlay_geometry_plan(
         .top = @max(0, top),
         .bottom = @max(0, monitor_height - top - window_height),
     };
+}
+
+pub export fn noctty_grid_fullscreen_plan(
+    gdk_window_present: c_int,
+    wayland_display: c_int,
+    monitor_index: c_int,
+    output_optional: ?*FullscreenPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    if (gdk_window_present == 0) {
+        output.* = .{ .action = fullscreen_action_window };
+    } else if (wayland_display != 0 or monitor_index < 0) {
+        output.* = .{ .action = fullscreen_action_current_monitor };
+    } else {
+        output.* = .{ .action = fullscreen_action_monitor };
+    }
 }
 
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
@@ -2918,6 +2941,18 @@ test "overlay geometry planner preserves centered monitor margins" {
     try std.testing.expectEqual(@as(c_int, 0), plan.right);
     try std.testing.expectEqual(@as(c_int, 0), plan.top);
     try std.testing.expectEqual(@as(c_int, 0), plan.bottom);
+}
+
+test "fullscreen planner preserves native fallback precedence" {
+    var plan = FullscreenPlan{ .action = fullscreen_action_current_monitor };
+    noctty_grid_fullscreen_plan(0, 0, -1, &plan);
+    try std.testing.expectEqual(@as(c_int, fullscreen_action_window), plan.action);
+    noctty_grid_fullscreen_plan(1, 1, 2, &plan);
+    try std.testing.expectEqual(@as(c_int, fullscreen_action_current_monitor), plan.action);
+    noctty_grid_fullscreen_plan(1, 0, -1, &plan);
+    try std.testing.expectEqual(@as(c_int, fullscreen_action_current_monitor), plan.action);
+    noctty_grid_fullscreen_plan(1, 0, 2, &plan);
+    try std.testing.expectEqual(@as(c_int, fullscreen_action_monitor), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {
