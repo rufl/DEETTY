@@ -2832,11 +2832,11 @@ pub export fn noctty_grid_error_clear(error_optional: ?*?*GError) void {
 }
 
 pub export fn noctty_grid_variant_unref(value: ?*GVariant) void {
-    g_variant_unref(value);
+    if (value) |variant| g_variant_unref(variant);
 }
 
 pub export fn noctty_grid_variant_clear(value: ?*GVariant) ?*GVariant {
-    g_variant_unref(value);
+    if (value) |variant| g_variant_unref(variant);
     return null;
 }
 
