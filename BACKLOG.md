@@ -153,6 +153,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   selection-index parsing/formatting, normalized pane hit testing, theme-color
   channel extraction/clamping/rounding/hex formatting, and the Cairo/Pango
   cell, glyph, overlay, scrollbar, and sharing preview pipeline to Zig.
+  The adapter also now delegates panel-layout spacing, bounded allocation
+  resizing, notebook-chrome visibility, and terminal-status activation policy
+  through the same Zig ABI.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
@@ -201,6 +204,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Smart Tabs, dropdown/global-hotkey behavior, and workspace continuity.
   Broadcast input now has guarded native menu/shortcut dispatch and live-pane
   fan-out; physical/operator qualification remains.
+  Startup restoration failures for persisted Windows workspace, theme, and
+  launch-profile state now surface an actionable recovery message instead of
+  silently falling back.
 - [ ] Continue replacing GTK C ownership with cohesive Zig components toward
   90% without counting file moves, duplicate implementations, or unrelated new
   code as architectural progress. Retain focused Linux runtime proof and

@@ -2564,6 +2564,39 @@ pub const ResizePlan = extern struct {
     changed: c_int,
 };
 
+pub const StatusPlan = extern struct {
+    active_kind: c_int,
+    changed: c_int,
+};
+
+pub const NotebookChromePlan = extern struct {
+    show: c_int,
+};
+
+pub export fn noctty_grid_status_plan(
+    status_kind: c_int,
+    attention: c_int,
+    output: ?*StatusPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const active_kind: c_int = if (status_kind == 4 or attention != 0) 4 else 1;
+    plan.* = .{
+        .active_kind = active_kind,
+        .changed = @intFromBool(status_kind != active_kind),
+    };
+}
+
+pub export fn noctty_grid_notebook_chrome_plan(
+    zoomed_pane_id: u64,
+    page_count: c_int,
+    output: ?*NotebookChromePlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{
+        .show = @intFromBool(zoomed_pane_id == 0 and page_count > 0),
+    };
+}
+
 pub export fn noctty_grid_panel_spacing_plan(
     enabled: c_int,
     spacing_px: c_int,
@@ -3116,6 +3149,24 @@ test "status names cover protocol states and idle fallback" {
     try std.testing.expectEqualStrings("error", std.mem.span(noctty_grid_status_name(3)));
     try std.testing.expectEqualStrings("pending input", std.mem.span(noctty_grid_status_name(4)));
     try std.testing.expectEqualStrings("idle", std.mem.span(noctty_grid_status_name(0)));
+}
+
+test "status and notebook chrome plans preserve GTK state precedence" {
+    var status = StatusPlan{ .active_kind = 0, .changed = 0 };
+    noctty_grid_status_plan(3, 0, &status);
+    try std.testing.expectEqual(@as(c_int, 1), status.active_kind);
+    try std.testing.expectEqual(@as(c_int, 1), status.changed);
+    noctty_grid_status_plan(3, 1, &status);
+    try std.testing.expectEqual(@as(c_int, 4), status.active_kind);
+    try std.testing.expectEqual(@as(c_int, 1), status.changed);
+
+    var chrome = NotebookChromePlan{ .show = 0 };
+    noctty_grid_notebook_chrome_plan(0, 2, &chrome);
+    try std.testing.expectEqual(@as(c_int, 1), chrome.show);
+    noctty_grid_notebook_chrome_plan(99, 2, &chrome);
+    try std.testing.expectEqual(@as(c_int, 0), chrome.show);
+    noctty_grid_notebook_chrome_plan(0, 0, &chrome);
+    try std.testing.expectEqual(@as(c_int, 0), chrome.show);
 }
 
 test "profile labels cover every preset and custom fallback" {

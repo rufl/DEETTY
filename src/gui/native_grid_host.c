@@ -5714,11 +5714,14 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
 
 static void update_notebook_chrome(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gboolean show = root->zoomed_pane_id == 0 &&
-        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
+    NocttyGridNotebookChromePlan chrome = {0};
+    noctty_grid_notebook_chrome_plan(
+        root->zoomed_pane_id,
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
+        &chrome);
     noctty_grid_notebook_apply_policy(
         root->notebook, root->window_toolbar_controls,
-        root->tab_position, show);
+        root->tab_position, chrome.show != 0);
 }
 
 typedef struct {
@@ -6138,8 +6141,10 @@ static int pump_grid_context(NocttyGridContext *context,
         *exited_now = TRUE;
         return pumped;
     }
-    int active_status = context->status_kind == 4 || context->attention ? 4 : 1;
-    int status_changed = context->status_kind != active_status;
+    NocttyGridStatusPlan status = {0};
+    noctty_grid_status_plan(context->status_kind, context->attention, &status);
+    int active_status = status.active_kind;
+    int status_changed = status.changed;
     context->status_kind = active_status;
     if (context->event != NULL && (had_output || status_changed))
         context->event(context->event_data, context->pane_id,
@@ -10240,10 +10245,14 @@ static void apply_grid_tab_position(NocttyGridContext *context, int value,
                                     gboolean notify) {
     if (value < 0 || value > 3) return;
     NocttyGridContext *root = root_grid_context(context);
-    gboolean show = root->zoomed_pane_id == 0 &&
-        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)) > 0;
+    NocttyGridNotebookChromePlan chrome = {0};
+    noctty_grid_notebook_chrome_plan(
+        root->zoomed_pane_id,
+        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(root->notebook)),
+        &chrome);
     noctty_grid_notebook_apply_policy(
-        context->notebook, context->window_toolbar_controls, value, show);
+        context->notebook, context->window_toolbar_controls,
+        value, chrome.show != 0);
     for (guint index = 0; context->contexts != NULL &&
          index < context->contexts->len; index++) {
         NocttyGridContext *candidate =

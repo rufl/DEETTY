@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Windows startup now surfaces persisted workspace, theme, and launch-profile
+  restoration failures instead of silently falling back; the current session
+  remains usable and points operators to Settings for recovery.
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.

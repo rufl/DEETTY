@@ -99,6 +99,8 @@ const State = struct {
     themes: WindowsThemeLibrary.Library = .init(std.heap.page_allocator, 0),
     profiles: WindowsLaunchProfiles.Library = .init(0),
     saved_workspace: ?WorkspaceSnapshot = null,
+    startup_persistence_warning: bool = false,
+
     live_host: ?*Share.live_host.LiveHost = null,
     control_prompt_active: bool = false,
     shared_pane: ?usize = null,
@@ -129,7 +131,10 @@ fn writePersistedWindowsState(state: *const State) !void {
 }
 
 fn applyPersistedWindowsState(state: *State) void {
-    const persisted = readPersistedWindowsState() catch return;
+    const persisted = readPersistedWindowsState() catch {
+        state.startup_persistence_warning = true;
+        return;
+    };
     const value = persisted orelse return;
     state.preferences = value.preferences;
     state.saved_workspace = value.workspace;
@@ -139,7 +144,9 @@ fn applyPersistedWindowsState(state: *State) void {
             snapshot_value,
             columns_initial,
             rows_initial,
-        ) catch {};
+        ) catch {
+            state.startup_persistence_warning = true;
+        };
     }
 }
 
@@ -154,12 +161,21 @@ fn applyPersistedThemes(state: *State) void {
     // implicitly. An explicit selection/import is the only durable replacement.
     state.themes.selected = @intFromEnum(state.preferences.theme);
     const allocator = state.themes.allocator;
-    const bytes = (Dpapi.themeStateLoadAlloc(allocator, WindowsThemeLibrary.max_state_bytes) catch return) orelse return;
+    const bytes = (Dpapi.themeStateLoadAlloc(
+        allocator, WindowsThemeLibrary.max_state_bytes,
+    ) catch {
+        state.startup_persistence_warning = true;
+        return;
+    }) orelse return;
     defer allocator.free(bytes);
-    const loaded = WindowsThemeLibrary.decodeStateAlloc(allocator, bytes) catch return;
+    const loaded = WindowsThemeLibrary.decodeStateAlloc(allocator, bytes) catch {
+        state.startup_persistence_warning = true;
+        return;
+    };
     state.themes.deinit();
     state.themes = loaded;
 }
+
 
 const ProfileSink = struct {
     pub fn save(_: @This(), bytes: []const u8) !void {
@@ -170,9 +186,16 @@ const ProfileSink = struct {
 fn applyPersistedProfiles(state: *State) void {
     state.profiles = .init(@intFromEnum(state.preferences.launch_profile));
     var bytes: [WindowsLaunchProfiles.max_state_bytes]u8 = undefined;
-    const length = (Dpapi.profileStateLoad(&bytes) catch return) orelse return;
-    state.profiles = WindowsLaunchProfiles.decodeState(bytes[0..length]) catch return;
+    const length = (Dpapi.profileStateLoad(&bytes) catch {
+        state.startup_persistence_warning = true;
+        return;
+    }) orelse return;
+    state.profiles = WindowsLaunchProfiles.decodeState(bytes[0..length]) catch {
+        state.startup_persistence_warning = true;
+        return;
+    };
 }
+
 
 pub export fn wWinMain(
     instance: windows.HINSTANCE,
@@ -264,6 +287,12 @@ pub export fn wWinMain(
         applyPersistedWindowsState(&state);
         applyPersistedThemes(&state);
         applyPersistedProfiles(&state);
+        if (state.startup_persistence_warning)
+            showWindowsMessage(
+                "NOCTTY could not fully restore saved Windows state. "
+                ++ "The current session remains usable; review Settings and "
+                ++ "save a fresh workspace, theme, or profile state.",
+            );
     }
 
     if (smoke_requested) return if (selfTest(&state, command)) 0 else 1;

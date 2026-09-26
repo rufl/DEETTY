@@ -54,6 +54,15 @@ typedef struct {
     int changed;
 } NocttyGridResizePlan;
 
+
+typedef struct {
+    int active_kind;
+    int changed;
+} NocttyGridStatusPlan;
+
+typedef struct {
+    int show;
+} NocttyGridNotebookChromePlan;
 typedef struct {
     double x;
     double y;
@@ -616,6 +625,12 @@ void noctty_grid_render_chrome(
     int cursor_live, int cursor_column, int cursor_row, int columns,
     int rows, double cell_width, double cell_height,
     NocttyGridRenderChrome *output);
+void noctty_grid_status_plan(
+    int status_kind, int attention,
+    NocttyGridStatusPlan *plan);
+void noctty_grid_notebook_chrome_plan(
+    uint64_t zoomed_pane_id, int page_count,
+    NocttyGridNotebookChromePlan *plan);
 
 typedef struct {
     uint32_t codepoint;
