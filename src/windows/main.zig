@@ -196,7 +196,8 @@ pub export fn wWinMain(
         );
         return 0;
     }
-    const self_test_requested = firstAsciiTokenIs(command, "--self-test");
+    const smoke_requested = firstAsciiTokenIs(command, "--self-test") or
+        firstAsciiTokenIs(command, "--package-smoke");
 
     var threaded: std.Io.Threaded = .init(std.heap.page_allocator, .{});
     defer threaded.deinit();
@@ -259,13 +260,13 @@ pub export fn wWinMain(
         state.store.deinit();
         state.themes.deinit();
     }
-    if (!self_test_requested) {
+    if (!smoke_requested) {
         applyPersistedWindowsState(&state);
         applyPersistedThemes(&state);
         applyPersistedProfiles(&state);
     }
 
-    if (self_test_requested) return if (selfTest(&state)) 0 else 1;
+    if (smoke_requested) return if (selfTest(&state, command)) 0 else 1;
     if (mode.kind == .share) {
         if (mode.index >= state.store.peer_count) {
             showWindowsMessage("No paired device has that index.");
@@ -1951,11 +1952,10 @@ fn profileSelfTest(state: *State) bool {
     return false;
 }
 
-fn selfTest(state: *State) bool {
-    if (!firstAsciiTokenIs(
-        std.unicode.utf8ToUtf16LeStringLiteral("--self-test"),
-        "--self-test",
-    )) return false;
+fn selfTest(state: *State, command: []const u16) bool {
+    const self_test_requested = firstAsciiTokenIs(command, "--self-test");
+    const package_smoke_requested = firstAsciiTokenIs(command, "--package-smoke");
+    if (!self_test_requested and !package_smoke_requested) return false;
     if (firstAsciiTokenIs(
         std.unicode.utf8ToUtf16LeStringLiteral("device--self-test-backup"),
         "--self-test",

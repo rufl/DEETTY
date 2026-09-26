@@ -28,6 +28,9 @@ if grep -Eq '(^vte3$|libvte|vte291|pkgconfig\(vte)' \
 fi
 sh -n packaging/noctty-launcher
 sh -n packaging/nocted-launcher
+bash -n scripts/package_ztash.sh scripts/package_ztash_smoke.sh
+test -x scripts/package_ztash.sh
+test -x scripts/package_ztash_smoke.sh
 sh -n scripts/package_bundle.sh
 sh -n scripts/package_bundle_licenses.sh
 sh -n scripts/package_bundle_licenses_backend_smoke.sh

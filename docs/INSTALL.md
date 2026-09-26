@@ -175,6 +175,27 @@ This command creates two isolated `ReleaseSafe` install trees with separate stag
 sha256sum -c /tmp/noctty-linux-bundle.tar.gz.sha256
 ```
 
+## ZTASH Dogfood Packages
+
+```sh
+./scripts/package_ztash.sh
+./scripts/package_ztash_smoke.sh
+```
+
+The ignored `dist/ztash/` directory is rebuilt atomically with Linux and
+Windows target-bound archives, `SHA256SUMS`, and `ztash-release.json`. Each
+archive uses the OVERZEER root contract:
+
+- Linux: `noctty-<version>-linux-x86_64/noctty`, `README.md`, `LICENSE`;
+- Windows: `noctty-<version>-windows-x86_64/noctty.exe`, `README.txt`,
+  `LICENSE`.
+
+The packages are unsigned build-only dogfood artifacts. Physical Windows
+qualification, signing, public publication, and receiver activation remain
+separate evidence boundaries. Use the OVERZEER ZTASH bridge for preview-first
+deployment; it verifies the manifest and archive digests before invoking the
+authenticated DDJARIN/CHOPPER fleet lane.
+
 The bundle:
 
 - builds `ReleaseSafe` for the current architecture;
@@ -205,7 +226,7 @@ metadata, not evidence that a fresh checkout has passed release qualification.
 - Runtime dependency contract: `packaging/runtime-dependencies.txt`
 - x86_64/aarch64 release matrix: `.github/workflows/release.yml`
 
-`./scripts/package_manifests_smoke.sh` checks manifest structure, syntax-checks the launcher/bundle scripts, and reports RPM and Arch parser lanes as `passed` or `unavailable` instead of promoting unavailable tools to success. `./scripts/package_bundle.sh` emits `.tar.gz`, `.sha256`, and `.manifest` sidecars. The manifest records version, release date, architecture, Zig compiler, source revision when available, archive digest, byte count, sorted installed files and bundled libraries, per-library ownership/license records, dependency package inventory, and SHA-256-indexed notice files.
+`./scripts/package_manifests_smoke.sh` checks manifest structure, syntax-checks the launcher/bundle scripts, and reports RPM and Arch parser lanes as `passed` or `unavailable` instead of promoting unavailable tools to success. `./scripts/package_bundle.sh` emits `.tar.gz`, `.sha256`, and `.manifest` sidecars. `./scripts/package_ztash.sh` emits target-bound Linux/Windows dogfood archives plus `SHA256SUMS` and `ztash-release.json`; `./scripts/package_ztash_smoke.sh` validates their archive roots, required files, digests, and the Linux headless deployment smoke. The bundle manifest records version, release date, architecture, Zig compiler, source revision when available, archive digest, byte count, sorted installed files and bundled libraries, per-library ownership/license records, dependency package inventory, and SHA-256-indexed notice files.
 
 The reproducible tarball and same-architecture dependency bundle both compile `ReleaseSafe` with `-Dstrip=true`. This removes debug/symbol sections from shipped executables. The bundle's `redistribution_ready=true` field is separately fail-closed on exact library ownership plus a complete embedded license payload.
 

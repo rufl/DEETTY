@@ -3668,6 +3668,7 @@ pub fn main(init: std.process.Init) !void {
                 \\With no option, show the existing workspace or start NOCTTY.
                 \\  -h, --help                 Show this help without opening a window
                 \\  --version                  Print the version
+                \\  --package-smoke             Run the headless deployment smoke
                 \\  --show | --hide | --toggle Control the running dropdown
                 \\  --status                   Report whether the dropdown is running
                 \\  --hidden                   Start hidden until activated
@@ -3687,6 +3688,11 @@ pub fn main(init: std.process.Init) !void {
         }
         if (std.mem.eql(u8, cmd, "--version")) {
             try stdout.writeAll("noctty " ++ noctty.release.version ++ "\n");
+            return;
+        }
+        if (std.mem.eql(u8, cmd, "--package-smoke")) {
+            try selfCheck(allocator, stdout);
+            try stdout.writeAll("package_smoke noctty=true headless=true\n");
             return;
         }
         if (std.mem.eql(u8, cmd, "--status")) {

@@ -145,6 +145,35 @@ Same-architecture dependency bundle:
 ./scripts/package_bundle.sh /tmp/noctty-linux-bundle.tar.gz
 ```
 
+ZTASH dogfood packages for the configured OVERZEER receivers:
+
+```sh
+./scripts/package_ztash.sh
+./scripts/package_ztash_smoke.sh
+```
+
+This replaces the ignored `dist/ztash/` output with target-bound
+`noctty-<version>-linux-x86_64.tar.gz` and
+`noctty-<version>-windows-x86_64.zip` archives, `SHA256SUMS`, and
+`ztash-release.json`. The package script builds both targets, runs the Linux
+headless `--package-smoke`, and removes repository Zig caches and temporary
+staging on exit. Windows runtime smoke remains a receiver/Wine qualification
+boundary unless `NOCTTY_ZTASH_WINE_SMOKE=1` is set.
+
+Preview the authenticated fleet deployment only after selecting an immutable
+artifact-host base URL:
+
+```sh
+../../OVERZEER/tools/overzeer-ztash-deploy.sh preview \
+  --release-dir dist/ztash \
+  --base-url https://downloads.example.invalid/noctty
+```
+
+Remote mutation requires `--apply` and `OVERZEER_CONFIRM=DEPLOY`; private
+DDJARIN/CHOPPER credentials are resolved by OVERZEER and never belong in this
+repository or its package metadata.
+
+
 See [Install and package](docs/INSTALL.md) for runtime requirements and package
 contents. The dependency bundle is not a public redistribution promise until
 independent license/redistribution review and release receipts are complete.
