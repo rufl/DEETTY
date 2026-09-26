@@ -1687,6 +1687,67 @@ pub export fn noctty_grid_sharing_status_actions(status: c_int) callconv(.c) u32
     return actions;
 }
 
+pub const SharingControlPlan = extern struct {
+    enabled: u32,
+    stop_label: c_int,
+    stop_receive_label: c_int,
+    revoke_label: c_int,
+    cancel_pairing_label: c_int,
+};
+
+pub const sharing_control_confirm: u32 = 1 << 0;
+pub const sharing_control_pairing: u32 = 1 << 1;
+pub const sharing_control_discover: u32 = 1 << 2;
+pub const sharing_control_session: u32 = 1 << 3;
+pub const sharing_control_peers: u32 = 1 << 4;
+pub const sharing_control_revoke_device: u32 = 1 << 5;
+pub const sharing_control_stop: u32 = 1 << 6;
+pub const sharing_control_cancel_pairing: u32 = 1 << 7;
+pub const sharing_control_grant: u32 = 1 << 8;
+pub const sharing_control_revoke: u32 = 1 << 9;
+pub const sharing_control_stop_receive: u32 = 1 << 10;
+pub const sharing_control_request_control: u32 = 1 << 11;
+pub const sharing_control_reconnect: u32 = 1 << 12;
+pub const sharing_control_retry_save: u32 = 1 << 13;
+
+pub export fn noctty_grid_sharing_control_plan(
+    status: c_int, active_peer_count: c_int,
+    output: *SharingControlPlan,
+) callconv(.c) void {
+    const actions = noctty_grid_sharing_status_actions(status);
+    var enabled: u32 = 0;
+    if (status == 102) enabled |= sharing_control_confirm;
+    if ((actions & sharing_allow_pairing) != 0)
+        enabled |= sharing_control_pairing;
+    if (status == 0 or status == 401)
+        enabled |= sharing_control_discover;
+    if ((actions & sharing_allow_session) != 0 and active_peer_count > 0)
+        enabled |= sharing_control_session;
+    if (active_peer_count > 0)
+        enabled |= sharing_control_peers | sharing_control_revoke_device;
+    if ((actions & sharing_clear_host) != 0)
+        enabled |= sharing_control_stop;
+    if (status == 101 or status == 102 or status == 104 or
+        status == 105 or status == 400)
+        enabled |= sharing_control_cancel_pairing;
+    if (status == 203) enabled |= sharing_control_grant;
+    if (status == 203 or status == 204)
+        enabled |= sharing_control_revoke;
+    if ((actions & sharing_clear_viewer) != 0)
+        enabled |= sharing_control_stop_receive;
+    if (status == 302) enabled |= sharing_control_request_control;
+    if (status == 305 or status == 306)
+        enabled |= sharing_control_reconnect;
+    if (status == 106) enabled |= sharing_control_retry_save;
+    output.* = .{
+        .enabled = enabled,
+        .stop_label = if (status == 205 or status == 206) 1 else 0,
+        .stop_receive_label = if (status == 305 or status == 306) 1 else 0,
+        .revoke_label = if (status == 203) 1 else 0,
+        .cancel_pairing_label = if (status == 104 or status == 105) 1 else 0,
+    };
+}
+
 pub export fn noctty_grid_bracketed_paste_marker(
     kind: c_int,
     output: ?[*]u8,
@@ -4426,6 +4487,7 @@ test "settings policy clamps grouped terminal values at every boundary" {
         noctty_grid_terminal_scroll_setting(116, 7),
     );
 
+
     try std.testing.expectEqual(
         @as(f64, 10.0),
         noctty_grid_font_size_clamp(4.0, 10.0, 24.0),
@@ -4485,6 +4547,35 @@ test "settings policy clamps grouped terminal values at every boundary" {
         noctty_grid_background_opacity_value(101),
     );
 }
+test "sharing control plan preserves state gates and labels" {
+    var plan: SharingControlPlan = undefined;
+
+    noctty_grid_sharing_control_plan(0, 0, &plan);
+    try std.testing.expect((plan.enabled & sharing_control_pairing) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_session) == 0);
+    try std.testing.expect((plan.enabled & sharing_control_discover) != 0);
+
+    noctty_grid_sharing_control_plan(102, 2, &plan);
+    try std.testing.expect((plan.enabled & sharing_control_confirm) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_cancel_pairing) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_session) == 0);
+    try std.testing.expectEqual(@as(c_int, 0), plan.cancel_pairing_label);
+
+    noctty_grid_sharing_control_plan(106, 1, &plan);
+    try std.testing.expect((plan.enabled & sharing_control_session) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_retry_save) != 0);
+
+    noctty_grid_sharing_control_plan(203, 1, &plan);
+    try std.testing.expect((plan.enabled & sharing_control_grant) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_revoke) != 0);
+    try std.testing.expectEqual(@as(c_int, 1), plan.revoke_label);
+
+    noctty_grid_sharing_control_plan(305, 0, &plan);
+    try std.testing.expect((plan.enabled & sharing_control_stop_receive) != 0);
+    try std.testing.expect((plan.enabled & sharing_control_reconnect) != 0);
+    try std.testing.expectEqual(@as(c_int, 1), plan.stop_receive_label);
+}
+
 
 fn expectCloseTransition(
     expected_effects: u32,

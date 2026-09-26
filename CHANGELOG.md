@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved session-sharing control enablement and contextual action-label
+  selection into the Zig grid-logic adapter; C retains widget sensitivity,
+  native labels, status text, and GTK effects.
 - Moved GTK window visibility toggle classification into the Zig grid-logic
   adapter; C retains activation, focus, overlay, and hide/show effects.
 - Moved overlay dialog monitor-margin arithmetic into the Zig grid-logic

@@ -13299,52 +13299,82 @@ static gboolean refresh_sharing_status(gpointer user_data) {
     }
     int active_peer_count = GPOINTER_TO_INT(noctty_grid_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-active-peer-count"));
-    uint32_t sharing_actions =
-        noctty_grid_sharing_status_actions(status);
-    gboolean pair_ready =
-        (sharing_actions & NOCTTY_GRID_SHARING_ALLOW_PAIRING) != 0;
-    gboolean session_ready =
-        (sharing_actions & NOCTTY_GRID_SHARING_ALLOW_SESSION) != 0 &&
-        active_peer_count > 0;
-    noctty_grid_widget_set_sensitive(confirm, status == 102);
-    noctty_grid_widget_set_sensitive(pair_listen, pair_ready);
-    noctty_grid_widget_set_sensitive(pair_connect, pair_ready);
-    noctty_grid_widget_set_sensitive(discover, status == 0 || status == 401);
-    noctty_grid_widget_set_sensitive(share_pane, session_ready);
-    noctty_grid_widget_set_sensitive(share_tab, session_ready);
-    noctty_grid_widget_set_sensitive(share_session, session_ready);
-    noctty_grid_widget_set_sensitive(receive, session_ready);
-    noctty_grid_widget_set_sensitive(peers, active_peer_count > 0);
-    noctty_grid_widget_set_sensitive(revoke_device, active_peer_count > 0);
+    NocttyGridSharingControlPlan control_plan = {0};
+    noctty_grid_sharing_control_plan(status, active_peer_count, &control_plan);
     noctty_grid_widget_set_sensitive(
-        stop, (sharing_actions & NOCTTY_GRID_SHARING_CLEAR_HOST) != 0);
+        confirm,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_CONFIRM) != 0);
+    noctty_grid_widget_set_sensitive(
+        pair_listen,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_PAIRING) != 0);
+    noctty_grid_widget_set_sensitive(
+        pair_connect,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_PAIRING) != 0);
+    noctty_grid_widget_set_sensitive(
+        discover,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_DISCOVER) != 0);
+    noctty_grid_widget_set_sensitive(
+        share_pane,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_SESSION) != 0);
+    noctty_grid_widget_set_sensitive(
+        share_tab,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_SESSION) != 0);
+    noctty_grid_widget_set_sensitive(
+        share_session,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_SESSION) != 0);
+    noctty_grid_widget_set_sensitive(
+        receive,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_SESSION) != 0);
+    noctty_grid_widget_set_sensitive(
+        peers,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_PEERS) != 0);
+    noctty_grid_widget_set_sensitive(
+        revoke_device,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_REVOKE_DEVICE) != 0);
+    noctty_grid_widget_set_sensitive(
+        stop,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_STOP) != 0);
     noctty_grid_widget_set_sensitive(
         cancel_pairing,
-        status == 101 || status == 102 || status == 104 ||
-            status == 105 || status == 400);
-    noctty_grid_widget_set_sensitive(grant, status == 203);
-    noctty_grid_widget_set_sensitive(revoke, status == 203 || status == 204);
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_CANCEL_PAIRING) != 0);
+    noctty_grid_widget_set_sensitive(
+        grant,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_GRANT) != 0);
+    noctty_grid_widget_set_sensitive(
+        revoke,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_REVOKE) != 0);
     noctty_grid_widget_set_sensitive(
         stop_receive,
-        (sharing_actions & NOCTTY_GRID_SHARING_CLEAR_VIEWER) != 0);
-    noctty_grid_widget_set_sensitive(request_control, status == 302);
-    noctty_grid_widget_set_sensitive(reconnect, status == 305 || status == 306);
-    noctty_grid_widget_set_sensitive(retry_save, status == 106);
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_STOP_RECEIVE) != 0);
+    noctty_grid_widget_set_sensitive(
+        request_control,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_REQUEST_CONTROL) != 0);
+    noctty_grid_widget_set_sensitive(
+        reconnect,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_RECONNECT) != 0);
+    noctty_grid_widget_set_sensitive(
+        retry_save,
+        (control_plan.enabled & NOCTTY_GRID_SHARING_CONTROL_RETRY_SAVE) != 0);
     noctty_grid_button_set_label(
         GTK_BUTTON(stop),
-        status == 205 || status == 206
+        control_plan.stop_label == NOCTTY_GRID_SHARING_LABEL_CLOSE_SHARING
             ? "Close sharing session"
             : "Stop sharing");
     noctty_grid_button_set_label(
         GTK_BUTTON(stop_receive),
-        status == 305 || status == 306
+        control_plan.stop_receive_label == NOCTTY_GRID_SHARING_LABEL_CLOSE_REMOTE
             ? "Close remote session"
             : "Stop receiving");
     noctty_grid_button_set_label(
-        GTK_BUTTON(revoke), status == 203 ? "Deny control" : "Revoke control");
+        GTK_BUTTON(revoke),
+        control_plan.revoke_label == NOCTTY_GRID_SHARING_LABEL_DENY_CONTROL
+            ? "Deny control"
+            : "Revoke control");
     noctty_grid_button_set_label(
         GTK_BUTTON(cancel_pairing),
-        status == 104 || status == 105 ? "Clear pairing result" : "Cancel pairing");
+        control_plan.cancel_pairing_label == NOCTTY_GRID_SHARING_LABEL_CLEAR_PAIRING
+            ? "Clear pairing result"
+            : "Cancel pairing");
     if (noctty_grid_widget_is_type(preview, NOCTTY_GTK_WIDGET) && !noctty_grid_widget_in_destruction(preview))
         noctty_grid_widget_queue_draw(preview);
     refresh_sharing_tabs(root);

@@ -478,6 +478,46 @@ enum {
     NOCTTY_GRID_SHARING_CLEAR_VIEWER = 1u << 3,
 };
 uint32_t noctty_grid_sharing_status_actions(int status);
+
+typedef struct {
+    uint32_t enabled;
+    int stop_label;
+    int stop_receive_label;
+    int revoke_label;
+    int cancel_pairing_label;
+} NocttyGridSharingControlPlan;
+
+enum {
+    NOCTTY_GRID_SHARING_CONTROL_CONFIRM = 1u << 0,
+    NOCTTY_GRID_SHARING_CONTROL_PAIRING = 1u << 1,
+    NOCTTY_GRID_SHARING_CONTROL_DISCOVER = 1u << 2,
+    NOCTTY_GRID_SHARING_CONTROL_SESSION = 1u << 3,
+    NOCTTY_GRID_SHARING_CONTROL_PEERS = 1u << 4,
+    NOCTTY_GRID_SHARING_CONTROL_REVOKE_DEVICE = 1u << 5,
+    NOCTTY_GRID_SHARING_CONTROL_STOP = 1u << 6,
+    NOCTTY_GRID_SHARING_CONTROL_CANCEL_PAIRING = 1u << 7,
+    NOCTTY_GRID_SHARING_CONTROL_GRANT = 1u << 8,
+    NOCTTY_GRID_SHARING_CONTROL_REVOKE = 1u << 9,
+    NOCTTY_GRID_SHARING_CONTROL_STOP_RECEIVE = 1u << 10,
+    NOCTTY_GRID_SHARING_CONTROL_REQUEST_CONTROL = 1u << 11,
+    NOCTTY_GRID_SHARING_CONTROL_RECONNECT = 1u << 12,
+    NOCTTY_GRID_SHARING_CONTROL_RETRY_SAVE = 1u << 13,
+};
+
+enum {
+    NOCTTY_GRID_SHARING_LABEL_STOP = 0,
+    NOCTTY_GRID_SHARING_LABEL_CLOSE_SHARING = 1,
+    NOCTTY_GRID_SHARING_LABEL_STOP_RECEIVING = 0,
+    NOCTTY_GRID_SHARING_LABEL_CLOSE_REMOTE = 1,
+    NOCTTY_GRID_SHARING_LABEL_REVOKE_CONTROL = 0,
+    NOCTTY_GRID_SHARING_LABEL_DENY_CONTROL = 1,
+    NOCTTY_GRID_SHARING_LABEL_CANCEL_PAIRING = 0,
+    NOCTTY_GRID_SHARING_LABEL_CLEAR_PAIRING = 1,
+};
+
+void noctty_grid_sharing_control_plan(
+    int status, int active_peer_count,
+    NocttyGridSharingControlPlan *plan);
 int noctty_grid_bracketed_paste_marker(
     int kind, unsigned char *output, size_t capacity);
 int noctty_grid_sharing_key_sequence(
