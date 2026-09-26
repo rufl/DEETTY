@@ -147,6 +147,21 @@ pub const MonitorSelectionPlan = extern struct {
     action: c_int,
 };
 
+pub const CompactTabMetrics = extern struct {
+    label_height: c_int,
+    action_extent: c_int,
+    strip_limit: c_int,
+};
+
+pub const SettingsGeometryPlan = extern struct {
+    width: c_int,
+    height: c_int,
+    min_width: c_int,
+    min_height: c_int,
+    max_width: c_int,
+    max_height: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -1546,6 +1561,43 @@ pub export fn noctty_grid_dialog_dimension(
     const lower = @max(minimum_px, 1);
     const upper = @max(maximum_px, lower);
     return @intCast(std.math.clamp(requested, @as(i64, lower), @as(i64, upper)));
+}
+
+pub export fn noctty_grid_compact_tab_metrics(
+    tab_height: c_int,
+    output_optional: ?*CompactTabMetrics,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .label_height = @max(12, tab_height),
+        .action_extent = @intCast(std.math.clamp(
+            @as(i64, tab_height) + 2,
+            @as(i64, 24),
+            @as(i64, std.math.maxInt(c_int)),
+        )),
+        .strip_limit = @intCast(std.math.clamp(
+            @divFloor(@as(i64, tab_height) * 3, 2) + 1,
+            @as(i64, 30),
+            @as(i64, std.math.maxInt(c_int)),
+        )),
+    };
+}
+pub export fn noctty_grid_settings_geometry_plan(
+    workarea_width: c_int,
+    workarea_height: c_int,
+    output_optional: ?*SettingsGeometryPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const width = noctty_grid_dialog_dimension(workarea_width, 980, 720, 96);
+    const height = noctty_grid_dialog_dimension(workarea_height, 720, 560, 96);
+    output.* = .{
+        .width = noctty_grid_dialog_dimension(workarea_width, width, 1, 32),
+        .height = noctty_grid_dialog_dimension(workarea_height, height, 1, 32),
+        .min_width = @min(720, width),
+        .min_height = @min(560, height),
+        .max_width = @max(1, workarea_width),
+        .max_height = @max(1, workarea_height),
+    };
 }
 
 pub export fn noctty_grid_percent_dimension(
@@ -3902,6 +3954,43 @@ test "dropdown dimensions reject invalid space and clamp every input" {
     try std.testing.expectEqual(@as(c_int, 720), noctty_grid_dropdown_dimension(720, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 900), noctty_grid_dropdown_dimension(1200, 50, 900, 480));
     try std.testing.expectEqual(@as(c_int, 400), noctty_grid_dropdown_dimension(0, 200, 400, 480));
+}
+
+test "compact tab metrics preserve minimum label and action geometry" {
+    var metrics = CompactTabMetrics{
+        .label_height = 0,
+        .action_extent = 0,
+        .strip_limit = 0,
+    };
+    noctty_grid_compact_tab_metrics(10, &metrics);
+    try std.testing.expectEqual(@as(c_int, 12), metrics.label_height);
+    try std.testing.expectEqual(@as(c_int, 24), metrics.action_extent);
+    try std.testing.expectEqual(@as(c_int, 30), metrics.strip_limit);
+    noctty_grid_compact_tab_metrics(40, &metrics);
+    try std.testing.expectEqual(@as(c_int, 40), metrics.label_height);
+    try std.testing.expectEqual(@as(c_int, 42), metrics.action_extent);
+    try std.testing.expectEqual(@as(c_int, 61), metrics.strip_limit);
+}
+
+test "settings geometry planner preserves bounded workarea hints" {
+    var plan = SettingsGeometryPlan{
+        .width = 0,
+        .height = 0,
+        .min_width = 0,
+        .min_height = 0,
+        .max_width = 0,
+        .max_height = 0,
+    };
+    noctty_grid_settings_geometry_plan(1200, 800, &plan);
+    try std.testing.expectEqual(@as(c_int, 980), plan.width);
+    try std.testing.expectEqual(@as(c_int, 704), plan.height);
+    try std.testing.expectEqual(@as(c_int, 720), plan.min_width);
+    try std.testing.expectEqual(@as(c_int, 560), plan.min_height);
+    try std.testing.expectEqual(@as(c_int, 1200), plan.max_width);
+    try std.testing.expectEqual(@as(c_int, 800), plan.max_height);
+    noctty_grid_settings_geometry_plan(640, 480, &plan);
+    try std.testing.expectEqual(@as(c_int, 608), plan.width);
+    try std.testing.expectEqual(@as(c_int, 448), plan.height);
 }
 
 test "render damage bounds clip rows cells and cursor rectangles" {

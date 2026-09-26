@@ -4969,8 +4969,10 @@ static void update_compact_tab(NocttyGridContext *context) {
         ? noctty_grid_widget_get_parent(tab_content) : NULL;
     if (tab_widget != NULL) noctty_grid_widget_show(tab_widget);
     apply_tab_color_style(tab_widget, tab_color_rgb, is_active);
+    NocttyGridCompactTabMetrics tab_metrics = {0};
+    noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     noctty_grid_widget_set_size_request(
-        context->tab_label, -1, MAX(12, root->compact_tab_height));
+        context->tab_label, -1, tab_metrics.label_height);
     char tab_color_tooltip[96] = {0};
     if (tab_color_rgb != 0)
         g_snprintf(tab_color_tooltip, sizeof(tab_color_tooltip),
@@ -5364,9 +5366,10 @@ static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
 
 static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gint extent = MAX(24, root->compact_tab_height + 2);
+    NocttyGridCompactTabMetrics tab_metrics = {0};
+    noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     return noctty_new_tab_button_new(
-        extent, root, G_CALLBACK(on_new_tab_button_clicked));
+        tab_metrics.action_extent, root, G_CALLBACK(on_new_tab_button_clicked));
 }
 
 enum {
@@ -5462,9 +5465,10 @@ static GtkWidget *create_window_toolbar_controls(NocttyGridContext *context) {
         .close_clicked = G_CALLBACK(on_window_close_button_clicked),
     };
     NocttyWindowToolbarContents contents = {0};
-    gint extent = MAX(24, root->compact_tab_height + 2);
+    NocttyGridCompactTabMetrics tab_metrics = {0};
+    noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     if (!noctty_window_toolbar_new(
-            extent, root, &callbacks, &contents))
+            tab_metrics.action_extent, root, &callbacks, &contents))
         return NULL;
     root->window_toolbar_controls = contents.controls;
     root->window_settings_button = contents.settings;
@@ -5563,13 +5567,14 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         close_allocation.width, close_allocation.height);
     root->compact_tab_action_extent = MIN(
         action_allocation.width, action_allocation.height);
-    gint strip_limit = MAX(30, root->compact_tab_height * 3 / 2 + 1);
+    NocttyGridCompactTabMetrics tab_metrics = {0};
+    noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     root->compact_tab_geometry = page_count == 2 && horizontal &&
         close != NULL && noctty_grid_widget_get_visible(close) &&
         noctty_grid_widget_get_mapped(close) &&
         root->compact_tab_strip_extent > 0 &&
-        root->compact_tab_strip_extent <= strip_limit &&
-        root->compact_tab_widget_extent <= strip_limit &&
+        root->compact_tab_strip_extent <= tab_metrics.strip_limit &&
+        root->compact_tab_widget_extent <= tab_metrics.strip_limit &&
         root->compact_tab_max_width <= 150 &&
         noctty_grid_widget_is_type(close_icon, NOCTTY_GTK_IMAGE) &&
         close_icon_size == GTK_ICON_SIZE_MENU &&
@@ -10883,31 +10888,24 @@ static void open_grid_settings(NocttyGridContext *context) {
     if (settings_monitor != NULL)
         noctty_grid_gdk_monitor_get_workarea(settings_monitor, &settings_workarea);
     gboolean compact_settings = settings_workarea.width < 800;
-    int settings_width =
-        noctty_grid_dialog_dimension(settings_workarea.width, 980, 720, 96);
-    int settings_height =
-        noctty_grid_dialog_dimension(settings_workarea.height, 720, 560, 96);
-    settings_width = noctty_grid_dialog_dimension(
-        settings_workarea.width, settings_width, 1, 32);
-    settings_height = noctty_grid_dialog_dimension(
-        settings_workarea.height, settings_height, 1, 32);
+    NocttyGridSettingsGeometryPlan settings_geometry = {0};
+    noctty_grid_settings_geometry_plan(
+        settings_workarea.width, settings_workarea.height,
+        &settings_geometry);
     configure_overlay_window_geometry(
         context, dialog, &settings_workarea,
-        settings_width, settings_height);
-    int settings_min_width = MIN(720, settings_width);
-    int settings_min_height = MIN(560, settings_height);
-    int settings_max_width = MAX(1, settings_workarea.width);
-    int settings_max_height = MAX(1, settings_workarea.height);
+        settings_geometry.width, settings_geometry.height);
     noctty_grid_window_set_geometry_hints(
         dialog,
-        settings_min_width,
-        settings_min_height,
-        settings_max_width,
-        settings_max_height,
+        settings_geometry.min_width,
+        settings_geometry.min_height,
+        settings_geometry.max_width,
+        settings_geometry.max_height,
         GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
     noctty_grid_window_set_default_size(
-        dialog, settings_width, settings_height);
-    noctty_grid_window_resize(dialog, settings_width, settings_height);
+        dialog, settings_geometry.width, settings_geometry.height);
+    noctty_grid_window_resize(
+        dialog, settings_geometry.width, settings_geometry.height);
     noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
     noctty_grid_window_set_resizable(GTK_WIDGET(dialog), TRUE);
     noctty_grid_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
@@ -11290,17 +11288,18 @@ static void open_grid_settings(NocttyGridContext *context) {
     noctty_grid_window_get_size(GTK_WINDOW(dialog), &rendered_width,
                         &rendered_height);
     context->settings_geometry_sane =
-        rendered_width >= settings_min_width &&
-        rendered_height >= settings_min_height &&
-        rendered_width <= settings_max_width &&
-        rendered_height <= settings_max_height;
+        rendered_width >= settings_geometry.min_width &&
+        rendered_height >= settings_geometry.min_height &&
+        rendered_width <= settings_geometry.max_width &&
+        rendered_height <= settings_geometry.max_height;
     if (!context->settings_geometry_sane && context->workspace_smoke == 6) {
         g_printerr(
             "native_grid_settings_geometry workarea=%dx%d requested=%dx%d rendered=%dx%d bounds=%dx%d..%dx%d scale=%d\n",
             settings_workarea.width, settings_workarea.height,
-            settings_width, settings_height, rendered_width, rendered_height,
-            settings_min_width, settings_min_height,
-            settings_max_width, settings_max_height,
+            settings_geometry.width, settings_geometry.height,
+            rendered_width, rendered_height,
+            settings_geometry.min_width, settings_geometry.min_height,
+            settings_geometry.max_width, settings_geometry.max_height,
             noctty_grid_widget_get_scale_factor(dialog));
     }
     if (first != NULL) noctty_grid_focus_widget(NULL, GTK_WIDGET(first));

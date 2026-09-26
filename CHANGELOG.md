@@ -20,6 +20,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   monitor queries and returned handles.
 - Moved monitor scale clamping and topology-change detection into the Zig
   grid-logic adapter; C retains native monitor queries and adaptation effects.
+- Moved compact-tab sizing and settings-dialog geometry plans into the Zig
+  grid-logic adapter; C retains GTK allocation, widget, and window effects.
 - Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
   full-stack qualification pass under isolated X11 and Wayland sessions;
   physical Windows acceptance remains external.

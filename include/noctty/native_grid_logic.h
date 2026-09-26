@@ -442,6 +442,27 @@ int noctty_grid_dialog_dimension(
     int available_px, int maximum_px, int minimum_px, int margin_px);
 int noctty_grid_percent_dimension(
     int available_px, int percent, int minimum_px);
+typedef struct {
+    int label_height;
+    int action_extent;
+    int strip_limit;
+} NocttyGridCompactTabMetrics;
+
+void noctty_grid_compact_tab_metrics(
+    int tab_height, NocttyGridCompactTabMetrics *metrics);
+
+typedef struct {
+    int width;
+    int height;
+    int min_width;
+    int min_height;
+    int max_width;
+    int max_height;
+} NocttyGridSettingsGeometryPlan;
+
+void noctty_grid_settings_geometry_plan(
+    int workarea_width, int workarea_height,
+    NocttyGridSettingsGeometryPlan *plan);
 int noctty_grid_scroll_target_delta(
     uint64_t history_lines, uint64_t viewport_offset, uint64_t target_offset);
 int noctty_grid_tab_title_width(int title_length);
