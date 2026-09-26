@@ -61,6 +61,12 @@ typedef struct {
 } NocttyGridStatusPlan;
 
 typedef struct {
+    uint32_t role;
+    uint32_t fallback;
+    int muted;
+} NocttyGridStatusColorPlan;
+
+typedef struct {
     int show;
 } NocttyGridNotebookChromePlan;
 typedef struct {
@@ -628,6 +634,9 @@ void noctty_grid_render_chrome(
 void noctty_grid_status_plan(
     int status_kind, int attention,
     NocttyGridStatusPlan *plan);
+void noctty_grid_status_color_plan(
+    int status_kind, int attention,
+    NocttyGridStatusColorPlan *plan);
 void noctty_grid_notebook_chrome_plan(
     uint64_t zoomed_pane_id, int page_count,
     NocttyGridNotebookChromePlan *plan);

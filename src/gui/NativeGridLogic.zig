@@ -2263,18 +2263,12 @@ pub export fn noctty_grid_render_chrome(
     output: ?*RenderChrome,
 ) callconv(.c) void {
     const chrome = output orelse return;
-    const status_role: u32 = switch (status_kind) {
-        1 => 12,
-        2 => 13,
-        4 => 14,
-        else => if (status_kind == 0) 0 else 15,
+    var status_color = StatusColorPlan{
+        .role = 0,
+        .fallback = 0,
+        .muted = 1,
     };
-    const status_fallback: u32 = switch (status_kind) {
-        1 => 0x408cf2,
-        2 => 0x40cc66,
-        4 => 0xf5b82e,
-        else => if (status_kind == 0) 0 else 0xe64040,
-    };
+    noctty_grid_status_color_plan(status_kind, 0, &status_color);
     const width = if (focused != 0)
         focused_width
     else if (selected != 0)
@@ -2287,8 +2281,8 @@ pub export fn noctty_grid_render_chrome(
         cursor_column >= 0 and cursor_column < columns and
         cursor_row >= 0 and cursor_row < rows;
     chrome.* = .{
-        .status_role = status_role,
-        .status_fallback = status_fallback,
+        .status_role = status_color.role,
+        .status_fallback = status_color.fallback,
         .pane_role = if (focused != 0) 1 else if (selected != 0) 2 else 3,
         .pane_fallback = if (focused != 0 or selected != 0) 0xf2b82e else 0x343848,
         .pane_width = @max(width, 0),
@@ -2569,6 +2563,12 @@ pub const StatusPlan = extern struct {
     changed: c_int,
 };
 
+pub const StatusColorPlan = extern struct {
+    role: u32,
+    fallback: u32,
+    muted: c_int,
+};
+
 pub const NotebookChromePlan = extern struct {
     show: c_int,
 };
@@ -2583,6 +2583,22 @@ pub export fn noctty_grid_status_plan(
     plan.* = .{
         .active_kind = active_kind,
         .changed = @intFromBool(status_kind != active_kind),
+    };
+}
+
+pub export fn noctty_grid_status_color_plan(
+    status_kind: c_int,
+    attention: c_int,
+    output: ?*StatusColorPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const kind: c_int = if (attention != 0) 4 else status_kind;
+    plan.* = switch (kind) {
+        0 => .{ .role = 0, .fallback = 0, .muted = 1 },
+        1 => .{ .role = 12, .fallback = 0x408cf2, .muted = 0 },
+        2 => .{ .role = 13, .fallback = 0x40cc66, .muted = 0 },
+        4 => .{ .role = 14, .fallback = 0xf5b82e, .muted = 0 },
+        else => .{ .role = 15, .fallback = 0xe64040, .muted = 0 },
     };
 }
 
@@ -3167,6 +3183,23 @@ test "status and notebook chrome plans preserve GTK state precedence" {
     try std.testing.expectEqual(@as(c_int, 0), chrome.show);
     noctty_grid_notebook_chrome_plan(0, 0, &chrome);
     try std.testing.expectEqual(@as(c_int, 0), chrome.show);
+}
+
+test "status color plan preserves idle, attention, and protocol colors" {
+    var color = StatusColorPlan{ .role = 0, .fallback = 0, .muted = 0 };
+    noctty_grid_status_color_plan(0, 0, &color);
+    try std.testing.expectEqual(@as(u32, 0), color.role);
+    try std.testing.expectEqual(@as(u32, 0), color.fallback);
+    try std.testing.expectEqual(@as(c_int, 1), color.muted);
+
+    noctty_grid_status_color_plan(3, 0, &color);
+    try std.testing.expectEqual(@as(u32, 15), color.role);
+    try std.testing.expectEqual(@as(u32, 0xe64040), color.fallback);
+    try std.testing.expectEqual(@as(c_int, 0), color.muted);
+
+    noctty_grid_status_color_plan(1, 1, &color);
+    try std.testing.expectEqual(@as(u32, 14), color.role);
+    try std.testing.expectEqual(@as(u32, 0xf5b82e), color.fallback);
 }
 
 test "profile labels cover every preset and custom fallback" {

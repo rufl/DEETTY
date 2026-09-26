@@ -156,6 +156,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   The adapter also now delegates panel-layout spacing, bounded allocation
   resizing, notebook-chrome visibility, and terminal-status activation policy
   through the same Zig ABI.
+  Shared terminal-status color-role, fallback, and idle-muted policy now also
+  crosses that ABI.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

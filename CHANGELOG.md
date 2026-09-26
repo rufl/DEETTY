@@ -6,6 +6,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Windows startup now surfaces persisted workspace, theme, and launch-profile
   restoration failures instead of silently falling back; the current session
   remains usable and points operators to Settings for recovery.
+- Moved shared terminal-status color-role and fallback selection into the Zig
+  grid-logic adapter; C retains markup construction and GTK color application.
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.

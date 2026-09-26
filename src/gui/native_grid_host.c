@@ -4927,18 +4927,13 @@ static void update_compact_tab(NocttyGridContext *context) {
               tab_color_uses_dark_text(tab_color_rgb) ? "#11151b" : "#ffffff")
         : g_strdup("");
     char color[8];
-    if (!attention && status == 0) {
+    NocttyGridStatusColorPlan status_color = {0};
+    noctty_grid_status_color_plan(status, attention, &status_color);
+    if (status_color.muted != 0) {
         g_strlcpy(color, "#6f7480", sizeof(color));
     } else {
-        uint32_t status_role = attention || status == 4
-            ? NOCTTY_UI_COLOR_STATUS_WARNING
-            : status == 3 ? NOCTTY_UI_COLOR_STATUS_ERROR
-            : status == 2 ? NOCTTY_UI_COLOR_STATUS_SUCCESS
-            : NOCTTY_UI_COLOR_STATUS_INFO;
-        uint32_t status_fallback = attention || status == 4
-            ? 0xf5b82e : status == 3 ? 0xe64040
-            : status == 2 ? 0x40cc66 : 0x408cf2;
-        format_ui_color(root, status_role, status_fallback, color);
+        format_ui_color(
+            root, status_color.role, status_color.fallback, color);
     }
     gchar *markup = g_strdup_printf(
         "<span size='small' weight='%s'%s>%s%s%s</span> <span foreground='%s'>●</span>%s%s%s%s",
