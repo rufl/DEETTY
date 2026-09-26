@@ -9296,41 +9296,38 @@ static void apply_grid_layer_geometry(NocttyGridContext *context) {
         set_monitor(GTK_WINDOW(root->window), monitor);
         root->layer_shell_monitor = monitor;
     }
-    int width = noctty_grid_dropdown_dimension(
+    NocttyGridLayerGeometryPlan geometry_plan = {0};
+    noctty_grid_layer_geometry_plan(
+        root->mode, geometry.width, geometry.height,
         root->dropdown_width_px, root->dropdown_width_percent,
-        geometry.width, NOCTTY_DROPDOWN_MIN_WIDTH_PX);
-    int height = noctty_grid_dropdown_dimension(
         root->dropdown_height_px, root->dropdown_height_percent,
-        geometry.height, NOCTTY_DROPDOWN_MIN_HEIGHT_PX);
-    int horizontal_margin = MAX(0, (geometry.width - width) / 2);
-    int horizontal_remainder = MAX(0, geometry.width - width - horizontal_margin);
+        &geometry_plan);
 
     for (int edge = 0; edge < 4; edge++) {
         set_anchor(GTK_WINDOW(root->window), edge, FALSE);
         set_margin(GTK_WINDOW(root->window), edge, 0);
     }
-    if (root->mode == 0) {
+    if (geometry_plan.action == NOCTTY_GRID_LAYER_GEOMETRY_DROPDOWN) {
         set_namespace(GTK_WINDOW(root->window), "noctty-dropdown");
         set_anchor(GTK_WINDOW(root->window), 0, TRUE);
         set_anchor(GTK_WINDOW(root->window), 1, TRUE);
         set_anchor(GTK_WINDOW(root->window), 2, TRUE);
         set_anchor(GTK_WINDOW(root->window), 3, TRUE);
-        set_margin(GTK_WINDOW(root->window), 0, horizontal_margin);
-        set_margin(GTK_WINDOW(root->window), 1, horizontal_remainder);
-        set_margin(GTK_WINDOW(root->window), 3,
-                   MAX(0, geometry.height - height));
-        noctty_grid_widget_set_size_request(root->window, width, height);
-    } else if (root->mode == 2) {
+        set_margin(GTK_WINDOW(root->window), 0, geometry_plan.left);
+        set_margin(GTK_WINDOW(root->window), 1, geometry_plan.right);
+        set_margin(GTK_WINDOW(root->window), 3, geometry_plan.bottom);
+        noctty_grid_widget_set_size_request(
+            root->window, geometry_plan.width, geometry_plan.height);
+    } else if (geometry_plan.action == NOCTTY_GRID_LAYER_GEOMETRY_ZEN) {
         set_namespace(GTK_WINDOW(root->window), "noctty-zen");
         for (int edge = 0; edge < 4; edge++)
             set_anchor(GTK_WINDOW(root->window), edge, TRUE);
-        noctty_grid_widget_set_size_request(root->window, -1, -1);
-    } else {
+        noctty_grid_widget_set_size_request(
+            root->window, geometry_plan.width, geometry_plan.height);
+    } else if (geometry_plan.action == NOCTTY_GRID_LAYER_GEOMETRY_WINDOW) {
         set_namespace(GTK_WINDOW(root->window), "noctty-window");
         noctty_grid_widget_set_size_request(
-            root->window,
-            MAX(480, geometry.width * 80 / 100),
-            MAX(320, geometry.height * 75 / 100));
+            root->window, geometry_plan.width, geometry_plan.height);
     }
 }
 

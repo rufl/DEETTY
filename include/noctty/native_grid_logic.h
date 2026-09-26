@@ -302,6 +302,28 @@ enum {
 void noctty_grid_fullscreen_plan(
     int gdk_window_present, int wayland_display, int monitor_index,
     NocttyGridFullscreenPlan *plan);
+
+typedef struct {
+    int action;
+    int width;
+    int height;
+    int left;
+    int right;
+    int bottom;
+} NocttyGridLayerGeometryPlan;
+
+enum {
+    NOCTTY_GRID_LAYER_GEOMETRY_NONE = 0,
+    NOCTTY_GRID_LAYER_GEOMETRY_DROPDOWN = 1,
+    NOCTTY_GRID_LAYER_GEOMETRY_ZEN = 2,
+    NOCTTY_GRID_LAYER_GEOMETRY_WINDOW = 3
+};
+
+void noctty_grid_layer_geometry_plan(
+    int mode, int monitor_width, int monitor_height,
+    int dropdown_width_px, int dropdown_width_percent,
+    int dropdown_height_px, int dropdown_height_percent,
+    NocttyGridLayerGeometryPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

@@ -13,6 +13,8 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   grid-logic adapter; C retains monitor enumeration and native fullscreen calls.
 - Hardened nullable GVariant ownership adapters so failed D-Bus calls cannot
   unref null replies during native-grid smoke and shutdown paths.
+- Moved layer-shell dropdown, zen, and window sizing decisions into the Zig
+  grid-logic adapter; C retains namespace, anchors, margins, and native effects.
 - Added current-build mapped GTK evidence: Debug presentation and ReleaseSafe
   full-stack qualification pass under isolated X11 and Wayland sessions;
   physical Windows acceptance remains external.

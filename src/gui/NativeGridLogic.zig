@@ -134,6 +134,15 @@ pub const FullscreenPlan = extern struct {
     action: c_int,
 };
 
+pub const LayerGeometryPlan = extern struct {
+    action: c_int,
+    width: c_int,
+    height: c_int,
+    left: c_int,
+    right: c_int,
+    bottom: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -747,6 +756,10 @@ pub const visibility_action_show: c_int = 2;
 pub const fullscreen_action_window: c_int = 1;
 pub const fullscreen_action_current_monitor: c_int = 2;
 pub const fullscreen_action_monitor: c_int = 3;
+pub const layer_geometry_none: c_int = 0;
+pub const layer_geometry_dropdown: c_int = 1;
+pub const layer_geometry_zen: c_int = 2;
+pub const layer_geometry_window: c_int = 3;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1160,6 +1173,62 @@ pub export fn noctty_grid_fullscreen_plan(
         output.* = .{ .action = fullscreen_action_current_monitor };
     } else {
         output.* = .{ .action = fullscreen_action_monitor };
+    }
+}
+
+pub export fn noctty_grid_layer_geometry_plan(
+    mode: c_int,
+    monitor_width: c_int,
+    monitor_height: c_int,
+    dropdown_width_px: c_int,
+    dropdown_width_percent: c_int,
+    dropdown_height_px: c_int,
+    dropdown_height_percent: c_int,
+    output_optional: ?*LayerGeometryPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = layer_geometry_none,
+        .width = 0,
+        .height = 0,
+        .left = 0,
+        .right = 0,
+        .bottom = 0,
+    };
+    if (mode == 0) {
+        const width = noctty_grid_dropdown_dimension(
+            dropdown_width_px, dropdown_width_percent,
+            monitor_width, 480);
+        const height = noctty_grid_dropdown_dimension(
+            dropdown_height_px, dropdown_height_percent,
+            monitor_height, 240);
+        const left = @max(0, @divTrunc(monitor_width - width, 2));
+        output.* = .{
+            .action = layer_geometry_dropdown,
+            .width = width,
+            .height = height,
+            .left = left,
+            .right = @max(0, monitor_width - width - left),
+            .bottom = @max(0, monitor_height - height),
+        };
+    } else if (mode == 2) {
+        output.* = .{
+            .action = layer_geometry_zen,
+            .width = -1,
+            .height = -1,
+            .left = 0,
+            .right = 0,
+            .bottom = 0,
+        };
+    } else if (mode == 1) {
+        output.* = .{
+            .action = layer_geometry_window,
+            .width = @max(480, @divTrunc(monitor_width * 80, 100)),
+            .height = @max(320, @divTrunc(monitor_height * 75, 100)),
+            .left = 0,
+            .right = 0,
+            .bottom = 0,
+        };
     }
 }
 
@@ -2953,6 +3022,32 @@ test "fullscreen planner preserves native fallback precedence" {
     try std.testing.expectEqual(@as(c_int, fullscreen_action_current_monitor), plan.action);
     noctty_grid_fullscreen_plan(1, 0, 2, &plan);
     try std.testing.expectEqual(@as(c_int, fullscreen_action_monitor), plan.action);
+}
+
+test "layer geometry planner preserves dropdown zen and window sizing" {
+    var plan = LayerGeometryPlan{
+        .action = layer_geometry_none,
+        .width = 0,
+        .height = 0,
+        .left = 0,
+        .right = 0,
+        .bottom = 0,
+    };
+    noctty_grid_layer_geometry_plan(0, 1920, 1080, 900, 50, 420, 50, &plan);
+    try std.testing.expectEqual(@as(c_int, layer_geometry_dropdown), plan.action);
+    try std.testing.expectEqual(@as(c_int, 900), plan.width);
+    try std.testing.expectEqual(@as(c_int, 420), plan.height);
+    try std.testing.expectEqual(@as(c_int, 510), plan.left);
+    try std.testing.expectEqual(@as(c_int, 510), plan.right);
+    try std.testing.expectEqual(@as(c_int, 660), plan.bottom);
+    noctty_grid_layer_geometry_plan(2, 1920, 1080, 0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, layer_geometry_zen), plan.action);
+    try std.testing.expectEqual(@as(c_int, -1), plan.width);
+    try std.testing.expectEqual(@as(c_int, -1), plan.height);
+    noctty_grid_layer_geometry_plan(1, 1200, 800, 0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, layer_geometry_window), plan.action);
+    try std.testing.expectEqual(@as(c_int, 960), plan.width);
+    try std.testing.expectEqual(@as(c_int, 600), plan.height);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {
