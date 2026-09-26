@@ -3979,7 +3979,7 @@ pub fn main(init: std.process.Init) !void {
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-pane-close-smoke")) {
-                try nativeGridPaneCloseSmoke(stdout);
+                try nativeGridPaneCloseSmoke(init.io, stdout);
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-terminal-chords-smoke")) {
@@ -7079,7 +7079,7 @@ fn nativeGridTwoPaneSmoke(out: anytype) !void {
     try out.print("native_grid_two_pane_smoke panes=2 dynamic_split=true primary_pty=true secondary_pty=true pty_event_source=true primary_grid=true secondary_grid=true secondary_lifecycle=true exited=true\n", .{});
 }
 
-fn nativeGridPaneCloseSmoke(out: anytype) !void {
+fn nativeGridPaneCloseSmoke(io: std.Io, out: anytype) !void {
     const allocator = std.heap.page_allocator;
     var app = try noctty.app.App.init(allocator);
     defer app.deinit();
@@ -7116,6 +7116,7 @@ fn nativeGridPaneCloseSmoke(out: anytype) !void {
         .app = &app,
         .pane_id = 1,
         .secondary_pane_id = pane_id,
+        .io = io,
         .session_pool = &session_pool,
     };
     const status = runNativeGridHost(.{
