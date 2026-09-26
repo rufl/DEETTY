@@ -341,6 +341,16 @@ void noctty_grid_monitor_selection_plan(
     int window_monitor, int primary_monitor,
     int pointer_monitor, int monitor_count,
     NocttyGridMonitorSelectionPlan *plan);
+int noctty_grid_monitor_scale_factor(int raw_scale_factor);
+int noctty_grid_monitor_metrics_changed(
+    int geometry_x, int geometry_y, int geometry_width, int geometry_height,
+    int workarea_x, int workarea_y, int workarea_width, int workarea_height,
+    int scale_factor,
+    int previous_geometry_x, int previous_geometry_y,
+    int previous_geometry_width, int previous_geometry_height,
+    int previous_workarea_x, int previous_workarea_y,
+    int previous_workarea_width, int previous_workarea_height,
+    int previous_scale_factor);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {

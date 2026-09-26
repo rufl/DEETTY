@@ -143,6 +143,10 @@ grep -F 'NocttyGridLayerGeometryPlan;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_monitor_selection_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_monitor_selection_plan(' "$grid" >/dev/null
 grep -F 'NocttyGridMonitorSelectionPlan;' "$grid_logic_header" >/dev/null
+grep -F 'pub export fn noctty_grid_monitor_scale_factor(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_monitor_scale_factor(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_monitor_metrics_changed(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_monitor_metrics_changed(' "$grid" >/dev/null
 grep -F 'noctty_grid_input_route(' "$grid" >/dev/null
 grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
 grep -F 'noctty_grid_cycle_target(' "$grid" >/dev/null

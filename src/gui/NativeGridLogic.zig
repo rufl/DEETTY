@@ -1261,6 +1261,43 @@ pub export fn noctty_grid_monitor_selection_plan(
     }
 }
 
+pub export fn noctty_grid_monitor_scale_factor(raw_scale_factor: c_int) callconv(.c) c_int {
+    return @max(1, raw_scale_factor);
+}
+
+pub export fn noctty_grid_monitor_metrics_changed(
+    geometry_x: c_int,
+    geometry_y: c_int,
+    geometry_width: c_int,
+    geometry_height: c_int,
+    workarea_x: c_int,
+    workarea_y: c_int,
+    workarea_width: c_int,
+    workarea_height: c_int,
+    scale_factor: c_int,
+    previous_geometry_x: c_int,
+    previous_geometry_y: c_int,
+    previous_geometry_width: c_int,
+    previous_geometry_height: c_int,
+    previous_workarea_x: c_int,
+    previous_workarea_y: c_int,
+    previous_workarea_width: c_int,
+    previous_workarea_height: c_int,
+    previous_scale_factor: c_int,
+) callconv(.c) c_int {
+    return @intFromBool(
+        geometry_x != previous_geometry_x or
+            geometry_y != previous_geometry_y or
+            geometry_width != previous_geometry_width or
+            geometry_height != previous_geometry_height or
+            workarea_x != previous_workarea_x or
+            workarea_y != previous_workarea_y or
+            workarea_width != previous_workarea_width or
+            workarea_height != previous_workarea_height or
+            scale_factor != previous_scale_factor,
+    );
+}
+
 fn terminalKey(keyval: u32) ?KeyEncoding.Key {
     return switch (keyval) {
         gdk_key_up => .up,
@@ -3091,6 +3128,26 @@ test "monitor selection planner preserves fallback precedence" {
     try std.testing.expectEqual(@as(c_int, monitor_selection_first), plan.action);
     noctty_grid_monitor_selection_plan(0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_none), plan.action);
+}
+
+test "monitor metrics policy clamps scale and detects topology changes" {
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_monitor_scale_factor(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_monitor_scale_factor(-2));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_monitor_scale_factor(2));
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_monitor_metrics_changed(
+            0, 0, 1920, 1080, 0, 24, 1920, 1056, 1,
+            0, 0, 1920, 1080, 0, 24, 1920, 1056, 1,
+        ),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_monitor_metrics_changed(
+            10, 0, 1920, 1080, 0, 24, 1920, 1056, 2,
+            0, 0, 1920, 1080, 0, 24, 1920, 1056, 1,
+        ),
+    );
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {

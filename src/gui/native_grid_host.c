@@ -9289,7 +9289,8 @@ static gboolean grid_monitor_metrics(
     if (workarea_output != NULL)
         noctty_grid_gdk_monitor_get_workarea(monitor, workarea_output);
     if (scale_factor_output != NULL)
-        *scale_factor_output = MAX(1, noctty_grid_gdk_monitor_get_scale_factor(monitor));
+        *scale_factor_output = noctty_grid_monitor_scale_factor(
+            noctty_grid_gdk_monitor_get_scale_factor(monitor));
     return TRUE;
 }
 
@@ -9723,15 +9724,15 @@ static gboolean on_window_resolution_configure(
     if (!grid_monitor_metrics(widget, NULL, &geometry, &workarea,
                               &scale_factor))
         return FALSE;
-    gboolean changed = geometry.x != root->monitor_geometry_x ||
-        geometry.y != root->monitor_geometry_y ||
-        geometry.width != root->monitor_geometry_width ||
-        geometry.height != root->monitor_geometry_height ||
-        workarea.x != root->monitor_workarea_x ||
-        workarea.y != root->monitor_workarea_y ||
-        workarea.width != root->monitor_workarea_width ||
-        workarea.height != root->monitor_workarea_height ||
-        scale_factor != root->monitor_scale_factor;
+    const int changed = noctty_grid_monitor_metrics_changed(
+        geometry.x, geometry.y, geometry.width, geometry.height,
+        workarea.x, workarea.y, workarea.width, workarea.height,
+        scale_factor,
+        root->monitor_geometry_x, root->monitor_geometry_y,
+        root->monitor_geometry_width, root->monitor_geometry_height,
+        root->monitor_workarea_x, root->monitor_workarea_y,
+        root->monitor_workarea_width, root->monitor_workarea_height,
+        root->monitor_scale_factor);
     if (changed) schedule_resolution_adapt(root);
     return FALSE;
 }
