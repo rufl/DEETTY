@@ -5695,9 +5695,9 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
         noctty_apply_pane_divider_style(
             root->notebook, root->pane_divider_px);
     }
-    int gap_width = root->pane_gaps_enabled ? root->pane_spacing_px : 0;
-    int spacing_leading = gap_width / 2;
-    int spacing_trailing = gap_width - spacing_leading;
+    NocttyGridPanelSpacingPlan spacing = {0};
+    noctty_grid_panel_spacing_plan(
+        root->pane_gaps_enabled, root->pane_spacing_px, &spacing);
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
@@ -5705,10 +5705,10 @@ static void apply_panel_layout_metrics(NocttyGridContext *root) {
         if (candidate->area == NULL) continue;
         noctty_grid_widget_set_margins(
             candidate->area,
-            spacing_leading,
-            spacing_leading,
-            spacing_trailing,
-            spacing_trailing);
+            spacing.leading,
+            spacing.leading,
+            spacing.trailing,
+            spacing.trailing);
     }
 }
 
@@ -15763,8 +15763,8 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     double next_size = base_size;
     int zoom_percent = 100;
     int floor_reached = 0;
-    int fit_width = allocation->width;
-    int fit_height = allocation->height;
+    NocttyGridAutoFitBounds fit_bounds = {
+        allocation->width, allocation->height};
     NocttyGridContext *root = root_grid_context(context);
     int auto_fit_enabled = root->workspace_smoke == 21 &&
         context->page != NULL &&
@@ -15780,14 +15780,16 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
                 continue;
             GtkAllocation candidate_allocation;
             noctty_grid_widget_get_allocation(candidate->area, &candidate_allocation);
-            if (candidate_allocation.width > 1)
-                fit_width = MIN(fit_width, candidate_allocation.width);
-            if (candidate_allocation.height > 1)
-                fit_height = MIN(fit_height, candidate_allocation.height);
+            NocttyGridAutoFitBounds candidate_bounds = {0};
+            noctty_grid_auto_fit_bounds(
+                fit_bounds.width, fit_bounds.height,
+                candidate_allocation.width, candidate_allocation.height,
+                &candidate_bounds);
+            fit_bounds = candidate_bounds;
         }
     }
     noctty_grid_auto_fit(
-        base_size, fit_width, fit_height, auto_fit_enabled, &next_size,
+        base_size, fit_bounds.width, fit_bounds.height, auto_fit_enabled, &next_size,
         &zoom_percent, &floor_reached);
     context->resize_overlay_floor_reached = floor_reached;
     gboolean font_changed = fabs(context->font_size - next_size) > 0.01;
@@ -15825,16 +15827,18 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     }
     context->resize_overlay_zoom_percent = zoom_percent;
 
-    int terminal_width = 0;
-    int columns = 0;
-    int rows = 0;
     NocttyGridFontMetrics metrics = grid_font_metrics(context);
-    if (!noctty_grid_dimensions(
+    NocttyGridResizePlan resize_plan = {0};
+    if (!noctty_grid_resize_plan(
             allocation->width, allocation->height,
             NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX, metrics.cell_width,
-            metrics.cell_height, &terminal_width, &columns, &rows))
+            metrics.cell_height, context->columns, context->rows,
+            &resize_plan))
         return;
-    if (columns == context->columns && rows == context->rows) {
+    int terminal_width = resize_plan.terminal_width;
+    int columns = resize_plan.columns;
+    int rows = resize_plan.rows;
+    if (!resize_plan.changed) {
         if (font_changed) show_resize_overlay(context, columns, rows);
         if (context->resize_commit_source != 0) {
             remove_grid_source(&context->resize_commit_source);

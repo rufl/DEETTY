@@ -38,6 +38,23 @@ typedef struct {
 } NocttyGridFontMetrics;
 
 typedef struct {
+    int leading;
+    int trailing;
+} NocttyGridPanelSpacingPlan;
+
+typedef struct {
+    int width;
+    int height;
+} NocttyGridAutoFitBounds;
+
+typedef struct {
+    int terminal_width;
+    int columns;
+    int rows;
+    int changed;
+} NocttyGridResizePlan;
+
+typedef struct {
     double x;
     double y;
     double width;
@@ -630,6 +647,18 @@ void noctty_grid_cursor_damage(
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,
                            NocttyGridRectangle *rectangle);
+void noctty_grid_panel_spacing_plan(
+    int enabled, int spacing_px,
+    NocttyGridPanelSpacingPlan *plan);
+void noctty_grid_auto_fit_bounds(
+    int allocation_width, int allocation_height,
+    int candidate_width, int candidate_height,
+    NocttyGridAutoFitBounds *bounds);
+int noctty_grid_resize_plan(
+    int allocation_width, int allocation_height,
+    double scrollbar_width, double cell_width, double cell_height,
+    int current_columns, int current_rows,
+    NocttyGridResizePlan *plan);
 void noctty_grid_row_span(int first, int end, double cell_height,
                           NocttyGridRectangle *rectangle);
 int noctty_grid_scroll_steps(int configured_lines, int smooth_enabled,

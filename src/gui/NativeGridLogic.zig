@@ -2547,6 +2547,37 @@ pub const FontMetrics = extern struct {
     cell_height: f64,
 };
 
+pub const PanelSpacingPlan = extern struct {
+    leading: c_int,
+    trailing: c_int,
+};
+
+pub const AutoFitBounds = extern struct {
+    width: c_int,
+    height: c_int,
+};
+
+pub const ResizePlan = extern struct {
+    terminal_width: c_int,
+    columns: c_int,
+    rows: c_int,
+    changed: c_int,
+};
+
+pub export fn noctty_grid_panel_spacing_plan(
+    enabled: c_int,
+    spacing_px: c_int,
+    output: ?*PanelSpacingPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const gap_width = if (enabled != 0) spacing_px else 0;
+    const leading = @divTrunc(gap_width, 2);
+    plan.* = .{
+        .leading = leading,
+        .trailing = gap_width - leading,
+    };
+}
+
 const default_font_points: f64 = 11;
 const font_points_to_pixels: f64 = 96.0 / 72.0;
 const cell_width_ratio: f64 = 0.64;
@@ -2619,6 +2650,26 @@ pub export fn noctty_grid_auto_fit(
     floor_reached.* = @intFromBool(enabled != 0 and fit_min < 3);
 }
 
+pub export fn noctty_grid_auto_fit_bounds(
+    allocation_width: c_int,
+    allocation_height: c_int,
+    candidate_width: c_int,
+    candidate_height: c_int,
+    output: ?*AutoFitBounds,
+) callconv(.c) void {
+    const bounds = output orelse return;
+    bounds.* = .{
+        .width = if (candidate_width > 1)
+            @min(allocation_width, candidate_width)
+        else
+            allocation_width,
+        .height = if (candidate_height > 1)
+            @min(allocation_height, candidate_height)
+        else
+            allocation_height,
+    };
+}
+
 pub export fn noctty_grid_dimensions(
     allocation_width: c_int,
     allocation_height: c_int,
@@ -2637,6 +2688,27 @@ pub export fn noctty_grid_dimensions(
     terminal_width.* = @max(1, allocation_width - @as(c_int, @intFromFloat(scrollbar_width)));
     columns.* = @max(2, @as(c_int, @intFromFloat(@as(f64, @floatFromInt(terminal_width.*)) / cell_width)));
     rows.* = @max(2, @as(c_int, @intFromFloat(@as(f64, @floatFromInt(allocation_height)) / cell_height)));
+    return 1;
+}
+
+pub export fn noctty_grid_resize_plan(
+    allocation_width: c_int,
+    allocation_height: c_int,
+    scrollbar_width: f64,
+    cell_width: f64,
+    cell_height: f64,
+    current_columns: c_int,
+    current_rows: c_int,
+    output: ?*ResizePlan,
+) callconv(.c) c_int {
+    const plan = output orelse return 0;
+    if (noctty_grid_dimensions(
+            allocation_width, allocation_height, scrollbar_width,
+            cell_width, cell_height, &plan.terminal_width,
+            &plan.columns, &plan.rows) == 0)
+        return 0;
+    plan.changed = @intFromBool(
+        plan.columns != current_columns or plan.rows != current_rows);
     return 1;
 }
 
@@ -3408,6 +3480,40 @@ test "auto-fit and grid dimensions remain bounded" {
     try std.testing.expectEqual(@as(c_int, 790), width);
     try std.testing.expectEqual(@as(c_int, 79), columns);
     try std.testing.expectEqual(@as(c_int, 30), rows);
+    var spacing: PanelSpacingPlan = undefined;
+    noctty_grid_panel_spacing_plan(0, -5, &spacing);
+    try std.testing.expectEqual(@as(c_int, 0), spacing.leading);
+    try std.testing.expectEqual(@as(c_int, 0), spacing.trailing);
+    noctty_grid_panel_spacing_plan(1, 5, &spacing);
+    try std.testing.expectEqual(@as(c_int, 2), spacing.leading);
+    try std.testing.expectEqual(@as(c_int, 3), spacing.trailing);
+    noctty_grid_panel_spacing_plan(1, -5, &spacing);
+    try std.testing.expectEqual(@as(c_int, -2), spacing.leading);
+    try std.testing.expectEqual(@as(c_int, -3), spacing.trailing);
+
+    var bounds: AutoFitBounds = undefined;
+    noctty_grid_auto_fit_bounds(800, 600, 1, 1200, &bounds);
+    try std.testing.expectEqual(@as(c_int, 800), bounds.width);
+    try std.testing.expectEqual(@as(c_int, 600), bounds.height);
+    noctty_grid_auto_fit_bounds(800, 600, 700, 400, &bounds);
+    try std.testing.expectEqual(@as(c_int, 700), bounds.width);
+    try std.testing.expectEqual(@as(c_int, 400), bounds.height);
+
+    var resize: ResizePlan = undefined;
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_plan(
+        800, 600, 10, 10, 20, 79, 30, &resize,
+    ));
+    try std.testing.expectEqual(@as(c_int, 790), resize.terminal_width);
+    try std.testing.expectEqual(@as(c_int, 79), resize.columns);
+    try std.testing.expectEqual(@as(c_int, 30), resize.rows);
+    try std.testing.expectEqual(@as(c_int, 0), resize.changed);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_plan(
+        800, 600, 10, 10, 20, 78, 30, &resize,
+    ));
+    try std.testing.expectEqual(@as(c_int, 1), resize.changed);
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_plan(
+        0, 600, 10, 10, 20, 0, 0, &resize,
+    ));
 }
 
 test "scroll steps preserve discrete and smooth accumulation" {
