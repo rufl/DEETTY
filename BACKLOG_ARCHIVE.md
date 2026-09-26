@@ -26,6 +26,24 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
   the full maintainer matrix, physical compositor/input qualification, signing,
   publication, or other operator-owned release evidence.
 
+## 2026-09-26
+
+### NCT-127 native graphical session-sharing controls: done
+
+- The native Session Sharing dialog already exposes pairing, SAS confirmation,
+  paired-device revoke, pane/tab/session sharing, receive, control
+  grant/revoke, reconnect, and retryable persistence recovery actions with
+  visible status and accessibility metadata.
+- Moved the complete enablement and contextual-label policy behind the Zig
+  grid-logic ABI; GTK retains widget sensitivity, native status text, labels,
+  and effects. Source/build guards and the native sharing scope contract remain
+  aligned with the policy.
+- Acceptance met: native layout guard passed; Debug native and x86_64 Windows
+  GNU checks passed; 608/608 native tests passed; reproducible Linux and
+  Windows ZTASH packages were rebuilt with Linux package smoke passing.
+- Honest boundary: mapped/physical Windows qualification, multi-day stability,
+  signing, publication, and other operator-owned release evidence remain open.
+
 ## 2026-08-22 <!-- craft-ignore: chronological archive navigation -->
 
 ### NCT-124 Konsole-class Plasma launch resilience: done

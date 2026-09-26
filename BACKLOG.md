@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-09-02.
+Last refreshed: 2026-09-26.
 
 ## Source Of Truth Policy
 
@@ -201,9 +201,6 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Smart Tabs, dropdown/global-hotkey behavior, and workspace continuity.
   Broadcast input now has guarded native menu/shortcut dispatch and live-pane
   fan-out; physical/operator qualification remains.
-- [ ] Add native graphical paired-device/session-sharing controls over the
-  existing shared protocol and lifecycle, including visible permission and
-  persistence failures.
 - [ ] Continue replacing GTK C ownership with cohesive Zig components toward
   90% without counting file moves, duplicate implementations, or unrelated new
   code as architectural progress. Retain focused Linux runtime proof and
