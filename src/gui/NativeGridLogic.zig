@@ -143,6 +143,10 @@ pub const LayerGeometryPlan = extern struct {
     bottom: c_int,
 };
 
+pub const MonitorSelectionPlan = extern struct {
+    action: c_int,
+};
+
 pub const CloseCoordinator = extern struct {
     phase: u32 = close_phase_idle,
     origin: u32 = close_origin_none,
@@ -760,6 +764,11 @@ pub const layer_geometry_none: c_int = 0;
 pub const layer_geometry_dropdown: c_int = 1;
 pub const layer_geometry_zen: c_int = 2;
 pub const layer_geometry_window: c_int = 3;
+pub const monitor_selection_none: c_int = 0;
+pub const monitor_selection_window: c_int = 1;
+pub const monitor_selection_primary: c_int = 2;
+pub const monitor_selection_pointer: c_int = 3;
+pub const monitor_selection_first: c_int = 4;
 fn keyCommandPlan(
     action: c_int,
     direction: c_int,
@@ -1229,6 +1238,26 @@ pub export fn noctty_grid_layer_geometry_plan(
             .right = 0,
             .bottom = 0,
         };
+    }
+}
+
+pub export fn noctty_grid_monitor_selection_plan(
+    window_monitor: c_int,
+    primary_monitor: c_int,
+    pointer_monitor: c_int,
+    monitor_count: c_int,
+    output_optional: ?*MonitorSelectionPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{ .action = monitor_selection_none };
+    if (window_monitor != 0) {
+        output.* = .{ .action = monitor_selection_window };
+    } else if (primary_monitor != 0) {
+        output.* = .{ .action = monitor_selection_primary };
+    } else if (pointer_monitor != 0) {
+        output.* = .{ .action = monitor_selection_pointer };
+    } else if (monitor_count > 0) {
+        output.* = .{ .action = monitor_selection_first };
     }
 }
 
@@ -3048,6 +3077,20 @@ test "layer geometry planner preserves dropdown zen and window sizing" {
     try std.testing.expectEqual(@as(c_int, layer_geometry_window), plan.action);
     try std.testing.expectEqual(@as(c_int, 960), plan.width);
     try std.testing.expectEqual(@as(c_int, 600), plan.height);
+}
+
+test "monitor selection planner preserves fallback precedence" {
+    var plan = MonitorSelectionPlan{ .action = monitor_selection_none };
+    noctty_grid_monitor_selection_plan(1, 1, 1, 3, &plan);
+    try std.testing.expectEqual(@as(c_int, monitor_selection_window), plan.action);
+    noctty_grid_monitor_selection_plan(0, 1, 1, 3, &plan);
+    try std.testing.expectEqual(@as(c_int, monitor_selection_primary), plan.action);
+    noctty_grid_monitor_selection_plan(0, 0, 1, 3, &plan);
+    try std.testing.expectEqual(@as(c_int, monitor_selection_pointer), plan.action);
+    noctty_grid_monitor_selection_plan(0, 0, 0, 2, &plan);
+    try std.testing.expectEqual(@as(c_int, monitor_selection_first), plan.action);
+    noctty_grid_monitor_selection_plan(0, 0, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, monitor_selection_none), plan.action);
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {

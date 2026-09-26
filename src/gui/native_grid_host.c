@@ -9240,19 +9240,41 @@ static void set_grid_layer_keyboard_active(NocttyGridContext *context,
 static GdkMonitor *grid_monitor_for_window(GtkWidget *window) {
     GdkDisplay *display = noctty_grid_widget_get_display(window);
     GdkWindow *gdk_window = noctty_grid_widget_get_window(window);
-    GdkMonitor *monitor = gdk_window != NULL
+    GdkMonitor *window_monitor = gdk_window != NULL
         ? noctty_grid_gdk_monitor_at_window(display, gdk_window)
         : NULL;
-    if (monitor == NULL) monitor = noctty_grid_gdk_primary_monitor(display);
-    if (monitor == NULL) {
+    GdkMonitor *primary_monitor =
+        noctty_grid_gdk_primary_monitor(display);
+    GdkMonitor *pointer_monitor = NULL;
+    if (window_monitor == NULL && primary_monitor == NULL) {
         gint x = 0;
         gint y = 0;
         if (noctty_grid_gdk_pointer_position(display, &x, &y))
-            monitor = noctty_grid_gdk_monitor_at_point(display, x, y);
+            pointer_monitor = noctty_grid_gdk_monitor_at_point(display, x, y);
     }
-    if (monitor == NULL && noctty_grid_gdk_monitor_count(display) > 0)
-        monitor = noctty_grid_gdk_monitor_at_index(display, 0);
-    return monitor;
+    int monitor_count = noctty_grid_gdk_monitor_count(display);
+    GdkMonitor *first_monitor = NULL;
+    if (window_monitor == NULL && primary_monitor == NULL &&
+        pointer_monitor == NULL && monitor_count > 0)
+        first_monitor = noctty_grid_gdk_monitor_at_index(display, 0);
+    NocttyGridMonitorSelectionPlan plan = {0};
+    noctty_grid_monitor_selection_plan(
+        window_monitor != NULL ? 1 : 0,
+        primary_monitor != NULL ? 1 : 0,
+        pointer_monitor != NULL ? 1 : 0,
+        monitor_count, &plan);
+    switch (plan.action) {
+    case NOCTTY_GRID_MONITOR_SELECTION_WINDOW:
+        return window_monitor;
+    case NOCTTY_GRID_MONITOR_SELECTION_PRIMARY:
+        return primary_monitor;
+    case NOCTTY_GRID_MONITOR_SELECTION_POINTER:
+        return pointer_monitor;
+    case NOCTTY_GRID_MONITOR_SELECTION_FIRST:
+        return first_monitor;
+    default:
+        return NULL;
+    }
 }
 
 static gboolean grid_monitor_metrics(

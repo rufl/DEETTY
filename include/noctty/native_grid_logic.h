@@ -324,6 +324,23 @@ void noctty_grid_layer_geometry_plan(
     int dropdown_width_px, int dropdown_width_percent,
     int dropdown_height_px, int dropdown_height_percent,
     NocttyGridLayerGeometryPlan *plan);
+
+typedef struct {
+    int action;
+} NocttyGridMonitorSelectionPlan;
+
+enum {
+    NOCTTY_GRID_MONITOR_SELECTION_NONE = 0,
+    NOCTTY_GRID_MONITOR_SELECTION_WINDOW = 1,
+    NOCTTY_GRID_MONITOR_SELECTION_PRIMARY = 2,
+    NOCTTY_GRID_MONITOR_SELECTION_POINTER = 3,
+    NOCTTY_GRID_MONITOR_SELECTION_FIRST = 4
+};
+
+void noctty_grid_monitor_selection_plan(
+    int window_monitor, int primary_monitor,
+    int pointer_monitor, int monitor_count,
+    NocttyGridMonitorSelectionPlan *plan);
 int noctty_grid_resize_handle_index(int stored_index);
 
 enum {
