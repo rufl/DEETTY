@@ -406,8 +406,7 @@ fn ensureAsciiGlyphCache(cache: GlyphCache, cr: *Cairo, face: usize) bool {
     const capacity = cache.capacity orelse return false;
     const scaled_font = cairo_get_scaled_font(cr) orelse return false;
     if (cairo_scaled_font_status(scaled_font) != 0) return false;
-    if (scaled_fonts[face] == scaled_font) return valid[face] != 0;
-
+    if (valid[face] != 0) return true;
     var sample: [95]u8 = undefined;
     for (&sample, 0..) |*byte, index| byte.* = @intCast(' ' + index);
     if (!ensureGlyphScratch(cache, sample.len)) return false;

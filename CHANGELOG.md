@@ -31,6 +31,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   and status-message/error classification into the Zig grid-logic adapter; C
   retains widget sensitivity, native labels, discovery-field updates, and GTK
   effects.
+- Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
+  cache validity now follows the explicit native font-policy invalidation path
+  instead of unstable scaled-font pointer identity, restoring zero warm-frame
+  renderer allocations.
 - Moved GTK window visibility toggle classification into the Zig grid-logic
   adapter; C retains activation, focus, overlay, and hide/show effects.
 - Moved overlay dialog monitor-margin arithmetic into the Zig grid-logic
