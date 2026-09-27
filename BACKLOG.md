@@ -193,6 +193,19 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Layout-preset event validation and rows/columns/target-count selection are
   also a tested Zig state plan; C retains pane enumeration, confirmations,
   session movement, and GTK layout effects.
+  Settings-panel/background field normalization and layout-effect
+  classification now cross a tested Zig state plan; C retains per-context
+  state application, widget invalidation, and event emission.
+  Launch-profile payload serialization, name validation, save-status messages,
+  and Noctalia theme persistence-status composition now cross the Zig ABI; C
+  retains GTK entry acquisition, text-action dispatch, and native status
+  effects.
+  The current source run passes all 120 Zig grid-logic tests and both Debug and
+  ReleaseSafe native smoke builds. The counted Zig ownership inventory is
+  82.36%; the fixed 90.00% gate and isolated graphical proof remain open.
+  Numeric restore-mode text, sharing selection IDs, pane drag identifiers, and
+  terminal accessibility names now also use bounded Zig text helpers; C retains
+  spawn, combo-box, drag-and-drop, and ATK effects.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

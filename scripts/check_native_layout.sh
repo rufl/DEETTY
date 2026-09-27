@@ -292,6 +292,19 @@ grep -F 'pub export fn noctty_grid_sharing_revoke_detail(' "$grid_logic" >/dev/n
 grep -F 'pub export fn noctty_grid_layout_preset_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_layout_preset_plan(' "$grid" >/dev/null
 grep -F 'noctty_grid_sharing_revoke_detail(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_panel_settings_apply(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_panel_settings_apply(' "$grid" >/dev/null
+grep -F 'NocttyGridPanelSettings;' "$grid_logic_header" >/dev/null
+grep -F 'pub export fn noctty_grid_launch_profile_payload(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_launch_profile_payload(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_launch_profile_name_valid(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_launch_profile_name_valid(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_theme_apply_status_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_theme_apply_status_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_decimal_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_decimal_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_terminal_accessible_name(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_terminal_accessible_name(' "$grid" >/dev/null
 ! grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
 grep -F '"Close file: {s}"' "$nocted" >/dev/null
 test "$(grep -c 'noctty_grid_widget_queue_resize(parent);' "$grid")" -eq 1

@@ -120,6 +120,26 @@ pub const LayoutPresetPlan = extern struct {
     target_count: c_int,
 };
 
+pub const PanelSettings = extern struct {
+    panel_padding_px: c_int,
+    pane_spacing_px: c_int,
+    pane_divider_px: c_int,
+    pane_border_px: c_int,
+    pane_border_focused_px: c_int,
+    pane_border_selected_px: c_int,
+    status_border_px: c_int,
+    overlay_border_px: c_int,
+    window_border_px: c_int,
+    dragger_px: c_int,
+    pane_gaps_enabled: c_int,
+    pane_gaps_transparent: c_int,
+    inactive_pane_dim_enabled: c_int,
+    inactive_pane_brightness_percent: c_int,
+    background_translucency: c_int,
+    background_opacity_percent: c_int,
+    affects_layout: c_int,
+};
+
 pub const AccessibleTextPlan = extern struct {
     initial_capacity: c_int,
 };
@@ -3253,6 +3273,163 @@ pub export fn noctty_grid_sharing_revoke_detail(
     );
 }
 
+const launch_profile_field_max: usize = 64 * 1024;
+
+fn launchProfileInput(
+    pointer: ?[*]const u8,
+    length: usize,
+) ?[]const u8 {
+    if (length > launch_profile_field_max) return null;
+    if (pointer) |value| return value[0..length];
+    return if (length == 0) "" else null;
+}
+
+fn appendLaunchProfileLength(total: *usize, value: usize) bool {
+    total.* = std.math.add(usize, total.*, value) catch return false;
+    return true;
+}
+
+fn launchProfilePayloadLength(
+    action: c_int,
+    name: []const u8,
+    shell: []const u8,
+    command: []const u8,
+    cwd: []const u8,
+    ssh_target: []const u8,
+    scrollback: c_int,
+) ?usize {
+    var total: usize = std.fmt.count("{d}", .{scrollback});
+    const fields = [_][]const u8{
+        name, shell, command, cwd, ssh_target,
+    };
+    const first_field: usize = if (action == 16) 0 else 1;
+    for (fields[first_field..], 0..) |field, index| {
+        if (index > 0 and !appendLaunchProfileLength(&total, 1))
+            return null;
+        if (!appendLaunchProfileLength(&total, field.len))
+            return null;
+    }
+    if (!appendLaunchProfileLength(&total, 1)) return null;
+    return total;
+}
+
+pub export fn noctty_grid_launch_profile_payload(
+    action: c_int,
+    name: ?[*]const u8,
+    name_length: usize,
+    shell: ?[*]const u8,
+    shell_length: usize,
+    command: ?[*]const u8,
+    command_length: usize,
+    cwd: ?[*]const u8,
+    cwd_length: usize,
+    ssh_target: ?[*]const u8,
+    ssh_target_length: usize,
+    scrollback: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const name_text = launchProfileInput(name, name_length) orelse return -1;
+    const shell_text = launchProfileInput(shell, shell_length) orelse return -1;
+    const command_text = launchProfileInput(command, command_length) orelse return -1;
+    const cwd_text = launchProfileInput(cwd, cwd_length) orelse return -1;
+    const ssh_text = launchProfileInput(ssh_target, ssh_target_length) orelse return -1;
+    const total = launchProfilePayloadLength(
+        action, name_text, shell_text, command_text, cwd_text, ssh_text, scrollback,
+    ) orelse return -1;
+    const result: c_int = @intCast(total);
+    if (output) |target| {
+        if (capacity <= total) return -1;
+        const payload = if (action == 16)
+            std.fmt.bufPrint(
+                target[0..total],
+                "{s}\t{s}\t{s}\t{s}\t{s}\t{d}",
+                .{ name_text, shell_text, command_text, cwd_text, ssh_text, scrollback },
+            ) catch return -1
+        else
+            std.fmt.bufPrint(
+                target[0..total],
+                "{s}\t{s}\t{s}\t{s}\t{d}",
+                .{ shell_text, command_text, cwd_text, ssh_text, scrollback },
+            ) catch return -1;
+        if (payload.len != total) return -1;
+        target[total] = 0;
+    }
+    return result;
+}
+
+pub export fn noctty_grid_launch_profile_name_valid(
+    text: ?[*]const u8,
+    length: usize,
+) callconv(.c) c_int {
+    const value = launchProfileInput(text, length) orelse return 0;
+    if (value.len == 0) return 0;
+    return @intFromBool(
+        !std.ascii.isWhitespace(value[0]) and
+            !std.ascii.isWhitespace(value[value.len - 1]),
+    );
+}
+
+pub export fn noctty_grid_launch_profile_status_message(
+    kind: c_int,
+) callconv(.c) [*:0]const u8 {
+    return switch (kind) {
+        0 => "Launch profile saved for new sessions.",
+        1 => "Profile was not saved. Check absolute paths, environment entries, and fields required by the selected launch type.",
+        2 => "Named launch profile saved and selected.",
+        3 => "Enter a profile name without leading or trailing spaces.",
+        4 => "The selected profile could not be deleted.",
+        5 => "Named launch profile deleted.",
+        else => "",
+    };
+}
+
+pub export fn noctty_grid_theme_apply_status_text(
+    persistence_failed: c_int,
+    label: ?[*]const u8,
+    label_length: usize,
+    variant: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const theme_label = if (variant == 0) "Dark" else "Light";
+    return if (persistence_failed != 0)
+        compactTabFormat(
+            output,
+            capacity,
+            "Using {s} — {s} for this session; the selection could not be saved.",
+            .{ compactTabInputSlice(label, label_length), theme_label },
+        )
+    else
+        compactTabFormat(
+            output,
+            capacity,
+            "Using {s} — {s}.",
+            .{ compactTabInputSlice(label, label_length), theme_label },
+        );
+}
+
+pub export fn noctty_grid_decimal_text(
+    value: i64,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(output, capacity, "{d}", .{value});
+}
+
+pub export fn noctty_grid_terminal_accessible_name(
+    pane_id: u64,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(
+        output,
+        capacity,
+        "Terminal pane {d}",
+        .{pane_id},
+    );
+}
+
 pub export fn noctty_grid_pane_tooltip(
     pane_id: u64,
     status: ?[*]const u8,
@@ -3621,6 +3798,38 @@ pub export fn noctty_grid_panel_metric_value(
 
 pub export fn noctty_grid_background_opacity_value(value: c_int) callconv(.c) c_int {
     return std.math.clamp(value, 10, 100);
+}
+
+pub export fn noctty_grid_panel_settings_apply(
+    event_code: c_int,
+    value: c_int,
+    output_optional: ?*PanelSettings,
+) callconv(.c) c_int {
+    const output = output_optional orelse return 0;
+    output.affects_layout = 0;
+    switch (event_code) {
+        46 => output.panel_padding_px = std.math.clamp(value, 0, 64),
+        47 => output.pane_spacing_px = std.math.clamp(value, 0, 64),
+        115 => output.background_translucency = @intFromBool(value != 0),
+        116 => output.background_opacity_percent =
+            noctty_grid_background_opacity_value(value),
+        119 => output.pane_divider_px = std.math.clamp(value, 1, 16),
+        120 => output.pane_border_px = std.math.clamp(value, 0, 12),
+        121 => output.pane_border_focused_px = std.math.clamp(value, 1, 12),
+        122 => output.pane_border_selected_px = std.math.clamp(value, 1, 12),
+        123 => output.status_border_px = std.math.clamp(value, 1, 12),
+        124 => output.overlay_border_px = std.math.clamp(value, 1, 12),
+        125 => output.window_border_px = std.math.clamp(value, 1, 16),
+        126 => output.dragger_px = std.math.clamp(value, 1, 32),
+        127 => output.pane_gaps_enabled = @intFromBool(value != 0),
+        128 => output.pane_gaps_transparent = @intFromBool(value != 0),
+        129 => output.inactive_pane_dim_enabled = @intFromBool(value != 0),
+        130 => output.inactive_pane_brightness_percent =
+            std.math.clamp(value, 20, 100),
+        else => return 0,
+    }
+    output.affects_layout = @intFromBool(event_code != 115 and event_code != 116);
+    return 1;
 }
 
 pub export fn noctty_grid_scrollbar_geometry(
@@ -5007,6 +5216,32 @@ test "layout preset plan preserves every native preset geometry" {
     }
     noctty_grid_layout_preset_plan(53, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+
+test "panel settings plan clamps fields and classifies layout effects" {
+    var settings = std.mem.zeroes(PanelSettings);
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_panel_settings_apply(46, -5, &settings),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), settings.panel_padding_px);
+    try std.testing.expectEqual(@as(c_int, 1), settings.affects_layout);
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_panel_settings_apply(115, 7, &settings),
+    );
+    try std.testing.expectEqual(@as(c_int, 1), settings.background_translucency);
+    try std.testing.expectEqual(@as(c_int, 0), settings.affects_layout);
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_panel_settings_apply(130, 101, &settings),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 100), settings.inactive_pane_brightness_percent);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_panel_settings_apply(131, 4, &settings),
+    );
 }
 
 test "layer geometry planner preserves dropdown zen and window sizing" {
@@ -6706,6 +6941,67 @@ test "remaining native UI text composition stays bounded and native-free" {
         "Alice will lose sharing access immediately. Pairing it again will require a new matching six-digit confirmation.",
         secondary[0..@intCast(length)],
     );
+}
+
+test "launch profile and persistence text policy stays bounded" {
+    var payload: [256]u8 = undefined;
+    const required = noctty_grid_launch_profile_payload(
+        15,
+        null, 0,
+        "bash", 4,
+        "printf hi", 9,
+        "/tmp", 4,
+        "user@host", 9,
+        1000,
+        null, 0,
+    );
+    try std.testing.expectEqual(
+        @as(c_int, "bash\tprintf hi\t/tmp\tuser@host\t1000".len),
+        required,
+    );
+    const written = noctty_grid_launch_profile_payload(
+        15,
+        null, 0,
+        "bash", 4,
+        "printf hi", 9,
+        "/tmp", 4,
+        "user@host", 9,
+        1000,
+        &payload, payload.len,
+    );
+    try std.testing.expectEqual(required, written);
+    try std.testing.expectEqualStrings(
+        "bash\tprintf hi\t/tmp\tuser@host\t1000",
+        payload[0..@intCast(written)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_launch_profile_name_valid("Profile", 7),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_launch_profile_name_valid(" Profile", 8),
+    );
+    try std.testing.expectEqualStrings(
+        "Named launch profile deleted.",
+        std.mem.span(noctty_grid_launch_profile_status_message(5)),
+    );
+    var status: [512]u8 = undefined;
+    const status_length = noctty_grid_theme_apply_status_text(
+        1, "Solarized", 9, 0, &status, status.len);
+    try std.testing.expectEqualStrings(
+        "Using Solarized — Dark for this session; the selection could not be saved.",
+        status[0..@intCast(status_length)],
+    );
+    var numeric: [64]u8 = undefined;
+    const decimal_length = noctty_grid_decimal_text(
+        -42, &numeric, numeric.len);
+    try std.testing.expectEqualStrings(
+        "-42", numeric[0..@intCast(decimal_length)]);
+    const accessible_length = noctty_grid_terminal_accessible_name(
+        7, &numeric, numeric.len);
+    try std.testing.expectEqualStrings(
+        "Terminal pane 7", numeric[0..@intCast(accessible_length)]);
 }
 
 test "recovery notice text preserves fallback precedence and ordering" {

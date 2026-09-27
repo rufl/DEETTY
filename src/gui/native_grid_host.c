@@ -10334,36 +10334,61 @@ static void on_settings_status_changed(GtkComboBox *combo, gpointer user_data) {
 static void apply_panel_metric_setting(NocttyGridContext *context,
                                        int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
-    int resolved = noctty_grid_panel_metric_value(event_code, value);
-    if (resolved < 0) return;
+    int affects_layout = 0;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(root->contexts, index);
-        switch (event_code) {
-            case 46: candidate->panel_padding_px = resolved; break;
-            case 47: candidate->pane_spacing_px = resolved; break;
-            case 119: candidate->pane_divider_px = resolved; break;
-            case 120: candidate->pane_border_px = resolved; break;
-            case 121: candidate->pane_border_focused_px = resolved; break;
-            case 122: candidate->pane_border_selected_px = resolved; break;
-            case 123: candidate->status_border_px = resolved; break;
-            case 124: candidate->overlay_border_px = resolved; break;
-            case 125: candidate->window_border_px = resolved; break;
-            case 126: candidate->dragger_px = resolved; break;
-            case 127: candidate->pane_gaps_enabled = resolved != 0; break;
-            case 128: candidate->pane_gaps_transparent = resolved != 0; break;
-            case 129: candidate->inactive_pane_dim_enabled = resolved != 0; break;
-            case 130:
-                candidate->inactive_pane_brightness_percent = resolved;
-                break;
-            default: return;
-        }
+        NocttyGridPanelSettings settings = {
+            .panel_padding_px = candidate->panel_padding_px,
+            .pane_spacing_px = candidate->pane_spacing_px,
+            .pane_divider_px = candidate->pane_divider_px,
+            .pane_border_px = candidate->pane_border_px,
+            .pane_border_focused_px = candidate->pane_border_focused_px,
+            .pane_border_selected_px = candidate->pane_border_selected_px,
+            .status_border_px = candidate->status_border_px,
+            .overlay_border_px = candidate->overlay_border_px,
+            .window_border_px = candidate->window_border_px,
+            .dragger_px = candidate->dragger_px,
+            .pane_gaps_enabled = candidate->pane_gaps_enabled,
+            .pane_gaps_transparent = candidate->pane_gaps_transparent,
+            .inactive_pane_dim_enabled = candidate->inactive_pane_dim_enabled,
+            .inactive_pane_brightness_percent =
+                candidate->inactive_pane_brightness_percent,
+            .background_translucency = candidate->background_translucency,
+            .background_opacity_percent =
+                candidate->background_opacity_percent,
+        };
+        if (noctty_grid_panel_settings_apply(
+                event_code, value, &settings) == 0)
+            return;
+        candidate->panel_padding_px = settings.panel_padding_px;
+        candidate->pane_spacing_px = settings.pane_spacing_px;
+        candidate->pane_divider_px = settings.pane_divider_px;
+        candidate->pane_border_px = settings.pane_border_px;
+        candidate->pane_border_focused_px = settings.pane_border_focused_px;
+        candidate->pane_border_selected_px = settings.pane_border_selected_px;
+        candidate->status_border_px = settings.status_border_px;
+        candidate->overlay_border_px = settings.overlay_border_px;
+        candidate->window_border_px = settings.window_border_px;
+        candidate->dragger_px = settings.dragger_px;
+        candidate->pane_gaps_enabled = settings.pane_gaps_enabled;
+        candidate->pane_gaps_transparent = settings.pane_gaps_transparent;
+        candidate->inactive_pane_dim_enabled =
+            settings.inactive_pane_dim_enabled;
+        candidate->inactive_pane_brightness_percent =
+            settings.inactive_pane_brightness_percent;
+        candidate->background_translucency = settings.background_translucency;
+        candidate->background_opacity_percent =
+            settings.background_opacity_percent;
+        affects_layout = settings.affects_layout;
         if (candidate->active && candidate->area != NULL)
             noctty_grid_widget_queue_draw(candidate->area);
     }
-    apply_panel_layout_metrics(root);
-    update_window_resize_handles(root);
+    if (affects_layout) {
+        apply_panel_layout_metrics(root);
+        update_window_resize_handles(root);
+    }
     if (context->event != NULL)
         context->event(context->event_data, context->pane_id, event_code,
                        value, (uint64_t)(g_get_monotonic_time() / 1000));
@@ -10578,8 +10603,8 @@ static void theme_color_button_configure(NocttyGridContext *context,
     NocttyThemeColorControl *control = g_new0(NocttyThemeColorControl, 1);
     control->context = root_grid_context(context);
     control->role = role;
-    noctty_grid_signal_connect(button, "color-set", G_CALLBACK(on_theme_color_changed),
-                     control);
+    noctty_grid_signal_connect(button, "color-set",
+                     G_CALLBACK(on_theme_color_changed), control);
     noctty_grid_signal_connect(button, "destroy",
                      G_CALLBACK(on_theme_color_control_destroy), control);
 }
@@ -10587,21 +10612,8 @@ static void theme_color_button_configure(NocttyGridContext *context,
 static void apply_background_setting(NocttyGridContext *context,
                                      int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
-    for (guint index = 0; root->contexts != NULL &&
-         index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (event_code == 115)
-            candidate->background_translucency = value;
-        else
-            candidate->background_opacity_percent =
-                noctty_grid_background_opacity_value(value);
-        if (candidate->active && candidate->area != NULL)
-            noctty_grid_widget_queue_draw(candidate->area);
-    }
+    apply_panel_metric_setting(context, event_code, value);
     if (root->window != NULL) noctty_grid_widget_queue_draw(root->window);
-    if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, event_code,
-                       value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_background_translucency_toggled(
@@ -10792,14 +10804,38 @@ static int submit_settings_launch_profile(NocttyGridContext *context,
         GTK_ENTRY(context->settings_launch_ssh_target));
     int scrollback = noctty_grid_spin_button_get_value_as_int(
         GTK_SPIN_BUTTON(context->settings_launch_scrollback));
-    gchar *payload = action == 16
-        ? g_strdup_printf("%s\t%s\t%s\t%s\t%s\t%d", name, shell,
-                          command, cwd, ssh_target, scrollback)
-        : g_strdup_printf("%s\t%s\t%s\t%s\t%d", shell, command, cwd,
-                          ssh_target, scrollback);
+    const char *profile_name = name != NULL ? name : "";
+    const size_t profile_name_length = strlen(profile_name);
+    const size_t shell_length = strlen(shell);
+    const size_t command_length = strlen(command);
+    const size_t cwd_length = strlen(cwd);
+    const size_t ssh_target_length = strlen(ssh_target);
+    const int payload_length = noctty_grid_launch_profile_payload(
+        action,
+        (const unsigned char *)profile_name, profile_name_length,
+        (const unsigned char *)shell, shell_length,
+        (const unsigned char *)command, command_length,
+        (const unsigned char *)cwd, cwd_length,
+        (const unsigned char *)ssh_target, ssh_target_length,
+        scrollback, NULL, 0);
+    if (payload_length <= 0) return -1;
+    gchar *payload = g_malloc((gsize)payload_length + 1);
+    if (payload == NULL) return -1;
+    if (noctty_grid_launch_profile_payload(
+            action,
+            (const unsigned char *)profile_name, profile_name_length,
+            (const unsigned char *)shell, shell_length,
+            (const unsigned char *)command, command_length,
+            (const unsigned char *)cwd, cwd_length,
+            (const unsigned char *)ssh_target, ssh_target_length,
+            scrollback, (unsigned char *)payload,
+            (gsize)payload_length + 1) != payload_length) {
+        noctty_grid_memory_free(payload);
+        return -1;
+    }
     int result = context->text_action(
-        context->text_action_data, action, payload, strlen(payload), environment,
-        strlen(environment), kind);
+        context->text_action_data, action, payload, (size_t)payload_length,
+        environment, strlen(environment), kind);
     noctty_grid_memory_free(payload);
     return result;
 }
@@ -10836,12 +10872,13 @@ static void on_settings_launch_apply(GtkButton *button, gpointer user_data) {
         context->launch_profile_setting_applied = 1;
         refresh_launch_profile_library(context);
         set_launch_profile_status(
-            context, "Launch profile saved for new sessions.", FALSE, NULL);
+            context,
+            noctty_grid_launch_profile_status_message(0),
+            FALSE, NULL);
     } else {
         set_launch_profile_status(
             context,
-            "Profile was not saved. Check absolute paths, environment "
-            "entries, and fields required by the selected launch type.",
+            noctty_grid_launch_profile_status_message(1),
             TRUE, context->settings_launch_kind);
     }
 }
@@ -10849,18 +10886,18 @@ static void on_settings_launch_apply(GtkButton *button, gpointer user_data) {
 static void on_settings_launch_save(GtkButton *button, gpointer user_data) {
     (void)button;
     NocttyGridContext *context = root_grid_context(user_data);
-    if (!noctty_grid_widget_is_type(context->settings_launch_name, NOCTTY_GTK_ENTRY)) return;
+    if (!noctty_grid_widget_is_type(context->settings_launch_name, NOCTTY_GTK_ENTRY))
+        return;
     const char *name = noctty_grid_entry_get_text(
         GTK_ENTRY(context->settings_launch_name));
-    gchar *trimmed = g_strdup(name);
-    g_strstrip(trimmed);
     gboolean valid_name =
-        trimmed[0] != '\0' && g_strcmp0(trimmed, name) == 0;
-    noctty_grid_memory_free(trimmed);
+        noctty_grid_launch_profile_name_valid(
+            (const unsigned char *)name,
+            name != NULL ? strlen(name) : 0) != 0;
     if (!valid_name) {
         set_launch_profile_status(
             context,
-            "Enter a profile name without leading or trailing spaces.",
+            noctty_grid_launch_profile_status_message(3),
             TRUE, context->settings_launch_name);
         return;
     }
@@ -10869,13 +10906,13 @@ static void on_settings_launch_save(GtkButton *button, gpointer user_data) {
         context->launch_profile_library_saved = 1;
         refresh_launch_profile_library(context);
         set_launch_profile_status(
-            context, "Named launch profile saved and selected.",
+            context,
+            noctty_grid_launch_profile_status_message(2),
             FALSE, NULL);
     } else {
         set_launch_profile_status(
             context,
-            "Profile was not saved. Check absolute paths, environment "
-            "entries, and fields required by the selected launch type.",
+            noctty_grid_launch_profile_status_message(1),
             TRUE, context->settings_launch_kind);
     }
 }
@@ -10919,7 +10956,8 @@ static void on_settings_launch_delete(GtkButton *button, gpointer user_data) {
             context->text_action_data, 18, "", 0, "", 0,
             active - 1) != 0) {
         set_launch_profile_status(
-            context, "The selected profile could not be deleted.",
+            context,
+            noctty_grid_launch_profile_status_message(4),
             TRUE, context->settings_launch_library);
         return;
     }
@@ -10927,7 +10965,9 @@ static void on_settings_launch_delete(GtkButton *button, gpointer user_data) {
     noctty_grid_entry_set_text(GTK_ENTRY(context->settings_launch_name), "");
     refresh_launch_profile_library(context);
     set_launch_profile_status(
-        context, "Named launch profile deleted.", FALSE, NULL);
+        context,
+        noctty_grid_launch_profile_status_message(5),
+        FALSE, NULL);
 }
 
 static void open_grid_settings(NocttyGridContext *context) {
@@ -11538,15 +11578,18 @@ static void on_noctalia_system_theme_clicked(GtkButton *button,
         noctty_grid_memory_free(label);
         return;
     }
-    gchar *message = g_strdup_printf(
-        result == NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED
-            ? "Using %s — %s for this session; the selection could not be saved."
-            : "Using %s — %s.",
-        label, variant == 0 ? "Dark" : "Light");
+    char message[4608] = {0};
+    const gboolean persistence_failed =
+        result == NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED;
+    if (noctty_grid_theme_apply_status_text(
+            persistence_failed,
+            (const unsigned char *)label, strlen(label),
+            variant, (unsigned char *)message, sizeof(message)) <= 0) {
+        noctty_grid_memory_free(label);
+        return;
+    }
     set_status_label_feedback(
-        controls->status, message,
-        result == NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED);
-    noctty_grid_memory_free(message);
+        controls->status, message, persistence_failed);
     queue_theme_redraw(context);
     refresh_open_theme_selectors(context);
     context->system_noctalia_theme_applied = 1;
@@ -11744,8 +11787,13 @@ static gboolean spawn_workspace_window(NocttyGridContext *context,
         noctty_grid_error_clear(&error);
         return FALSE;
     }
-    gchar restore_mode_text[8];
-    g_snprintf(restore_mode_text, sizeof(restore_mode_text), "%d", restore_mode);
+    gchar restore_mode_text[32] = {0};
+    if (noctty_grid_decimal_text(
+            restore_mode, (unsigned char *)restore_mode_text,
+            sizeof(restore_mode_text)) <= 0) {
+        noctty_grid_memory_free(executable);
+        return FALSE;
+    }
     gchar *arguments[] = {
         executable,
         (gchar *)"--open-workspace",
@@ -13026,8 +13074,12 @@ static int refresh_sharing_peers(NocttyGridContext *context) {
                 (const unsigned char *)endpoint, strlen(endpoint),
                 port, (unsigned char *)label, sizeof(label)) <= 0)
             continue;
-        char index_id[24];
-        g_snprintf(index_id, sizeof(index_id), "%d", index);
+        char index_id[24] = {0};
+        if (noctty_grid_decimal_text(
+                index, (unsigned char *)index_id, sizeof(index_id)) <= 0) {
+            noctty_grid_memory_free(label);
+            continue;
+        }
         noctty_grid_combo_box_text_append(combo, index_id, label);
         noctty_grid_memory_free(label);
         visible_count++;
@@ -13175,8 +13227,10 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
                 title, (size_t)title_length, pane_id,
                 (unsigned char *)label, sizeof(label)) <= 0)
             continue;
-        char index_id[24];
-        g_snprintf(index_id, sizeof(index_id), "%d", index);
+        char index_id[24] = {0};
+        if (noctty_grid_decimal_text(
+                index, (unsigned char *)index_id, sizeof(index_id)) <= 0)
+            continue;
         noctty_grid_combo_box_text_append(combo, index_id, label);
         visible_count++;
         if (is_selected)
@@ -15650,8 +15704,10 @@ static void on_pane_drag_data_get(GtkWidget *widget, GdkDragContext *drag, GtkSe
     (void)widget; (void)drag; (void)info; (void)time;
     NocttyGridContext *context = user_data;
     if (!grid_context_session_available(context) || context->exited) return;
-    char pane[32];
-    int length = g_snprintf(pane, sizeof(pane), "%" G_GUINT64_FORMAT, context->pane_id);
+    char pane[32] = {0};
+    int length = noctty_grid_decimal_text(
+        (int64_t)context->pane_id, (unsigned char *)pane, sizeof(pane));
+    if (length <= 0) return;
     noctty_grid_selection_data_set_text(selection, pane, length);
 }
 
@@ -16286,10 +16342,10 @@ static void connect_grid_area(NocttyGridContext *context) {
         G_OBJECT(context->area), "noctty-grid-context", context);
     AtkObject *accessible = noctty_grid_widget_get_accessible(context->area);
     if (accessible != NULL) {
-        char name[64];
-        g_snprintf(name, sizeof(name), "Terminal pane %" G_GUINT64_FORMAT,
-                   context->pane_id);
-        noctty_grid_atk_object_set_name(accessible, name);
+        char name[64] = {0};
+        if (noctty_grid_terminal_accessible_name(
+                context->pane_id, (unsigned char *)name, sizeof(name)) > 0)
+            noctty_grid_atk_object_set_name(accessible, name);
     }
     noctty_grid_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
     noctty_grid_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);

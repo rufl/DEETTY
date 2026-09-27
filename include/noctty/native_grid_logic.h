@@ -140,6 +140,26 @@ typedef struct {
     int target_count;
 } NocttyGridLayoutPresetPlan;
 
+typedef struct {
+    int panel_padding_px;
+    int pane_spacing_px;
+    int pane_divider_px;
+    int pane_border_px;
+    int pane_border_focused_px;
+    int pane_border_selected_px;
+    int status_border_px;
+    int overlay_border_px;
+    int window_border_px;
+    int dragger_px;
+    int pane_gaps_enabled;
+    int pane_gaps_transparent;
+    int inactive_pane_dim_enabled;
+    int inactive_pane_brightness_percent;
+    int background_translucency;
+    int background_opacity_percent;
+    int affects_layout;
+} NocttyGridPanelSettings;
+
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
     NOCTTY_GRID_SMOKE_TARGET_PEER = 1,
@@ -505,6 +525,33 @@ enum {
 
 void noctty_grid_layout_preset_plan(
     int event_code, NocttyGridLayoutPresetPlan *plan);
+
+int noctty_grid_panel_settings_apply(
+    int event_code, int value, NocttyGridPanelSettings *settings);
+
+int noctty_grid_launch_profile_payload(
+    int action,
+    const unsigned char *name, size_t name_length,
+    const unsigned char *shell, size_t shell_length,
+    const unsigned char *command, size_t command_length,
+    const unsigned char *cwd, size_t cwd_length,
+    const unsigned char *ssh_target, size_t ssh_target_length,
+    int scrollback,
+    unsigned char *output, size_t capacity);
+int noctty_grid_launch_profile_name_valid(
+    const unsigned char *text, size_t length);
+const char *noctty_grid_launch_profile_status_message(int kind);
+
+int noctty_grid_theme_apply_status_text(
+    int persistence_failed,
+    const unsigned char *label, size_t label_length,
+    int variant,
+    unsigned char *output, size_t capacity);
+
+int noctty_grid_decimal_text(
+    int64_t value, unsigned char *output, size_t capacity);
+int noctty_grid_terminal_accessible_name(
+    uint64_t pane_id, unsigned char *output, size_t capacity);
 
 void noctty_grid_layer_geometry_plan(
     int mode, int monitor_width, int monitor_height,

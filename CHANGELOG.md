@@ -57,6 +57,15 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved layout-preset event validation and rows/columns/target-count selection
   into a tested Zig state plan; C retains pane enumeration, confirmations,
   session movement, and GTK layout effects.
+- Moved settings-panel/background field normalization and layout-effect
+  classification into a tested Zig state plan; C retains per-context state
+  application, widget invalidation, window redraw, and event emission.
+- Moved launch-profile payload serialization, profile-name validation, launch
+  save-status messages, and Noctalia theme persistence-status composition into
+  the Zig grid-logic adapter; C retains GTK acquisition and native effects.
+- Moved restore-mode text, sharing selection IDs, pane drag identifiers, and
+  terminal accessibility names into bounded Zig formatting helpers; C retains
+  process, GTK selection/drag, and ATK effects.
 - Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
   cache validity now follows the explicit native font-policy invalidation path
   instead of unstable scaled-font pointer identity, restoring zero warm-frame

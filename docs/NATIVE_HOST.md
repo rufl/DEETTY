@@ -176,6 +176,20 @@ Layout-preset event validation and rows/columns/target-count selection are a
 tested Zig state plan; C retains pane enumeration, confirmation dialogs,
 session movement, and GTK layout effects.
 
+Settings-panel and background field normalization, bounded clamping, and
+layout-effect classification are tested Zig state policy; C retains
+per-context state copies, widget invalidation, window redraw, and event
+emission.
+
+Launch-profile payload serialization, profile-name edge validation, save-status
+messages, and Noctalia theme persistence-status composition are bounded Zig
+policy; C retains GTK entry acquisition, bounded allocation, text-action
+dispatch, and native status effects.
+
+Restore-mode text, sharing combo-box IDs, pane drag identifiers, and terminal
+accessibility names use bounded Zig formatting; C retains process spawning,
+GTK selection/drag effects, and ATK application.
+
 Terminal feedback labels are selected by Zig from bounded message IDs; C retains
 the timeout source, GTK redraw, and status presentation effects.
 
