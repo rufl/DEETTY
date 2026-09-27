@@ -27,9 +27,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.
-- Moved session-sharing control enablement and contextual action-label
-  selection into the Zig grid-logic adapter; C retains widget sensitivity,
-  native labels, status text, and GTK effects.
+- Moved session-sharing control enablement, contextual action-label selection,
+  and status-message/error classification into the Zig grid-logic adapter; C
+  retains widget sensitivity, native labels, discovery-field updates, and GTK
+  effects.
 - Moved GTK window visibility toggle classification into the Zig grid-logic
   adapter; C retains activation, focus, overlay, and hide/show effects.
 - Moved overlay dialog monitor-margin arithmetic into the Zig grid-logic

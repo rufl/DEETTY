@@ -2279,6 +2279,100 @@ pub export fn noctty_grid_sharing_control_plan(
     };
 }
 
+pub const SharingStatusTextPlan = extern struct {
+    length: c_int,
+    is_error: c_int,
+};
+
+fn copyBoundedText(
+    output: ?[*]u8,
+    capacity: usize,
+    text: []const u8,
+) c_int {
+    const target = output orelse return 0;
+    if (capacity == 0) return 0;
+    const length = @min(text.len, capacity - 1);
+    @memcpy(target[0..length], text[0..length]);
+    target[length] = 0;
+    return @intCast(length);
+}
+
+pub export fn noctty_grid_sharing_status_text(
+    status: c_int,
+    sas: u32,
+    port: u16,
+    alias: [*]const u8,
+    alias_length: usize,
+    endpoint: [*]const u8,
+    endpoint_length: usize,
+    discovered_port: u16,
+    discovered: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+    plan: ?*SharingStatusTextPlan,
+) callconv(.c) c_int {
+    var buffer: [640]u8 = undefined;
+    const bounded_alias = alias[0..@min(alias_length, buffer.len)];
+    const bounded_endpoint = endpoint[0..@min(endpoint_length, buffer.len)];
+    const message: []const u8 = if (status == 101)
+        "Pairing connection in progress…"
+    else if (status == 102)
+        std.fmt.bufPrint(&buffer, "Compare on both devices: {d:0>6}. Confirm only if identical.", .{sas}) catch return 0
+    else if (status == 104)
+        "Pairing rejected."
+    else if (status == 105)
+        "Pairing failed."
+    else if (status == 106)
+        "Paired-device changes are active for this run but could not be saved. Check configuration-directory permissions and retry."
+    else if (status == 107)
+        "The paired-device store is full. Revoke an unused device before pairing a new one."
+    else if (status == 201)
+        std.fmt.bufPrint(&buffer, "Sharing listener ready on TCP port {d}.", .{port}) catch return 0
+    else if (status == 202)
+        "Paired viewer connected. View-only."
+    else if (status == 203)
+        "Viewer requests control. Grant only if expected."
+    else if (status == 204)
+        "Remote control granted for this share only."
+    else if (status == 205)
+        "Sharing stopped. Close the sharing session to reset."
+    else if (status == 206)
+        "Sharing failed. Close the sharing session to reset."
+    else if (status < 0)
+        "Sharing state synchronization failed. Close and reopen NOCTTY."
+    else if (status == 301)
+        "Connecting to paired terminal…"
+    else if (status == 302)
+        "Receiving paired terminal. View-only."
+    else if (status == 303)
+        "Control requested. Waiting for host approval."
+    else if (status == 304)
+        "Remote control granted for this connection."
+    else if (status == 305)
+        "Remote terminal closed. Close this remote session or reconnect."
+    else if (status == 306)
+        "Remote terminal connection failed. Close this remote session or reconnect."
+    else if (status == 400)
+        "Discovering pairing listeners on this LAN…"
+    else if (status == 401 and discovered != 0)
+        std.fmt.bufPrint(
+            &buffer,
+            "Untrusted LAN hint: {s} at {s}:{d}. Review it, connect, and trust only after the six-digit code matches.",
+            .{ bounded_alias, bounded_endpoint, discovered_port },
+        ) catch return 0
+    else if (status == 401)
+        "LAN listener discovery completed."
+    else
+        "Idle. Pair a device or share with a paired device.";
+    const is_error = @intFromBool(
+        status == 104 or status == 105 or status == 106 or
+            status == 107 or status == 206 or status == 306 or status < 0,
+    );
+    const length = copyBoundedText(output, capacity, message);
+    if (plan) |result| result.* = .{ .length = length, .is_error = is_error };
+    return length;
+}
+
 pub export fn noctty_grid_bracketed_paste_marker(
     kind: c_int,
     output: ?[*]u8,
@@ -5075,6 +5169,54 @@ test "sharing status actions cover only explicit protocol states" {
             @as(u32, 0),
             noctty_grid_sharing_status_actions(status),
         );
+}
+
+test "sharing status text owns messages errors and discovery hints" {
+    var output: [256]u8 = undefined;
+    var plan: SharingStatusTextPlan = undefined;
+    const alias = "lab";
+    const endpoint = "terminal.local";
+    var length = noctty_grid_sharing_status_text(
+        102, 42, 0,
+        alias.ptr, alias.len, endpoint.ptr, endpoint.len,
+        0, 0, &output, output.len, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, "Compare on both devices: 000042. Confirm only if identical.".len),
+        length,
+    );
+    try std.testing.expectEqualStrings(
+        "Compare on both devices: 000042. Confirm only if identical.",
+        output[0..@intCast(length)],
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.is_error);
+
+    length = noctty_grid_sharing_status_text(
+        401, 0, 0,
+        alias.ptr, alias.len, endpoint.ptr, endpoint.len,
+        4567, 1, &output, output.len, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, "Untrusted LAN hint: lab at terminal.local:4567. Review it, connect, and trust only after the six-digit code matches.".len),
+        length,
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.is_error);
+
+    _ = noctty_grid_sharing_status_text(
+        306, 0, 0,
+        alias.ptr, alias.len, endpoint.ptr, endpoint.len,
+        0, 0, &output, output.len, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.is_error);
+    try std.testing.expectEqualStrings(
+        "Remote terminal connection failed. Close this remote session or reconnect.",
+        output[0..@intCast(plan.length)],
+    );
+
+    var tiny: [8]u8 = undefined;
+    length = noctty_grid_sharing_status_text(
+        0, 0, 0,
+        alias.ptr, alias.len, endpoint.ptr, endpoint.len,
+        0, 0, &tiny, tiny.len, &plan);
+    try std.testing.expectEqual(@as(c_int, 7), length);
+    try std.testing.expectEqualStrings("Idle. P", tiny[0..@intCast(length)]);
 }
 
 test "bracketed paste markers preserve terminal protocol delimiters" {

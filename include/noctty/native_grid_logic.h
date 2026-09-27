@@ -698,6 +698,19 @@ typedef struct {
     int revoke_label;
     int cancel_pairing_label;
 } NocttyGridSharingControlPlan;
+typedef struct {
+    int length;
+    int is_error;
+} NocttyGridSharingStatusTextPlan;
+
+int noctty_grid_sharing_status_text(
+    int status, uint32_t sas, uint16_t port,
+    const unsigned char *alias, size_t alias_length,
+    const unsigned char *endpoint, size_t endpoint_length,
+    uint16_t discovered_port, int discovered,
+    unsigned char *output, size_t capacity,
+    NocttyGridSharingStatusTextPlan *plan);
+
 
 enum {
     NOCTTY_GRID_SHARING_CONTROL_CONFIRM = 1u << 0,

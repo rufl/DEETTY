@@ -13247,90 +13247,29 @@ static gboolean refresh_sharing_status(gpointer user_data) {
     uint32_t sas = 0;
     uint16_t port = 0;
     int status = noctty_grid_share_status(root->event_data, &sas, &port);
+    char alias[129] = {0};
+    char endpoint[254] = {0};
+    uint16_t discovered_port = 0;
+    int discovered = 0;
+    if (status == 401 &&
+        noctty_grid_share_discovered(
+            root->event_data, alias, sizeof(alias), endpoint,
+            sizeof(endpoint), &discovered_port) > 0) {
+        discovered = 1;
+        noctty_grid_entry_set_text(alias_entry, alias);
+        noctty_grid_entry_set_text(endpoint_entry, endpoint);
+        noctty_grid_spin_button_set_value(port_spin, discovered_port);
+    }
     char text[256];
-    if (status == 101)
-        g_snprintf(text, sizeof(text), "Pairing connection in progress…");
-    else if (status == 102)
-        g_snprintf(text, sizeof(text),
-                   "Compare on both devices: %06u. Confirm only if identical.",
-                   (unsigned)sas);
-    else if (status == 104)
-        g_snprintf(text, sizeof(text), "Pairing rejected.");
-    else if (status == 105)
-        g_snprintf(text, sizeof(text), "Pairing failed.");
-    else if (status == 106)
-        g_snprintf(
-            text, sizeof(text),
-            "Paired-device changes are active for this run but could not be "
-            "saved. Check configuration-directory permissions and retry.");
-    else if (status == 107)
-        g_snprintf(
-            text, sizeof(text),
-            "The paired-device store is full. Revoke an unused device before "
-            "pairing a new one.");
-    else if (status == 201)
-        g_snprintf(text, sizeof(text),
-                   "Sharing listener ready on TCP port %u.", (unsigned)port);
-    else if (status == 202)
-        g_snprintf(text, sizeof(text),
-                   "Paired viewer connected. View-only.");
-    else if (status == 203)
-        g_snprintf(text, sizeof(text),
-                   "Viewer requests control. Grant only if expected.");
-    else if (status == 204)
-        g_snprintf(text, sizeof(text),
-                   "Remote control granted for this share only.");
-    else if (status == 205)
-        g_snprintf(text, sizeof(text),
-                   "Sharing stopped. Close the sharing session to reset.");
-    else if (status == 206)
-        g_snprintf(text, sizeof(text),
-                   "Sharing failed. Close the sharing session to reset.");
-    else if (status < 0)
-        g_snprintf(text, sizeof(text),
-                   "Sharing state synchronization failed. Close and reopen NOCTTY.");
-    else if (status == 301)
-        g_snprintf(text, sizeof(text), "Connecting to paired terminal…");
-    else if (status == 302)
-        g_snprintf(text, sizeof(text), "Receiving paired terminal. View-only.");
-    else if (status == 303)
-        g_snprintf(text, sizeof(text), "Control requested. Waiting for host approval.");
-    else if (status == 304)
-        g_snprintf(text, sizeof(text), "Remote control granted for this connection.");
-    else if (status == 305)
-        g_snprintf(text, sizeof(text),
-                   "Remote terminal closed. Close this remote session or reconnect.");
-    else if (status == 306)
-        g_snprintf(text, sizeof(text),
-                   "Remote terminal connection failed. Close this remote session or reconnect.");
-    else if (status == 400)
-        g_snprintf(text, sizeof(text), "Discovering pairing listeners on this LAN…");
-    else if (status == 401) {
-        char alias[129] = {0};
-        char endpoint[254] = {0};
-        uint16_t discovered_port = 0;
-        if (noctty_grid_share_discovered(
-                root->event_data, alias, sizeof(alias), endpoint,
-                sizeof(endpoint), &discovered_port) > 0) {
-            noctty_grid_entry_set_text(alias_entry, alias);
-            noctty_grid_entry_set_text(endpoint_entry, endpoint);
-            noctty_grid_spin_button_set_value(port_spin, discovered_port);
-            g_snprintf(
-                text, sizeof(text),
-                "Untrusted LAN hint: %s at %s:%u. Review it, connect, and trust "
-                "only after the six-digit code matches.",
-                alias, endpoint, (unsigned)discovered_port);
-        } else
-            g_snprintf(text, sizeof(text), "LAN listener discovery completed.");
-    } else
-        g_snprintf(text, sizeof(text),
-                   "Idle. Pair a device or share with a paired device.");
+    NocttyGridSharingStatusTextPlan text_plan = {0};
+    (void)noctty_grid_sharing_status_text(
+        status, sas, port,
+        (const unsigned char *)alias, strlen(alias),
+        (const unsigned char *)endpoint, strlen(endpoint),
+        discovered_port, discovered,
+        (unsigned char *)text, sizeof(text), &text_plan);
     if (g_get_monotonic_time() >= root->sharing_feedback_until_us)
-        set_status_label_feedback(
-            status_label, text,
-            status == 104 || status == 105 || status == 106 ||
-                status == 107 || status == 206 || status == 306 ||
-                status < 0);
+        set_status_label_feedback(status_label, text, text_plan.is_error);
     int known_count = GPOINTER_TO_INT(noctty_grid_object_get_data(
         G_OBJECT(dialog), "noctty-sharing-peer-count"));
     int current_count = noctty_grid_share_peer(root->event_data, -1, NULL, 0,
