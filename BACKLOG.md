@@ -195,11 +195,11 @@ of this item.
    adapter is classified as either (a) native object query/effect or
    lifetime glue, or (b) migrated policy. There are no unclassified policy
    branches, calculations, clamps, labels, schedules, or state transitions.
-4. **Smoke/qualification boundary:** all registered Linux native-grid smoke
-   scenarios, including the Zig-owned schedule plan and qualification
-   callbacks, pass through the repository's isolated private X11 and private
-   Wayland runners. No run may use the active display, session bus, or host
-   input devices.
+4. **Smoke/qualification boundary:** all native-grid smoke scenarios
+   registered in the locked source tree, including the Zig-owned schedule plan
+   and qualification callbacks, pass through the repository's isolated private
+   X11 and private Wayland runners. No run may use the active display, session
+   bus, or host input devices.
 5. **Text/render boundary:** C retains only GTK/ATK/Cairo/Pango object access,
    allocation, signal, drawing, and lifetime effects; Zig owns the remaining
    text/render policy. Focused accessibility and renderer checks pass.
