@@ -11,6 +11,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved compact-tab extent and close/action sizing arithmetic into the Zig
   grid-logic adapter; GTK retains allocation queries and native eligibility
   checks.
+- Moved dirty-row/span capacity normalization and selection-copy buffer growth
+  bounds into the Zig grid-logic adapter; C retains allocation and clipboard
+  ownership.
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.

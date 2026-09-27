@@ -1746,7 +1746,7 @@ static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
             context->selecting ? context->selection_end_row : -1);
         if (copied_length >= 0 && (gsize)copied_length < capacity) break;
         if (capacity == NOCTTY_SELECTION_COPY_MAX_BYTES) break;
-        capacity = MIN(capacity * 2, NOCTTY_SELECTION_COPY_MAX_BYTES);
+        capacity = noctty_grid_selection_copy_capacity_next(capacity);
     }
     if (copied_length > 0 && (gsize)copied_length < capacity) {
         text[copied_length] = '\0';
@@ -5835,7 +5835,7 @@ static void queue_grid_draw_when_mapped(NocttyGridContext *context) {
 }
 
 static gboolean ensure_grid_dirty_rows(NocttyGridContext *context) {
-    size_t required = (size_t)MAX(context->rows, 1);
+    size_t required = noctty_grid_damage_buffer_capacity(context->rows);
     if (context->dirty_row_buffer != NULL &&
         context->dirty_row_capacity == required)
         return TRUE;
@@ -5849,7 +5849,7 @@ static gboolean ensure_grid_dirty_rows(NocttyGridContext *context) {
 }
 
 static gboolean ensure_grid_dirty_spans(NocttyGridContext *context) {
-    size_t required = (size_t)MAX(context->rows, 1);
+    size_t required = noctty_grid_damage_buffer_capacity(context->rows);
     if (context->dirty_span_buffer != NULL &&
         context->dirty_span_capacity == required)
         return TRUE;

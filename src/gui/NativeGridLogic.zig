@@ -1925,6 +1925,16 @@ pub export fn noctty_grid_sharing_paste_chunk_size(remaining: usize) usize {
     return @min(remaining, 16 * 1024);
 }
 
+pub export fn noctty_grid_damage_buffer_capacity(rows: c_int) usize {
+    return @intCast(@max(rows, 1));
+}
+
+pub export fn noctty_grid_selection_copy_capacity_next(current: usize) usize {
+    const maximum = 4 * 1024 * 1024;
+    if (current >= maximum) return maximum;
+    return @min(current * 2, maximum);
+}
+
 pub export fn noctty_grid_sharing_preview_scroll_lines(
     direction: c_int,
     delta_y: f64,
@@ -4695,6 +4705,23 @@ test "sharing paste limits and chunks preserve bounded transport" {
     try std.testing.expectEqual(@as(usize, 16 * 1024), noctty_grid_sharing_paste_chunk_size(64 * 1024));
     try std.testing.expectEqual(@as(usize, 7), noctty_grid_sharing_paste_chunk_size(7));
     try std.testing.expectEqual(@as(usize, 0), noctty_grid_sharing_paste_chunk_size(0));
+}
+
+test "native buffer policies preserve minimum rows and bounded growth" {
+    try std.testing.expectEqual(@as(usize, 1), noctty_grid_damage_buffer_capacity(-4));
+    try std.testing.expectEqual(@as(usize, 24), noctty_grid_damage_buffer_capacity(24));
+    try std.testing.expectEqual(
+        @as(usize, 32 * 1024),
+        noctty_grid_selection_copy_capacity_next(16 * 1024),
+    );
+    try std.testing.expectEqual(
+        @as(usize, 4 * 1024 * 1024),
+        noctty_grid_selection_copy_capacity_next(3 * 1024 * 1024),
+    );
+    try std.testing.expectEqual(
+        @as(usize, 4 * 1024 * 1024),
+        noctty_grid_selection_copy_capacity_next(4 * 1024 * 1024),
+    );
 }
 
 test "sharing preview scroll lines preserve GTK directions" {

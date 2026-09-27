@@ -597,6 +597,8 @@ int noctty_grid_sharing_arrow_sequence(
     unsigned char *output, size_t capacity);
 int noctty_grid_sharing_paste_allowed(size_t length);
 size_t noctty_grid_sharing_paste_chunk_size(size_t remaining);
+size_t noctty_grid_damage_buffer_capacity(int rows);
+size_t noctty_grid_selection_copy_capacity_next(size_t current);
 int noctty_grid_sharing_preview_scroll_lines(int direction, double delta_y);
 int noctty_grid_sharing_index(const unsigned char *text, size_t length);
 int noctty_grid_sharing_index_text(
