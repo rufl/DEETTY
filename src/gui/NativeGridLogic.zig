@@ -88,6 +88,11 @@ pub const AccessibleOffsetPlan = extern struct {
     end: c_int,
     valid: c_int,
 };
+pub const AccessibleRangePlan = extern struct {
+    start: c_int,
+    end: c_int,
+    valid: c_int,
+};
 pub const StartupWindowPlan = extern struct {
     start_hidden: c_int,
     apply_activation: c_int,
@@ -98,6 +103,11 @@ pub const SmokeScheduleStep = extern struct {
     delay_ms: c_int,
     action: c_int,
     target: c_int,
+};
+pub const OutputPresentPlan = extern struct {
+    schedule: c_int,
+    use_tick: c_int,
+    timeout_ms: c_int,
 };
 
 pub const AccessibleTextPlan = extern struct {
@@ -1614,6 +1624,91 @@ pub export fn noctty_grid_accessible_offset_plan(
         ),
     };
 }
+fn accessiblePreviousByteOffset(text: []const u8, index: usize) usize {
+    if (index == 0) return 0;
+    var result = index - 1;
+    while (result > 0 and compactTabUtf8Continuation(text[result])) result -= 1;
+    return result;
+}
+
+fn accessibleCodepointAt(text: []const u8, index: usize) ?u21 {
+    if (index >= text.len) return null;
+    const length = compactTabUtf8ByteLength(text, index);
+    if (index + length > text.len) return null;
+    return std.unicode.utf8Decode(text[index .. index + length]) catch null;
+}
+
+fn accessibleByteOffset(text: []const u8, offset: usize) usize {
+    var index: usize = 0;
+    var current: usize = 0;
+    while (index < text.len and current < offset) : (current += 1)
+        index += compactTabUtf8ByteLength(text, index);
+    return index;
+}
+
+fn accessibleCodepointOffset(text: []const u8, byte_offset: usize) usize {
+    var index: usize = 0;
+    var result: usize = 0;
+    while (index < byte_offset and index < text.len) : (result += 1)
+        index += compactTabUtf8ByteLength(text, index);
+    return result;
+}
+
+fn accessibleIsWhitespace(codepoint: u21) bool {
+    return switch (codepoint) {
+        ' ', '\t', '\n', 0x000b, '\x0c', '\r',
+        0x0085, 0x00a0, 0x1680, 0x2000...0x200a,
+        0x2028, 0x2029, 0x202f, 0x205f, 0x3000 => true,
+        else => false,
+    };
+}
+
+pub export fn noctty_grid_accessible_range_plan(
+    text_pointer: ?[*]const u8,
+    length: usize,
+    offset: c_int,
+    granularity: c_int,
+    output: ?*AccessibleRangePlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{ .start = 0, .end = 0, .valid = 0 };
+    const pointer = text_pointer orelse return;
+    if (length == 0) return;
+    const text = pointer[0..length];
+    if (!std.unicode.utf8ValidateSlice(text) or offset < 0) return;
+    const codepoint_count = compactTabUtf8Count(text);
+    const start_offset: usize = @intCast(offset);
+    if (start_offset >= codepoint_count) return;
+
+    var start_byte = accessibleByteOffset(text, start_offset);
+    var end_byte = accessibleByteOffset(text, start_offset + 1);
+    if (granularity == 1) {
+        while (start_byte > 0) {
+            const previous_byte = accessiblePreviousByteOffset(text, start_byte);
+            const previous = accessibleCodepointAt(text, previous_byte) orelse break;
+            if (accessibleIsWhitespace(previous)) break;
+            start_byte = previous_byte;
+        }
+        while (end_byte < text.len) {
+            const next = accessibleCodepointAt(text, end_byte) orelse break;
+            if (accessibleIsWhitespace(next)) break;
+            end_byte += compactTabUtf8ByteLength(text, end_byte);
+        }
+    } else if (granularity == 2 or granularity == 3 or granularity == 4) {
+        while (start_byte > 0) {
+            const previous_byte = accessiblePreviousByteOffset(text, start_byte);
+            if (text[previous_byte] == '\n') break;
+            start_byte = previous_byte;
+        }
+        while (end_byte < text.len and text[end_byte] != '\n')
+            end_byte += compactTabUtf8ByteLength(text, end_byte);
+    }
+    plan.* = .{
+        .start = @intCast(accessibleCodepointOffset(text, start_byte)),
+        .end = @intCast(accessibleCodepointOffset(text, end_byte)),
+        .valid = 1,
+    };
+}
 
 pub export fn noctty_grid_startup_window_plan(
     claim_control: c_int,
@@ -1675,6 +1770,22 @@ pub export fn noctty_grid_accessible_trim_newline_length(
     while (result > 0 and bytes[result - 1] == '\n') result -= 1;
     return result;
 }
+pub export fn noctty_grid_output_present_plan(
+    session_available: c_int,
+    exited: c_int,
+    source_active: c_int,
+    mapped: c_int,
+    output: ?*OutputPresentPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const schedule = session_available != 0 and exited == 0 and source_active == 0;
+    plan.* = .{
+        .schedule = @intFromBool(schedule),
+        .use_tick = @intFromBool(schedule and mapped != 0),
+        .timeout_ms = 100,
+    };
+}
+
 
 const smoke_action = struct {
     const write_activation: c_int = 1;
@@ -2636,6 +2747,86 @@ pub export fn noctty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0
         else => "",
     };
 }
+
+pub export fn noctty_grid_pane_tooltip(
+    pane_id: u64,
+    status: ?[*]const u8,
+    status_length: usize,
+    tags: ?[*]const u8,
+    tags_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const status_text = if (status) |pointer|
+        pointer[0..@min(status_length, 256)]
+    else
+        "";
+    const tag_text = if (tags) |pointer|
+        pointer[0..@min(tags_length, 256)]
+    else
+        "";
+    return if (tag_text.len > 0)
+        compactTabFormat(
+            output,
+            capacity,
+            "Pane {d} · {s} · {s}",
+            .{ pane_id, status_text, tag_text },
+        )
+    else
+        compactTabFormat(
+            output,
+            capacity,
+            "Pane {d} · {s}",
+            .{ pane_id, status_text },
+        );
+}
+
+fn appendRecoveryText(
+    storage: []u8,
+    length: *usize,
+    text: []const u8,
+) bool {
+    if (length.* + text.len > storage.len) return false;
+    @memcpy(storage[length.* .. length.* + text.len], text);
+    length.* += text.len;
+    return true;
+}
+
+pub export fn noctty_grid_recovery_notice_text(
+    flags: u32,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    if (flags == 0) return 0;
+    var message: [1024]u8 = undefined;
+    var length: usize = 0;
+    const append = struct {
+        fn call(storage: []u8, size: *usize, text: []const u8) bool {
+            if (size.* > 0 and !appendRecoveryText(storage, size, " ")) return false;
+            return appendRecoveryText(storage, size, text);
+        }
+    }.call;
+    if ((flags & (1 << 0)) != 0) {
+        if (!append(&message, &length,
+            "Settings were damaged. Last-known-good settings were loaded.")) return 0;
+    } else if ((flags & (1 << 1)) != 0) {
+        if (!append(&message, &length,
+            "Settings were damaged. Safe defaults were loaded.")) return 0;
+    }
+    if ((flags & (1 << 2)) != 0) {
+        if (!append(&message, &length,
+            "The last-known-good theme library was restored.")) return 0;
+    } else if ((flags & (1 << 3)) != 0) {
+        if (!append(&message, &length,
+            "Built-in themes are available while the damaged library is retained.")) return 0;
+    }
+    if ((flags & (1 << 4)) != 0) {
+        if (!append(&message, &length,
+            "The damaged workspace snapshot was skipped; a clean workspace was opened.")) return 0;
+    }
+    return copyBoundedText(output, capacity, message[0..length]);
+}
+
 
 pub export fn noctty_grid_bracketed_paste_marker(
     kind: c_int,
@@ -5086,6 +5277,66 @@ test "accessibility offset plans clamp ranges and reject invalid offsets" {
     noctty_grid_accessible_offset_plan(0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
+test "accessible range plans preserve word and line granularity" {
+    const text = "one two\n界 word";
+    var plan = AccessibleRangePlan{ .start = 0, .end = 0, .valid = 0 };
+    noctty_grid_accessible_range_plan(
+        text.ptr,
+        text.len,
+        1,
+        1,
+        &plan,
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.start);
+    try std.testing.expectEqual(@as(c_int, 3), plan.end);
+    noctty_grid_accessible_range_plan(
+        text.ptr,
+        text.len,
+        10,
+        1,
+        &plan,
+    );
+    try std.testing.expectEqual(@as(c_int, 10), plan.start);
+    try std.testing.expectEqual(@as(c_int, 14), plan.end);
+    noctty_grid_accessible_range_plan(
+        text.ptr,
+        text.len,
+        2,
+        2,
+        &plan,
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.start);
+    try std.testing.expectEqual(@as(c_int, 7), plan.end);
+    noctty_grid_accessible_range_plan(
+        text.ptr,
+        text.len,
+        99,
+        1,
+        &plan,
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+test "output presentation plan prefers mapped ticks and bounded fallback" {
+    var plan = OutputPresentPlan{
+        .schedule = 0,
+        .use_tick = 0,
+        .timeout_ms = 0,
+    };
+    noctty_grid_output_present_plan(1, 0, 0, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.schedule);
+    try std.testing.expectEqual(@as(c_int, 1), plan.use_tick);
+    try std.testing.expectEqual(@as(c_int, 100), plan.timeout_ms);
+
+    noctty_grid_output_present_plan(1, 0, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.schedule);
+    try std.testing.expectEqual(@as(c_int, 0), plan.use_tick);
+    noctty_grid_output_present_plan(1, 1, 0, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.schedule);
+    noctty_grid_output_present_plan(1, 0, 1, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.schedule);
+}
+
+
 test "startup window plan separates native effects from visibility policy" {
     var plan = StartupWindowPlan{
         .start_hidden = 0,
@@ -5560,6 +5811,77 @@ test "compact tab text owns markup tooltip and close labels" {
         markup[0..@intCast(plan.markup_length)],
         "12345678901234567…",
     ) != null);
+}
+
+test "pane tooltip text owns status and tag composition" {
+    var output: [256]u8 = undefined;
+    const status = "focused";
+    const tags = "build,ui";
+    var length = noctty_grid_pane_tooltip(
+        42,
+        status.ptr,
+        status.len,
+        tags.ptr,
+        tags.len,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 30), length);
+    try std.testing.expectEqualStrings(
+        "Pane 42 · focused · build,ui",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_pane_tooltip(
+        42,
+        status.ptr,
+        status.len,
+        null,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(@as(c_int, 18), length);
+    try std.testing.expectEqualStrings(
+        "Pane 42 · focused",
+        output[0..@intCast(length)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_pane_tooltip(
+            42,
+            status.ptr,
+            status.len,
+            tags.ptr,
+            tags.len,
+            &output,
+            8,
+        ),
+    );
+}
+
+test "recovery notice text preserves fallback precedence and ordering" {
+    var output: [1024]u8 = undefined;
+    const all_flags: u32 =
+        (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4);
+    const length = noctty_grid_recovery_notice_text(
+        all_flags,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 182),
+        length,
+    );
+    try std.testing.expectEqualStrings(
+        "Settings were damaged. Last-known-good settings were loaded. " ++
+            "The last-known-good theme library was restored. " ++
+            "The damaged workspace snapshot was skipped; a clean workspace was opened.",
+        output[0..@intCast(length)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_recovery_notice_text(0, &output, output.len),
+    );
 }
 
 test "status feedback labels remain owned by Zig" {

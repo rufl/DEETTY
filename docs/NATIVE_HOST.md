@@ -135,9 +135,25 @@ falling back to GTK focus state.
 Terminal status labels are selected by Zig for the five protocol states;
 GTK consumes the bounded string for tooltips and attention presentation.
 
+Accessibility word, sentence, line, and paragraph range expansion is selected
+by Zig from validated UTF-8 and normalized ATK granularity IDs; C retains
+UTF-8 pointer conversion, returned text allocation, and ATK callback effects.
+
+Pane status tooltip composition, including pane identity and optional tags, is
+bounded Zig text policy; C retains tag acquisition, cache comparison, GTK
+tooltip/ATK description effects, and widget ownership.
+
 Compact-tab markup, tooltip, close-name, escaping, truncation, and suffix
 selection are bounded Zig text policy; C retains model/title acquisition,
-GTK label and tooltip effects, accessibility naming, and tab-color styling.
+GTK label and tab-color effects, accessibility naming, and native styling.
+
+Recovery notice message precedence and composition are selected by Zig from
+bounded startup flags; C retains InfoBar construction, response wiring, and
+startup diagnostics.
+
+Output presentation scheduling policy selects a mapped frame tick or a bounded
+100 ms timeout fallback in Zig; C retains GTK source registration, callback
+dispatch, and terminal pump effects.
 
 Terminal feedback labels are selected by Zig from bounded message IDs; C retains
 the timeout source, GTK redraw, and status presentation effects.

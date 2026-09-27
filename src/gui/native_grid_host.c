@@ -1076,43 +1076,28 @@ static gchar *noctty_terminal_accessible_get_string_at_offset(
     AtkText *text, gint offset, AtkTextGranularity granularity,
     gint *start_offset, gint *end_offset) {
     const gchar *contents = noctty_terminal_accessible_contents(text);
-    gint count = (gint)g_utf8_strlen(contents, -1);
-    NocttyGridAccessibleOffsetPlan offsets = {0};
-    noctty_grid_accessible_offset_plan(count, offset, -1, &offsets);
-    if (offsets.valid == 0) {
+    int granularity_kind = 0;
+    if (granularity == ATK_TEXT_GRANULARITY_WORD) {
+        granularity_kind = 1;
+    } else if (granularity == ATK_TEXT_GRANULARITY_LINE ||
+               granularity == ATK_TEXT_GRANULARITY_PARAGRAPH ||
+               granularity == ATK_TEXT_GRANULARITY_SENTENCE) {
+        granularity_kind = 2;
+    }
+    NocttyGridAccessibleRangePlan range = {0};
+    noctty_grid_accessible_range_plan(
+        (const uint8_t *)contents, strlen(contents),
+        offset, granularity_kind, &range);
+    if (range.valid == 0) {
         if (start_offset != NULL) *start_offset = 0;
         if (end_offset != NULL) *end_offset = 0;
         return g_strdup("");
     }
 
-    const gchar *start = g_utf8_offset_to_pointer(contents, offsets.start);
-    const gchar *end = g_utf8_next_char(start);
-
-    if (granularity == ATK_TEXT_GRANULARITY_WORD) {
-        while (start > contents) {
-            const gchar *previous = g_utf8_prev_char(start);
-            if (g_unichar_isspace(g_utf8_get_char(previous))) break;
-            start = previous;
-        }
-        while (*end != '\0' &&
-               !g_unichar_isspace(g_utf8_get_char(end)))
-            end = g_utf8_next_char(end);
-    } else if (granularity == ATK_TEXT_GRANULARITY_LINE ||
-               granularity == ATK_TEXT_GRANULARITY_PARAGRAPH ||
-               granularity == ATK_TEXT_GRANULARITY_SENTENCE) {
-        while (start > contents) {
-            const gchar *previous = g_utf8_prev_char(start);
-            if (*previous == '\n') break;
-            start = previous;
-        }
-        while (*end != '\0' && *end != '\n')
-            end = g_utf8_next_char(end);
-    }
-
-    if (start_offset != NULL)
-        *start_offset = (gint)g_utf8_pointer_to_offset(contents, start);
-    if (end_offset != NULL)
-        *end_offset = (gint)g_utf8_pointer_to_offset(contents, end);
+    const gchar *start = g_utf8_offset_to_pointer(contents, range.start);
+    const gchar *end = g_utf8_offset_to_pointer(contents, range.end);
+    if (start_offset != NULL) *start_offset = range.start;
+    if (end_offset != NULL) *end_offset = range.end;
     return g_strndup(start, (gsize)(end - start));
 }
 
@@ -4564,13 +4549,15 @@ static void update_status_tooltip(NocttyGridContext *context, const gchar *statu
                                 tag_buffer, sizeof(tag_buffer) - 1)
         : 0;
     char text[384];
-    if (tag_length > 0) {
-        g_snprintf(text, sizeof(text), "Pane %" G_GUINT64_FORMAT " · %s · %s",
-                   context->pane_id, status, tag_buffer);
-    } else {
-        g_snprintf(text, sizeof(text), "Pane %" G_GUINT64_FORMAT " · %s",
-                   context->pane_id, status);
-    }
+    int text_length = noctty_grid_pane_tooltip(
+        context->pane_id,
+        (const unsigned char *)(status != NULL ? status : ""),
+        status != NULL ? strlen(status) : 0,
+        (const unsigned char *)tag_buffer,
+        tag_length > 0 ? (size_t)tag_length : 0,
+        (unsigned char *)text,
+        sizeof(text));
+    if (text_length <= 0) return;
     const gchar *cached = noctty_grid_object_get_data(
         context->area, "noctty-pane-tooltip-cache");
     if (g_strcmp0(cached, text) != 0) {
@@ -5389,14 +5376,6 @@ static GtkWidget *create_new_tab_button(NocttyGridContext *context) {
         tab_metrics.action_extent, root, G_CALLBACK(on_new_tab_button_clicked));
 }
 
-enum {
-    NOCTTY_RECOVERY_CONFIG_BACKUP = 1u << 0,
-    NOCTTY_RECOVERY_CONFIG_DEFAULTS = 1u << 1,
-    NOCTTY_RECOVERY_THEME_BACKUP = 1u << 2,
-    NOCTTY_RECOVERY_THEME_DEFAULTS = 1u << 3,
-    NOCTTY_RECOVERY_WORKSPACE_DEFAULTS = 1u << 4,
-};
-
 static void on_recovery_notice_response(GtkInfoBar *bar, gint response_id,
                                         gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
@@ -5409,46 +5388,25 @@ static GtkWidget *create_recovery_notice(NocttyGridContext *context) {
     guint32 flags = root->recovery_notice_flags;
     if (flags == 0) return NULL;
 
-    GString *message = g_string_new(NULL);
-    if (flags & NOCTTY_RECOVERY_CONFIG_BACKUP)
-        g_string_append(message,
-            "Settings were damaged. Last-known-good settings were loaded.");
-    else if (flags & NOCTTY_RECOVERY_CONFIG_DEFAULTS)
-        g_string_append(message,
-            "Settings were damaged. Safe defaults were loaded.");
-    if (flags & NOCTTY_RECOVERY_THEME_BACKUP) {
-        if (message->len > 0) g_string_append_c(message, ' ');
-        g_string_append(message,
-            "The last-known-good theme library was restored.");
-    } else if (flags & NOCTTY_RECOVERY_THEME_DEFAULTS) {
-        if (message->len > 0) g_string_append_c(message, ' ');
-        g_string_append(message,
-            "Built-in themes are available while the damaged library is retained.");
-    }
-    if (flags & NOCTTY_RECOVERY_WORKSPACE_DEFAULTS) {
-        if (message->len > 0) g_string_append_c(message, ' ');
-        g_string_append(message,
-            "The damaged workspace snapshot was skipped; a clean workspace was opened.");
-    }
+    char message[1024];
+    int message_length = noctty_grid_recovery_notice_text(
+        flags, (unsigned char *)message, sizeof(message));
+    if (message_length <= 0) return NULL;
 
     GtkWidget *bar = noctty_recovery_notice_new(
-        message->str, GTK_RESPONSE_APPLY, GTK_RESPONSE_CLOSE);
-    if (bar == NULL) {
-        g_string_free(message, TRUE);
-        return NULL;
-    }
+        message, GTK_RESPONSE_APPLY, GTK_RESPONSE_CLOSE);
+    if (bar == NULL) return NULL;
     noctty_grid_signal_connect(bar, "response",
                      G_CALLBACK(on_recovery_notice_response), root);
     g_print("noctty_startup_recovery_notice flags=%u "
             "config_backup=%d config_defaults=%d theme_backup=%d "
             "theme_defaults=%d workspace_defaults=%d\n",
             flags,
-            (flags & NOCTTY_RECOVERY_CONFIG_BACKUP) != 0,
-            (flags & NOCTTY_RECOVERY_CONFIG_DEFAULTS) != 0,
-            (flags & NOCTTY_RECOVERY_THEME_BACKUP) != 0,
-            (flags & NOCTTY_RECOVERY_THEME_DEFAULTS) != 0,
-            (flags & NOCTTY_RECOVERY_WORKSPACE_DEFAULTS) != 0);
-    g_string_free(message, TRUE);
+            (flags & NOCTTY_GRID_RECOVERY_CONFIG_BACKUP) != 0,
+            (flags & NOCTTY_GRID_RECOVERY_CONFIG_DEFAULTS) != 0,
+            (flags & NOCTTY_GRID_RECOVERY_THEME_BACKUP) != 0,
+            (flags & NOCTTY_GRID_RECOVERY_THEME_DEFAULTS) != 0,
+            (flags & NOCTTY_GRID_RECOVERY_WORKSPACE_DEFAULTS) != 0);
     return bar;
 }
 
@@ -6286,9 +6244,16 @@ static void stop_grid_context_sources(NocttyGridContext *context) {
 }
 
 static void schedule_output_present(NocttyGridContext *context) {
-    if (!grid_context_session_available(context) || context->exited ||
-        context->output_present_source != 0) return;
-    if (context->area != NULL && noctty_grid_widget_get_mapped(context->area)) {
+    NocttyGridOutputPresentPlan plan = {0};
+    noctty_grid_output_present_plan(
+        grid_context_session_available(context),
+        context->exited,
+        context->output_present_source != 0,
+        context->area != NULL &&
+            noctty_grid_widget_get_mapped(context->area),
+        &plan);
+    if (plan.schedule == 0) return;
+    if (plan.use_tick != 0) {
         context->output_present_is_tick = 1;
         context->output_present_source = noctty_grid_widget_add_tick_callback(
             context->area, G_CALLBACK(on_output_frame), context, NULL);
@@ -6296,7 +6261,8 @@ static void schedule_output_present(NocttyGridContext *context) {
         context->output_present_is_tick = 0;
     }
     context->output_present_source = g_timeout_add_full(
-        G_PRIORITY_DEFAULT, 100, on_output_present, context, NULL);
+        G_PRIORITY_DEFAULT, (guint)plan.timeout_ms,
+        on_output_present, context, NULL);
 }
 
 static gboolean on_pty_ready(gint fd, GIOCondition condition,

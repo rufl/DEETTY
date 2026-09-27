@@ -17,9 +17,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved Smart Tab visibility, first-visible/focused-pane tracking, focus-first,
   and empty-filter decisions into Zig; GTK retains widget visibility, focus,
   and empty-state construction.
-- Moved GTK accessibility range clamping and character-offset validity into
-  the Zig grid-logic adapter; C retains UTF-8 pointer conversion and ATK
-  granularity effects.
+- Moved GTK accessibility range clamping, character-offset validity, and
+  word/line/sentence/paragraph range expansion into the Zig grid-logic adapter;
+  C retains UTF-8 pointer conversion, returned-text allocation, and ATK effects.
 - Moved startup visibility, activation-application, and native-smoke scheduling
   policy into Zig; C retains GTK effects, callback dispatch, and lifecycle.
 - Moved accessible text capacity, cell-length filtering, and whitespace
@@ -36,6 +36,12 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   GTK label/tooltip/accessibility effects, and tab-color styling.
 - Moved native terminal feedback labels into the Zig grid-logic adapter; C
   retains status-feedback timing, GTK redraw, and presentation effects.
+- Moved pane-status tooltip composition and startup recovery-notice message
+  precedence into the Zig grid-logic adapter; C retains tag acquisition,
+  InfoBar construction, GTK presentation, and response wiring.
+- Moved output-presentation tick-versus-timeout selection into the Zig
+  grid-logic adapter; C retains GTK source registration and terminal pump
+  effects.
 - Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
   cache validity now follows the explicit native font-policy invalidation path
   instead of unstable scaled-font pointer identity, restoring zero warm-frame

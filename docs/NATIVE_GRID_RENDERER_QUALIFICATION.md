@@ -34,6 +34,9 @@ fingerprints are `ac7045a9844ee20f8be9e8a05ca3b826d12387fb5e7e7ba3a9e59294f98c72
 `d4b12ee00aaf90c40cebed65a0dc1f06ab32a99ed1a89591b075a75e55306880`.
 The maintained parallel wrapper was not used for this receipt because host
 build contention blocked its concurrent mode builds.
+The direct receipt was rerun after the accessibility, tooltip, recovery, and
+output-presentation policy migrations; all invariants and fingerprints remained
+identical.
 
 ## Retained Result
 

@@ -109,6 +109,11 @@ typedef struct {
     int valid;
 } NocttyGridAccessibleOffsetPlan;
 typedef struct {
+    int start;
+    int end;
+    int valid;
+} NocttyGridAccessibleRangePlan;
+typedef struct {
     int start_hidden;
     int apply_activation;
     int show_layout_only;
@@ -119,6 +124,11 @@ typedef struct {
     int action;
     int target;
 } NocttyGridSmokeScheduleStep;
+typedef struct {
+    int schedule;
+    int use_tick;
+    int timeout_ms;
+} NocttyGridOutputPresentPlan;
 
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
@@ -605,6 +615,9 @@ int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
 void noctty_grid_accessible_offset_plan(
     int count, int start_offset, int end_offset,
     NocttyGridAccessibleOffsetPlan *plan);
+void noctty_grid_accessible_range_plan(
+    const uint8_t *text, size_t length, int offset, int granularity,
+    NocttyGridAccessibleRangePlan *plan);
 int noctty_grid_accessible_text_capacity(
     int columns, int rows, NocttyGridAccessibleTextPlan *plan);
 int noctty_grid_accessible_cell_length(int length, int capacity);
@@ -612,6 +625,27 @@ size_t noctty_grid_accessible_trim_row_length(
     const uint8_t *bytes, size_t length);
 size_t noctty_grid_accessible_trim_newline_length(
     const uint8_t *bytes, size_t length);
+int noctty_grid_pane_tooltip(
+    uint64_t pane_id,
+    const unsigned char *status, size_t status_length,
+    const unsigned char *tags, size_t tags_length,
+    unsigned char *output, size_t capacity);
+
+void noctty_grid_output_present_plan(
+    int session_available, int exited, int source_active, int mapped,
+    NocttyGridOutputPresentPlan *plan);
+
+enum {
+    NOCTTY_GRID_RECOVERY_CONFIG_BACKUP = 1u << 0,
+    NOCTTY_GRID_RECOVERY_CONFIG_DEFAULTS = 1u << 1,
+    NOCTTY_GRID_RECOVERY_THEME_BACKUP = 1u << 2,
+    NOCTTY_GRID_RECOVERY_THEME_DEFAULTS = 1u << 3,
+    NOCTTY_GRID_RECOVERY_WORKSPACE_DEFAULTS = 1u << 4,
+};
+
+int noctty_grid_recovery_notice_text(
+    uint32_t flags, unsigned char *output, size_t capacity);
+
 int noctty_grid_smoke_schedule(
     int workspace_smoke, int activation_child_receipt,
     NocttyGridSmokeScheduleStep *steps, int capacity);
