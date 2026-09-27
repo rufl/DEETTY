@@ -1195,24 +1195,32 @@ static void refresh_terminal_accessible_text(NocttyGridContext *context) {
             object, noctty_terminal_accessible_get_type()))
         return;
 
-    GString *next = g_string_sized_new(
-        (gsize)MAX(context->columns * context->rows, 64));
+    NocttyGridAccessibleTextPlan text_plan = {0};
+    noctty_grid_accessible_text_capacity(
+        context->columns, context->rows, &text_plan);
+    GString *next = g_string_sized_new((gsize)text_plan.initial_capacity);
     for (int row = 0; row < context->rows; row++) {
         gsize row_start = next->len;
         for (int column = 0; column < context->columns; column++) {
             char cell[64] = {0};
             int length = context->cell_text(
                 context->userdata, column, row, cell, sizeof(cell));
-            if (length > 0 && length < (int)sizeof(cell))
-                g_string_append_len(next, cell, length);
+            int accepted_length = noctty_grid_accessible_cell_length(
+                length, (int)sizeof(cell));
+            if (accepted_length > 0)
+                g_string_append_len(next, cell, accepted_length);
         }
-        while (next->len > row_start &&
-               next->str[next->len - 1] == ' ')
-            g_string_truncate(next, next->len - 1);
+        gsize row_length = next->len - row_start;
+        gsize trimmed_length = noctty_grid_accessible_trim_row_length(
+            (const uint8_t *)next->str + row_start, row_length);
+        if (trimmed_length < row_length)
+            g_string_truncate(next, row_start + trimmed_length);
         if (row + 1 < context->rows) g_string_append_c(next, '\n');
     }
-    while (next->len > 0 && next->str[next->len - 1] == '\n')
-        g_string_truncate(next, next->len - 1);
+    gsize trimmed_length = noctty_grid_accessible_trim_newline_length(
+        (const uint8_t *)next->str, next->len);
+    if (trimmed_length < next->len)
+        g_string_truncate(next, trimmed_length);
 
     NocttyTerminalAccessible *accessible =
         (NocttyTerminalAccessible *)object;
@@ -16362,6 +16370,96 @@ static void connect_grid_area(NocttyGridContext *context) {
     context->resize_overlay_arm_source =
         noctty_grid_source_timeout_add(250, arm_resize_overlay, context);
 }
+#if NOCTTY_ENABLE_SMOKE
+static GSourceFunc smoke_callback_for_action(int action) {
+    static const GSourceFunc callbacks[] = {
+        write_activation_child_receipt_smoke,
+        emit_workspace_smoke_tab,
+        emit_workspace_smoke_split,
+        emit_workspace_smoke_split_left,
+        emit_workspace_smoke_broadcast,
+        emit_workspace_smoke_select,
+        emit_workspace_smoke_tag_filter,
+        emit_workspace_smoke_focus,
+        emit_workspace_smoke_move,
+        finish_workspace_smoke,
+        request_new_tab_button_smoke,
+        inspect_compact_tab_geometry_smoke,
+        request_tab_close_smoke,
+        request_clipboard_smoke,
+        inspect_window_toolbar_smoke,
+        request_settings_smoke,
+        request_window_close_button_smoke,
+        request_theme_smoke,
+        request_project_smoke,
+        request_recursive_zoom_smoke,
+        drive_focus_click_smoke,
+        emit_workspace_smoke_balanced_split,
+        emit_workspace_smoke_move_last_pane,
+        request_compact_hyperlink_smoke,
+        request_compact_palette_smoke,
+        request_compact_find_smoke,
+        request_compact_note_smoke,
+        request_compact_zoom_smoke,
+        request_compact_navigation_smoke,
+        inspect_compact_pane_info_smoke,
+        request_compact_font_scroll_smoke,
+        request_compact_linear_selection_smoke,
+        request_compact_save_smoke,
+        request_pane_scrollbar_smoke,
+        finish_compact_smoke,
+        request_tab_rename_smoke,
+        check_resize_overlay_initially_hidden,
+        move_resize_overlay_divider,
+        check_resize_overlay_visible,
+        check_resize_overlay_hidden_and_finish,
+        emit_pane_close_primary_split_right,
+        emit_pane_close_secondary_split_right,
+        inspect_and_resize_pane_close_layout,
+        disturb_pane_close_layout,
+        request_pane_close_smoke,
+        start_layout_preset_smoke,
+        start_tab_navigation_interactions,
+        check_title_fallback_smoke,
+        emit_title_overflow_smoke,
+        check_title_overflow_smoke,
+        check_title_rename_smoke,
+        finish_title_smoke,
+        trigger_dirty_smoke,
+        emit_attention_smoke,
+        check_dirty_smoke,
+        check_attention_smoke,
+        save_dirty_smoke,
+        check_dirty_clear_smoke,
+        acknowledge_attention_smoke,
+        announce_reorder_drag_smoke,
+        check_reorder_smoke,
+        persist_reorder_smoke,
+        palette_rename_smoke,
+        request_tab_color_smoke,
+        request_settings_stacking_smoke,
+        check_settings_stacking_smoke,
+        request_note_overlay_alt_press_smoke,
+        check_note_overlay_drawn_smoke,
+        request_terminal_interrupt_chord_smoke,
+        request_terminal_close_chord_smoke,
+        request_terminal_final_pane_guard_smoke,
+        finish_terminal_chord_smoke,
+        request_profile_preset_smoke,
+        request_recent_workspace_child_smoke,
+        start_presentation_qualification_smoke,
+        start_full_stack_qualification_smoke,
+        poll_installed_continuity_detach_smoke,
+        start_stability_qualification_smoke,
+        request_sharing_scope_smoke,
+        request_window_resize_smoke,
+    };
+    if (action <= 0 ||
+        (size_t)action > sizeof(callbacks) / sizeof(callbacks[0]))
+        return NULL;
+    return callbacks[action - 1];
+}
+#endif
 
 int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                                    const NocttyGridLaunchOptions *options) {
@@ -16714,24 +16812,31 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         drain_grid_dbus_operations(&context);
     }
     gboolean control_conflict = context.control_name_conflict;
-    gboolean start_hidden = claim_control &&
-        (enable_shortcut == 1 || enable_shortcut == 2) &&
-        context.control_registered && mode == 0;
+    gboolean activation_retained = FALSE;
+    if (!control_conflict && startup_activation_token != NULL) {
+        activation_retained = retain_xdg_activation_token_bytes(
+            &context, startup_activation_token,
+            startup_activation_token_length);
+    }
+    NocttyGridStartupWindowPlan startup_plan = {0};
+    noctty_grid_startup_window_plan(
+        claim_control, enable_shortcut, context.control_registered,
+        mode, control_conflict, activation_retained ? 1 : 0,
+        &startup_plan);
+    gboolean start_hidden = startup_plan.start_hidden != 0;
+    if (startup_plan.apply_activation != 0) {
+        apply_xdg_activation_token(&context);
+    } else if (!activation_retained && !control_conflict &&
+               startup_activation_token != NULL &&
+               g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL) {
+        g_printerr("noctty_xdg_activation retained=false source=startup\n");
+    }
     int tray_ready = 0;
     if (((workspace_smoke < 0 && context.control_registered) ||
          workspace_smoke == 19) && !control_conflict)
         tray_ready = register_grid_tray(&context);
-    if (!control_conflict && startup_activation_token != NULL) {
-        gboolean retained = retain_xdg_activation_token_bytes(
-            &context, startup_activation_token,
-            startup_activation_token_length);
-        if (retained && !start_hidden)
-            apply_xdg_activation_token(&context);
-        else if (!retained && g_getenv("NOCTTY_DEBUG_ACTIVATION") != NULL)
-            g_printerr("noctty_xdg_activation retained=false source=startup\n");
-    }
     show_all_with_action_affordances(
-        (start_hidden || control_conflict)
+        startup_plan.show_layout_only != 0
             ? context.window_layout : context.window);
     update_window_resize_handles(&context);
     update_notebook_chrome(&context);
@@ -16783,7 +16888,21 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     }
     refresh_active_pane_info(&context);
 #if NOCTTY_ENABLE_SMOKE
-#include "../../tests/native_grid_smoke_schedule.inc"
+    NocttyGridSmokeScheduleStep smoke_steps[32] = {0};
+    int smoke_step_count = noctty_grid_smoke_schedule(
+        workspace_smoke,
+        g_getenv("NOCTTY_ACTIVATION_CHILD_RECEIPT") != NULL ? 1 : 0,
+        smoke_steps, (int)G_N_ELEMENTS(smoke_steps));
+    for (int index = 0; index < smoke_step_count; index++) {
+        GSourceFunc callback =
+            smoke_callback_for_action(smoke_steps[index].action);
+        if (callback == NULL) continue;
+        gpointer target = smoke_steps[index].target ==
+                NOCTTY_GRID_SMOKE_TARGET_PEER && context.peer != NULL
+            ? context.peer : &context;
+        g_timeout_add((guint)MAX(smoke_steps[index].delay_ms, 0),
+                      callback, target);
+    }
 #endif
     noctty_grid_gtk_main();
 #if !NOCTTY_ENABLE_SMOKE

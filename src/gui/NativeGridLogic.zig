@@ -88,6 +88,22 @@ pub const AccessibleOffsetPlan = extern struct {
     end: c_int,
     valid: c_int,
 };
+pub const StartupWindowPlan = extern struct {
+    start_hidden: c_int,
+    apply_activation: c_int,
+    show_layout_only: c_int,
+};
+
+pub const SmokeScheduleStep = extern struct {
+    delay_ms: c_int,
+    action: c_int,
+    target: c_int,
+};
+
+pub const AccessibleTextPlan = extern struct {
+    initial_capacity: c_int,
+};
+
 
 pub const SelectionWordPlan = extern struct {
     valid: c_int,
@@ -1596,6 +1612,397 @@ pub export fn noctty_grid_accessible_offset_plan(
         .valid = @intFromBool(
             available > 0 and start_offset >= 0 and start_offset < available,
         ),
+    };
+}
+
+pub export fn noctty_grid_startup_window_plan(
+    claim_control: c_int,
+    enable_shortcut: c_int,
+    control_registered: c_int,
+    mode: c_int,
+    control_conflict: c_int,
+    activation_retained: c_int,
+    output_optional: ?*StartupWindowPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const start_hidden = claim_control != 0 and
+        (enable_shortcut == 1 or enable_shortcut == 2) and
+        control_registered != 0 and mode == 0;
+    output.* = .{
+        .start_hidden = @intFromBool(start_hidden),
+        .apply_activation = @intFromBool(
+            control_conflict == 0 and activation_retained != 0 and !start_hidden,
+        ),
+        .show_layout_only = @intFromBool(start_hidden or control_conflict != 0),
+    };
+}
+
+pub export fn noctty_grid_accessible_text_capacity(
+    columns: c_int,
+    rows: c_int,
+    output_optional: ?*AccessibleTextPlan,
+) callconv(.c) c_int {
+    const output = output_optional orelse return 0;
+    const product: i64 = @as(i64, @max(columns, 0)) *
+        @as(i64, @max(rows, 0));
+    const max_capacity: i64 = @as(i64, std.math.maxInt(c_int));
+    const capacity = @min(@max(product, 64), max_capacity);
+    output.* = .{ .initial_capacity = @intCast(capacity) };
+    return output.initial_capacity;
+}
+
+pub export fn noctty_grid_accessible_cell_length(
+    length: c_int,
+    capacity: c_int,
+) callconv(.c) c_int {
+    return if (length > 0 and length < capacity) length else 0;
+}
+
+pub export fn noctty_grid_accessible_trim_row_length(
+    bytes: [*]const u8,
+    length: usize,
+) callconv(.c) usize {
+    var result = length;
+    while (result > 0 and bytes[result - 1] == ' ') result -= 1;
+    return result;
+}
+
+pub export fn noctty_grid_accessible_trim_newline_length(
+    bytes: [*]const u8,
+    length: usize,
+) callconv(.c) usize {
+    var result = length;
+    while (result > 0 and bytes[result - 1] == '\n') result -= 1;
+    return result;
+}
+
+const smoke_action = struct {
+    const write_activation: c_int = 1;
+    const emit_tab: c_int = 2;
+    const emit_split: c_int = 3;
+    const emit_split_left: c_int = 4;
+    const emit_broadcast: c_int = 5;
+    const emit_select: c_int = 6;
+    const emit_tag_filter: c_int = 7;
+    const emit_focus: c_int = 8;
+    const emit_move: c_int = 9;
+    const finish_workspace: c_int = 10;
+    const request_new_tab_button: c_int = 11;
+    const inspect_compact_tab_geometry: c_int = 12;
+    const request_tab_close: c_int = 13;
+    const request_clipboard: c_int = 14;
+    const inspect_window_toolbar: c_int = 15;
+    const request_settings: c_int = 16;
+    const request_window_close_button: c_int = 17;
+    const request_theme: c_int = 18;
+    const request_project: c_int = 19;
+    const request_recursive_zoom: c_int = 20;
+    const drive_focus_click: c_int = 21;
+    const emit_balanced_split: c_int = 22;
+    const move_last_pane: c_int = 23;
+    const request_compact_hyperlink: c_int = 24;
+    const request_compact_palette: c_int = 25;
+    const request_compact_find: c_int = 26;
+    const request_compact_note: c_int = 27;
+    const request_compact_zoom: c_int = 28;
+    const request_compact_navigation: c_int = 29;
+    const inspect_compact_pane_info: c_int = 30;
+    const request_compact_font_scroll: c_int = 31;
+    const request_compact_linear_selection: c_int = 32;
+    const request_compact_save: c_int = 33;
+    const request_pane_scrollbar: c_int = 34;
+    const finish_compact: c_int = 35;
+    const request_tab_rename: c_int = 36;
+    const check_resize_overlay_hidden: c_int = 37;
+    const move_resize_overlay: c_int = 38;
+    const check_resize_overlay_visible: c_int = 39;
+    const finish_resize_overlay: c_int = 40;
+    const emit_pane_close_primary: c_int = 41;
+    const emit_pane_close_secondary: c_int = 42;
+    const inspect_pane_close_layout: c_int = 43;
+    const disturb_pane_close_layout: c_int = 44;
+    const request_pane_close: c_int = 45;
+    const start_layout_preset: c_int = 46;
+    const start_tab_navigation: c_int = 47;
+    const check_title_fallback: c_int = 48;
+    const emit_title_overflow: c_int = 49;
+    const check_title_overflow: c_int = 50;
+    const check_title_rename: c_int = 51;
+    const finish_title: c_int = 52;
+    const trigger_dirty: c_int = 53;
+    const emit_attention: c_int = 54;
+    const check_dirty: c_int = 55;
+    const check_attention: c_int = 56;
+    const save_dirty: c_int = 57;
+    const check_dirty_clear: c_int = 58;
+    const acknowledge_attention: c_int = 59;
+    const announce_reorder: c_int = 60;
+    const check_reorder: c_int = 61;
+    const persist_reorder: c_int = 62;
+    const palette_rename: c_int = 63;
+    const request_tab_color: c_int = 64;
+    const request_settings_stacking: c_int = 65;
+    const check_settings_stacking: c_int = 66;
+    const request_note_overlay_alt: c_int = 67;
+    const check_note_overlay: c_int = 68;
+    const request_terminal_interrupt: c_int = 69;
+    const request_terminal_close: c_int = 70;
+    const request_terminal_final_guard: c_int = 71;
+    const finish_terminal_chord: c_int = 72;
+    const request_profile_preset: c_int = 73;
+    const request_recent_workspace_child: c_int = 74;
+    const start_presentation: c_int = 75;
+    const start_full_stack: c_int = 76;
+    const poll_continuity_detach: c_int = 77;
+    const start_stability: c_int = 78;
+    const request_sharing_scope: c_int = 79;
+    const request_window_resize: c_int = 80;
+};
+
+const smoke_target_context: c_int = 0;
+const smoke_target_peer: c_int = 1;
+
+fn smokeStep(delay_ms: c_int, action: c_int, target: c_int) SmokeScheduleStep {
+    return .{ .delay_ms = delay_ms, .action = action, .target = target };
+}
+
+const smoke_schedule_activation = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.write_activation, smoke_target_context),
+};
+const smoke_schedule_1 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(450, smoke_action.emit_split, smoke_target_context),
+    smokeStep(650, smoke_action.emit_split_left, smoke_target_context),
+    smokeStep(850, smoke_action.emit_broadcast, smoke_target_context),
+    smokeStep(1050, smoke_action.emit_select, smoke_target_context),
+    smokeStep(1150, smoke_action.emit_tag_filter, smoke_target_context),
+    smokeStep(1250, smoke_action.emit_focus, smoke_target_context),
+    smokeStep(1450, smoke_action.emit_move, smoke_target_peer),
+    smokeStep(1650, smoke_action.finish_workspace, smoke_target_context),
+};
+const smoke_schedule_2 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_split, smoke_target_context),
+};
+const smoke_schedule_3 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.request_new_tab_button, smoke_target_context),
+    smokeStep(450, smoke_action.inspect_compact_tab_geometry, smoke_target_context),
+    smokeStep(600, smoke_action.request_tab_close, smoke_target_context),
+};
+const smoke_schedule_4 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.request_clipboard, smoke_target_context),
+};
+const smoke_schedule_6 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.inspect_window_toolbar, smoke_target_context),
+    smokeStep(700, smoke_action.request_settings, smoke_target_context),
+    smokeStep(1600, smoke_action.request_window_close_button, smoke_target_context),
+};
+const smoke_schedule_7 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.request_theme, smoke_target_context),
+};
+const smoke_schedule_8 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.request_project, smoke_target_context),
+    smokeStep(20000, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_11 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_split, smoke_target_context),
+    smokeStep(500, smoke_action.emit_split, smoke_target_context),
+    smokeStep(750, smoke_action.emit_split_left, smoke_target_context),
+    smokeStep(900, smoke_action.request_recursive_zoom, smoke_target_context),
+};
+const smoke_schedule_12 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_split, smoke_target_context),
+    smokeStep(350, smoke_action.drive_focus_click, smoke_target_context),
+};
+const smoke_schedule_13 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(500, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(750, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(1000, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(1250, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(1500, smoke_action.emit_balanced_split, smoke_target_context),
+    smokeStep(1750, smoke_action.emit_balanced_split, smoke_target_context),
+};
+const smoke_schedule_14 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(500, smoke_action.move_last_pane, smoke_target_context),
+};
+const smoke_schedule_15 = [_]SmokeScheduleStep{
+    smokeStep(150, smoke_action.request_compact_hyperlink, smoke_target_context),
+    smokeStep(250, smoke_action.emit_split, smoke_target_context),
+    smokeStep(500, smoke_action.request_compact_palette, smoke_target_context),
+    smokeStep(700, smoke_action.request_compact_find, smoke_target_context),
+    smokeStep(900, smoke_action.request_compact_note, smoke_target_context),
+    smokeStep(1100, smoke_action.request_compact_zoom, smoke_target_context),
+    smokeStep(1300, smoke_action.request_compact_navigation, smoke_target_context),
+    smokeStep(1400, smoke_action.inspect_compact_pane_info, smoke_target_context),
+    smokeStep(1500, smoke_action.request_compact_font_scroll, smoke_target_context),
+    smokeStep(1625, smoke_action.request_compact_linear_selection, smoke_target_context),
+    smokeStep(1700, smoke_action.request_compact_save, smoke_target_context),
+    smokeStep(1800, smoke_action.request_pane_scrollbar, smoke_target_context),
+    smokeStep(2500, smoke_action.finish_compact, smoke_target_context),
+};
+const smoke_schedule_17 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(500, smoke_action.request_tab_rename, smoke_target_context),
+};
+const smoke_schedule_18 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.check_resize_overlay_hidden, smoke_target_context),
+    smokeStep(400, smoke_action.emit_split, smoke_target_context),
+    smokeStep(700, smoke_action.move_resize_overlay, smoke_target_context),
+    smokeStep(850, smoke_action.move_resize_overlay, smoke_target_context),
+    smokeStep(1000, smoke_action.check_resize_overlay_visible, smoke_target_context),
+    smokeStep(1700, smoke_action.finish_resize_overlay, smoke_target_context),
+};
+const smoke_schedule_19 = [_]SmokeScheduleStep{
+    smokeStep(250, smoke_action.request_window_resize, smoke_target_context),
+};
+const smoke_schedule_20 = [_]SmokeScheduleStep{
+    smokeStep(180, smoke_action.emit_pane_close_primary, smoke_target_context),
+    smokeStep(330, smoke_action.emit_pane_close_secondary, smoke_target_context),
+    smokeStep(500, smoke_action.inspect_pane_close_layout, smoke_target_context),
+    smokeStep(680, smoke_action.disturb_pane_close_layout, smoke_target_context),
+    smokeStep(850, smoke_action.request_pane_close, smoke_target_context),
+};
+const smoke_schedule_21 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.start_layout_preset, smoke_target_context),
+};
+const smoke_schedule_22 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(550, smoke_action.emit_split, smoke_target_context),
+    smokeStep(800, smoke_action.start_tab_navigation, smoke_target_context),
+};
+const smoke_schedule_23 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.check_title_fallback, smoke_target_context),
+    smokeStep(700, smoke_action.emit_title_overflow, smoke_target_context),
+    smokeStep(1200, smoke_action.check_title_overflow, smoke_target_context),
+    smokeStep(1700, smoke_action.check_title_rename, smoke_target_context),
+    smokeStep(2300, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_24 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.trigger_dirty, smoke_target_context),
+    smokeStep(650, smoke_action.emit_attention, smoke_target_context),
+    smokeStep(1000, smoke_action.check_dirty, smoke_target_context),
+    smokeStep(1200, smoke_action.check_attention, smoke_target_context),
+    smokeStep(1450, smoke_action.save_dirty, smoke_target_context),
+    smokeStep(1750, smoke_action.check_dirty_clear, smoke_target_context),
+    smokeStep(2100, smoke_action.acknowledge_attention, smoke_target_context),
+    smokeStep(2400, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_25 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(600, smoke_action.emit_tab, smoke_target_context),
+    smokeStep(900, smoke_action.announce_reorder, smoke_target_context),
+    smokeStep(6500, smoke_action.check_reorder, smoke_target_context),
+    smokeStep(6800, smoke_action.persist_reorder, smoke_target_context),
+    smokeStep(7500, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_26 = [_]SmokeScheduleStep{
+    smokeStep(500, smoke_action.palette_rename, smoke_target_context),
+    smokeStep(2200, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_27 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.request_tab_color, smoke_target_context),
+};
+const smoke_schedule_28 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.request_settings_stacking, smoke_target_context),
+    smokeStep(700, smoke_action.check_settings_stacking, smoke_target_context),
+};
+const smoke_schedule_29 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.emit_split, smoke_target_context),
+    smokeStep(650, smoke_action.request_note_overlay_alt, smoke_target_context),
+    smokeStep(950, smoke_action.check_note_overlay, smoke_target_context),
+};
+const smoke_schedule_31 = [_]SmokeScheduleStep{
+    smokeStep(350, smoke_action.request_terminal_interrupt, smoke_target_context),
+    smokeStep(700, smoke_action.request_terminal_close, smoke_target_context),
+    smokeStep(950, smoke_action.request_terminal_final_guard, smoke_target_context),
+    smokeStep(1200, smoke_action.finish_terminal_chord, smoke_target_context),
+};
+const smoke_schedule_33 = [_]SmokeScheduleStep{
+    smokeStep(350, smoke_action.request_profile_preset, smoke_target_context),
+};
+const smoke_schedule_35 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.request_recent_workspace_child, smoke_target_context),
+    smokeStep(6000, smoke_action.finish_title, smoke_target_context),
+};
+const smoke_schedule_36 = [_]SmokeScheduleStep{
+    smokeStep(350, smoke_action.start_presentation, smoke_target_context),
+};
+const smoke_schedule_37 = [_]SmokeScheduleStep{
+    smokeStep(350, smoke_action.start_full_stack, smoke_target_context),
+};
+const smoke_schedule_39 = [_]SmokeScheduleStep{
+    smokeStep(100, smoke_action.poll_continuity_detach, smoke_target_context),
+};
+const smoke_schedule_40 = [_]SmokeScheduleStep{
+    smokeStep(350, smoke_action.start_stability, smoke_target_context),
+};
+const smoke_schedule_41 = [_]SmokeScheduleStep{
+    smokeStep(300, smoke_action.request_sharing_scope, smoke_target_context),
+};
+const smoke_schedule_42 = [_]SmokeScheduleStep{
+    smokeStep(500, smoke_action.request_pane_scrollbar, smoke_target_context),
+};
+
+fn copySmokeSchedule(
+    schedule: []const SmokeScheduleStep,
+    output_optional: ?*SmokeScheduleStep,
+    capacity: c_int,
+) c_int {
+    if (capacity <= 0) return 0;
+    const output = @as([*]SmokeScheduleStep, @ptrCast(output_optional orelse return 0));
+    const count = @min(schedule.len, @as(usize, @intCast(capacity)));
+    for (0..count) |index| output[index] = schedule[index];
+    return @intCast(count);
+}
+
+pub export fn noctty_grid_smoke_schedule(
+    workspace_smoke: c_int,
+    activation_child_receipt: c_int,
+    output_optional: ?*SmokeScheduleStep,
+    capacity: c_int,
+) callconv(.c) c_int {
+    if (workspace_smoke < 0)
+        return if (activation_child_receipt != 0)
+            copySmokeSchedule(&smoke_schedule_activation, output_optional, capacity)
+        else
+            0;
+    return switch (workspace_smoke) {
+        1 => copySmokeSchedule(&smoke_schedule_1, output_optional, capacity),
+        2 => copySmokeSchedule(&smoke_schedule_2, output_optional, capacity),
+        3 => copySmokeSchedule(&smoke_schedule_3, output_optional, capacity),
+        4 => copySmokeSchedule(&smoke_schedule_4, output_optional, capacity),
+        6 => copySmokeSchedule(&smoke_schedule_6, output_optional, capacity),
+        7 => copySmokeSchedule(&smoke_schedule_7, output_optional, capacity),
+        8 => copySmokeSchedule(&smoke_schedule_8, output_optional, capacity),
+        11 => copySmokeSchedule(&smoke_schedule_11, output_optional, capacity),
+        12 => copySmokeSchedule(&smoke_schedule_12, output_optional, capacity),
+        13 => copySmokeSchedule(&smoke_schedule_13, output_optional, capacity),
+        14 => copySmokeSchedule(&smoke_schedule_14, output_optional, capacity),
+        15 => copySmokeSchedule(&smoke_schedule_15, output_optional, capacity),
+        17 => copySmokeSchedule(&smoke_schedule_17, output_optional, capacity),
+        18 => copySmokeSchedule(&smoke_schedule_18, output_optional, capacity),
+        19 => copySmokeSchedule(&smoke_schedule_19, output_optional, capacity),
+        20 => copySmokeSchedule(&smoke_schedule_20, output_optional, capacity),
+        21, 43 => copySmokeSchedule(&smoke_schedule_21, output_optional, capacity),
+        22 => copySmokeSchedule(&smoke_schedule_22, output_optional, capacity),
+        23 => copySmokeSchedule(&smoke_schedule_23, output_optional, capacity),
+        24 => copySmokeSchedule(&smoke_schedule_24, output_optional, capacity),
+        25 => copySmokeSchedule(&smoke_schedule_25, output_optional, capacity),
+        26 => copySmokeSchedule(&smoke_schedule_26, output_optional, capacity),
+        27 => copySmokeSchedule(&smoke_schedule_27, output_optional, capacity),
+        28 => copySmokeSchedule(&smoke_schedule_28, output_optional, capacity),
+        29 => copySmokeSchedule(&smoke_schedule_29, output_optional, capacity),
+        31 => copySmokeSchedule(&smoke_schedule_31, output_optional, capacity),
+        33 => copySmokeSchedule(&smoke_schedule_33, output_optional, capacity),
+        35 => copySmokeSchedule(&smoke_schedule_35, output_optional, capacity),
+        36 => copySmokeSchedule(&smoke_schedule_36, output_optional, capacity),
+        37 => copySmokeSchedule(&smoke_schedule_37, output_optional, capacity),
+        39 => copySmokeSchedule(&smoke_schedule_39, output_optional, capacity),
+        40 => copySmokeSchedule(&smoke_schedule_40, output_optional, capacity),
+        41 => copySmokeSchedule(&smoke_schedule_41, output_optional, capacity),
+        42 => copySmokeSchedule(&smoke_schedule_42, output_optional, capacity),
+        else => 0,
     };
 }
 
@@ -4321,6 +4728,72 @@ test "accessibility offset plans clamp ranges and reject invalid offsets" {
     noctty_grid_accessible_offset_plan(0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
+test "startup window plan separates native effects from visibility policy" {
+    var plan = StartupWindowPlan{
+        .start_hidden = 0,
+        .apply_activation = 0,
+        .show_layout_only = 0,
+    };
+    noctty_grid_startup_window_plan(1, 1, 1, 0, 0, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.start_hidden);
+    try std.testing.expectEqual(@as(c_int, 0), plan.apply_activation);
+    try std.testing.expectEqual(@as(c_int, 1), plan.show_layout_only);
+
+    noctty_grid_startup_window_plan(0, 0, 1, 1, 0, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.start_hidden);
+    try std.testing.expectEqual(@as(c_int, 1), plan.apply_activation);
+    try std.testing.expectEqual(@as(c_int, 0), plan.show_layout_only);
+
+    noctty_grid_startup_window_plan(0, 0, 1, 1, 1, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.apply_activation);
+    try std.testing.expectEqual(@as(c_int, 1), plan.show_layout_only);
+}
+test "accessible text plan bounds cell data and trims presentation whitespace" {
+    var plan = AccessibleTextPlan{ .initial_capacity = 0 };
+    try std.testing.expectEqual(
+        @as(c_int, 64),
+        noctty_grid_accessible_text_capacity(0, 0, &plan),
+    );
+    try std.testing.expectEqual(@as(c_int, 64), plan.initial_capacity);
+    try std.testing.expectEqual(
+        @as(c_int, 72),
+        noctty_grid_accessible_text_capacity(9, 8, &plan),
+    );
+    try std.testing.expectEqual(@as(c_int, 72), plan.initial_capacity);
+    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_accessible_cell_length(4, 64));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_cell_length(64, 64));
+
+    const row = "text   ";
+    try std.testing.expectEqual(
+        @as(usize, 4),
+        noctty_grid_accessible_trim_row_length(row.ptr, row.len),
+    );
+    const lines = "text\n\n";
+    try std.testing.expectEqual(
+        @as(usize, 4),
+        noctty_grid_accessible_trim_newline_length(lines.ptr, lines.len),
+    );
+}
+
+test "smoke schedule plans preserve scenario timing and targets" {
+    var steps: [16]SmokeScheduleStep = undefined;
+    var count = noctty_grid_smoke_schedule(1, 0, &steps[0], steps.len);
+    try std.testing.expectEqual(@as(c_int, 9), count);
+    try std.testing.expectEqual(@as(c_int, 250), steps[0].delay_ms);
+    try std.testing.expectEqual(@as(c_int, smoke_action.emit_tab), steps[0].action);
+    try std.testing.expectEqual(@as(c_int, smoke_target_peer), steps[7].target);
+
+    count = noctty_grid_smoke_schedule(15, 0, &steps[0], steps.len);
+    try std.testing.expectEqual(@as(c_int, 13), count);
+    try std.testing.expectEqual(@as(c_int, 2500), steps[12].delay_ms);
+    try std.testing.expectEqual(
+        @as(c_int, smoke_action.finish_compact),
+        steps[12].action,
+    );
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_smoke_schedule(10, 0, &steps[0], steps.len));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_smoke_schedule(-1, 1, &steps[0], steps.len));
+}
+
 
 test "hyperlink validation accepts safe browser schemes and rejects controls" {
     const accepted = [_][]const u8{

@@ -167,6 +167,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   the Zig ABI; GTK retains widget visibility, focus, and empty-state effects.
   GTK accessibility range clamping and character-offset validity now cross
   the Zig ABI; C retains UTF-8 pointer conversion and ATK granularity effects.
+  Startup visibility, activation-application, native-smoke scheduling, and
+  accessible text-buffer normalization now also cross the Zig ABI; C retains
+  GTK/ATK/GString effects, smoke callback dispatch, and lifecycle ownership.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
