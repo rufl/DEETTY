@@ -664,6 +664,61 @@ void noctty_grid_compact_tab_geometry(
     NocttyGridCompactTabGeometry *geometry);
 
 typedef struct {
+    const unsigned char *title;
+    size_t title_length;
+    const unsigned char *filter;
+    size_t filter_length;
+    const unsigned char *status_color;
+    size_t status_color_length;
+    uint32_t pane_count;
+    uint32_t selected_count;
+    int filter_active;
+    int attention;
+    int dirty;
+    int broadcast;
+    int active;
+    uint32_t tab_color_rgb;
+    int tab_color_preset;
+    int tab_color_shade;
+} NocttyGridCompactTabTextInput;
+
+typedef struct {
+    int markup_length;
+    int tooltip_length;
+    int close_name_length;
+    int title_truncated;
+} NocttyGridCompactTabTextPlan;
+
+int noctty_grid_compact_tab_text(
+    const NocttyGridCompactTabTextInput *input,
+    unsigned char *markup, size_t markup_capacity,
+    unsigned char *tooltip, size_t tooltip_capacity,
+    unsigned char *close_name, size_t close_name_capacity,
+    NocttyGridCompactTabTextPlan *plan);
+
+enum {
+    NOCTTY_GRID_FEEDBACK_SCROLL_HISTORY = 1,
+    NOCTTY_GRID_FEEDBACK_PASTE,
+    NOCTTY_GRID_FEEDBACK_COPY,
+    NOCTTY_GRID_FEEDBACK_TERMINAL_STATE,
+    NOCTTY_GRID_FEEDBACK_CTRL_L,
+    NOCTTY_GRID_FEEDBACK_INPUT_FLUSH,
+    NOCTTY_GRID_FEEDBACK_RECOVERY_SAVE,
+    NOCTTY_GRID_FEEDBACK_INTERRUPT,
+    NOCTTY_GRID_FEEDBACK_DELIVER_INPUT,
+    NOCTTY_GRID_FEEDBACK_OPEN_BROWSER,
+    NOCTTY_GRID_FEEDBACK_LINK_TYPE,
+    NOCTTY_GRID_FEEDBACK_LINK_COPIED,
+    NOCTTY_GRID_FEEDBACK_POINTER_INPUT,
+    NOCTTY_GRID_FEEDBACK_BROADCAST_DISABLED,
+    NOCTTY_GRID_FEEDBACK_MOUSE_WHEEL,
+    NOCTTY_GRID_FEEDBACK_ALT_SCROLL,
+    NOCTTY_GRID_FEEDBACK_COMPOSED_TEXT,
+};
+
+const char *noctty_grid_status_feedback_message(int kind);
+
+typedef struct {
     int width;
     int height;
     int min_width;

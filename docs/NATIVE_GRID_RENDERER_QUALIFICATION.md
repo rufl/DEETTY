@@ -14,6 +14,27 @@ After one warm-up draw, each fixture records 128 process-CPU samples and draws o
 
 The allocation counters cover renderer-owned packed-row storage, glyph scratch, and glyph-cache construction. They deliberately do not claim visibility into Cairo, Pango, fontconfig, GLib, or allocator-internal work. The resize probe draws 80×24, grows to 160×50, and shrinks to 80×24; growth must be bounded and shrink must reuse the retained renderer scratch.
 
+## Current Locked-Tree Check
+
+On 2026-09-27, the current source tree passed equivalent direct Debug and
+`ReleaseSafe` native-smoke renderer invocations. Both modes reported
+`pixel_diff=0`, `warm_frame_owned_allocations=0`,
+`resize_growth_allocations=1`, `resize_shrink_allocations=0`,
+`peak_owned_scratch_bytes=4352`, and identical fixture hashes:
+
+```text
+idle_hash=7871906977177387557
+fullscreen_hash=15511393829725427872
+rich_hash=12880100475389434822
+```
+
+The three Debug/`ReleaseSafe` PNG pairs were byte-identical. Current Debug
+fingerprints are `ac7045a9844ee20f8be9e8a05ca3b826d12387fb5e7e7ba3a9e59294f98c7267`,
+`04e3a879db5e1257b4307998ab5527b54f7a72934ce0edcbebec6860748339b6`, and
+`d4b12ee00aaf90c40cebed65a0dc1f06ab32a99ed1a89591b075a75e55306880`.
+The maintained parallel wrapper was not used for this receipt because host
+build contention blocked its concurrent mode builds.
+
 ## Retained Result
 
 | Mode | Fixture | p50 process CPU | p95 process CPU | p99 process CPU |

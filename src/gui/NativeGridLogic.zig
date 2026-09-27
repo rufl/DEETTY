@@ -2373,6 +2373,270 @@ pub export fn noctty_grid_sharing_status_text(
     return length;
 }
 
+pub const CompactTabTextInput = extern struct {
+    title: ?[*]const u8,
+    title_length: usize,
+    filter: ?[*]const u8,
+    filter_length: usize,
+    status_color: ?[*]const u8,
+    status_color_length: usize,
+    pane_count: u32,
+    selected_count: u32,
+    filter_active: c_int,
+    attention: c_int,
+    dirty: c_int,
+    broadcast: c_int,
+    active: c_int,
+    tab_color_rgb: u32,
+    tab_color_preset: c_int,
+    tab_color_shade: c_int,
+};
+
+pub const CompactTabTextPlan = extern struct {
+    markup_length: c_int,
+    tooltip_length: c_int,
+    close_name_length: c_int,
+    title_truncated: c_int,
+};
+
+fn compactTabInputSlice(pointer: ?[*]const u8, length: usize) []const u8 {
+    const value = pointer orelse return "";
+    return value[0..@min(length, 4096)];
+}
+
+fn compactTabUtf8Continuation(byte: u8) bool {
+    return (byte & 0xc0) == 0x80;
+}
+
+fn compactTabUtf8ByteLength(input: []const u8, index: usize) usize {
+    const byte = input[index];
+    if (byte < 0x80) return 1;
+    if ((byte & 0xe0) == 0xc0 and index + 2 <= input.len and
+        compactTabUtf8Continuation(input[index + 1]))
+        return 2;
+    if ((byte & 0xf0) == 0xe0 and index + 3 <= input.len and
+        compactTabUtf8Continuation(input[index + 1]) and
+        compactTabUtf8Continuation(input[index + 2]))
+        return 3;
+    if ((byte & 0xf8) == 0xf0 and index + 4 <= input.len and
+        compactTabUtf8Continuation(input[index + 1]) and
+        compactTabUtf8Continuation(input[index + 2]) and
+        compactTabUtf8Continuation(input[index + 3]))
+        return 4;
+    return 1;
+}
+
+fn compactTabUtf8Count(input: []const u8) usize {
+    var count: usize = 0;
+    var index: usize = 0;
+    while (index < input.len) : (count += 1)
+        index += compactTabUtf8ByteLength(input, index);
+    return count;
+}
+
+fn compactTabMarkupEscape(
+    input: []const u8,
+    max_codepoints: usize,
+    output: []u8,
+) ?[]const u8 {
+    var output_length: usize = 0;
+    var index: usize = 0;
+    var codepoints: usize = 0;
+    while (index < input.len and codepoints < max_codepoints) {
+        const byte_length = compactTabUtf8ByteLength(input, index);
+        if (byte_length == 1) {
+            const escaped: []const u8 = switch (input[index]) {
+                '&' => "&amp;",
+                '<' => "&lt;",
+                '>' => "&gt;",
+                else => input[index .. index + 1],
+            };
+            if (output_length + escaped.len > output.len) return null;
+            @memcpy(output[output_length .. output_length + escaped.len], escaped);
+            output_length += escaped.len;
+        } else {
+            if (output_length + byte_length > output.len) return null;
+            @memcpy(
+                output[output_length .. output_length + byte_length],
+                input[index .. index + byte_length],
+            );
+            output_length += byte_length;
+        }
+        index += byte_length;
+        codepoints += 1;
+    }
+    return output[0..output_length];
+}
+
+fn compactTabColorUsesDarkText(rgb: u32) bool {
+    const red: u64 = (rgb >> 16) & 0xff;
+    const green: u64 = (rgb >> 8) & 0xff;
+    const blue: u64 = rgb & 0xff;
+    return red * red * 2126 + green * green * 7152 + blue * blue * 722 >= 116394750;
+}
+
+fn compactTabFormat(
+    output: ?[*]u8,
+    capacity: usize,
+    comptime format: []const u8,
+    args: anytype,
+) c_int {
+    const target = output orelse return 0;
+    if (capacity == 0) return 0;
+    const formatted = std.fmt.bufPrint(target[0 .. capacity - 1], format, args) catch return 0;
+    target[formatted.len] = 0;
+    return @intCast(formatted.len);
+}
+
+pub export fn noctty_grid_compact_tab_text(
+    input: *const CompactTabTextInput,
+    markup: ?[*]u8,
+    markup_capacity: usize,
+    tooltip: ?[*]u8,
+    tooltip_capacity: usize,
+    close_name: ?[*]u8,
+    close_name_capacity: usize,
+    plan: ?*CompactTabTextPlan,
+) callconv(.c) c_int {
+    var result = CompactTabTextPlan{
+        .markup_length = 0,
+        .tooltip_length = 0,
+        .close_name_length = 0,
+        .title_truncated = 0,
+    };
+    const title = compactTabInputSlice(input.title, input.title_length);
+    const filter = compactTabInputSlice(input.filter, input.filter_length);
+    const status_color = compactTabInputSlice(
+        input.status_color,
+        input.status_color_length,
+    );
+    const title_codepoints = compactTabUtf8Count(title);
+    const title_truncated = title_codepoints > 18;
+    var title_storage: [2048]u8 = undefined;
+    const escaped_title = compactTabMarkupEscape(
+        title,
+        if (title_truncated) 17 else title_codepoints,
+        &title_storage,
+    ) orelse return 0;
+    var filter_storage: [4096]u8 = undefined;
+    const escaped_filter = if (input.filter_active != 0)
+        compactTabMarkupEscape(filter, compactTabUtf8Count(filter), &filter_storage) orelse return 0
+    else
+        "";
+    var title_color_storage: [64]u8 = undefined;
+    const title_color_attribute: []const u8 = if (input.tab_color_rgb != 0)
+        std.fmt.bufPrint(
+            &title_color_storage,
+            " foreground='{s}'",
+            .{if (compactTabColorUsesDarkText(input.tab_color_rgb)) "#11151b" else "#ffffff"},
+        ) catch return 0
+    else
+        "";
+    var filter_suffix_storage: [4096]u8 = undefined;
+    const filter_suffix: []const u8 = if (input.filter_active != 0)
+        std.fmt.bufPrint(
+            &filter_suffix_storage,
+            " <span foreground='#b8a7ff'>⌕ {s}</span>",
+            .{escaped_filter},
+        ) catch return 0
+    else
+        "";
+    var selection_suffix_storage: [64]u8 = undefined;
+    const selection_suffix: []const u8 = if (input.selected_count > 0)
+        std.fmt.bufPrint(
+            &selection_suffix_storage,
+            " <span foreground='#f6c85f'>⌁{d}</span>",
+            .{input.selected_count},
+        ) catch return 0
+    else
+        "";
+    var pane_suffix_storage: [32]u8 = undefined;
+    const pane_suffix: []const u8 = if (input.pane_count > 1)
+        std.fmt.bufPrint(&pane_suffix_storage, " ×{d}", .{input.pane_count}) catch return 0
+    else
+        "";
+    var tab_color_tooltip_storage: [128]u8 = undefined;
+    const tab_color_tooltip: []const u8 = if (input.tab_color_rgb != 0)
+        std.fmt.bufPrint(
+            &tab_color_tooltip_storage,
+            " · tab color {s}, {s}",
+            .{
+                std.mem.span(noctty_grid_tab_color_preset_name(input.tab_color_preset)),
+                std.mem.span(noctty_grid_tab_color_shade_name(input.tab_color_shade)),
+            },
+        ) catch return 0
+    else
+        "";
+    result.markup_length = compactTabFormat(
+        markup,
+        markup_capacity,
+        "<span size='small' weight='{s}'{s}>{s}{s}{s}</span> <span foreground='{s}'>●</span>{s}{s}{s}{s}",
+        .{
+            if (input.active != 0) "bold" else "normal",
+            title_color_attribute,
+            escaped_title,
+            if (title_truncated) "…" else "",
+            pane_suffix,
+            status_color,
+            if (input.dirty != 0) " <span foreground='#e8a85c'>◆</span>" else "",
+            filter_suffix,
+            selection_suffix,
+            if (input.broadcast != 0) " <span foreground='#70d6a7'>B</span>" else "",
+        },
+    );
+    if (result.markup_length <= 0) return 0;
+    result.tooltip_length = compactTabFormat(
+        tooltip,
+        tooltip_capacity,
+        "{s} · {d} pane{s}{s}{s}{s}{s}{s}{s}",
+        .{
+            title,
+            input.pane_count,
+            if (input.pane_count == 1) "" else "s",
+            if (input.attention != 0) " · attention requested" else "",
+            if (input.dirty != 0) " · unsaved workspace" else "",
+            if (input.filter_active != 0) " · Smart Tab filter active" else "",
+            if (input.selected_count > 0) " · selection group active" else "",
+            if (input.broadcast != 0) " · broadcast on" else "",
+            tab_color_tooltip,
+        },
+    );
+    if (result.tooltip_length <= 0) return 0;
+    result.close_name_length = compactTabFormat(
+        close_name,
+        close_name_capacity,
+        "Close tab: {s}",
+        .{title},
+    );
+    if (result.close_name_length <= 0) return 0;
+    result.title_truncated = @intFromBool(title_truncated);
+    if (plan) |output| output.* = result;
+    return 1;
+}
+
+pub export fn noctty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0]const u8 {
+    return switch (kind) {
+        1 => "Could not scroll the terminal history.",
+        2 => "Could not paste into every target terminal.",
+        3 => "Could not copy the terminal selection.",
+        4 => "Could not update the terminal state.",
+        5 => "Could not send Ctrl+L to the terminal.",
+        6 => "Terminal input flush failed.",
+        7 => "Could not save the workspace recovery snapshot.",
+        8 => "Could not interrupt the terminal.",
+        9 => "Could not deliver input to every target terminal.",
+        10 => "Could not open the link in the default browser.",
+        11 => "This link type is not allowed.",
+        12 => "Link copied.",
+        13 => "The application did not accept pointer input.",
+        14 => "Broadcast mode disabled.",
+        15 => "The application did not accept mouse-wheel input.",
+        16 => "Could not deliver alternate-screen scroll input.",
+        17 => "Could not deliver composed text to every terminal.",
+        else => "",
+    };
+}
+
 pub export fn noctty_grid_bracketed_paste_marker(
     kind: c_int,
     output: ?[*]u8,
@@ -5217,6 +5481,116 @@ test "sharing status text owns messages errors and discovery hints" {
         0, 0, &tiny, tiny.len, &plan);
     try std.testing.expectEqual(@as(c_int, 7), length);
     try std.testing.expectEqualStrings("Idle. P", tiny[0..@intCast(length)]);
+}
+
+test "compact tab text owns markup tooltip and close labels" {
+    const title = "Project & Main";
+    const filter = "ci";
+    const status_color = "#6f7480";
+    var input = CompactTabTextInput{
+        .title = title.ptr,
+        .title_length = title.len,
+        .filter = filter.ptr,
+        .filter_length = filter.len,
+        .status_color = status_color.ptr,
+        .status_color_length = status_color.len,
+        .pane_count = 2,
+        .selected_count = 1,
+        .filter_active = 1,
+        .attention = 1,
+        .dirty = 1,
+        .broadcast = 1,
+        .active = 1,
+        .tab_color_rgb = 0xff0000,
+        .tab_color_preset = 0,
+        .tab_color_shade = 1,
+    };
+    var markup: [1024]u8 = undefined;
+    var tooltip: [1024]u8 = undefined;
+    var close_name: [256]u8 = undefined;
+    var plan: CompactTabTextPlan = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_compact_tab_text(
+            &input,
+            &markup,
+            markup.len,
+            &tooltip,
+            tooltip.len,
+            &close_name,
+            close_name.len,
+            &plan,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "<span size='small' weight='bold' foreground='#11151b'>Project &amp; Main ×2</span> <span foreground='#6f7480'>●</span> <span foreground='#e8a85c'>◆</span> <span foreground='#b8a7ff'>⌕ ci</span> <span foreground='#f6c85f'>⌁1</span> <span foreground='#70d6a7'>B</span>",
+        markup[0..@intCast(plan.markup_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Project & Main · 2 panes · attention requested · unsaved workspace · Smart Tab filter active · selection group active · broadcast on · tab color Red, lighter",
+        tooltip[0..@intCast(plan.tooltip_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Close tab: Project & Main",
+        close_name[0..@intCast(plan.close_name_length)],
+    );
+    try std.testing.expectEqual(@as(c_int, 0), plan.title_truncated);
+
+    const long_title = "1234567890123456789";
+    input.title = long_title.ptr;
+    input.title_length = long_title.len;
+    input.filter_active = 0;
+    input.tab_color_rgb = 0;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_compact_tab_text(
+            &input,
+            &markup,
+            markup.len,
+            &tooltip,
+            tooltip.len,
+            &close_name,
+            close_name.len,
+            &plan,
+        ),
+    );
+    try std.testing.expectEqual(@as(c_int, 1), plan.title_truncated);
+    try std.testing.expect(std.mem.indexOf(
+        u8,
+        markup[0..@intCast(plan.markup_length)],
+        "12345678901234567…",
+    ) != null);
+}
+
+test "status feedback labels remain owned by Zig" {
+    const expected = [_][]const u8{
+        "Could not scroll the terminal history.",
+        "Could not paste into every target terminal.",
+        "Could not copy the terminal selection.",
+        "Could not update the terminal state.",
+        "Could not send Ctrl+L to the terminal.",
+        "Terminal input flush failed.",
+        "Could not save the workspace recovery snapshot.",
+        "Could not interrupt the terminal.",
+        "Could not deliver input to every target terminal.",
+        "Could not open the link in the default browser.",
+        "This link type is not allowed.",
+        "Link copied.",
+        "The application did not accept pointer input.",
+        "Broadcast mode disabled.",
+        "The application did not accept mouse-wheel input.",
+        "Could not deliver alternate-screen scroll input.",
+        "Could not deliver composed text to every terminal.",
+    };
+    for (expected, 1..) |message, index|
+        try std.testing.expectEqualStrings(
+            message,
+            std.mem.span(noctty_grid_status_feedback_message(@intCast(index))),
+        );
+    try std.testing.expectEqualStrings(
+        "",
+        std.mem.span(noctty_grid_status_feedback_message(0)),
+    );
 }
 
 test "bracketed paste markers preserve terminal protocol delimiters" {

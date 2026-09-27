@@ -1275,7 +1275,10 @@ static gboolean scroll_terminal_by_lines(
     if (lines == 0) return TRUE;
     int result = context->scroll(context->userdata, lines);
     if (result != 0) {
-        show_status_feedback(context, "Could not scroll the terminal history.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_SCROLL_HISTORY));
         return FALSE;
     }
     return TRUE;
@@ -1734,7 +1737,9 @@ static void on_clipboard_text(GtkClipboard *clipboard, const gchar *text, gpoint
             if (context->workspace_smoke == 4) (void)deliver_grid_input(context, "\r", 1);
         } else {
             show_status_feedback(
-                context, "Could not paste into every target terminal.");
+                context,
+                noctty_grid_status_feedback_message(
+                    NOCTTY_GRID_FEEDBACK_PASTE));
         }
     }
 }
@@ -1771,7 +1776,9 @@ static void copy_grid_selection_to_clipboard(NocttyGridContext *context) {
             noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD), text, copied_length);
     } else if (copied_length < 0 ||
                (gsize)copied_length >= NOCTTY_SELECTION_COPY_MAX_BYTES) {
-        show_status_feedback(context, "Could not copy the terminal selection.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(NOCTTY_GRID_FEEDBACK_COPY));
     }
     noctty_grid_memory_free(text);
 }
@@ -1780,7 +1787,10 @@ static void apply_terminal_control(NocttyGridContext *context,
                                    const char *bytes, size_t length) {
     if (!grid_context_session_available(context)) return;
     if (noctty_grid_control(context->userdata, bytes, length) != (int)length) {
-        show_status_feedback(context, "Could not update the terminal state.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_TERMINAL_STATE));
         return;
     }
     noctty_grid_widget_queue_draw(context->area);
@@ -1789,7 +1799,9 @@ static void apply_terminal_control(NocttyGridContext *context,
 static void clear_grid_screen(NocttyGridContext *context) {
     if (context->write == NULL ||
         context->write(context->userdata, "\x0c", 1) != 1) {
-        show_status_feedback(context, "Could not send Ctrl+L to the terminal.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(NOCTTY_GRID_FEEDBACK_CTRL_L));
         return;
     }
     schedule_grid_write_flush(context);
@@ -4721,7 +4733,10 @@ static gboolean on_grid_write_flush(gpointer user_data) {
     if (flushed > 0 || flushed < 0) {
         context->write_flush_source = 0;
         if (flushed < 0)
-            show_status_feedback(context, "Terminal input flush failed.");
+            show_status_feedback(
+                context,
+                noctty_grid_status_feedback_message(
+                    NOCTTY_GRID_FEEDBACK_INPUT_FLUSH));
         return G_SOURCE_REMOVE;
     }
     return G_SOURCE_CONTINUE;
@@ -4926,36 +4941,10 @@ static void update_compact_tab(NocttyGridContext *context) {
     }
     gchar *title = current_tab_title_alloc(context);
     gchar *basename = g_path_get_basename(title);
-    gchar *title_prefix = g_utf8_strlen(basename, -1) > 18
-        ? g_utf8_substring(basename, 0, 17)
-        : NULL;
-    gchar *escaped = g_markup_escape_text(title_prefix != NULL
-                                          ? title_prefix : basename, -1);
-    const gchar *title_ellipsis = title_prefix != NULL ? "…" : "";
-    gchar *escaped_filter = root->smart_filter_tag != NULL
-        ? g_markup_escape_text(root->smart_filter_tag, -1) : NULL;
-    gchar *filter_suffix = escaped_filter != NULL
-        ? g_strdup_printf(" <span foreground='#b8a7ff'>⌕ %s</span>", escaped_filter)
-        : NULL;
-    char selection_suffix[64] = {0};
-    if (selected > 0)
-        g_snprintf(selection_suffix, sizeof(selection_suffix),
-                   " <span foreground='#f6c85f'>⌁%u</span>", selected);
-    const gchar *broadcast_suffix = root->event_data != NULL &&
-        noctty_grid_broadcast_enabled(root->event_data) != 0
-        ? " <span foreground='#70d6a7'>B</span>" : "";
-    char pane_suffix[32] = {0};
-    if (panes > 1)
-        g_snprintf(pane_suffix, sizeof(pane_suffix), " ×%u", panes);
     gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
                                             context->page);
     gboolean is_active = page_index >= 0 &&
         noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook)) == page_index;
-    gchar *title_color_attribute = tab_color_rgb != 0
-        ? g_strdup_printf(
-              " foreground='%s'",
-              tab_color_uses_dark_text(tab_color_rgb) ? "#11151b" : "#ffffff")
-        : g_strdup("");
     char color[8];
     NocttyGridStatusColorPlan status_color = {0};
     noctty_grid_status_color_plan(status, attention, &status_color);
@@ -4965,14 +4954,40 @@ static void update_compact_tab(NocttyGridContext *context) {
         format_ui_color(
             root, status_color.role, status_color.fallback, color);
     }
-    gchar *markup = g_strdup_printf(
-        "<span size='small' weight='%s'%s>%s%s%s</span> <span foreground='%s'>●</span>%s%s%s%s",
-        is_active ? "bold" : "normal", title_color_attribute,
-        escaped, title_ellipsis, pane_suffix, color,
-        dirty ? " <span foreground='#e8a85c'>◆</span>" : "",
-        filter_suffix != NULL ? filter_suffix : "",
-        selection_suffix, broadcast_suffix);
-    noctty_grid_memory_free(title_color_attribute);
+    char markup[4096];
+    char tooltip[4096];
+    char close_name[1024];
+    NocttyGridCompactTabTextInput text_input = {
+        .title = (const unsigned char *)basename,
+        .title_length = basename != NULL ? strlen(basename) : 0,
+        .filter = (const unsigned char *)root->smart_filter_tag,
+        .filter_length = root->smart_filter_tag != NULL
+            ? strlen(root->smart_filter_tag) : 0,
+        .status_color = (const unsigned char *)color,
+        .status_color_length = strlen(color),
+        .pane_count = panes,
+        .selected_count = selected,
+        .filter_active = root->smart_filter_tag != NULL,
+        .attention = attention,
+        .dirty = dirty,
+        .broadcast = root->event_data != NULL &&
+            noctty_grid_broadcast_enabled(root->event_data) != 0,
+        .active = is_active,
+        .tab_color_rgb = tab_color_rgb,
+        .tab_color_preset = tab_color_preset,
+        .tab_color_shade = tab_color_shade,
+    };
+    NocttyGridCompactTabTextPlan text_plan = {0};
+    if (noctty_grid_compact_tab_text(
+            &text_input,
+            (unsigned char *)markup, sizeof(markup),
+            (unsigned char *)tooltip, sizeof(tooltip),
+            (unsigned char *)close_name, sizeof(close_name),
+            &text_plan) == 0) {
+        noctty_grid_memory_free(basename);
+        noctty_grid_memory_free(title);
+        return;
+    }
     if (root->workspace_smoke == 15 && tab_color_rgb == 0) {
         const gchar *title_end = strstr(markup, "</span>");
         if (title_end != NULL &&
@@ -4998,21 +5013,6 @@ static void update_compact_tab(NocttyGridContext *context) {
     noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     noctty_grid_widget_set_size_request(
         context->tab_label, -1, tab_metrics.label_height);
-    char tab_color_tooltip[96] = {0};
-    if (tab_color_rgb != 0)
-        g_snprintf(tab_color_tooltip, sizeof(tab_color_tooltip),
-                   " · tab color %s, %s",
-                   noctty_grid_tab_color_preset_name(tab_color_preset),
-                   noctty_grid_tab_color_shade_name(tab_color_shade));
-    gchar *tooltip = g_strdup_printf("%s · %u pane%s%s%s%s%s%s%s", title, panes,
-                                     panes == 1 ? "" : "s",
-                                     attention ? " · attention requested" : "",
-                                     dirty ? " · unsaved workspace" : "",
-                                     root->smart_filter_tag != NULL ? " · Smart Tab filter active" : "",
-                                     selected > 0 ? " · selection group active" : "",
-                                     root->event_data != NULL && noctty_grid_broadcast_enabled(root->event_data) != 0
-                                         ? " · broadcast on" : "",
-                                     tab_color_tooltip);
     const gchar *cached_tooltip = noctty_grid_object_get_data(
         context->tab_label, "noctty-tab-tooltip-cache");
     if (g_strcmp0(cached_tooltip, tooltip) != 0) {
@@ -5025,7 +5025,6 @@ static void update_compact_tab(NocttyGridContext *context) {
     }
     GtkWidget *close_button = tab_close_button_from_widget(tab_widget);
     if (noctty_grid_widget_is_type(close_button, NOCTTY_GTK_BUTTON)) {
-        gchar *close_name = g_strdup_printf("Close tab: %s", title);
         const gchar *cached_close_name = noctty_grid_object_get_data(
             close_button, "noctty-tab-close-name-cache");
         if (g_strcmp0(cached_close_name, close_name) != 0) {
@@ -5035,7 +5034,6 @@ static void update_compact_tab(NocttyGridContext *context) {
                 close_button, "noctty-tab-close-name-cache",
                 g_strdup(close_name), g_free);
         }
-        noctty_grid_memory_free(close_name);
     }
     if (root->workspace_smoke == 3 && is_active) {
         root->tab_active_styled = 1;
@@ -5043,12 +5041,6 @@ static void update_compact_tab(NocttyGridContext *context) {
         root->tab_close_button_visible = close != NULL &&
             noctty_grid_widget_get_visible(close) && noctty_grid_widget_get_mapped(close);
     }
-    noctty_grid_memory_free(tooltip);
-    noctty_grid_memory_free(markup);
-    noctty_grid_memory_free(escaped);
-    noctty_grid_memory_free(title_prefix);
-    noctty_grid_memory_free(filter_suffix);
-    noctty_grid_memory_free(escaped_filter);
     noctty_grid_memory_free(basename);
     noctty_grid_memory_free(title);
 }
@@ -6853,7 +6845,9 @@ static gboolean flush_grid_layout_hot_session(gpointer user_data) {
     if (!root->control_name_conflict && root->event_data != NULL &&
         noctty_grid_flush_hot_session(root->event_data) != 0)
         show_status_feedback(
-            root, "Could not save the workspace recovery snapshot.");
+            root,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_RECOVERY_SAVE));
     return G_SOURCE_REMOVE;
 }
 
@@ -8623,7 +8617,9 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
                 root->ctrl_c_local_interrupt = 1;
             } else {
                 show_status_feedback(
-                    context, "Could not interrupt the terminal.");
+                    context,
+                    noctty_grid_status_feedback_message(
+                        NOCTTY_GRID_FEEDBACK_INTERRUPT));
             }
             return TRUE;
         default:
@@ -8645,7 +8641,9 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
     length = (size_t)encoded;
     if (deliver_grid_input(context, bytes, length) < 0)
         show_status_feedback(
-            context, "Could not deliver input to every target terminal.");
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_DELIVER_INPUT));
     return TRUE;
 }
 
@@ -8756,7 +8754,9 @@ static gboolean open_grid_uri(NocttyGridContext *context,
         GTK_WINDOW(context->window), uri, time, &error);
     if (!opened)
         show_status_feedback(
-            context, "Could not open the link in the default browser.");
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_OPEN_BROWSER));
     if (error != NULL) g_error_free(error);
     return TRUE;
 }
@@ -8767,7 +8767,10 @@ static gboolean open_grid_hyperlink(NocttyGridContext *context,
     int length = read_grid_hyperlink(context, column, row, uri);
     if (length == 0) return FALSE;
     if (length < 0) {
-        show_status_feedback(context, "This link type is not allowed.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_LINK_TYPE));
         return TRUE;
     }
     return open_grid_uri(context, uri, time);
@@ -8790,7 +8793,10 @@ static void on_hyperlink_menu_copy(GtkMenuItem *item, gpointer user_data) {
     NocttyHyperlinkMenu *menu = user_data;
     noctty_grid_clipboard_set_text(
         noctty_grid_clipboard_get(GDK_SELECTION_CLIPBOARD), menu->uri, -1);
-    show_status_feedback(menu->context, "Link copied.");
+    show_status_feedback(
+        menu->context,
+        noctty_grid_status_feedback_message(
+            NOCTTY_GRID_FEEDBACK_LINK_COPIED));
 }
 
 static void destroy_hyperlink_menu_data(gpointer user_data) {
@@ -9016,7 +9022,9 @@ static gboolean on_mouse_button(GtkWidget *widget, GdkEventButton *event, gpoint
                     context->userdata, column, row, button, pressed);
                 if (delivered <= 0) {
                     show_status_feedback(
-                        context, "The application did not accept pointer input.");
+                        context,
+                        noctty_grid_status_feedback_message(
+                            NOCTTY_GRID_FEEDBACK_POINTER_INPUT));
                 } else {
                     schedule_grid_write_flush(context);
                 }
@@ -13558,7 +13566,10 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
         noctty_grid_broadcast_enabled(root->event_data) != 0;
     if (enabled) {
         emit_grid_workspace_event(context, 23);
-        show_status_feedback(context, "Broadcast mode disabled.");
+        show_status_feedback(
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_BROADCAST_DISABLED));
         root->broadcast_disable_feedback = 1;
         if (root->workspace_smoke == 1)
             root->broadcast_disable_immediate =
@@ -15518,7 +15529,9 @@ static gboolean report_terminal_mouse_wheel(
     }
     if (!delivered)
         show_status_feedback(
-            context, "The application did not accept mouse-wheel input.");
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_MOUSE_WHEEL));
 #if NOCTTY_ENABLE_SMOKE
     NocttyGridContext *root = root_grid_context(context);
     if (delivered && root->workspace_smoke == 42)
@@ -15546,7 +15559,9 @@ static gboolean report_terminal_wheel_keys(
         schedule_grid_write_flush(context);
     } else {
         show_status_feedback(
-            context, "Could not deliver alternate-screen scroll input.");
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_ALT_SCROLL));
     }
     return TRUE;
 }
@@ -16231,7 +16246,9 @@ static void on_im_commit(GtkIMContext *im_context, const gchar *text,
         text != NULL && text[0] != '\0' &&
         deliver_grid_input(context, text, strlen(text)) < 0)
         show_status_feedback(
-            context, "Could not deliver composed text to every terminal.");
+            context,
+            noctty_grid_status_feedback_message(
+                NOCTTY_GRID_FEEDBACK_COMPOSED_TEXT));
 }
 
 static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {

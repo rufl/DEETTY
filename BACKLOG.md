@@ -168,9 +168,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   GTK accessibility range clamping and character-offset validity now cross
   the Zig ABI; C retains UTF-8 pointer conversion and ATK granularity effects.
   Startup visibility, activation-application, native-smoke scheduling,
-  accessible text-buffer normalization, and session-sharing status text/error
-  classification now also cross the Zig ABI; C retains GTK/ATK/GString effects,
-  discovery-field updates, smoke callback dispatch, and lifecycle ownership.
+  accessible text-buffer normalization, session-sharing status text/error
+  classification, and compact-tab text/markup policy now also cross the Zig ABI;
+  C retains GTK/ATK/GString effects, title acquisition, discovery-field updates,
+  smoke callback dispatch, and lifecycle ownership.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
@@ -217,6 +218,13 @@ of this item.
 The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
+
+Current locked-tree evidence (2026-09-27) reports `82.28%` Zig ownership
+(`zig_lines=88303`, `adapter_lines=19008`) against the strict `90.00%`
+target. Direct Debug and `ReleaseSafe` renderer qualifications pass with
+byte-identical fixtures and zero warm-frame allocations; the isolated mapped
+GTK runner remains deferred by host I/O pressure (`exit=75`), so NCT-126 is
+not closed.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

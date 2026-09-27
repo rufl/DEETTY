@@ -31,6 +31,11 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   and status-message/error classification into the Zig grid-logic adapter; C
   retains widget sensitivity, native labels, discovery-field updates, and GTK
   effects.
+- Moved compact-tab markup, tooltip, close-name, escaping, truncation, and
+  suffix policy into the Zig grid-logic adapter; C retains title acquisition,
+  GTK label/tooltip/accessibility effects, and tab-color styling.
+- Moved native terminal feedback labels into the Zig grid-logic adapter; C
+  retains status-feedback timing, GTK redraw, and presentation effects.
 - Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
   cache validity now follows the explicit native font-policy invalidation path
   instead of unstable scaled-font pointer identity, restoring zero warm-frame

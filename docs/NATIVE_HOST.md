@@ -135,6 +135,13 @@ falling back to GTK focus state.
 Terminal status labels are selected by Zig for the five protocol states;
 GTK consumes the bounded string for tooltips and attention presentation.
 
+Compact-tab markup, tooltip, close-name, escaping, truncation, and suffix
+selection are bounded Zig text policy; C retains model/title acquisition,
+GTK label and tooltip effects, accessibility naming, and tab-color styling.
+
+Terminal feedback labels are selected by Zig from bounded message IDs; C retains
+the timeout source, GTK redraw, and status presentation effects.
+
 Profile preset labels, including the `Custom` fallback, are selected by Zig
 before GTK constructs the radio-menu items.
 
