@@ -490,6 +490,33 @@ void noctty_grid_compact_tab_metrics(
     int tab_height, NocttyGridCompactTabMetrics *metrics);
 
 typedef struct {
+    int horizontal;
+    int notebook_width;
+    int notebook_height;
+    int page_width;
+    int page_height;
+    int tab_width;
+    int tab_height;
+    int max_tab_width;
+    int close_width;
+    int close_height;
+    int action_width;
+    int action_height;
+} NocttyGridCompactTabMeasurements;
+
+typedef struct {
+    int strip_extent;
+    int widget_extent;
+    int max_width;
+    int close_extent;
+    int action_extent;
+} NocttyGridCompactTabGeometry;
+
+void noctty_grid_compact_tab_geometry(
+    const NocttyGridCompactTabMeasurements *measurements,
+    NocttyGridCompactTabGeometry *geometry);
+
+typedef struct {
     int width;
     int height;
     int min_width;

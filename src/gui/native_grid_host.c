@@ -5543,12 +5543,6 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
     GtkPositionType position = (GtkPositionType)noctty_grid_notebook_get_tab_pos(
         GTK_NOTEBOOK(root->notebook));
     gboolean horizontal = position == GTK_POS_TOP || position == GTK_POS_BOTTOM;
-    root->compact_tab_strip_extent = horizontal
-        ? notebook_allocation.height - page_allocation.height
-        : notebook_allocation.width - page_allocation.width;
-    root->compact_tab_widget_extent = horizontal
-        ? tab_allocation.height
-        : tab_allocation.width;
     root->compact_tab_max_width = tab_allocation.width;
     for (gint index = 1; index < page_count; index++) {
         GtkWidget *candidate_page = noctty_grid_notebook_get_nth_page(
@@ -5561,10 +5555,27 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
         root->compact_tab_max_width = MAX(root->compact_tab_max_width,
                                           candidate_allocation.width);
     }
-    root->compact_tab_close_extent = MIN(
-        close_allocation.width, close_allocation.height);
-    root->compact_tab_action_extent = MIN(
-        action_allocation.width, action_allocation.height);
+    NocttyGridCompactTabMeasurements measurements = {
+        .horizontal = horizontal,
+        .notebook_width = notebook_allocation.width,
+        .notebook_height = notebook_allocation.height,
+        .page_width = page_allocation.width,
+        .page_height = page_allocation.height,
+        .tab_width = tab_allocation.width,
+        .tab_height = tab_allocation.height,
+        .max_tab_width = root->compact_tab_max_width,
+        .close_width = close_allocation.width,
+        .close_height = close_allocation.height,
+        .action_width = action_allocation.width,
+        .action_height = action_allocation.height,
+    };
+    NocttyGridCompactTabGeometry geometry = {0};
+    noctty_grid_compact_tab_geometry(&measurements, &geometry);
+    root->compact_tab_strip_extent = geometry.strip_extent;
+    root->compact_tab_widget_extent = geometry.widget_extent;
+    root->compact_tab_max_width = geometry.max_width;
+    root->compact_tab_close_extent = geometry.close_extent;
+    root->compact_tab_action_extent = geometry.action_extent;
     NocttyGridCompactTabMetrics tab_metrics = {0};
     noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     root->compact_tab_geometry = page_count == 2 && horizontal &&

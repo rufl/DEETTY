@@ -158,6 +158,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   through the same Zig ABI.
   Shared terminal-status color-role, fallback, and idle-muted policy now also
   crosses that ABI.
+  Compact-tab extent and close/action sizing arithmetic now follows the same
+  split: Zig owns the calculation while GTK retains allocation queries and
+  native eligibility checks.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

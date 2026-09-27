@@ -159,6 +159,29 @@ pub const CompactTabMetrics = extern struct {
     strip_limit: c_int,
 };
 
+pub const CompactTabMeasurements = extern struct {
+    horizontal: c_int,
+    notebook_width: c_int,
+    notebook_height: c_int,
+    page_width: c_int,
+    page_height: c_int,
+    tab_width: c_int,
+    tab_height: c_int,
+    max_tab_width: c_int,
+    close_width: c_int,
+    close_height: c_int,
+    action_width: c_int,
+    action_height: c_int,
+};
+
+pub const CompactTabGeometry = extern struct {
+    strip_extent: c_int,
+    widget_extent: c_int,
+    max_width: c_int,
+    close_extent: c_int,
+    action_extent: c_int,
+};
+
 pub const SettingsGeometryPlan = extern struct {
     width: c_int,
     height: c_int,
@@ -1586,6 +1609,28 @@ pub export fn noctty_grid_compact_tab_metrics(
             @as(i64, 30),
             @as(i64, std.math.maxInt(c_int)),
         )),
+    };
+}
+
+pub export fn noctty_grid_compact_tab_geometry(
+    measurements_optional: ?*const CompactTabMeasurements,
+    geometry_optional: ?*CompactTabGeometry,
+) callconv(.c) void {
+    const measurements = measurements_optional orelse return;
+    const geometry = geometry_optional orelse return;
+    const horizontal = measurements.horizontal != 0;
+    geometry.* = .{
+        .strip_extent = if (horizontal)
+            measurements.notebook_height - measurements.page_height
+        else
+            measurements.notebook_width - measurements.page_width,
+        .widget_extent = if (horizontal)
+            measurements.tab_height
+        else
+            measurements.tab_width,
+        .max_width = @max(measurements.tab_width, measurements.max_tab_width),
+        .close_extent = @min(measurements.close_width, measurements.close_height),
+        .action_extent = @min(measurements.action_width, measurements.action_height),
     };
 }
 pub export fn noctty_grid_settings_geometry_plan(
@@ -4252,6 +4297,35 @@ test "compact tab metrics preserve minimum label and action geometry" {
     try std.testing.expectEqual(@as(c_int, 40), metrics.label_height);
     try std.testing.expectEqual(@as(c_int, 42), metrics.action_extent);
     try std.testing.expectEqual(@as(c_int, 61), metrics.strip_limit);
+}
+
+test "compact tab geometry preserves orientation and native extents" {
+    var measurements = CompactTabMeasurements{
+        .horizontal = 1,
+        .notebook_width = 800,
+        .notebook_height = 40,
+        .page_width = 800,
+        .page_height = 32,
+        .tab_width = 140,
+        .tab_height = 8,
+        .max_tab_width = 150,
+        .close_width = 28,
+        .close_height = 26,
+        .action_width = 26,
+        .action_height = 30,
+    };
+    var geometry: CompactTabGeometry = undefined;
+    noctty_grid_compact_tab_geometry(&measurements, &geometry);
+    try std.testing.expectEqual(@as(c_int, 8), geometry.strip_extent);
+    try std.testing.expectEqual(@as(c_int, 8), geometry.widget_extent);
+    try std.testing.expectEqual(@as(c_int, 150), geometry.max_width);
+    try std.testing.expectEqual(@as(c_int, 26), geometry.close_extent);
+    try std.testing.expectEqual(@as(c_int, 26), geometry.action_extent);
+
+    measurements.horizontal = 0;
+    noctty_grid_compact_tab_geometry(&measurements, &geometry);
+    try std.testing.expectEqual(@as(c_int, 0), geometry.strip_extent);
+    try std.testing.expectEqual(@as(c_int, 140), geometry.widget_extent);
 }
 
 test "settings geometry planner preserves bounded workarea hints" {
