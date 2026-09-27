@@ -91,6 +91,17 @@ typedef struct {
     int steps;
     int direction;
 } NocttyGridWheelActionPlan;
+
+typedef struct {
+    int visible;
+    int first_visible;
+    int focused_visible;
+} NocttyGridSmartFilterVisibilityPlan;
+
+typedef struct {
+    int focus_first;
+    int show_empty;
+} NocttyGridSmartFilterSummaryPlan;
 typedef struct {
     int route;
     int steps;
@@ -438,6 +449,14 @@ void noctty_grid_pointer_event_plan(
     int control_pressed, int background, int multiple_panes,
     int suppress_primary_release, int preserve_double_click_selection,
     NocttyGridPointerEventPlan *plan);
+void noctty_grid_smart_filter_visibility_plan(
+    int filter_active, int matches, int focused,
+    int first_visible_seen,
+    NocttyGridSmartFilterVisibilityPlan *plan);
+void noctty_grid_smart_filter_summary_plan(
+    int filter_active, int page_available,
+    int first_visible, int focused_visible,
+    NocttyGridSmartFilterSummaryPlan *plan);
 
 int noctty_grid_input_route(int input_kind, int scrollbar_owned,
                             int terminal_mode_flags, int history_available,

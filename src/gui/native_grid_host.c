@@ -1875,19 +1875,29 @@ static void apply_smart_filter(NocttyGridContext *context) {
         : NULL;
     NocttyGridContext *first_visible = NULL;
     gboolean focused_visible = FALSE;
+    const int filter_active = root->smart_filter_tag != NULL;
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (!candidate->active || candidate->page != page || candidate->area == NULL) continue;
-        gboolean visible = root->smart_filter_tag == NULL ||
+        const int matches = filter_active == 0 ? 1 :
+            root->event_data != NULL &&
             noctty_grid_pane_matches_smart_filter(root->event_data, candidate->pane_id) != 0;
+        NocttyGridSmartFilterVisibilityPlan visibility_plan = {0};
+        noctty_grid_smart_filter_visibility_plan(
+            filter_active, matches, candidate->focused,
+            first_visible != NULL, &visibility_plan);
+        gboolean visible = visibility_plan.visible != 0;
         noctty_grid_widget_set_visible(candidate->area, visible);
-        if (visible && first_visible == NULL) first_visible = candidate;
-        if (visible && candidate->focused) focused_visible = TRUE;
+        if (visibility_plan.first_visible != 0) first_visible = candidate;
+        if (visibility_plan.focused_visible != 0) focused_visible = TRUE;
     }
     if (page != NULL) sync_grid_page_branch_visibility(root, page);
-    if (root->smart_filter_tag != NULL && !focused_visible && first_visible != NULL) {
+    NocttyGridSmartFilterSummaryPlan summary_plan = {0};
+    noctty_grid_smart_filter_summary_plan(
+        filter_active, page != NULL, first_visible != NULL,
+        focused_visible, &summary_plan);
+    if (summary_plan.focus_first != 0 && first_visible != NULL)
         noctty_grid_focus_widget(NULL, first_visible->area);
-    }
     if (root->smart_filter_empty_box != NULL &&
         noctty_grid_widget_get_parent(root->smart_filter_empty_box) != page) {
         noctty_grid_widget_destroy(root->smart_filter_empty_box);
@@ -1895,7 +1905,7 @@ static void apply_smart_filter(NocttyGridContext *context) {
         root->smart_filter_empty_label = NULL;
         root->smart_filter_empty_clear_button = NULL;
     }
-    if (root->smart_filter_tag != NULL && first_visible == NULL && page != NULL) {
+    if (summary_plan.show_empty != 0) {
         if (root->smart_filter_empty_box == NULL) {
             gchar *empty_text = g_strdup_printf("No panes match Smart Tab tag: %s",
                                                 root->smart_filter_tag);

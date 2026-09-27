@@ -72,6 +72,17 @@ pub const ScrollRoutePlan = extern struct {
     direction: c_int,
 };
 
+pub const SmartFilterVisibilityPlan = extern struct {
+    visible: c_int,
+    first_visible: c_int,
+    focused_visible: c_int,
+};
+
+pub const SmartFilterSummaryPlan = extern struct {
+    focus_first: c_int,
+    show_empty: c_int,
+};
+
 pub const SelectionWordPlan = extern struct {
     valid: c_int,
     start_column: c_int,
@@ -389,6 +400,40 @@ pub export fn noctty_grid_cycle_target(
     if (direction < 0)
         return if (current_index == 0) count - 1 else current_index - 1;
     return if (current_index == count - 1) 0 else current_index + 1;
+}
+
+pub export fn noctty_grid_smart_filter_visibility_plan(
+    filter_active: c_int,
+    matches: c_int,
+    focused: c_int,
+    first_visible_seen: c_int,
+    output: ?*SmartFilterVisibilityPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const visible = filter_active == 0 or matches != 0;
+    plan.* = .{
+        .visible = @intFromBool(visible),
+        .first_visible = @intFromBool(visible and first_visible_seen == 0),
+        .focused_visible = @intFromBool(visible and focused != 0),
+    };
+}
+
+pub export fn noctty_grid_smart_filter_summary_plan(
+    filter_active: c_int,
+    page_available: c_int,
+    first_visible: c_int,
+    focused_visible: c_int,
+    output: ?*SmartFilterSummaryPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    plan.* = .{
+        .focus_first = @intFromBool(
+            filter_active != 0 and first_visible != 0 and focused_visible == 0,
+        ),
+        .show_empty = @intFromBool(
+            filter_active != 0 and page_available != 0 and first_visible == 0,
+        ),
+    };
 }
 
 pub export fn noctty_grid_tray_menu_id_valid(id: c_int) callconv(.c) c_int {
@@ -5350,6 +5395,32 @@ test "cycle targets reject every invalid boundary" {
         @as(c_int, -1),
         noctty_grid_cycle_target(3, 1, 1, 0),
     );
+}
+
+test "Smart Tab plans preserve visibility focus and empty-state precedence" {
+    var visibility = SmartFilterVisibilityPlan{
+        .visible = 0,
+        .first_visible = 0,
+        .focused_visible = 0,
+    };
+    noctty_grid_smart_filter_visibility_plan(1, 1, 0, 0, &visibility);
+    try std.testing.expectEqual(@as(c_int, 1), visibility.visible);
+    try std.testing.expectEqual(@as(c_int, 1), visibility.first_visible);
+    try std.testing.expectEqual(@as(c_int, 0), visibility.focused_visible);
+    noctty_grid_smart_filter_visibility_plan(1, 0, 1, 1, &visibility);
+    try std.testing.expectEqual(@as(c_int, 0), visibility.visible);
+    try std.testing.expectEqual(@as(c_int, 0), visibility.first_visible);
+    try std.testing.expectEqual(@as(c_int, 0), visibility.focused_visible);
+
+    var summary = SmartFilterSummaryPlan{ .focus_first = 0, .show_empty = 0 };
+    noctty_grid_smart_filter_summary_plan(1, 1, 1, 0, &summary);
+    try std.testing.expectEqual(@as(c_int, 1), summary.focus_first);
+    try std.testing.expectEqual(@as(c_int, 0), summary.show_empty);
+    noctty_grid_smart_filter_summary_plan(1, 1, 0, 0, &summary);
+    try std.testing.expectEqual(@as(c_int, 0), summary.focus_first);
+    try std.testing.expectEqual(@as(c_int, 1), summary.show_empty);
+    noctty_grid_smart_filter_summary_plan(0, 1, 0, 0, &summary);
+    try std.testing.expectEqual(@as(c_int, 0), summary.show_empty);
 }
 
 test "directional focus scores every cardinal direction and keeps first ties" {

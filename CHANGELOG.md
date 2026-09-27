@@ -14,6 +14,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved dirty-row/span capacity normalization and selection-copy buffer growth
   bounds into the Zig grid-logic adapter; C retains allocation and clipboard
   ownership.
+- Moved Smart Tab visibility, first-visible/focused-pane tracking, focus-first,
+  and empty-filter decisions into Zig; GTK retains widget visibility, focus,
+  and empty-state construction.
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.
