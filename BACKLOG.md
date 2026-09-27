@@ -178,6 +178,45 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   sessions; physical Windows behavior remains a separate required acceptance
   boundary. `[truth:build,test,docs,external]`
 
+##### NCT-126 fixed definition of done
+
+NCT-126 closes only when every gate below is evidenced against one locked
+source tree. Once closed, no further percentage-driven GTK rewrites are part
+of this item.
+
+1. **Scope lock:** record the final source-tree commit and the counted
+   ownership inventory. Count only first-party `src/` and `include/noctty/`
+   policy code; keep generated/vendor code, system headers, and display
+   orchestration excluded exactly as documented.
+2. **Ownership target:** the locked inventory reports at least 90.00% Zig
+   ownership using the repository checker, with the denominator and output
+   retained in the qualification record.
+3. **GTK query/effect boundary:** every remaining C function in the GTK
+   adapter is classified as either (a) native object query/effect or
+   lifetime glue, or (b) migrated policy. There are no unclassified policy
+   branches, calculations, clamps, labels, schedules, or state transitions.
+4. **Smoke/qualification boundary:** all registered Linux native-grid smoke
+   scenarios, including the Zig-owned schedule plan and qualification
+   callbacks, pass through the repository's isolated private X11 and private
+   Wayland runners. No run may use the active display, session bus, or host
+   input devices.
+5. **Text/render boundary:** C retains only GTK/ATK/Cairo/Pango object access,
+   allocation, signal, drawing, and lifetime effects; Zig owns the remaining
+   text/render policy. Focused accessibility and renderer checks pass.
+6. **Reproducible verification:** the current tree passes the focused native
+   build/test command, the ownership checker, documentation truth checks, and
+   whitespace checks. The qualification record includes exact commands,
+   receipts, and failures; private build caches and temporary outputs are
+   removed; the worktree is clean.
+7. **Boundary accounting:** physical Windows qualification, the 48-hour
+   stability run, the two-hour installed dogfood run, and release operations
+   remain NCT-123/NCT-127, NCT-112, NCT-125, and Release Operations gates.
+   They cannot expand NCT-126 after this scope lock.
+
+The three remaining implementation items are therefore closed by gates 3–5;
+gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
+from making this migration indefinite.
+
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 
 - [ ] [status:yellow] Qualify the new Windows Workspace/Terminal menus against
