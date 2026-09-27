@@ -129,6 +129,10 @@ typedef struct {
     int use_tick;
     int timeout_ms;
 } NocttyGridOutputPresentPlan;
+typedef struct {
+    int unzoom;
+    int enter;
+} NocttyGridZoomPlan;
 
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
@@ -607,8 +611,18 @@ int noctty_grid_terminal_key_sequence(uint32_t keyval, uint32_t codepoint,
                                       uint32_t modifier_flags,
                                       int application_cursor, uint8_t *output,
                                       uint32_t capacity);
+typedef struct {
+    int label_length;
+    int tooltip_length;
+} NocttyGridShortcutTextPlan;
+
 int noctty_grid_shortcut_label(uint32_t encoded, uint8_t *output,
                                uint32_t capacity);
+int noctty_grid_shortcut_settings_text(
+    uint32_t encoded, int plasma_transport,
+    unsigned char *label, size_t label_capacity,
+    unsigned char *tooltip, size_t tooltip_capacity,
+    NocttyGridShortcutTextPlan *plan);
 int noctty_grid_text_valid(const uint8_t *text, size_t length,
                            size_t max_length);
 int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
@@ -634,6 +648,8 @@ int noctty_grid_pane_tooltip(
 void noctty_grid_output_present_plan(
     int session_available, int exited, int source_active, int mapped,
     NocttyGridOutputPresentPlan *plan);
+void noctty_grid_zoom_plan(
+    uint64_t zoomed_pane_id, uint64_t pane_id, NocttyGridZoomPlan *plan);
 
 enum {
     NOCTTY_GRID_RECOVERY_CONFIG_BACKUP = 1u << 0,
@@ -722,6 +738,12 @@ typedef struct {
     int close_name_length;
     int title_truncated;
 } NocttyGridCompactTabTextPlan;
+typedef struct {
+    int empty_length;
+    int label_length;
+    int tooltip_length;
+} NocttyGridSmartFilterTextPlan;
+
 
 int noctty_grid_compact_tab_text(
     const NocttyGridCompactTabTextInput *input,
@@ -729,6 +751,32 @@ int noctty_grid_compact_tab_text(
     unsigned char *tooltip, size_t tooltip_capacity,
     unsigned char *close_name, size_t close_name_capacity,
     NocttyGridCompactTabTextPlan *plan);
+int noctty_grid_smart_filter_text(
+    int active, const unsigned char *tag, size_t tag_length,
+    unsigned char *empty_text, size_t empty_capacity,
+    unsigned char *label, size_t label_capacity,
+    unsigned char *tooltip, size_t tooltip_capacity,
+    NocttyGridSmartFilterTextPlan *plan);
+
+int noctty_grid_cycle_feedback_text(
+    int kind, int index, int count,
+    unsigned char *output, size_t capacity);
+
+int noctty_grid_attention_notification_text(
+    uint64_t pane_id, int attention, int exit_code,
+    unsigned char *output, size_t capacity);
+
+int noctty_grid_tab_title_text(
+    const unsigned char *model_title, size_t model_length,
+    const unsigned char *display_title, size_t display_length,
+    const unsigned char *directory_name, size_t directory_length,
+    int page_number, unsigned char *output, size_t capacity);
+
+int noctty_grid_pane_zoom_feedback_text(
+    uint64_t pane_id,
+    const unsigned char *title, size_t title_length,
+    const unsigned char *display_title, size_t display_length,
+    unsigned char *output, size_t capacity);
 
 enum {
     NOCTTY_GRID_FEEDBACK_SCROLL_HISTORY = 1,

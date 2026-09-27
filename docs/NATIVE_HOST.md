@@ -155,6 +155,18 @@ Output presentation scheduling policy selects a mapped frame tick or a bounded
 100 ms timeout fallback in Zig; C retains GTK source registration, callback
 dispatch, and terminal pump effects.
 
+Smart Tab empty-state/button text, cycle feedback labels, tab-title fallback
+precedence, pane-zoom feedback, and notification body formatting are bounded
+Zig policy; C retains model/cwd acquisition, GTK presentation, D-Bus dispatch,
+and native state effects.
+
+Zoom enter versus unzoom selection is a Zig state plan; C retains restoring
+native visibility, hiding sibling panes, notebook effects, focus, and resize.
+
+Settings shortcut button label and transport-specific tooltip composition are
+bounded Zig text policy; C retains shortcut-key acquisition and GTK widget
+application.
+
 Terminal feedback labels are selected by Zig from bounded message IDs; C retains
 the timeout source, GTK redraw, and status presentation effects.
 

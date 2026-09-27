@@ -109,6 +109,10 @@ pub const OutputPresentPlan = extern struct {
     use_tick: c_int,
     timeout_ms: c_int,
 };
+pub const ZoomPlan = extern struct {
+    unzoom: c_int,
+    enter: c_int,
+};
 
 pub const AccessibleTextPlan = extern struct {
     initial_capacity: c_int,
@@ -1545,6 +1549,45 @@ pub export fn noctty_grid_shortcut_label(
     return @intCast(label.len);
 }
 
+pub export fn noctty_grid_shortcut_settings_text(
+    encoded: u32,
+    plasma_transport: c_int,
+    label: ?[*]u8,
+    label_capacity: usize,
+    tooltip: ?[*]u8,
+    tooltip_capacity: usize,
+    plan: ?*ShortcutTextPlan,
+) callconv(.c) c_int {
+    var shortcut_storage: [64]u8 = undefined;
+    const shortcut_length = noctty_grid_shortcut_label(
+        encoded, &shortcut_storage, shortcut_storage.len);
+    if (shortcut_length <= 0) return 0;
+    const shortcut = shortcut_storage[0..@intCast(shortcut_length)];
+    var result = ShortcutTextPlan{
+        .label_length = compactTabFormat(
+            label, label_capacity, "{s} — Change shortcut…", .{shortcut}),
+        .tooltip_length = 0,
+    };
+    if (result.label_length <= 0) return 0;
+    result.tooltip_length = if (plasma_transport != 0)
+        compactTabFormat(
+            tooltip,
+            tooltip_capacity,
+            "Current shortcut: {s}. Select to change the Plasma global shortcut.",
+            .{shortcut},
+        )
+    else
+        compactTabFormat(
+            tooltip,
+            tooltip_capacity,
+            "Current shortcut: {s}. Select to record and update the Noctalia binding plan.",
+            .{shortcut},
+        );
+    if (result.tooltip_length <= 0) return 0;
+    if (plan) |output| output.* = result;
+    return 1;
+}
+
 pub export fn noctty_grid_scroll_direction(direction: c_int) callconv(.c) c_int {
     return switch (direction) {
         0 => -1,
@@ -1783,6 +1826,18 @@ pub export fn noctty_grid_output_present_plan(
         .schedule = @intFromBool(schedule),
         .use_tick = @intFromBool(schedule and mapped != 0),
         .timeout_ms = 100,
+    };
+}
+pub export fn noctty_grid_zoom_plan(
+    zoomed_pane_id: u64,
+    pane_id: u64,
+    output: ?*ZoomPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const unzoom = zoomed_pane_id == pane_id;
+    plan.* = .{
+        .unzoom = @intFromBool(unzoom),
+        .enter = @intFromBool(!unzoom),
     };
 }
 
@@ -2514,6 +2569,15 @@ fn compactTabInputSlice(pointer: ?[*]const u8, length: usize) []const u8 {
     const value = pointer orelse return "";
     return value[0..@min(length, 4096)];
 }
+pub const SmartFilterTextPlan = extern struct {
+    empty_length: c_int,
+    label_length: c_int,
+    tooltip_length: c_int,
+};
+pub const ShortcutTextPlan = extern struct {
+    label_length: c_int,
+    tooltip_length: c_int,
+};
 
 fn compactTabUtf8Continuation(byte: u8) bool {
     return (byte & 0xc0) == 0x80;
@@ -2746,6 +2810,159 @@ pub export fn noctty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0
         17 => "Could not deliver composed text to every terminal.",
         else => "",
     };
+}
+
+pub export fn noctty_grid_smart_filter_text(
+    active: c_int,
+    tag: ?[*]const u8,
+    tag_length: usize,
+    empty_text: ?[*]u8,
+    empty_capacity: usize,
+    label: ?[*]u8,
+    label_capacity: usize,
+    tooltip: ?[*]u8,
+    tooltip_capacity: usize,
+    plan: ?*SmartFilterTextPlan,
+) callconv(.c) c_int {
+    const tag_text = compactTabInputSlice(tag, tag_length);
+    var result = SmartFilterTextPlan{
+        .empty_length = 0,
+        .label_length = 0,
+        .tooltip_length = 0,
+    };
+    if (active != 0) {
+        result.empty_length = compactTabFormat(
+            empty_text,
+            empty_capacity,
+            "No panes match Smart Tab tag: {s}",
+            .{tag_text},
+        );
+        if (result.empty_length <= 0) return 0;
+        result.label_length = compactTabFormat(
+            label,
+            label_capacity,
+            "Tag: {s}",
+            .{tag_text},
+        );
+    } else {
+        result.label_length = compactTabFormat(label, label_capacity, "Filter", .{});
+    }
+    if (result.label_length <= 0) return 0;
+    result.tooltip_length = compactTabFormat(
+        tooltip,
+        tooltip_capacity,
+        "{s}",
+        .{if (active != 0)
+            "Smart Tab: clear pane tag filter"
+        else
+            "Smart Tab: show all panes"},
+    );
+    if (result.tooltip_length <= 0) return 0;
+    if (plan) |output| output.* = result;
+    return 1;
+}
+
+pub export fn noctty_grid_cycle_feedback_text(
+    kind: c_int,
+    index: c_int,
+    count: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const prefix = switch (kind) {
+        0 => "Pane",
+        1 => "Tab",
+        else => return 0,
+    };
+    return compactTabFormat(output, capacity, "{s} {d} / {d}", .{
+        prefix,
+        index,
+        count,
+    });
+}
+
+pub export fn noctty_grid_attention_notification_text(
+    pane_id: u64,
+    attention: c_int,
+    exit_code: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return if (attention != 0)
+        compactTabFormat(
+            output,
+            capacity,
+            "Pane {d} requested attention",
+            .{pane_id},
+        )
+    else
+        compactTabFormat(
+            output,
+            capacity,
+            "Pane {d} exited with code {d}",
+            .{ pane_id, exit_code },
+        );
+}
+
+pub export fn noctty_grid_tab_title_text(
+    model_title: ?[*]const u8,
+    model_length: usize,
+    display_title: ?[*]const u8,
+    display_length: usize,
+    directory_name: ?[*]const u8,
+    directory_length: usize,
+    page_number: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const model = compactTabInputSlice(model_title, model_length);
+    const display = compactTabInputSlice(display_title, display_length);
+    const directory = compactTabInputSlice(directory_name, directory_length);
+    if (model.len > 0)
+        return compactTabFormat(output, capacity, "{s}", .{model});
+    if (display.len > 0)
+        return compactTabFormat(output, capacity, "{s}", .{display});
+    if (directory.len > 0)
+        return compactTabFormat(output, capacity, "{s}", .{directory});
+    return compactTabFormat(
+        output,
+        capacity,
+        "Tab {d}",
+        .{@max(page_number, 1)},
+    );
+}
+
+pub export fn noctty_grid_pane_zoom_feedback_text(
+    pane_id: u64,
+    title: ?[*]const u8,
+    title_length: usize,
+    display_title: ?[*]const u8,
+    display_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const title_text = if (title) |pointer|
+        std.mem.trim(u8, pointer[0..@min(title_length, 512)], " \t\n\r")
+    else
+        "";
+    const display = compactTabInputSlice(display_title, display_length);
+    const name = if (title_text.len > 0)
+        title_text
+    else if (display.len > 0)
+        display
+    else
+        "";
+    var name_storage: [64]u8 = undefined;
+    const fallback = if (name.len > 0)
+        name
+    else
+        std.fmt.bufPrint(&name_storage, "Pane {d}", .{pane_id}) catch return 0;
+    return compactTabFormat(
+        output,
+        capacity,
+        "Session {s} is focused. Double click again on pane to go back.",
+        .{fallback},
+    );
 }
 
 pub export fn noctty_grid_pane_tooltip(
@@ -5180,6 +5397,60 @@ test "shortcut labels are bounded and name supported keys" {
     );
 }
 
+test "shortcut settings text preserves transport-specific guidance" {
+    var label: [128]u8 = undefined;
+    var tooltip: [256]u8 = undefined;
+    var plan = ShortcutTextPlan{ .label_length = 0, .tooltip_length = 0 };
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_shortcut_settings_text(
+            0x04000000 | 0x02000000 | 'K',
+            1,
+            &label,
+            label.len,
+            &tooltip,
+            tooltip.len,
+            &plan,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "Ctrl+Shift+K — Change shortcut…",
+        label[0..@intCast(plan.label_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Current shortcut: Ctrl+Shift+K. Select to change the Plasma global shortcut.",
+        tooltip[0..@intCast(plan.tooltip_length)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_shortcut_settings_text(
+            0,
+            0,
+            &label,
+            label.len,
+            &tooltip,
+            tooltip.len,
+            &plan,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "Unassigned — Change shortcut…",
+        label[0..@intCast(plan.label_length)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_shortcut_settings_text(
+            0,
+            0,
+            &label,
+            8,
+            &tooltip,
+            tooltip.len,
+            &plan,
+        ),
+    );
+}
+
 test "GTK modifier masks and Alt key names map to native flags" {
     try std.testing.expectEqual(@as(u32, modifier_shift | modifier_control | modifier_alt), noctty_grid_input_modifiers(gdk_shift_mask | gdk_control_mask | gdk_mod1_mask));
     try std.testing.expectEqual(@as(u32, modifier_alt), noctty_grid_input_modifiers(gdk_mod1_mask));
@@ -5335,6 +5606,16 @@ test "output presentation plan prefers mapped ticks and bounded fallback" {
     noctty_grid_output_present_plan(1, 0, 1, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.schedule);
 }
+test "zoom plan separates enter and unzoom state" {
+    var plan = ZoomPlan{ .unzoom = 0, .enter = 0 };
+    noctty_grid_zoom_plan(0, 7, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.unzoom);
+    try std.testing.expectEqual(@as(c_int, 1), plan.enter);
+    noctty_grid_zoom_plan(7, 7, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.unzoom);
+    try std.testing.expectEqual(@as(c_int, 0), plan.enter);
+}
+
 
 
 test "startup window plan separates native effects from visibility policy" {
@@ -5856,6 +6137,162 @@ test "pane tooltip text owns status and tag composition" {
             &output,
             8,
         ),
+    );
+}
+
+test "remaining native text policy owns filter feedback and title fallbacks" {
+    var empty: [256]u8 = undefined;
+    var label: [256]u8 = undefined;
+    var tooltip: [256]u8 = undefined;
+    var filter_plan = SmartFilterTextPlan{
+        .empty_length = 0,
+        .label_length = 0,
+        .tooltip_length = 0,
+    };
+    const tag = "ci";
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_smart_filter_text(
+            1,
+            tag.ptr,
+            tag.len,
+            &empty,
+            empty.len,
+            &label,
+            label.len,
+            &tooltip,
+            tooltip.len,
+            &filter_plan,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "No panes match Smart Tab tag: ci",
+        empty[0..@intCast(filter_plan.empty_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Tag: ci",
+        label[0..@intCast(filter_plan.label_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Smart Tab: clear pane tag filter",
+        tooltip[0..@intCast(filter_plan.tooltip_length)],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_smart_filter_text(
+            0,
+            null,
+            0,
+            &empty,
+            empty.len,
+            &label,
+            label.len,
+            &tooltip,
+            tooltip.len,
+            &filter_plan,
+        ),
+    );
+    try std.testing.expectEqual(@as(c_int, 0), filter_plan.empty_length);
+    try std.testing.expectEqualStrings(
+        "Filter",
+        label[0..@intCast(filter_plan.label_length)],
+    );
+    try std.testing.expectEqualStrings(
+        "Smart Tab: show all panes",
+        tooltip[0..@intCast(filter_plan.tooltip_length)],
+    );
+
+    var output: [256]u8 = undefined;
+    var length = noctty_grid_cycle_feedback_text(
+        0, 2, 4, &output, output.len);
+    try std.testing.expectEqualStrings("Pane 2 / 4", output[0..@intCast(length)]);
+    length = noctty_grid_cycle_feedback_text(
+        1, 3, 5, &output, output.len);
+    try std.testing.expectEqualStrings("Tab 3 / 5", output[0..@intCast(length)]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_cycle_feedback_text(2, 1, 2, &output, output.len),
+    );
+
+    const model = "Model";
+    const display = "Display";
+    const directory = "Directory";
+    length = noctty_grid_tab_title_text(
+        model.ptr,
+        model.len,
+        display.ptr,
+        display.len,
+        directory.ptr,
+        directory.len,
+        3,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings("Model", output[0..@intCast(length)]);
+    length = noctty_grid_tab_title_text(
+        null,
+        0,
+        display.ptr,
+        display.len,
+        directory.ptr,
+        directory.len,
+        3,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings("Display", output[0..@intCast(length)]);
+    length = noctty_grid_tab_title_text(
+        null,
+        0,
+        null,
+        0,
+        null,
+        0,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings("Tab 1", output[0..@intCast(length)]);
+
+    length = noctty_grid_attention_notification_text(
+        7, 1, 0, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Pane 7 requested attention",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_attention_notification_text(
+        7, 0, 23, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Pane 7 exited with code 23",
+        output[0..@intCast(length)],
+    );
+
+    const pane_title = "  Shell  ";
+    length = noctty_grid_pane_zoom_feedback_text(
+        7,
+        pane_title.ptr,
+        pane_title.len,
+        display.ptr,
+        display.len,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings(
+        "Session Shell is focused. Double click again on pane to go back.",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_pane_zoom_feedback_text(
+        7,
+        null,
+        0,
+        null,
+        0,
+        &output,
+        output.len,
+    );
+    try std.testing.expectEqualStrings(
+        "Session Pane 7 is focused. Double click again on pane to go back.",
+        output[0..@intCast(length)],
     );
 }
 

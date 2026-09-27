@@ -1494,9 +1494,11 @@ static void draw_pane_cycle_feedback(NocttyGridContext *context, cairo_t *cr,
         context->pane_cycle_feedback_count <= 0) return;
 
     char label[64];
-    g_snprintf(label, sizeof(label), "Pane %d / %d",
-               context->pane_cycle_feedback_index,
-               context->pane_cycle_feedback_count);
+    if (noctty_grid_cycle_feedback_text(
+            0, context->pane_cycle_feedback_index,
+            context->pane_cycle_feedback_count,
+            (unsigned char *)label, sizeof(label)) <= 0)
+        return;
     draw_cycle_feedback(context, cr, allocation, label, 0.28, 0.68, 1.0);
 
     root_grid_context(context)->pane_cycle_feedback_drawn = 1;
@@ -1508,9 +1510,11 @@ static void draw_tab_cycle_feedback(NocttyGridContext *context, cairo_t *cr,
         context->tab_cycle_feedback_count <= 0) return;
 
     char label[64];
-    g_snprintf(label, sizeof(label), "Tab %d / %d",
-               context->tab_cycle_feedback_index,
-               context->tab_cycle_feedback_count);
+    if (noctty_grid_cycle_feedback_text(
+            1, context->tab_cycle_feedback_index,
+            context->tab_cycle_feedback_count,
+            (unsigned char *)label, sizeof(label)) <= 0)
+        return;
     draw_cycle_feedback(context, cr, allocation, label, 0.74, 0.48, 1.0);
 
     root_grid_context(context)->tab_cycle_feedback_drawn = 1;
@@ -1919,17 +1923,26 @@ static void apply_smart_filter(NocttyGridContext *context) {
         root->smart_filter_empty_label = NULL;
         root->smart_filter_empty_clear_button = NULL;
     }
+    char filter_empty_text[256];
+    char filter_label[256];
+    char filter_tooltip[128];
+    NocttyGridSmartFilterTextPlan filter_text_plan = {0};
+    if (noctty_grid_smart_filter_text(
+            filter_active,
+            (const unsigned char *)root->smart_filter_tag,
+            root->smart_filter_tag != NULL
+                ? strlen(root->smart_filter_tag) : 0,
+            (unsigned char *)filter_empty_text, sizeof(filter_empty_text),
+            (unsigned char *)filter_label, sizeof(filter_label),
+            (unsigned char *)filter_tooltip, sizeof(filter_tooltip),
+            &filter_text_plan) == 0)
+        return;
     if (summary_plan.show_empty != 0) {
         if (root->smart_filter_empty_box == NULL) {
-            gchar *empty_text = g_strdup_printf("No panes match Smart Tab tag: %s",
-                                                root->smart_filter_tag);
             NocttySmartFilterEmptyContents empty_contents = {0};
             if (!noctty_smart_filter_empty_contents_new(
-                    empty_text, &empty_contents)) {
-                noctty_grid_memory_free(empty_text);
+                    filter_empty_text, &empty_contents))
                 return;
-            }
-            noctty_grid_memory_free(empty_text);
             root->smart_filter_empty_box = empty_contents.box;
             root->smart_filter_empty_label = empty_contents.label;
             root->smart_filter_empty_clear_button =
@@ -1947,17 +1960,10 @@ static void apply_smart_filter(NocttyGridContext *context) {
         root->smart_filter_empty_clear_button = NULL;
     }
     if (root->smart_filter_button != NULL) {
-        char label[256];
-        const char *label_text = "Filter";
-        if (root->smart_filter_tag != NULL) {
-            g_snprintf(label, sizeof(label), "Tag: %s", root->smart_filter_tag);
-            label_text = label;
-        }
-        noctty_grid_button_set_label(GTK_BUTTON(root->smart_filter_button), label_text);
-        configure_action_button(root->smart_filter_button,
-                                root->smart_filter_tag == NULL
-                                    ? "Smart Tab: show all panes"
-                                    : "Smart Tab: clear pane tag filter");
+        noctty_grid_button_set_label(
+            GTK_BUTTON(root->smart_filter_button), filter_label);
+        configure_action_button(
+            root->smart_filter_button, filter_tooltip);
     }
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
@@ -4086,30 +4092,23 @@ static gchar *grid_shortcut_label_alloc(
         : g_strdup("Unknown");
 }
 
-static gchar *grid_settings_shortcut_button_label_alloc(
-    const NocttyGridContext *root) {
-    gchar *shortcut = grid_shortcut_label_alloc(root);
-    gchar *label = g_strdup_printf("%s — Change shortcut…", shortcut);
-    noctty_grid_memory_free(shortcut);
-    return label;
-}
 
 static void configure_grid_settings_shortcut_button(
     NocttyGridContext *context, GtkWidget *button) {
     NocttyGridContext *root = root_grid_context(context);
     if (!noctty_grid_widget_is_type(button, NOCTTY_GTK_BUTTON)) return;
-    gchar *shortcut = grid_shortcut_label_alloc(root);
-    gchar *label = g_strdup_printf("%s — Change shortcut…", shortcut);
-    gchar *tooltip = g_strdup_printf(
-        root->shortcut_transport == 1
-            ? "Current shortcut: %s. Select to change the Plasma global shortcut."
-            : "Current shortcut: %s. Select to record and update the Noctalia binding plan.",
-        shortcut);
+    char label[128] = {0};
+    char tooltip[256] = {0};
+    NocttyGridShortcutTextPlan plan = {0};
+    if (noctty_grid_shortcut_settings_text(
+            root != NULL ? (uint32_t)root->requested_shortcut_key : 0,
+            root != NULL && root->shortcut_transport == 1,
+            (unsigned char *)label, sizeof(label),
+            (unsigned char *)tooltip, sizeof(tooltip),
+            &plan) == 0)
+        return;
     noctty_grid_button_set_label(GTK_BUTTON(button), label);
     noctty_grid_widget_set_tooltip_text(button, tooltip);
-    noctty_grid_memory_free(tooltip);
-    noctty_grid_memory_free(label);
-    noctty_grid_memory_free(shortcut);
 }
 
 static void refresh_grid_settings_shortcut_button(
@@ -4860,22 +4859,31 @@ static NocttyGridContext *grid_context_for_page(NocttyGridContext *context,
 static gchar *current_tab_title_alloc(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     NocttyGridContext *representative = grid_context_for_page(root, context->page);
+    char model_title[512] = {0};
+    size_t model_length = 0;
     if (representative != NULL && root->event_data != NULL) {
-        char title[512];
-        int length = noctty_grid_tab_title(root->event_data,
-                                           representative->pane_id,
-                                           title, sizeof(title) - 1);
-        if (length > 0 && (size_t)length < sizeof(title)) {
-            title[length] = '\0';
-            return g_strdup(title);
+        int length = noctty_grid_tab_title(
+            root->event_data, representative->pane_id,
+            model_title, sizeof(model_title) - 1);
+        if (length > 0 && (size_t)length < sizeof(model_title)) {
+            model_title[length] = '\0';
+            model_length = (size_t)length;
         }
     }
-    for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
+
+    const char *display_title = NULL;
+    for (guint index = 0;
+         root->contexts != NULL && index < root->contexts->len;
+         index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (!candidate->active || candidate->page != context->page) continue;
-        if (candidate->display_title != NULL && candidate->display_title[0] != '\0')
-            return g_strdup(candidate->display_title);
+        if (candidate->display_title != NULL && candidate->display_title[0] != '\0') {
+            display_title = candidate->display_title;
+            break;
+        }
     }
+
+    gchar *directory_name = NULL;
     if (representative != NULL && root->event_data != NULL) {
         char cwd[4096];
         int length = noctty_grid_current_directory(
@@ -4883,15 +4891,26 @@ static gchar *current_tab_title_alloc(NocttyGridContext *context) {
             cwd, sizeof(cwd) - 1);
         if (length > 0 && length < (int)sizeof(cwd)) {
             cwd[length] = '\0';
-            gchar *basename = g_path_get_basename(cwd);
-            if (basename != NULL && basename[0] != '\0' && g_strcmp0(basename, "/") != 0)
-                return basename;
-            noctty_grid_memory_free(basename);
+            directory_name = g_path_get_basename(cwd);
+            if (directory_name == NULL || directory_name[0] == '\0' ||
+                g_strcmp0(directory_name, "/") == 0)
+                directory_name = noctty_grid_memory_clear(directory_name);
         }
     }
-    gint page_index = noctty_grid_notebook_page_num(GTK_NOTEBOOK(root->notebook),
-                                            context->page);
-    return g_strdup_printf("Tab %d", page_index >= 0 ? page_index + 1 : 1);
+
+    gint page_index = noctty_grid_notebook_page_num(
+        GTK_NOTEBOOK(root->notebook), context->page);
+    char output[4096] = "Tab 1";
+    (void)noctty_grid_tab_title_text(
+        (const unsigned char *)model_title, model_length,
+        (const unsigned char *)display_title,
+        display_title != NULL ? strlen(display_title) : 0,
+        (const unsigned char *)directory_name,
+        directory_name != NULL ? strlen(directory_name) : 0,
+        page_index >= 0 ? page_index + 1 : 1,
+        (unsigned char *)output, sizeof(output));
+    noctty_grid_memory_free(directory_name);
+    return g_strdup(output);
 }
 
 static void update_compact_tab(NocttyGridContext *context) {
@@ -5745,11 +5764,15 @@ static void on_grid_notification_bus_ready(GObject *source,
         noctty_grid_memory_free(request);
         return;
     }
-    gchar *body = request->attention
-        ? g_strdup_printf("Pane %" G_GUINT64_FORMAT " requested attention",
-                          request->pane_id)
-        : g_strdup_printf("Pane %" G_GUINT64_FORMAT " exited with code %d",
-                          request->pane_id, request->exit_code);
+    char body[256];
+    if (noctty_grid_attention_notification_text(
+            request->pane_id, request->attention, request->exit_code,
+            (unsigned char *)body, sizeof(body)) <= 0) {
+        finish_grid_dbus_operation(request->root);
+        noctty_grid_memory_free(request);
+        noctty_grid_object_unref(bus);
+        return;
+    }
     GVariantBuilder hints;
     g_variant_builder_init(&hints, G_VARIANT_TYPE("a{sv}"));
     g_dbus_connection_call(
@@ -5765,7 +5788,6 @@ static void on_grid_notification_bus_ready(GObject *source,
                       g_variant_builder_end(&hints), 5000),
         G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, 1500,
         request->root->dbus_cancellable, on_grid_notification_sent, request);
-    noctty_grid_memory_free(body);
     noctty_grid_object_unref(bus);
 }
 
@@ -7841,26 +7863,13 @@ static gboolean close_grid_tab(NocttyGridContext *context, GtkWidget *page) {
     return root->tab_close_applied;
 }
 
-static gchar *pane_session_name_alloc(NocttyGridContext *context) {
-    char title[513] = {0};
-    int length = context->title != NULL
-        ? context->title(context->userdata, title, sizeof(title) - 1) : 0;
-    if (length > 0 && length < (int)sizeof(title)) {
-        title[length] = '\0';
-        gchar *trimmed = g_strstrip(title);
-        if (trimmed[0] != '\0') return g_strdup(trimmed);
-    }
-    if (context->display_title != NULL && context->display_title[0] != '\0')
-        return g_strdup(context->display_title);
-    return g_strdup_printf("Pane %" G_GUINT64_FORMAT,
-                           (guint64)context->pane_id);
-}
-
 static void toggle_grid_zoom(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gboolean unzoom = root->zoomed_pane_id == context->pane_id;
+    NocttyGridZoomPlan zoom_plan = {0};
+    noctty_grid_zoom_plan(
+        root->zoomed_pane_id, context->pane_id, &zoom_plan);
     restore_zoomed_page(root);
-    if (!unzoom) {
+    if (zoom_plan.enter != 0) {
         noctty_grid_widget_show_all(context->page);
         for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
             NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
@@ -7873,18 +7882,28 @@ static void toggle_grid_zoom(NocttyGridContext *context) {
             root->notebook, root->window_toolbar_controls,
             root->tab_position, FALSE);
         root->zoomed_pane_id = context->pane_id;
-        gchar *session_name = pane_session_name_alloc(context);
-        gchar *message = g_strdup_printf(
-            "Session %s is focused. Double click again on pane to go back.",
-            session_name);
-        show_status_feedback(context, message);
-        noctty_grid_memory_free(message);
-        noctty_grid_memory_free(session_name);
+        char title[513] = {0};
+        size_t title_length = 0;
+        int title_result = context->title != NULL
+            ? context->title(context->userdata, title, sizeof(title) - 1) : 0;
+        if (title_result > 0 && title_result < (int)sizeof(title)) {
+            title[title_result] = '\0';
+            title_length = (size_t)title_result;
+        }
+        char message[1024];
+        if (noctty_grid_pane_zoom_feedback_text(
+                context->pane_id,
+                (const unsigned char *)title, title_length,
+                (const unsigned char *)context->display_title,
+                context->display_title != NULL
+                    ? strlen(context->display_title) : 0,
+                (unsigned char *)message, sizeof(message)) > 0)
+            show_status_feedback(context, message);
     }
     root->compact_zoom_toggled = 1;
     if (context->event != NULL) {
         context->event(context->event_data, context->pane_id, 64,
-                       unzoom ? 0 : 1,
+                       zoom_plan.enter,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     }
     noctty_grid_focus_widget(NULL, context->area);
@@ -10933,10 +10952,19 @@ static void open_grid_settings(NocttyGridContext *context) {
     noctty_grid_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CLOSE);
 
 
-    gchar *shortcut_button_label =
-        grid_settings_shortcut_button_label_alloc(context);
-    GtkWidget *shortcut = noctty_grid_button_new_with_label(shortcut_button_label);
-    noctty_grid_memory_free(shortcut_button_label);
+    char shortcut_button_label[128] = "Unknown — Change shortcut…";
+    char shortcut_button_tooltip[256] = {0};
+    NocttyGridShortcutTextPlan shortcut_text_plan = {0};
+    (void)noctty_grid_shortcut_settings_text(
+        context != NULL ? (uint32_t)context->requested_shortcut_key : 0,
+        context != NULL && context->shortcut_transport == 1,
+        (unsigned char *)shortcut_button_label,
+        sizeof(shortcut_button_label),
+        (unsigned char *)shortcut_button_tooltip,
+        sizeof(shortcut_button_tooltip),
+        &shortcut_text_plan);
+    GtkWidget *shortcut =
+        noctty_grid_button_new_with_label(shortcut_button_label);
     configure_grid_settings_shortcut_button(context, shortcut);
     int scrollback_lines = context->event_data != NULL
         ? noctty_grid_compact_setting(context->event_data, 10) : 10000;

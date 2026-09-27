@@ -42,6 +42,14 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved output-presentation tick-versus-timeout selection into the Zig
   grid-logic adapter; C retains GTK source registration and terminal pump
   effects.
+- Moved Smart Tab text, cycle-feedback labels, tab-title fallback precedence,
+  notification body composition, and pane-zoom feedback into the Zig
+  grid-logic adapter; C retains native acquisition and presentation effects.
+- Moved zoom enter/unzoom selection into a tested Zig state plan; C retains
+  pane visibility, notebook, focus, and resize effects.
+- Moved settings shortcut button label and transport-specific tooltip composition
+  into the Zig grid-logic adapter; C retains shortcut-key acquisition and GTK
+  widget application.
 - Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
   cache validity now follows the explicit native font-policy invalidation path
   instead of unstable scaled-font pointer identity, restoring zero warm-frame

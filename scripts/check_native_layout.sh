@@ -254,6 +254,20 @@ grep -F 'pub export fn noctty_grid_accessible_range_plan(' "$grid_logic" >/dev/n
 grep -F 'noctty_grid_accessible_range_plan(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_output_present_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_output_present_plan(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_zoom_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_zoom_plan(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_smart_filter_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_smart_filter_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_cycle_feedback_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_cycle_feedback_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_attention_notification_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_attention_notification_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_tab_title_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_tab_title_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_pane_zoom_feedback_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_pane_zoom_feedback_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_shortcut_settings_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_shortcut_settings_text(' "$grid" >/dev/null
 ! grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
 grep -F '"Close file: {s}"' "$nocted" >/dev/null
 test "$(grep -c 'noctty_grid_widget_queue_resize(parent);' "$grid")" -eq 1

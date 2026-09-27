@@ -178,6 +178,14 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Output-presentation tick-versus-timeout selection now also crosses the Zig
   ABI; C retains GTK source registration, callback dispatch, and terminal
   pump effects.
+  Smart Tab text, cycle-feedback labels, tab-title fallback precedence,
+  notification body composition, and pane-zoom feedback now cross the Zig ABI;
+  C retains model/cwd acquisition and native presentation effects. Zoom
+  enter/unzoom selection is also a Zig state plan; C retains visibility,
+  notebook, focus, and resize effects.
+  Settings shortcut button label and transport-specific tooltip composition now
+  also cross the Zig ABI; C retains shortcut-key acquisition and GTK widget
+  application.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
