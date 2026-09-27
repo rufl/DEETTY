@@ -167,6 +167,15 @@ Settings shortcut button label and transport-specific tooltip composition are
 bounded Zig text policy; C retains shortcut-key acquisition and GTK widget
 application.
 
+Note-overlay labels, window-title prefixes, close confirmations, layout-preset
+prompts, find-status text, keyboard-shortcuts text, and sharing peer/tab/pane
+labels are bounded Zig policy; C retains GTK allocation, dialog, combo-box,
+and terminal-model effects.
+
+Layout-preset event validation and rows/columns/target-count selection are a
+tested Zig state plan; C retains pane enumeration, confirmation dialogs,
+session movement, and GTK layout effects.
+
 Terminal feedback labels are selected by Zig from bounded message IDs; C retains
 the timeout source, GTK redraw, and status presentation effects.
 

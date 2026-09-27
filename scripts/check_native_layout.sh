@@ -268,6 +268,30 @@ grep -F 'pub export fn noctty_grid_pane_zoom_feedback_text(' "$grid_logic" >/dev
 grep -F 'noctty_grid_pane_zoom_feedback_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcut_settings_text(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_shortcut_settings_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_shortcut_feedback_message(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_shortcut_feedback_message(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_note_overlay_label(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_note_overlay_label(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_window_title_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_window_title_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_close_confirmation_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_close_confirmation_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_layout_prompt_title(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_layout_prompt_title(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_find_status_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_find_status_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_shortcuts_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_shortcuts_text(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_sharing_peer_label(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_sharing_peer_label(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_sharing_tab_label(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_sharing_tab_label(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_sharing_pane_label(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_sharing_pane_label(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_sharing_revoke_detail(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_layout_preset_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_layout_preset_plan(' "$grid" >/dev/null
+grep -F 'noctty_grid_sharing_revoke_detail(' "$grid" >/dev/null
 ! grep -F 'g_strdup_printf("Close tab: %s", title);' "$grid" >/dev/null
 grep -F '"Close file: {s}"' "$nocted" >/dev/null
 test "$(grep -c 'noctty_grid_widget_queue_resize(parent);' "$grid")" -eq 1

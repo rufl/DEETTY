@@ -1383,7 +1383,12 @@ static uint32_t ui_color_rgb(NocttyGridContext *context, uint32_t color,
 static void format_ui_color(NocttyGridContext *context, uint32_t color,
                             uint32_t fallback, char output[8]) {
     uint32_t rgb = ui_color_rgb(context, color, fallback);
-    g_snprintf(output, 8, "#%06x", rgb & 0xffffffu);
+    if (noctty_grid_theme_color_text(
+            noctty_grid_theme_color_channel(rgb, 0),
+            noctty_grid_theme_color_channel(rgb, 1),
+            noctty_grid_theme_color_channel(rgb, 2),
+            (unsigned char *)output, 8) == 0)
+        output[0] = '\0';
 }
 
 static void draw_resize_overlay(NocttyGridContext *context, cairo_t *cr,
@@ -4050,8 +4055,9 @@ static void finish_grid_shortcut_request(NocttyShortcutRequest *request,
         }
     } else if (current && request->purpose == 1) {
         if (root->shortcut_recorder_feedback != NULL)
-            noctty_grid_label_set_text(GTK_LABEL(root->shortcut_recorder_feedback),
-                               "Shortcut is unavailable. Press another key or Esc.");
+            noctty_grid_label_set_text(
+                GTK_LABEL(root->shortcut_recorder_feedback),
+                noctty_grid_shortcut_feedback_message(0));
     } else if (current && request->purpose == 0 && root->event != NULL) {
         root->event(root->event_data, root->pane_id,
                     status == 0 ? 14 : 15, 0,
@@ -4322,15 +4328,17 @@ static gboolean on_grid_shortcut_capture(GtkWidget *widget, GdkEventKey *event,
     gboolean function_key = base >= 0x01000030 && base <= 0x0100003b;
     gboolean has_modifier = (key & 0x1e000000) != 0;
     if (key == 0 || (!function_key && !has_modifier)) {
-        noctty_grid_label_set_text(GTK_LABEL(root->shortcut_recorder_feedback),
-                           "Use F1-F12, or add Ctrl, Alt, or Super. Esc cancels.");
+        noctty_grid_label_set_text(
+            GTK_LABEL(root->shortcut_recorder_feedback),
+            noctty_grid_shortcut_feedback_message(1));
         return TRUE;
     }
     int prior_key = root->requested_shortcut_key;
     if (root->shortcut_transport == 1) {
         unregister_grid_shortcut(root);
-        noctty_grid_label_set_text(GTK_LABEL(root->shortcut_recorder_feedback),
-                           "Checking shortcut availability…");
+        noctty_grid_label_set_text(
+            GTK_LABEL(root->shortcut_recorder_feedback),
+            noctty_grid_shortcut_feedback_message(2));
         start_grid_shortcut_registration(root, key, 1, prior_key);
         return TRUE;
     }
@@ -4484,8 +4492,14 @@ static gboolean show_quick_note_overlays(NocttyGridContext *context) {
         ? g_utf8_substring(valid, 0, 512)
         : g_strdup(valid);
     noctty_grid_memory_free(valid);
-    root->note_overlay_label = g_strdup_printf("Note · %s",
-                                               root->note_overlay_text);
+    char note_label[4096] = {0};
+    if (noctty_grid_note_overlay_label(
+            (const unsigned char *)root->note_overlay_text,
+            root->note_overlay_text != NULL
+                ? strlen(root->note_overlay_text) : 0,
+            (unsigned char *)note_label, sizeof(note_label)) <= 0)
+        return FALSE;
+    root->note_overlay_label = g_strdup(note_label);
     root->note_overlay_content_loaded = 1;
     root->note_overlay_visible = 1;
     if (root->contexts != NULL) {
@@ -6060,11 +6074,11 @@ static void set_grid_window_title(NocttyGridContext *context,
     NocttyGridContext *root = root_grid_context(context);
     if (!noctty_grid_widget_is_type(window, NOCTTY_GTK_WINDOW) || title == NULL || title[0] == '\0')
         return;
-    const char *prefix = root->mode == 0
-        ? "NOCTTY Dropdown — "
-        : root->mode == 2 ? "NOCTTY Zen — " : "";
     char display[576];
-    g_snprintf(display, sizeof(display), "%s%s", prefix, title);
+    if (noctty_grid_window_title_text(
+            root->mode, (const unsigned char *)title, strlen(title),
+            (unsigned char *)display, sizeof(display)) <= 0)
+        return;
     noctty_grid_window_set_title(window, display);
 }
 
@@ -6728,14 +6742,17 @@ static gboolean add_grid_tab(NocttyGridContext *source, NocttyGridContext *creat
     GtkWidget *page = create_grid_page(source);
     created->page = page;
     noctty_box_pack_start(page, created->area, TRUE, TRUE, 0);
-    gchar *label_text = g_strdup_printf("Tab %u",
-                                        noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(source->notebook)) + 1);
+    char label_text[64] = {0};
+    if (noctty_grid_tab_title_text(
+            NULL, 0, NULL, 0, NULL, 0,
+            noctty_grid_notebook_get_n_pages(GTK_NOTEBOOK(source->notebook)) + 1,
+            (unsigned char *)label_text, sizeof(label_text)) <= 0)
+        return FALSE;
     GtkWidget *tab_widget = create_compact_tab_widget(source, page, label_text);
     GtkWidget *tab_label = tab_label_from_widget(tab_widget);
     created->tab_label = tab_label;
     gint page_index = noctty_grid_notebook_append_page(
         source->notebook, page, tab_widget);
-    noctty_grid_memory_free(label_text);
     noctty_grid_widget_show_all(page);
     show_all_with_action_affordances(tab_widget);
     noctty_grid_notebook_select_page(source->notebook, page_index);
@@ -7090,10 +7107,16 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
     for (int tab_index = 0; tab_index < tab_count; tab_index++) {
         if (tab_index == root_tab) continue;
         GtkWidget *page = create_grid_page(root);
-        gchar *placeholder = g_strdup_printf("Tab %d", tab_index + 1);
+        char placeholder[64] = {0};
+        if (noctty_grid_tab_title_text(
+                NULL, 0, NULL, 0, NULL, 0, tab_index + 1,
+                (unsigned char *)placeholder, sizeof(placeholder)) <= 0) {
+            noctty_grid_widget_destroy(page);
+            g_free(pages);
+            return FALSE;
+        }
         GtkWidget *tab_widget = create_compact_tab_widget(
             root, page, placeholder);
-        noctty_grid_memory_free(placeholder);
         (void)noctty_grid_notebook_append_page(
             root->notebook, page, tab_widget);
         pages[tab_index] = page;
@@ -7643,15 +7666,15 @@ static gboolean confirm_terminal_process_close(NocttyGridContext *context,
     else if (!root->layer_shell_active)
         noctty_grid_window_present(root->window);
 
-    const char *title = g_strcmp0(scope, "application") == 0
-        ? "Close NOCTTY?"
-        : g_strcmp0(scope, "tab") == 0 ? "Close tab?" : "Close terminal?";
-    gchar *detail = busy_count == 0
-        ? g_strdup("Closing NOCTTY ends all terminal sessions in this window.")
-        : busy_count == 1
-            ? g_strdup("A foreground process is still running. Closing will stop it and its child processes.")
-            : g_strdup_printf("%u terminals have foreground processes. Closing will stop them and their child processes.",
-                              busy_count);
+    char title[64] = {0};
+    char detail[256] = {0};
+    if (noctty_grid_close_confirmation_text(
+            (const unsigned char *)scope,
+            scope != NULL ? strlen(scope) : 0,
+            busy_count,
+            (unsigned char *)title, sizeof(title),
+            (unsigned char *)detail, sizeof(detail)) <= 0)
+        return FALSE;
     GtkWidget *dialog = noctty_message_dialog_new(
         GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title, detail,
         "Keep Open", "Close Anyway");
@@ -7664,7 +7687,6 @@ static gboolean confirm_terminal_process_close(NocttyGridContext *context,
         noctty_grid_source_idle_add(accept_dialog_smoke, dialog);
     gint response = run_grid_modal_dialog(root, GTK_DIALOG(dialog));
     noctty_grid_widget_destroy(dialog);
-    noctty_grid_memory_free(detail);
     if (response == GTK_RESPONSE_ACCEPT) {
         root->terminal_close_prompt_accepted++;
         if (g_strcmp0(scope, "pane") == 0 &&
@@ -8180,15 +8202,14 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
                                          gboolean restore_missing) {
     NocttyGridContext *root = root_grid_context(context);
     if (context == NULL || !context->active || context->area == NULL ||
-        context->page == NULL || root->event_data == NULL ||
-        !((event_code >= 50 && event_code <= 52) || event_code == 60 ||
-          event_code == 61))
+        context->page == NULL || root->event_data == NULL)
         return FALSE;
-    guint rows = event_code == 50 ? 1 : event_code == 51 ? 2 :
-        event_code == 61 ? 2 : event_code == 52 ? 3 : 4;
-    guint cols = event_code == 50 ? 1 : event_code == 51 ? 2 :
-        event_code == 61 ? 4 : event_code == 52 ? 3 : 4;
-    guint target_count = rows * cols;
+    NocttyGridLayoutPresetPlan layout_plan = {0};
+    noctty_grid_layout_preset_plan(event_code, &layout_plan);
+    if (layout_plan.valid == 0) return FALSE;
+    guint rows = (guint)layout_plan.rows;
+    guint cols = (guint)layout_plan.columns;
+    guint target_count = (guint)layout_plan.target_count;
     GtkWidget *page = context->page;
     if (root->zoomed_pane_id != 0) restore_zoomed_page(root);
     if (context->event != NULL)
@@ -8200,15 +8221,15 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         !(root->workspace_smoke == 21 && !root->layout_preset_finalizing)) {
         guint extra_count = current_count - target_count;
         if (root->workspace_smoke == 21) {
-            gchar *title = g_strdup_printf(
-                "Move %u terminal session%s to a new tab?",
-                extra_count, extra_count == 1 ? "" : "s");
+            char title[128] = {0};
+            if (noctty_grid_layout_prompt_title(
+                    extra_count, (unsigned char *)title, sizeof(title)) <= 0)
+                return FALSE;
             GtkWidget *dialog = noctty_message_dialog_new(
                 GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title,
                 "Changing this layout would otherwise close live terminals. "
                 "Cancel keeps the current layout.",
                 "Cancel", "Move sessions");
-            noctty_grid_memory_free(title);
             gint smoke_response = root->layout_preset_prompt_count++ == 0
                 ? GTK_RESPONSE_CANCEL : GTK_RESPONSE_ACCEPT;
             noctty_grid_object_set_data(
@@ -12127,10 +12148,14 @@ static void apply_terminal_find(NocttyGridContext *root) {
     NocttyGridContext *target = noctty_grid_object_get_data(G_OBJECT(root->find_dialog),
                                                   "noctty-find-target");
     if (target == NULL) return;
+    char status[96] = {0};
     const gchar *query = noctty_grid_entry_get_text(GTK_ENTRY(root->find_entry));
     if (query == NULL || query[0] == '\0') {
         target->selecting = 0;
-        noctty_grid_label_set_text(GTK_LABEL(root->find_status), "Type to search scrollback");
+        if (noctty_grid_find_status_text(
+                0, 0, 0, (unsigned char *)status, sizeof(status)) <= 0)
+            return;
+        noctty_grid_label_set_text(GTK_LABEL(root->find_status), status);
         noctty_grid_widget_queue_draw(target->area);
         return;
     }
@@ -12146,15 +12171,18 @@ static void apply_terminal_find(NocttyGridContext *root) {
         target->selection_end_row = row;
         target->selection_dragging = 0;
         target->selecting = 1;
-        char status[96];
-        g_snprintf(status, sizeof(status), "%zu / %d  ·  Enter for previous",
-                   noctty_grid_search_display_ordinal(
-                       root->find_ordinal, matches),
-                   matches);
+        if (noctty_grid_find_status_text(
+                1,
+                noctty_grid_search_display_ordinal(root->find_ordinal, matches),
+                matches, (unsigned char *)status, sizeof(status)) <= 0)
+            return;
         noctty_grid_label_set_text(GTK_LABEL(root->find_status), status);
     } else {
         target->selecting = 0;
-        noctty_grid_label_set_text(GTK_LABEL(root->find_status), "No matches");
+        if (noctty_grid_find_status_text(
+                2, 0, matches, (unsigned char *)status, sizeof(status)) <= 0)
+            return;
+        noctty_grid_label_set_text(GTK_LABEL(root->find_status), status);
     }
     noctty_grid_widget_queue_draw(target->area);
 }
@@ -12391,41 +12419,11 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
         noctty_grid_dialog_dimension(workarea.width, 620, 1, 32);
     int dialog_height =
         noctty_grid_dialog_dimension(workarea.height, 620, 1, 32);
-    gchar *visibility_shortcut = grid_shortcut_label_alloc(root);
-    gchar *shortcuts = g_strdup_printf(
-        "Ctrl+Shift+P   Command palette\n"
-        "Ctrl+Shift+F   Find in scrollback\n"
-        "Ctrl+Shift+N   Quick note\n"
-        "Ctrl+Shift+G   Smart Tab filter\n"
-        "Ctrl+Shift+Y   Tag selected panes\n"
-        "Ctrl+Shift+Z   Zoom / restore pane\n"
-        "Ctrl+Tab       Next terminal pane\n"
-        "Ctrl+Shift+Tab Next tab / Smart Tab\n"
-        "Hold Alt       Show note in each pane\n"
-        "Alt+Arrow      Focus pane by direction\n"
-        "Alt+wheel      Previous / next pane\n"
-        "Ctrl+Alt+wheel Previous / next tab\n"
-        "Ctrl+wheel     Pane font up / down\n"
-        "Shift+PageUp   Scroll terminal history up\n"
-        "Shift+PageDown Scroll terminal history down\n"
-        "Shift+Home     Oldest terminal history\n"
-        "Shift+End      Live terminal output\n"
-        "Ctrl+C         Interrupt active pane\n"
-        "Ctrl+D         Close active pane\n"
-        "Ctrl+PageUp    Previous tab\n"
-        "Ctrl+PageDown  Next tab\n"
-        "Ctrl+Shift+W   Close tab\n"
-        "Ctrl+Shift+R   Rename active tab\n"
-        "Ctrl+Shift+T   Reopen last tab / new tab\n"
-        "Ctrl+Shift+S   Split down\n"
-        "Ctrl+Shift+L   Split left\n"
-        "Ctrl+Alt+B     Enable / disable broadcast input\n"
-        "Ctrl+Alt+=     Lighten active tab color\n"
-        "Ctrl+Alt+-     Darken active tab color\n"
-        "Ctrl+Shift+K   This shortcut card\n"
-        "Double-click   Zoom pane\n"
-        "%-15s Show / hide NOCTTY",
-        visibility_shortcut);
+    char shortcuts[4096] = {0};
+    if (noctty_grid_shortcuts_text(
+            root != NULL ? (uint32_t)root->requested_shortcut_key : 0,
+            (unsigned char *)shortcuts, sizeof(shortcuts)) <= 0)
+        return;
     GtkWidget *dialog = noctty_dialog_new(
         GTK_WIDGET(root->window), "NOCTTY Shortcuts",
         GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE,
@@ -12437,13 +12435,9 @@ static void open_shortcuts_overlay(NocttyGridContext *context) {
     noctty_grid_window_set_default_size(dialog, dialog_width, dialog_height);
     if (!noctty_shortcuts_contents_new(
             dialog, shortcuts, dialog_width, dialog_height)) {
-        noctty_grid_memory_free(shortcuts);
-        noctty_grid_memory_free(visibility_shortcut);
         noctty_grid_widget_destroy(dialog);
         return;
     }
-    noctty_grid_memory_free(shortcuts);
-    noctty_grid_memory_free(visibility_shortcut);
     root->shortcuts_dialog = dialog;
     noctty_grid_signal_connect(dialog, "response", G_CALLBACK(noctty_grid_widget_destroy), NULL);
     noctty_grid_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
@@ -13026,8 +13020,12 @@ static int refresh_sharing_peers(NocttyGridContext *context) {
                                    &port, &revoked) < 0)
             continue;
         if (revoked) continue;
-        char *label = g_strdup_printf(
-            "%s — %s:%u", alias, endpoint, (unsigned)port);
+        char label[512] = {0};
+        if (noctty_grid_sharing_peer_label(
+                (const unsigned char *)alias, strlen(alias),
+                (const unsigned char *)endpoint, strlen(endpoint),
+                port, (unsigned char *)label, sizeof(label)) <= 0)
+            continue;
         char index_id[24];
         g_snprintf(index_id, sizeof(index_id), "%d", index);
         noctty_grid_combo_box_text_append(combo, index_id, label);
@@ -13118,12 +13116,12 @@ static void refresh_sharing_tabs(NocttyGridContext *context) {
             &is_selected, &is_active);
         if (title_length < 0) continue;
         title[(size_t)title_length] = '\0';
-        char *label = g_strdup_printf(
-            "%s%s%llu%s", title_length == 0 ? "Tab " : (char *)title,
-            title_length == 0 ? "" : " — tab ", (unsigned long long)tab_id,
-            is_active ? " (host active)" : "");
+        char label[4608] = {0};
+        if (noctty_grid_sharing_tab_label(
+                title, (size_t)title_length, tab_id, is_active,
+                (unsigned char *)label, sizeof(label)) <= 0)
+            continue;
         noctty_grid_combo_box_text_append_text(combo, label);
-        noctty_grid_memory_free(label);
         if (is_selected) selected = index;
     }
     if (count > 0)
@@ -13172,14 +13170,14 @@ static void refresh_sharing_streams(NocttyGridContext *context) {
             &tab_id, &is_selected);
         if (title_length < 0 || tab_id != selected_tab_id) continue;
         title[(size_t)title_length] = '\0';
-        char *label = g_strdup_printf(
-            "%s%s%llu", title_length == 0 ? "Pane " : (char *)title,
-            title_length == 0 ? "" : " — pane ",
-            (unsigned long long)pane_id);
+        char label[4608] = {0};
+        if (noctty_grid_sharing_pane_label(
+                title, (size_t)title_length, pane_id,
+                (unsigned char *)label, sizeof(label)) <= 0)
+            continue;
         char index_id[24];
         g_snprintf(index_id, sizeof(index_id), "%d", index);
         noctty_grid_combo_box_text_append(combo, index_id, label);
-        noctty_grid_memory_free(label);
         visible_count++;
         if (is_selected)
             g_strlcpy(selected_id, index_id, sizeof(selected_id));
@@ -13393,15 +13391,19 @@ static void on_sharing_action(GtkButton *button, gpointer user_data) {
     if (action == 9 && peer_index >= 0) {
         gchar *peer_label = noctty_grid_combo_box_text_get_active_text(
             GTK_COMBO_BOX_TEXT(peers));
-        gchar *detail = g_strdup_printf(
-            "%s will lose sharing access immediately. Pairing it again will "
-            "require a new matching six-digit confirmation.",
-            peer_label != NULL ? peer_label : "The selected device");
+        char detail[512] = {0};
+        const char *peer_name = peer_label != NULL
+            ? peer_label : "The selected device";
+        if (noctty_grid_sharing_revoke_detail(
+                (const unsigned char *)peer_name, strlen(peer_name),
+                (unsigned char *)detail, sizeof(detail)) <= 0) {
+            noctty_grid_memory_free(peer_label);
+            return;
+        }
         GtkWidget *confirmation = noctty_message_dialog_new(
             GTK_WIDGET(dialog), GTK_MESSAGE_WARNING,
             "Revoke this paired device?", detail,
             "Keep Device", "Revoke Device");
-        noctty_grid_memory_free(detail);
         (void)configure_overlay_window_stacking(
             root, confirmation, "noctty-share-revoke-confirmation");
         show_all_with_action_affordances(confirmation);

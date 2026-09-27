@@ -113,6 +113,12 @@ pub const ZoomPlan = extern struct {
     unzoom: c_int,
     enter: c_int,
 };
+pub const LayoutPresetPlan = extern struct {
+    valid: c_int,
+    rows: c_int,
+    columns: c_int,
+    target_count: c_int,
+};
 
 pub const AccessibleTextPlan = extern struct {
     initial_capacity: c_int,
@@ -1308,6 +1314,50 @@ pub export fn noctty_grid_fullscreen_plan(
     } else {
         output.* = .{ .action = fullscreen_action_monitor };
     }
+}
+
+pub export fn noctty_grid_layout_preset_plan(
+    event_code: c_int,
+    output_optional: ?*LayoutPresetPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .valid = 0,
+        .rows = 0,
+        .columns = 0,
+        .target_count = 0,
+    };
+    var rows: c_int = 0;
+    var columns: c_int = 0;
+    switch (event_code) {
+        50 => {
+            rows = 1;
+            columns = 1;
+        },
+        51 => {
+            rows = 2;
+            columns = 2;
+        },
+        52 => {
+            rows = 3;
+            columns = 3;
+        },
+        60 => {
+            rows = 4;
+            columns = 4;
+        },
+        61 => {
+            rows = 2;
+            columns = 4;
+        },
+        else => return,
+    }
+    output.* = .{
+        .valid = 1,
+        .rows = rows,
+        .columns = columns,
+        .target_count = rows * columns,
+    };
 }
 
 pub export fn noctty_grid_layer_geometry_plan(
@@ -2962,6 +3012,244 @@ pub export fn noctty_grid_pane_zoom_feedback_text(
         capacity,
         "Session {s} is focused. Double click again on pane to go back.",
         .{fallback},
+    );
+}
+
+pub export fn noctty_grid_shortcut_feedback_message(
+    kind: c_int,
+) callconv(.c) [*:0]const u8 {
+    return switch (kind) {
+        0 => "Shortcut is unavailable. Press another key or Esc.",
+        1 => "Use F1-F12, or add Ctrl, Alt, or Super. Esc cancels.",
+        2 => "Checking shortcut availability…",
+        else => "",
+    };
+}
+
+pub export fn noctty_grid_note_overlay_label(
+    text: ?[*]const u8,
+    text_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(
+        output,
+        capacity,
+        "Note · {s}",
+        .{compactTabInputSlice(text, text_length)},
+    );
+}
+
+pub export fn noctty_grid_window_title_text(
+    mode: c_int,
+    title: ?[*]const u8,
+    title_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const title_text = compactTabInputSlice(title, title_length);
+    if (title_text.len == 0) return 0;
+    const prefix = switch (mode) {
+        0 => "NOCTTY Dropdown — ",
+        2 => "NOCTTY Zen — ",
+        else => "",
+    };
+    return compactTabFormat(output, capacity, "{s}{s}", .{ prefix, title_text });
+}
+
+pub export fn noctty_grid_close_confirmation_text(
+    scope: ?[*]const u8,
+    scope_length: usize,
+    busy_count: u32,
+    title: ?[*]u8,
+    title_capacity: usize,
+    detail: ?[*]u8,
+    detail_capacity: usize,
+) callconv(.c) c_int {
+    const scope_text = compactTabInputSlice(scope, scope_length);
+    const title_text = if (std.mem.eql(u8, scope_text, "application"))
+        "Close NOCTTY?"
+    else if (std.mem.eql(u8, scope_text, "tab"))
+        "Close tab?"
+    else
+        "Close terminal?";
+    const title_length = compactTabFormat(title, title_capacity, "{s}", .{title_text});
+    if (title_length <= 0) return 0;
+    const detail_length = if (busy_count == 0)
+        compactTabFormat(
+            detail,
+            detail_capacity,
+            "Closing NOCTTY ends all terminal sessions in this window.",
+            .{},
+        )
+    else if (busy_count == 1)
+        compactTabFormat(
+            detail,
+            detail_capacity,
+            "A foreground process is still running. Closing will stop it and its child processes.",
+            .{},
+        )
+    else
+        compactTabFormat(
+            detail,
+            detail_capacity,
+            "{d} terminals have foreground processes. Closing will stop them and their child processes.",
+            .{busy_count},
+        );
+    if (detail_length <= 0) return 0;
+    return 1;
+}
+
+pub export fn noctty_grid_layout_prompt_title(
+    extra_count: u32,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(
+        output,
+        capacity,
+        "Move {d} terminal session{s} to a new tab?",
+        .{ extra_count, if (extra_count == 1) "" else "s" },
+    );
+}
+
+pub export fn noctty_grid_find_status_text(
+    state: c_int,
+    ordinal: u64,
+    matches: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return switch (state) {
+        0 => compactTabFormat(output, capacity, "Type to search scrollback", .{}),
+        1 => compactTabFormat(
+            output,
+            capacity,
+            "{d} / {d}  ·  Enter for previous",
+            .{ ordinal, matches },
+        ),
+        else => compactTabFormat(output, capacity, "No matches", .{}),
+    };
+}
+
+pub export fn noctty_grid_shortcuts_text(
+    encoded: u32,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    var shortcut_storage: [64]u8 = undefined;
+    const shortcut_length = noctty_grid_shortcut_label(
+        encoded, &shortcut_storage, shortcut_storage.len);
+    if (shortcut_length <= 0) return 0;
+    return compactTabFormat(
+        output,
+        capacity,
+        "Ctrl+Shift+P   Command palette\n" ++
+            "Ctrl+Shift+F   Find in scrollback\n" ++
+            "Ctrl+Shift+N   Quick note\n" ++
+            "Ctrl+Shift+G   Smart Tab filter\n" ++
+            "Ctrl+Shift+Y   Tag selected panes\n" ++
+            "Ctrl+Shift+Z   Zoom / restore pane\n" ++
+            "Ctrl+Tab       Next terminal pane\n" ++
+            "Ctrl+Shift+Tab Next tab / Smart Tab\n" ++
+            "Hold Alt       Show note in each pane\n" ++
+            "Alt+Arrow      Focus pane by direction\n" ++
+            "Alt+wheel      Previous / next pane\n" ++
+            "Ctrl+Alt+wheel Previous / next tab\n" ++
+            "Ctrl+wheel     Pane font up / down\n" ++
+            "Shift+PageUp   Scroll terminal history up\n" ++
+            "Shift+PageDown Scroll terminal history down\n" ++
+            "Shift+Home     Oldest terminal history\n" ++
+            "Shift+End      Live terminal output\n" ++
+            "Ctrl+C         Interrupt active pane\n" ++
+            "Ctrl+D         Close active pane\n" ++
+            "Ctrl+PageUp    Previous tab\n" ++
+            "Ctrl+PageDown  Next tab\n" ++
+            "Ctrl+Shift+W   Close tab\n" ++
+            "Ctrl+Shift+R   Rename active tab\n" ++
+            "Ctrl+Shift+T   Reopen last tab / new tab\n" ++
+            "Ctrl+Shift+S   Split down\n" ++
+            "Ctrl+Shift+L   Split left\n" ++
+            "Ctrl+Alt+B     Enable / disable broadcast input\n" ++
+            "Ctrl+Alt+=     Lighten active tab color\n" ++
+            "Ctrl+Alt+-     Darken active tab color\n" ++
+            "Ctrl+Shift+K   This shortcut card\n" ++
+            "Double-click   Zoom pane\n" ++
+            "{s:<15} Show / hide NOCTTY",
+        .{shortcut_storage[0..@intCast(shortcut_length)]},
+    );
+}
+
+pub export fn noctty_grid_sharing_peer_label(
+    alias: ?[*]const u8,
+    alias_length: usize,
+    endpoint: ?[*]const u8,
+    endpoint_length: usize,
+    port: u32,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(
+        output,
+        capacity,
+        "{s} — {s}:{d}",
+        .{
+            compactTabInputSlice(alias, alias_length),
+            compactTabInputSlice(endpoint, endpoint_length),
+            port,
+        },
+    );
+}
+
+pub export fn noctty_grid_sharing_tab_label(
+    title: ?[*]const u8,
+    title_length: usize,
+    tab_id: u64,
+    active: c_int,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const title_text = compactTabInputSlice(title, title_length);
+    if (title_text.len == 0)
+        return compactTabFormat(output, capacity, "Tab {d}{s}", .{
+            tab_id,
+            if (active != 0) " (host active)" else "",
+        });
+    return compactTabFormat(output, capacity, "{s} — tab {d}{s}", .{
+        title_text,
+        tab_id,
+        if (active != 0) " (host active)" else "",
+    });
+}
+
+pub export fn noctty_grid_sharing_pane_label(
+    title: ?[*]const u8,
+    title_length: usize,
+    pane_id: u64,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const title_text = compactTabInputSlice(title, title_length);
+    if (title_text.len == 0)
+        return compactTabFormat(output, capacity, "Pane {d}", .{pane_id});
+    return compactTabFormat(output, capacity, "{s} — pane {d}", .{
+        title_text,
+        pane_id,
+    });
+}
+
+pub export fn noctty_grid_sharing_revoke_detail(
+    peer: ?[*]const u8,
+    peer_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    return compactTabFormat(
+        output,
+        capacity,
+        "{s} will lose sharing access immediately. Pairing it again will " ++
+            "require a new matching six-digit confirmation.",
+        .{compactTabInputSlice(peer, peer_length)},
     );
 }
 
@@ -4691,6 +4979,36 @@ test "fullscreen planner preserves native fallback precedence" {
     try std.testing.expectEqual(@as(c_int, fullscreen_action_monitor), plan.action);
 }
 
+test "layout preset plan preserves every native preset geometry" {
+    var plan = LayoutPresetPlan{
+        .valid = 0,
+        .rows = 0,
+        .columns = 0,
+        .target_count = 0,
+    };
+    const cases = [_]struct {
+        event_code: c_int,
+        rows: c_int,
+        columns: c_int,
+        target_count: c_int,
+    }{
+        .{ .event_code = 50, .rows = 1, .columns = 1, .target_count = 1 },
+        .{ .event_code = 51, .rows = 2, .columns = 2, .target_count = 4 },
+        .{ .event_code = 52, .rows = 3, .columns = 3, .target_count = 9 },
+        .{ .event_code = 60, .rows = 4, .columns = 4, .target_count = 16 },
+        .{ .event_code = 61, .rows = 2, .columns = 4, .target_count = 8 },
+    };
+    for (cases) |expected| {
+        noctty_grid_layout_preset_plan(expected.event_code, &plan);
+        try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+        try std.testing.expectEqual(expected.rows, plan.rows);
+        try std.testing.expectEqual(expected.columns, plan.columns);
+        try std.testing.expectEqual(expected.target_count, plan.target_count);
+    }
+    noctty_grid_layout_preset_plan(53, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+
 test "layer geometry planner preserves dropdown zen and window sizing" {
     var plan = LayerGeometryPlan{
         .action = layer_geometry_none,
@@ -6293,6 +6611,100 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
     try std.testing.expectEqualStrings(
         "Session Pane 7 is focused. Double click again on pane to go back.",
         output[0..@intCast(length)],
+    );
+}
+
+test "remaining native UI text composition stays bounded and native-free" {
+    var output: [4608]u8 = undefined;
+    var secondary: [512]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "Shortcut is unavailable. Press another key or Esc.",
+        std.mem.span(noctty_grid_shortcut_feedback_message(0)),
+    );
+    try std.testing.expectEqualStrings(
+        "Checking shortcut availability…",
+        std.mem.span(noctty_grid_shortcut_feedback_message(2)),
+    );
+
+    var length = noctty_grid_note_overlay_label(
+        "Remember this", "Remember this".len, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Note · Remember this",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_window_title_text(
+        2, "Terminal", 8, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "NOCTTY Zen — Terminal",
+        output[0..@intCast(length)],
+    );
+
+    var title: [64]u8 = undefined;
+    var detail: [256]u8 = undefined;
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_close_confirmation_text(
+            "application",
+            "application".len,
+            0,
+            &title,
+            title.len,
+            &detail,
+            detail.len,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "Close NOCTTY?",
+        title[0.."Close NOCTTY?".len],
+    );
+    try std.testing.expectEqualStrings(
+        "Closing NOCTTY ends all terminal sessions in this window.",
+        detail[0.."Closing NOCTTY ends all terminal sessions in this window.".len],
+    );
+    length = noctty_grid_layout_prompt_title(2, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Move 2 terminal sessions to a new tab?",
+        output[0..@intCast(length)],
+    );
+
+    length = noctty_grid_find_status_text(1, 3, 9, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "3 / 9  ·  Enter for previous",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_find_status_text(2, 0, 0, &output, output.len);
+    try std.testing.expectEqualStrings("No matches", output[0..@intCast(length)]);
+
+    length = noctty_grid_shortcuts_text(0, &output, output.len);
+    try std.testing.expect(std.mem.indexOf(
+        u8,
+        output[0..@intCast(length)],
+        "Show / hide NOCTTY",
+    ) != null);
+
+    length = noctty_grid_sharing_peer_label(
+        "Alice", 5, "host.local", 10, 2200, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Alice — host.local:2200",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_sharing_tab_label(
+        null, 0, 4, 1, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Tab 4 (host active)",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_sharing_pane_label(
+        "Shell", 5, 9, &output, output.len);
+    try std.testing.expectEqualStrings(
+        "Shell — pane 9",
+        output[0..@intCast(length)],
+    );
+    length = noctty_grid_sharing_revoke_detail(
+        "Alice", 5, &secondary, secondary.len);
+    try std.testing.expectEqualStrings(
+        "Alice will lose sharing access immediately. Pairing it again will require a new matching six-digit confirmation.",
+        secondary[0..@intCast(length)],
     );
 }
 

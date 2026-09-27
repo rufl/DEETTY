@@ -186,6 +186,13 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Settings shortcut button label and transport-specific tooltip composition now
   also cross the Zig ABI; C retains shortcut-key acquisition and GTK widget
   application.
+  Note-overlay labels, window-title prefixes, close confirmations, layout-preset
+  prompts, find-status text, keyboard-shortcuts text, and sharing peer/tab/pane
+  labels now also cross the Zig ABI; C retains GTK allocation, dialog,
+  combo-box, and terminal-model effects.
+  Layout-preset event validation and rows/columns/target-count selection are
+  also a tested Zig state plan; C retains pane enumeration, confirmations,
+  session movement, and GTK layout effects.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.

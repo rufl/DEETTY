@@ -133,6 +133,12 @@ typedef struct {
     int unzoom;
     int enter;
 } NocttyGridZoomPlan;
+typedef struct {
+    int valid;
+    int rows;
+    int columns;
+    int target_count;
+} NocttyGridLayoutPresetPlan;
 
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
@@ -497,6 +503,9 @@ enum {
     NOCTTY_GRID_LAYER_GEOMETRY_WINDOW = 3
 };
 
+void noctty_grid_layout_preset_plan(
+    int event_code, NocttyGridLayoutPresetPlan *plan);
+
 void noctty_grid_layer_geometry_plan(
     int mode, int monitor_width, int monitor_height,
     int dropdown_width_px, int dropdown_width_percent,
@@ -776,6 +785,38 @@ int noctty_grid_pane_zoom_feedback_text(
     uint64_t pane_id,
     const unsigned char *title, size_t title_length,
     const unsigned char *display_title, size_t display_length,
+    unsigned char *output, size_t capacity);
+const char *noctty_grid_shortcut_feedback_message(int kind);
+int noctty_grid_note_overlay_label(
+    const unsigned char *text, size_t text_length,
+    unsigned char *output, size_t capacity);
+int noctty_grid_window_title_text(
+    int mode, const unsigned char *title, size_t title_length,
+    unsigned char *output, size_t capacity);
+int noctty_grid_close_confirmation_text(
+    const unsigned char *scope, size_t scope_length, uint32_t busy_count,
+    unsigned char *title, size_t title_capacity,
+    unsigned char *detail, size_t detail_capacity);
+int noctty_grid_layout_prompt_title(
+    uint32_t extra_count, unsigned char *output, size_t capacity);
+int noctty_grid_find_status_text(
+    int state, uint64_t ordinal, int matches,
+    unsigned char *output, size_t capacity);
+int noctty_grid_shortcuts_text(
+    uint32_t encoded, unsigned char *output, size_t capacity);
+int noctty_grid_sharing_peer_label(
+    const unsigned char *alias, size_t alias_length,
+    const unsigned char *endpoint, size_t endpoint_length,
+    uint32_t port, unsigned char *output, size_t capacity);
+int noctty_grid_sharing_tab_label(
+    const unsigned char *title, size_t title_length,
+    uint64_t tab_id, int active,
+    unsigned char *output, size_t capacity);
+int noctty_grid_sharing_pane_label(
+    const unsigned char *title, size_t title_length,
+    uint64_t pane_id, unsigned char *output, size_t capacity);
+int noctty_grid_sharing_revoke_detail(
+    const unsigned char *peer, size_t peer_length,
     unsigned char *output, size_t capacity);
 
 enum {

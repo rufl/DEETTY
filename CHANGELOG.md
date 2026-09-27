@@ -50,6 +50,13 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved settings shortcut button label and transport-specific tooltip composition
   into the Zig grid-logic adapter; C retains shortcut-key acquisition and GTK
   widget application.
+- Moved note-overlay labels, window-title prefixes, close confirmations,
+  layout-preset prompts, find-status text, keyboard-shortcuts text, and sharing
+  peer/tab/pane labels into the Zig grid-logic adapter; C retains GTK and
+  terminal-model effects.
+- Moved layout-preset event validation and rows/columns/target-count selection
+  into a tested Zig state plan; C retains pane enumeration, confirmations,
+  session movement, and GTK layout effects.
 - Fixed native Cairo ASCII glyph-cache reuse across repeated renderer frames;
   cache validity now follows the explicit native font-policy invalidation path
   instead of unstable scaled-font pointer identity, restoring zero warm-frame
