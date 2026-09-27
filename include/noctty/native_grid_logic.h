@@ -102,6 +102,12 @@ typedef struct {
     int focus_first;
     int show_empty;
 } NocttyGridSmartFilterSummaryPlan;
+
+typedef struct {
+    int start;
+    int end;
+    int valid;
+} NocttyGridAccessibleOffsetPlan;
 typedef struct {
     int route;
     int steps;
@@ -487,6 +493,9 @@ int noctty_grid_shortcut_label(uint32_t encoded, uint8_t *output,
 int noctty_grid_text_valid(const uint8_t *text, size_t length,
                            size_t max_length);
 int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
+void noctty_grid_accessible_offset_plan(
+    int count, int start_offset, int end_offset,
+    NocttyGridAccessibleOffsetPlan *plan);
 int noctty_grid_fuzzy_match_ascii(const uint8_t *haystack,
                                   uint32_t haystack_length,
                                   const uint8_t *needle,

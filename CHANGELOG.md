@@ -17,6 +17,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved Smart Tab visibility, first-visible/focused-pane tracking, focus-first,
   and empty-filter decisions into Zig; GTK retains widget visibility, focus,
   and empty-state construction.
+- Moved GTK accessibility range clamping and character-offset validity into
+  the Zig grid-logic adapter; C retains UTF-8 pointer conversion and ATK
+  granularity effects.
 - Moved panel gap splitting, multi-pane auto-fit bound aggregation, and
   allocation resize change detection into Zig layout plans; C retains GTK
   allocation queries, font propagation, overlays, and deferred resize effects.

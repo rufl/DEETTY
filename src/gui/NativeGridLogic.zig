@@ -83,6 +83,12 @@ pub const SmartFilterSummaryPlan = extern struct {
     show_empty: c_int,
 };
 
+pub const AccessibleOffsetPlan = extern struct {
+    start: c_int,
+    end: c_int,
+    valid: c_int,
+};
+
 pub const SelectionWordPlan = extern struct {
     valid: c_int,
     start_column: c_int,
@@ -1569,6 +1575,28 @@ pub export fn noctty_grid_text_valid(
         length,
         max_length,
     ) != null);
+}
+
+pub export fn noctty_grid_accessible_offset_plan(
+    count: c_int,
+    start_offset: c_int,
+    end_offset: c_int,
+    output: ?*AccessibleOffsetPlan,
+) callconv(.c) void {
+    const plan = output orelse return;
+    const available = @max(count, 0);
+    const start = @min(@max(start_offset, 0), available);
+    const end = if (end_offset < 0)
+        available
+    else
+        @min(@max(end_offset, start), available);
+    plan.* = .{
+        .start = start,
+        .end = end,
+        .valid = @intFromBool(
+            available > 0 and start_offset >= 0 and start_offset < available,
+        ),
+    };
 }
 
 pub export fn noctty_grid_hyperlink_valid(
@@ -4276,6 +4304,22 @@ test "bounded text validation enforces UTF-8 and control-free byte limits" {
         @as(c_int, 0),
         noctty_grid_text_valid("four".ptr, 4, 3),
     );
+}
+
+test "accessibility offset plans clamp ranges and reject invalid offsets" {
+    var plan = AccessibleOffsetPlan{ .start = 0, .end = 0, .valid = 0 };
+    noctty_grid_accessible_offset_plan(5, -2, -1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.start);
+    try std.testing.expectEqual(@as(c_int, 5), plan.end);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+
+    noctty_grid_accessible_offset_plan(5, 2, 99, &plan);
+    try std.testing.expectEqual(@as(c_int, 2), plan.start);
+    try std.testing.expectEqual(@as(c_int, 5), plan.end);
+    try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+
+    noctty_grid_accessible_offset_plan(0, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
 
 test "hyperlink validation accepts safe browser schemes and rejects controls" {

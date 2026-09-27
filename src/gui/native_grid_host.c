@@ -1042,10 +1042,13 @@ static gchar *noctty_terminal_accessible_get_text(
     AtkText *text, gint start_offset, gint end_offset) {
     const gchar *contents = noctty_terminal_accessible_contents(text);
     gint count = (gint)g_utf8_strlen(contents, -1);
-    gint start = CLAMP(start_offset, 0, count);
-    gint end = end_offset < 0 ? count : CLAMP(end_offset, start, count);
-    const gchar *start_pointer = g_utf8_offset_to_pointer(contents, start);
-    const gchar *end_pointer = g_utf8_offset_to_pointer(contents, end);
+    NocttyGridAccessibleOffsetPlan offsets = {0};
+    noctty_grid_accessible_offset_plan(
+        count, start_offset, end_offset, &offsets);
+    const gchar *start_pointer =
+        g_utf8_offset_to_pointer(contents, offsets.start);
+    const gchar *end_pointer =
+        g_utf8_offset_to_pointer(contents, offsets.end);
     return g_strndup(start_pointer, (gsize)(end_pointer - start_pointer));
 }
 
@@ -1053,8 +1056,11 @@ static gunichar noctty_terminal_accessible_get_character(
     AtkText *text, gint offset) {
     const gchar *contents = noctty_terminal_accessible_contents(text);
     gint count = (gint)g_utf8_strlen(contents, -1);
-    if (offset < 0 || offset >= count) return 0;
-    return g_utf8_get_char(g_utf8_offset_to_pointer(contents, offset));
+    NocttyGridAccessibleOffsetPlan offsets = {0};
+    noctty_grid_accessible_offset_plan(count, offset, -1, &offsets);
+    if (offsets.valid == 0) return 0;
+    return g_utf8_get_char(
+        g_utf8_offset_to_pointer(contents, offsets.start));
 }
 
 static gint noctty_terminal_accessible_get_character_count(AtkText *text) {
@@ -1071,14 +1077,17 @@ static gchar *noctty_terminal_accessible_get_string_at_offset(
     gint *start_offset, gint *end_offset) {
     const gchar *contents = noctty_terminal_accessible_contents(text);
     gint count = (gint)g_utf8_strlen(contents, -1);
-    if (count == 0 || offset < 0 || offset >= count) {
+    NocttyGridAccessibleOffsetPlan offsets = {0};
+    noctty_grid_accessible_offset_plan(count, offset, -1, &offsets);
+    if (offsets.valid == 0) {
         if (start_offset != NULL) *start_offset = 0;
         if (end_offset != NULL) *end_offset = 0;
         return g_strdup("");
     }
 
-    const gchar *start = g_utf8_offset_to_pointer(contents, offset);
+    const gchar *start = g_utf8_offset_to_pointer(contents, offsets.start);
     const gchar *end = g_utf8_next_char(start);
+
     if (granularity == ATK_TEXT_GRANULARITY_WORD) {
         while (start > contents) {
             const gchar *previous = g_utf8_prev_char(start);

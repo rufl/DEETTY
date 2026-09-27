@@ -165,6 +165,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   bounds now follow the same Zig-policy/native-allocation split.
   Smart Tab visibility, focus-first, and empty-filter decisions now also cross
   the Zig ABI; GTK retains widget visibility, focus, and empty-state effects.
+  GTK accessibility range clamping and character-offset validity now cross
+  the Zig ABI; C retains UTF-8 pointer conversion and ATK granularity effects.
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
