@@ -55,6 +55,12 @@ pub const DamageRect = extern struct {
     width: c_int,
     height: c_int,
 };
+
+pub const CursorPosition = extern struct {
+    column: c_int,
+    row: c_int,
+    valid: c_int,
+};
 pub const WheelActionPlan = extern struct {
     steps: c_int,
     direction: c_int,
@@ -2491,6 +2497,31 @@ pub export fn noctty_grid_cursor_damage(
     };
 }
 
+pub export fn noctty_grid_cursor_position(
+    packed_cursor: u32,
+    output: ?*CursorPosition,
+) callconv(.c) void {
+    const position = output orelse return;
+    if (packed_cursor == std.math.maxInt(u32)) {
+        position.* = .{ .column = -1, .row = -1, .valid = 0 };
+        return;
+    }
+    position.* = .{
+        .column = @intCast(packed_cursor & 0xffff),
+        .row = @intCast(packed_cursor >> 16),
+        .valid = 1,
+    };
+}
+
+pub export fn noctty_grid_background_alpha(
+    translucency: c_int,
+    alpha_supported: c_int,
+    opacity_percent: f64,
+) callconv(.c) f64 {
+    if (translucency == 0 or alpha_supported == 0) return 1.0;
+    return opacity_percent / 100.0;
+}
+
 pub export fn noctty_grid_scroll_steps(
     configured_lines: c_int,
     smooth_enabled: c_int,
@@ -4261,6 +4292,27 @@ test "render damage bounds clip rows cells and cursor rectangles" {
     try std.testing.expectEqual(@as(c_int, 53), damage.y);
     try std.testing.expectEqual(@as(c_int, 10), damage.width);
     try std.testing.expectEqual(@as(c_int, 18), damage.height);
+}
+
+test "cursor position and background alpha preserve render input policy" {
+    var cursor = CursorPosition{ .column = 0, .row = 0, .valid = 0 };
+    noctty_grid_cursor_position(0x00030002, &cursor);
+    try std.testing.expectEqual(@as(c_int, 2), cursor.column);
+    try std.testing.expectEqual(@as(c_int, 3), cursor.row);
+    try std.testing.expectEqual(@as(c_int, 1), cursor.valid);
+    noctty_grid_cursor_position(std.math.maxInt(u32), &cursor);
+    try std.testing.expectEqual(@as(c_int, -1), cursor.column);
+    try std.testing.expectEqual(@as(c_int, -1), cursor.row);
+    try std.testing.expectEqual(@as(c_int, 0), cursor.valid);
+
+    try std.testing.expectEqual(
+        @as(f64, 0.75),
+        noctty_grid_background_alpha(1, 1, 75),
+    );
+    try std.testing.expectEqual(
+        @as(f64, 1.0),
+        noctty_grid_background_alpha(0, 1, 75),
+    );
 }
 
 test "manual dropdown pixels become responsive percentages" {

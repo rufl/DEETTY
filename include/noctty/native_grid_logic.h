@@ -81,6 +81,12 @@ typedef struct {
     int width;
     int height;
 } NocttyGridDamageRect;
+
+typedef struct {
+    int column;
+    int row;
+    int valid;
+} NocttyGridCursorPosition;
 typedef struct {
     int steps;
     int direction;
@@ -667,6 +673,10 @@ void noctty_grid_damage_rect(
 void noctty_grid_cursor_damage(
     int column, int row, double cell_width, double cell_height,
     NocttyGridDamageRect *output);
+void noctty_grid_cursor_position(
+    uint32_t packed_cursor, NocttyGridCursorPosition *output);
+double noctty_grid_background_alpha(
+    int translucency, int alpha_supported, double opacity_percent);
 
 void noctty_grid_cell_span(int first, int end, int row, double cell_width,
                            double cell_height, int snap_horizontal,

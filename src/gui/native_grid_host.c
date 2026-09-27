@@ -1567,9 +1567,10 @@ static void draw_grid_cell_text_bridge(
 
 static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
                                    GtkAllocation allocation) {
-    double background_alpha = context->background_translucency &&
-        context->background_alpha_supported
-        ? context->background_opacity_percent / 100.0 : 1.0;
+    double background_alpha = noctty_grid_background_alpha(
+        context->background_translucency,
+        context->background_alpha_supported,
+        context->background_opacity_percent);
     cairo_save(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     uint32_t background_rgb = context->event_data != NULL
@@ -1596,8 +1597,10 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
     double cell_width = metrics.cell_width;
     double cell_height = metrics.cell_height;
     uint32_t cursor = context->cursor(context->userdata);
-    int cursor_column = cursor != 0xffffffff ? (int)(cursor & 0xffff) : -1;
-    int cursor_row = cursor != 0xffffffff ? (int)(cursor >> 16) : -1;
+    NocttyGridCursorPosition cursor_position = {0};
+    noctty_grid_cursor_position(cursor, &cursor_position);
+    int cursor_column = cursor_position.column;
+    int cursor_row = cursor_position.row;
     NocttyTerminalScrollbarGeometry cursor_scrollbar;
     gboolean cursor_at_live_bottom =
         !terminal_scrollbar_geometry(context, allocation, &cursor_scrollbar) ||
@@ -5893,9 +5896,12 @@ static void queue_grid_cell_span(NocttyGridContext *context, int row,
 
 static void queue_grid_cursor_cell(NocttyGridContext *context,
                                    uint32_t packed_cursor) {
-    if (packed_cursor == UINT32_MAX || context->area == NULL) return;
-    int column = (int)(packed_cursor & 0xffff);
-    int row = (int)(packed_cursor >> 16);
+    if (context->area == NULL) return;
+    NocttyGridCursorPosition cursor_position = {0};
+    noctty_grid_cursor_position(packed_cursor, &cursor_position);
+    if (cursor_position.valid == 0) return;
+    int column = cursor_position.column;
+    int row = cursor_position.row;
     if (column < 0 || column >= context->columns ||
         row < 0 || row >= context->rows) return;
     NocttyGridFontMetrics metrics = grid_font_metrics(context);
