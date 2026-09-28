@@ -471,6 +471,10 @@ grep -F 'pub export fn noctty_windows_special_key_sequence(' "$windows_logic" >/
 grep -F 'pub export fn noctty_windows_mouse_route(' "$windows_logic" >/dev/null
 grep -F 'pub export fn noctty_windows_mouse_transition(' "$windows_logic" >/dev/null
 grep -F 'noctty_windows_mouse_transition(' "$windows_host" >/dev/null
+grep -F 'context_menu: c_int' "$windows_logic" >/dev/null
+grep -F 'effect.context_menu = 1' "$windows_logic" >/dev/null
+grep -F 'fn showTerminalContextMenu' "$windows_host" >/dev/null
+grep -F 'c.TrackPopupMenu(' "$windows_host" >/dev/null
 grep -F 'noctty_windows_compute_pane_geometry(' "$windows_host" >/dev/null
 grep -F 'pub export fn noctty_windows_diagnostics_init()' "$windows_diagnostics" >/dev/null
 grep -F 'pub export fn noctty_windows_diagnostics_deinit()' "$windows_diagnostics" >/dev/null

@@ -933,10 +933,30 @@ fn emitMouseReports(host: *Host, decision: *const Logic.MouseDecision) bool {
     return true;
 }
 
+fn showTerminalContextMenu(host: *Host) void {
+    const menu = host.menu orelse return;
+    var point: c.POINT = undefined;
+    if (c.GetCursorPos(&point) == 0) return;
+    _ = c.SetForegroundWindow(host.window);
+    const command = c.TrackPopupMenu(
+        @ptrCast(menu.terminal),
+        c.TPM_RIGHTBUTTON | c.TPM_RETURNCMD,
+        point.x,
+        point.y,
+        0,
+        host.window,
+        null,
+    );
+    _ = c.PostMessageW(host.window, c.WM_NULL, 0, 0);
+    if (command != 0) _ = handleMenuCommand(host, @intCast(command));
+    _ = c.SetFocus(host.window);
+}
+
 fn applyMouseDecision(host: *Host, decision: *const Logic.MouseDecision) void {
     if (decision.capture == Logic.mouse_capture_set) _ = c.SetCapture(host.window);
     _ = emitMouseReports(host, decision);
     if (decision.capture == Logic.mouse_capture_release and c.GetCapture() == host.window) _ = c.ReleaseCapture();
+    if (decision.context_menu != 0) showTerminalContextMenu(host);
     if (decision.invalidate != 0) _ = c.InvalidateRect(host.window, null, c.FALSE);
 }
 

@@ -361,6 +361,7 @@ pub const MouseDecision = extern struct {
     report_pane: c_int,
     report_column: c_int,
     report_row: c_int,
+    context_menu: c_int,
 };
 
 pub const mouse_event_press: c_int = 1;
@@ -708,6 +709,7 @@ fn emptyMouseDecision() MouseDecision {
         .report_pane = -1,
         .report_column = 0,
         .report_row = 0,
+        .context_menu = 0,
     };
 }
 
@@ -755,6 +757,10 @@ fn mousePress(current: *MouseState, event: *const MouseInput, effect: *MouseDeci
     if (!validButton(event.button) or event.cell_valid == 0) return;
     effect.invalidate = 1;
     if (event.inside_content == 0) return;
+    if (event.button == 2) {
+        effect.context_menu = 1;
+        return;
+    }
 
     if (event.button == 0 and (event.shift != 0 or event.tracking_mode == 0)) {
         setStoredRelease(current, effect);
@@ -1327,6 +1333,24 @@ test "mouse press preserves local selection escape and application priority" {
     _ = noctty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
     try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
+}
+
+test "right-click requests the terminal context menu before mouse tracking" {
+    var state = testMouseState();
+    var decision: MouseDecision = undefined;
+    var press = testMouseInput(mouse_event_press);
+    press.button = 2;
+    press.tracking_mode = 3;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    try std.testing.expectEqual(@as(c_int, 1), decision.context_menu);
+    try std.testing.expectEqual(@as(c_int, mouse_capture_unchanged), decision.capture);
+    try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
+    try std.testing.expectEqual(@as(c_int, 0), state.application_capture);
+    try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
+
+    press.inside_content = 0;
+    _ = noctty_windows_mouse_transition(&state, &press, &decision);
+    try std.testing.expectEqual(@as(c_int, 0), decision.context_menu);
 }
 
 test "application mouse transitions preserve masks motion and release boundaries" {

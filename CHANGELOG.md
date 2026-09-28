@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Windows terminal right-click now opens the native Terminal context menu for
+  Copy, Paste, and Clear Screen instead of disappearing through mouse
+  tracking.
 - Windows startup now surfaces persisted workspace, theme, and launch-profile
   restoration failures instead of silently falling back; the current session
   remains usable and points operators to Settings for recovery.

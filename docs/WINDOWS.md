@@ -214,8 +214,13 @@ the visible grid. Selection extraction preserves UTF-8 grapheme text and does
 not emit duplicate bytes for wide-cell continuations. A resize, pane change, or
 new selection clears the prior highlight.
 
-When a terminal enables DEC 1000, 1002, or 1003 mouse tracking, unmodified
-button, drag/motion, and wheel events go to the application. Both legacy and
+Right-clicking terminal content opens the native Terminal context menu with
+Copy, Paste, and Clear Screen. This local action takes precedence over
+application mouse tracking; the right-button event is not sent to the
+application.
+
+When a terminal enables DEC 1000, 1002, or 1003 mouse tracking, other
+unmodified button, drag/motion, and wheel events go to the application. Both
 SGR 1006 encodings are supported. Hold `Shift` while left-dragging to bypass
 application capture and make a local selection. Losing focus or capture sends
 bounded release reports before NOCTTY clears pressed-button state.
