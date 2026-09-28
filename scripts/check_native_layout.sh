@@ -310,7 +310,7 @@ grep -F '"Close file: {s}"' "$nocted" >/dev/null
 test "$(grep -c 'noctty_grid_widget_queue_resize(parent);' "$grid")" -eq 1
 grep -F '"Theme imported, selected, and saved."' "$grid" >/dev/null
 grep -F 'persistNativeGridConfigChecked(bridge)' "$main" >/dev/null
-grep -F 'NOCTTY_TEXT_ACTION_PERSISTENCE_FAILED' "$grid" >/dev/null
+grep -F 'policy.text_action_persistence_failed' "$grid" >/dev/null
 grep -F 'context->nocted_directory_resolved ? directory : NULL,' "$grid" >/dev/null
 grep -F 'static void set_status_label_feedback(' "$grid" >/dev/null
 grep -F 'if (root->note_load_failed) return TRUE;' "$grid" >/dev/null
@@ -356,8 +356,8 @@ grep -F 'noctty_grid_terminal_key_sequence(' "$grid" >/dev/null
 grep -F 'noctty_grid_shortcut_label(' "$grid" >/dev/null
 grep -F 'poll_installed_continuity_detach_smoke' "$grid_qualification" >/dev/null
 grep -F 'g_dbus_connection_call_sync(' "$grid" >/dev/null
-grep -F '#define NOCTTY_WINDOW_RESIZE_BORDER_PX 2' "$grid" >/dev/null
-grep -F '#define NOCTTY_PANE_INFO_HEIGHT_PX 18' "$grid" >/dev/null
+grep -F 'policy.window_resize_border_px' "$grid" >/dev/null
+grep -F 'NocttyGridNativeHostPolicy policy = {0};' "$grid" >/dev/null
 grep -F '"Open Link in Browser"' "$grid" >/dev/null
 grep -F 'inactive_pane_brightness_percent' "$grid" >/dev/null
 grep -F 'pane_gaps_transparent' "$grid" >/dev/null

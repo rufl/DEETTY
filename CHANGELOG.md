@@ -13,6 +13,10 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved workspace event routing classification, tray-menu item kinds/actions,
   and bounded native lifecycle timing constants into tested Zig plans; C retains
   GTK/GVariant/GLib effects and callback dispatch.
+- Moved native host geometry bounds, scrollbar/copy limits, UI color role
+  ordinals, status event IDs, persistence result codes, and remaining GTK
+  lifecycle intervals into tested Zig plans; C retains native object access,
+  GTK effects, and callback dispatch.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

@@ -216,6 +216,44 @@ pub const LifecycleTimingPlan = extern struct {
     idle_steps_per_tick: c_int,
     preset_settle_interval_ms: c_int,
     preset_settle_attempts: c_int,
+    status_feedback_ms: c_int,
+    pane_cycle_feedback_ms: c_int,
+    tab_cycle_feedback_ms: c_int,
+    focus_hide_ms: c_int,
+    even_pane_settle_interval_ms: c_int,
+    even_pane_settle_attempts: c_int,
+};
+
+pub const NativeHostPolicy = extern struct {
+    dropdown_min_width_px: c_int,
+    dropdown_min_height_px: c_int,
+    window_resize_border_px: c_int,
+    pane_info_height_px: c_int,
+    terminal_scrollbar_width_px: c_int,
+    terminal_scrollbar_min_thumb_px: c_int,
+    selection_copy_max_bytes: i64,
+    event_idle_history_compacted: c_int,
+    event_status_notification: c_int,
+    event_status_acknowledged: c_int,
+    text_action_persistence_failed: c_int,
+    ui_color_workspace_background: c_int,
+    ui_color_pane_border_active: c_int,
+    ui_color_pane_border_selected: c_int,
+    ui_color_pane_border_inactive: c_int,
+    ui_color_scrollbar_track: c_int,
+    ui_color_scrollbar_thumb: c_int,
+    ui_color_scrollbar_thumb_hover: c_int,
+    ui_color_overlay_background: c_int,
+    ui_color_overlay_border: c_int,
+    ui_color_overlay_foreground: c_int,
+    ui_color_selection_background: c_int,
+    ui_color_search_match_background: c_int,
+    ui_color_status_info: c_int,
+    ui_color_status_success: c_int,
+    ui_color_status_warning: c_int,
+    ui_color_status_error: c_int,
+    ui_color_terminal_cursor: c_int,
+    ui_color_pane_gap: c_int,
 };
 
 pub const workspace_event_emit: c_int = 0;
@@ -1965,6 +2003,49 @@ pub export fn noctty_grid_lifecycle_timing_plan(
         .idle_steps_per_tick = 16,
         .preset_settle_interval_ms = 50,
         .preset_settle_attempts = 4,
+        .status_feedback_ms = 4500,
+        .pane_cycle_feedback_ms = 800,
+        .tab_cycle_feedback_ms = 800,
+        .focus_hide_ms = 120,
+        .even_pane_settle_interval_ms = 16,
+        .even_pane_settle_attempts = 4,
+    };
+}
+
+pub export fn noctty_grid_native_host_policy(
+    output_optional: ?*NativeHostPolicy,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .dropdown_min_width_px = 480,
+        .dropdown_min_height_px = 240,
+        .window_resize_border_px = 2,
+        .pane_info_height_px = 18,
+        .terminal_scrollbar_width_px = 12,
+        .terminal_scrollbar_min_thumb_px = 24,
+        .selection_copy_max_bytes = 4 * 1024 * 1024,
+        .event_idle_history_compacted = 112,
+        .event_status_notification = 113,
+        .event_status_acknowledged = 114,
+        .text_action_persistence_failed = -2,
+        .ui_color_workspace_background = 0,
+        .ui_color_pane_border_active = 1,
+        .ui_color_pane_border_selected = 2,
+        .ui_color_pane_border_inactive = 3,
+        .ui_color_scrollbar_track = 4,
+        .ui_color_scrollbar_thumb = 5,
+        .ui_color_scrollbar_thumb_hover = 6,
+        .ui_color_overlay_background = 7,
+        .ui_color_overlay_border = 8,
+        .ui_color_overlay_foreground = 9,
+        .ui_color_selection_background = 10,
+        .ui_color_search_match_background = 11,
+        .ui_color_status_info = 12,
+        .ui_color_status_success = 13,
+        .ui_color_status_warning = 14,
+        .ui_color_status_error = 15,
+        .ui_color_terminal_cursor = 16,
+        .ui_color_pane_gap = 17,
     };
 }
 fn accessibleCodepointOffset(text: []const u8, byte_offset: usize) usize {
@@ -8749,4 +8830,38 @@ test "lifecycle timing plans keep bounded native scheduling constants" {
     try std.testing.expectEqual(
         @as(c_int, 50), timing.preset_settle_interval_ms);
     try std.testing.expectEqual(@as(c_int, 4), timing.preset_settle_attempts);
+    try std.testing.expectEqual(@as(c_int, 4500), timing.status_feedback_ms);
+    try std.testing.expectEqual(@as(c_int, 800), timing.pane_cycle_feedback_ms);
+    try std.testing.expectEqual(@as(c_int, 800), timing.tab_cycle_feedback_ms);
+    try std.testing.expectEqual(@as(c_int, 120), timing.focus_hide_ms);
+    try std.testing.expectEqual(
+        @as(c_int, 16), timing.even_pane_settle_interval_ms);
+    try std.testing.expectEqual(
+        @as(c_int, 4), timing.even_pane_settle_attempts);
+}
+
+test "native host policy owns geometry event and color ordinals" {
+    var policy: NativeHostPolicy = undefined;
+    noctty_grid_native_host_policy(&policy);
+    try std.testing.expectEqual(@as(c_int, 480), policy.dropdown_min_width_px);
+    try std.testing.expectEqual(@as(c_int, 240), policy.dropdown_min_height_px);
+    try std.testing.expectEqual(@as(c_int, 2), policy.window_resize_border_px);
+    try std.testing.expectEqual(@as(c_int, 18), policy.pane_info_height_px);
+    try std.testing.expectEqual(@as(c_int, 12), policy.terminal_scrollbar_width_px);
+    try std.testing.expectEqual(
+        @as(c_int, 24), policy.terminal_scrollbar_min_thumb_px);
+    try std.testing.expectEqual(
+        @as(i64, 4 * 1024 * 1024), policy.selection_copy_max_bytes);
+    try std.testing.expectEqual(
+        @as(c_int, 112), policy.event_idle_history_compacted);
+    try std.testing.expectEqual(@as(c_int, 113), policy.event_status_notification);
+    try std.testing.expectEqual(@as(c_int, 114), policy.event_status_acknowledged);
+    try std.testing.expectEqual(@as(c_int, -2), policy.text_action_persistence_failed);
+    try std.testing.expectEqual(@as(c_int, 0), policy.ui_color_workspace_background);
+    try std.testing.expectEqual(@as(c_int, 3), policy.ui_color_pane_border_inactive);
+    try std.testing.expectEqual(@as(c_int, 6), policy.ui_color_scrollbar_thumb_hover);
+    try std.testing.expectEqual(@as(c_int, 9), policy.ui_color_overlay_foreground);
+    try std.testing.expectEqual(@as(c_int, 11), policy.ui_color_search_match_background);
+    try std.testing.expectEqual(@as(c_int, 15), policy.ui_color_status_error);
+    try std.testing.expectEqual(@as(c_int, 17), policy.ui_color_pane_gap);
 }

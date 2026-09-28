@@ -240,7 +240,45 @@ typedef struct {
     int idle_steps_per_tick;
     int preset_settle_interval_ms;
     int preset_settle_attempts;
+    int status_feedback_ms;
+    int pane_cycle_feedback_ms;
+    int tab_cycle_feedback_ms;
+    int focus_hide_ms;
+    int even_pane_settle_interval_ms;
+    int even_pane_settle_attempts;
 } NocttyGridLifecycleTimingPlan;
+
+typedef struct {
+    int dropdown_min_width_px;
+    int dropdown_min_height_px;
+    int window_resize_border_px;
+    int pane_info_height_px;
+    int terminal_scrollbar_width_px;
+    int terminal_scrollbar_min_thumb_px;
+    int64_t selection_copy_max_bytes;
+    int event_idle_history_compacted;
+    int event_status_notification;
+    int event_status_acknowledged;
+    int text_action_persistence_failed;
+    int ui_color_workspace_background;
+    int ui_color_pane_border_active;
+    int ui_color_pane_border_selected;
+    int ui_color_pane_border_inactive;
+    int ui_color_scrollbar_track;
+    int ui_color_scrollbar_thumb;
+    int ui_color_scrollbar_thumb_hover;
+    int ui_color_overlay_background;
+    int ui_color_overlay_border;
+    int ui_color_overlay_foreground;
+    int ui_color_selection_background;
+    int ui_color_search_match_background;
+    int ui_color_status_info;
+    int ui_color_status_success;
+    int ui_color_status_warning;
+    int ui_color_status_error;
+    int ui_color_terminal_cursor;
+    int ui_color_pane_gap;
+} NocttyGridNativeHostPolicy;
 
 enum {
     NOCTTY_GRID_WORKSPACE_EVENT_EMIT = 0,
@@ -819,6 +857,7 @@ void noctty_grid_output_present_plan(
     NocttyGridOutputPresentPlan *plan);
 void noctty_grid_lifecycle_timing_plan(
     NocttyGridLifecycleTimingPlan *plan);
+void noctty_grid_native_host_policy(NocttyGridNativeHostPolicy *policy);
 void noctty_grid_zoom_plan(
     uint64_t zoomed_pane_id, uint64_t pane_id, NocttyGridZoomPlan *plan);
 
