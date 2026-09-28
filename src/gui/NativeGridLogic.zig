@@ -220,6 +220,12 @@ pub const LifecycleTimingPlan = extern struct {
     pane_cycle_feedback_ms: c_int,
     tab_cycle_feedback_ms: c_int,
     focus_hide_ms: c_int,
+    layer_surface_hide_commit_ms: c_int,
+    quick_note_save_debounce_ms: c_int,
+    sharing_status_refresh_ms: c_int,
+    resize_overlay_hide_ms: c_int,
+    resize_commit_ms: c_int,
+    resize_overlay_arm_ms: c_int,
     even_pane_settle_interval_ms: c_int,
     even_pane_settle_attempts: c_int,
 };
@@ -2007,6 +2013,12 @@ pub export fn noctty_grid_lifecycle_timing_plan(
         .pane_cycle_feedback_ms = 800,
         .tab_cycle_feedback_ms = 800,
         .focus_hide_ms = 120,
+        .layer_surface_hide_commit_ms = 16,
+        .quick_note_save_debounce_ms = 250,
+        .sharing_status_refresh_ms = 200,
+        .resize_overlay_hide_ms = 750,
+        .resize_commit_ms = 75,
+        .resize_overlay_arm_ms = 250,
         .even_pane_settle_interval_ms = 16,
         .even_pane_settle_attempts = 4,
     };
@@ -8834,6 +8846,15 @@ test "lifecycle timing plans keep bounded native scheduling constants" {
     try std.testing.expectEqual(@as(c_int, 800), timing.pane_cycle_feedback_ms);
     try std.testing.expectEqual(@as(c_int, 800), timing.tab_cycle_feedback_ms);
     try std.testing.expectEqual(@as(c_int, 120), timing.focus_hide_ms);
+    try std.testing.expectEqual(
+        @as(c_int, 16), timing.layer_surface_hide_commit_ms);
+    try std.testing.expectEqual(
+        @as(c_int, 250), timing.quick_note_save_debounce_ms);
+    try std.testing.expectEqual(
+        @as(c_int, 200), timing.sharing_status_refresh_ms);
+    try std.testing.expectEqual(@as(c_int, 750), timing.resize_overlay_hide_ms);
+    try std.testing.expectEqual(@as(c_int, 75), timing.resize_commit_ms);
+    try std.testing.expectEqual(@as(c_int, 250), timing.resize_overlay_arm_ms);
     try std.testing.expectEqual(
         @as(c_int, 16), timing.even_pane_settle_interval_ms);
     try std.testing.expectEqual(

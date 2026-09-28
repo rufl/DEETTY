@@ -3164,6 +3164,8 @@ static void toggle_grid_window(NocttyGridContext *context) {
         noctty_grid_widget_get_visible(root->window);
     NocttyGridWindowVisibilityPlan visibility_plan = {0};
     noctty_grid_window_visibility_plan(root->window_presented, visible ? 1 : 0, &visibility_plan);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (visibility_plan.action == NOCTTY_GRID_WINDOW_VISIBILITY_HIDE) {
         clear_xdg_activation_token(root);
         set_grid_layer_keyboard_active(root, FALSE);
@@ -3191,7 +3193,9 @@ static void toggle_grid_window(NocttyGridContext *context) {
             // Give keyboard-interactivity NONE one frame to commit before
             // unmapping the layer surface, avoiding a combined KWin focus and
             // surface-destroy transition on the cold path.
-            root->hide_source = noctty_grid_source_timeout_add(16, finish_grid_hide, root);
+            root->hide_source = noctty_grid_source_timeout_add(
+                (guint)timing.layer_surface_hide_commit_ms,
+                finish_grid_hide, root);
         } else noctty_grid_widget_hide(root->window);
     } else {
         set_grid_layer_keyboard_active(root, TRUE);
@@ -12420,8 +12424,11 @@ static gboolean flush_quick_note(gpointer user_data) {
 static void on_quick_note_changed(GtkTextBuffer *buffer, gpointer user_data) {
     (void)buffer;
     NocttyGridContext *root = user_data;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (root->note_save_source != 0) noctty_grid_source_remove(root->note_save_source);
-    root->note_save_source = noctty_grid_source_timeout_add(250, flush_quick_note, root);
+    root->note_save_source = noctty_grid_source_timeout_add(
+        (guint)timing.quick_note_save_debounce_ms, flush_quick_note, root);
 }
 
 static void on_quick_note_destroy(GtkWidget *widget, gpointer user_data) {
@@ -13652,9 +13659,13 @@ static void show_session_sharing_dialog(NocttyGridContext *context) {
                           root->event_data, -1, NULL, 0, NULL, 0,
                           &(uint16_t){0}, &(int){0})));
     (void)refresh_sharing_status(root);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (root->sharing_status_source == 0)
         root->sharing_status_source =
-            noctty_grid_source_timeout_add(200, refresh_sharing_status, root);
+            noctty_grid_source_timeout_add(
+                (guint)timing.sharing_status_refresh_ms,
+                refresh_sharing_status, root);
     noctty_grid_widget_show_all(dialog);
 }
 
@@ -15860,10 +15871,14 @@ static void show_resize_overlay(NocttyGridContext *context,
     context->resize_overlay_rows = rows;
     context->resize_overlay_visible = 1;
     context->resize_overlay_hidden = 0;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (context->resize_overlay_hide_source != 0)
         noctty_grid_source_remove(context->resize_overlay_hide_source);
     context->resize_overlay_hide_source =
-        noctty_grid_source_timeout_add(750, hide_resize_overlay, context);
+        noctty_grid_source_timeout_add(
+            (guint)timing.resize_overlay_hide_ms,
+            hide_resize_overlay, context);
     noctty_grid_widget_queue_draw(context->area);
 }
 
@@ -15904,6 +15919,8 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     if (!grid_context_session_available(context) || context->exited) return;
     NocttyGridNativeHostPolicy policy = {0};
     noctty_grid_native_host_policy(&policy);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
 
     double base_size = context->requested_font_size > 0
         ? context->requested_font_size : context->font_size;
@@ -16004,7 +16021,8 @@ static void resize_grid_to_allocation(NocttyGridContext *context,
     show_resize_overlay(context, columns, rows);
     if (context->resize_commit_source == 0)
         context->resize_commit_source = g_timeout_add_full(
-            G_PRIORITY_DEFAULT, 75, commit_grid_resize, context, NULL);
+            G_PRIORITY_DEFAULT, (guint)timing.resize_commit_ms,
+            commit_grid_resize, context, NULL);
 }
 
 static void on_size_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer user_data) {
@@ -16470,8 +16488,12 @@ static void connect_grid_area(NocttyGridContext *context) {
     noctty_grid_drag_dest_set(context->area, GTK_DEST_DEFAULT_ALL, noctty_pane_drag_targets, 1, GDK_ACTION_MOVE);
     noctty_grid_signal_connect(context->area, "drag-data-get", G_CALLBACK(on_pane_drag_data_get), context);
     noctty_grid_signal_connect(context->area, "drag-data-received", G_CALLBACK(on_pane_drag_data_received), context);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     context->resize_overlay_arm_source =
-        noctty_grid_source_timeout_add(250, arm_resize_overlay, context);
+        noctty_grid_source_timeout_add(
+            (guint)timing.resize_overlay_arm_ms,
+            arm_resize_overlay, context);
 }
 #if NOCTTY_ENABLE_SMOKE
 static GSourceFunc smoke_callback_for_action(int action) {

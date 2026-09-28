@@ -17,6 +17,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   ordinals, status event IDs, persistence result codes, and remaining GTK
   lifecycle intervals into tested Zig plans; C retains native object access,
   GTK effects, and callback dispatch.
+- Routed layer-surface hide commit, quick-note debounce, sharing refresh,
+  resize-overlay hide/commit/arm intervals through the tested Zig lifecycle
+  plan; C retains GLib source registration and callback effects.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

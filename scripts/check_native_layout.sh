@@ -430,7 +430,7 @@ grep -F 'root->window = create_grid_toplevel(root);' "$grid" >/dev/null
 grep -F 'noctty_grid_widget_add_tick_callback(' "$grid" >/dev/null
 grep -F 'root->layer_shell_keyboard_mode = protocol_version >= 4 ? 2 : 1;' "$grid" >/dev/null
 grep -F 'set_grid_layer_keyboard_active(root, FALSE);' "$grid" >/dev/null
-grep -F 'root->hide_source = noctty_grid_source_timeout_add(16, finish_grid_hide, root);' "$grid" >/dev/null
+grep -F 'timing.layer_surface_hide_commit_ms' "$grid" >/dev/null
 
 grep -F 'typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);' "$grid_abi" >/dev/null
 grep -F 'int dirty_count = context->dirty_spans(' "$grid" >/dev/null

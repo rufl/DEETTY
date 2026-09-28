@@ -244,6 +244,12 @@ typedef struct {
     int pane_cycle_feedback_ms;
     int tab_cycle_feedback_ms;
     int focus_hide_ms;
+    int layer_surface_hide_commit_ms;
+    int quick_note_save_debounce_ms;
+    int sharing_status_refresh_ms;
+    int resize_overlay_hide_ms;
+    int resize_commit_ms;
+    int resize_overlay_arm_ms;
     int even_pane_settle_interval_ms;
     int even_pane_settle_attempts;
 } NocttyGridLifecycleTimingPlan;
