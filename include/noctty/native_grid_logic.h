@@ -204,6 +204,18 @@ enum {
     NOCTTY_GRID_TERMINAL_MENU_ACTION_RESET = 7,
 };
 
+typedef struct {
+    int width;
+    int height;
+} NocttyGridWindowDimensionsPlan;
+
+typedef struct {
+    int kind;
+    int command_sensitive;
+    int ssh_target_sensitive;
+} NocttyGridLaunchProfileControlsPlan;
+
+
 
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
@@ -586,6 +598,9 @@ int noctty_grid_launch_profile_payload(
 int noctty_grid_launch_profile_name_valid(
     const unsigned char *text, size_t length);
 const char *noctty_grid_launch_profile_status_message(int kind);
+void noctty_grid_launch_profile_controls_plan(
+    int kind, NocttyGridLaunchProfileControlsPlan *plan);
+
 
 int noctty_grid_theme_apply_status_text(
     int persistence_failed,
@@ -778,6 +793,9 @@ int noctty_grid_dialog_dimension(
     int available_px, int maximum_px, int minimum_px, int margin_px);
 int noctty_grid_percent_dimension(
     int available_px, int percent, int minimum_px);
+void noctty_grid_window_dimensions_plan(
+    int workarea_width, int workarea_height,
+    NocttyGridWindowDimensionsPlan *plan);
 typedef struct {
     int label_height;
     int action_extent;

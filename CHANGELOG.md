@@ -7,6 +7,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   context-menu action/selection geometry, theme display labels, and profile
   preset validity into tested Zig grid policy; C retains native state and GTK
   effects.
+- Moved windowed-dimension percentage/floor selection and launch-profile kind
+  normalization plus command/SSH sensitivity policy into tested Zig plans; C
+  retains monitor queries, GTK size effects, and widget sensitivity.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

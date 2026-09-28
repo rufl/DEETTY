@@ -9673,10 +9673,12 @@ static void apply_window_dimensions(NocttyGridContext *context) {
     GdkMonitor *monitor = grid_monitor_for_window(root->window);
     GdkRectangle workarea = {0, 0, 900, 420};
     if (monitor != NULL) noctty_grid_gdk_monitor_get_workarea(monitor, &workarea);
-    int width = noctty_grid_percent_dimension(workarea.width, 80, 480);
-    int height = noctty_grid_percent_dimension(workarea.height, 75, 320);
+    NocttyGridWindowDimensionsPlan dimensions = {0};
+    noctty_grid_window_dimensions_plan(
+        workarea.width, workarea.height, &dimensions);
     noctty_grid_widget_set_size_request(root->window, -1, -1);
-    noctty_grid_window_resize(root->window, width, height);
+    noctty_grid_window_resize(
+        root->window, dimensions.width, dimensions.height);
 }
 
 static void apply_fullscreen_dimensions(NocttyGridContext *context) {
@@ -10727,11 +10729,15 @@ static void sync_launch_profile_sensitivity(NocttyGridContext *context) {
     if (!noctty_grid_widget_is_type(context->settings_launch_kind, NOCTTY_GTK_COMBO_BOX)) return;
     int kind = noctty_grid_combo_box_get_active(
         GTK_COMBO_BOX(context->settings_launch_kind));
+    NocttyGridLaunchProfileControlsPlan controls = {0};
+    noctty_grid_launch_profile_controls_plan(kind, &controls);
     if (context->settings_launch_command != NULL)
-        noctty_grid_widget_set_sensitive(context->settings_launch_command, kind == 1);
+        noctty_grid_widget_set_sensitive(
+            context->settings_launch_command, controls.command_sensitive != 0);
     if (context->settings_launch_ssh_target != NULL)
-        noctty_grid_widget_set_sensitive(context->settings_launch_ssh_target,
-                                         kind >= 2);
+        noctty_grid_widget_set_sensitive(
+            context->settings_launch_ssh_target,
+            controls.ssh_target_sensitive != 0);
 }
 
 static void load_current_launch_profile(NocttyGridContext *context) {
@@ -10755,8 +10761,10 @@ static void load_current_launch_profile(NocttyGridContext *context) {
                                      sizeof(ssh_target));
     int scrollback = noctty_grid_launch_profile(
         context->event_data, 6, shell, sizeof(shell));
-    noctty_grid_combo_box_set_active(GTK_COMBO_BOX(context->settings_launch_kind),
-                             CLAMP(kind, 0, 4));
+    NocttyGridLaunchProfileControlsPlan controls = {0};
+    noctty_grid_launch_profile_controls_plan(kind, &controls);
+    noctty_grid_combo_box_set_active(
+        GTK_COMBO_BOX(context->settings_launch_kind), controls.kind);
     noctty_grid_entry_set_text(GTK_ENTRY(context->settings_launch_shell), shell);
     noctty_grid_entry_set_text(GTK_ENTRY(context->settings_launch_command), command);
     noctty_grid_entry_set_text(GTK_ENTRY(context->settings_launch_cwd), cwd);
@@ -10818,8 +10826,11 @@ static int submit_settings_launch_profile(NocttyGridContext *context,
         !noctty_grid_widget_is_type(context->settings_launch_ssh_target, NOCTTY_GTK_ENTRY) ||
         !noctty_grid_widget_is_type(context->settings_launch_scrollback, NOCTTY_GTK_SPIN_BUTTON))
         return -1;
-    int kind = noctty_grid_combo_box_get_active(
+    int raw_kind = noctty_grid_combo_box_get_active(
         GTK_COMBO_BOX(context->settings_launch_kind));
+    NocttyGridLaunchProfileControlsPlan controls = {0};
+    noctty_grid_launch_profile_controls_plan(raw_kind, &controls);
+    int kind = controls.kind;
     const char *shell = noctty_grid_entry_get_text(
         GTK_ENTRY(context->settings_launch_shell));
     const char *command = noctty_grid_entry_get_text(

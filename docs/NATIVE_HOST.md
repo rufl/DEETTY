@@ -191,6 +191,11 @@ action/selection geometry, theme display labels, and profile-preset validity are
 tested Zig policy; C retains context state writes, clipboard/terminal effects,
 GTK combo construction, and menu dispatch.
 
+Windowed-dimension percentage/floor selection and launch-profile kind,
+command-field, and SSH-target sensitivity policy are tested Zig plans; C
+retains monitor queries, GTK size effects, combo-box state, and widget
+sensitivity.
+
 Restore-mode text, sharing combo-box IDs, pane drag identifiers, and terminal
 accessibility names use bounded Zig formatting; C retains process spawning,
 GTK selection/drag effects, and ATK application.

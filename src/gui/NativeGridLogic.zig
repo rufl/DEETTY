@@ -180,6 +180,18 @@ pub const terminal_menu_action_reset: c_int = 7;
 pub const profile_preset_first: c_int = 0;
 pub const profile_preset_count: c_int = 5;
 
+pub const WindowDimensionsPlan = extern struct {
+    width: c_int,
+    height: c_int,
+};
+
+pub const LaunchProfileControlsPlan = extern struct {
+    kind: c_int,
+    command_sensitive: c_int,
+    ssh_target_sensitive: c_int,
+};
+
+
 
 pub const AccessibleTextPlan = extern struct {
     initial_capacity: c_int,
@@ -2426,6 +2438,19 @@ pub export fn noctty_grid_percent_dimension(
     ));
 }
 
+pub export fn noctty_grid_window_dimensions_plan(
+    workarea_width: c_int,
+    workarea_height: c_int,
+    output_optional: ?*WindowDimensionsPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .width = noctty_grid_percent_dimension(workarea_width, 80, 480),
+        .height = noctty_grid_percent_dimension(workarea_height, 75, 320),
+    };
+}
+
+
 pub export fn noctty_grid_scroll_target_delta(
     history_lines: u64,
     viewport_offset: u64,
@@ -3448,6 +3473,20 @@ pub export fn noctty_grid_launch_profile_status_message(
         else => "",
     };
 }
+
+pub export fn noctty_grid_launch_profile_controls_plan(
+    kind: c_int,
+    output_optional: ?*LaunchProfileControlsPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const resolved = std.math.clamp(kind, 0, 4);
+    output.* = .{
+        .kind = resolved,
+        .command_sensitive = @intFromBool(resolved == 1),
+        .ssh_target_sensitive = @intFromBool(resolved >= 2),
+    };
+}
+
 
 pub export fn noctty_grid_theme_apply_status_text(
     persistence_failed: c_int,
@@ -8448,4 +8487,40 @@ test "theme display labels and profile validity preserve native boundaries" {
     try std.testing.expectEqual(@as(c_int, 1), noctty_grid_profile_preset_valid(4));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(-1));
     try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(5));
+}
+
+test "window dimensions plan preserves percentage floors and available bounds" {
+    var plan = WindowDimensionsPlan{ .width = 0, .height = 0 };
+    noctty_grid_window_dimensions_plan(1920, 1080, &plan);
+    try std.testing.expectEqual(@as(c_int, 1536), plan.width);
+    try std.testing.expectEqual(@as(c_int, 810), plan.height);
+    noctty_grid_window_dimensions_plan(400, 200, &plan);
+    try std.testing.expectEqual(@as(c_int, 400), plan.width);
+    try std.testing.expectEqual(@as(c_int, 200), plan.height);
+    noctty_grid_window_dimensions_plan(0, -1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.width);
+    try std.testing.expectEqual(@as(c_int, 0), plan.height);
+}
+
+test "launch profile controls plan normalizes kinds and sensitivity gates" {
+    var plan = LaunchProfileControlsPlan{
+        .kind = -1,
+        .command_sensitive = 0,
+        .ssh_target_sensitive = 0,
+    };
+    noctty_grid_launch_profile_controls_plan(0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.kind);
+    try std.testing.expectEqual(@as(c_int, 0), plan.command_sensitive);
+    try std.testing.expectEqual(@as(c_int, 0), plan.ssh_target_sensitive);
+    noctty_grid_launch_profile_controls_plan(1, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.command_sensitive);
+    try std.testing.expectEqual(@as(c_int, 0), plan.ssh_target_sensitive);
+    noctty_grid_launch_profile_controls_plan(2, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.command_sensitive);
+    try std.testing.expectEqual(@as(c_int, 1), plan.ssh_target_sensitive);
+    noctty_grid_launch_profile_controls_plan(99, &plan);
+    try std.testing.expectEqual(@as(c_int, 4), plan.kind);
+    try std.testing.expectEqual(@as(c_int, 1), plan.ssh_target_sensitive);
+    noctty_grid_launch_profile_controls_plan(-1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.kind);
 }
