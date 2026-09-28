@@ -191,6 +191,48 @@ pub const LaunchProfileControlsPlan = extern struct {
     ssh_target_sensitive: c_int,
 };
 
+pub const WorkspaceEventPlan = extern struct {
+    action: c_int,
+    bind_layout: c_int,
+    restore_missing: c_int,
+};
+
+pub const TrayMenuItemPlan = extern struct {
+    valid: c_int,
+    kind: c_int,
+    has_children: c_int,
+    action: c_int,
+};
+
+pub const LifecycleTimingPlan = extern struct {
+    output_deadman_ms: c_int,
+    write_flush_ms: c_int,
+    exit_poll_us: i64,
+    tick_ms: c_int,
+    cursor_blink_ms: c_int,
+    maintenance_seconds: c_int,
+    idle_background_us: i64,
+    idle_focused_us: i64,
+    idle_steps_per_tick: c_int,
+    preset_settle_interval_ms: c_int,
+    preset_settle_attempts: c_int,
+};
+
+pub const workspace_event_emit: c_int = 0;
+pub const workspace_event_create_tab: c_int = 1;
+pub const workspace_event_split: c_int = 2;
+pub const workspace_event_layout_preset: c_int = 3;
+pub const workspace_event_move: c_int = 4;
+
+pub const tray_menu_kind_root: c_int = 0;
+pub const tray_menu_kind_standard: c_int = 1;
+pub const tray_menu_kind_separator: c_int = 2;
+
+pub const tray_menu_action_none: c_int = 0;
+pub const tray_menu_action_toggle: c_int = 1;
+pub const tray_menu_action_settings: c_int = 2;
+pub const tray_menu_action_close: c_int = 3;
+
 
 
 pub const AccessibleTextPlan = extern struct {
@@ -515,6 +557,100 @@ pub export fn noctty_grid_cycle_target(
     if (direction < 0)
         return if (current_index == 0) count - 1 else current_index - 1;
     return if (current_index == count - 1) 0 else current_index + 1;
+}
+pub export fn noctty_grid_tray_menu_plan(
+    id: c_int,
+    output_optional: ?*TrayMenuItemPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .valid = 0,
+        .kind = tray_menu_kind_standard,
+        .has_children = 0,
+        .action = tray_menu_action_none,
+    };
+    switch (id) {
+        0 => {
+            output.* = .{
+                .valid = 1,
+                .kind = tray_menu_kind_root,
+                .has_children = 1,
+                .action = tray_menu_action_none,
+            };
+        },
+        1 => {
+            output.* = .{
+                .valid = 1,
+                .kind = tray_menu_kind_standard,
+                .has_children = 0,
+                .action = tray_menu_action_toggle,
+            };
+        },
+        2 => {
+            output.* = .{
+                .valid = 1,
+                .kind = tray_menu_kind_standard,
+                .has_children = 0,
+                .action = tray_menu_action_settings,
+            };
+        },
+        3 => {
+            output.* = .{
+                .valid = 1,
+                .kind = tray_menu_kind_separator,
+                .has_children = 0,
+                .action = tray_menu_action_none,
+            };
+        },
+        4 => {
+            output.* = .{
+                .valid = 1,
+                .kind = tray_menu_kind_standard,
+                .has_children = 0,
+                .action = tray_menu_action_close,
+            };
+        },
+        else => {},
+    }
+}
+
+
+pub export fn noctty_grid_workspace_event_plan(
+    event_code: c_int,
+    workspace_smoke: c_int,
+    output_optional: ?*WorkspaceEventPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = workspace_event_emit,
+        .bind_layout = 0,
+        .restore_missing = 0,
+    };
+    if (event_code == 20 or event_code == 26) {
+        output.action = workspace_event_create_tab;
+        return;
+    }
+    if (event_code == 21 or event_code == 22 or
+        event_code == 27 or event_code == 28)
+    {
+        output.* = .{
+            .action = workspace_event_split,
+            .bind_layout = 1,
+            .restore_missing = 0,
+        };
+        return;
+    }
+    if ((event_code >= 50 and event_code <= 52) or
+        event_code == 60 or event_code == 61)
+    {
+        output.* = .{
+            .action = workspace_event_layout_preset,
+            .bind_layout = 0,
+            .restore_missing = @intFromBool(workspace_smoke != 21),
+        };
+        return;
+    }
+    if (event_code == 56) output.action = workspace_event_move;
 }
 
 pub export fn noctty_grid_smart_filter_visibility_plan(
@@ -1812,6 +1948,25 @@ fn accessibleByteOffset(text: []const u8, offset: usize) usize {
     return index;
 }
 
+
+pub export fn noctty_grid_lifecycle_timing_plan(
+    output_optional: ?*LifecycleTimingPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .output_deadman_ms = 200,
+        .write_flush_ms = 4,
+        .exit_poll_us = 250 * 1000,
+        .tick_ms = 16,
+        .cursor_blink_ms = 500,
+        .maintenance_seconds = 1,
+        .idle_background_us = 30 * 1_000_000,
+        .idle_focused_us = 300 * 1_000_000,
+        .idle_steps_per_tick = 16,
+        .preset_settle_interval_ms = 50,
+        .preset_settle_attempts = 4,
+    };
+}
 fn accessibleCodepointOffset(text: []const u8, byte_offset: usize) usize {
     var index: usize = 0;
     var result: usize = 0;
@@ -8523,4 +8678,75 @@ test "launch profile controls plan normalizes kinds and sensitivity gates" {
     try std.testing.expectEqual(@as(c_int, 1), plan.ssh_target_sensitive);
     noctty_grid_launch_profile_controls_plan(-1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.kind);
+}
+
+test "workspace event plans classify routing actions and restoration" {
+    var plan = WorkspaceEventPlan{
+        .action = workspace_event_emit,
+        .bind_layout = 0,
+        .restore_missing = 0,
+    };
+    noctty_grid_workspace_event_plan(20, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, workspace_event_create_tab), plan.action);
+    try std.testing.expectEqual(@as(c_int, 0), plan.bind_layout);
+    noctty_grid_workspace_event_plan(21, 0, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, workspace_event_split), plan.action);
+    try std.testing.expectEqual(@as(c_int, 1), plan.bind_layout);
+    noctty_grid_workspace_event_plan(50, 21, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, workspace_event_layout_preset), plan.action);
+    try std.testing.expectEqual(@as(c_int, 0), plan.restore_missing);
+    noctty_grid_workspace_event_plan(61, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.restore_missing);
+    noctty_grid_workspace_event_plan(56, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, workspace_event_move), plan.action);
+    noctty_grid_workspace_event_plan(999, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, workspace_event_emit), plan.action);
+}
+
+test "tray menu plans preserve item kinds and actions" {
+    var plan = TrayMenuItemPlan{
+        .valid = 0,
+        .kind = tray_menu_kind_standard,
+        .has_children = 0,
+        .action = tray_menu_action_none,
+    };
+    noctty_grid_tray_menu_plan(0, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+    try std.testing.expectEqual(@as(c_int, tray_menu_kind_root), plan.kind);
+    try std.testing.expectEqual(@as(c_int, 1), plan.has_children);
+    noctty_grid_tray_menu_plan(1, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, tray_menu_action_toggle), plan.action);
+    noctty_grid_tray_menu_plan(2, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, tray_menu_action_settings), plan.action);
+    noctty_grid_tray_menu_plan(3, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, tray_menu_kind_separator), plan.kind);
+    noctty_grid_tray_menu_plan(4, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, tray_menu_action_close), plan.action);
+    noctty_grid_tray_menu_plan(9, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+    try std.testing.expectEqual(@as(c_int, tray_menu_action_none), plan.action);
+}
+
+test "lifecycle timing plans keep bounded native scheduling constants" {
+    var timing: LifecycleTimingPlan = undefined;
+    noctty_grid_lifecycle_timing_plan(&timing);
+    try std.testing.expectEqual(@as(c_int, 200), timing.output_deadman_ms);
+    try std.testing.expectEqual(@as(c_int, 4), timing.write_flush_ms);
+    try std.testing.expectEqual(@as(i64, 250_000), timing.exit_poll_us);
+    try std.testing.expectEqual(@as(c_int, 16), timing.tick_ms);
+    try std.testing.expectEqual(@as(c_int, 500), timing.cursor_blink_ms);
+    try std.testing.expectEqual(@as(c_int, 1), timing.maintenance_seconds);
+    try std.testing.expectEqual(@as(i64, 30_000_000), timing.idle_background_us);
+    try std.testing.expectEqual(@as(i64, 300_000_000), timing.idle_focused_us);
+    try std.testing.expectEqual(@as(c_int, 16), timing.idle_steps_per_tick);
+    try std.testing.expectEqual(
+        @as(c_int, 50), timing.preset_settle_interval_ms);
+    try std.testing.expectEqual(@as(c_int, 4), timing.preset_settle_attempts);
 }

@@ -10,6 +10,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Moved windowed-dimension percentage/floor selection and launch-profile kind
   normalization plus command/SSH sensitivity policy into tested Zig plans; C
   retains monitor queries, GTK size effects, and widget sensitivity.
+- Moved workspace event routing classification, tray-menu item kinds/actions,
+  and bounded native lifecycle timing constants into tested Zig plans; C retains
+  GTK/GVariant/GLib effects and callback dispatch.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

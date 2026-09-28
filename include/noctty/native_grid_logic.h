@@ -215,6 +215,54 @@ typedef struct {
     int ssh_target_sensitive;
 } NocttyGridLaunchProfileControlsPlan;
 
+typedef struct {
+    int action;
+    int bind_layout;
+    int restore_missing;
+} NocttyGridWorkspaceEventPlan;
+
+typedef struct {
+    int valid;
+    int kind;
+    int has_children;
+    int action;
+} NocttyGridTrayMenuItemPlan;
+
+typedef struct {
+    int output_deadman_ms;
+    int write_flush_ms;
+    int64_t exit_poll_us;
+    int tick_ms;
+    int cursor_blink_ms;
+    int maintenance_seconds;
+    int64_t idle_background_us;
+    int64_t idle_focused_us;
+    int idle_steps_per_tick;
+    int preset_settle_interval_ms;
+    int preset_settle_attempts;
+} NocttyGridLifecycleTimingPlan;
+
+enum {
+    NOCTTY_GRID_WORKSPACE_EVENT_EMIT = 0,
+    NOCTTY_GRID_WORKSPACE_EVENT_CREATE_TAB = 1,
+    NOCTTY_GRID_WORKSPACE_EVENT_SPLIT = 2,
+    NOCTTY_GRID_WORKSPACE_EVENT_LAYOUT_PRESET = 3,
+    NOCTTY_GRID_WORKSPACE_EVENT_MOVE = 4,
+};
+
+enum {
+    NOCTTY_GRID_TRAY_MENU_KIND_ROOT = 0,
+    NOCTTY_GRID_TRAY_MENU_KIND_STANDARD = 1,
+    NOCTTY_GRID_TRAY_MENU_KIND_SEPARATOR = 2,
+};
+
+enum {
+    NOCTTY_GRID_TRAY_MENU_ACTION_NONE = 0,
+    NOCTTY_GRID_TRAY_MENU_ACTION_TOGGLE = 1,
+    NOCTTY_GRID_TRAY_MENU_ACTION_SETTINGS = 2,
+    NOCTTY_GRID_TRAY_MENU_ACTION_CLOSE = 3,
+};
+
 
 
 enum {
@@ -460,6 +508,11 @@ enum {
 int noctty_grid_is_alt_key(uint32_t keyval);
 uint32_t noctty_grid_input_modifiers(uint32_t state);
 int noctty_grid_tray_menu_id_valid(int id);
+void noctty_grid_tray_menu_plan(
+    int id, NocttyGridTrayMenuItemPlan *plan);
+void noctty_grid_workspace_event_plan(
+    int event_code, int workspace_smoke,
+    NocttyGridWorkspaceEventPlan *plan);
 const char *noctty_grid_window_resize_cursor_name(int index);
 const char *noctty_grid_tray_menu_label(int id, int window_presented);
 const char *noctty_grid_tray_menu_icon_name(int id);
@@ -764,6 +817,8 @@ int noctty_grid_pane_tooltip(
 void noctty_grid_output_present_plan(
     int session_available, int exited, int source_active, int mapped,
     NocttyGridOutputPresentPlan *plan);
+void noctty_grid_lifecycle_timing_plan(
+    NocttyGridLifecycleTimingPlan *plan);
 void noctty_grid_zoom_plan(
     uint64_t zoomed_pane_id, uint64_t pane_id, NocttyGridZoomPlan *plan);
 

@@ -46,10 +46,6 @@
 #define NOCTTY_TERMINAL_SCROLLBAR_WIDTH_PX 12
 #define NOCTTY_TERMINAL_SCROLLBAR_MIN_THUMB_PX 24
 #define NOCTTY_SELECTION_COPY_MAX_BYTES (4u * 1024u * 1024u)
-#define NOCTTY_IDLE_HISTORY_BACKGROUND_US (30 * G_USEC_PER_SEC)
-#define NOCTTY_IDLE_HISTORY_FOCUSED_US (300 * G_USEC_PER_SEC)
-#define NOCTTY_IDLE_HISTORY_STEPS_PER_TICK 16
-#define NOCTTY_WRITE_FLUSH_MS 4
 #define NOCTTY_EVENT_IDLE_HISTORY_COMPACTED 112
 #define NOCTTY_EVENT_STATUS_NOTIFICATION 113
 #define NOCTTY_EVENT_STATUS_ACKNOWLEDGED 114
@@ -3551,12 +3547,15 @@ static GVariant *new_empty_grid_tray_pixmaps(void) {
 
 static GVariant *new_grid_tray_menu_properties(NocttyGridContext *root,
                                                 gint32 id) {
+    NocttyGridTrayMenuItemPlan plan = {0};
+    noctty_grid_tray_menu_plan(id, &plan);
     GVariantBuilder properties;
     g_variant_builder_init(&properties, G_VARIANT_TYPE("a{sv}"));
-    if (id == NOCTTY_TRAY_MENU_ROOT) {
+    if (plan.valid == 0) return g_variant_builder_end(&properties);
+    if (plan.kind == NOCTTY_GRID_TRAY_MENU_KIND_ROOT) {
         g_variant_builder_add(&properties, "{sv}", "children-display",
                               g_variant_new_string("submenu"));
-    } else if (id == NOCTTY_TRAY_MENU_SEPARATOR) {
+    } else if (plan.kind == NOCTTY_GRID_TRAY_MENU_KIND_SEPARATOR) {
         g_variant_builder_add(&properties, "{sv}", "type",
                               g_variant_new_string("separator"));
     } else {
@@ -3573,9 +3572,11 @@ static GVariant *new_grid_tray_menu_properties(NocttyGridContext *root,
 static GVariant *new_grid_tray_menu_layout(NocttyGridContext *root,
                                             gint32 id,
                                             gint32 recursion_depth) {
+    NocttyGridTrayMenuItemPlan plan = {0};
+    noctty_grid_tray_menu_plan(id, &plan);
     GVariantBuilder children;
     g_variant_builder_init(&children, G_VARIANT_TYPE("av"));
-    if (id == NOCTTY_TRAY_MENU_ROOT && recursion_depth != 0) {
+    if (plan.has_children != 0 && recursion_depth != 0) {
         const gint32 child_ids[] = {
             NOCTTY_TRAY_MENU_TOGGLE,
             NOCTTY_TRAY_MENU_SETTINGS,
@@ -3596,22 +3597,23 @@ static GVariant *new_grid_tray_menu_layout(NocttyGridContext *root,
                          g_variant_builder_end(&children));
 }
 
+
 static GVariant *new_grid_tray_menu_property(NocttyGridContext *root,
                                               gint32 id,
                                               const char *name) {
-    if (!noctty_grid_tray_menu_id_valid(id)) return NULL;
+    NocttyGridTrayMenuItemPlan plan = {0};
+    noctty_grid_tray_menu_plan(id, &plan);
+    if (plan.valid == 0) return NULL;
     if (g_strcmp0(name, "label") == 0)
         return g_variant_new_string(noctty_grid_tray_menu_label(id, root->window_presented));
     if (g_strcmp0(name, "icon-name") == 0)
         return g_variant_new_string(noctty_grid_tray_menu_icon_name(id));
     if (g_strcmp0(name, "type") == 0)
-        return g_variant_new_string(id == NOCTTY_TRAY_MENU_SEPARATOR
+        return g_variant_new_string(plan.kind == NOCTTY_GRID_TRAY_MENU_KIND_SEPARATOR
                                         ? "separator"
                                         : "standard");
     if (g_strcmp0(name, "children-display") == 0)
-        return g_variant_new_string(id == NOCTTY_TRAY_MENU_ROOT
-                                        ? "submenu"
-                                        : "");
+        return g_variant_new_string(plan.has_children != 0 ? "submenu" : "");
     if (g_strcmp0(name, "enabled") == 0 ||
         g_strcmp0(name, "visible") == 0)
         return g_variant_new_boolean(TRUE);
@@ -3708,15 +3710,23 @@ static void on_grid_tray_menu_method_call(
         (void)timestamp;
         noctty_grid_variant_unref(data);
         if (g_strcmp0(event_id, "clicked") == 0) {
-            if (id == NOCTTY_TRAY_MENU_TOGGLE) {
-                toggle_grid_window(root);
-            } else if (id == NOCTTY_TRAY_MENU_SETTINGS) {
-                if (!root->window_presented) toggle_grid_window(root);
-                open_grid_settings(root);
-            } else if (id == NOCTTY_TRAY_MENU_CLOSE) {
-                root->tray_close_seen = 1;
-                (void)request_grid_application_close(
-                    root, NOCTTY_CLOSE_ORIGIN_TRAY);
+            NocttyGridTrayMenuItemPlan plan = {0};
+            noctty_grid_tray_menu_plan(id, &plan);
+            switch (plan.action) {
+                case NOCTTY_GRID_TRAY_MENU_ACTION_TOGGLE:
+                    toggle_grid_window(root);
+                    break;
+                case NOCTTY_GRID_TRAY_MENU_ACTION_SETTINGS:
+                    if (!root->window_presented) toggle_grid_window(root);
+                    open_grid_settings(root);
+                    break;
+                case NOCTTY_GRID_TRAY_MENU_ACTION_CLOSE:
+                    root->tray_close_seen = 1;
+                    (void)request_grid_application_close(
+                        root, NOCTTY_CLOSE_ORIGIN_TRAY);
+                    break;
+                default:
+                    break;
             }
         }
         g_dbus_method_invocation_return_value(invocation, NULL);
@@ -4746,8 +4756,10 @@ static void schedule_grid_write_flush(NocttyGridContext *context) {
     if (context->write_flush_source != 0 ||
         noctty_grid_write_pending(context->userdata) == 0)
         return;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     context->write_flush_source = g_timeout_add_full(
-        G_PRIORITY_DEFAULT, NOCTTY_WRITE_FLUSH_MS,
+        G_PRIORITY_DEFAULT, (guint)timing.write_flush_ms,
         on_grid_write_flush, context, NULL);
 }
 
@@ -6030,10 +6042,13 @@ static void queue_grid_output_when_ready(NocttyGridContext *context) {
     if (context->presentation_ready(context->userdata) == 0) {
         context->synchronized_output_pending = 1;
         root_grid_context(context)->synchronized_output_deferrals++;
-        if (context->synchronized_output_source == 0)
+        if (context->synchronized_output_source == 0) {
+            NocttyGridLifecycleTimingPlan timing = {0};
+            noctty_grid_lifecycle_timing_plan(&timing);
             context->synchronized_output_source = g_timeout_add_full(
-                G_PRIORITY_DEFAULT, 200, on_synchronized_output_deadman,
-                context, NULL);
+                G_PRIORITY_DEFAULT, (guint)timing.output_deadman_ms,
+                on_synchronized_output_deadman, context, NULL);
+        }
         return;
     }
     if (context->synchronized_output_pending) {
@@ -6086,6 +6101,8 @@ static int pump_grid_context(NocttyGridContext *context,
                              gboolean *exited_now) {
     if (!grid_context_session_available(context) || context->exited)
         return -2;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     int pumped = context->pty_fd == -1
         ? context->pump(context->userdata)
         : -2;
@@ -6143,7 +6160,7 @@ static int pump_grid_context(NocttyGridContext *context,
     gint64 now_us = g_get_monotonic_time();
     int exit_code = -1;
     if (pumped != -2 || had_output || context->last_exit_poll_us == 0 ||
-        now_us - context->last_exit_poll_us >= 250 * 1000) {
+        now_us - context->last_exit_poll_us >= timing.exit_poll_us) {
         context->last_exit_poll_us = now_us;
         exit_code = context->poll_exit(context->userdata);
     }
@@ -6437,6 +6454,8 @@ static gboolean on_cursor_blink(gpointer user_data) {
 
 static gboolean on_grid_maintenance(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
 #if NOCTTY_ENABLE_SMOKE
     if (root->workspace_smoke == 37) {
         if (root->full_stack_phase == 1)
@@ -6473,10 +6492,10 @@ static gboolean on_grid_maintenance(gpointer user_data) {
         }
         schedule_grid_write_flush(candidate);
         if (!candidate->idle_history_compacted &&
-            idle_history_steps < NOCTTY_IDLE_HISTORY_STEPS_PER_TICK) {
+            idle_history_steps < (guint)timing.idle_steps_per_tick) {
             gint64 idle_threshold_us = candidate->focused
-                ? NOCTTY_IDLE_HISTORY_FOCUSED_US
-                : NOCTTY_IDLE_HISTORY_BACKGROUND_US;
+                ? timing.idle_focused_us
+                : timing.idle_background_us;
             if (now_us - candidate->last_output_us >= idle_threshold_us) {
                 int compacted = noctty_grid_compact_idle_history(
                     candidate->userdata);
@@ -6511,6 +6530,8 @@ static gboolean on_grid_maintenance(gpointer user_data) {
 
 static void start_grid_context(NocttyGridContext *context) {
     if (context == NULL || context->userdata == NULL) return;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     context->retiring = 0;
     context->active = 1;
     context->last_output_us = g_get_monotonic_time();
@@ -6526,14 +6547,16 @@ static void start_grid_context(NocttyGridContext *context) {
     } else {
         context->pty_fd = -1;
         context->descriptor_tick_coalesced = 0;
-        context->tick_source = noctty_grid_source_timeout_add(16, on_tick, context);
+        context->tick_source = noctty_grid_source_timeout_add(
+            (guint)timing.tick_ms, on_tick, context);
     }
     NocttyGridContext *root = root_grid_context(context);
     if (root->cursor_blink_source == 0)
-        root->cursor_blink_source = noctty_grid_source_timeout_add(500, on_cursor_blink, root);
+        root->cursor_blink_source = noctty_grid_source_timeout_add(
+            (guint)timing.cursor_blink_ms, on_cursor_blink, root);
     if (root->maintenance_source == 0)
         root->maintenance_source = noctty_grid_source_timeout_add_seconds(
-            1, on_grid_maintenance, root);
+            (guint)timing.maintenance_seconds, on_grid_maintenance, root);
 }
 
 static void connect_grid_area(NocttyGridContext *context);
@@ -8072,10 +8095,6 @@ static void bind_preset_max_positions(NocttyGridContext *root,
         root, noctty_grid_paned_get_child2(GTK_PANED(widget)));
 }
 
-enum {
-    NOCTTY_PRESET_SETTLE_INTERVAL_MS = 50,
-    NOCTTY_PRESET_SETTLE_ATTEMPTS = 4,
-};
 
 typedef struct {
     GtkWidget *page;
@@ -8117,12 +8136,14 @@ static gboolean settle_grid_preset_page(gpointer user_data) {
 }
 
 static void schedule_grid_preset_settle(GtkWidget *page) {
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     NocttyPresetSettleRequest *request = g_new0(
         NocttyPresetSettleRequest, 1);
     request->page = noctty_grid_object_ref(page);
-    request->attempts_remaining = NOCTTY_PRESET_SETTLE_ATTEMPTS;
+    request->attempts_remaining = (guint)timing.preset_settle_attempts;
     guint source = g_timeout_add_full(
-        G_PRIORITY_DEFAULT, NOCTTY_PRESET_SETTLE_INTERVAL_MS,
+        G_PRIORITY_DEFAULT, (guint)timing.preset_settle_interval_ms,
         settle_grid_preset_page, request,
         destroy_grid_preset_settle_request);
     if (source == 0) destroy_grid_preset_settle_request(request);
@@ -8371,24 +8392,31 @@ static gboolean open_grid_layout_preset_tab(NocttyGridContext *context,
 }
 
 static void emit_grid_workspace_event(NocttyGridContext *context, int event_code) {
-    if (event_code == 20 || event_code == 21 || event_code == 22 ||
-        event_code == 26 || event_code == 27 || event_code == 28) {
+    NocttyGridContext *root = root_grid_context(context);
+    NocttyGridWorkspaceEventPlan plan = {0};
+    noctty_grid_workspace_event_plan(
+        event_code, root->workspace_smoke, &plan);
+    if (plan.action == NOCTTY_GRID_WORKSPACE_EVENT_CREATE_TAB ||
+        plan.action == NOCTTY_GRID_WORKSPACE_EVENT_SPLIT) {
         NocttyGridContext *created = NULL;
         if (context->peer != NULL && !context->peer->active &&
             !context->peer->exited && context->peer->area != NULL &&
             context->peer->page != NULL && context->peer->userdata != NULL) {
-            if (context->event != NULL) context->event(context->event_data, context->pane_id, event_code, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+            if (context->event != NULL)
+                context->event(
+                    context->event_data, context->pane_id, event_code, 0,
+                    (uint64_t)(g_get_monotonic_time() / 1000));
             created = context->peer;
         } else {
             created = create_grid_context(context, event_code);
         }
         if (created == NULL) return;
-        gboolean presented = event_code == 20 || event_code == 26
-            ? add_grid_tab(context, created)
-            : split_grid_context(context, created, event_code);
+        gboolean presented =
+            plan.action == NOCTTY_GRID_WORKSPACE_EVENT_CREATE_TAB
+                ? add_grid_tab(context, created)
+                : split_grid_context(context, created, event_code);
         if (!presented) return;
-        if (event_code == 21 || event_code == 22 ||
-            event_code == 27 || event_code == 28)
+        if (plan.bind_layout != 0)
             (void)bind_grid_layout_for_page(created);
         start_grid_context(created);
         apply_smart_filter(root_grid_context(created));
@@ -8396,27 +8424,27 @@ static void emit_grid_workspace_event(NocttyGridContext *context, int event_code
             defer_grid_context_focus(created);
         return;
     }
-    if ((event_code >= 50 && event_code <= 52) || event_code == 60 ||
-        event_code == 61) {
-        NocttyGridContext *root = root_grid_context(context);
-        if (root->workspace_smoke == 21) {
+    if (plan.action == NOCTTY_GRID_WORKSPACE_EVENT_LAYOUT_PRESET) {
+        if (plan.restore_missing == 0)
             (void)apply_grid_layout_preset(context, event_code, FALSE);
-            return;
-        }
-        (void)open_grid_layout_preset_tab(context, event_code);
+        else
+            (void)open_grid_layout_preset_tab(context, event_code);
         return;
     }
-    if (event_code == 56) {
+    if (plan.action == NOCTTY_GRID_WORKSPACE_EVENT_MOVE) {
         NocttyGridContext *target = grid_context_on_other_page(context);
         if (target == NULL) return;
-        if (context->event != NULL) {
-            context->event(context->event_data, context->pane_id, event_code, 0,
-                           (uint64_t)(g_get_monotonic_time() / 1000));
-        }
+        if (context->event != NULL)
+            context->event(
+                context->event_data, context->pane_id, event_code, 0,
+                (uint64_t)(g_get_monotonic_time() / 1000));
         (void)move_grid_context(context, target);
         return;
     }
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, event_code, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL)
+        context->event(
+            context->event_data, context->pane_id, event_code, 0,
+            (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void deactivate_grid_context(NocttyGridContext *context) {

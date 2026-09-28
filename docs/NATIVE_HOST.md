@@ -212,6 +212,10 @@ GTK builds the workspace menu.
 Global shortcut identity strings for normal and smoke registrations are selected
 by Zig before GTK/DBus registration.
 
+Workspace event routing (tab, split, layout, and move classification), tray-menu
+item kind/action classification, and bounded native lifecycle timing values are
+tested Zig policy; C retains GTK/GVariant/GLib source and effect handling.
+
 Resize-handle grid coordinates and size requests are selected by tested Zig
 policy for all eight grips; GTK retains widget creation, attachment, and
 overlay placement.
