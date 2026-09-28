@@ -9962,16 +9962,39 @@ static gboolean recreate_grid_toplevel_idle(gpointer user_data) {
 
 static void sync_compact_setting(NocttyGridContext *context, int field, int value) {
     NocttyGridContext *root = root_grid_context(context);
+    NocttyGridCompactSettingPlan plan = {0};
+    noctty_grid_compact_setting_plan(field, &plan);
+    if (!plan.valid) return;
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (field == 0) candidate->dropdown_width_percent = value;
-        else if (field == 1) candidate->dropdown_height_percent = value;
-        else if (field == 2) candidate->dropdown_animation_ms = value;
-        else if (field == 14) candidate->dropdown_width_px = value;
-        else if (field == 15) candidate->dropdown_height_px = value;
-        else if (field == 3) candidate->hide_on_focus_loss = value;
-        else if (field == 4) candidate->focus_follows_pointer = value;
-        else if (field == 5) candidate->show_pane_info = value;
+        switch (plan.target) {
+        case NOCTTY_GRID_COMPACT_TARGET_WIDTH_PERCENT:
+            candidate->dropdown_width_percent = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_HEIGHT_PERCENT:
+            candidate->dropdown_height_percent = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_ANIMATION:
+            candidate->dropdown_animation_ms = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_HIDE_FOCUS:
+            candidate->hide_on_focus_loss = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_FOCUS_POINTER:
+            candidate->focus_follows_pointer = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_PANE_INFO:
+            candidate->show_pane_info = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_WIDTH_PIXELS:
+            candidate->dropdown_width_px = value;
+            break;
+        case NOCTTY_GRID_COMPACT_TARGET_HEIGHT_PIXELS:
+            candidate->dropdown_height_px = value;
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -10250,7 +10273,8 @@ static gboolean sync_grid_context_profile(NocttyGridContext *context) {
         clear_ascii_glyph_cache(context);
         changed = TRUE;
     }
-    int resolved_preset = preset >= 0 && preset < 5 ? preset : -1;
+    int resolved_preset = noctty_grid_profile_preset_valid(preset)
+        ? preset : -1;
     if (context->profile_preset != resolved_preset) {
         context->profile_preset = resolved_preset;
         changed = TRUE;
@@ -10447,12 +10471,11 @@ static void populate_theme_combo(NocttyGridContext *context,
         int length = noctty_grid_theme_name(
             context->event_data, index, name, sizeof(name));
         if (length <= 0) continue;
-        const char *label = g_strcmp0(name, "noctty-dark") == 0
-            ? "NOCTTY Dark"
-            : g_strcmp0(name, "paseo-black-zinc") == 0
-                ? "Paseo Black Zinc"
-                : g_strcmp0(name, "noctty-high-contrast") == 0
-                    ? "NOCTTY High Contrast" : name;
+        char label[128] = {0};
+        int label_length = noctty_grid_theme_display_label(
+            (const unsigned char *)name, strlen(name),
+            (unsigned char *)label, sizeof(label));
+        if (label_length <= 0) continue;
         noctty_grid_combo_box_text_append(combo, name, label);
     }
     if (active[0] != '\0')
@@ -10664,8 +10687,13 @@ static void on_settings_family_changed(GtkComboBox *combo, gpointer user_data) {
 static void apply_font_rendering_setting(NocttyGridContext *context,
                                          int event_code, int value) {
     NocttyGridContext *root = root_grid_context(context);
-    if (event_code == 110) root->font_antialias = value;
-    else root->font_hinting = value;
+    NocttyGridFontRenderingPlan plan = {0};
+    noctty_grid_font_rendering_plan(event_code, value, &plan);
+    if (!plan.valid) return;
+    if (plan.target == NOCTTY_GRID_FONT_RENDERING_TARGET_ANTIALIAS)
+        root->font_antialias = plan.value;
+    else
+        root->font_hinting = plan.value;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
@@ -10675,7 +10703,7 @@ static void apply_font_rendering_setting(NocttyGridContext *context,
     }
     if (context->event != NULL)
         context->event(context->event_data, context->pane_id, event_code,
-                       value, (uint64_t)(g_get_monotonic_time() / 1000));
+                       plan.value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_antialias_changed(GtkComboBox *combo,
@@ -13674,32 +13702,35 @@ static void on_terminal_menu_activate(GtkMenuItem *item,
     NocttyGridContext *context = user_data;
     int action = GPOINTER_TO_INT(noctty_grid_object_get_data(
         G_OBJECT(item), "noctty-terminal-action"));
-    switch (action) {
-    case 1:
+    NocttyGridTerminalMenuPlan plan = {0};
+    noctty_grid_terminal_menu_plan(
+        action, context->columns, context->rows, &plan);
+    switch (plan.action) {
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_COPY:
         copy_grid_selection_to_clipboard(context);
         break;
-    case 2:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_PASTE:
         request_grid_clipboard_text(context);
         break;
-    case 3:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_SELECT_ALL:
         context->selecting = 1;
         context->selection_dragging = 0;
         context->selection_start_column = 0;
         context->selection_start_row = 0;
-        context->selection_end_column = MAX(0, context->columns - 1);
-        context->selection_end_row = MAX(0, context->rows - 1);
+        context->selection_end_column = plan.selection_end_column;
+        context->selection_end_row = plan.selection_end_row;
         noctty_grid_widget_queue_draw(context->area);
         break;
-    case 4:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SELECTION:
         clear_grid_selection(context);
         break;
-    case 5:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SCREEN:
         clear_grid_screen(context);
         break;
-    case 6:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SCROLLBACK:
         clear_grid_scrollback(context);
         break;
-    case 7:
+    case NOCTTY_GRID_TERMINAL_MENU_ACTION_RESET:
         reset_grid_terminal(context);
         break;
     default:
@@ -13843,7 +13874,7 @@ static void on_profile_preset_toggled(GtkCheckMenuItem *item,
     NocttyGridContext *root = root_grid_context(context);
     int preset = GPOINTER_TO_INT(noctty_grid_object_get_data(
         G_OBJECT(item), "noctty-profile-preset"));
-    if (preset < 0 || preset > 4 || context->event == NULL) return;
+    if (!noctty_grid_profile_preset_valid(preset) || context->event == NULL) return;
     context->event(context->event_data, context->pane_id, 106, preset,
                    (uint64_t)(g_get_monotonic_time() / 1000));
     context->profile_menu_active = 0;

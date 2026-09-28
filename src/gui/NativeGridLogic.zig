@@ -139,6 +139,47 @@ pub const PanelSettings = extern struct {
     background_opacity_percent: c_int,
     affects_layout: c_int,
 };
+pub const CompactSettingPlan = extern struct {
+    target: c_int,
+    valid: c_int,
+};
+
+pub const compact_setting_target_width_percent: c_int = 0;
+pub const compact_setting_target_height_percent: c_int = 1;
+pub const compact_setting_target_animation: c_int = 2;
+pub const compact_setting_target_hide_focus: c_int = 3;
+pub const compact_setting_target_focus_pointer: c_int = 4;
+pub const compact_setting_target_pane_info: c_int = 5;
+pub const compact_setting_target_width_pixels: c_int = 6;
+pub const compact_setting_target_height_pixels: c_int = 7;
+
+pub const FontRenderingPlan = extern struct {
+    target: c_int,
+    value: c_int,
+    valid: c_int,
+};
+
+pub const font_rendering_target_antialias: c_int = 0;
+pub const font_rendering_target_hinting: c_int = 1;
+
+pub const TerminalMenuPlan = extern struct {
+    action: c_int,
+    selection_end_column: c_int,
+    selection_end_row: c_int,
+};
+
+pub const terminal_menu_action_none: c_int = 0;
+pub const terminal_menu_action_copy: c_int = 1;
+pub const terminal_menu_action_paste: c_int = 2;
+pub const terminal_menu_action_select_all: c_int = 3;
+pub const terminal_menu_action_clear_selection: c_int = 4;
+pub const terminal_menu_action_clear_screen: c_int = 5;
+pub const terminal_menu_action_clear_scrollback: c_int = 6;
+pub const terminal_menu_action_reset: c_int = 7;
+
+pub const profile_preset_first: c_int = 0;
+pub const profile_preset_count: c_int = 5;
+
 
 pub const AccessibleTextPlan = extern struct {
     initial_capacity: c_int,
@@ -2533,6 +2574,30 @@ fn copyBoundedText(
     return @intCast(length);
 }
 
+fn themeDisplayLabel(name: []const u8) []const u8 {
+    if (std.mem.eql(u8, name, "noctty-dark")) return "NOCTTY Dark";
+    if (std.mem.eql(u8, name, "paseo-black-zinc")) return "Paseo Black Zinc";
+    if (std.mem.eql(u8, name, "noctty-high-contrast"))
+        return "NOCTTY High Contrast";
+    return name;
+}
+
+pub export fn noctty_grid_theme_display_label(
+    name: ?[*]const u8,
+    name_length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const pointer = name orelse return 0;
+    if (name_length > 256) return 0;
+    return copyBoundedText(
+        output,
+        capacity,
+        themeDisplayLabel(pointer[0..name_length]),
+    );
+}
+
+
 pub export fn noctty_grid_sharing_status_text(
     status: c_int,
     sas: u32,
@@ -3762,6 +3827,72 @@ pub export fn noctty_grid_terminal_scroll_setting(
     };
 }
 
+pub export fn noctty_grid_compact_setting_plan(
+    field: c_int,
+    output_optional: ?*CompactSettingPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const target: c_int = switch (field) {
+        0 => compact_setting_target_width_percent,
+        1 => compact_setting_target_height_percent,
+        2 => compact_setting_target_animation,
+        3 => compact_setting_target_hide_focus,
+        4 => compact_setting_target_focus_pointer,
+        5 => compact_setting_target_pane_info,
+        14 => compact_setting_target_width_pixels,
+        15 => compact_setting_target_height_pixels,
+        else => {
+            output.* = .{ .target = -1, .valid = 0 };
+            return;
+        },
+    };
+    output.* = .{ .target = target, .valid = 1 };
+}
+
+pub export fn noctty_grid_font_rendering_plan(
+    event_code: c_int,
+    value: c_int,
+    output_optional: ?*FontRenderingPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const target: c_int = switch (event_code) {
+        110 => font_rendering_target_antialias,
+        111 => font_rendering_target_hinting,
+        else => {
+            output.* = .{ .target = -1, .value = 0, .valid = 0 };
+            return;
+        },
+    };
+    output.* = .{
+        .target = target,
+        .value = std.math.clamp(value, 0, 2),
+        .valid = 1,
+    };
+}
+
+pub export fn noctty_grid_terminal_menu_plan(
+    action: c_int,
+    columns: c_int,
+    rows: c_int,
+    output_optional: ?*TerminalMenuPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = terminal_menu_action_none,
+        .selection_end_column = 0,
+        .selection_end_row = 0,
+    };
+    if (action < terminal_menu_action_copy or
+        action > terminal_menu_action_reset)
+        return;
+    output.action = action;
+    if (action == terminal_menu_action_select_all) {
+        output.selection_end_column = if (columns > 0) columns - 1 else 0;
+        output.selection_end_row = if (rows > 0) rows - 1 else 0;
+    }
+}
+
+
 pub export fn noctty_grid_font_size_clamp(
     requested: f64,
     minimum: f64,
@@ -4632,6 +4763,14 @@ pub export fn noctty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]
         else => "Custom",
     };
 }
+
+pub export fn noctty_grid_profile_preset_valid(preset: c_int) callconv(.c) c_int {
+    return @intFromBool(
+        preset >= profile_preset_first and
+        preset < profile_preset_first + profile_preset_count,
+    );
+}
+
 
 pub export fn noctty_grid_broadcast_menu_label(enabled: c_int) callconv(.c) [*:0]const u8 {
     return if (enabled != 0) "Disable Broadcast Input" else "Enable Broadcast Input…";
@@ -8239,4 +8378,74 @@ test "pointer planner preserves double-click and routing precedence" {
         0, 0, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(
         @as(c_int, pointer_action_deliver_mouse), plan.action);
+}
+
+test "compact setting plans map every persisted field and reject unknowns" {
+    const cases = [_]struct { field: c_int, target: c_int }{
+        .{ .field = 0, .target = compact_setting_target_width_percent },
+        .{ .field = 1, .target = compact_setting_target_height_percent },
+        .{ .field = 2, .target = compact_setting_target_animation },
+        .{ .field = 3, .target = compact_setting_target_hide_focus },
+        .{ .field = 4, .target = compact_setting_target_focus_pointer },
+        .{ .field = 5, .target = compact_setting_target_pane_info },
+        .{ .field = 14, .target = compact_setting_target_width_pixels },
+        .{ .field = 15, .target = compact_setting_target_height_pixels },
+    };
+    for (cases) |case| {
+        var plan = CompactSettingPlan{ .target = -1, .valid = 0 };
+        noctty_grid_compact_setting_plan(case.field, &plan);
+        try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+        try std.testing.expectEqual(case.target, plan.target);
+    }
+    var invalid = CompactSettingPlan{ .target = 0, .valid = 1 };
+    noctty_grid_compact_setting_plan(13, &invalid);
+    try std.testing.expectEqual(@as(c_int, 0), invalid.valid);
+    try std.testing.expectEqual(@as(c_int, -1), invalid.target);
+}
+
+test "font rendering plans clamp combo values and reject unknown events" {
+    var plan = FontRenderingPlan{ .target = -1, .value = -1, .valid = 0 };
+    noctty_grid_font_rendering_plan(110, -4, &plan);
+    try std.testing.expectEqual(@as(c_int, font_rendering_target_antialias), plan.target);
+    try std.testing.expectEqual(@as(c_int, 0), plan.value);
+    try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+    noctty_grid_font_rendering_plan(111, 9, &plan);
+    try std.testing.expectEqual(@as(c_int, font_rendering_target_hinting), plan.target);
+    try std.testing.expectEqual(@as(c_int, 2), plan.value);
+    noctty_grid_font_rendering_plan(112, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+
+test "terminal menu plans bound actions and select-all geometry" {
+    var plan = TerminalMenuPlan{
+        .action = terminal_menu_action_none,
+        .selection_end_column = 0,
+        .selection_end_row = 0,
+    };
+    noctty_grid_terminal_menu_plan(
+        terminal_menu_action_select_all, 6, 4, &plan);
+    try std.testing.expectEqual(
+        @as(c_int, terminal_menu_action_select_all), plan.action);
+    try std.testing.expectEqual(@as(c_int, 5), plan.selection_end_column);
+    try std.testing.expectEqual(@as(c_int, 3), plan.selection_end_row);
+    noctty_grid_terminal_menu_plan(
+        terminal_menu_action_select_all, -1, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.selection_end_column);
+    try std.testing.expectEqual(@as(c_int, 0), plan.selection_end_row);
+    noctty_grid_terminal_menu_plan(99, 6, 4, &plan);
+    try std.testing.expectEqual(@as(c_int, terminal_menu_action_none), plan.action);
+}
+
+test "theme display labels and profile validity preserve native boundaries" {
+    var output: [64]u8 = undefined;
+    var length = noctty_grid_theme_display_label(
+        "noctty-dark".ptr, "noctty-dark".len, &output, output.len);
+    try std.testing.expectEqualStrings("NOCTTY Dark", output[0..@intCast(length)]);
+    length = noctty_grid_theme_display_label(
+        "custom".ptr, "custom".len, &output, output.len);
+    try std.testing.expectEqualStrings("custom", output[0..@intCast(length)]);
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_profile_preset_valid(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_profile_preset_valid(4));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(-1));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(5));
 }

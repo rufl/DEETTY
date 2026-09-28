@@ -30,6 +30,10 @@ comptime {
     _ = NativeGridLogic.noctty_grid_sharing_pane_hit;
     _ = NativeGridLogic.noctty_grid_theme_color_text;
     _ = NativeGridLogic.noctty_grid_theme_color_channel;
+    _ = NativeGridLogic.noctty_grid_theme_display_label;
+    _ = NativeGridLogic.noctty_grid_compact_setting_plan;
+    _ = NativeGridLogic.noctty_grid_font_rendering_plan;
+    _ = NativeGridLogic.noctty_grid_terminal_menu_plan;
     _ = NativeGridLogic.noctty_grid_scrollbar_press_plan;
     _ = NativeGridLogic.noctty_grid_scrollbar_drag_target;
     _ = NativeGridLogic.noctty_grid_is_alt_key;
@@ -68,6 +72,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_pane_is_active;
     _ = NativeGridLogic.noctty_grid_status_name;
     _ = NativeGridLogic.noctty_grid_profile_preset_label;
+    _ = NativeGridLogic.noctty_grid_profile_preset_valid;
     _ = NativeGridLogic.noctty_grid_broadcast_menu_label;
     _ = NativeGridLogic.noctty_grid_shortcut_field;
     _ = NativeGridLogic.noctty_grid_resize_handle_layout;

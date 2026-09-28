@@ -160,6 +160,51 @@ typedef struct {
     int affects_layout;
 } NocttyGridPanelSettings;
 
+typedef struct {
+    int target;
+    int valid;
+} NocttyGridCompactSettingPlan;
+
+enum {
+    NOCTTY_GRID_COMPACT_TARGET_WIDTH_PERCENT = 0,
+    NOCTTY_GRID_COMPACT_TARGET_HEIGHT_PERCENT = 1,
+    NOCTTY_GRID_COMPACT_TARGET_ANIMATION = 2,
+    NOCTTY_GRID_COMPACT_TARGET_HIDE_FOCUS = 3,
+    NOCTTY_GRID_COMPACT_TARGET_FOCUS_POINTER = 4,
+    NOCTTY_GRID_COMPACT_TARGET_PANE_INFO = 5,
+    NOCTTY_GRID_COMPACT_TARGET_WIDTH_PIXELS = 6,
+    NOCTTY_GRID_COMPACT_TARGET_HEIGHT_PIXELS = 7,
+};
+
+typedef struct {
+    int target;
+    int value;
+    int valid;
+} NocttyGridFontRenderingPlan;
+
+enum {
+    NOCTTY_GRID_FONT_RENDERING_TARGET_ANTIALIAS = 0,
+    NOCTTY_GRID_FONT_RENDERING_TARGET_HINTING = 1,
+};
+
+typedef struct {
+    int action;
+    int selection_end_column;
+    int selection_end_row;
+} NocttyGridTerminalMenuPlan;
+
+enum {
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_NONE = 0,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_COPY = 1,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_PASTE = 2,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_SELECT_ALL = 3,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SELECTION = 4,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SCREEN = 5,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_CLEAR_SCROLLBACK = 6,
+    NOCTTY_GRID_TERMINAL_MENU_ACTION_RESET = 7,
+};
+
+
 enum {
     NOCTTY_GRID_SMOKE_TARGET_CONTEXT = 0,
     NOCTTY_GRID_SMOKE_TARGET_PEER = 1,
@@ -993,6 +1038,16 @@ int noctty_grid_theme_color_text(
     unsigned char *output, size_t capacity);
 double noctty_grid_theme_color_channel(uint32_t rgb, int channel);
 int noctty_grid_terminal_scroll_setting(int event_code, int value);
+void noctty_grid_compact_setting_plan(
+    int field, NocttyGridCompactSettingPlan *plan);
+void noctty_grid_font_rendering_plan(
+    int event_code, int value, NocttyGridFontRenderingPlan *plan);
+void noctty_grid_terminal_menu_plan(
+    int action, int columns, int rows, NocttyGridTerminalMenuPlan *plan);
+int noctty_grid_theme_display_label(
+    const unsigned char *name, size_t name_length,
+    unsigned char *output, size_t capacity);
+
 double noctty_grid_font_size_clamp(
     double requested, double minimum, double maximum);
 int noctty_grid_font_size_event_value(
@@ -1131,6 +1186,7 @@ int noctty_grid_pane_is_active(uint64_t active_pane_id,
                                uint64_t pane_id, int focused);
 const char *noctty_grid_status_name(int status_kind);
 const char *noctty_grid_profile_preset_label(int preset);
+int noctty_grid_profile_preset_valid(int preset);
 const char *noctty_grid_broadcast_menu_label(int enabled);
 const char *noctty_grid_shortcut_field(int field, int smoke);
 typedef struct {

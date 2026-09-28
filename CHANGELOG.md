@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved compact-setting target mapping, font-rendering combo bounds, terminal
+  context-menu action/selection geometry, theme display labels, and profile
+  preset validity into tested Zig grid policy; C retains native state and GTK
+  effects.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

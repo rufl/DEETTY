@@ -186,6 +186,11 @@ messages, and Noctalia theme persistence-status composition are bounded Zig
 policy; C retains GTK entry acquisition, bounded allocation, text-action
 dispatch, and native status effects.
 
+Compact-setting target mapping, font-rendering combo bounds, terminal context-menu
+action/selection geometry, theme display labels, and profile-preset validity are
+tested Zig policy; C retains context state writes, clipboard/terminal effects,
+GTK combo construction, and menu dispatch.
+
 Restore-mode text, sharing combo-box IDs, pane drag identifiers, and terminal
 accessibility names use bounded Zig formatting; C retains process spawning,
 GTK selection/drag effects, and ATK application.
