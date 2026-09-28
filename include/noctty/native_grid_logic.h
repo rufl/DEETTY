@@ -168,6 +168,40 @@ typedef struct {
     int target;
     int valid;
 } NocttyGridCompactSettingPlan;
+typedef int (*NocttyGridCompactSettingReader)(void *userdata, int field);
+typedef struct {
+    int width_percent;
+    int height_percent;
+    int width_pixels;
+    int height_pixels;
+    int animation_ms;
+    int hide_on_focus_loss;
+    int focus_follows_pointer;
+    int background_translucency;
+    int background_opacity_percent;
+    int terminal_smooth_scroll;
+    int panel_padding_px;
+    int pane_spacing_px;
+    int pane_gaps_enabled;
+    int pane_gaps_transparent;
+    int inactive_pane_dim_enabled;
+    int inactive_pane_brightness_percent;
+    int pane_divider_px;
+    int pane_border_px;
+    int pane_border_focused_px;
+    int pane_border_selected_px;
+    int status_border_px;
+    int overlay_border_px;
+    int window_border_px;
+    int dragger_px;
+    int show_pane_info;
+    int compact_tab_height;
+    double font_size;
+    double font_min_size;
+    double font_max_size;
+    int font_antialias;
+    int font_hinting;
+} NocttyGridSettingsPlan;
 
 enum {
     NOCTTY_GRID_COMPACT_TARGET_WIDTH_PERCENT = 0,
@@ -178,6 +212,40 @@ enum {
     NOCTTY_GRID_COMPACT_TARGET_PANE_INFO = 5,
     NOCTTY_GRID_COMPACT_TARGET_WIDTH_PIXELS = 6,
     NOCTTY_GRID_COMPACT_TARGET_HEIGHT_PIXELS = 7,
+};
+enum {
+    NOCTTY_GRID_COMPACT_FIELD_WIDTH_PERCENT = 0,
+    NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PERCENT = 1,
+    NOCTTY_GRID_COMPACT_FIELD_ANIMATION = 2,
+    NOCTTY_GRID_COMPACT_FIELD_HIDE_FOCUS = 3,
+    NOCTTY_GRID_COMPACT_FIELD_FOCUS_POINTER = 4,
+    NOCTTY_GRID_COMPACT_FIELD_TAB_HEIGHT = 5,
+    NOCTTY_GRID_COMPACT_FIELD_FONT_SIZE = 6,
+    NOCTTY_GRID_COMPACT_FIELD_FONT_MIN = 7,
+    NOCTTY_GRID_COMPACT_FIELD_FONT_MAX = 8,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_INFO = 9,
+    NOCTTY_GRID_COMPACT_FIELD_SCROLLBACK = 10,
+    NOCTTY_GRID_COMPACT_FIELD_ANTIALIAS = 11,
+    NOCTTY_GRID_COMPACT_FIELD_HINTING = 12,
+    NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS = 14,
+    NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS = 15,
+    NOCTTY_GRID_COMPACT_FIELD_BACKGROUND_TRANSLUCENCY = 16,
+    NOCTTY_GRID_COMPACT_FIELD_BACKGROUND_OPACITY = 17,
+    NOCTTY_GRID_COMPACT_FIELD_SMOOTH_SCROLL = 19,
+    NOCTTY_GRID_COMPACT_FIELD_PANEL_PADDING = 20,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_SPACING = 21,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_DIVIDER = 22,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_BORDER = 23,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_BORDER_FOCUSED = 24,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_BORDER_SELECTED = 25,
+    NOCTTY_GRID_COMPACT_FIELD_STATUS_BORDER = 26,
+    NOCTTY_GRID_COMPACT_FIELD_OVERLAY_BORDER = 27,
+    NOCTTY_GRID_COMPACT_FIELD_WINDOW_BORDER = 28,
+    NOCTTY_GRID_COMPACT_FIELD_DRAGGER = 29,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_GAPS = 30,
+    NOCTTY_GRID_COMPACT_FIELD_PANE_GAPS_TRANSPARENT = 31,
+    NOCTTY_GRID_COMPACT_FIELD_INACTIVE_PANE_DIM = 32,
+    NOCTTY_GRID_COMPACT_FIELD_INACTIVE_PANE_BRIGHTNESS = 33,
 };
 
 typedef struct {
@@ -1277,6 +1345,11 @@ double noctty_grid_theme_color_channel(uint32_t rgb, int channel);
 int noctty_grid_terminal_scroll_setting(int event_code, int value);
 void noctty_grid_compact_setting_plan(
     int field, NocttyGridCompactSettingPlan *plan);
+void noctty_grid_settings_plan(
+    NocttyGridCompactSettingReader reader,
+    void *userdata,
+    int available,
+    NocttyGridSettingsPlan *plan);
 void noctty_grid_font_rendering_plan(
     int event_code, int value, NocttyGridFontRenderingPlan *plan);
 void noctty_grid_terminal_menu_plan(

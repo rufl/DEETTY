@@ -147,6 +147,41 @@ pub const CompactSettingPlan = extern struct {
     target: c_int,
     valid: c_int,
 };
+pub const GridSettingsPlan = extern struct {
+    width_percent: c_int,
+    height_percent: c_int,
+    width_pixels: c_int,
+    height_pixels: c_int,
+    animation_ms: c_int,
+    hide_on_focus_loss: c_int,
+    focus_follows_pointer: c_int,
+    background_translucency: c_int,
+    background_opacity_percent: c_int,
+    terminal_smooth_scroll: c_int,
+    panel_padding_px: c_int,
+    pane_spacing_px: c_int,
+    pane_gaps_enabled: c_int,
+    pane_gaps_transparent: c_int,
+    inactive_pane_dim_enabled: c_int,
+    inactive_pane_brightness_percent: c_int,
+    pane_divider_px: c_int,
+    pane_border_px: c_int,
+    pane_border_focused_px: c_int,
+    pane_border_selected_px: c_int,
+    status_border_px: c_int,
+    overlay_border_px: c_int,
+    window_border_px: c_int,
+    dragger_px: c_int,
+    show_pane_info: c_int,
+    compact_tab_height: c_int,
+    font_size: f64,
+    font_min_size: f64,
+    font_max_size: f64,
+    font_antialias: c_int,
+    font_hinting: c_int,
+};
+const CompactSettingReader = *const fn (?*anyopaque, c_int) callconv(.c) c_int;
+
 
 pub const compact_setting_target_width_percent: c_int = 0;
 pub const compact_setting_target_height_percent: c_int = 1;
@@ -4394,6 +4429,120 @@ pub export fn noctty_grid_compact_setting_plan(
     };
     output.* = .{ .target = target, .valid = 1 };
 }
+fn readCompactSetting(
+    reader: CompactSettingReader,
+    userdata: ?*anyopaque,
+    available: c_int,
+    field: c_int,
+    fallback: c_int,
+) c_int {
+    if (available == 0) return fallback;
+    return reader(userdata, field);
+}
+
+pub export fn noctty_grid_settings_plan(
+    reader: CompactSettingReader,
+    userdata: ?*anyopaque,
+    available: c_int,
+    output_optional: ?*GridSettingsPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    const width_percent = readCompactSetting(reader, userdata, available, 0, 96);
+    const height_percent = readCompactSetting(reader, userdata, available, 1, 55);
+    const width_pixels = readCompactSetting(reader, userdata, available, 14, 0);
+    const height_pixels = readCompactSetting(reader, userdata, available, 15, 0);
+    const animation_ms = readCompactSetting(reader, userdata, available, 2, 120);
+    const hide_on_focus_loss = readCompactSetting(reader, userdata, available, 3, 1);
+    const focus_follows_pointer = readCompactSetting(reader, userdata, available, 4, 0);
+    const background_translucency =
+        readCompactSetting(reader, userdata, available, 16, 1);
+    const background_opacity_percent = noctty_grid_background_opacity_value(
+        readCompactSetting(reader, userdata, available, 17, 92),
+    );
+    const terminal_smooth_scroll =
+        readCompactSetting(reader, userdata, available, 19, 1);
+    const panel_padding_px = noctty_grid_panel_metric_value(
+        46, readCompactSetting(reader, userdata, available, 20, 6));
+    const pane_spacing_px = noctty_grid_panel_metric_value(
+        47, readCompactSetting(reader, userdata, available, 21, 4));
+    const pane_gaps_enabled = readCompactSetting(
+        reader, userdata, available, 30, 1);
+    const pane_gaps_transparent = readCompactSetting(
+        reader, userdata, available, 31, 1);
+    const inactive_pane_dim_enabled = readCompactSetting(
+        reader, userdata, available, 32, 1);
+    const inactive_pane_brightness_percent = noctty_grid_panel_metric_value(
+        130, readCompactSetting(reader, userdata, available, 33, 70));
+    const pane_divider_px = noctty_grid_panel_metric_value(
+        119, readCompactSetting(reader, userdata, available, 22, 1));
+    const pane_border_px = noctty_grid_panel_metric_value(
+        120, readCompactSetting(reader, userdata, available, 23, 1));
+    const pane_border_focused_px = noctty_grid_panel_metric_value(
+        121, readCompactSetting(reader, userdata, available, 24, 1));
+    const pane_border_selected_px = noctty_grid_panel_metric_value(
+        122, readCompactSetting(reader, userdata, available, 25, 2));
+    const status_border_px = noctty_grid_panel_metric_value(
+        123, readCompactSetting(reader, userdata, available, 26, 1));
+    const overlay_border_px = noctty_grid_panel_metric_value(
+        124, readCompactSetting(reader, userdata, available, 27, 1));
+    const window_border_px = noctty_grid_panel_metric_value(
+        125, readCompactSetting(reader, userdata, available, 28, 2));
+    const dragger_px = noctty_grid_panel_metric_value(
+        126, readCompactSetting(reader, userdata, available, 29, 2));
+    const show_pane_info = readCompactSetting(reader, userdata, available, 9, 1);
+    const compact_tab_height = readCompactSetting(
+        reader, userdata, available, 5, 16);
+    const raw_font_size = readCompactSetting(reader, userdata, available, 6, 1300);
+    const raw_font_min_size = readCompactSetting(
+        reader, userdata, available, 7, 700);
+    const raw_font_max_size = readCompactSetting(
+        reader, userdata, available, 8, 2800);
+    var font_min_size = @as(f64, @floatFromInt(raw_font_min_size)) / 100.0;
+    var font_max_size = @as(f64, @floatFromInt(raw_font_max_size)) / 100.0;
+    if (font_min_size <= 0.0) font_min_size = 7.0;
+    if (font_max_size < font_min_size) font_max_size = 28.0;
+    const font_size = noctty_grid_font_size_clamp(
+        @as(f64, @floatFromInt(raw_font_size)) / 100.0,
+        font_min_size,
+        font_max_size,
+    );
+    output.* = .{
+        .width_percent = width_percent,
+        .height_percent = height_percent,
+        .width_pixels = width_pixels,
+        .height_pixels = height_pixels,
+        .animation_ms = animation_ms,
+        .hide_on_focus_loss = hide_on_focus_loss,
+        .focus_follows_pointer = focus_follows_pointer,
+        .background_translucency = background_translucency,
+        .background_opacity_percent = background_opacity_percent,
+        .terminal_smooth_scroll = terminal_smooth_scroll,
+        .panel_padding_px = panel_padding_px,
+        .pane_spacing_px = pane_spacing_px,
+        .pane_gaps_enabled = pane_gaps_enabled,
+        .pane_gaps_transparent = pane_gaps_transparent,
+        .inactive_pane_dim_enabled = inactive_pane_dim_enabled,
+        .inactive_pane_brightness_percent = inactive_pane_brightness_percent,
+        .pane_divider_px = pane_divider_px,
+        .pane_border_px = pane_border_px,
+        .pane_border_focused_px = pane_border_focused_px,
+        .pane_border_selected_px = pane_border_selected_px,
+        .status_border_px = status_border_px,
+        .overlay_border_px = overlay_border_px,
+        .window_border_px = window_border_px,
+        .dragger_px = dragger_px,
+        .show_pane_info = show_pane_info,
+        .compact_tab_height = compact_tab_height,
+        .font_size = font_size,
+        .font_min_size = font_min_size,
+        .font_max_size = font_max_size,
+        .font_antialias = readCompactSetting(
+            reader, userdata, available, 11, 2),
+        .font_hinting = readCompactSetting(
+            reader, userdata, available, 12, 1),
+    };
+}
+
 
 pub export fn noctty_grid_font_rendering_plan(
     event_code: c_int,
@@ -8959,6 +9108,69 @@ test "compact setting plans map every persisted field and reject unknowns" {
     noctty_grid_compact_setting_plan(13, &invalid);
     try std.testing.expectEqual(@as(c_int, 0), invalid.valid);
     try std.testing.expectEqual(@as(c_int, -1), invalid.target);
+}
+fn settingsPlanTestReader(userdata: ?*anyopaque, field: c_int) callconv(.c) c_int {
+    _ = userdata;
+    return switch (field) {
+        0 => 88,
+        1 => 44,
+        2 => 900,
+        3 => 0,
+        4 => 1,
+        5 => 19,
+        6 => 1500,
+        7 => 600,
+        8 => 3000,
+        9 => 0,
+        11 => 1,
+        12 => 3,
+        14 => 720,
+        15 => 480,
+        16 => 0,
+        17 => 5,
+        19 => 0,
+        20 => 70,
+        21 => -2,
+        22 => 0,
+        23 => 20,
+        24 => 0,
+        25 => 20,
+        26 => 0,
+        27 => 20,
+        28 => 20,
+        29 => 40,
+        30 => 0,
+        31 => 1,
+        32 => 0,
+        33 => 5,
+        else => 0,
+    };
+}
+
+test "grid settings plan normalizes persisted values and defaults" {
+    var plan: GridSettingsPlan = undefined;
+    noctty_grid_settings_plan(settingsPlanTestReader, null, 1, &plan);
+    try std.testing.expectEqual(@as(c_int, 88), plan.width_percent);
+    try std.testing.expectEqual(@as(c_int, 44), plan.height_percent);
+    try std.testing.expectEqual(@as(c_int, 720), plan.width_pixels);
+    try std.testing.expectEqual(@as(c_int, 10), plan.background_opacity_percent);
+    try std.testing.expectEqual(@as(c_int, 64), plan.panel_padding_px);
+    try std.testing.expectEqual(@as(c_int, 0), plan.pane_spacing_px);
+    try std.testing.expectEqual(@as(c_int, 1), plan.pane_divider_px);
+    try std.testing.expectEqual(@as(c_int, 12), plan.pane_border_px);
+    try std.testing.expectEqual(@as(c_int, 32), plan.dragger_px);
+    try std.testing.expectEqual(@as(c_int, 19), plan.compact_tab_height);
+    try std.testing.expectEqual(@as(f64, 15.0), plan.font_size);
+    try std.testing.expectEqual(@as(f64, 6.0), plan.font_min_size);
+    try std.testing.expectEqual(@as(f64, 30.0), plan.font_max_size);
+    try std.testing.expectEqual(@as(c_int, 1), plan.font_antialias);
+    try std.testing.expectEqual(@as(c_int, 3), plan.font_hinting);
+
+    noctty_grid_settings_plan(settingsPlanTestReader, null, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 96), plan.width_percent);
+    try std.testing.expectEqual(@as(c_int, 55), plan.height_percent);
+    try std.testing.expectEqual(@as(c_int, 7), plan.font_min_size);
+    try std.testing.expectEqual(@as(f64, 13.0), plan.font_size);
 }
 
 test "font rendering plans clamp combo values and reject unknown events" {

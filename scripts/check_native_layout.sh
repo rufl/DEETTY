@@ -309,6 +309,11 @@ grep -F 'timing.dbus_operation_timeout_ms' "$grid" >/dev/null
 grep -F 'timing.dbus_notification_timeout_ms' "$grid" >/dev/null
 grep -F 'timing.dbus_drain_ms' "$grid" >/dev/null
 grep -F 'timing.dbus_poll_us' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_settings_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_settings_plan(' "$grid" >/dev/null
+grep -F 'void noctty_grid_settings_plan(' "$grid_logic_header" >/dev/null
+grep -F 'NocttyGridSettingsPlan;' "$grid_logic_header" >/dev/null
+grep -F 'NOCTTY_GRID_COMPACT_FIELD_WIDTH_PERCENT' "$grid_logic_header" >/dev/null
 grep -F 'noctty_grid_panel_settings_apply(' "$grid" >/dev/null
 grep -F 'NocttyGridPanelSettings;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_launch_profile_payload(' "$grid_logic" >/dev/null

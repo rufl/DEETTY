@@ -10103,10 +10103,10 @@ static gboolean normalize_dropdown_pixel_dimensions(
     int height_percent = noctty_grid_dropdown_percent(
         root->dropdown_height_px, available.height,
         root->dropdown_height_percent);
-    sync_compact_setting(root, 0, width_percent);
-    sync_compact_setting(root, 1, height_percent);
-    sync_compact_setting(root, 14, 0);
-    sync_compact_setting(root, 15, 0);
+    sync_compact_setting(root, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PERCENT, width_percent);
+    sync_compact_setting(root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PERCENT, height_percent);
+    sync_compact_setting(root, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS, 0);
+    sync_compact_setting(root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, 0);
     if (notify && root->event != NULL) {
         uint64_t timestamp =
             (uint64_t)(g_get_monotonic_time() / 1000);
@@ -10123,7 +10123,8 @@ static gboolean normalize_dropdown_pixel_dimensions(
 static void apply_pane_info_visibility(NocttyGridContext *context,
                                        int enabled) {
     NocttyGridContext *root = root_grid_context(context);
-    sync_compact_setting(root, 5, enabled);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_TAB_HEIGHT, enabled);
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++)
         ((NocttyGridContext *)g_ptr_array_index(root->contexts, index))
@@ -10136,9 +10137,10 @@ static void apply_pane_info_visibility(NocttyGridContext *context,
 static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 0, value);
-    sync_compact_setting(context, 14, 0);
-    sync_compact_setting(context, 15, 0);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PERCENT, value);
+    sync_compact_setting(context, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS, 0);
+    sync_compact_setting(context, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, 0);
     apply_dropdown_dimensions(context);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_WIDTH), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
@@ -10146,9 +10148,10 @@ static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer use
 static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 1, value);
-    sync_compact_setting(context, 14, 0);
-    sync_compact_setting(context, 15, 0);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PERCENT, value);
+    sync_compact_setting(context, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS, 0);
+    sync_compact_setting(context, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, 0);
     apply_dropdown_dimensions(context);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_HEIGHT), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
@@ -10156,7 +10159,8 @@ static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer us
 static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_spin_button_get_value_as_int(spin);
-    sync_compact_setting(context, 2, value);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_ANIMATION, value);
     NocttyGridContext *root = root_grid_context(context);
     if (root->revealer != NULL)
         noctty_grid_revealer_set_transition_duration(GTK_REVEALER(root->revealer),
@@ -10167,14 +10171,16 @@ static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_dat
 static void on_settings_hide_focus_toggled(GtkToggleButton *toggle, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_toggle_button_get_active(toggle);
-    sync_compact_setting(context, 3, value);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_HIDE_FOCUS, value);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_HIDE_FOCUS), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_focus_pointer_toggled(GtkToggleButton *toggle, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_toggle_button_get_active(toggle);
-    sync_compact_setting(context, 4, value);
+    sync_compact_setting(
+        context, NOCTTY_GRID_COMPACT_FIELD_FOCUS_POINTER, value);
     if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_FOCUS_POINTER), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
@@ -11187,7 +11193,8 @@ static void open_grid_settings(NocttyGridContext *context) {
         noctty_grid_button_new_with_label(shortcut_button_label);
     configure_grid_settings_shortcut_button(context, shortcut);
     int scrollback_lines = context->event_data != NULL
-        ? noctty_grid_compact_setting(context->event_data, 10) : 10000;
+        ? noctty_grid_compact_setting(
+            context->event_data, NOCTTY_GRID_COMPACT_FIELD_SCROLLBACK) : 10000;
     const NocttySettingsCoreOptions core_options = {
         .shortcut = shortcut,
         .mode = context->mode,
@@ -16148,8 +16155,10 @@ static void finish_window_resize_drag(NocttyGridContext *root) {
         int width = 0;
         int height = 0;
         noctty_grid_window_get_size(GTK_WINDOW(root->window), &width, &height);
-        sync_compact_setting(root, 14, width);
-        sync_compact_setting(root, 15, height);
+        sync_compact_setting(
+            root, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS, width);
+        sync_compact_setting(
+            root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, height);
     }
     if (commit_dropdown_size &&
         normalize_dropdown_pixel_dimensions(root, TRUE))
@@ -16199,8 +16208,9 @@ static gboolean toggle_dragger_height(NocttyGridContext *root) {
     root->dragger_click_pending = 0;
     root->dragger_last_press_time = 0;
     finish_window_resize_drag(root);
-    sync_compact_setting(root, 1, target_height);
-    sync_compact_setting(root, 15, 0);
+    sync_compact_setting(
+        root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PERCENT, target_height);
+    sync_compact_setting(root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, 0);
     apply_dropdown_dimensions(root);
     if (root->event != NULL)
         root->event(root->event_data, root->pane_id,
@@ -16324,11 +16334,13 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
         MIN(policy.dropdown_min_height_px, geometry.height), geometry.height);
     gboolean changed = FALSE;
     if (horizontal != 0.0 && width != root->dropdown_width_px) {
-        sync_compact_setting(root, 14, width);
+        sync_compact_setting(
+            root, NOCTTY_GRID_COMPACT_FIELD_WIDTH_PIXELS, width);
         changed = TRUE;
     }
     if (vertical != 0.0 && height != root->dropdown_height_px) {
-        sync_compact_setting(root, 15, height);
+        sync_compact_setting(
+            root, NOCTTY_GRID_COMPACT_FIELD_HEIGHT_PIXELS, height);
         changed = TRUE;
     }
     if (changed) apply_dropdown_dimensions(root);
@@ -16788,78 +16800,43 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.text_action_data = text_action_data;
     context.create_session = event_data != NULL ? noctty_grid_create_session : NULL;
     context.mode = mode;
-    context.dropdown_width_percent = event_data != NULL ? noctty_grid_compact_setting(event_data, 0) : 96;
-    context.dropdown_height_percent = event_data != NULL ? noctty_grid_compact_setting(event_data, 1) : 55;
-    context.dropdown_width_px = event_data != NULL ? noctty_grid_compact_setting(event_data, 14) : 0;
-    context.dropdown_height_px = event_data != NULL ? noctty_grid_compact_setting(event_data, 15) : 0;
-    context.dropdown_animation_ms = event_data != NULL ? noctty_grid_compact_setting(event_data, 2) : 120;
-    context.hide_on_focus_loss = event_data != NULL ? noctty_grid_compact_setting(event_data, 3) : 1;
-    context.focus_follows_pointer = event_data != NULL ? noctty_grid_compact_setting(event_data, 4) : 0;
-    context.background_translucency = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 16) : 1;
-    context.background_opacity_percent = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 17) : 92;
-    context.background_opacity_percent =
-        noctty_grid_background_opacity_value(
-            context.background_opacity_percent);
+    NocttyGridSettingsPlan settings = {0};
+    noctty_grid_settings_plan(
+        noctty_grid_compact_setting,
+        event_data,
+        event_data != NULL,
+        &settings);
+    context.dropdown_width_percent = settings.width_percent;
+    context.dropdown_height_percent = settings.height_percent;
+    context.dropdown_width_px = settings.width_pixels;
+    context.dropdown_height_px = settings.height_pixels;
+    context.dropdown_animation_ms = settings.animation_ms;
+    context.hide_on_focus_loss = settings.hide_on_focus_loss;
+    context.focus_follows_pointer = settings.focus_follows_pointer;
+    context.background_translucency = settings.background_translucency;
+    context.background_opacity_percent = settings.background_opacity_percent;
     context.terminal_scroll_lines =
         noctty_grid_terminal_scroll_setting(
-            117, context.terminal_scroll_lines);
-    context.terminal_smooth_scroll = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 19) : 1;
-    context.panel_padding_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 20) : 6;
-    context.pane_spacing_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 21) : 4;
-    context.pane_gaps_enabled = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 30) : 1;
-    context.pane_gaps_transparent = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 31) : 1;
-    context.inactive_pane_dim_enabled = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 32) : 1;
-    context.inactive_pane_brightness_percent = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 33) : 70;
-    context.pane_divider_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 22) : 1;
-    context.pane_border_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 23) : 1;
-    context.pane_border_focused_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 24) : 1;
-    context.pane_border_selected_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 25) : 2;
-    context.status_border_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 26) : 1;
-    context.overlay_border_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 27) : 1;
-    context.window_border_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 28) : 2;
-    context.dragger_px = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 29) : 2;
-    context.panel_padding_px =
-        noctty_grid_panel_metric_value(46, context.panel_padding_px);
-    context.pane_spacing_px =
-        noctty_grid_panel_metric_value(47, context.pane_spacing_px);
+            NOCTTY_GRID_SETTINGS_EVENT_SCROLL_LINES,
+            context.terminal_scroll_lines);
+    context.terminal_smooth_scroll = settings.terminal_smooth_scroll;
+    context.panel_padding_px = settings.panel_padding_px;
+    context.pane_spacing_px = settings.pane_spacing_px;
+    context.pane_gaps_enabled = settings.pane_gaps_enabled;
+    context.pane_gaps_transparent = settings.pane_gaps_transparent;
+    context.inactive_pane_dim_enabled = settings.inactive_pane_dim_enabled;
     context.inactive_pane_brightness_percent =
-        noctty_grid_panel_metric_value(
-            130, context.inactive_pane_brightness_percent);
-    context.pane_divider_px =
-        noctty_grid_panel_metric_value(119, context.pane_divider_px);
-    context.pane_border_px =
-        noctty_grid_panel_metric_value(120, context.pane_border_px);
-    context.pane_border_focused_px =
-        noctty_grid_panel_metric_value(121, context.pane_border_focused_px);
-    context.pane_border_selected_px =
-        noctty_grid_panel_metric_value(122, context.pane_border_selected_px);
-    context.status_border_px =
-        noctty_grid_panel_metric_value(123, context.status_border_px);
-    context.overlay_border_px =
-        noctty_grid_panel_metric_value(124, context.overlay_border_px);
-    context.window_border_px =
-        noctty_grid_panel_metric_value(125, context.window_border_px);
-    context.dragger_px =
-        noctty_grid_panel_metric_value(126, context.dragger_px);
-    context.show_pane_info = event_data != NULL ? noctty_grid_compact_setting(event_data, 9) : 1;
-    context.compact_tab_height = event_data != NULL ? noctty_grid_compact_setting(event_data, 5) : 16;
+        settings.inactive_pane_brightness_percent;
+    context.pane_divider_px = settings.pane_divider_px;
+    context.pane_border_px = settings.pane_border_px;
+    context.pane_border_focused_px = settings.pane_border_focused_px;
+    context.pane_border_selected_px = settings.pane_border_selected_px;
+    context.status_border_px = settings.status_border_px;
+    context.overlay_border_px = settings.overlay_border_px;
+    context.window_border_px = settings.window_border_px;
+    context.dragger_px = settings.dragger_px;
+    context.show_pane_info = settings.show_pane_info;
+    context.compact_tab_height = settings.compact_tab_height;
     context.workspace_smoke = workspace_smoke;
     context.shortcut_transport = enable_shortcut;
     context.requested_shortcut_key = shortcut_key;
@@ -16870,26 +16847,15 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.claim_control = claim_control;
     context.show_on_control_conflict = show_on_control_conflict;
     context.recovery_notice_flags = recovery_notice_flags;
-    context.font_size = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 6) / 100.0
-        : 13.0;
-    context.font_min_size = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 7) / 100.0
-        : 7.0;
-    context.font_max_size = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 8) / 100.0
-        : 28.0;
-    if (context.font_min_size <= 0.0) context.font_min_size = 7.0;
-    if (context.font_max_size < context.font_min_size)
-        context.font_max_size = 28.0;
+    context.font_size = settings.font_size;
+    context.font_min_size = settings.font_min_size;
+    context.font_max_size = settings.font_max_size;
     context.font_size = noctty_grid_font_size_clamp(
         context.font_size, context.font_min_size, context.font_max_size);
     context.requested_font_size = context.font_size;
     context.font_family = g_strdup("monospace");
-    context.font_antialias = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 11) : 2;
-    context.font_hinting = event_data != NULL
-        ? noctty_grid_compact_setting(event_data, 12) : 1;
+    context.font_antialias = settings.font_antialias;
+    context.font_hinting = settings.font_hinting;
     context.ligatures = 1;
     context.profile_preset = -1;
     context.cursor_visible = 1;

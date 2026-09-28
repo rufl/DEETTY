@@ -228,6 +228,9 @@ tested Zig lifecycle plan; C retains GLib scheduling and D-Bus transport.
 Settings-control event IDs for appearance, scrolling, layout, and font rendering
 are selected by the tested Zig settings-event map; C retains GTK signal
 connection, widget state, and native effect dispatch.
+Persisted compact-setting field identities, defaults, font bounds, background
+opacity normalization, and panel-metric clamps are selected by the tested Zig
+settings plan; C retains model callback acquisition and native state updates.
 Native host protocol event identities are selected by the tested Zig host-event
 map; C retains callback dispatch and native effects.
 

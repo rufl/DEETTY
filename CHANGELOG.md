@@ -8,6 +8,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   calls, callback dispatch, and native effects.
 - Centralized D-Bus call, notification, drain, and polling timing in the tested
   Zig lifecycle plan; C retains GLib scheduling and D-Bus transport effects.
+- Moved persisted compact-setting field/schema selection, defaults, font
+  normalization, background-opacity clamping, and panel-metric bounds into a
+  tested Zig settings plan; C retains callback acquisition and state effects.
 - Moved compact-setting target mapping, font-rendering combo bounds, terminal
   context-menu action/selection geometry, theme display labels, and profile
   preset validity into tested Zig grid policy; C retains native state and GTK
