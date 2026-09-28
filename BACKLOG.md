@@ -201,7 +201,7 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
   The current source run passes all 133 Zig grid-logic tests and both Debug and
-  `ReleaseSafe` builds. The counted Zig ownership inventory is 82.19%; the fixed
+  `ReleaseSafe` builds. The counted Zig ownership inventory is 82.16%; the fixed
   90.00% gate and isolated graphical proof remain open.
   The current batches move compact-setting target mapping, font-rendering combo
   bounds, terminal context-menu action/selection geometry, theme display labels,
@@ -266,8 +266,8 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-27) reports `82.19%` Zig ownership
-(`zig_lines=90646`, `adapter_lines=19641`) against the strict `90.00%`
+Current locked-tree evidence (2026-09-27) reports `82.16%` Zig ownership
+(`zig_lines=90692`, `adapter_lines=19689`) against the strict `90.00%`
 target. Direct Debug and `ReleaseSafe` renderer qualifications pass with
 byte-identical fixtures and zero warm-frame allocations; the isolated mapped
 GTK runner remains deferred by host I/O pressure (`exit=75`), so NCT-126 is
