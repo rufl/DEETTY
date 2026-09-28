@@ -98,6 +98,10 @@ pub const StartupWindowPlan = extern struct {
     apply_activation: c_int,
     show_layout_only: c_int,
 };
+pub const ControlNameRequestPlan = extern struct {
+    registered: c_int,
+    conflict: c_int,
+};
 
 pub const SmokeScheduleStep = extern struct {
     delay_ms: c_int,
@@ -314,9 +318,11 @@ pub const HostEventKind = enum(c_int) {
     profile_selected,
     project_tools_opened,
     workspace_new_tab_restore,
+    shortcut_conflict,
+    shortcut_failed,
 };
 
-pub const host_event_kind_count: c_int = 60;
+pub const host_event_kind_count: c_int = 62;
 
 pub fn host_event_code(kind: HostEventKind) c_int {
     return switch (kind) {
@@ -380,6 +386,8 @@ pub fn host_event_code(kind: HostEventKind) c_int {
         .profile_selected => 106,
         .project_tools_opened => 108,
         .workspace_new_tab_restore => 26,
+        .shortcut_conflict => 14,
+        .shortcut_failed => 15,
     };
 }
 
@@ -454,6 +462,11 @@ pub const LifecycleTimingPlan = extern struct {
     resize_overlay_arm_ms: c_int,
     even_pane_settle_interval_ms: c_int,
     even_pane_settle_attempts: c_int,
+    dbus_call_timeout_ms: c_int,
+    dbus_operation_timeout_ms: c_int,
+    dbus_notification_timeout_ms: c_int,
+    dbus_drain_ms: c_int,
+    dbus_poll_us: i64,
 };
 
 pub const NativeHostPolicy = extern struct {
@@ -2252,6 +2265,11 @@ pub export fn noctty_grid_lifecycle_timing_plan(
         .resize_overlay_arm_ms = 250,
         .even_pane_settle_interval_ms = 16,
         .even_pane_settle_attempts = 4,
+        .dbus_call_timeout_ms = 1000,
+        .dbus_operation_timeout_ms = 1500,
+        .dbus_notification_timeout_ms = 5000,
+        .dbus_drain_ms = 2000,
+        .dbus_poll_us = 1000,
     };
 }
 
@@ -2374,6 +2392,16 @@ pub export fn noctty_grid_startup_window_plan(
             control_conflict == 0 and activation_retained != 0 and !start_hidden,
         ),
         .show_layout_only = @intFromBool(start_hidden or control_conflict != 0),
+    };
+}
+pub export fn noctty_grid_control_name_request_plan(
+    request_result: c_int,
+    output_optional: ?*ControlNameRequestPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .registered = @intFromBool(request_result == 1 or request_result == 4),
+        .conflict = @intFromBool(request_result == 2 or request_result == 3),
     };
 }
 
@@ -6848,6 +6876,18 @@ test "startup window plan separates native effects from visibility policy" {
     try std.testing.expectEqual(@as(c_int, 0), plan.apply_activation);
     try std.testing.expectEqual(@as(c_int, 1), plan.show_layout_only);
 }
+test "control name request plan classifies D-Bus ownership results" {
+    var plan = ControlNameRequestPlan{ .registered = 0, .conflict = 0 };
+    noctty_grid_control_name_request_plan(1, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.registered);
+    try std.testing.expectEqual(@as(c_int, 0), plan.conflict);
+    noctty_grid_control_name_request_plan(3, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.registered);
+    try std.testing.expectEqual(@as(c_int, 1), plan.conflict);
+    noctty_grid_control_name_request_plan(0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.registered);
+    try std.testing.expectEqual(@as(c_int, 0), plan.conflict);
+}
 test "accessible text plan bounds cell data and trims presentation whitespace" {
     var plan = AccessibleTextPlan{ .initial_capacity = 0 };
     try std.testing.expectEqual(
@@ -9082,7 +9122,7 @@ test "host event policy preserves native protocol identities" {
         50, 51, 52, 60, 61, 55, 56, 57, 58, 59, 62, 64, 65,
         66, 67, 68, 69, 78, 79, 80, 81, 82, 83, 84, 85, 86,
         87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100,
-        101, 102, 103, 104, 105, 106, 108, 26,
+        101, 102, 103, 104, 105, 106, 108, 26, 14, 15,
     };
     for (expected, 0..) |code, index| {
         try std.testing.expectEqual(
@@ -9128,6 +9168,11 @@ test "lifecycle timing plans keep bounded native scheduling constants" {
         @as(c_int, 16), timing.even_pane_settle_interval_ms);
     try std.testing.expectEqual(
         @as(c_int, 4), timing.even_pane_settle_attempts);
+    try std.testing.expectEqual(@as(c_int, 1000), timing.dbus_call_timeout_ms);
+    try std.testing.expectEqual(@as(c_int, 1500), timing.dbus_operation_timeout_ms);
+    try std.testing.expectEqual(@as(c_int, 5000), timing.dbus_notification_timeout_ms);
+    try std.testing.expectEqual(@as(c_int, 2000), timing.dbus_drain_ms);
+    try std.testing.expectEqual(@as(i64, 1000), timing.dbus_poll_us);
 }
 
 test "native host policy owns geometry event and color ordinals" {

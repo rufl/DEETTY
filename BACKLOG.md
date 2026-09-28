@@ -200,7 +200,7 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and Noctalia theme persistence-status composition now cross the Zig ABI; C
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
-  The current source run passes all 132 Zig grid-logic tests and both Debug and
+  The current source run passes all 133 Zig grid-logic tests and both Debug and
   `ReleaseSafe` builds. The counted Zig ownership inventory is 82.19%; the fixed
   90.00% gate and isolated graphical proof remain open.
   The current batches move compact-setting target mapping, font-rendering combo
@@ -209,11 +209,13 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   launch-profile kind/sensitivity policy into tested Zig plans; C retains
   native state and GTK effects.
   Workspace event-routing classification, tray-menu item kinds/actions, native
-  lifecycle timing constants, native host geometry/scrollbar/copy bounds,
-  UI color role ordinals, status event IDs, persistence result codes, remaining
-  GTK scheduling intervals, settings-control event IDs, and native host-event
-  protocol identities now cross tested Zig plans; C retains GTK/GVariant/GLib
-  source and effect handling. `[truth:build,test,docs]`
+  lifecycle timing constants, D-Bus ownership-result classification, shortcut
+  conflict/failure event identities, D-Bus call/notification/drain/poll timing,
+  native host geometry/scrollbar/copy bounds, UI color role ordinals, status
+  event IDs, persistence result codes, remaining GTK scheduling intervals,
+  settings-control event IDs, and native host-event protocol identities now
+  cross tested Zig plans; C retains GTK/GVariant/GLib source and effect
+  handling. `[truth:build,test,docs]`
   Numeric restore-mode text, sharing selection IDs, pane drag identifiers, and
   terminal accessibility names now also use bounded Zig text helpers; C retains
   spawn, combo-box, drag-and-drop, and ATK effects.

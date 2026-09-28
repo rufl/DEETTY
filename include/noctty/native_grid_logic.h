@@ -118,6 +118,10 @@ typedef struct {
     int apply_activation;
     int show_layout_only;
 } NocttyGridStartupWindowPlan;
+typedef struct {
+    int registered;
+    int conflict;
+} NocttyGridControlNameRequestPlan;
 
 typedef struct {
     int delay_ms;
@@ -286,6 +290,8 @@ enum {
     NOCTTY_GRID_HOST_EVENT_PROFILE_SELECTED = 57,
     NOCTTY_GRID_HOST_EVENT_PROJECT_TOOLS_OPENED = 58,
     NOCTTY_GRID_HOST_EVENT_WORKSPACE_NEW_TAB_RESTORE = 59,
+    NOCTTY_GRID_HOST_EVENT_SHORTCUT_CONFLICT = 60,
+    NOCTTY_GRID_HOST_EVENT_SHORTCUT_FAILED = 61,
 };
 
 
@@ -355,6 +361,11 @@ typedef struct {
     int resize_overlay_arm_ms;
     int even_pane_settle_interval_ms;
     int even_pane_settle_attempts;
+    int dbus_call_timeout_ms;
+    int dbus_operation_timeout_ms;
+    int dbus_notification_timeout_ms;
+    int dbus_drain_ms;
+    int64_t dbus_poll_us;
 } NocttyGridLifecycleTimingPlan;
 
 typedef struct {
@@ -629,6 +640,8 @@ void noctty_grid_startup_window_plan(
     int claim_control, int enable_shortcut, int control_registered,
     int mode, int control_conflict, int activation_retained,
     NocttyGridStartupWindowPlan *plan);
+void noctty_grid_control_name_request_plan(
+    int request_result, NocttyGridControlNameRequestPlan *plan);
 
 NocttyGridCloseTransition noctty_grid_close_request(
     NocttyGridCloseCoordinator *coordinator,

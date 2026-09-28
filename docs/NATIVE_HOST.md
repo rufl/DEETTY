@@ -215,11 +215,16 @@ by Zig before GTK/DBus registration.
 Workspace event routing (tab, split, layout, and move classification), tray-menu
 item kind/action classification, and bounded native lifecycle timing values are
 tested Zig policy; C retains GTK/GVariant/GLib source and effect handling.
+D-Bus `RequestName` ownership-result classification and shortcut
+conflict/failure event identities are also selected by tested Zig policy; C
+retains D-Bus calls, callback dispatch, and native effects.
 
 Native host geometry bounds, scrollbar/copy limits, UI color role ordinals,
 status event IDs, persistence result codes, and remaining GTK scheduling
 intervals are tested Zig policy. C retains native object access, GTK effects,
 GLib source registration, GVariant/D-Bus handling, and callback dispatch.
+D-Bus call, notification, drain, and polling intervals are selected by the
+tested Zig lifecycle plan; C retains GLib scheduling and D-Bus transport.
 Settings-control event IDs for appearance, scrolling, layout, and font rendering
 are selected by the tested Zig settings-event map; C retains GTK signal
 connection, widget state, and native effect dispatch.

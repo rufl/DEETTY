@@ -300,6 +300,15 @@ grep -F 'NativeGridLogic.settings_event_code(.panel_padding)' "$native_gtk" >/de
 grep -F 'pub export fn noctty_grid_host_event_code(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_host_event_code(' "$grid" >/dev/null
 grep -F 'int noctty_grid_host_event_code(int kind);' "$grid_logic_header" >/dev/null
+grep -F 'pub export fn noctty_grid_control_name_request_plan(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_control_name_request_plan(' "$grid" >/dev/null
+grep -F 'void noctty_grid_control_name_request_plan(' "$grid_logic_header" >/dev/null
+grep -F 'NocttyGridControlNameRequestPlan;' "$grid_logic_header" >/dev/null
+grep -F 'timing.dbus_call_timeout_ms' "$grid" >/dev/null
+grep -F 'timing.dbus_operation_timeout_ms' "$grid" >/dev/null
+grep -F 'timing.dbus_notification_timeout_ms' "$grid" >/dev/null
+grep -F 'timing.dbus_drain_ms' "$grid" >/dev/null
+grep -F 'timing.dbus_poll_us' "$grid" >/dev/null
 grep -F 'noctty_grid_panel_settings_apply(' "$grid" >/dev/null
 grep -F 'NocttyGridPanelSettings;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_launch_profile_payload(' "$grid_logic" >/dev/null

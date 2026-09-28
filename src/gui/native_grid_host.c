@@ -3335,11 +3335,15 @@ static void cancel_grid_dbus_operations(NocttyGridContext *context) {
 
 static void drain_grid_dbus_operations(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
-    gint64 deadline = g_get_monotonic_time() + 2000 * 1000;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
+    gint64 deadline = g_get_monotonic_time() +
+        (gint64)timing.dbus_drain_ms * 1000;
     while (root->dbus_pending_operations > 0 &&
            g_get_monotonic_time() < deadline) {
         while (noctty_grid_main_context_iteration(FALSE)) {}
-        if (root->dbus_pending_operations > 0) g_usleep(1000);
+        if (root->dbus_pending_operations > 0)
+            g_usleep((gulong)timing.dbus_poll_us);
     }
 }
 
@@ -3347,14 +3351,19 @@ static void on_grid_control_name_requested(GObject *source,
                                            GAsyncResult *result,
                                            gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
     if (reply != NULL) {
         guint32 request_result = 0;
+        NocttyGridControlNameRequestPlan request_plan = {0};
         g_variant_get(reply, "(u)", &request_result);
-        root->control_registered = request_result == 1u || request_result == 4u;
-        root->control_name_conflict = request_result == 2u || request_result == 3u;
+        noctty_grid_control_name_request_plan(
+            (int)request_result, &request_plan);
+        root->control_registered = request_plan.registered != 0;
+        root->control_name_conflict = request_plan.conflict != 0;
         if (g_getenv("NOCTTY_DEBUG_CONTROL_OWNERSHIP") != NULL)
             g_printerr("noctty_control_ownership pid=%ld result=%u owner=%d conflict=%d\n",
                        (long)getpid(), request_result,
@@ -3366,7 +3375,8 @@ static void on_grid_control_name_requested(GObject *source,
         GVariant *forwarded = g_dbus_connection_call_sync(
             root->control_bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY",
             "com.noctty.NOCTTY.Control", "Show", NULL,
-            G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
+            G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE,
+            timing.dbus_call_timeout_ms, NULL, NULL);
         if (forwarded != NULL) {
             root->control_conflict_forwarded = 1;
             noctty_grid_variant_unref(forwarded);
@@ -3383,6 +3393,8 @@ static void on_grid_control_bus_ready(GObject *source, GAsyncResult *result,
                                       gpointer user_data) {
     (void)source;
     NocttyGridContext *root = root_grid_context(user_data);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     root->control_bus = g_bus_get_finish(result, &error);
     if (root->control_bus == NULL) goto failed;
@@ -3398,7 +3410,8 @@ static void on_grid_control_bus_ready(GObject *source, GAsyncResult *result,
         root->control_bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
         "org.freedesktop.DBus", "RequestName",
         g_variant_new("(su)", "com.noctty.NOCTTY", 4u),
-        G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, 1000,
+        G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_call_timeout_ms,
         root->dbus_cancellable, on_grid_control_name_requested, root);
     return;
 
@@ -3409,6 +3422,8 @@ failed:
 
 static void unregister_grid_control(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (root->control_bus == NULL) return;
     if (root->control_object_id != 0) {
         g_dbus_connection_unregister_object(root->control_bus,
@@ -3419,7 +3434,8 @@ static void unregister_grid_control(NocttyGridContext *context) {
         root->control_bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
         "org.freedesktop.DBus", "ReleaseName",
         g_variant_new("(s)", "com.noctty.NOCTTY"), G_VARIANT_TYPE("(u)"),
-        G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL, NULL);
+        G_DBUS_CALL_FLAGS_NONE, timing.dbus_call_timeout_ms,
+        NULL, NULL, NULL);
     g_clear_pointer(&root->control_node, g_dbus_node_info_unref);
     root->control_bus = noctty_grid_object_clear(root->control_bus);
     root->control_registered = 0;
@@ -3853,13 +3869,16 @@ static void on_grid_tray_watcher_registered(GObject *source,
 
 static int register_grid_tray_watcher(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     if (root->tray_bus == NULL || root->tray_object_id == 0) return 0;
     begin_grid_dbus_operation(root);
     g_dbus_connection_call(
         root->tray_bus, "org.kde.StatusNotifierWatcher",
         "/StatusNotifierWatcher", "org.kde.StatusNotifierWatcher",
         "RegisterStatusNotifierItem", g_variant_new("(s)",
-        "/StatusNotifierItem"), NULL, G_DBUS_CALL_FLAGS_NONE, 1000,
+        "/StatusNotifierItem"), NULL, G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_call_timeout_ms,
         root->dbus_cancellable, on_grid_tray_watcher_registered, root);
     return 1;
 }
@@ -4064,7 +4083,9 @@ static void finish_grid_shortcut_request(NocttyShortcutRequest *request,
                 noctty_grid_shortcut_feedback_message(0));
     } else if (current && request->purpose == 0 && root->event != NULL) {
         root->event(root->event_data, root->pane_id,
-                    status == 0 ? 14 : 15, 0,
+                    status == 0
+                        ? NOCTTY_GRID_HOST_EVENT(SHORTCUT_CONFLICT)
+                        : NOCTTY_GRID_HOST_EVENT(SHORTCUT_FAILED), 0,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     }
     finish_grid_dbus_operation(root);
@@ -4163,6 +4184,8 @@ static void on_grid_shortcut_set(GObject *source, GAsyncResult *result,
 static void on_grid_shortcut_available(GObject *source, GAsyncResult *result,
                                        gpointer user_data) {
     NocttyShortcutRequest *request = user_data;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
@@ -4192,7 +4215,8 @@ static void on_grid_shortcut_available(GObject *source, GAsyncResult *result,
         request->root->shortcut_bus, "org.kde.kglobalaccel",
         "/kglobalaccel", "org.kde.KGlobalAccel", "setShortcut",
         g_variant_new("(^asaiu)", action_id, &keys, 2u),
-        G_VARIANT_TYPE("(ai)"), G_DBUS_CALL_FLAGS_NONE, 1500,
+        G_VARIANT_TYPE("(ai)"), G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_operation_timeout_ms,
         request->root->dbus_cancellable, on_grid_shortcut_set, request);
 }
 
@@ -4200,6 +4224,8 @@ static void on_grid_shortcut_action_registered(GObject *source,
                                                 GAsyncResult *result,
                                                 gpointer user_data) {
     NocttyShortcutRequest *request = user_data;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     GVariant *reply = g_dbus_connection_call_finish(
         G_DBUS_CONNECTION(source), result, &error);
@@ -4217,7 +4243,8 @@ static void on_grid_shortcut_action_registered(GObject *source,
         "/kglobalaccel", "org.kde.KGlobalAccel",
         "isGlobalShortcutAvailable",
         g_variant_new("(is)", request->requested_key, component),
-        G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1500,
+        G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_operation_timeout_ms,
         request->root->dbus_cancellable, on_grid_shortcut_available, request);
 }
 
@@ -4225,6 +4252,8 @@ static void on_grid_shortcut_bus_ready(GObject *source, GAsyncResult *result,
                                        gpointer user_data) {
     (void)source;
     NocttyShortcutRequest *request = user_data;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     GDBusConnection *bus = g_bus_get_finish(result, &error);
     if (!grid_shortcut_request_current(request) || bus == NULL) {
@@ -4244,7 +4273,7 @@ static void on_grid_shortcut_bus_ready(GObject *source, GAsyncResult *result,
         bus, "org.kde.kglobalaccel", "/kglobalaccel",
         "org.kde.KGlobalAccel", "doRegister",
         g_variant_new("(^as)", action_id), NULL, G_DBUS_CALL_FLAGS_NONE,
-        1500, request->root->dbus_cancellable,
+        timing.dbus_operation_timeout_ms, request->root->dbus_cancellable,
         on_grid_shortcut_action_registered, request);
 }
 
@@ -4271,6 +4300,8 @@ static int register_grid_shortcut(NocttyGridContext *context,
 }
 
 static void unregister_grid_shortcut(NocttyGridContext *context) {
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     context->shortcut_generation++;
     if (context->shortcut_bus == NULL) return;
     if (context->shortcut_subscription != 0) g_dbus_connection_signal_unsubscribe(context->shortcut_bus, context->shortcut_subscription);
@@ -4281,8 +4312,8 @@ static void unregister_grid_shortcut(NocttyGridContext *context) {
         context->shortcut_bus, "org.kde.kglobalaccel", "/kglobalaccel",
         "org.kde.KGlobalAccel", "unregister",
         g_variant_new("(ss)", component, action),
-        G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE, 1000,
-        NULL, &error);
+        G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_call_timeout_ms, NULL, &error);
     if (reply != NULL) noctty_grid_variant_unref(reply);
     noctty_grid_error_clear(&error);
     noctty_grid_object_unref(context->shortcut_bus);
@@ -5785,6 +5816,8 @@ static void on_grid_notification_bus_ready(GObject *source,
                                            gpointer user_data) {
     (void)source;
     NocttyNotificationRequest *request = user_data;
+    NocttyGridLifecycleTimingPlan timing = {0};
+    noctty_grid_lifecycle_timing_plan(&timing);
     GError *error = NULL;
     GDBusConnection *bus = g_bus_get_finish(result, &error);
     if (bus == NULL) {
@@ -5814,8 +5847,10 @@ static void on_grid_notification_bus_ready(GObject *source,
                                            "Terminal finished",
                       body,
                       g_variant_new_strv(NULL, 0),
-                      g_variant_builder_end(&hints), 5000),
-        G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE, 1500,
+                      g_variant_builder_end(&hints),
+                      timing.dbus_notification_timeout_ms),
+        G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE,
+        timing.dbus_operation_timeout_ms,
         request->root->dbus_cancellable, on_grid_notification_sent, request);
     noctty_grid_object_unref(bus);
 }
