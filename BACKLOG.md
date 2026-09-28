@@ -201,8 +201,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
   The current source run passes all 130 Zig grid-logic tests and both Debug and
-  ReleaseSafe native smoke builds. The counted Zig ownership inventory is
-  82.32%; the fixed 90.00% gate and isolated graphical proof remain open.
+  The counted Zig ownership inventory is 82.27%; the fixed 90.00% gate and
+  isolated graphical proof remain open.
   The current batches move compact-setting target mapping, font-rendering combo
   bounds, terminal context-menu action/selection geometry, theme display labels,
   profile-preset validity, windowed-dimension percentage/floor selection, and
