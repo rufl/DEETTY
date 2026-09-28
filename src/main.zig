@@ -44,6 +44,7 @@ comptime {
     _ = NativeGridLogic.noctty_grid_tray_menu_plan;
     _ = NativeGridLogic.noctty_grid_workspace_event_plan;
     _ = NativeGridLogic.noctty_grid_lifecycle_timing_plan;
+    _ = NativeGridLogic.noctty_grid_settings_event_code;
     _ = NativeGridLogic.noctty_grid_native_host_policy;
     _ = NativeGridLogic.noctty_grid_window_resize_cursor_name;
     _ = NativeGridLogic.noctty_grid_tray_menu_label;

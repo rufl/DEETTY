@@ -293,6 +293,10 @@ grep -F 'pub export fn noctty_grid_layout_preset_plan(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_layout_preset_plan(' "$grid" >/dev/null
 grep -F 'noctty_grid_sharing_revoke_detail(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_panel_settings_apply(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_settings_event_code(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_settings_event_code(' "$grid" >/dev/null
+grep -F 'int noctty_grid_settings_event_code(int kind);' "$grid_logic_header" >/dev/null
+grep -F 'NativeGridLogic.settings_event_code(.panel_padding)' "$native_gtk" >/dev/null
 grep -F 'noctty_grid_panel_settings_apply(' "$grid" >/dev/null
 grep -F 'NocttyGridPanelSettings;' "$grid_logic_header" >/dev/null
 grep -F 'pub export fn noctty_grid_launch_profile_payload(' "$grid_logic" >/dev/null

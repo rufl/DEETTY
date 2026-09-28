@@ -220,6 +220,9 @@ Native host geometry bounds, scrollbar/copy limits, UI color role ordinals,
 status event IDs, persistence result codes, and remaining GTK scheduling
 intervals are tested Zig policy. C retains native object access, GTK effects,
 GLib source registration, GVariant/D-Bus handling, and callback dispatch.
+Settings-control event IDs for appearance, scrolling, layout, and font rendering
+are selected by the tested Zig settings-event map; C retains GTK signal
+connection, widget state, and native effect dispatch.
 
 Resize-handle grid coordinates and size requests are selected by tested Zig
 policy for all eight grips; GTK retains widget creation, attachment, and

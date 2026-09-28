@@ -162,6 +162,97 @@ pub const FontRenderingPlan = extern struct {
 pub const font_rendering_target_antialias: c_int = 0;
 pub const font_rendering_target_hinting: c_int = 1;
 
+pub const SettingsEventKind = enum(c_int) {
+    dropdown_width,
+    dropdown_height,
+    animation,
+    hide_focus,
+    focus_pointer,
+    mode,
+    font_size,
+    pane_font_size,
+    notifications,
+    preset,
+    tabs,
+    status,
+    tab_position,
+    high_contrast,
+    font_family,
+    background_opacity,
+    antialias,
+    hinting,
+    shortcut,
+    pane_info,
+    scroll_lines,
+    smooth_scroll,
+    panel_padding,
+    pane_spacing,
+    pane_gaps_enabled,
+    pane_gaps_transparent,
+    inactive_pane_dim,
+    pane_divider,
+    pane_border,
+    focused_border,
+    selected_border,
+    status_border,
+    overlay_border,
+    window_border,
+    dragger,
+    scrollback,
+    background_translucency,
+    inactive_pane_brightness,
+};
+
+pub const settings_event_kind_count: c_int = 38;
+
+pub fn settings_event_code(kind: SettingsEventKind) c_int {
+    return switch (kind) {
+        .dropdown_width => 76,
+        .dropdown_height => 77,
+        .animation => 72,
+        .hide_focus => 73,
+        .focus_pointer => 74,
+        .mode => 40,
+        .font_size => 41,
+        .pane_font_size => 96,
+        .notifications => 42,
+        .preset => 43,
+        .tabs => 44,
+        .status => 45,
+        .tab_position => 63,
+        .high_contrast => 48,
+        .font_family => 49,
+        .background_opacity => 116,
+        .antialias => 110,
+        .hinting => 111,
+        .shortcut => 75,
+        .pane_info => 108,
+        .scroll_lines => 117,
+        .smooth_scroll => 118,
+        .panel_padding => 46,
+        .pane_spacing => 47,
+        .pane_gaps_enabled => 127,
+        .pane_gaps_transparent => 128,
+        .inactive_pane_dim => 129,
+        .pane_divider => 119,
+        .pane_border => 120,
+        .focused_border => 121,
+        .selected_border => 122,
+        .status_border => 123,
+        .overlay_border => 124,
+        .window_border => 125,
+        .dragger => 126,
+        .scrollback => 109,
+        .background_translucency => 115,
+        .inactive_pane_brightness => 130,
+    };
+}
+
+pub export fn noctty_grid_settings_event_code(kind: c_int) callconv(.c) c_int {
+    if (kind < 0 or kind >= settings_event_kind_count) return -1;
+    return settings_event_code(@enumFromInt(kind));
+}
+
 pub const TerminalMenuPlan = extern struct {
     action: c_int,
     selection_end_column: c_int,
@@ -8826,6 +8917,25 @@ test "tray menu plans preserve item kinds and actions" {
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
     try std.testing.expectEqual(@as(c_int, tray_menu_action_none), plan.action);
 }
+
+test "settings event policy preserves every native control code" {
+    const expected = [_]c_int{
+        76, 77, 72, 73, 74, 40, 41, 96, 42, 43,
+        44, 45, 63, 48, 49, 116, 110, 111, 75, 108,
+        117, 118, 46, 47, 127, 128, 129, 119, 120, 121,
+        122, 123, 124, 125, 126, 109, 115, 130,
+    };
+    for (expected, 0..) |code, index| {
+        try std.testing.expectEqual(
+            code, noctty_grid_settings_event_code(@intCast(index)));
+    }
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_settings_event_code(-1));
+    try std.testing.expectEqual(
+        @as(c_int, -1),
+        noctty_grid_settings_event_code(settings_event_kind_count),
+    );
+}
+
 
 test "lifecycle timing plans keep bounded native scheduling constants" {
     var timing: LifecycleTimingPlan = undefined;

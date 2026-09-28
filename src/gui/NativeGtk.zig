@@ -1,4 +1,5 @@
 const std = @import("std");
+const NativeGridLogic = @import("NativeGridLogic.zig");
 
 const GtkWidget = opaque {};
 const GtkWidgetClass = opaque {};
@@ -5241,8 +5242,12 @@ pub export fn noctty_settings_appearance_contents_new(
 
     const tabs = comboText(&.{ "Top", "Bottom", "Left", "Right" }, options.tab_position) orelse return FALSE;
     const status = comboText(&.{ "Background", "Border" }, 1) orelse return FALSE;
-    const padding = panelMetricSpin(46, 0, 64, options.panel_padding) orelse return FALSE;
-    const spacing = panelMetricSpin(47, 0, 64, options.pane_spacing) orelse return FALSE;
+    const padding = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.panel_padding),
+        0, 64, options.panel_padding) orelse return FALSE;
+    const spacing = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.pane_spacing),
+        0, 64, options.pane_spacing) orelse return FALSE;
     const pane_gaps_enabled = gtk_check_button_new_with_label(
         "Show pixel gaps between panes",
     ) orelse return FALSE;
@@ -5253,7 +5258,8 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(pane_gaps_enabled),
         "noctty-panel-metric-event",
-        @ptrFromInt(127),
+        @ptrFromInt(@as(usize, @intCast(
+            NativeGridLogic.settings_event_code(.pane_gaps_enabled)))),
     );
     const pane_gaps_transparent = gtk_check_button_new_with_label(
         "Keep pane gaps transparent",
@@ -5269,7 +5275,8 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(pane_gaps_transparent),
         "noctty-panel-metric-event",
-        @ptrFromInt(128),
+        @ptrFromInt(@as(usize, @intCast(
+            NativeGridLogic.settings_event_code(.pane_gaps_transparent)))),
     );
     const inactive_pane_dim_enabled = gtk_check_button_new_with_label(
         "Dim inactive panes",
@@ -5281,7 +5288,8 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(inactive_pane_dim_enabled),
         "noctty-panel-metric-event",
-        @ptrFromInt(129),
+        @ptrFromInt(@as(usize, @intCast(
+            NativeGridLogic.settings_event_code(.inactive_pane_dim)))),
     );
     const inactive_pane_brightness = gtk_scale_new_with_range(
         GTK_ORIENTATION_HORIZONTAL,
@@ -5312,14 +5320,30 @@ pub export fn noctty_settings_appearance_contents_new(
         "noctty-inactive-brightness",
         inactive_pane_brightness,
     );
-    const divider = panelMetricSpin(119, 1, 16, options.pane_divider) orelse return FALSE;
-    const pane_border = panelMetricSpin(120, 0, 12, options.pane_border) orelse return FALSE;
-    const focused_border = panelMetricSpin(121, 1, 12, options.focused_border) orelse return FALSE;
-    const selected_border = panelMetricSpin(122, 1, 12, options.selected_border) orelse return FALSE;
-    const status_border = panelMetricSpin(123, 1, 12, options.status_border) orelse return FALSE;
-    const overlay_border = panelMetricSpin(124, 1, 12, options.overlay_border) orelse return FALSE;
-    const window_border = panelMetricSpin(125, 1, 16, options.window_border) orelse return FALSE;
-    const dragger = panelMetricSpin(126, 1, 32, options.dragger) orelse return FALSE;
+    const divider = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.pane_divider),
+        1, 16, options.pane_divider) orelse return FALSE;
+    const pane_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.pane_border),
+        0, 12, options.pane_border) orelse return FALSE;
+    const focused_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.focused_border),
+        1, 12, options.focused_border) orelse return FALSE;
+    const selected_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.selected_border),
+        1, 12, options.selected_border) orelse return FALSE;
+    const status_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.status_border),
+        1, 12, options.status_border) orelse return FALSE;
+    const overlay_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.overlay_border),
+        1, 12, options.overlay_border) orelse return FALSE;
+    const window_border = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.window_border),
+        1, 16, options.window_border) orelse return FALSE;
+    const dragger = panelMetricSpin(
+        NativeGridLogic.settings_event_code(.dragger),
+        1, 32, options.dragger) orelse return FALSE;
     const pane_info = gtk_check_button_new_with_label("Show bottom pane and resource bar") orelse return FALSE;
     gtk_toggle_button_set_active(@ptrCast(pane_info), options.show_pane_info);
     const theme_scope_tab = gtk_check_button_new_with_label(

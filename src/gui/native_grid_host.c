@@ -10091,7 +10091,7 @@ static void on_settings_dropdown_width_changed(GtkSpinButton *spin, gpointer use
     sync_compact_setting(context, 14, 0);
     sync_compact_setting(context, 15, 0);
     apply_dropdown_dimensions(context);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 76, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_WIDTH), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer user_data) {
@@ -10101,7 +10101,7 @@ static void on_settings_dropdown_height_changed(GtkSpinButton *spin, gpointer us
     sync_compact_setting(context, 14, 0);
     sync_compact_setting(context, 15, 0);
     apply_dropdown_dimensions(context);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 77, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_HEIGHT), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_data) {
@@ -10112,21 +10112,21 @@ static void on_settings_animation_changed(GtkSpinButton *spin, gpointer user_dat
     if (root->revealer != NULL)
         noctty_grid_revealer_set_transition_duration(GTK_REVEALER(root->revealer),
                                              (guint)value);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 72, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_ANIMATION), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_hide_focus_toggled(GtkToggleButton *toggle, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_toggle_button_get_active(toggle);
     sync_compact_setting(context, 3, value);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 73, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_HIDE_FOCUS), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_focus_pointer_toggled(GtkToggleButton *toggle, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_toggle_button_get_active(toggle);
     sync_compact_setting(context, 4, value);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 74, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_FOCUS_POINTER), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_pane_info_toggled(GtkToggleButton *toggle,
@@ -10136,7 +10136,8 @@ static void on_settings_pane_info_toggled(GtkToggleButton *toggle,
     apply_pane_info_visibility(context, value);
     root_grid_context(context)->pane_info_setting_toggled = 1;
     if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, 108, value,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_PANE_INFO), value,
                        (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
@@ -10145,7 +10146,8 @@ static void on_settings_scrollback_changed(GtkSpinButton *spin,
     NocttyGridContext *context = user_data;
     int value = noctty_grid_spin_button_get_value_as_int(spin);
     if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, 109, value,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_SCROLLBACK), value,
                        (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
@@ -10157,7 +10159,8 @@ static void apply_terminal_scroll_setting(NocttyGridContext *context,
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (event_code == 117)
+        if (event_code == noctty_grid_settings_event_code(
+                NOCTTY_GRID_SETTINGS_EVENT_SCROLL_LINES))
             candidate->terminal_scroll_lines = resolved;
         else
             candidate->terminal_smooth_scroll = resolved != 0;
@@ -10171,13 +10174,17 @@ static void apply_terminal_scroll_setting(NocttyGridContext *context,
 static void on_settings_scroll_lines_changed(GtkSpinButton *spin,
                                              gpointer user_data) {
     apply_terminal_scroll_setting(
-        user_data, 117, noctty_grid_spin_button_get_value_as_int(spin));
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_SCROLL_LINES),
+        noctty_grid_spin_button_get_value_as_int(spin));
 }
 
 static void on_settings_smooth_scroll_toggled(GtkToggleButton *toggle,
                                               gpointer user_data) {
     apply_terminal_scroll_setting(
-        user_data, 118, noctty_grid_toggle_button_get_active(toggle));
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_SMOOTH_SCROLL),
+        noctty_grid_toggle_button_get_active(toggle));
 }
 
 static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
@@ -10196,7 +10203,8 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
             root->window_mode_recreate_source =
                 noctty_grid_source_idle_add(recreate_grid_toplevel_idle, root);
         if (context->event != NULL)
-            context->event(context->event_data, context->pane_id, 40, mode,
+            context->event(context->event_data, context->pane_id,
+                           noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_MODE), mode,
                            (uint64_t)(g_get_monotonic_time() / 1000));
         return;
     }
@@ -10222,7 +10230,7 @@ static void on_settings_mode_changed(GtkComboBox *combo, gpointer user_data) {
     default:
         return;
     }
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 40, mode, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_MODE), mode, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static gboolean apply_grid_font_size(NocttyGridContext *context,
@@ -10254,7 +10262,8 @@ static gboolean apply_grid_font_size(NocttyGridContext *context,
         }
     }
     if (notify && context->event != NULL)
-        context->event(context->event_data, context->pane_id, 41,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_FONT_SIZE),
                        noctty_grid_font_size_event_value(
                            next, root->font_min_size, root->font_max_size),
                        (uint64_t)(g_get_monotonic_time() / 1000));
@@ -10277,7 +10286,8 @@ static gboolean apply_pane_font_size(NocttyGridContext *context,
         noctty_grid_widget_queue_draw(context->area);
     }
     if (notify && context->event != NULL)
-        context->event(context->event_data, context->pane_id, 96,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_PANE_FONT_SIZE),
                        noctty_grid_font_size_event_value(
                            next, root->font_min_size, root->font_max_size),
                        (uint64_t)(g_get_monotonic_time() / 1000));
@@ -10344,14 +10354,15 @@ static void on_settings_font_changed(GtkSpinButton *spin, gpointer user_data) {
 static void on_settings_notifications_toggled(GtkToggleButton *toggle, gpointer user_data) {
     NocttyGridContext *context = user_data;
     context->enable_notifications = noctty_grid_toggle_button_get_active(toggle);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 42, context->enable_notifications, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_NOTIFICATIONS), context->enable_notifications, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void on_settings_preset_changed(GtkComboBox *combo, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int preset = noctty_grid_combo_box_get_active(combo);
     if (preset >= 0 && context->event != NULL) {
-        context->event(context->event_data, context->pane_id, 43, preset,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_PRESET), preset,
                        (uint64_t)(g_get_monotonic_time() / 1000));
         (void)sync_grid_context_profile(context);
     }
@@ -10377,7 +10388,8 @@ static void apply_grid_tab_position(NocttyGridContext *context, int value,
         candidate->tab_position = value;
     }
     if (notify && context->event != NULL) {
-        context->event(context->event_data, context->pane_id, 63, value,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_TAB_POSITION), value,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     }
 }
@@ -10385,14 +10397,14 @@ static void apply_grid_tab_position(NocttyGridContext *context, int value,
 static void on_settings_tabs_changed(GtkComboBox *combo, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_combo_box_get_active(combo);
-    if (value >= 0 && context->event != NULL) context->event(context->event_data, context->pane_id, 44, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (value >= 0 && context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_TABS), value, (uint64_t)(g_get_monotonic_time() / 1000));
     apply_grid_tab_position(context, value, TRUE);
 }
 
 static void on_settings_status_changed(GtkComboBox *combo, gpointer user_data) {
     NocttyGridContext *context = user_data;
     int value = noctty_grid_combo_box_get_active(combo);
-    if (value >= 0 && context->event != NULL) context->event(context->event_data, context->pane_id, 45, value, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (value >= 0 && context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_STATUS), value, (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
 static void apply_panel_metric_setting(NocttyGridContext *context,
@@ -10472,7 +10484,8 @@ static void on_settings_panel_toggle(GtkToggleButton *toggle,
         G_OBJECT(toggle), "noctty-panel-metric-event"));
     gboolean active = noctty_grid_toggle_button_get_active(toggle);
     apply_panel_metric_setting(user_data, event_code, active);
-    if (event_code == 127) {
+    if (event_code == noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_PANE_GAPS_ENABLED)) {
         GtkWidget *width = noctty_grid_object_get_data(
             G_OBJECT(toggle), "noctty-gap-width");
         GtkWidget *transparent = noctty_grid_object_get_data(
@@ -10480,7 +10493,8 @@ static void on_settings_panel_toggle(GtkToggleButton *toggle,
         if (width != NULL) noctty_grid_widget_set_sensitive(width, active);
         if (transparent != NULL)
             noctty_grid_widget_set_sensitive(transparent, active);
-    } else if (event_code == 129) {
+    } else if (event_code == noctty_grid_settings_event_code(
+                   NOCTTY_GRID_SETTINGS_EVENT_INACTIVE_PANE_DIM)) {
         GtkWidget *brightness = noctty_grid_object_get_data(
             G_OBJECT(toggle), "noctty-inactive-brightness");
         if (brightness != NULL)
@@ -10491,7 +10505,9 @@ static void on_settings_panel_toggle(GtkToggleButton *toggle,
 static void on_settings_inactive_brightness_changed(GtkRange *range,
                                                      gpointer user_data) {
     apply_panel_metric_setting(
-        user_data, 130, (int)noctty_grid_range_get_value(range));
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_INACTIVE_PANE_BRIGHTNESS),
+        (int)noctty_grid_range_get_value(range));
 }
 
 static void populate_theme_combo(NocttyGridContext *context,
@@ -10692,13 +10708,19 @@ static void on_background_translucency_toggled(
     if (opacity != NULL)
         noctty_grid_widget_set_sensitive(
             opacity, enabled && context->background_alpha_supported);
-    apply_background_setting(context, 115, enabled);
+    apply_background_setting(
+        context,
+        noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_BACKGROUND_TRANSLUCENCY),
+        enabled);
 }
 
 static void on_background_opacity_changed(GtkRange *range,
                                           gpointer user_data) {
     apply_background_setting(
-        user_data, 116, noctty_grid_background_opacity_value(
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_BACKGROUND_OPACITY),
+        noctty_grid_background_opacity_value(
             (int)round(noctty_grid_range_get_value(range))));
 }
 
@@ -10724,7 +10746,8 @@ static void on_settings_family_changed(GtkComboBox *combo, gpointer user_data) {
     }
     noctty_grid_memory_free(family);
     if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, 49, value,
+        context->event(context->event_data, context->pane_id,
+                       noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_FONT_FAMILY), value,
                        (uint64_t)(g_get_monotonic_time() / 1000));
 }
 
@@ -10753,13 +10776,17 @@ static void apply_font_rendering_setting(NocttyGridContext *context,
 static void on_settings_antialias_changed(GtkComboBox *combo,
                                           gpointer user_data) {
     int value = noctty_grid_combo_box_get_active(combo);
-    if (value >= 0) apply_font_rendering_setting(user_data, 110, value);
+    if (value >= 0) apply_font_rendering_setting(
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_ANTIALIAS), value);
 }
 
 static void on_settings_hinting_changed(GtkComboBox *combo,
                                         gpointer user_data) {
     int value = noctty_grid_combo_box_get_active(combo);
-    if (value >= 0) apply_font_rendering_setting(user_data, 111, value);
+    if (value >= 0) apply_font_rendering_setting(
+        user_data, noctty_grid_settings_event_code(
+            NOCTTY_GRID_SETTINGS_EVENT_HINTING), value);
 }
 
 static void on_settings_shortcut_clicked(GtkButton *button, gpointer user_data) {
