@@ -5079,15 +5079,30 @@ static void update_compact_tab(NocttyGridContext *context) {
     noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     noctty_grid_widget_set_size_request(
         context->tab_label, -1, tab_metrics.label_height);
-    const gchar *cached_tooltip = noctty_grid_object_get_data(
+    const char *cached_tooltip = noctty_grid_object_get_data(
         context->tab_label, "noctty-tab-tooltip-cache");
     if (g_strcmp0(cached_tooltip, tooltip) != 0) {
         noctty_grid_widget_set_tooltip_text(context->tab_label, tooltip);
-        if (noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_EVENT_BOX))
+        if (noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_EVENT_BOX)) {
             noctty_grid_widget_set_tooltip_text(tab_widget, tooltip);
+            AtkObject *accessible = noctty_grid_widget_get_accessible(tab_widget);
+            if (accessible != NULL)
+                noctty_grid_atk_object_set_description(accessible, tooltip);
+        }
         noctty_grid_object_set_data_full(
             context->tab_label, "noctty-tab-tooltip-cache",
             g_strdup(tooltip), g_free);
+    }
+    if (noctty_grid_widget_is_type(tab_widget, NOCTTY_GTK_EVENT_BOX)) {
+        const char *cached_name = noctty_grid_object_get_data(
+            tab_widget, "noctty-tab-accessible-name-cache");
+        if (g_strcmp0(cached_name, title) != 0) {
+            set_widget_accessible_name(
+                tab_widget, title != NULL ? title : "NOCTTY tab");
+            noctty_grid_object_set_data_full(
+                tab_widget, "noctty-tab-accessible-name-cache",
+                g_strdup(title != NULL ? title : "NOCTTY tab"), g_free);
+        }
     }
     GtkWidget *close_button = tab_close_button_from_widget(tab_widget);
     if (noctty_grid_widget_is_type(close_button, NOCTTY_GTK_BUTTON)) {
@@ -5583,6 +5598,16 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
     if (noctty_grid_widget_is_type(close_icon, NOCTTY_GTK_IMAGE))
         noctty_grid_image_get_icon_name(GTK_IMAGE(close_icon),
                                         &close_icon_name, &close_icon_size);
+    AtkObject *tab_accessible = tab_widget != NULL
+        ? noctty_grid_widget_get_accessible(tab_widget) : NULL;
+    const gchar *tab_accessible_name = tab_accessible != NULL
+        ? noctty_grid_atk_object_get_name(tab_accessible) : NULL;
+    const gchar *tab_accessible_description = tab_accessible != NULL
+        ? noctty_grid_atk_object_get_description(tab_accessible) : NULL;
+    gboolean tab_accessible_named =
+        tab_accessible_name != NULL && tab_accessible_name[0] != '\0' &&
+        tab_accessible_description != NULL &&
+        tab_accessible_description[0] != '\0';
     GtkAllocation notebook_allocation = {0};
     GtkAllocation page_allocation = {0};
     GtkAllocation tab_allocation = {0};
@@ -5635,6 +5660,7 @@ static gboolean inspect_compact_tab_geometry_smoke(gpointer user_data) {
     NocttyGridCompactTabMetrics tab_metrics = {0};
     noctty_grid_compact_tab_metrics(root->compact_tab_height, &tab_metrics);
     root->compact_tab_geometry = page_count == 2 && horizontal &&
+        tab_accessible_named &&
         close != NULL && noctty_grid_widget_get_visible(close) &&
         noctty_grid_widget_get_mapped(close) &&
         root->compact_tab_strip_extent > 0 &&

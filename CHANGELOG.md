@@ -3,6 +3,14 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Polished the compact native tab and Settings surfaces: tab event targets now
+  expose the full title plus current-state assistive description, action
+  controls retain keyboard focusability, Settings category rows retain pointer
+  focus, and the tab/sidebar states distinguish hover, active, disabled,
+  selected, and keyboard focus.
+- Extended the compact UX smoke to require the rendered tab's assistive name
+  and description alongside its existing geometry, icon, tooltip, and close
+  checks.
 - Moved D-Bus `RequestName` ownership-result classification and shortcut
   conflict/failure event identities into tested Zig policy; C retains protocol
   calls, callback dispatch, and native effects.

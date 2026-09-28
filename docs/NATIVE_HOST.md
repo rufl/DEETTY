@@ -1,6 +1,6 @@
 # Native Plasma and Noctalia Host
 
-Last verified: 2026-09-03.
+Last verified: 2026-09-27.
 
 ## Outcome
 
@@ -34,6 +34,7 @@ palette rather than a fixed terminal palette. The
 Settings pages scroll vertically only; compact labels, category rail, and padding keep controls within narrow work areas.
 Terminal tab close buttons retain compact geometry while their tooltip and ATK
 name identify the complete target title.
+The tab event target carries the full tab title as its assistive name and the current tab summary as its assistive description. Compact action buttons retain keyboard focusability even when pointer activation leaves terminal focus in place; Settings category rows retain focus on pointer activation and expose theme-aware hover, pressed, selected, and keyboard-focus states.
 
 The maintained workspace smoke also exercises the live tag/filter bridge: it tags the selected pane, populates the native editable suggestion model from Zig-owned tags, verifies the active tag is named in the empty filter state, activates both the `Clear filter` button and the zero-match `Escape` recovery path, verifies a matching pane remains eligible while an untagged pane is excluded, checks the compact tab indicator and filtered focus handoff, clears the filter, and checks the resulting Zig-owned state after GTK teardown.
 
@@ -79,7 +80,7 @@ Window hide and final shutdown use the same ordered popup boundary: the tracked 
 
 ## Compact Power Controls
 
-The host keeps the terminal dominant: one compact row carries a leading New Tab action, short tab titles, and two app-level actions at the far edge: Settings then Close. Its symbolic controls keep 28-logical-pixel width and 18-logical-pixel height targets without adding another toolbar. Optional tab accents color only the compact tab content and derive light or dark label/close contrast from the resolved RGB; the tooltip names the preset and shade. Pane state still rolls up into one independent colored dot.
+The host keeps the terminal dominant: one compact row carries a leading New Tab action, short tab titles, and two app-level actions at the far edge: Settings then Close. Its symbolic controls keep 28-logical-pixel width and 18-logical-pixel height targets without adding another toolbar. Optional tab accents color only the compact tab content and derive light or dark label/close contrast from the resolved RGB; the tooltip names the preset and shade. Pane state still rolls up into one independent colored dot. The compact tab event target exposes the full title and a current-state assistive description, while the native action states distinguish hover, active, disabled, and keyboard focus.
 
 `Ctrl+Shift+P` opens a borderless fuzzy action palette. `Rename active tab` invokes the same validated inline tab-label editor as the tab surface and uses `Ctrl+Shift+R` as a direct shortcut. `Lighten active tab color` and `Darken active tab color` use `Ctrl+Alt+=` and `Ctrl+Alt+-`. `Ctrl+Shift+F` searches the active Zig grid plus scrollback and highlights/navigates matches. Smart Tab filter labels use stack formatting on refresh (`smart_filter_label_stack=true`). `Ctrl+Shift+N` opens an autosaving workspace quick note; holding Alt paints that note in a compact tooltip on every mapped pane until release, using an explicit 4 KiB bounded preview read (`note_overlay_preview_bounded=true`), reusing one cached formatted overlay label for that preview lifetime (`note_overlay_cached=true`), and reusing one root-owned Pango font description for overlay paints (`note_overlay_font_cached=true`). `Ctrl+Shift+Z` zooms/restores a live pane, `Ctrl+Tab` and Alt+wheel cycle visible panes, `Ctrl+Shift+Tab` and Ctrl+Alt+wheel cycle tabs and Smart Tab-filtered views, `Alt+Arrow` selects the nearest pane using actual GTK geometry while preserving the held-note preview, `Ctrl+wheel up/down` scales only the pointed pane's terminal font, plain `Ctrl+C` interrupts only the active pane, plain `Ctrl+D` closes it, and `Ctrl+Shift+K` shows the shortcut card. Scrollback can be atomically saved as UTF-8 from the palette or context menu. GTK IM composition routes committed text through the PTY write callback.
 

@@ -743,13 +743,17 @@ const compact_tab_css =
     "notebook.noctty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0; border-width: 0; border-radius: 7px 7px 0 0; box-shadow: none; min-width: 0; min-height: 0; font-size: 0.9em; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
     "notebook.noctty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
+    "notebook.noctty-tab-notebook > header > tabs > tab:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     "list.sidebar > row.noctty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
+    "list.sidebar > row.noctty-settings-category:hover { background: alpha(@theme_fg_color, 0.08); }" ++
     "list.sidebar > row.noctty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; }" ++
     "list.sidebar > row.noctty-settings-category:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     ".noctty-tab-content, .noctty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
     "button.noctty-tab-close, button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; border-radius: 7px; box-shadow: none; min-width: 28px; min-height: 24px; color: alpha(@theme_fg_color, 0.72); background: transparent; }" ++
     "button.noctty-tab-close:hover, button.noctty-tab-action:hover { color: @theme_fg_color; background: alpha(@theme_fg_color, 0.10); }" ++
     "button.noctty-tab-close:active, button.noctty-tab-action:active { background: alpha(@theme_selected_bg_color, 0.24); }" ++
+    "list.sidebar > row.noctty-settings-category:active { background: alpha(@theme_selected_bg_color, 0.28); }" ++
+    "button.noctty-tab-close:disabled, button.noctty-tab-action:disabled { color: alpha(@theme_fg_color, 0.34); background: transparent; }" ++
     "button.noctty-tab-close:focus, button.noctty-tab-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     "entry.noctty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
     ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }";
@@ -920,6 +924,7 @@ fn setFallbackTooltip(button: *GtkWidget) void {
 pub export fn noctty_configure_action_button(button: ?*GtkWidget, tooltip: ?[*:0]const u8) void {
     const widget = button orelse return;
     if (!isA(widget, gtk_button_get_type)) return;
+    gtk_widget_set_can_focus(widget, TRUE);
     if (tooltip) |text| {
         if (text[0] != 0) gtk_widget_set_tooltip_text(widget, text) else setFallbackTooltip(widget);
     } else setFallbackTooltip(widget);
@@ -1573,6 +1578,7 @@ pub export fn noctty_settings_category_row_new(
     const row = gtk_list_box_row_new() orelse return null;
     gtk_widget_set_name(row, "noctty-settings-category");
     gtk_widget_set_can_focus(row, TRUE);
+    gtk_widget_set_focus_on_click(row, TRUE);
     gtk_widget_set_size_request(row, -1, 52);
     var tooltip_buffer: [96]u8 = undefined;
     const tooltip = std.fmt.bufPrintZ(
@@ -4976,6 +4982,7 @@ pub export fn noctty_settings_shell_new(
     const behavior = behavior_page orelse return FALSE;
     const appearance = appearance_page orelse return FALSE;
     const layout = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0) orelse return FALSE;
+    gtk_style_context_add_class(gtk_widget_get_style_context(layout), "noctty-settings-shell");
     gtk_widget_set_hexpand(layout, TRUE);
     gtk_widget_set_vexpand(layout, TRUE);
 
@@ -4991,6 +4998,10 @@ pub export fn noctty_settings_shell_new(
     gtk_style_context_add_class(
         gtk_widget_get_style_context(categories),
         "sidebar",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(categories),
+        "noctty-settings-sidebar",
     );
     gtk_container_set_border_width(@ptrCast(categories), 4);
     const category_rows = [_][3][*:0]const u8{
