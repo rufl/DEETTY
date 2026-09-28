@@ -32,6 +32,8 @@
 #include "../../include/noctty/native_grid_abi.h"
 #include "../../include/noctty/native_grid_logic.h"
 #include "../../include/noctty/native_grid_render.h"
+#define NOCTTY_GRID_HOST_EVENT(kind) \
+    noctty_grid_host_event_code(NOCTTY_GRID_HOST_EVENT_##kind)
 
 #ifndef NOCTTY_ENABLE_SMOKE
 #define NOCTTY_ENABLE_SMOKE 0
@@ -1957,7 +1959,7 @@ static void focus_notebook_page(NocttyGridContext *context, GtkWidget *page) {
     NocttyGridContext *target = grid_context_for_page(root, page);
     if (target == NULL) return;
     if (target->event != NULL)
-        target->event(target->event_data, target->pane_id, 57, 0,
+        target->event(target->event_data, target->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_FOCUS), 0,
                       (uint64_t)(g_get_monotonic_time() / 1000));
     if (target->area != NULL) {
         noctty_grid_focus_widget(root->window, target->area);
@@ -2145,7 +2147,7 @@ static gboolean move_grid_context(NocttyGridContext *source,
 
 static gboolean emit_workspace_smoke_tab(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    emit_grid_workspace_event(context, 20);
+    emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
     return G_SOURCE_REMOVE;
 }
 
@@ -2161,7 +2163,7 @@ static gboolean check_title_fallback_smoke(gpointer user_data) {
     const gchar *label = context->tab_label != NULL
         ? noctty_grid_label_get_text(GTK_LABEL(context->tab_label)) : "";
     if (g_strcmp0(title, ".") == 0 || g_strcmp0(title, "tmp") == 0 || g_strcmp0(title, "Tab 1") == 0)
-        if (root->event != NULL) root->event(root->event_data, root->pane_id, 82, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        if (root->event != NULL) root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TITLE_FALLBACK), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     (void)label;
     noctty_grid_memory_free(title);
     return G_SOURCE_REMOVE;
@@ -2182,9 +2184,9 @@ static gboolean check_title_overflow_smoke(gpointer user_data) {
     gchar *tooltip = context->tab_label != NULL
         ? noctty_grid_widget_get_tooltip_text(context->tab_label) : NULL;
     if (strstr(label, "…") != NULL && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 83, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TITLE_OVERFLOW_LABEL), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     if (tooltip != NULL && strstr(tooltip, title_overflow_smoke_text) != NULL && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 84, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TITLE_OVERFLOW_TOOLTIP), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_memory_free(tooltip);
     return G_SOURCE_REMOVE;
 }
@@ -2199,7 +2201,7 @@ static gboolean check_title_rename_smoke(gpointer user_data) {
         const gchar *label = context->tab_label != NULL
             ? noctty_grid_label_get_text(GTK_LABEL(context->tab_label)) : "";
         if (strstr(label, renamed) != NULL && root->event != NULL)
-            root->event(root->event_data, root->pane_id, 85, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+            root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TITLE_RENAMED), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     }
     return G_SOURCE_REMOVE;
 }
@@ -2242,7 +2244,7 @@ static gboolean check_dirty_smoke(gpointer user_data) {
     if (strstr(label, dirty_smoke_title) != NULL && strstr(label, "◆") != NULL &&
         tooltip != NULL && strstr(tooltip, "unsaved workspace") != NULL &&
         root->event != NULL)
-        root->event(root->event_data, root->pane_id, 88, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(DIRTY_MARKED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_memory_free(tooltip);
     return G_SOURCE_REMOVE;
@@ -2254,7 +2256,7 @@ static gboolean check_attention_smoke(gpointer user_data) {
     if (context->status_kind == 4 &&
         noctty_grid_notification_serial(context->userdata) > 0 &&
         root->event != NULL)
-        root->event(root->event_data, root->pane_id, 89, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(NOTIFICATION_ATTENTION), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2269,7 +2271,7 @@ static gboolean save_dirty_smoke(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
     NocttyGridContext *root = root_grid_context(context);
     if (root->event != NULL)
-        root->event(root->event_data, root->pane_id, 86, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(DIRTY_SAVED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     update_compact_tab(context);
     return G_SOURCE_REMOVE;
@@ -2285,7 +2287,7 @@ static gboolean check_dirty_clear_smoke(gpointer user_data) {
     if (strstr(label, dirty_smoke_title) != NULL && strstr(label, "◆") == NULL &&
         tooltip != NULL && strstr(tooltip, "unsaved workspace") == NULL &&
         root->event != NULL)
-        root->event(root->event_data, root->pane_id, 90, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(DIRTY_CLEARED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_memory_free(tooltip);
     return G_SOURCE_REMOVE;
@@ -2368,7 +2370,7 @@ static gboolean check_reorder_smoke(gpointer user_data) {
                    page_two == first->page,
                    active == third->page);
     if (valid && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 91, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_REORDERED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2376,7 +2378,7 @@ static gboolean check_reorder_smoke(gpointer user_data) {
 static gboolean persist_reorder_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     if (root->event != NULL)
-        root->event(root->event_data, root->pane_id, 92, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_REORDER_PERSISTED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2400,7 +2402,7 @@ static gboolean palette_rename_smoke(gpointer user_data) {
         g_strcmp0(validation_text, "Enter a tab name.") == 0;
     noctty_grid_memory_free(validation_text);
     if (validation && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 93, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(RENAME_VALIDATION), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_entry_set_text(GTK_ENTRY(root->tab_rename_entry), "Palette renamed tab");
     g_signal_emit_by_name(root->tab_rename_entry, "activate");
@@ -2408,7 +2410,7 @@ static gboolean palette_rename_smoke(gpointer user_data) {
         ? noctty_grid_label_get_text(GTK_LABEL(root->tab_label)) : "";
     if (root->tab_rename_entry == NULL && strstr(label, "Palette renamed tab") != NULL &&
         root->tab_rename_applied && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 94, 1,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(RENAME_APPLIED), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
 
     activate_palette_rename_smoke(root);
@@ -2422,7 +2424,7 @@ static gboolean palette_rename_smoke(gpointer user_data) {
             ? noctty_grid_label_get_text(GTK_LABEL(root->tab_label)) : "";
         if (root->tab_rename_entry == NULL && strstr(label, "Palette renamed tab") != NULL &&
             noctty_grid_widget_has_focus(root->area) && root->event != NULL)
-            root->event(root->event_data, root->pane_id, 95, 1,
+            root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(RENAME_CANCELLED), 1,
                         (uint64_t)(g_get_monotonic_time() / 1000));
     }
     return G_SOURCE_REMOVE;
@@ -2436,7 +2438,7 @@ static gboolean emit_tab_cycle_next_smoke(gpointer user_data) {
     event.keyval = GDK_KEY_Page_Down;
     event.state = GDK_CONTROL_MASK;
     if (on_key_press(context->area, &event, context) && root->tab_cycle_next && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 78, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_CYCLE), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
@@ -2460,7 +2462,7 @@ static gboolean emit_pane_cycle_shortcut_smoke(gpointer user_data) {
     if (handled && root->pane_cycle_next && focused != NULL &&
         focused->page == page && focused->pane_id != starting_pane &&
         root->event != NULL)
-        root->event(root->event_data, focused->pane_id, 97, 1,
+        root->event(root->event_data, focused->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_CYCLE_SHORTCUT), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2587,7 +2589,7 @@ static gboolean emit_ctrl_alt_scroll_previous_smoke(gpointer user_data) {
         root->ctrl_alt_scroll_wraparound &&
         root->tab_cycle_feedback_drawn && root->event != NULL &&
         focused != NULL)
-        root->event(root->event_data, focused->pane_id, 101, 1,
+        root->event(root->event_data, focused->pane_id, NOCTTY_GRID_HOST_EVENT(CTRL_ALT_SCROLL), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2644,7 +2646,7 @@ static gboolean emit_alt_scroll_filtered_smoke(gpointer user_data) {
         root->alt_scroll_current_tab && root->alt_scroll_hidden_skipped &&
         root->pane_cycle_feedback_drawn && root->event != NULL &&
         focused != NULL)
-        root->event(root->event_data, focused->pane_id, 100, 1,
+        root->event(root->event_data, focused->pane_id, NOCTTY_GRID_HOST_EVENT(ALT_SCROLL_NEXT), 1,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
@@ -2669,7 +2671,7 @@ static gboolean emit_smart_tab_cycle_shortcut_smoke(gpointer user_data) {
     if (handled && before != after && smart_filter_visible) {
         root->tab_cycle_smart_filter = 1;
         if (root->event != NULL && target != NULL)
-            root->event(root->event_data, target->pane_id, 98, 1,
+            root->event(root->event_data, target->pane_id, NOCTTY_GRID_HOST_EVENT(ALT_SCROLL_PREVIOUS), 1,
                         (uint64_t)(g_get_monotonic_time() / 1000));
     }
     return G_SOURCE_REMOVE;
@@ -2688,7 +2690,7 @@ static gboolean emit_tab_cycle_previous_smoke(gpointer user_data) {
     event.keyval = GDK_KEY_Page_Up;
     event.state = GDK_CONTROL_MASK;
     if (on_key_press(context->area, &event, context) && root->tab_cycle_previous && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 78, -1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_CYCLE), -1, (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
@@ -2700,7 +2702,7 @@ static gboolean emit_tab_close_shortcut_smoke(gpointer user_data) {
     event.keyval = GDK_KEY_w;
     event.state = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
     if (on_key_press(context->area, &event, context) && root->tab_shortcut_close && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 79, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_CLOSE), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
@@ -2712,7 +2714,7 @@ static gboolean emit_tab_reopen_shortcut_smoke(gpointer user_data) {
     event.keyval = GDK_KEY_t;
     event.state = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
     if (on_key_press(context->area, &event, context) && root->tab_shortcut_reopen && root->event != NULL)
-        root->event(root->event_data, root->pane_id, 80, 1, (uint64_t)(g_get_monotonic_time() / 1000));
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(TAB_REOPEN), 1, (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
@@ -2720,7 +2722,7 @@ static gboolean finish_tab_navigation_smoke(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *focused = focused_grid_context(root);
     if (focused->event != NULL)
-        focused->event(focused->event_data, focused->pane_id, 81,
+        focused->event(focused->event_data, focused->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_CYCLE),
                        grid_context_owns_window_focus(focused) ? 1 : 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
@@ -2838,13 +2840,13 @@ static NocttyGridContext *focused_grid_context(NocttyGridContext *fallback) {
 
 static gboolean emit_workspace_smoke_split(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    emit_grid_workspace_event(focused_grid_context(context), 21);
+    emit_grid_workspace_event(focused_grid_context(context), NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT));
     return G_SOURCE_REMOVE;
 }
 
 static gboolean emit_workspace_smoke_split_left(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    emit_grid_workspace_event(focused_grid_context(context), 22);
+    emit_grid_workspace_event(focused_grid_context(context), NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT));
     return G_SOURCE_REMOVE;
 }
 
@@ -2868,7 +2870,9 @@ static gboolean emit_workspace_smoke_balanced_split(gpointer user_data) {
     GtkAllocation allocation;
     noctty_grid_widget_get_allocation(largest->area, &allocation);
     emit_grid_workspace_event(largest,
-                              allocation.width >= allocation.height ? 22 : 21);
+                              allocation.width >= allocation.height
+                                  ? NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT)
+                                  : NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT));
     return G_SOURCE_REMOVE;
 }
 
@@ -2952,7 +2956,7 @@ static gboolean emit_workspace_smoke_broadcast(gpointer user_data) {
 
 static gboolean emit_workspace_smoke_select(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
-    if (root->event != NULL) root->event(root->event_data, root->pane_id, 33, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (root->event != NULL) root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(BROADCAST_SELECTION), 0, (uint64_t)(g_get_monotonic_time() / 1000));
     NocttyGridContext *selected = grid_context_for_pane(root, 3);
     if (selected != NULL) update_compact_tab(selected);
     gchar *tooltip = selected != NULL && selected->tab_label != NULL
@@ -2968,14 +2972,14 @@ static gboolean emit_workspace_smoke_select(gpointer user_data) {
                   "Disable Broadcast Input") == 0;
     on_broadcast_menu_activate(NULL, root);
     if (root->event != NULL)
-        root->event(root->event_data, root->pane_id, 23, 0,
+        root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(WORKSPACE_BROADCAST), 0,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
 static gboolean emit_workspace_smoke_focus(gpointer user_data) {
     NocttyGridContext *context = user_data;
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 24, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(WORKSPACE_FOCUS), 0, (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
 }
 
@@ -3038,7 +3042,7 @@ static gboolean emit_workspace_smoke_tag_filter(gpointer user_data) {
 static gboolean emit_workspace_smoke_move(gpointer user_data) {
     NocttyGridContext *context = user_data;
     NocttyGridContext *source = grid_context_for_pane(context, 3);
-    if (source != NULL) emit_grid_workspace_event(source, 56);
+    if (source != NULL) emit_grid_workspace_event(source, NOCTTY_GRID_HOST_EVENT(WORKSPACE_MOVE));
     return G_SOURCE_REMOVE;
 }
 
@@ -3108,7 +3112,7 @@ static gboolean finish_workspace_smoke(gpointer user_data) {
 
 static gboolean emit_workspace_smoke_move_last_pane(gpointer user_data) {
     NocttyGridContext *context = focused_grid_context(user_data);
-    emit_grid_workspace_event(context, 56);
+    emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_MOVE));
     return G_SOURCE_REMOVE;
 }
 
@@ -4040,14 +4044,15 @@ static void finish_grid_shortcut_request(NocttyShortcutRequest *request,
                     "/tmp/noctty-native-grid-shortcut-recorder-captured",
                     "captured\n", -1, NULL);
             if (root->event != NULL)
-                root->event(root->event_data, root->pane_id, 75,
+                root->event(root->event_data, root->pane_id,
+                            noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_SHORTCUT),
                             request->requested_key,
                             (uint64_t)(g_get_monotonic_time() / 1000));
             if (root->shortcut_recorder_dialog != NULL)
                 noctty_grid_widget_destroy(root->shortcut_recorder_dialog);
         } else if (request->purpose == 0) {
             if (root->event != NULL)
-                root->event(root->event_data, root->pane_id, 11, 0,
+                root->event(root->event_data, root->pane_id, NOCTTY_GRID_HOST_EVENT(SHORTCUT_CANCELLED), 0,
                             (uint64_t)(g_get_monotonic_time() / 1000));
             if (root->workspace_smoke == 9)
                 noctty_grid_source_idle_add(mark_shortcut_smoke_ready, root);
@@ -4344,7 +4349,8 @@ static gboolean on_grid_shortcut_capture(GtkWidget *widget, GdkEventKey *event,
     root->requested_shortcut_key = key;
     root->shortcut_recorded = 1;
     if (root->event != NULL)
-        root->event(root->event_data, root->pane_id, 75, key,
+        root->event(root->event_data, root->pane_id,
+                    noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_SHORTCUT), key,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_widget_destroy(root->shortcut_recorder_dialog);
     return TRUE;
@@ -5373,7 +5379,7 @@ static void on_new_tab_button_clicked(GtkButton *button, gpointer user_data) {
     NocttyGridContext *target = active_grid_context(user_data);
     if (target != NULL && target->active && !target->exited &&
         target->area != NULL)
-        emit_grid_workspace_event(target, 20);
+        emit_grid_workspace_event(target, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
 }
 
 static void on_notebook_page_reordered(GtkNotebook *notebook, GtkWidget *page,
@@ -6164,11 +6170,11 @@ static int pump_grid_context(NocttyGridContext *context,
         exit_code = context->poll_exit(context->userdata);
     }
     if (exit_code >= 0) {
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 3, exit_code, (uint64_t)(g_get_monotonic_time() / 1000));
+        if (context->event != NULL) context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(SESSION_EXITED), exit_code, (uint64_t)(g_get_monotonic_time() / 1000));
         context->exited = 1;
         context->attention = 0;
         if (context->workspace_smoke == 24 && context->event != NULL)
-            context->event(context->event_data, context->pane_id, 87, 1,
+            context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(SESSION_EXIT_SMOKE), 1,
                            (uint64_t)(g_get_monotonic_time() / 1000));
         context->exit_code = exit_code;
         context->status_kind = exit_code == 0 ? 2 : 3;
@@ -6513,7 +6519,7 @@ static gboolean on_grid_maintenance(gpointer user_data) {
         }
         if (active == NULL) active = candidate;
         if (candidate->event != NULL)
-            candidate->event(candidate->event_data, candidate->pane_id, 4, 0,
+            candidate->event(candidate->event_data, candidate->pane_id, NOCTTY_GRID_HOST_EVENT(OUTPUT_ACTIVITY), 0,
                              now_ms);
     }
     /* History slabs use libc; trim only after a bounded completion wave. */
@@ -6521,7 +6527,7 @@ static gboolean on_grid_maintenance(gpointer user_data) {
     if (active != NULL && root->event != NULL) {
         gboolean project_visible = root->project_dialog != NULL &&
             noctty_grid_widget_get_mapped(root->project_dialog);
-        root->event(root->event_data, active->pane_id, 19,
+        root->event(root->event_data, active->pane_id, NOCTTY_GRID_HOST_EVENT(PROJECT_VISIBILITY),
                     project_visible || root->workspace_smoke == 34,
                     now_ms);
     }
@@ -6537,7 +6543,7 @@ static void start_grid_context(NocttyGridContext *context) {
     context->active = 1;
     context->last_output_us = g_get_monotonic_time();
     context->idle_history_compacted = 0;
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 1, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(SESSION_STARTED), 0, (uint64_t)(g_get_monotonic_time() / 1000));
     context->pty_fd = noctty_grid_pty_fd(context->userdata);
     if (context->pty_fd >= 0) {
         (void)register_grid_pty(context);
@@ -6698,7 +6704,7 @@ static NocttyGridContext *restore_grid_context(
     if (source->create_session == NULL || pane_id == 0) return NULL;
     uint64_t restored_pane_id = 0;
     void *userdata = source->create_session(
-        source->event_data, pane_id, 99,
+        source->event_data, pane_id, NOCTTY_GRID_HOST_EVENT(RESTORED_PANE),
         MAX(columns, 2), MAX(rows, 2), &restored_pane_id);
     if (userdata == NULL || restored_pane_id != pane_id) return NULL;
     return create_grid_context_for_session(source, userdata, pane_id);
@@ -6801,7 +6807,8 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         noctty_grid_paned_get_child1(GTK_PANED(parent)) == source->area;
     if (!parent_is_paned && !noctty_grid_widget_is_type(parent, NOCTTY_GTK_BOX)) return FALSE;
 
-    GtkOrientation orientation = event_code == 21 || event_code == 28
+    GtkOrientation orientation = event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT) ||
+        event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_RESTORE)
         ? GTK_ORIENTATION_VERTICAL
         : GTK_ORIENTATION_HORIZONTAL;
     GtkWidget *split = noctty_paned_new((int)orientation, root->pane_divider_px);
@@ -6814,7 +6821,8 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         noctty_box_pack_start(parent, split, TRUE, TRUE, 0);
     }
 
-    if (event_code == 22 || event_code == 28) {
+    if (event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT) ||
+        event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_RESTORE)) {
         noctty_paned_pack1(split, created->area, TRUE, FALSE);
         noctty_paned_pack2(split, source->area, TRUE, FALSE);
     } else {
@@ -6829,9 +6837,13 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         : source_allocation.width / 2;
     if (midpoint > 0) noctty_paned_set_position(split, midpoint);
     if (source->event != NULL) {
-        int rendered_event = event_code == 21 ? 58
-            : event_code == 22 ? 59
-            : event_code == 27 ? 68 : 69;
+        int rendered_event = event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT)
+            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_VERTICAL)
+            : event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT)
+            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_HORIZONTAL)
+            : event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_CLOSE)
+            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_CLOSE)
+            : NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_RESTORE);
         source->event(source->event_data, created->pane_id,
                       rendered_event, 0,
                       (uint64_t)(g_get_monotonic_time() / 1000));
@@ -7184,7 +7196,7 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
             } else {
                 uint64_t restored_pane_id = 0;
                 void *userdata = root->create_session(
-                    root->event_data, pane_id, 99,
+                    root->event_data, pane_id, NOCTTY_GRID_HOST_EVENT(RESTORED_PANE),
                     MAX(root->columns, 2), MAX(root->rows, 2),
                     &restored_pane_id);
                 if (userdata == NULL || restored_pane_id != pane_id) {
@@ -7420,7 +7432,7 @@ static gboolean attach_grid_context(NocttyGridContext *source,
     update_compact_tab(target);
     noctty_grid_focus_widget(NULL, source->area);
     if (source->event != NULL) {
-        source->event(source->event_data, source->pane_id, 62, 0,
+        source->event(source->event_data, source->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_MOVED_RENDERED), 0,
                       (uint64_t)(g_get_monotonic_time() / 1000));
     }
     (void)bind_grid_layout_for_page(source);
@@ -7951,7 +7963,7 @@ static void toggle_grid_zoom(NocttyGridContext *context) {
     }
     root->compact_zoom_toggled = 1;
     if (context->event != NULL) {
-        context->event(context->event_data, context->pane_id, 64,
+        context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(ZOOM_TOGGLED),
                        zoom_plan.enter,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     }
@@ -8005,7 +8017,7 @@ static gboolean focus_grid_direction(NocttyGridContext *context, int dx, int dy)
         g_ptr_array_index(root->contexts, (guint)plan.target_index);
     root->compact_directional_focus = 1;
     if (best->event != NULL)
-        best->event(best->event_data, best->pane_id, 67, 0,
+        best->event(best->event_data, best->pane_id, NOCTTY_GRID_HOST_EVENT(DIRECTIONAL_FOCUS), 0,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_focus_widget(NULL, best->area);
     return TRUE;
@@ -8238,7 +8250,7 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     GtkWidget *page = context->page;
     if (root->zoomed_pane_id != 0) restore_zoomed_page(root);
     if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, 57, 0,
+        context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_FOCUS), 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
 
     guint current_count = grid_contexts_on_page(root, page);
@@ -8282,19 +8294,19 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
                 extras[collected++] = candidate;
         }
         if (collected != extra_count) return FALSE;
-        NocttyGridContext *destination = create_grid_context(context, 20);
+        NocttyGridContext *destination = create_grid_context(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
         if (destination == NULL || !add_grid_tab(context, destination)) return FALSE;
         start_grid_context(destination);
         for (guint extra_index = 0; extra_index < extra_count; extra_index++) {
             if (context->event != NULL)
-                context->event(context->event_data, destination->pane_id, 55,
+                context->event(context->event_data, destination->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_MOVED),
                                (int)extras[extra_index]->pane_id,
                                (uint64_t)(g_get_monotonic_time() / 1000));
             if (!move_grid_context(extras[extra_index], destination)) return FALSE;
         }
         if (!close_grid_pane(destination)) return FALSE;
         if (context->event != NULL)
-            context->event(context->event_data, context->pane_id, 57, 0,
+            context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_FOCUS), 0,
                            (uint64_t)(g_get_monotonic_time() / 1000));
         root->layout_preset_moved_count += (int)extra_count;
         current_count = target_count;
@@ -8319,7 +8331,7 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
     }
 
     while (!restore_missing && current_count < target_count) {
-        NocttyGridContext *created = create_grid_context(context, 21);
+        NocttyGridContext *created = create_grid_context(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT));
         if (created == NULL) return FALSE;
         created->page = page;
         created->tab_label = context->tab_label;
@@ -8371,18 +8383,18 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         g_printerr("native_grid_layout_apply event=%d reason=rebuild_failed contexts=%u\n",
                    event_code, grid_contexts_on_page(root, page));
     }
-    if (rebuilt && event_code == 50) root->layout_preset_1x1_applied = 1;
-    if (rebuilt && event_code == 51) root->layout_preset_2x2_applied = 1;
-    if (rebuilt && event_code == 61) root->layout_preset_4x2_applied = 1;
-    if (rebuilt && event_code == 52) root->layout_preset_3x3_applied = 1;
-    if (rebuilt && event_code == 60) root->layout_preset_4x4_applied = 1;
+    if (rebuilt && event_code == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_1X1)) root->layout_preset_1x1_applied = 1;
+    if (rebuilt && event_code == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_2X2)) root->layout_preset_2x2_applied = 1;
+    if (rebuilt && event_code == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X2)) root->layout_preset_4x2_applied = 1;
+    if (rebuilt && event_code == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_3X3)) root->layout_preset_3x3_applied = 1;
+    if (rebuilt && event_code == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X4)) root->layout_preset_4x4_applied = 1;
     return rebuilt;
 }
 
 static gboolean open_grid_layout_preset_tab(NocttyGridContext *context,
                                              int event_code) {
     NocttyGridContext *root = root_grid_context(context);
-    NocttyGridContext *created = create_grid_context(context, 20);
+    NocttyGridContext *created = create_grid_context(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
     if (created == NULL || !add_grid_tab(context, created)) return FALSE;
     GtkWidget *page = created->page;
     start_grid_context(created);
@@ -8497,7 +8509,7 @@ static void activate_grid_context(NocttyGridContext *context) {
         record_dogfood_omp_action(
             context, "omp_focus", &context->dogfood_omp_focus_seen);
         if (context->event != NULL)
-            context->event(context->event_data, context->pane_id, 57, 0,
+            context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_FOCUS), 0,
                            (uint64_t)(g_get_monotonic_time() / 1000));
     }
     noctty_grid_widget_queue_draw(context->area);
@@ -10063,9 +10075,11 @@ static gboolean normalize_dropdown_pixel_dimensions(
     if (notify && root->event != NULL) {
         uint64_t timestamp =
             (uint64_t)(g_get_monotonic_time() / 1000);
-        root->event(root->event_data, root->pane_id, 76,
+        root->event(root->event_data, root->pane_id,
+                    noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_WIDTH),
                     width_percent, timestamp);
-        root->event(root->event_data, root->pane_id, 77,
+        root->event(root->event_data, root->pane_id,
+                    noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_HEIGHT),
                     height_percent, timestamp);
     }
     return TRUE;
@@ -12025,7 +12039,7 @@ static void open_project_tools(NocttyGridContext *context) {
      * Background git subprocesses every ten seconds caused avoidable process
      * and descriptor churn throughout long terminal-only sessions. */
     if (context->event != NULL)
-        context->event(context->event_data, context->pane_id, 108, 0,
+        context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PROJECT_TOOLS_OPENED), 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
     GtkWidget *dialog = noctty_dialog_new(
         GTK_WIDGET(context->window), "NOCTTY Project Workspace",
@@ -12414,7 +12428,7 @@ static void open_terminal_find(NocttyGridContext *context) {
     root->find_status = status;
     root->find_ordinal = 0;
     root->compact_find_shown = 1;
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 66, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(TERMINAL_FIND_OPENED), 0, (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_signal_connect(entry, "changed", G_CALLBACK(on_find_changed), root);
     noctty_grid_signal_connect(entry, "key-press-event", G_CALLBACK(on_find_key), root);
     noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_find_destroy), root);
@@ -12776,14 +12790,14 @@ static void accept_pending_agent_action(NocttyGridContext *context) {
 }
 
 static void execute_palette_action(NocttyGridContext *context, int id) {
-    if (id == 1) emit_grid_workspace_event(context, 20);
-    else if (id == 2) emit_grid_workspace_event(context, 21);
-    else if (id == 3) emit_grid_workspace_event(context, 22);
+    if (id == 1) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
+    else if (id == 2) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT));
+    else if (id == 3) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT));
     else if (id == 4) toggle_grid_zoom(context);
     else if (id == 5) open_terminal_find(context);
     else if (id == 6) open_quick_note(context);
     else if (id == 7) on_broadcast_menu_activate(NULL, context);
-    else if (id == 8) emit_grid_workspace_event(context, 56);
+    else if (id == 8) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_MOVE));
     else if (id == 9) open_grid_settings(context);
     else if (id == 10) open_theme_library(context);
     else if (id == 11) open_project_tools(context);
@@ -12797,11 +12811,11 @@ static void execute_palette_action(NocttyGridContext *context, int id) {
     else if (id == 14) toggle_grid_window(context);
     else if (id == 15) {
         context->high_contrast = !context->high_contrast;
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 48, context->high_contrast, (uint64_t)(g_get_monotonic_time() / 1000));
+        if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_HIGH_CONTRAST), context->high_contrast, (uint64_t)(g_get_monotonic_time() / 1000));
         noctty_grid_widget_queue_draw(context->area);
     } else if (id == 16) {
         int position = (context->tab_position + 1) % 4;
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, 44, position, (uint64_t)(g_get_monotonic_time() / 1000));
+        if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_TABS), position, (uint64_t)(g_get_monotonic_time() / 1000));
         apply_grid_tab_position(context, position, TRUE);
     } else if (id == 17) {
         NocttyGridContext *root = root_grid_context(context);
@@ -12903,7 +12917,7 @@ static void open_command_palette(NocttyGridContext *context) {
     noctty_grid_window_set_modal(dialog, TRUE);
     noctty_grid_window_set_decorated(GTK_WIDGET(dialog), FALSE);
     noctty_grid_window_set_position(dialog, GTK_WIN_POS_CENTER_ON_PARENT);
-    if (context->event != NULL) context->event(context->event_data, context->pane_id, 65, 0, (uint64_t)(g_get_monotonic_time() / 1000));
+    if (context->event != NULL) context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(COMMAND_PALETTE_OPENED), 0, (uint64_t)(g_get_monotonic_time() / 1000));
     noctty_grid_signal_connect(search, "changed", G_CALLBACK(on_palette_search_changed), root);
     noctty_grid_signal_connect(search, "activate", G_CALLBACK(on_palette_search_activate), root);
     noctty_grid_signal_connect(dialog, "key-press-event", G_CALLBACK(compact_escape_closes), NULL);
@@ -13738,7 +13752,7 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
     gboolean enabled = root->event_data != NULL &&
         noctty_grid_broadcast_enabled(root->event_data) != 0;
     if (enabled) {
-        emit_grid_workspace_event(context, 23);
+        emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_BROADCAST));
         show_status_feedback(
             context,
             noctty_grid_status_feedback_message(
@@ -13776,7 +13790,7 @@ static void on_broadcast_menu_activate(GtkWidget *item, gpointer user_data) {
     }
     if (run_grid_modal_dialog(context, GTK_DIALOG(dialog)) ==
         GTK_RESPONSE_ACCEPT)
-        emit_grid_workspace_event(context, 23);
+        emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_BROADCAST));
     noctty_grid_widget_destroy(dialog);
 }
 
@@ -13970,7 +13984,7 @@ static void on_profile_preset_toggled(GtkCheckMenuItem *item,
     int preset = GPOINTER_TO_INT(noctty_grid_object_get_data(
         G_OBJECT(item), "noctty-profile-preset"));
     if (!noctty_grid_profile_preset_valid(preset) || context->event == NULL) return;
-    context->event(context->event_data, context->pane_id, 106, preset,
+    context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PROFILE_SELECTED), preset,
                    (uint64_t)(g_get_monotonic_time() / 1000));
     context->profile_menu_active = 0;
     root->profile_menu_selected++;
@@ -13980,7 +13994,7 @@ static void on_profile_preset_toggled(GtkCheckMenuItem *item,
 static GtkWidget *create_profile_preset_menu(NocttyGridContext *context) {
     NocttyGridContext *root = root_grid_context(context);
     if (context->event != NULL) {
-        context->event(context->event_data, context->pane_id, 105, 0,
+        context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PROFILE_MENU_OPENED), 0,
                        (uint64_t)(g_get_monotonic_time() / 1000));
         context->profile_menu_active = 1;
     }
@@ -15017,14 +15031,14 @@ static gboolean disturb_pane_close_layout(gpointer user_data) {
 static gboolean emit_pane_close_primary_split_right(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *target = grid_context_for_pane(root, 1);
-    if (target != NULL) emit_grid_workspace_event(target, 27);
+    if (target != NULL) emit_grid_workspace_event(target, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_CLOSE));
     return G_SOURCE_REMOVE;
 }
 
 static gboolean emit_pane_close_secondary_split_right(gpointer user_data) {
     NocttyGridContext *root = root_grid_context(user_data);
     NocttyGridContext *target = grid_context_for_pane(root, 2);
-    if (target != NULL) emit_grid_workspace_event(target, 27);
+    if (target != NULL) emit_grid_workspace_event(target, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_CLOSE));
     return G_SOURCE_REMOVE;
 }
 
@@ -15077,7 +15091,7 @@ static gboolean request_terminal_interrupt_chord_smoke(gpointer user_data) {
         on_key_press(target->area, &enter_event, target) &&
         noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == target->area;
     if (root->event != NULL)
-        root->event(root->event_data, target->pane_id, 102,
+        root->event(root->event_data, target->pane_id, NOCTTY_GRID_HOST_EVENT(TERMINAL_INTERRUPT_CHORD),
                     root->terminal_chord_interrupt_focused &&
                         root->terminal_chord_enter_forwarded,
                     (uint64_t)(g_get_monotonic_time() / 1000));
@@ -15117,7 +15131,7 @@ static gboolean finish_terminal_close_focus_smoke(gpointer user_data) {
         remaining->active && remaining->area != NULL &&
         noctty_grid_window_get_focus(GTK_WINDOW(root->window)) == remaining->area;
     if (root->event != NULL && remaining != NULL)
-        root->event(root->event_data, remaining->pane_id, 103,
+        root->event(root->event_data, remaining->pane_id, NOCTTY_GRID_HOST_EVENT(TERMINAL_CLOSE_CHORD),
                     root->terminal_chord_close_exact &&
                         root->terminal_chord_close_rendered &&
                         root->terminal_chord_close_session_stopped &&
@@ -15139,7 +15153,7 @@ static gboolean request_terminal_final_pane_guard_smoke(gpointer user_data) {
         active_grid_context_count(root) == 1 && remaining->active &&
         remaining->area != NULL && remaining->page != NULL;
     if (root->event != NULL)
-        root->event(root->event_data, remaining->pane_id, 104,
+        root->event(root->event_data, remaining->pane_id, NOCTTY_GRID_HOST_EVENT(FINAL_PANE_GUARD),
                     root->terminal_chord_final_protected,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return G_SOURCE_REMOVE;
@@ -15494,7 +15508,7 @@ static gboolean check_layout_preset_smoke(gpointer user_data) {
             remaining->active && remaining->area != NULL &&
             remaining->page == root->page;
         root->layout_preset_smoke_stage = 8;
-        if (!open_grid_layout_preset_tab(root, 60)) {
+        if (!open_grid_layout_preset_tab(root, NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X4))) {
             root->layout_preset_4x4_rendered = 0;
             finish_layout_preset_smoke_sessions(root);
         } else {
@@ -15527,7 +15541,7 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
             ? find_workspace_menu_item(menu, "New 4×4") : NULL;
         gboolean route_ready = layout_4x4 != NULL &&
             GPOINTER_TO_INT(noctty_grid_object_get_data(
-                G_OBJECT(layout_4x4), "noctty-workspace-event")) == 60;
+                G_OBJECT(layout_4x4), "noctty-workspace-event")) == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X4);
         if (!route_ready) {
             if (root->layout_preset_smoke_attempts++ < 40) {
                 if (root->layout_preset_smoke_attempts == 20)
@@ -15561,13 +15575,13 @@ static gboolean continue_layout_preset_smoke(gpointer user_data) {
         layout_1x1 == NULL && layout_2x2 != NULL && layout_4x2 != NULL &&
         layout_3x3 != NULL && layout_4x4 != NULL &&
         GPOINTER_TO_INT(noctty_grid_object_get_data(
-            G_OBJECT(layout_2x2), "noctty-workspace-event")) == 51 &&
+            G_OBJECT(layout_2x2), "noctty-workspace-event")) == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_2X2) &&
         GPOINTER_TO_INT(noctty_grid_object_get_data(
-            G_OBJECT(layout_4x2), "noctty-workspace-event")) == 61 &&
+            G_OBJECT(layout_4x2), "noctty-workspace-event")) == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X2) &&
         GPOINTER_TO_INT(noctty_grid_object_get_data(
-            G_OBJECT(layout_3x3), "noctty-workspace-event")) == 52 &&
+            G_OBJECT(layout_3x3), "noctty-workspace-event")) == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_3X3) &&
         GPOINTER_TO_INT(noctty_grid_object_get_data(
-            G_OBJECT(layout_4x4), "noctty-workspace-event")) == 60;
+            G_OBJECT(layout_4x4), "noctty-workspace-event")) == NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X4);
     if (!routes_ready) {
         if (root->layout_preset_smoke_attempts++ < 40) {
             if (root->layout_preset_smoke_attempts == 20)
@@ -15592,9 +15606,14 @@ static gboolean apply_layout_preset_smoke_stage(gpointer user_data) {
     NocttyGridContext *target = active_grid_context(root);
     if (target == NULL || target->area == NULL) return G_SOURCE_REMOVE;
     int event_code = root->layout_preset_smoke_stage == 5
-        ? 60 : root->layout_preset_smoke_stage == 4
-        ? 52 : root->layout_preset_smoke_stage == 3
-        ? 61 : root->layout_preset_smoke_stage == 2 ? 51 : 50;
+        ? NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X4)
+        : root->layout_preset_smoke_stage == 4
+        ? NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_3X3)
+        : root->layout_preset_smoke_stage == 3
+        ? NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_4X2)
+        : root->layout_preset_smoke_stage == 2
+        ? NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_2X2)
+        : NOCTTY_GRID_HOST_EVENT(LAYOUT_PRESET_1X1);
     emit_grid_workspace_event(target, event_code);
     noctty_grid_source_timeout_add(420, check_layout_preset_smoke, root);
     return G_SOURCE_REMOVE;
@@ -15856,7 +15875,7 @@ static void on_pane_drag_data_received(GtkWidget *widget, GdkDragContext *drag, 
         if (source_pane > 0 && source_pane <= G_MAXINT &&
             source != NULL && source->page != context->page) {
             if (context->event != NULL) {
-                context->event(context->event_data, context->pane_id, 55,
+                context->event(context->event_data, context->pane_id, NOCTTY_GRID_HOST_EVENT(PANE_MOVED),
                                (int)source_pane,
                                (uint64_t)(g_get_monotonic_time() / 1000));
             }
@@ -16149,7 +16168,8 @@ static gboolean toggle_dragger_height(NocttyGridContext *root) {
     sync_compact_setting(root, 15, 0);
     apply_dropdown_dimensions(root);
     if (root->event != NULL)
-        root->event(root->event_data, root->pane_id, 77,
+        root->event(root->event_data, root->pane_id,
+                    noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_DROPDOWN_HEIGHT),
                     target_height,
                     (uint64_t)(g_get_monotonic_time() / 1000));
     return TRUE;

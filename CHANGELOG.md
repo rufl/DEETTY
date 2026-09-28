@@ -23,6 +23,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
 - Centralized settings-control event IDs for appearance, scrolling, layout, and
   font-rendering callbacks in the tested Zig grid policy; GTK retains signal
   wiring, widget state, and native effect dispatch.
+- Centralized native host protocol event identities, workspace routing codes,
+  restore markers, layout-preset events, and GTK smoke callbacks in a tested
+  Zig host-event map; C retains callback dispatch and native effects.
 - Windows terminal right-click now opens the native Terminal context menu for
   Copy, Paste, and Clear Screen instead of disappearing through mouse
   tracking.

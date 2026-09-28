@@ -200,8 +200,8 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and Noctalia theme persistence-status composition now cross the Zig ABI; C
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
-  The current source run passes all 131 Zig grid-logic tests and both Debug and
-  ReleaseSafe builds. The counted Zig ownership inventory is 82.22%; the fixed
+  The current source run passes all 132 Zig grid-logic tests and both Debug and
+  `ReleaseSafe` builds. The counted Zig ownership inventory is 82.19%; the fixed
   90.00% gate and isolated graphical proof remain open.
   The current batches move compact-setting target mapping, font-rendering combo
   bounds, terminal context-menu action/selection geometry, theme display labels,
@@ -211,8 +211,9 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Workspace event-routing classification, tray-menu item kinds/actions, native
   lifecycle timing constants, native host geometry/scrollbar/copy bounds,
   UI color role ordinals, status event IDs, persistence result codes, remaining
-  GTK scheduling intervals, and settings-control event IDs now cross tested Zig
-  plans; C retains GTK/GVariant/GLib source and effect handling. `[truth:build,test,docs]`
+  GTK scheduling intervals, settings-control event IDs, and native host-event
+  protocol identities now cross tested Zig plans; C retains GTK/GVariant/GLib
+  source and effect handling. `[truth:build,test,docs]`
   Numeric restore-mode text, sharing selection IDs, pane drag identifiers, and
   terminal accessibility names now also use bounded Zig text helpers; C retains
   spawn, combo-box, drag-and-drop, and ATK effects.
@@ -263,8 +264,8 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-27) reports `82.22%` Zig ownership
-(`zig_lines=90491`, `adapter_lines=19558`) against the strict `90.00%`
+Current locked-tree evidence (2026-09-27) reports `82.19%` Zig ownership
+(`zig_lines=90646`, `adapter_lines=19641`) against the strict `90.00%`
 target. Direct Debug and `ReleaseSafe` renderer qualifications pass with
 byte-identical fixtures and zero warm-frame allocations; the isolated mapped
 GTK runner remains deferred by host I/O pressure (`exit=75`), so NCT-126 is

@@ -223,6 +223,8 @@ GLib source registration, GVariant/D-Bus handling, and callback dispatch.
 Settings-control event IDs for appearance, scrolling, layout, and font rendering
 are selected by the tested Zig settings-event map; C retains GTK signal
 connection, widget state, and native effect dispatch.
+Native host protocol event identities are selected by the tested Zig host-event
+map; C retains callback dispatch and native effects.
 
 Resize-handle grid coordinates and size requests are selected by tested Zig
 policy for all eight grips; GTK retains widget creation, attachment, and

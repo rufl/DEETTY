@@ -253,6 +253,141 @@ pub export fn noctty_grid_settings_event_code(kind: c_int) callconv(.c) c_int {
     return settings_event_code(@enumFromInt(kind));
 }
 
+pub const HostEventKind = enum(c_int) {
+    session_started,
+    session_exited,
+    output_activity,
+    shortcut_cancelled,
+    project_visibility,
+    workspace_new_tab,
+    workspace_split,
+    workspace_split_alt,
+    workspace_broadcast,
+    workspace_focus,
+    broadcast_selection,
+    workspace_split_close,
+    workspace_split_restore,
+    layout_preset_1x1,
+    layout_preset_2x2,
+    layout_preset_3x3,
+    layout_preset_4x4,
+    layout_preset_4x2,
+    pane_moved,
+    workspace_move,
+    pane_focus,
+    split_rendered_vertical,
+    split_rendered_horizontal,
+    pane_moved_rendered,
+    zoom_toggled,
+    command_palette_opened,
+    terminal_find_opened,
+    directional_focus,
+    split_rendered_close,
+    split_rendered_restore,
+    tab_cycle,
+    tab_close,
+    tab_reopen,
+    pane_cycle,
+    title_fallback,
+    title_overflow_label,
+    title_overflow_tooltip,
+    title_renamed,
+    dirty_saved,
+    session_exit_smoke,
+    dirty_marked,
+    notification_attention,
+    dirty_cleared,
+    tab_reordered,
+    tab_reorder_persisted,
+    rename_validation,
+    rename_applied,
+    rename_cancelled,
+    pane_cycle_shortcut,
+    alt_scroll_previous,
+    restored_pane,
+    alt_scroll_next,
+    ctrl_alt_scroll,
+    terminal_interrupt_chord,
+    terminal_close_chord,
+    final_pane_guard,
+    profile_menu_opened,
+    profile_selected,
+    project_tools_opened,
+    workspace_new_tab_restore,
+};
+
+pub const host_event_kind_count: c_int = 60;
+
+pub fn host_event_code(kind: HostEventKind) c_int {
+    return switch (kind) {
+        .session_started => 1,
+        .session_exited => 3,
+        .output_activity => 4,
+        .shortcut_cancelled => 11,
+        .project_visibility => 19,
+        .workspace_new_tab => 20,
+        .workspace_split => 21,
+        .workspace_split_alt => 22,
+        .workspace_broadcast => 23,
+        .workspace_focus => 24,
+        .broadcast_selection => 33,
+        .workspace_split_close => 27,
+        .workspace_split_restore => 28,
+        .layout_preset_1x1 => 50,
+        .layout_preset_2x2 => 51,
+        .layout_preset_3x3 => 52,
+        .layout_preset_4x4 => 60,
+        .layout_preset_4x2 => 61,
+        .pane_moved => 55,
+        .workspace_move => 56,
+        .pane_focus => 57,
+        .split_rendered_vertical => 58,
+        .split_rendered_horizontal => 59,
+        .pane_moved_rendered => 62,
+        .zoom_toggled => 64,
+        .command_palette_opened => 65,
+        .terminal_find_opened => 66,
+        .directional_focus => 67,
+        .split_rendered_close => 68,
+        .split_rendered_restore => 69,
+        .tab_cycle => 78,
+        .tab_close => 79,
+        .tab_reopen => 80,
+        .pane_cycle => 81,
+        .title_fallback => 82,
+        .title_overflow_label => 83,
+        .title_overflow_tooltip => 84,
+        .title_renamed => 85,
+        .dirty_saved => 86,
+        .session_exit_smoke => 87,
+        .dirty_marked => 88,
+        .notification_attention => 89,
+        .dirty_cleared => 90,
+        .tab_reordered => 91,
+        .tab_reorder_persisted => 92,
+        .rename_validation => 93,
+        .rename_applied => 94,
+        .rename_cancelled => 95,
+        .pane_cycle_shortcut => 97,
+        .alt_scroll_previous => 98,
+        .restored_pane => 99,
+        .alt_scroll_next => 100,
+        .ctrl_alt_scroll => 101,
+        .terminal_interrupt_chord => 102,
+        .terminal_close_chord => 103,
+        .final_pane_guard => 104,
+        .profile_menu_opened => 105,
+        .profile_selected => 106,
+        .project_tools_opened => 108,
+        .workspace_new_tab_restore => 26,
+    };
+}
+
+pub export fn noctty_grid_host_event_code(kind: c_int) callconv(.c) c_int {
+    if (kind < 0 or kind >= host_event_kind_count) return -1;
+    return host_event_code(@enumFromInt(kind));
+}
+
 pub const TerminalMenuPlan = extern struct {
     action: c_int,
     selection_end_column: c_int,
@@ -761,12 +896,15 @@ pub export fn noctty_grid_workspace_event_plan(
         .bind_layout = 0,
         .restore_missing = 0,
     };
-    if (event_code == 20 or event_code == 26) {
+    if (event_code == host_event_code(.workspace_new_tab) or
+        event_code == host_event_code(.workspace_new_tab_restore)) {
         output.action = workspace_event_create_tab;
         return;
     }
-    if (event_code == 21 or event_code == 22 or
-        event_code == 27 or event_code == 28)
+    if (event_code == host_event_code(.workspace_split) or
+        event_code == host_event_code(.workspace_split_alt) or
+        event_code == host_event_code(.workspace_split_close) or
+        event_code == host_event_code(.workspace_split_restore))
     {
         output.* = .{
             .action = workspace_event_split,
@@ -775,8 +913,10 @@ pub export fn noctty_grid_workspace_event_plan(
         };
         return;
     }
-    if ((event_code >= 50 and event_code <= 52) or
-        event_code == 60 or event_code == 61)
+    if ((event_code >= host_event_code(.layout_preset_1x1) and
+            event_code <= host_event_code(.layout_preset_3x3)) or
+        event_code == host_event_code(.layout_preset_4x4) or
+        event_code == host_event_code(.layout_preset_4x2))
     {
         output.* = .{
             .action = workspace_event_layout_preset,
@@ -785,7 +925,7 @@ pub export fn noctty_grid_workspace_event_plan(
         };
         return;
     }
-    if (event_code == 56) output.action = workspace_event_move;
+    if (event_code == host_event_code(.workspace_move)) output.action = workspace_event_move;
 }
 
 pub export fn noctty_grid_smart_filter_visibility_plan(
@@ -8802,6 +8942,7 @@ test "terminal menu plans bound actions and select-all geometry" {
     };
     noctty_grid_terminal_menu_plan(
         terminal_menu_action_select_all, 6, 4, &plan);
+
     try std.testing.expectEqual(
         @as(c_int, terminal_menu_action_select_all), plan.action);
     try std.testing.expectEqual(@as(c_int, 5), plan.selection_end_column);
@@ -8933,6 +9074,24 @@ test "settings event policy preserves every native control code" {
     try std.testing.expectEqual(
         @as(c_int, -1),
         noctty_grid_settings_event_code(settings_event_kind_count),
+    );
+}
+test "host event policy preserves native protocol identities" {
+    const expected = [_]c_int{
+        1, 3, 4, 11, 19, 20, 21, 22, 23, 24, 33, 27, 28,
+        50, 51, 52, 60, 61, 55, 56, 57, 58, 59, 62, 64, 65,
+        66, 67, 68, 69, 78, 79, 80, 81, 82, 83, 84, 85, 86,
+        87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100,
+        101, 102, 103, 104, 105, 106, 108, 26,
+    };
+    for (expected, 0..) |code, index| {
+        try std.testing.expectEqual(
+            code, noctty_grid_host_event_code(@intCast(index)));
+    }
+    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_host_event_code(-1));
+    try std.testing.expectEqual(
+        @as(c_int, -1),
+        noctty_grid_host_event_code(host_event_kind_count),
     );
 }
 
