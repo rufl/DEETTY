@@ -219,10 +219,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
-  The isolated mapped GTK proof now passes in Debug presentation mode and
-  ReleaseSafe full-stack mode under both private X11 and private Wayland
-  sessions; physical Windows behavior remains a separate required acceptance
-  boundary. `[truth:build,test,docs,external]`
+  The isolated mapped GTK proof remains open: the private X11 runner deferred
+  under host I/O pressure (`exit=75`), and the current private Wayland wrapper
+  exits before producing a smoke receipt (`exit=1`); physical Windows behavior
+  remains a separate required acceptance boundary. `[truth:build,test,external]`
 
 ##### NCT-126 fixed definition of done
 
