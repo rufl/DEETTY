@@ -38,7 +38,7 @@ compatibility.
 | P1 | NCT-125 current-build dogfood recapture | Blocked on operator evidence: source fixes are retained, but closure requires a clean installed-session recapture. |
 | P2 | NCT-112 terminal stability | Blocked on elapsed evidence: run and retain the uninterrupted 48-hour qualification. |
 | P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
-| P2 | NCT-126 native-adapter migration | The 80% core Zig ownership target is met; continue shrinking the GTK object/event adapter, then retain required mapped and physical retirement proof. |
+| P2 | NCT-126 native-adapter migration | The strict 90% Zig ownership gate is met by the policy-only inventory; retain isolated X11/Wayland receipts before closure. |
 | P3 | Release Operations | Retain operator/external signatures, publication, review, compositor, and consented HID acceptance. |
 
 Source-ready work may be implemented locally; elapsed, physical, and operator

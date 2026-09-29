@@ -2,6 +2,7 @@
 set -euo pipefail
 
 if [[ ${NOCTTY_ISOLATED_DISPLAY:-} != x11 &&
+      ${NOCTTY_ISOLATED_DISPLAY:-} != wayland &&
       ${NOCTTY_DEDICATED_DISPLAY:-0} != 1 ]]; then
     exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi

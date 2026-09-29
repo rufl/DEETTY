@@ -2,7 +2,8 @@
 set -eu
 export LC_ALL=C
 
-if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ]; then
+if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh

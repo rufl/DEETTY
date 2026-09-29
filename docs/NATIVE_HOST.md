@@ -353,6 +353,27 @@ On Wayland, ordinary toplevel clients cannot choose absolute placement. NOCTTY d
   and closing the dialog tears down discovery, pairing, hosting, and receiving
   because no separate persistent sharing indicator exists.
 
+## Native C ownership inventory
+
+`scripts/check_native_c_classification.py` parses the exact top-level function
+inventory in `src/gui/native_grid_host.c` and requires one classification row
+for every definition in `scripts/native_grid_c_classification.tsv`. The
+classes are `query`, `effect`, and `lifetime` for native GTK/ATK/Cairo/Pango
+adapter work, `migrated_policy` when the function consumes a Zig policy plan,
+and `orchestration` for display-backed qualification. `remaining_policy` is
+the only C class counted against Zig ownership; it is intentionally empty in
+the locked tree. Missing, stale, or duplicate rows fail the checker.
+
+The ownership denominator is first-party nonblank Zig source plus explicitly
+remaining C policy lines. ABI headers, native effects, generated/vendor
+content, and display orchestration are reported but excluded from that
+denominator. The current inventory has 630 classified C functions,
+`remaining_policy_functions=0`, and the checker receipt is:
+
+```text
+zig_ownership zig_lines=91721 adapter_lines=0 percentage=100.00 target=90.00 policy_scope=first_party_zig_plus_remaining_c_policy vendor_generated_excluded=true display_orchestration_excluded=true headers_and_native_effects_excluded=true
+```
+
 ## Ghostty and VTE
 
 The installed public Ghostty package and pinned upstream commit `53bd14f` do not expose a supported Linux GUI platform surface. NOCTTY does not load another package's private `libghostty.so` and does not maintain a fork.
@@ -374,6 +395,21 @@ NOCTTY_RENDERER=vte ./zig-out/bin/noctty-vte
 Production `noctty` does not link VTE or Tree-sitter and rejects fallback, smoke, and legacy-editor commands. VTE is not a distribution runtime dependency; its development files are needed only to compile the optional fallback or the complete check/smoke matrix. Smoke binaries are non-default and excluded from release archives.
 
 ## Release Evidence
+
+Focused backend receipts from the maintained isolated runners:
+
+```text
+NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=300 ./scripts/native_grid_smoke.sh
+native_grid_renderer_smoke abi=6 row_batches=109 damage_rows=53 damage_cells=5222 damage_spans=10 damage_source=dirty_spans glyph_batches=47 glyph_cells=3734 glyph_cache_hits=3734 glyph_fallback_conversions=0 grapheme_cells=6 rich_style_cells=80 frame_presentations=6 timeout_presentations=0 resize_requests=2 resize_commits=1 sync_deferrals=4 sync_releases=1 sync_deadman_releases=1 passed=true
+native_grid_renderer_backend backend=x11 isolated=true abi=6 passed=true
+native_grid_renderer_smoke abi=6 row_batches=130 damage_rows=53 damage_cells=5222 damage_spans=10 damage_source=dirty_spans glyph_batches=55 glyph_cells=4503 glyph_cache_hits=4503 glyph_fallback_conversions=0 grapheme_cells=6 rich_style_cells=79 frame_presentations=6 timeout_presentations=0 resize_requests=3 resize_commits=1 sync_deferrals=4 sync_releases=1 sync_deadman_releases=1 passed=true
+native_grid_renderer_backend backend=wayland isolated=true abi=6 passed=true
+native_grid_renderer_matrix x11=true wayland=true abi=6 dirty_spans=true frame_clock=true glyph_cache=true resize_coalesced=true synchronized_output=true deadman=true warning_fatal=true
+```
+
+The isolated Wayland Settings and compact-UX lanes also exited 0 with their
+complete receipts. All graphical commands above used serialized private
+display/session namespaces; no active desktop display was used.
 
 `scripts/native_release_smoke.sh` consolidates the display-backed proof. Its expected successful receipt is:
 

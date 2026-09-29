@@ -45,6 +45,7 @@ printf '[preferred]\ndefault=gtk;\n' \
   >"$scratch/config/xdg-desktop-portal/portals.conf"
 
 unset DISPLAY WAYLAND_DISPLAY
+export NOCTTY_DEDICATED_DISPLAY=1
 export NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
 export NOCTTY_ISOLATED_WAYLAND_ROOT="$scratch"
 flock -x -w "$timeout_seconds" "$lock" \

@@ -4,6 +4,7 @@ set -eu
 export GDK_DPI_SCALE="${GDK_DPI_SCALE:-1.25}"
 
 if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
   [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi

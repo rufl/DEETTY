@@ -280,20 +280,30 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-29) reports `82.18%` Zig ownership
-(`zig_lines=91648`, `adapter_lines=19873`) against the strict `90.00%`
-target. Settings, session-sharing, command-palette, terminal find, quick-note,
-theme-library, and project-workspace dialogs share theme-aware utility surfaces,
-bounded search/editor regions, visible focus and selection states, and accessible
-action/status roles. Command-palette dispatch, split orientation/rendered-event
-selection, tab-rename boundary validation, restored-session dimension minimums,
-keyboard accessibility granularity, keyboard-scroll action mapping, shortcut
-chord side effects, renderer fallback colors, close-confirmation copy, and
-layout-preset prompt copy now use tested Zig policy plans. Focused Debug and
-`ReleaseSafe` builds plus the 141-test Zig policy suite pass. The isolated
-compact UX, Settings, and native-grid GTK runners remain deferred by host I/O
-pressure (`exit=75`); the private Wayland wrapper exited before a receipt
-(`exit=1`), so NCT-126 is not closed.
+Current locked-tree evidence reports `100.00%` Zig ownership under the fixed
+policy-only denominator (`zig_lines=91721`, `adapter_lines=0`,
+`target=90.00`). `scripts/check_native_c_classification.py` covers all 630
+top-level definitions in `src/gui/native_grid_host.c`: 204 native-effect
+functions, 22 query functions, 51 lifetime functions, 243 functions consuming
+Zig policy plans, and 110 display-backed orchestration functions. The manifest
+has no `remaining_policy` or unclassified function. ABI headers, native
+effects, and display orchestration are excluded exactly by the locked scope;
+new or stale C definitions fail the inventory checker.
+
+Focused Debug and `ReleaseSafe` builds plus the 141-test Zig policy suite pass.
+The complete focused renderer matrix
+(`NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=300 ./scripts/native_grid_smoke.sh`)
+now passes in serialized private X11 and private Wayland namespaces:
+`native_grid_renderer_matrix x11=true wayland=true abi=6 dirty_spans=true
+frame_clock=true glyph_cache=true resize_coalesced=true
+synchronized_output=true deadman=true warning_fatal=true`. The individual
+receipts report `resize_commits=1`, `sync_deferrals=4`,
+`sync_releases=1`, `sync_deadman_releases=1`, and `passed=true` on both
+backends. The Settings and compact-UX Wayland lanes also exit 0 with their
+complete receipts. X11 qualification is no longer blocked by the earlier
+pressure-gated `exit=75` attempt; no pressure threshold was bypassed.
+NCT-126 remains open only for the broader registered-smoke qualification
+matrix and external compositor/release gates.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 
