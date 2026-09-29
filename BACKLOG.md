@@ -321,23 +321,23 @@ pressure (`exit=75`); the private Wayland wrapper exited before a receipt
   scrollback handling are implemented. Isolated Wine covers native controls and
   real child-process delivery without ConPTY; file-backed rollback and shared
   POSIX configuration compatibility pass. `[truth:build,test,docs,external]`
-- [ ] [status:yellow] Add native source-format theme imports for Ghostty,
+- [x] [status:green] Implement native source-format theme imports for Ghostty,
   Xresources, Alacritty, and Noctalia. Windows now accepts those source
   extensions through its native picker and converts each source transactionally
-  into one custom theme; focused parser coverage and native-source qualification
-  remain.
+  into one custom theme; focused parser coverage and the native Windows theme
+  smoke cover all four source families. Physical Windows qualification remains
+  in the supported-Windows custom-theme acceptance item below.
 - [ ] [status:yellow] Qualify custom theme selection/import/export, replacement
   confirmation, persistence errors, and tab dragging on supported Windows with
   real sessions, DPI changes, and assistive technology. The focused policy
   group, file-backed interoperability smoke, GTK theme flow, and isolated
   Wine control/bitmap qualification pass. `[truth:build,test,docs,external]`
-- [ ] [status:yellow] Complete remaining native Windows workspace parity:
-  Smart Tabs, dropdown/global-hotkey behavior, and workspace continuity.
-  Broadcast input now has guarded native menu/shortcut dispatch and live-pane
-  fan-out; physical/operator qualification remains.
-  Startup restoration failures for persisted Windows workspace, theme, and
-  launch-profile state now surface an actionable recovery message instead of
-  silently falling back.
+- [ ] [status:yellow] Qualify remaining native Windows workspace parity:
+  Smart Tabs, dropdown presentation, global-hotkey behavior, and workspace
+  continuity against supported Windows ConPTY sessions. Smart Tabs, guarded
+  global hotkey visibility toggling, broadcast input, and persisted workspace
+  recovery are implemented; source tests and cross-build/Wine evidence do not
+  establish physical Windows acceptance.
 - [ ] Continue replacing GTK C ownership with cohesive Zig components toward
   90% without counting file moves, duplicate implementations, or unrelated new
   code as architectural progress. Retain focused Linux runtime proof and

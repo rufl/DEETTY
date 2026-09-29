@@ -3720,6 +3720,17 @@ pub export fn noctty_grid_shortcut_feedback_message(
         else => "",
     };
 }
+pub export fn noctty_grid_tab_rename_feedback_message(
+    kind: c_int,
+) callconv(.c) [*:0]const u8 {
+    return switch (kind) {
+        0 => "Enter to save · Esc or click elsewhere to cancel",
+        1 => "This tab is no longer available.",
+        2 => "Could not rename this tab.",
+        else => "",
+    };
+}
+
 
 pub export fn noctty_grid_note_overlay_label(
     text: ?[*]const u8,
@@ -8143,6 +8154,19 @@ test "remaining native UI text composition stays bounded and native-free" {
         "Checking shortcut availability…",
         std.mem.span(noctty_grid_shortcut_feedback_message(2)),
     );
+    try std.testing.expectEqualStrings(
+        "Enter to save · Esc or click elsewhere to cancel",
+        std.mem.span(noctty_grid_tab_rename_feedback_message(0)),
+    );
+    try std.testing.expectEqualStrings(
+        "This tab is no longer available.",
+        std.mem.span(noctty_grid_tab_rename_feedback_message(1)),
+    );
+    try std.testing.expectEqualStrings(
+        "Could not rename this tab.",
+        std.mem.span(noctty_grid_tab_rename_feedback_message(2)),
+    );
+
 
     var length = noctty_grid_note_overlay_label(
         "Remember this", "Remember this".len, &output, output.len);

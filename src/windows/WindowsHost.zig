@@ -1441,7 +1441,10 @@ fn themeSmoke(host: *Host) bool {
         .{ ".Xresources", "*.background: #203040\n*.foreground: #e0f0ff\n*.cursorColor: #ffffff\n", @as(u32, 0x203040), @as(u32, 0xe0f0ff) },
         .{ ".toml", "[colors.primary]\nbackground = \"0x304050\"\nforeground = \"#f0e0d0\"\n", @as(u32, 0x304050), @as(u32, 0xf0e0d0) },
         .{ ".json", "{\"dark\":{\"mSurface\":\"#405060\",\"mOnSurface\":\"#f0f1f2\",\"mPrimary\":\"#abcdef\"}}", @as(u32, 0x405060), @as(u32, 0xf0f1f2) },
+        .{ ".json", "{\"light\":{\"mSurface\":\"#506070\",\"mOnSurface\":\"#e1f2f3\",\"mPrimary\":\"#bcdefa\"}}", @as(u32, 0x506070), @as(u32, 0xe1f2f3) },
+        .{ ".json", "{\"mSurface\":\"#607080\",\"mOnSurface\":\"#f2e3d4\",\"mPrimary\":\"#abcdef\"}", @as(u32, 0x607080), @as(u32, 0xf2e3d4) },
     };
+
     inline for (source_specs) |spec| {
         const suffix = spec[0];
         const contents = spec[1];

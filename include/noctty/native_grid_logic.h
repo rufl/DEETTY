@@ -1197,6 +1197,8 @@ int noctty_grid_pane_zoom_feedback_text(
     const unsigned char *display_title, size_t display_length,
     unsigned char *output, size_t capacity);
 const char *noctty_grid_shortcut_feedback_message(int kind);
+const char *noctty_grid_tab_rename_feedback_message(int kind);
+
 int noctty_grid_note_overlay_label(
     const unsigned char *text, size_t text_length,
     unsigned char *output, size_t capacity);

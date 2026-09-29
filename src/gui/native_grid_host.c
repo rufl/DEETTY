@@ -5152,7 +5152,7 @@ static void clear_tab_rename_error(NocttyGridContext *root) {
                                       GTK_ENTRY_ICON_SECONDARY, NULL);
     noctty_grid_widget_set_tooltip_text(
         root->tab_rename_entry,
-        "Enter to save · Esc or click elsewhere to cancel");
+        noctty_grid_tab_rename_feedback_message(0));
 }
 
 static void set_tab_rename_error(NocttyGridContext *root,
@@ -5199,7 +5199,8 @@ static gboolean apply_tab_rename(NocttyGridContext *root) {
     GtkWidget *page = root->tab_rename_page;
     NocttyGridContext *target = grid_context_for_page(root, page);
     if (target == NULL) {
-        set_tab_rename_error(root, "This tab is no longer available.");
+        set_tab_rename_error(
+            root, noctty_grid_tab_rename_feedback_message(1));
         return FALSE;
     }
     const char *raw = noctty_grid_entry_get_text(
@@ -5214,13 +5215,15 @@ static gboolean apply_tab_rename(NocttyGridContext *root) {
     }
     gchar *title = g_strndup(raw + plan.start, plan.length);
     if (title == NULL) {
-        set_tab_rename_error(root, "Could not rename this tab.");
+        set_tab_rename_error(
+            root, noctty_grid_tab_rename_feedback_message(2));
         return FALSE;
     }
     if (root->event_data == NULL ||
         noctty_grid_rename_tab(root->event_data, target->pane_id,
                                title, plan.length) != 0) {
-        set_tab_rename_error(root, "Could not rename this tab.");
+        set_tab_rename_error(
+            root, noctty_grid_tab_rename_feedback_message(2));
         noctty_grid_memory_free(title);
         return FALSE;
     }

@@ -269,6 +269,10 @@ grep -F 'noctty_grid_pane_zoom_feedback_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcut_settings_text(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_shortcut_settings_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcut_feedback_message(' "$grid_logic" >/dev/null
+grep -F 'pub export fn noctty_grid_tab_rename_feedback_message(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_tab_rename_feedback_message(' "$grid" >/dev/null
+grep -F 'const char *noctty_grid_tab_rename_feedback_message' "$grid_logic_header" >/dev/null
+
 grep -F 'noctty_grid_shortcut_feedback_message(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_note_overlay_label(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_note_overlay_label(' "$grid" >/dev/null
