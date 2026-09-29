@@ -13161,7 +13161,6 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
     NocttyGridContext *root = root_grid_context(user_data);
     gboolean shift = (event->state & GDK_SHIFT_MASK) != 0;
     gboolean control = (event->state & GDK_CONTROL_MASK) != 0;
-    gboolean alt = (event->state & GDK_MOD1_MASK) != 0;
     if ((control && shift && event->keyval == GDK_KEY_v) ||
         (shift && event->keyval == GDK_KEY_Insert)) {
         noctty_grid_clipboard_request_text(
@@ -13171,71 +13170,21 @@ static gboolean on_sharing_preview_key(GtkWidget *widget, GdkEventKey *event,
         return TRUE;
     }
 
-    const uint8_t *bytes = NULL;
-    size_t length = 0;
-    uint8_t special[32] = {0};
-    guint key = event->keyval;
-    int modifier = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) +
-                   (control ? 4 : 0);
+    uint8_t sequence[32] = {0};
     gboolean application_cursor =
         noctty_grid_share_view_cursor_mode(root->event_data) != 0;
-    int special_kind = -1;
-    if (key == GDK_KEY_Return || key == GDK_KEY_KP_Enter) {
-        special_kind = 0;
-    } else if (key == GDK_KEY_BackSpace) {
-        special_kind = 1;
-    } else if (key == GDK_KEY_Tab || key == GDK_KEY_ISO_Left_Tab) {
-        special_kind = shift ? 3 : 2;
-    } else if (key == GDK_KEY_Escape) {
-        special_kind = 4;
-    } else if (key == GDK_KEY_Up || key == GDK_KEY_Down ||
-               key == GDK_KEY_Right || key == GDK_KEY_Left) {
-        int arrow = key == GDK_KEY_Up ? 0 : key == GDK_KEY_Down ? 1 :
-                    key == GDK_KEY_Right ? 2 : 3;
-        int arrow_length = noctty_grid_sharing_arrow_sequence(
-            arrow, modifier, application_cursor, special, sizeof(special));
-        if (arrow_length > 0) {
-            bytes = special;
-            length = (size_t)arrow_length;
-        }
-    }
-    if (special_kind >= 0) {
-        int special_length = noctty_grid_sharing_key_sequence(
-            special_kind, application_cursor, special, sizeof(special));
-        if (special_length > 0) {
-            bytes = special;
-            length = (size_t)special_length;
-        }
-    } else if (key == GDK_KEY_Home || key == GDK_KEY_End ||
-               key == GDK_KEY_Insert || key == GDK_KEY_Delete ||
-               key == GDK_KEY_Page_Up || key == GDK_KEY_Page_Down ||
-               (key >= GDK_KEY_F1 && key <= GDK_KEY_F12)) {
-        int extended_kind = key == GDK_KEY_Home ? 0 :
-                            key == GDK_KEY_End ? 1 :
-                            key == GDK_KEY_Insert ? 2 :
-                            key == GDK_KEY_Delete ? 3 :
-                            key == GDK_KEY_Page_Up ? 4 :
-                            key == GDK_KEY_Page_Down ? 5 :
-                            key <= GDK_KEY_F4 ? 6 + (int)(key - GDK_KEY_F1) :
-                            10 + (int)(key - GDK_KEY_F5);
-        int extended_length = noctty_grid_sharing_extended_key_sequence(
-            extended_kind, modifier, special, sizeof(special));
-        if (extended_length > 0) {
-            bytes = special;
-            length = (size_t)extended_length;
-        }
-    } else if (event->string != NULL && event->length > 0) {
-        int text_length = noctty_grid_sharing_text_sequence(
-            alt,
-            (const uint8_t *)event->string,
-            (size_t)event->length,
-            special,
-            sizeof(special));
-        if (text_length > 0) {
-            bytes = special;
-            length = (size_t)text_length;
-        }
-    }
+    int sequence_length = noctty_grid_sharing_key_event_sequence(
+        event->keyval,
+        event->state,
+        application_cursor,
+        event->string != NULL && event->length > 0
+            ? (const uint8_t *)event->string : NULL,
+        event->length > 0 ? (size_t)event->length : 0,
+        sequence,
+        sizeof(sequence));
+    if (sequence_length <= 0) return FALSE;
+    const uint8_t *bytes = sequence;
+    size_t length = (size_t)sequence_length;
     if (bytes == NULL || length == 0) return FALSE;
     if (send_sharing_input(root, bytes, length)) return TRUE;
     set_sharing_transient_feedback(

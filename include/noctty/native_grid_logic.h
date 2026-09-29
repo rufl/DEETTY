@@ -1330,6 +1330,10 @@ int noctty_grid_sharing_text_sequence(
 int noctty_grid_sharing_arrow_sequence(
     int arrow, int modifier, int application_cursor,
     unsigned char *output, size_t capacity);
+int noctty_grid_sharing_key_event_sequence(
+    uint32_t keyval, uint32_t state, int application_cursor,
+    const unsigned char *input, size_t length,
+    unsigned char *output, size_t capacity);
 int noctty_grid_sharing_paste_allowed(size_t length);
 size_t noctty_grid_sharing_paste_chunk_size(size_t remaining);
 size_t noctty_grid_damage_buffer_capacity(int rows);

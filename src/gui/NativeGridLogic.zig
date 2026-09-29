@@ -4274,6 +4274,67 @@ pub export fn noctty_grid_sharing_text_sequence(
     return @intCast(prefix_length + length);
 }
 
+pub export fn noctty_grid_sharing_key_event_sequence(
+    keyval: u32,
+    state: u32,
+    application_cursor: c_int,
+    input: ?[*]const u8,
+    length: usize,
+    output: ?[*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const target = output orelse return 0;
+    const shift = state & gdk_shift_mask != 0;
+    const alt = state & gdk_mod1_mask != 0;
+    const control = state & gdk_control_mask != 0;
+    const modifier: c_int =
+        1 + @as(c_int, @intFromBool(shift)) +
+        @as(c_int, @intFromBool(alt)) * 2 +
+        @as(c_int, @intFromBool(control)) * 4;
+
+    const special_kind: ?c_int = switch (keyval) {
+        gdk_key_return, gdk_key_kp_enter => 0,
+        gdk_key_backspace => 1,
+        gdk_key_tab, gdk_key_iso_left_tab => if (shift) 3 else 2,
+        gdk_key_escape => 4,
+        else => null,
+    };
+    if (special_kind) |kind| {
+        return noctty_grid_sharing_key_sequence(
+            kind, application_cursor, target, capacity);
+    }
+
+    const arrow: ?c_int = switch (keyval) {
+        gdk_key_up => 0,
+        gdk_key_down => 1,
+        gdk_key_right => 2,
+        gdk_key_left => 3,
+        else => null,
+    };
+    if (arrow) |kind| {
+        return noctty_grid_sharing_arrow_sequence(
+            kind, modifier, application_cursor, target, capacity);
+    }
+
+    const extended_kind: ?c_int = switch (keyval) {
+        gdk_key_home => 0,
+        gdk_key_end => 1,
+        gdk_key_insert => 2,
+        gdk_key_delete => 3,
+        gdk_key_page_up => 4,
+        gdk_key_page_down => 5,
+        gdk_key_f1...gdk_key_f12 => @intCast(6 + keyval - gdk_key_f1),
+        else => null,
+    };
+    if (extended_kind) |kind| {
+        return noctty_grid_sharing_extended_key_sequence(
+            kind, modifier, target, capacity);
+    }
+
+    return noctty_grid_sharing_text_sequence(
+        @intFromBool(alt), input, length, target, capacity);
+}
+
 pub export fn noctty_grid_sharing_paste_allowed(length: usize) callconv(.c) c_int {
     return @intFromBool(length <= 64 * 1024);
 }
@@ -8053,6 +8114,50 @@ test "sharing text sequences add bounded Alt prefixes" {
     try std.testing.expectEqual(
         @as(c_int, 0),
         noctty_grid_sharing_text_sequence(0, null, input.len, &output, output.len),
+    );
+}
+
+test "sharing key event sequences classify raw GTK input" {
+    var output: [32]u8 = undefined;
+    var length = noctty_grid_sharing_key_event_sequence(
+        gdk_key_return, 0, 0, null, 0, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 1), length);
+    try std.testing.expectEqualStrings("\r", output[0..@intCast(length)]);
+
+    length = noctty_grid_sharing_key_event_sequence(
+        gdk_key_tab, gdk_shift_mask, 0, null, 0, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 3), length);
+    try std.testing.expectEqualStrings("\x1b[Z", output[0..@intCast(length)]);
+
+    length = noctty_grid_sharing_key_event_sequence(
+        gdk_key_iso_left_tab, 0, 0, null, 0, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 1), length);
+    try std.testing.expectEqualStrings("\t", output[0..@intCast(length)]);
+
+    length = noctty_grid_sharing_key_event_sequence(
+        gdk_key_up, 0, 1, null, 0, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 3), length);
+    try std.testing.expectEqualStrings("\x1bOA", output[0..@intCast(length)]);
+
+    length = noctty_grid_sharing_key_event_sequence(
+        gdk_key_f1, 0, 0, null, 0, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 3), length);
+    try std.testing.expectEqualStrings("\x1bOP", output[0..@intCast(length)]);
+
+    length = noctty_grid_sharing_key_event_sequence(
+        'x', gdk_mod1_mask, 0, "xy", 2, &output, output.len);
+    try std.testing.expectEqual(@as(c_int, 3), length);
+    try std.testing.expectEqualStrings("\x1bxy", output[0..@intCast(length)]);
+
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_key_event_sequence(
+            'x', 0, 0, null, 0, &output, output.len),
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_sharing_key_event_sequence(
+            gdk_key_return, 0, 0, null, 0, &output, 0),
     );
 }
 

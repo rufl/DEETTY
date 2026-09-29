@@ -267,12 +267,14 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-27) reports `82.16%` Zig ownership
-(`zig_lines=90900`, `adapter_lines=19728`) against the strict `90.00%`
-target. Direct Debug and `ReleaseSafe` renderer qualifications pass with
-byte-identical fixtures and zero warm-frame allocations; the isolated mapped
-GTK runner remains deferred by host I/O pressure (`exit=75`), so NCT-126 is
-not closed.
+Current locked-tree evidence (2026-09-29) reports `82.19%` Zig ownership
+(`zig_lines=91004`, `adapter_lines=19707`) against the strict `90.00%`
+target. Sharing-preview key-event classification and terminal sequence
+encoding now run through a tested Zig policy entry; C retains clipboard,
+transport, and feedback effects. Focused Debug and `ReleaseSafe` renderer
+qualifications pass with byte-identical fixtures and zero warm-frame
+allocations; the isolated mapped GTK runner remains deferred by host I/O
+pressure (`exit=75`), so NCT-126 is not closed.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

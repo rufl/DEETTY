@@ -3,6 +3,9 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved sharing-preview key-event classification and terminal sequence encoding
+  into a tested Zig policy entry; C retains clipboard requests, input
+  transport, and transient feedback effects.
 - Polished the compact native tab and Settings surfaces: tab event targets now
   expose the full title plus current-state assistive description, action
   controls retain keyboard focusability, Settings category rows retain pointer

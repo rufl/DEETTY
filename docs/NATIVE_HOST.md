@@ -173,6 +173,11 @@ prompts, find-status text, keyboard-shortcuts text, and sharing peer/tab/pane
 labels are bounded Zig policy; C retains GTK allocation, dialog, combo-box,
 and terminal-model effects.
 
+Sharing-preview key-event classification and terminal sequence encoding are
+selected by a tested Zig policy entry from raw GTK key values, modifiers, and
+cursor mode; C retains clipboard requests, input transport, and transient
+feedback effects.
+
 Layout-preset event validation and rows/columns/target-count selection are a
 tested Zig state plan; C retains pane enumeration, confirmation dialogs,
 session movement, and GTK layout effects.
