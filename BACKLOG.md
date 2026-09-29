@@ -200,9 +200,11 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and Noctalia theme persistence-status composition now cross the Zig ABI; C
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
-  The current source run passes all 134 Zig grid-logic tests and both Debug and
-  `ReleaseSafe` builds. The counted Zig ownership inventory is 82.16%; the fixed
-  90.00% gate and isolated graphical proof remain open.
+  The current source run passes all 135 Zig grid-logic tests and both Debug and
+  `ReleaseSafe` builds. Settings and session-sharing surfaces now share
+  theme-aware groups, focus rings, action affordances, and accessible status
+  styling. The counted Zig ownership inventory is 82.21%; the fixed 90.00%
+  gate and isolated graphical proof remain open.
   The current batches move compact-setting target mapping, persisted settings
   field/schema selection, default normalization, panel-metric clamps,
   font-rendering combo bounds, terminal context-menu action/selection geometry,
@@ -267,14 +269,14 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-29) reports `82.19%` Zig ownership
-(`zig_lines=91004`, `adapter_lines=19707`) against the strict `90.00%`
-target. Sharing-preview key-event classification and terminal sequence
-encoding now run through a tested Zig policy entry; C retains clipboard,
-transport, and feedback effects. Focused Debug and `ReleaseSafe` renderer
-qualifications pass with byte-identical fixtures and zero warm-frame
-allocations; the isolated mapped GTK runner remains deferred by host I/O
-pressure (`exit=75`), so NCT-126 is not closed.
+Current locked-tree evidence (2026-09-29) reports `82.21%` Zig ownership
+(`zig_lines=91088`, `adapter_lines=19709`) against the strict `90.00%`
+target. The settings and session-sharing dialogs now use theme-aware grouped
+surfaces, stable label/control spacing, explicit action focus affordances,
+and accessible preview/status styling. Focused Debug and `ReleaseSafe` builds
+plus the 135-test Zig policy suite pass. The isolated Settings and native-grid
+GTK runners remain deferred by host I/O pressure (`exit=75`), so NCT-126 is
+not closed.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Polished the Settings and session-sharing dialogs with theme-aware grouped
+  surfaces, readable label/control spacing, explicit action focus and tooltip
+  affordances, and semantic preview/status styling; extended isolated smoke
+  coverage for the visual classes.
 - Moved sharing-preview key-event classification and terminal sequence encoding
   into a tested Zig policy entry; C retains clipboard requests, input
   transport, and transient feedback effects.

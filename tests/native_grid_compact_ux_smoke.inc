@@ -658,6 +658,22 @@ static gboolean request_settings_smoke(gpointer user_data) {
             GTK_STACK(context->settings_stack), "window");
         GtkWidget *behavior_page = gtk_stack_get_child_by_name(
             GTK_STACK(context->settings_stack), "behavior");
+        context->settings_visual_polish =
+            context->settings_dialog != NULL &&
+            gtk_style_context_has_class(
+                gtk_widget_get_style_context(context->settings_dialog),
+                "noctty-settings-dialog") &&
+            gtk_style_context_has_class(
+                gtk_widget_get_style_context(context->settings_categories),
+                "noctty-settings-sidebar") &&
+            first != NULL &&
+            gtk_style_context_has_class(
+                gtk_widget_get_style_context(GTK_WIDGET(first)),
+                "noctty-settings-category") &&
+            GTK_IS_SCROLLED_WINDOW(window_page) &&
+            gtk_style_context_has_class(
+                gtk_widget_get_style_context(window_page),
+                "noctty-settings-page");
         if (GTK_IS_SCROLLED_WINDOW(window_page) &&
             GTK_IS_SCROLLED_WINDOW(behavior_page)) {
             GtkPolicyType window_horizontal = GTK_POLICY_NEVER;

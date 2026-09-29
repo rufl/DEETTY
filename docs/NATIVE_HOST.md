@@ -1,6 +1,6 @@
 # Native Plasma and Noctalia Host
 
-Last verified: 2026-09-27.
+Last verified: 2026-09-29.
 
 ## Outcome
 
@@ -35,6 +35,12 @@ Settings pages scroll vertically only; compact labels, category rail, and paddin
 Terminal tab close buttons retain compact geometry while their tooltip and ATK
 name identify the complete target title.
 The tab event target carries the full tab title as its assistive name and the current tab summary as its assistive description. Compact action buttons retain keyboard focusability even when pointer activation leaves terminal focus in place; Settings category rows retain focus on pointer activation and expose theme-aware hover, pressed, selected, and keyboard-focus states.
+
+Settings and session-sharing dialogs use the same theme-aware surface, group,
+label, action, focus, and disabled-state language. Settings labels reserve
+readable control width; sharing actions expose tooltips and accessible names;
+the remote preview and live status regions retain visible focus and semantic
+roles.
 
 The maintained workspace smoke also exercises the live tag/filter bridge: it tags the selected pane, populates the native editable suggestion model from Zig-owned tags, verifies the active tag is named in the empty filter state, activates both the `Clear filter` button and the zero-match `Escape` recovery path, verifies a matching pane remains eligible while an untagged pane is excluded, checks the compact tab indicator and filtered focus handoff, clears the filter, and checks the resulting Zig-owned state after GTK teardown.
 

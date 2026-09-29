@@ -756,7 +756,23 @@ const compact_tab_css =
     "button.noctty-tab-close:disabled, button.noctty-tab-action:disabled { color: alpha(@theme_fg_color, 0.34); background: transparent; }" ++
     "button.noctty-tab-close:focus, button.noctty-tab-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     "entry.noctty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
-    ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }";
+    ".noctty-grid-area, .noctty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }" ++
+    "notebook.noctty-tab-notebook > header > tabs > tab:checked .noctty-tab-label { font-weight: 600; }" ++
+    "window.noctty-settings-dialog, window.noctty-sharing-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
+    ".noctty-settings-page { padding: 2px; }" ++
+    ".noctty-settings-heading { margin-bottom: 4px; }" ++
+    ".noctty-settings-detail, label.noctty-settings-label { color: alpha(@theme_fg_color, 0.72); }" ++
+    "frame.noctty-settings-group, frame.noctty-sharing-group { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; padding: 4px; }" ++
+    "frame.noctty-settings-group > label, frame.noctty-sharing-group > label { color: @theme_text_color; }" ++
+    "button.noctty-sharing-action { min-height: 30px; padding: 3px 10px; border-radius: 6px; }" ++
+    "button.noctty-sharing-action:hover { background: alpha(@theme_fg_color, 0.12); }" ++
+    "button.noctty-sharing-action:active { background: alpha(@theme_selected_bg_color, 0.26); }" ++
+    "button.noctty-sharing-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: 1px; }" ++
+    "button.noctty-sharing-action:disabled { color: alpha(@theme_fg_color, 0.38); }" ++
+    ".noctty-sharing-status { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.12); }" ++
+    ".noctty-sharing-security { color: alpha(@theme_fg_color, 0.68); }" ++
+    "drawingarea.noctty-sharing-preview { border: 1px solid alpha(@theme_fg_color, 0.22); border-radius: 8px; background: @theme_base_color; }" ++
+    "scrolledwindow.noctty-sharing-scroll { background: transparent; }";
 
 var compact_tab_provider: ?*GtkCssProvider = null;
 
@@ -1472,6 +1488,7 @@ fn settingsHeadingNew(
     const title_text = title orelse return null;
     const detail_text = description orelse return null;
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4) orelse return null;
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "noctty-settings-heading");
     const heading = gtk_label_new(null) orelse return null;
     const markup = g_markup_printf_escaped(
         "<span size=\"x-large\" weight=\"bold\">%s</span>",
@@ -1480,12 +1497,14 @@ fn settingsHeadingNew(
     defer g_free(markup);
     gtk_label_set_markup(@ptrCast(heading), markup);
     gtk_label_set_xalign(@ptrCast(heading), 0.0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "noctty-settings-heading-title");
 
     const detail = gtk_label_new(detail_text) orelse return null;
     gtk_label_set_xalign(@ptrCast(detail), 0.0);
     gtk_label_set_line_wrap(@ptrCast(detail), TRUE);
     gtk_label_set_max_width_chars(@ptrCast(detail), 58);
     gtk_style_context_add_class(gtk_widget_get_style_context(detail), "dim-label");
+    gtk_style_context_add_class(gtk_widget_get_style_context(detail), "noctty-settings-detail");
     gtk_box_pack_start(@ptrCast(box), heading, FALSE, FALSE, 0);
     gtk_box_pack_start(@ptrCast(box), detail, FALSE, FALSE, 0);
     return box;
@@ -1493,6 +1512,7 @@ fn settingsHeadingNew(
 
 pub export fn noctty_settings_grid_new() ?*GtkWidget {
     const grid = gtk_grid_new() orelse return null;
+    gtk_style_context_add_class(gtk_widget_get_style_context(grid), "noctty-settings-grid");
     gtk_grid_set_row_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_homogeneous(@ptrCast(grid), FALSE);
@@ -1512,11 +1532,12 @@ pub export fn noctty_settings_grid_attach_control(
     const label = gtk_label_new(text orelse return) orelse return;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_label_set_line_wrap(@ptrCast(label), TRUE);
-    gtk_label_set_max_width_chars(@ptrCast(label), 14);
+    gtk_label_set_max_width_chars(@ptrCast(label), 18);
     gtk_label_set_mnemonic_widget(@ptrCast(label), control_widget);
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(label, 112, -1);
+    gtk_widget_set_size_request(label, 136, -1);
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "noctty-settings-label");
     gtk_widget_set_hexpand(control_widget, TRUE);
     gtk_widget_set_halign(control_widget, GTK_ALIGN_FILL);
     gtk_grid_attach(@ptrCast(grid_widget), label, 0, row, 1, 1);
@@ -1529,11 +1550,13 @@ pub export fn noctty_settings_group_new(
 ) ?*GtkWidget {
     const child_widget = child orelse return null;
     const frame = gtk_frame_new(null) orelse return null;
+    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "noctty-settings-group");
     const label = gtk_label_new(null) orelse return null;
     const markup = g_markup_printf_escaped("<b>%s</b>", title orelse return null) orelse
         return null;
     defer g_free(markup);
     gtk_label_set_markup(@ptrCast(label), markup);
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "noctty-settings-group-title");
     gtk_frame_set_label_widget(@ptrCast(frame), label);
     gtk_container_set_border_width(@ptrCast(child_widget), 12);
     gtk_widget_set_hexpand(child_widget, TRUE);
@@ -1551,6 +1574,7 @@ pub export fn noctty_settings_page_new(
 ) ?*GtkWidget {
     const output = body_out orelse return null;
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
+    gtk_style_context_add_class(gtk_widget_get_style_context(scrolled), "noctty-settings-page");
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
         GTK_POLICY_NEVER,
@@ -1559,6 +1583,7 @@ pub export fn noctty_settings_page_new(
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
     gtk_widget_set_hexpand(scrolled, TRUE);
     const body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20) orelse return null;
+    gtk_style_context_add_class(gtk_widget_get_style_context(body), "noctty-settings-page-body");
     gtk_container_set_border_width(@ptrCast(body), 20);
     gtk_widget_set_hexpand(body, TRUE);
     gtk_widget_set_halign(body, GTK_ALIGN_FILL);
@@ -4978,6 +5003,10 @@ pub export fn noctty_settings_shell_new(
     contents_out: *SettingsShellContents,
 ) c_int {
     const target = dialog orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-settings-dialog",
+    );
     const window = window_page orelse return FALSE;
     const behavior = behavior_page orelse return FALSE;
     const appearance = appearance_page orelse return FALSE;
@@ -5031,6 +5060,10 @@ pub export fn noctty_settings_shell_new(
     gtk_stack_add_named(@ptrCast(stack), appearance, "appearance");
 
     const separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(separator),
+        "noctty-settings-separator",
+    );
     const content = gtk_dialog_get_content_area(@ptrCast(target));
     gtk_box_set_spacing(@ptrCast(content), 0);
     gtk_container_set_border_width(@ptrCast(content), 0);
@@ -5836,6 +5869,13 @@ fn sharingActionButton(
     callback: ?GCallback,
 ) ?*GtkWidget {
     const button = gtk_button_new_with_label(action.label) orelse return null;
+    gtk_widget_set_can_focus(button, TRUE);
+    gtk_widget_set_tooltip_text(button, action.label);
+    setAccessibleName(button, action.label);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(button),
+        "noctty-sharing-action",
+    );
     g_object_set_data(
         object(button),
         "noctty-sharing-action",
@@ -5848,6 +5888,11 @@ fn sharingActionButton(
 fn sharingFieldLabel(text: [*:0]const u8, control: *GtkWidget) ?*GtkWidget {
     const label = gtk_label_new(text) orelse return null;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
+    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(label),
+        "noctty-sharing-label",
+    );
     gtk_label_set_mnemonic_widget(@ptrCast(label), control);
     return label;
 }
@@ -5857,7 +5902,15 @@ fn sharingActionGroup(
     buttons: []const *GtkWidget,
 ) ?*GtkWidget {
     const frame = gtk_frame_new(title) orelse return null;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(frame),
+        "noctty-sharing-group",
+    );
     const flow = gtk_flow_box_new() orelse return null;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(flow),
+        "noctty-sharing-action-flow",
+    );
     gtk_flow_box_set_selection_mode(@ptrCast(flow), GTK_SELECTION_NONE);
     gtk_flow_box_set_min_children_per_line(@ptrCast(flow), 1);
     gtk_flow_box_set_max_children_per_line(@ptrCast(flow), 4);
@@ -5886,10 +5939,18 @@ pub export fn noctty_sharing_contents_new(
     callbacks_raw: ?*const SharingCallbacks,
 ) c_int {
     const target = dialog orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-sharing-dialog",
+    );
     const callback_data = context orelse return FALSE;
     const callbacks = callbacks_raw orelse return FALSE;
 
     const scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(scroll),
+        "noctty-sharing-scroll",
+    );
     gtk_scrolled_window_set_policy(
         @ptrCast(scroll),
         GTK_POLICY_AUTOMATIC,
@@ -5899,9 +5960,13 @@ pub export fn noctty_sharing_contents_new(
     gtk_widget_set_hexpand(scroll, TRUE);
     gtk_widget_set_vexpand(scroll, TRUE);
     const grid = gtk_grid_new() orelse return FALSE;
-    gtk_grid_set_row_spacing(@ptrCast(grid), 10);
-    gtk_grid_set_column_spacing(@ptrCast(grid), 10);
-    gtk_container_set_border_width(@ptrCast(grid), 16);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(grid),
+        "noctty-sharing-grid",
+    );
+    gtk_grid_set_row_spacing(@ptrCast(grid), 12);
+    gtk_grid_set_column_spacing(@ptrCast(grid), 12);
+    gtk_container_set_border_width(@ptrCast(grid), 20);
     gtk_container_add(@ptrCast(scroll), grid);
     gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), scroll);
 
@@ -5910,6 +5975,9 @@ pub export fn noctty_sharing_contents_new(
     const endpoint = gtk_entry_new() orelse return FALSE;
     const port = gtk_spin_button_new_with_range(1, 65535, 1) orelse return FALSE;
     gtk_entry_set_text(@ptrCast(alias), "Remote NOCTTY");
+    gtk_entry_set_width_chars(@ptrCast(alias), 22);
+    gtk_entry_set_width_chars(@ptrCast(endpoint), 28);
+    gtk_widget_set_size_request(port, 96, -1);
     gtk_entry_set_text(@ptrCast(endpoint), "127.0.0.1");
     gtk_entry_set_placeholder_text(@ptrCast(endpoint), "hostname, tailnet IP, or VPN DNS name");
     gtk_spin_button_set_value(@ptrCast(port), 49331);
@@ -5953,6 +6021,14 @@ pub export fn noctty_sharing_contents_new(
     setAccessibleName(streams, "Shared pane");
 
     const preview = gtk_drawing_area_new() orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(preview),
+        "noctty-sharing-preview",
+    );
+    gtk_widget_set_tooltip_text(
+        preview,
+        "Remote terminal preview; focus and request control before typing",
+    );
     gtk_widget_set_size_request(
         preview,
         @max(1, @min(480, width - 64)),
@@ -5983,6 +6059,10 @@ pub export fn noctty_sharing_contents_new(
     const status = gtk_label_new(idle_text) orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(status), 0.0);
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(status),
+        "noctty-sharing-status",
+    );
     const status_accessible = gtk_widget_get_accessible(status);
     atk_object_set_name(status_accessible, "Session sharing status");
     atk_object_set_role(status_accessible, ATK_ROLE_STATUSBAR);
@@ -5993,6 +6073,10 @@ pub export fn noctty_sharing_contents_new(
             "default. Pairing uses a six-digit code derived from the encrypted " ++
             "handshake. Control is temporary and never survives a reconnect.",
     ) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(security),
+        "noctty-sharing-security",
+    );
     gtk_label_set_xalign(@ptrCast(security), 0.0);
     gtk_label_set_line_wrap(@ptrCast(security), TRUE);
 

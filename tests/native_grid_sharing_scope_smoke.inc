@@ -63,6 +63,23 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
     gboolean status_accessible_ok =
         status_accessible != NULL &&
         atk_object_get_role(status_accessible) == ATK_ROLE_STATUSBAR;
+    gboolean sharing_visual_polish =
+        dialog != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(dialog),
+            "noctty-sharing-dialog") &&
+        share_pane != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(share_pane),
+            "noctty-sharing-action") &&
+        preview != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(preview),
+            "noctty-sharing-preview") &&
+        status != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(status),
+            "noctty-sharing-status");
     gboolean preview_request_bounded =
         preview_request_width > 0 && preview_request_width <= 480 &&
         preview_request_height > 0 && preview_request_height <= 260;
@@ -141,6 +158,7 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
         g_strcmp0(atk_object_get_name(preview_accessible),
                   "Remote terminal workspace") == 0 &&
         form_accessible && status_accessible_ok && preview_request_bounded &&
+        sharing_visual_polish &&
         (root->sharing_layout_pane_mask & UINT64_C(3)) == UINT64_C(3) &&
         root->sharing_layout_selected_seen &&
         root->sharing_layout_host_active_seen &&

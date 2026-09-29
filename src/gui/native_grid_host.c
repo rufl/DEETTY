@@ -409,6 +409,7 @@ typedef struct NocttyGridContextTag {
     int settings_category_focusable;
     int settings_category_focus_initial;
     int settings_category_tooltips;
+    int settings_visual_polish;
     int settings_background_support_notice;
     int settings_metric_thickness_live;
     int settings_narrow_access;
@@ -17288,6 +17289,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.settings_category_focusable &&
          context.settings_category_focus_initial &&
          context.settings_category_tooltips &&
+         context.settings_visual_polish &&
          context.settings_background_support_notice &&
          context.translucent_surface_ready &&
          context.settings_metric_thickness_live &&
