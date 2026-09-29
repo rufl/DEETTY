@@ -224,6 +224,11 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   Numeric restore-mode text, sharing selection IDs, pane drag identifiers, and
   terminal accessibility names now also use bounded Zig text helpers; C retains
   spawn, combo-box, drag-and-drop, and ATK effects.
+  Command-palette dispatch effects, split orientation/rendered-event selection,
+  tab-rename boundary trimming/validation, and restored-session dimension minimums
+  now cross tested Zig plans; C retains GTK activation, inline editor, layout, and
+  session-allocation effects.
+
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
   display-isolation shell orchestration outside the source-percentage target.
@@ -271,15 +276,17 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-29) reports `82.20%` Zig ownership
-(`zig_lines=91225`, `adapter_lines=19741`) against the strict `90.00%`
+Current locked-tree evidence (2026-09-29) reports `82.16%` Zig ownership
+(`zig_lines=91475`, `adapter_lines=19850`) against the strict `90.00%`
 target. Settings, session-sharing, command-palette, terminal find, quick-note,
-theme-library, and project-workspace dialogs now share theme-aware utility
-surfaces, bounded search/editor regions, visible focus and selection states,
-and accessible action/status roles. Focused Debug and `ReleaseSafe` builds
-plus the 135-test Zig policy suite pass. The isolated Settings and native-grid
-GTK runners remain deferred by host I/O pressure (`exit=75`), so NCT-126 is
-not closed.
+theme-library, and project-workspace dialogs share theme-aware utility surfaces,
+bounded search/editor regions, visible focus and selection states, and accessible
+action/status roles. Command-palette dispatch, split orientation/rendered-event
+selection, tab-rename boundary validation, and restored-session dimension
+minimums now use tested Zig policy plans. Focused Debug and `ReleaseSafe`
+builds plus the 139-test Zig policy suite pass. The isolated Settings and
+native-grid GTK runners remain deferred by host I/O pressure (`exit=75`), so
+NCT-126 is not closed.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

@@ -5199,27 +5199,32 @@ static void finish_tab_rename(NocttyGridContext *context,
 }
 
 static gboolean apply_tab_rename(NocttyGridContext *root) {
-    if (!noctty_grid_widget_is_type(root->tab_rename_entry, NOCTTY_GTK_ENTRY)) return FALSE;
+    if (!noctty_grid_widget_is_type(root->tab_rename_entry, NOCTTY_GTK_ENTRY))
+        return FALSE;
     GtkWidget *page = root->tab_rename_page;
     NocttyGridContext *target = grid_context_for_page(root, page);
     if (target == NULL) {
         set_tab_rename_error(root, "This tab is no longer available.");
         return FALSE;
     }
-    gchar *title = g_strdup(noctty_grid_entry_get_text(GTK_ENTRY(root->tab_rename_entry)));
-    g_strstrip(title);
-    size_t length = strlen(title);
-    gboolean valid =
-        noctty_grid_text_valid((const uint8_t *)title, length, 128) != 0;
-    if (!valid) {
-        set_tab_rename_error(root,
-            length == 0 ? "Enter a tab name." : "Use a single-line name up to 128 bytes.");
-        noctty_grid_memory_free(title);
+    const char *raw = noctty_grid_entry_get_text(
+        GTK_ENTRY(root->tab_rename_entry));
+    const size_t raw_length = raw != NULL ? strlen(raw) : 0;
+    NocttyGridTabRenamePlan plan = {0};
+    noctty_grid_tab_rename_plan(
+        (const unsigned char *)raw, raw_length, &plan);
+    if (plan.valid == 0) {
+        set_tab_rename_error(root, plan.message);
+        return FALSE;
+    }
+    gchar *title = g_strndup(raw + plan.start, plan.length);
+    if (title == NULL) {
+        set_tab_rename_error(root, "Could not rename this tab.");
         return FALSE;
     }
     if (root->event_data == NULL ||
         noctty_grid_rename_tab(root->event_data, target->pane_id,
-                               title, length) != 0) {
+                               title, plan.length) != 0) {
         set_tab_rename_error(root, "Could not rename this tab.");
         noctty_grid_memory_free(title);
         return FALSE;
@@ -5229,6 +5234,7 @@ static gboolean apply_tab_rename(NocttyGridContext *root) {
     finish_tab_rename(root, TRUE);
     return TRUE;
 }
+
 
 static void on_tab_rename_entry_destroy(GtkWidget *widget, gpointer user_data) {
     NocttyGridContext *root = user_data;
@@ -6758,7 +6764,8 @@ static NocttyGridContext *create_grid_context(NocttyGridContext *source,
     uint64_t pane_id = 0;
     void *userdata = source->create_session(
         source->event_data, source->pane_id, event_code,
-        MAX(source->columns, 2), MAX(source->rows, 2), &pane_id);
+        noctty_grid_session_dimension(source->columns),
+        noctty_grid_session_dimension(source->rows), &pane_id);
     if (userdata == NULL || pane_id == 0) return NULL;
     return create_grid_context_for_session(source, userdata, pane_id);
 }
@@ -6770,7 +6777,8 @@ static NocttyGridContext *restore_grid_context(
     uint64_t restored_pane_id = 0;
     void *userdata = source->create_session(
         source->event_data, pane_id, NOCTTY_GRID_HOST_EVENT(RESTORED_PANE),
-        MAX(columns, 2), MAX(rows, 2), &restored_pane_id);
+        noctty_grid_session_dimension(columns),
+        noctty_grid_session_dimension(rows), &restored_pane_id);
     if (userdata == NULL || restored_pane_id != pane_id) return NULL;
     return create_grid_context_for_session(source, userdata, pane_id);
 }
@@ -6872,10 +6880,10 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         noctty_grid_paned_get_child1(GTK_PANED(parent)) == source->area;
     if (!parent_is_paned && !noctty_grid_widget_is_type(parent, NOCTTY_GTK_BOX)) return FALSE;
 
-    GtkOrientation orientation = event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT) ||
-        event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_RESTORE)
-        ? GTK_ORIENTATION_VERTICAL
-        : GTK_ORIENTATION_HORIZONTAL;
+    NocttyGridSplitRenderPlan split_plan = {0};
+    noctty_grid_split_render_plan(event_code, &split_plan);
+    if (split_plan.valid == 0) return FALSE;
+    GtkOrientation orientation = (GtkOrientation)split_plan.orientation;
     GtkWidget *split = noctty_paned_new((int)orientation, root->pane_divider_px);
     noctty_grid_object_ref(source->area);
     noctty_container_remove(parent, source->area);
@@ -6886,8 +6894,7 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         noctty_box_pack_start(parent, split, TRUE, TRUE, 0);
     }
 
-    if (event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT) ||
-        event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_RESTORE)) {
+    if (split_plan.reverse != 0) {
         noctty_paned_pack1(split, created->area, TRUE, FALSE);
         noctty_paned_pack2(split, source->area, TRUE, FALSE);
     } else {
@@ -6902,15 +6909,8 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
         : source_allocation.width / 2;
     if (midpoint > 0) noctty_paned_set_position(split, midpoint);
     if (source->event != NULL) {
-        int rendered_event = event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT)
-            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_VERTICAL)
-            : event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT)
-            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_HORIZONTAL)
-            : event_code == NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_CLOSE)
-            ? NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_CLOSE)
-            : NOCTTY_GRID_HOST_EVENT(SPLIT_RENDERED_RESTORE);
         source->event(source->event_data, created->pane_id,
-                      rendered_event, 0,
+                      split_plan.rendered_event, 0,
                       (uint64_t)(g_get_monotonic_time() / 1000));
     }
     schedule_even_pane_distribution(
@@ -7262,7 +7262,8 @@ static gboolean restore_hot_session(NocttyGridContext *root) {
                 uint64_t restored_pane_id = 0;
                 void *userdata = root->create_session(
                     root->event_data, pane_id, NOCTTY_GRID_HOST_EVENT(RESTORED_PANE),
-                    MAX(root->columns, 2), MAX(root->rows, 2),
+                    noctty_grid_session_dimension(root->columns),
+                    noctty_grid_session_dimension(root->rows),
                     &restored_pane_id);
                 if (userdata == NULL || restored_pane_id != pane_id) {
                     layout_ready = FALSE;
@@ -12888,48 +12889,102 @@ static void accept_pending_agent_action(NocttyGridContext *context) {
 }
 
 static void execute_palette_action(NocttyGridContext *context, int id) {
-    if (id == 1) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_NEW_TAB));
-    else if (id == 2) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT));
-    else if (id == 3) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_SPLIT_ALT));
-    else if (id == 4) toggle_grid_zoom(context);
-    else if (id == 5) open_terminal_find(context);
-    else if (id == 6) open_quick_note(context);
-    else if (id == 7) on_broadcast_menu_activate(NULL, context);
-    else if (id == 8) emit_grid_workspace_event(context, NOCTTY_GRID_HOST_EVENT(WORKSPACE_MOVE));
-    else if (id == 9) open_grid_settings(context);
-    else if (id == 10) open_theme_library(context);
-    else if (id == 11) open_project_tools(context);
-    else if (id == 18) open_editor_here(context);
-    else if (id == 12) save_grid_scrollback(context);
-    else if (id == 24) set_agent_resume_reference(context);
-    else if (id == 25) clear_agent_resume_reference(context);
-    else if (id == 26) save_grid_encrypted_history(context);
-    else if (id == 27) accept_pending_agent_action(context);
-    else if (id == 13) open_shortcuts_overlay(context);
-    else if (id == 14) toggle_grid_window(context);
-    else if (id == 15) {
-        context->high_contrast = !context->high_contrast;
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_HIGH_CONTRAST), context->high_contrast, (uint64_t)(g_get_monotonic_time() / 1000));
-        noctty_grid_widget_queue_draw(context->area);
-    } else if (id == 16) {
-        int position = (context->tab_position + 1) % 4;
-        if (context->event != NULL) context->event(context->event_data, context->pane_id, noctty_grid_settings_event_code(NOCTTY_GRID_SETTINGS_EVENT_TABS), position, (uint64_t)(g_get_monotonic_time() / 1000));
-        apply_grid_tab_position(context, position, TRUE);
-    } else if (id == 17) {
+    NocttyGridPaletteDispatchPlan plan = {0};
+    noctty_grid_palette_action_plan(
+        id, context->high_contrast, context->tab_position, &plan);
+    if (plan.valid == 0) return;
+    switch (plan.action) {
+    case NOCTTY_GRID_PALETTE_DISPATCH_WORKSPACE_EVENT:
+        emit_grid_workspace_event(context, plan.event_code);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_ZOOM:
+        toggle_grid_zoom(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_FIND:
+        open_terminal_find(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_NOTE:
+        open_quick_note(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_BROADCAST:
+        on_broadcast_menu_activate(NULL, context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_SETTINGS:
+        open_grid_settings(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_THEME:
+        open_theme_library(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_PROJECT:
+        open_project_tools(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_EDITOR:
+        open_editor_here(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_SCROLLBACK:
+        save_grid_scrollback(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_AGENT_SET:
+        set_agent_resume_reference(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_AGENT_CLEAR:
+        clear_agent_resume_reference(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_HISTORY:
+        save_grid_encrypted_history(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_PENDING_AGENT:
+        accept_pending_agent_action(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_SHORTCUTS:
+        open_shortcuts_overlay(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_WINDOW:
+        toggle_grid_window(context);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_SETTINGS_EVENT:
+        if (plan.event_code == noctty_grid_settings_event_code(
+                NOCTTY_GRID_SETTINGS_EVENT_HIGH_CONTRAST)) {
+            context->high_contrast = plan.value;
+            if (context->event != NULL)
+                context->event(
+                    context->event_data, context->pane_id,
+                    plan.event_code, plan.value,
+                    (uint64_t)(g_get_monotonic_time() / 1000));
+            noctty_grid_widget_queue_draw(context->area);
+        } else if (plan.event_code == noctty_grid_settings_event_code(
+                       NOCTTY_GRID_SETTINGS_EVENT_TABS)) {
+            if (context->event != NULL)
+                context->event(
+                    context->event_data, context->pane_id,
+                    plan.event_code, plan.value,
+                    (uint64_t)(g_get_monotonic_time() / 1000));
+            apply_grid_tab_position(context, plan.value, TRUE);
+        }
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_RENAME: {
         NocttyGridContext *root = root_grid_context(context);
-        gint page_index = noctty_grid_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
-        GtkWidget *page = noctty_grid_notebook_get_nth_page(GTK_NOTEBOOK(root->notebook), page_index);
+        gint page_index = noctty_grid_notebook_get_current_page(
+            GTK_NOTEBOOK(root->notebook));
+        GtkWidget *page = noctty_grid_notebook_get_nth_page(
+            GTK_NOTEBOOK(root->notebook), page_index);
         open_tab_rename(root, page);
-    } else if (id == 19) {
+        break;
+    }
+    case NOCTTY_GRID_PALETTE_DISPATCH_SMART_FILTER:
         on_smart_filter_button_clicked(NULL, context);
-    } else if (id == 20) {
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_TAG_SELECTED:
         on_tag_selected_menu_activate(NULL, context);
-    } else if (id == 21) {
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_TAG_REMOVE:
         on_tag_remove_menu_activate(NULL, context);
-    } else if (id == 22) {
-        (void)adjust_active_tab_color(context, 1);
-    } else if (id == 23) {
-        (void)adjust_active_tab_color(context, -1);
+        break;
+    case NOCTTY_GRID_PALETTE_DISPATCH_TAB_COLOR:
+        (void)adjust_active_tab_color(context, plan.value);
+        break;
+    default:
+        break;
     }
 }
 

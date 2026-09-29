@@ -1516,6 +1516,61 @@ int noctty_grid_snap_pane_position(int max_position, int position);
 unsigned int noctty_grid_palette_actions(
     NocttyPaletteAction *output, unsigned int capacity);
 typedef struct {
+    int action;
+    int event_code;
+    int value;
+    int valid;
+} NocttyGridPaletteDispatchPlan;
+enum {
+    NOCTTY_GRID_PALETTE_DISPATCH_NONE = 0,
+    NOCTTY_GRID_PALETTE_DISPATCH_WORKSPACE_EVENT = 1,
+    NOCTTY_GRID_PALETTE_DISPATCH_ZOOM = 2,
+    NOCTTY_GRID_PALETTE_DISPATCH_FIND = 3,
+    NOCTTY_GRID_PALETTE_DISPATCH_NOTE = 4,
+    NOCTTY_GRID_PALETTE_DISPATCH_BROADCAST = 5,
+    NOCTTY_GRID_PALETTE_DISPATCH_SETTINGS = 6,
+    NOCTTY_GRID_PALETTE_DISPATCH_THEME = 7,
+    NOCTTY_GRID_PALETTE_DISPATCH_PROJECT = 8,
+    NOCTTY_GRID_PALETTE_DISPATCH_EDITOR = 9,
+    NOCTTY_GRID_PALETTE_DISPATCH_SCROLLBACK = 10,
+    NOCTTY_GRID_PALETTE_DISPATCH_AGENT_SET = 11,
+    NOCTTY_GRID_PALETTE_DISPATCH_AGENT_CLEAR = 12,
+    NOCTTY_GRID_PALETTE_DISPATCH_HISTORY = 13,
+    NOCTTY_GRID_PALETTE_DISPATCH_PENDING_AGENT = 14,
+    NOCTTY_GRID_PALETTE_DISPATCH_SHORTCUTS = 15,
+    NOCTTY_GRID_PALETTE_DISPATCH_WINDOW = 16,
+    NOCTTY_GRID_PALETTE_DISPATCH_SETTINGS_EVENT = 17,
+    NOCTTY_GRID_PALETTE_DISPATCH_RENAME = 18,
+    NOCTTY_GRID_PALETTE_DISPATCH_SMART_FILTER = 19,
+    NOCTTY_GRID_PALETTE_DISPATCH_TAG_SELECTED = 20,
+    NOCTTY_GRID_PALETTE_DISPATCH_TAG_REMOVE = 21,
+    NOCTTY_GRID_PALETTE_DISPATCH_TAB_COLOR = 22,
+};
+void noctty_grid_palette_action_plan(
+    int id, int high_contrast, int tab_position,
+    NocttyGridPaletteDispatchPlan *plan);
+typedef struct {
+    int orientation;
+    int reverse;
+    int rendered_event;
+    int valid;
+} NocttyGridSplitRenderPlan;
+enum {
+    NOCTTY_GRID_SPLIT_ORIENTATION_HORIZONTAL = 0,
+    NOCTTY_GRID_SPLIT_ORIENTATION_VERTICAL = 1,
+};
+void noctty_grid_split_render_plan(
+    int event_code, NocttyGridSplitRenderPlan *plan);
+typedef struct {
+    int valid;
+    size_t start;
+    size_t length;
+    const char *message;
+} NocttyGridTabRenamePlan;
+void noctty_grid_tab_rename_plan(
+    const unsigned char *text, size_t length, NocttyGridTabRenamePlan *plan);
+int noctty_grid_session_dimension(int value);
+typedef struct {
     const char *label;
     unsigned int role;
 } NocttyGridWorkspaceColor;

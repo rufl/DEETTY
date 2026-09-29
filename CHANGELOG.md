@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Moved command-palette dispatch, split orientation/rendered-event selection,
+  tab-rename boundary validation, and restored-session dimension minimums behind
+  focused Zig policy plans; GTK retains activation, layout, editor, and session
+  allocation effects.
 - Polished the command palette, terminal find, quick-note, keyboard-shortcuts,
   theme-library, and project-workspace dialogs with shared theme-aware utility
   surfaces, bounded editor/search regions, visible focus and selection states,

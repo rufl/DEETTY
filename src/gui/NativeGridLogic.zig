@@ -5641,6 +5641,195 @@ pub export fn noctty_grid_palette_actions(
     for (actions, 0..) |action, index| target[index] = action;
     return @intCast(actions.len);
 }
+pub const PaletteDispatchPlan = extern struct {
+    action: c_int,
+    event_code: c_int,
+    value: c_int,
+    valid: c_int,
+};
+
+pub const palette_dispatch_none: c_int = 0;
+pub const palette_dispatch_workspace_event: c_int = 1;
+pub const palette_dispatch_zoom: c_int = 2;
+pub const palette_dispatch_find: c_int = 3;
+pub const palette_dispatch_note: c_int = 4;
+pub const palette_dispatch_broadcast: c_int = 5;
+pub const palette_dispatch_settings: c_int = 6;
+pub const palette_dispatch_theme: c_int = 7;
+pub const palette_dispatch_project: c_int = 8;
+pub const palette_dispatch_editor: c_int = 9;
+pub const palette_dispatch_scrollback: c_int = 10;
+pub const palette_dispatch_agent_set: c_int = 11;
+pub const palette_dispatch_agent_clear: c_int = 12;
+pub const palette_dispatch_history: c_int = 13;
+pub const palette_dispatch_pending_agent: c_int = 14;
+pub const palette_dispatch_shortcuts: c_int = 15;
+pub const palette_dispatch_window: c_int = 16;
+pub const palette_dispatch_settings_event: c_int = 17;
+pub const palette_dispatch_rename: c_int = 18;
+pub const palette_dispatch_smart_filter: c_int = 19;
+pub const palette_dispatch_tag_selected: c_int = 20;
+pub const palette_dispatch_tag_remove: c_int = 21;
+pub const palette_dispatch_tab_color: c_int = 22;
+
+fn paletteDispatch(action: c_int, event_code: c_int, value: c_int) PaletteDispatchPlan {
+    return .{ .action = action, .event_code = event_code, .value = value, .valid = 1 };
+}
+
+pub export fn noctty_grid_palette_action_plan(
+    id: c_int,
+    high_contrast: c_int,
+    tab_position: c_int,
+    output_optional: ?*PaletteDispatchPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .action = palette_dispatch_none,
+        .event_code = 0,
+        .value = 0,
+        .valid = 0,
+    };
+    switch (id) {
+        1 => output.* = paletteDispatch(
+            palette_dispatch_workspace_event, host_event_code(.workspace_new_tab), 0),
+        2 => output.* = paletteDispatch(
+            palette_dispatch_workspace_event, host_event_code(.workspace_split), 0),
+        3 => output.* = paletteDispatch(
+            palette_dispatch_workspace_event, host_event_code(.workspace_split_alt), 0),
+        4 => output.* = paletteDispatch(palette_dispatch_zoom, 0, 0),
+        5 => output.* = paletteDispatch(palette_dispatch_find, 0, 0),
+        6 => output.* = paletteDispatch(palette_dispatch_note, 0, 0),
+        7 => output.* = paletteDispatch(palette_dispatch_broadcast, 0, 0),
+        8 => output.* = paletteDispatch(
+            palette_dispatch_workspace_event, host_event_code(.workspace_move), 0),
+        9 => output.* = paletteDispatch(palette_dispatch_settings, 0, 0),
+        10 => output.* = paletteDispatch(palette_dispatch_theme, 0, 0),
+        11 => output.* = paletteDispatch(palette_dispatch_project, 0, 0),
+        12 => output.* = paletteDispatch(palette_dispatch_scrollback, 0, 0),
+        13 => output.* = paletteDispatch(palette_dispatch_shortcuts, 0, 0),
+        14 => output.* = paletteDispatch(palette_dispatch_window, 0, 0),
+        15 => output.* = paletteDispatch(
+            palette_dispatch_settings_event,
+            settings_event_code(.high_contrast),
+            @intFromBool(high_contrast == 0),
+        ),
+        16 => output.* = paletteDispatch(
+            palette_dispatch_settings_event,
+            settings_event_code(.tabs),
+            @mod(std.math.clamp(tab_position, 0, 3) + 1, 4),
+        ),
+        17 => output.* = paletteDispatch(palette_dispatch_rename, 0, 0),
+        18 => output.* = paletteDispatch(palette_dispatch_editor, 0, 0),
+        19 => output.* = paletteDispatch(palette_dispatch_smart_filter, 0, 0),
+        20 => output.* = paletteDispatch(palette_dispatch_tag_selected, 0, 0),
+        21 => output.* = paletteDispatch(palette_dispatch_tag_remove, 0, 0),
+        22 => output.* = paletteDispatch(palette_dispatch_tab_color, 0, 1),
+        23 => output.* = paletteDispatch(palette_dispatch_tab_color, 0, -1),
+        24 => output.* = paletteDispatch(palette_dispatch_agent_set, 0, 0),
+        25 => output.* = paletteDispatch(palette_dispatch_agent_clear, 0, 0),
+        26 => output.* = paletteDispatch(palette_dispatch_history, 0, 0),
+        27 => output.* = paletteDispatch(palette_dispatch_pending_agent, 0, 0),
+        else => {},
+    }
+}
+
+pub const SplitRenderPlan = extern struct {
+    orientation: c_int,
+    reverse: c_int,
+    rendered_event: c_int,
+    valid: c_int,
+};
+
+pub const split_orientation_horizontal: c_int = 0;
+pub const split_orientation_vertical: c_int = 1;
+
+pub export fn noctty_grid_split_render_plan(
+    event_code: c_int,
+    output_optional: ?*SplitRenderPlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .orientation = split_orientation_horizontal,
+        .reverse = 0,
+        .rendered_event = 0,
+        .valid = 0,
+    };
+    if (event_code == host_event_code(.workspace_split)) {
+        output.* = .{
+            .orientation = split_orientation_vertical,
+            .reverse = 0,
+            .rendered_event = host_event_code(.split_rendered_vertical),
+            .valid = 1,
+        };
+    } else if (event_code == host_event_code(.workspace_split_alt)) {
+        output.* = .{
+            .orientation = split_orientation_horizontal,
+            .reverse = 1,
+            .rendered_event = host_event_code(.split_rendered_horizontal),
+            .valid = 1,
+        };
+    } else if (event_code == host_event_code(.workspace_split_close)) {
+        output.* = .{
+            .orientation = split_orientation_horizontal,
+            .reverse = 0,
+            .rendered_event = host_event_code(.split_rendered_close),
+            .valid = 1,
+        };
+    } else if (event_code == host_event_code(.workspace_split_restore)) {
+        output.* = .{
+            .orientation = split_orientation_vertical,
+            .reverse = 1,
+            .rendered_event = host_event_code(.split_rendered_restore),
+            .valid = 1,
+        };
+    }
+}
+
+pub const TabRenamePlan = extern struct {
+    valid: c_int,
+    start: usize,
+    length: usize,
+    message: [*:0]const u8,
+};
+
+fn tabRenameSpace(byte: u8) bool {
+    return byte == ' ' or byte == '\t' or byte == '\n' or byte == '\r';
+}
+
+pub export fn noctty_grid_tab_rename_plan(
+    text_pointer: ?[*]const u8,
+    length: usize,
+    output_optional: ?*TabRenamePlan,
+) callconv(.c) void {
+    const output = output_optional orelse return;
+    output.* = .{
+        .valid = 0,
+        .start = 0,
+        .length = 0,
+        .message = "Enter a tab name.",
+    };
+    const text = text_pointer orelse return;
+    var start: usize = 0;
+    while (start < length and tabRenameSpace(text[start])) : (start += 1) {}
+    var end = length;
+    while (end > start and tabRenameSpace(text[end - 1])) : (end -= 1) {}
+    if (start == end) return;
+    if (noctty_grid_text_valid(text + start, end - start, 128) == 0) {
+        output.message = "Use a single-line name up to 128 bytes.";
+        return;
+    }
+    output.* = .{
+        .valid = 1,
+        .start = start,
+        .length = end - start,
+        .message = "",
+    };
+}
+
+pub export fn noctty_grid_session_dimension(value: c_int) callconv(.c) c_int {
+    return @max(value, 2);
+}
+
 
 pub const WorkspaceColor = extern struct {
     label: [*:0]const u8,
@@ -6218,6 +6407,82 @@ test "palette action policy preserves ordered ids and labels" {
     try std.testing.expectEqual(@as(c_int, 27), actions[26].id);
     try std.testing.expectEqual(@as(c_uint, 0), noctty_grid_palette_actions(&actions, 26));
 }
+test "palette dispatch plan keeps command effects in Zig" {
+    var plan = PaletteDispatchPlan{
+        .action = palette_dispatch_none,
+        .event_code = 0,
+        .value = 0,
+        .valid = 0,
+    };
+    noctty_grid_palette_action_plan(1, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, palette_dispatch_workspace_event), plan.action);
+    try std.testing.expectEqual(@as(c_int, 20), plan.event_code);
+    try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+    noctty_grid_palette_action_plan(15, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 48), plan.event_code);
+    try std.testing.expectEqual(@as(c_int, 1), plan.value);
+    noctty_grid_palette_action_plan(15, 1, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.value);
+    noctty_grid_palette_action_plan(16, 0, 3, &plan);
+    try std.testing.expectEqual(@as(c_int, 44), plan.event_code);
+    try std.testing.expectEqual(@as(c_int, 0), plan.value);
+    noctty_grid_palette_action_plan(23, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, palette_dispatch_tab_color), plan.action);
+    try std.testing.expectEqual(@as(c_int, -1), plan.value);
+    noctty_grid_palette_action_plan(99, 0, 0, &plan);
+    try std.testing.expectEqual(@as(c_int, palette_dispatch_none), plan.action);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+
+test "split render plan preserves native orientation and event effects" {
+    var plan = SplitRenderPlan{
+        .orientation = split_orientation_horizontal,
+        .reverse = 0,
+        .rendered_event = 0,
+        .valid = 0,
+    };
+    noctty_grid_split_render_plan(host_event_code(.workspace_split), &plan);
+    try std.testing.expectEqual(@as(c_int, split_orientation_vertical), plan.orientation);
+    try std.testing.expectEqual(@as(c_int, 0), plan.reverse);
+    try std.testing.expectEqual(@as(c_int, 58), plan.rendered_event);
+    noctty_grid_split_render_plan(host_event_code(.workspace_split_restore), &plan);
+    try std.testing.expectEqual(@as(c_int, split_orientation_vertical), plan.orientation);
+    try std.testing.expectEqual(@as(c_int, 1), plan.reverse);
+    try std.testing.expectEqual(@as(c_int, 69), plan.rendered_event);
+    noctty_grid_split_render_plan(999, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+}
+
+test "tab rename plan trims only boundary whitespace and reports errors" {
+    var plan = TabRenamePlan{
+        .valid = 0,
+        .start = 0,
+        .length = 0,
+        .message = "",
+    };
+    const padded = " \tNative tab \r";
+    noctty_grid_tab_rename_plan(padded.ptr, padded.len, &plan);
+    try std.testing.expectEqual(@as(c_int, 1), plan.valid);
+    try std.testing.expectEqual(@as(usize, 2), plan.start);
+    try std.testing.expectEqual(@as(usize, 10), plan.length);
+    const invalid = "bad\nname";
+    noctty_grid_tab_rename_plan(invalid.ptr, invalid.len, &plan);
+    try std.testing.expectEqual(@as(c_int, 0), plan.valid);
+    try std.testing.expectEqualStrings(
+        "Use a single-line name up to 128 bytes.",
+        std.mem.span(plan.message),
+    );
+    const blank = " \t";
+    noctty_grid_tab_rename_plan(blank.ptr, blank.len, &plan);
+    try std.testing.expectEqualStrings("Enter a tab name.", std.mem.span(plan.message));
+}
+
+test "session dimension policy keeps restored PTYs at a usable minimum" {
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_session_dimension(-4));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_session_dimension(2));
+    try std.testing.expectEqual(@as(c_int, 80), noctty_grid_session_dimension(80));
+}
+
 
 test "workspace color policy preserves labels and sequential roles" {
     var color: WorkspaceColor = undefined;

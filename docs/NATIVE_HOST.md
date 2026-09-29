@@ -260,6 +260,12 @@ policy; GTK retains the paned position query and update.
 Command-palette IDs, labels, and hints are supplied by tested Zig policy;
 GTK retains list construction, search filtering, and activation.
 
+Command-palette dispatch effects, split orientation/rendered-event selection,
+tab-rename boundary trimming/validation, and restored-session dimension minimums
+are now tested Zig policies. GTK retains activation effects, inline editor
+objects, split/layout mutation, and native session allocation.
+
+
 Workspace color-editor labels and roles are supplied by tested Zig policy; GTK
 retains settings-page widget creation.
 
