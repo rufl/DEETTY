@@ -466,6 +466,8 @@ typedef struct {
     int ui_color_status_error;
     int ui_color_terminal_cursor;
     int ui_color_pane_gap;
+    uint32_t default_workspace_background_rgb;
+    uint32_t default_terminal_cursor_rgb;
 } NocttyGridNativeHostPolicy;
 
 enum {
@@ -603,6 +605,8 @@ typedef int (*NocttyGridCellHyperlinkReader)(
 typedef struct {
     int action;
     int value;
+    int reopen_tab;
+    int queue_draw;
 } NocttyGridKeyChordPlan;
 
 enum {
@@ -937,6 +941,13 @@ enum {
     NOCTTY_GRID_KEY_ACTION_CYCLE_PANE = 5,
     NOCTTY_GRID_KEY_ACTION_FOCUS_DIRECTION = 6,
 };
+enum {
+    NOCTTY_GRID_KEYBOARD_SCROLL_NONE = 0,
+    NOCTTY_GRID_KEYBOARD_SCROLL_PAGE_UP = 1,
+    NOCTTY_GRID_KEYBOARD_SCROLL_PAGE_DOWN = 2,
+    NOCTTY_GRID_KEYBOARD_SCROLL_HOME = 3,
+    NOCTTY_GRID_KEYBOARD_SCROLL_END = 4,
+};
 
 enum {
     NOCTTY_GRID_TERMINAL_MODE_MOUSE = 1u << 0,
@@ -970,6 +981,7 @@ void noctty_grid_key_command_plan(
     NocttyGridKeyCommandPlan *plan);
 void noctty_grid_key_chord_plan(
     uint32_t keyval, uint32_t state, NocttyGridKeyChordPlan *plan);
+int noctty_grid_keyboard_scroll_action(uint32_t keyval);
 void noctty_grid_pointer_event_plan(
     int event_kind, int button, int route, int hyperlink_point,
     int control_pressed, int background, int multiple_panes,
@@ -1024,6 +1036,7 @@ int noctty_grid_shortcut_settings_text(
 int noctty_grid_text_valid(const uint8_t *text, size_t length,
                            size_t max_length);
 int noctty_grid_hyperlink_valid(const uint8_t *uri, uint32_t length);
+int noctty_grid_accessible_granularity(int granularity);
 void noctty_grid_accessible_offset_plan(
     int count, int start_offset, int end_offset,
     NocttyGridAccessibleOffsetPlan *plan);

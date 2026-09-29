@@ -150,6 +150,10 @@ Accessibility word, sentence, line, and paragraph range expansion is selected
 by Zig from validated UTF-8 and normalized ATK granularity IDs; C retains
 UTF-8 pointer conversion, returned text allocation, and ATK callback effects.
 
+Keyboard-scroll actions, shortcut chord redraw/reopen effects, and terminal
+renderer fallback RGB values are selected by tested Zig plans; C retains GTK
+key delivery plus Cairo/Pango drawing and native surface effects.
+
 Pane status tooltip composition, including pane identity and optional tags, is
 bounded Zig text policy; C retains tag acquisition, cache comparison, GTK
 tooltip/ATK description effects, and widget ownership.

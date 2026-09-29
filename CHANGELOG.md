@@ -7,6 +7,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   tab-rename boundary validation, and restored-session dimension minimums behind
   focused Zig policy plans; GTK retains activation, layout, editor, and session
   allocation effects.
+- Moved ATK granularity normalization, keyboard-scroll action mapping, shortcut
+  chord redraw/reopen side effects, and terminal renderer fallback colors into
+  tested Zig policy; C retains GTK/ATK/Cairo/Pango effects.
 - Polished the command palette, terminal find, quick-note, keyboard-shortcuts,
   theme-library, and project-workspace dialogs with shared theme-aware utility
   surfaces, bounded editor/search regions, visible focus and selection states,

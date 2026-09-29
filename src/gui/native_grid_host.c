@@ -1048,14 +1048,8 @@ static gchar *noctty_terminal_accessible_get_string_at_offset(
     AtkText *text, gint offset, AtkTextGranularity granularity,
     gint *start_offset, gint *end_offset) {
     const gchar *contents = noctty_terminal_accessible_contents(text);
-    int granularity_kind = 0;
-    if (granularity == ATK_TEXT_GRANULARITY_WORD) {
-        granularity_kind = 1;
-    } else if (granularity == ATK_TEXT_GRANULARITY_LINE ||
-               granularity == ATK_TEXT_GRANULARITY_PARAGRAPH ||
-               granularity == ATK_TEXT_GRANULARITY_SENTENCE) {
-        granularity_kind = 2;
-    }
+    int granularity_kind =
+        noctty_grid_accessible_granularity((int)granularity);
     NocttyGridAccessibleRangePlan range = {0};
     noctty_grid_accessible_range_plan(
         (const uint8_t *)contents, strlen(contents),
@@ -1264,11 +1258,7 @@ static gboolean scroll_terminal_from_keyboard(
     if (!terminal_scrollbar_geometry(context, allocation, &geometry))
         return TRUE;
 
-    int action = keyval == GDK_KEY_Page_Up
-        ? 1
-        : keyval == GDK_KEY_Page_Down
-            ? 2
-            : keyval == GDK_KEY_Home ? 3 : keyval == GDK_KEY_End ? 4 : 0;
+    int action = noctty_grid_keyboard_scroll_action(keyval);
     uint64_t target = noctty_grid_keyboard_scroll_target(
         geometry.history_lines, geometry.viewport_offset,
         geometry.visible_rows, action);
@@ -1569,7 +1559,8 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         NocttyGridNativeHostPolicy policy = {0};
         noctty_grid_native_host_policy(&policy);
         background_rgb = ui_color_rgb(
-            context, (uint32_t)policy.ui_color_workspace_background, 0x0b0d12);
+            context, (uint32_t)policy.ui_color_workspace_background,
+            policy.default_workspace_background_rgb);
     }
     background_rgb = scale_pane_brightness(context, background_rgb);
     cairo_set_source_rgba(
@@ -1609,6 +1600,15 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         context->contexts->len > 0)
         root->selection_border_drawn = 1;
 
+    uint32_t cursor_rgb = 0;
+    if (context->event_data != NULL) {
+        cursor_rgb = noctty_grid_pane_cursor_rgb(
+            context->event_data, context->pane_id);
+    } else {
+        NocttyGridNativeHostPolicy policy = {0};
+        noctty_grid_native_host_policy(&policy);
+        cursor_rgb = policy.default_terminal_cursor_rgb;
+    }
     const NocttyGridCells options = {
         .ui_palette = { context->event_data, context->ui_color_rgb },
         .terminal_palette = { context, resolve_pane_terminal_color },
@@ -1649,12 +1649,7 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
         .cell_width = cell_width,
         .cell_height = cell_height,
         .status_border_width = context->status_border_px,
-        .cursor_rgb = scale_pane_brightness(
-            context,
-            context->event_data != NULL
-                ? noctty_grid_pane_cursor_rgb(
-                      context->event_data, context->pane_id)
-                : 0x8fb8ffu),
+        .cursor_rgb = scale_pane_brightness(context, cursor_rgb),
         .chrome = chrome,
     };
     int render_result = noctty_grid_render_cells(cr, &options);
@@ -8705,9 +8700,9 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
                     context->event_data, context->pane_id,
                     chord_plan.value, 0,
                     (uint64_t)(g_get_monotonic_time() / 1000));
-            if (chord_plan.value == 26)
+            if (chord_plan.reopen_tab != 0)
                 root->tab_shortcut_reopen = 1;
-            if (chord_plan.value >= 31 && chord_plan.value <= 39)
+            if (chord_plan.queue_draw != 0)
                 noctty_grid_widget_queue_draw(context->area);
             return TRUE;
         case NOCTTY_GRID_CHORD_BROADCAST:

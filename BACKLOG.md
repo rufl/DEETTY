@@ -200,12 +200,12 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   and Noctalia theme persistence-status composition now cross the Zig ABI; C
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
-  The current source run passes all 135 Zig grid-logic tests and both Debug and
+  The current source run passes all 141 Zig grid-logic tests and both Debug and
   `ReleaseSafe` builds. Settings, session-sharing, command-palette, terminal
   find, quick-note, theme-library, and project-workspace surfaces now share
   theme-aware groups, focus rings, action affordances, readable utility
   spacing, and accessible status/search roles. The counted Zig ownership
-  inventory is 82.20%; the fixed 90.00% gate and isolated graphical proof
+  inventory is 82.17%; the fixed 90.00% gate and isolated graphical proof
   remain open.
   The current batches move compact-setting target mapping, persisted settings
   field/schema selection, default normalization, panel-metric clamps,
@@ -228,6 +228,10 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   tab-rename boundary trimming/validation, and restored-session dimension minimums
   now cross tested Zig plans; C retains GTK activation, inline editor, layout, and
   session-allocation effects.
+  Keyboard accessibility granularity, keyboard-scroll action mapping, chord
+  side-effect flags, and terminal renderer fallback RGB defaults now cross
+  tested Zig policy plans; C retains ATK pointer conversion, GTK key delivery,
+  Cairo/Pango rendering, and native widget effects.
 
   Continue migrating that adapter incrementally behind its existing ABI
   contracts; keep generated vendored Tree-sitter parsers, system headers, and
@@ -276,17 +280,19 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-29) reports `82.16%` Zig ownership
-(`zig_lines=91475`, `adapter_lines=19850`) against the strict `90.00%`
+Current locked-tree evidence (2026-09-29) reports `82.17%` Zig ownership
+(`zig_lines=91540`, `adapter_lines=19858`) against the strict `90.00%`
 target. Settings, session-sharing, command-palette, terminal find, quick-note,
 theme-library, and project-workspace dialogs share theme-aware utility surfaces,
 bounded search/editor regions, visible focus and selection states, and accessible
 action/status roles. Command-palette dispatch, split orientation/rendered-event
-selection, tab-rename boundary validation, and restored-session dimension
-minimums now use tested Zig policy plans. Focused Debug and `ReleaseSafe`
-builds plus the 139-test Zig policy suite pass. The isolated Settings and
-native-grid GTK runners remain deferred by host I/O pressure (`exit=75`), so
-NCT-126 is not closed.
+selection, tab-rename boundary validation, restored-session dimension minimums,
+keyboard accessibility granularity, keyboard-scroll action mapping, shortcut
+chord side effects, and renderer fallback colors now use tested Zig policy
+plans. Focused Debug and `ReleaseSafe` builds plus the 141-test Zig policy
+suite pass. The isolated compact UX, Settings, and native-grid GTK runners
+remain deferred by host I/O pressure (`exit=75`); the private Wayland wrapper
+exited before a receipt (`exit=1`), so NCT-126 is not closed.
 
 #### NCT-127 Shared native behavior and Windows feature parity — partial
 

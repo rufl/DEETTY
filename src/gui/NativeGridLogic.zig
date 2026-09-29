@@ -534,6 +534,8 @@ pub const NativeHostPolicy = extern struct {
     ui_color_status_error: c_int,
     ui_color_terminal_cursor: c_int,
     ui_color_pane_gap: c_int,
+    default_workspace_background_rgb: u32,
+    default_terminal_cursor_rgb: u32,
 };
 
 pub const workspace_event_emit: c_int = 0;
@@ -592,6 +594,8 @@ pub const KeyCommandPlan = extern struct {
 pub const KeyChordPlan = extern struct {
     action: c_int,
     value: c_int,
+    reopen_tab: c_int,
+    queue_draw: c_int,
 };
 
 pub const PointerEventPlan = extern struct {
@@ -1532,7 +1536,13 @@ pub export fn noctty_grid_key_command_plan(
 }
 
 fn keyChordPlan(action: c_int, value: c_int) KeyChordPlan {
-    return .{ .action = action, .value = value };
+    const event = action == chord_emit_event;
+    return .{
+        .action = action,
+        .value = value,
+        .reopen_tab = @intFromBool(event and value == 26),
+        .queue_draw = @intFromBool(event and value >= 31 and value <= 39),
+    };
 }
 
 pub export fn noctty_grid_key_chord_plan(
@@ -1615,6 +1625,15 @@ pub export fn noctty_grid_key_chord_plan(
             return;
         }
     }
+}
+pub export fn noctty_grid_keyboard_scroll_action(keyval: u32) callconv(.c) c_int {
+    return switch (keyval) {
+        gdk_key_page_up => 1,
+        gdk_key_page_down => 2,
+        gdk_key_home => 3,
+        gdk_key_end => 4,
+        else => 0,
+    };
 }
 
 pub export fn noctty_grid_pointer_event_plan(
@@ -2342,6 +2361,8 @@ pub export fn noctty_grid_native_host_policy(
         .ui_color_status_error = 15,
         .ui_color_terminal_cursor = 16,
         .ui_color_pane_gap = 17,
+        .default_workspace_background_rgb = 0x0b0d12,
+        .default_terminal_cursor_rgb = 0x8fb8ff,
     };
 }
 fn accessibleCodepointOffset(text: []const u8, byte_offset: usize) usize {
@@ -2361,6 +2382,15 @@ fn accessibleIsWhitespace(codepoint: u21) bool {
     };
 }
 
+pub export fn noctty_grid_accessible_granularity(
+    granularity: c_int,
+) callconv(.c) c_int {
+    return switch (granularity) {
+        1 => 1,
+        2, 3, 4 => 2,
+        else => 0,
+    };
+}
 pub export fn noctty_grid_accessible_range_plan(
     text_pointer: ?[*]const u8,
     length: usize,
@@ -9407,7 +9437,12 @@ test "key command planner bounds lifecycle filter and invalid inputs" {
 }
 
 test "keyboard chord planner preserves shortcut precedence" {
-    var plan = KeyChordPlan{ .action = chord_none, .value = 0 };
+    var plan = KeyChordPlan{
+        .action = chord_none,
+        .value = 0,
+        .reopen_tab = 0,
+        .queue_draw = 0,
+    };
     noctty_grid_key_chord_plan(
         'p', gdk_control_mask | gdk_shift_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_command_palette), plan.action);
@@ -9420,6 +9455,13 @@ test "keyboard chord planner preserves shortcut precedence" {
         '1', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_emit_event), plan.action);
     try std.testing.expectEqual(@as(c_int, 31), plan.value);
+    try std.testing.expectEqual(@as(c_int, 1), plan.queue_draw);
+    noctty_grid_key_chord_plan(
+        't', gdk_control_mask | gdk_shift_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_emit_event), plan.action);
+    try std.testing.expectEqual(@as(c_int, 26), plan.value);
+    try std.testing.expectEqual(@as(c_int, 1), plan.reopen_tab);
+    try std.testing.expectEqual(@as(c_int, 0), plan.queue_draw);
     noctty_grid_key_chord_plan(
         gdk_key_page_up, gdk_shift_mask, &plan);
     try std.testing.expectEqual(
@@ -9427,6 +9469,26 @@ test "keyboard chord planner preserves shortcut precedence" {
     noctty_grid_key_chord_plan(
         'b', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_broadcast), plan.action);
+}
+test "keyboard scroll action policy covers GTK navigation keys" {
+    try std.testing.expectEqual(
+        @as(c_int, 1), noctty_grid_keyboard_scroll_action(gdk_key_page_up));
+    try std.testing.expectEqual(
+        @as(c_int, 2), noctty_grid_keyboard_scroll_action(gdk_key_page_down));
+    try std.testing.expectEqual(
+        @as(c_int, 3), noctty_grid_keyboard_scroll_action(gdk_key_home));
+    try std.testing.expectEqual(
+        @as(c_int, 4), noctty_grid_keyboard_scroll_action(gdk_key_end));
+    try std.testing.expectEqual(
+        @as(c_int, 0), noctty_grid_keyboard_scroll_action(gdk_key_tab));
+}
+
+test "accessible granularity policy normalizes ATK boundaries" {
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_granularity(0));
+    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_accessible_granularity(1));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_accessible_granularity(2));
+    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_accessible_granularity(4));
+    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_granularity(5));
 }
 
 test "pointer planner preserves double-click and routing precedence" {
@@ -9781,4 +9843,8 @@ test "native host policy owns geometry event and color ordinals" {
     try std.testing.expectEqual(@as(c_int, 11), policy.ui_color_search_match_background);
     try std.testing.expectEqual(@as(c_int, 15), policy.ui_color_status_error);
     try std.testing.expectEqual(@as(c_int, 17), policy.ui_color_pane_gap);
+    try std.testing.expectEqual(
+        @as(u32, 0x0b0d12), policy.default_workspace_background_rgb);
+    try std.testing.expectEqual(
+        @as(u32, 0x8fb8ff), policy.default_terminal_cursor_rgb);
 }
