@@ -276,8 +276,8 @@ grep -F 'pub export fn noctty_grid_window_title_text(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_window_title_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_close_confirmation_text(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_close_confirmation_text(' "$grid" >/dev/null
-grep -F 'pub export fn noctty_grid_layout_prompt_title(' "$grid_logic" >/dev/null
-grep -F 'noctty_grid_layout_prompt_title(' "$grid" >/dev/null
+grep -F 'pub export fn noctty_grid_layout_prompt_text(' "$grid_logic" >/dev/null
+grep -F 'noctty_grid_layout_prompt_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_find_status_text(' "$grid_logic" >/dev/null
 grep -F 'noctty_grid_find_status_text(' "$grid" >/dev/null
 grep -F 'pub export fn noctty_grid_shortcuts_text(' "$grid_logic" >/dev/null

@@ -3747,6 +3747,10 @@ pub export fn noctty_grid_close_confirmation_text(
     title_capacity: usize,
     detail: ?[*]u8,
     detail_capacity: usize,
+    secondary_action: ?[*]u8,
+    secondary_capacity: usize,
+    primary_action: ?[*]u8,
+    primary_capacity: usize,
 ) callconv(.c) c_int {
     const scope_text = compactTabInputSlice(scope, scope_length);
     const title_text = if (std.mem.eql(u8, scope_text, "application"))
@@ -3779,21 +3783,66 @@ pub export fn noctty_grid_close_confirmation_text(
             .{busy_count},
         );
     if (detail_length <= 0) return 0;
+    const secondary_length = compactTabFormat(
+        secondary_action,
+        secondary_capacity,
+        "Keep Open",
+        .{},
+    );
+    const primary_length = compactTabFormat(
+        primary_action,
+        primary_capacity,
+        "Close Anyway",
+        .{},
+    );
+    if (secondary_length <= 0 or primary_length <= 0) return 0;
     return 1;
 }
 
-pub export fn noctty_grid_layout_prompt_title(
+pub export fn noctty_grid_layout_prompt_text(
     extra_count: u32,
-    output: ?[*]u8,
-    capacity: usize,
+    title: ?[*]u8,
+    title_capacity: usize,
+    detail: ?[*]u8,
+    detail_capacity: usize,
+    secondary_action: ?[*]u8,
+    secondary_capacity: usize,
+    primary_action: ?[*]u8,
+    primary_capacity: usize,
 ) callconv(.c) c_int {
-    return compactTabFormat(
-        output,
-        capacity,
+    const title_length = compactTabFormat(
+        title,
+        title_capacity,
         "Move {d} terminal session{s} to a new tab?",
         .{ extra_count, if (extra_count == 1) "" else "s" },
     );
+    if (title_length <= 0) return 0;
+    const detail_length = compactTabFormat(
+        detail,
+        detail_capacity,
+        "Changing this layout would otherwise close live terminals. " ++
+            "Cancel keeps the current layout.",
+        .{},
+    );
+    if (detail_length <= 0) return 0;
+    const secondary_length = compactTabFormat(
+        secondary_action,
+        secondary_capacity,
+        "Cancel",
+        .{},
+    );
+    const primary_length = compactTabFormat(
+        primary_action,
+        primary_capacity,
+        "Move sessions",
+        .{},
+    );
+    if (secondary_length <= 0 or primary_length <= 0) return 0;
+    return 1;
 }
+
+
+
 
 pub export fn noctty_grid_find_status_text(
     state: c_int,
@@ -8054,6 +8103,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
 test "remaining native UI text composition stays bounded and native-free" {
     var output: [4608]u8 = undefined;
     var secondary: [512]u8 = undefined;
+    var primary: [64]u8 = undefined;
     try std.testing.expectEqualStrings(
         "Shortcut is unavailable. Press another key or Esc.",
         std.mem.span(noctty_grid_shortcut_feedback_message(0)),
@@ -8088,6 +8138,10 @@ test "remaining native UI text composition stays bounded and native-free" {
             title.len,
             &detail,
             detail.len,
+            &secondary,
+            secondary.len,
+            &primary,
+            primary.len,
         ),
     );
     try std.testing.expectEqualStrings(
@@ -8098,10 +8152,67 @@ test "remaining native UI text composition stays bounded and native-free" {
         "Closing NOCTTY ends all terminal sessions in this window.",
         detail[0.."Closing NOCTTY ends all terminal sessions in this window.".len],
     );
-    length = noctty_grid_layout_prompt_title(2, &output, output.len);
+    try std.testing.expectEqualStrings("Keep Open", secondary[0.."Keep Open".len]);
+    try std.testing.expectEqualStrings("Close Anyway", primary[0.."Close Anyway".len]);
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_close_confirmation_text(
+            "tab",
+            "tab".len,
+            2,
+            &title,
+            title.len,
+            &detail,
+            detail.len,
+            &secondary,
+            secondary.len,
+            &primary,
+            primary.len,
+        ),
+    );
+    try std.testing.expectEqualStrings("Close tab?", title[0.."Close tab?".len]);
     try std.testing.expectEqualStrings(
-        "Move 2 terminal sessions to a new tab?",
-        output[0..@intCast(length)],
+        "2 terminals have foreground processes. Closing will stop them and their child processes.",
+        detail[0.."2 terminals have foreground processes. Closing will stop them and their child processes.".len],
+    );
+    try std.testing.expectEqual(
+        @as(c_int, 1),
+        noctty_grid_layout_prompt_text(
+            1,
+            &title,
+            title.len,
+            &detail,
+            detail.len,
+            &secondary,
+            secondary.len,
+            &primary,
+            primary.len,
+        ),
+    );
+    try std.testing.expectEqualStrings(
+        "Move 1 terminal session to a new tab?",
+        title[0.."Move 1 terminal session to a new tab?".len],
+    );
+    try std.testing.expectEqualStrings(
+        "Changing this layout would otherwise close live terminals. " ++
+            "Cancel keeps the current layout.",
+        detail[0.."Changing this layout would otherwise close live terminals. Cancel keeps the current layout.".len],
+    );
+    try std.testing.expectEqualStrings("Cancel", secondary[0.."Cancel".len]);
+    try std.testing.expectEqualStrings("Move sessions", primary[0.."Move sessions".len]);
+    try std.testing.expectEqual(
+        @as(c_int, 0),
+        noctty_grid_layout_prompt_text(
+            2,
+            &title,
+            1,
+            &detail,
+            detail.len,
+            &secondary,
+            secondary.len,
+            &primary,
+            primary.len,
+        ),
     );
 
     length = noctty_grid_find_status_text(1, 3, 9, &output, output.len);

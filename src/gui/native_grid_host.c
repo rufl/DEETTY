@@ -7768,16 +7768,20 @@ static gboolean confirm_terminal_process_close(NocttyGridContext *context,
 
     char title[64] = {0};
     char detail[256] = {0};
+    char secondary[32] = {0};
+    char primary[32] = {0};
     if (noctty_grid_close_confirmation_text(
             (const unsigned char *)scope,
             scope != NULL ? strlen(scope) : 0,
             busy_count,
             (unsigned char *)title, sizeof(title),
-            (unsigned char *)detail, sizeof(detail)) <= 0)
+            (unsigned char *)detail, sizeof(detail),
+            (unsigned char *)secondary, sizeof(secondary),
+            (unsigned char *)primary, sizeof(primary)) <= 0)
         return FALSE;
     GtkWidget *dialog = noctty_message_dialog_new(
         GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title, detail,
-        "Keep Open", "Close Anyway");
+        secondary, primary);
     root->terminal_close_prompt_count++;
     root->terminal_close_prompt_busy_count += (int)busy_count;
     (void)configure_overlay_window_stacking(
@@ -8320,14 +8324,19 @@ static gboolean apply_grid_layout_preset(NocttyGridContext *context,
         guint extra_count = current_count - target_count;
         if (root->workspace_smoke == 21) {
             char title[128] = {0};
-            if (noctty_grid_layout_prompt_title(
-                    extra_count, (unsigned char *)title, sizeof(title)) <= 0)
+            char detail[256] = {0};
+            char secondary[32] = {0};
+            char primary[32] = {0};
+            if (noctty_grid_layout_prompt_text(
+                    extra_count,
+                    (unsigned char *)title, sizeof(title),
+                    (unsigned char *)detail, sizeof(detail),
+                    (unsigned char *)secondary, sizeof(secondary),
+                    (unsigned char *)primary, sizeof(primary)) <= 0)
                 return FALSE;
             GtkWidget *dialog = noctty_message_dialog_new(
-                GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title,
-                "Changing this layout would otherwise close live terminals. "
-                "Cancel keeps the current layout.",
-                "Cancel", "Move sessions");
+                GTK_WIDGET(root->window), GTK_MESSAGE_WARNING, title, detail,
+                secondary, primary);
             gint smoke_response = root->layout_preset_prompt_count++ == 0
                 ? GTK_RESPONSE_CANCEL : GTK_RESPONSE_ACCEPT;
             noctty_grid_object_set_data(

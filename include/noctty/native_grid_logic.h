@@ -1206,9 +1206,15 @@ int noctty_grid_window_title_text(
 int noctty_grid_close_confirmation_text(
     const unsigned char *scope, size_t scope_length, uint32_t busy_count,
     unsigned char *title, size_t title_capacity,
-    unsigned char *detail, size_t detail_capacity);
-int noctty_grid_layout_prompt_title(
-    uint32_t extra_count, unsigned char *output, size_t capacity);
+    unsigned char *detail, size_t detail_capacity,
+    unsigned char *secondary_action, size_t secondary_capacity,
+    unsigned char *primary_action, size_t primary_capacity);
+int noctty_grid_layout_prompt_text(
+    uint32_t extra_count,
+    unsigned char *title, size_t title_capacity,
+    unsigned char *detail, size_t detail_capacity,
+    unsigned char *secondary_action, size_t secondary_capacity,
+    unsigned char *primary_action, size_t primary_capacity);
 int noctty_grid_find_status_text(
     int state, uint64_t ordinal, int matches,
     unsigned char *output, size_t capacity);
