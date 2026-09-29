@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Polished the command palette, terminal find, quick-note, keyboard-shortcuts,
+  theme-library, and project-workspace dialogs with shared theme-aware utility
+  surfaces, bounded editor/search regions, visible focus and selection states,
+  and focused visual smoke assertions.
 - Polished the Settings and session-sharing dialogs with theme-aware grouped
   surfaces, readable label/control spacing, explicit action focus and tooltip
   affordances, and semantic preview/status styling; extended isolated smoke

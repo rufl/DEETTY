@@ -429,10 +429,12 @@ typedef struct NocttyGridContextTag {
     int settings_geometry_sane;
     int application_icon_ready;
     int theme_imported;
+    int theme_visual_polish;
     int theme_import_dialog_built;
     int system_noctalia_theme_listed;
     int system_noctalia_theme_applied;
     int project_smoke_done;
+    int project_visual_polish;
     int project_smoke_attempts;
     int project_summary_scrollable;
     int project_summary_accessible;
@@ -506,6 +508,7 @@ typedef struct NocttyGridContextTag {
     int compact_find_shown;
     int compact_note_shown;
     guint compact_accessibility_mask;
+    int compact_utility_visual_polish;
     int compact_shortcut_label_dynamic;
     int compact_light_tab_title_inherits;
     int note_overlay_visible;
@@ -11882,6 +11885,22 @@ static gboolean request_theme_smoke(gpointer user_data) {
         : NULL;
     if (noctty_grid_widget_is_type(system_apply, NOCTTY_GTK_BUTTON))
         noctty_grid_button_clicked(GTK_BUTTON(system_apply));
+    GtkWidget *theme_status = root->theme_dialog != NULL
+        ? noctty_grid_object_get_data(
+              G_OBJECT(root->theme_dialog), "noctty-theme-status")
+        : NULL;
+    context->theme_visual_polish =
+        root->theme_dialog != NULL &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(root->theme_dialog),
+            "noctty-theme-dialog") &&
+        theme_status != NULL &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(theme_status),
+            "noctty-utility-status") &&
+        system_apply != NULL &&
+        noctty_grid_object_get_data(
+            G_OBJECT(system_apply), "noctty-action-affordance") != NULL;
     const char *name = "Imported Night";
     const char *contents = "background = #000011\nforeground = #eeeeee\ncursor-color = #ff00aa\npalette = 1=#cc0000\n";
     if (context->text_action != NULL && context->text_action(context->text_action_data, 1, name, strlen(name), contents, strlen(contents), 0) == 0) context->theme_imported = 1;
@@ -12154,6 +12173,16 @@ static void open_project_tools(NocttyGridContext *context) {
         recent_accessible != NULL &&
         g_strcmp0(noctty_grid_atk_object_get_name(recent_accessible),
                   "Recent workspaces") == 0;
+    context->project_visual_polish =
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(dialog),
+            "noctty-project-dialog") &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(contents.summary_scroll),
+            "noctty-utility-scroll") &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(contents.summary),
+            "noctty-project-summary");
     int recent_count = context->event_data != NULL
         ? noctty_grid_recent_workspace(
               context->event_data, -1, summary_text, 0)
@@ -17355,11 +17384,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     int theme_ok = workspace_smoke != 7 ||
         (context.theme_imported && context.theme_import_dialog_built &&
          context.system_noctalia_theme_listed &&
-         context.system_noctalia_theme_applied);
+         context.system_noctalia_theme_applied &&
+         context.theme_visual_polish);
     int project_ok = workspace_smoke != 8 ||
         (context.project_smoke_done && context.recent_workspace_control &&
          context.project_summary_scrollable &&
          context.project_summary_accessible &&
+         context.project_visual_polish &&
          context.nocted_launch_attempted &&
          context.nocted_launch_succeeded && context.nocted_process_separate &&
          context.nocted_directory_resolved);
@@ -17402,6 +17433,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
          context.compact_palette_rename_suppressed &&
          context.compact_find_shown && context.compact_note_shown &&
          context.compact_accessibility_mask == 7u &&
+         context.compact_utility_visual_polish == 7u &&
          context.compact_shortcut_label_dynamic &&
          context.compact_light_tab_title_inherits &&
          context.compact_zoom_toggled && context.status_feedback_drawn &&

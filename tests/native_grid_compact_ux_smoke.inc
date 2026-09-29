@@ -4,6 +4,19 @@ static gboolean inspect_compact_palette_smoke(gpointer user_data) {
     root->compact_palette_context_opened = root->palette_dialog != NULL;
     root->compact_palette_rename_suppressed =
         root->palette_dialog != NULL && root->tab_rename_entry == NULL;
+    if (root->palette_dialog != NULL &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(root->palette_dialog),
+            "noctty-palette-dialog") &&
+        root->palette_search != NULL &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(root->palette_search),
+            "noctty-utility-search") &&
+        root->palette_list != NULL &&
+        noctty_grid_style_context_has_class(
+            noctty_grid_widget_get_style_context(root->palette_list),
+            "noctty-palette-list"))
+        root->compact_utility_visual_polish |= 1u;
     if (root->palette_dialog != NULL) {
         GtkWidget *shortcut_hint = g_object_get_data(
             G_OBJECT(root->palette_dialog),
@@ -79,6 +92,18 @@ static gboolean request_compact_find_smoke(gpointer user_data) {
     NocttyGridContext *root = user_data;
     open_terminal_find(root);
     if (root->find_entry != NULL) {
+        if (root->find_dialog != NULL &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->find_dialog),
+                "noctty-utility-dialog") &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->find_entry),
+                "noctty-utility-search") &&
+            root->find_status != NULL &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->find_status),
+                "noctty-utility-status"))
+            root->compact_utility_visual_polish |= 2u;
         gtk_entry_set_text(GTK_ENTRY(root->find_entry), "NOCTTY_COMPACT_SEARCH");
         if (widget_has_accessible_name(root->find_entry,
                                        "Search terminal scrollback") &&
@@ -93,6 +118,18 @@ static gboolean request_compact_note_smoke(gpointer user_data) {
     NocttyGridContext *root = user_data;
     open_quick_note(root);
     if (root->note_view != NULL) {
+        if (root->note_dialog != NULL &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->note_dialog),
+                "noctty-utility-dialog") &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->note_view),
+                "noctty-note-editor") &&
+            root->note_status != NULL &&
+            noctty_grid_style_context_has_class(
+                noctty_grid_widget_get_style_context(root->note_status),
+                "noctty-utility-status"))
+            root->compact_utility_visual_polish |= 4u;
         if (widget_has_accessible_name(root->note_view,
                                        "Workspace quick note") &&
             widget_has_accessible_name(root->note_status,

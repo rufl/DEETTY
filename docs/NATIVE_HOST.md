@@ -41,6 +41,10 @@ label, action, focus, and disabled-state language. Settings labels reserve
 readable control width; sharing actions expose tooltips and accessible names;
 the remote preview and live status regions retain visible focus and semantic
 roles.
+Command palette, terminal find, quick-note, keyboard-shortcuts, theme-library,
+and project-workspace dialogs now share the same utility surface language:
+theme-aware backgrounds, bounded search/editor areas, visible selection and
+focus states, status affordances, and accessible action/search labels.
 
 The maintained workspace smoke also exercises the live tag/filter bridge: it tags the selected pane, populates the native editable suggestion model from Zig-owned tags, verifies the active tag is named in the empty filter state, activates both the `Clear filter` button and the zero-match `Escape` recovery path, verifies a matching pane remains eligible while an untagged pane is excluded, checks the compact tab indicator and filtered focus handoff, clears the filter, and checks the resulting Zig-owned state after GTK teardown.
 

@@ -772,7 +772,21 @@ const compact_tab_css =
     ".noctty-sharing-status { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.12); }" ++
     ".noctty-sharing-security { color: alpha(@theme_fg_color, 0.68); }" ++
     "drawingarea.noctty-sharing-preview { border: 1px solid alpha(@theme_fg_color, 0.22); border-radius: 8px; background: @theme_base_color; }" ++
-    "scrolledwindow.noctty-sharing-scroll { background: transparent; }";
+    "scrolledwindow.noctty-sharing-scroll { background: transparent; }" ++
+    "window.noctty-utility-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
+    ".noctty-utility-body { padding: 2px; }" ++
+    "entry.noctty-utility-search { min-height: 32px; padding: 4px 8px; border-radius: 7px; }" ++
+    "label.noctty-utility-status { padding: 5px 8px; border-radius: 6px; color: alpha(@theme_fg_color, 0.72); }" ++
+    "list.noctty-palette-list { background-color: transparent; }" ++
+    "list.noctty-palette-list > row.noctty-palette-row { margin: 2px 0; padding: 2px; min-height: 36px; border-radius: 7px; }" ++
+    "list.noctty-palette-list > row.noctty-palette-row:hover { background: alpha(@theme_fg_color, 0.10); }" ++
+    "list.noctty-palette-list > row.noctty-palette-row:selected { background: alpha(@theme_selected_bg_color, 0.24); color: @theme_text_color; }" ++
+    "list.noctty-palette-list > row.noctty-palette-row:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
+    "label.noctty-palette-hint { color: alpha(@theme_fg_color, 0.65); }" ++
+    "scrolledwindow.noctty-utility-scroll { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; background: alpha(@theme_fg_color, 0.03); }" ++
+    "textview.noctty-note-editor, textview.noctty-project-summary { padding: 10px; }" ++
+    "label.noctty-theme-preview { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.10); }" ++
+    ".noctty-recovery-notice { margin: 6px; border-radius: 8px; }";
 
 var compact_tab_provider: ?*GtkCssProvider = null;
 
@@ -4481,7 +4495,12 @@ pub export fn noctty_recovery_notice_new(
         @as(?[*:0]const u8, null),
     ) orelse return null;
     gtk_info_bar_set_message_type(bar, 1);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(bar),
+        "noctty-recovery-notice",
+    );
     gtk_widget_set_name(bar, "noctty-recovery-notice");
+
     const label = gtk_label_new(text) orelse return null;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_label_set_line_wrap(@ptrCast(label), TRUE);
@@ -4506,6 +4525,10 @@ pub export fn noctty_terminal_find_contents_new(
     const target = dialog orelse return FALSE;
     const output = contents_out orelse return FALSE;
     output.* = .{ .entry = null, .status = null };
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
 
     const box = gtk_box_new(
         if (vertical != 0) GTK_ORIENTATION_VERTICAL else GTK_ORIENTATION_HORIZONTAL,
@@ -4514,10 +4537,23 @@ pub export fn noctty_terminal_find_contents_new(
     const entry = gtk_search_entry_new() orelse return FALSE;
     const status = gtk_label_new("Type to search scrollback") orelse return FALSE;
     gtk_entry_set_placeholder_text(@ptrCast(entry), "Find in terminal…");
+    gtk_widget_set_tooltip_text(
+        entry,
+        "Search terminal scrollback; press Enter to move to the next match",
+    );
     setAccessibleName(entry, "Search terminal scrollback");
     setAccessibleName(status, "Terminal search status");
     gtk_label_set_xalign(@ptrCast(status), 0.0);
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "noctty-utility-body");
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(entry),
+        "noctty-utility-search",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(status),
+        "noctty-utility-status",
+    );
     gtk_widget_set_size_request(entry, @min(330, @max(1, dialog_width - 16)), -1);
     gtk_container_set_border_width(@ptrCast(box), 8);
     gtk_box_pack_start(@ptrCast(box), entry, TRUE, TRUE, 0);
@@ -4536,6 +4572,10 @@ pub export fn noctty_quick_note_contents_new(
     const target = dialog orelse return FALSE;
     const output = contents_out orelse return FALSE;
     output.* = .{ .view = null, .status = null };
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6) orelse return FALSE;
     const status = gtk_label_new("Workspace note · saved automatically") orelse return FALSE;
@@ -4543,8 +4583,25 @@ pub export fn noctty_quick_note_contents_new(
     const view = gtk_text_view_new() orelse return FALSE;
     gtk_text_view_set_monospace(@ptrCast(view), TRUE);
     gtk_text_view_set_wrap_mode(@ptrCast(view), GTK_WRAP_WORD_CHAR);
+    gtk_widget_set_tooltip_text(
+        view,
+        "Write a short workspace note; changes save automatically",
+    );
     setAccessibleName(view, "Workspace quick note");
     setAccessibleName(status, "Workspace note save status");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "noctty-utility-body");
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(status),
+        "noctty-utility-status",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(scroll),
+        "noctty-utility-scroll",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(view),
+        "noctty-note-editor",
+    );
     gtk_widget_set_size_request(
         scroll,
         @max(1, dialog_width - 16),
@@ -4567,7 +4624,15 @@ pub export fn noctty_shortcuts_contents_new(
 ) c_int {
     const target = dialog orelse return FALSE;
     const text = shortcuts orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
     const scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(scroll),
+        "noctty-utility-scroll",
+    );
     const label = gtk_label_new(text) orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_widget_set_margin_start(label, 16);
@@ -4605,14 +4670,39 @@ pub export fn noctty_command_palette_contents_new(
     const output = contents_out orelse return FALSE;
     output.* = .{ .search = null, .list = null };
     if (action_count == 0 or action_count > 128) return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-palette-dialog",
+    );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5) orelse return FALSE;
     const search = gtk_search_entry_new() orelse return FALSE;
     const list = gtk_list_box_new() orelse return FALSE;
     const scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
     gtk_entry_set_placeholder_text(@ptrCast(search), "Type a command…");
+    gtk_widget_set_tooltip_text(
+        search,
+        "Type to filter commands; use Up/Down to choose and Enter to run",
+    );
     setAccessibleName(search, "Search commands");
     setAccessibleName(list, "Available commands");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "noctty-utility-body");
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(search),
+        "noctty-utility-search",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(list),
+        "noctty-palette-list",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(scroll),
+        "noctty-utility-scroll",
+    );
     gtk_list_box_set_selection_mode(@ptrCast(list), GTK_SELECTION_SINGLE);
     gtk_list_box_set_activate_on_single_click(@ptrCast(list), TRUE);
     gtk_widget_set_size_request(
@@ -4631,6 +4721,10 @@ pub export fn noctty_command_palette_contents_new(
         const label_text = action.label orelse continue;
         const hint_text = action.hint orelse continue;
         const row = gtk_list_box_row_new() orelse continue;
+        gtk_style_context_add_class(
+            gtk_widget_get_style_context(row),
+            "noctty-palette-row",
+        );
         const line = gtk_box_new(
             if (vertical) GTK_ORIENTATION_VERTICAL else GTK_ORIENTATION_HORIZONTAL,
             if (vertical) 2 else 10,
@@ -4641,6 +4735,10 @@ pub export fn noctty_command_palette_contents_new(
         gtk_label_set_xalign(@ptrCast(label), 0.0);
         gtk_label_set_xalign(@ptrCast(hint), if (vertical) 0.0 else 1.0);
         gtk_widget_set_opacity(hint, 0.62);
+        gtk_style_context_add_class(
+            gtk_widget_get_style_context(hint),
+            "noctty-palette-hint",
+        );
         gtk_container_set_border_width(@ptrCast(line), 5);
         gtk_box_pack_start(@ptrCast(line), label, TRUE, TRUE, 0);
         gtk_box_pack_end(@ptrCast(line), hint, FALSE, FALSE, 0);
@@ -4679,8 +4777,20 @@ pub export fn noctty_project_contents_new(
         .summary = null,
         .summary_scroll = null,
     };
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-project-dialog",
+    );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(box),
+        "noctty-utility-body",
+    );
     const save = gtk_button_new_with_label("Save Workspace…") orelse return FALSE;
     const open = gtk_button_new_with_label("Open Workspace…") orelse return FALSE;
     const recent_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8) orelse return FALSE;
@@ -4697,6 +4807,14 @@ pub export fn noctty_project_contents_new(
 
     const summary = gtk_text_view_new() orelse return FALSE;
     const summary_scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(summary),
+        "noctty-project-summary",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(summary_scroll),
+        "noctty-utility-scroll",
+    );
     gtk_text_view_set_editable(@ptrCast(summary), FALSE);
     gtk_text_view_set_cursor_visible(@ptrCast(summary), FALSE);
     gtk_text_view_set_monospace(@ptrCast(summary), TRUE);
@@ -5718,10 +5836,26 @@ pub export fn noctty_theme_library_contents_new(
     const scheme_combo = scheme orelse return FALSE;
     const output = contents_out orelse return FALSE;
     output.* = std.mem.zeroes(ThemeLibraryContents);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-utility-dialog",
+    );
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(target),
+        "noctty-theme-dialog",
+    );
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(box),
+        "noctty-utility-body",
+    );
     const preview = gtk_label_new(
         "Preview: foreground · background · cursor · ANSI palette",
     ) orelse return FALSE;
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(preview),
+        "noctty-theme-preview",
+    );
     const scope_tab = gtk_check_button_new_with_label(
         "Apply theme to the current tab only",
     ) orelse return FALSE;
@@ -5741,6 +5875,10 @@ pub export fn noctty_theme_library_contents_new(
         "No Noctalia colorschemes were found.") orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(status), 0.0);
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
+    gtk_style_context_add_class(
+        gtk_widget_get_style_context(status),
+        "noctty-utility-status",
+    );
     setAccessibleName(scheme_combo, "Installed Noctalia scheme");
     setAccessibleName(variant, "Noctalia theme variant");
     setAccessibleName(status, "Noctalia theme status");

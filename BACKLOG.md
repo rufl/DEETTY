@@ -201,10 +201,12 @@ Focused receipts and proof boundaries live in `docs/TECHNICAL_STATUS.md`,
   retains GTK entry acquisition, text-action dispatch, and native status
   effects.
   The current source run passes all 135 Zig grid-logic tests and both Debug and
-  `ReleaseSafe` builds. Settings and session-sharing surfaces now share
-  theme-aware groups, focus rings, action affordances, and accessible status
-  styling. The counted Zig ownership inventory is 82.21%; the fixed 90.00%
-  gate and isolated graphical proof remain open.
+  `ReleaseSafe` builds. Settings, session-sharing, command-palette, terminal
+  find, quick-note, theme-library, and project-workspace surfaces now share
+  theme-aware groups, focus rings, action affordances, readable utility
+  spacing, and accessible status/search roles. The counted Zig ownership
+  inventory is 82.20%; the fixed 90.00% gate and isolated graphical proof
+  remain open.
   The current batches move compact-setting target mapping, persisted settings
   field/schema selection, default normalization, panel-metric clamps,
   font-rendering combo bounds, terminal context-menu action/selection geometry,
@@ -269,11 +271,12 @@ The three remaining implementation items are therefore closed by gates 3–5;
 gates 1, 2, and 6 close the bundle. Gate 7 prevents unrelated external work
 from making this migration indefinite.
 
-Current locked-tree evidence (2026-09-29) reports `82.21%` Zig ownership
-(`zig_lines=91088`, `adapter_lines=19709`) against the strict `90.00%`
-target. The settings and session-sharing dialogs now use theme-aware grouped
-surfaces, stable label/control spacing, explicit action focus affordances,
-and accessible preview/status styling. Focused Debug and `ReleaseSafe` builds
+Current locked-tree evidence (2026-09-29) reports `82.20%` Zig ownership
+(`zig_lines=91225`, `adapter_lines=19741`) against the strict `90.00%`
+target. Settings, session-sharing, command-palette, terminal find, quick-note,
+theme-library, and project-workspace dialogs now share theme-aware utility
+surfaces, bounded search/editor regions, visible focus and selection states,
+and accessible action/status roles. Focused Debug and `ReleaseSafe` builds
 plus the 135-test Zig policy suite pass. The isolated Settings and native-grid
 GTK runners remain deferred by host I/O pressure (`exit=75`), so NCT-126 is
 not closed.
