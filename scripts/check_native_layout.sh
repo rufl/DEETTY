@@ -355,6 +355,9 @@ grep -F 'NOCTTY_GRID_SHARING_CLEAR_VIEWER' tests/native_grid_sharing_scope_smoke
 grep -F '"Close sharing session"' "$grid" >/dev/null
 grep -F '"Close remote session"' "$grid" >/dev/null
 grep -F '.{ .label = "Retry saving devices", .action = 18 },' "$native_gtk" >/dev/null
+grep -F 'noctty-sharing-action-primary' "$native_gtk" >/dev/null
+grep -F 'noctty-sharing-action-danger' "$native_gtk" >/dev/null
+
 grep -F 'if (revoked) continue;' "$grid" >/dev/null
 grep -F 'noctty_grid_share_action(root->event_data, 6, -1' "$grid" >/dev/null
 grep -F 'noctty_grid_share_action(root->event_data, 11, -1' "$grid" >/dev/null

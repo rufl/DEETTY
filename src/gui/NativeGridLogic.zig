@@ -3091,6 +3091,19 @@ pub export fn noctty_grid_sharing_status_actions(status: c_int) callconv(.c) u32
     if (status >= 301 and status <= 306) actions |= sharing_clear_viewer;
     return actions;
 }
+pub const sharing_action_tone_neutral: c_int = 0;
+pub const sharing_action_tone_primary: c_int = 1;
+pub const sharing_action_tone_danger: c_int = 2;
+
+pub fn sharing_action_tone(action: c_int) c_int {
+    return switch (action) {
+        1, 2, 3, 5, 7, 10, 12, 13, 15, 16, 17, 18 =>
+            sharing_action_tone_primary,
+        6, 8, 9, 11 => sharing_action_tone_danger,
+        else => sharing_action_tone_neutral,
+    };
+}
+
 
 pub const SharingControlPlan = extern struct {
     enabled: u32,
@@ -7770,6 +7783,24 @@ test "sharing status actions cover only explicit protocol states" {
             noctty_grid_sharing_status_actions(status),
         );
 }
+test "sharing action tones keep primary and destructive controls distinct" {
+    for ([_]c_int{ 1, 2, 3, 5, 7, 10, 12, 13, 15, 16, 17, 18 }) |action|
+        try std.testing.expectEqual(
+            sharing_action_tone_primary,
+            sharing_action_tone(action),
+        );
+    for ([_]c_int{ 6, 8, 9, 11 }) |action|
+        try std.testing.expectEqual(
+            sharing_action_tone_danger,
+            sharing_action_tone(action),
+        );
+    for ([_]c_int{ 0, 4, 14, 19, 99 }) |action|
+        try std.testing.expectEqual(
+            sharing_action_tone_neutral,
+            sharing_action_tone(action),
+        );
+}
+
 
 test "sharing status text owns messages errors and discovery hints" {
     var output: [256]u8 = undefined;

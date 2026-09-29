@@ -80,6 +80,24 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
         gtk_style_context_has_class(
             gtk_widget_get_style_context(status),
             "noctty-sharing-status");
+    gboolean sharing_action_tones =
+        share_pane != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(share_pane),
+            "noctty-sharing-action-primary") &&
+        retry_save != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(retry_save),
+            "noctty-sharing-action-primary") &&
+        stop != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(stop),
+            "noctty-sharing-action-danger") &&
+        stop_receive != NULL &&
+        gtk_style_context_has_class(
+            gtk_widget_get_style_context(stop_receive),
+            "noctty-sharing-action-danger");
+
     gboolean preview_request_bounded =
         preview_request_width > 0 && preview_request_width <= 480 &&
         preview_request_height > 0 && preview_request_height <= 260;
@@ -159,6 +177,7 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
                   "Remote terminal workspace") == 0 &&
         form_accessible && status_accessible_ok && preview_request_bounded &&
         sharing_visual_polish &&
+        sharing_action_tones &&
         (root->sharing_layout_pane_mask & UINT64_C(3)) == UINT64_C(3) &&
         root->sharing_layout_selected_seen &&
         root->sharing_layout_host_active_seen &&
@@ -166,7 +185,7 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
     g_print("native_grid_sharing_scope_smoke dialog=%s pane=%s tab=%s "
             "session=%s selectors=%s preview=%s form_accessible=%s "
             "status_accessible=%s preview_bounded=%s layout=%s focus=%s "
-            "click=%s recovery=%s passed=%s\n",
+            "click=%s recovery=%s tones=%s passed=%s\n",
             dialog != NULL && gtk_widget_get_mapped(dialog) ? "true" : "false",
             share_pane != NULL ? "true" : "false",
             share_tab != NULL ? "true" : "false",
@@ -184,6 +203,7 @@ static gboolean inspect_sharing_scope_smoke(gpointer user_data) {
                 ? "true" : "false",
             pane_click_ok ? "true" : "false",
             recovery_policy ? "true" : "false",
+            sharing_action_tones ? "true" : "false",
             root->sharing_scope_smoke_ok ? "true" : "false");
     if (dialog != NULL) gtk_widget_destroy(dialog);
     return finish_title_smoke(root);

@@ -18,6 +18,11 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   surfaces, readable label/control spacing, explicit action focus and tooltip
   affordances, and semantic preview/status styling; extended isolated smoke
   coverage for the visual classes.
+- Refined Settings category selection with a theme-aware accent and stronger
+  selected-label hierarchy; session-sharing controls now distinguish primary
+  and destructive actions while retaining native focus, disabled, and
+  accessible states.
+
 - Moved sharing-preview key-event classification and terminal sequence encoding
   into a tested Zig policy entry; C retains clipboard requests, input
   transport, and transient feedback effects.

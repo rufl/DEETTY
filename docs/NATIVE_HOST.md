@@ -41,6 +41,9 @@ label, action, focus, and disabled-state language. Settings labels reserve
 readable control width; sharing actions expose tooltips and accessible names;
 the remote preview and live status regions retain visible focus and semantic
 roles.
+Sharing action groups distinguish safe primary controls from destructive stop
+and revoke controls through theme semantic tones without changing action
+availability.
 Command palette, terminal find, quick-note, keyboard-shortcuts, theme-library,
 and project-workspace dialogs now share the same utility surface language:
 theme-aware backgrounds, bounded search/editor areas, visible selection and

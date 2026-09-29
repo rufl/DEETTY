@@ -746,7 +746,8 @@ const compact_tab_css =
     "notebook.noctty-tab-notebook > header > tabs > tab:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     "list.sidebar > row.noctty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
     "list.sidebar > row.noctty-settings-category:hover { background: alpha(@theme_fg_color, 0.08); }" ++
-    "list.sidebar > row.noctty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; }" ++
+    "list.sidebar > row.noctty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; border-left: 3px solid @theme_selected_bg_color; }" ++
+    "list.sidebar > row.noctty-settings-category:selected label { font-weight: 600; }" ++
     "list.sidebar > row.noctty-settings-category:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
     ".noctty-tab-content, .noctty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
     "button.noctty-tab-close, button.noctty-tab-action { margin: 0; padding: 0; border-width: 0; border-radius: 7px; box-shadow: none; min-width: 28px; min-height: 24px; color: alpha(@theme_fg_color, 0.72); background: transparent; }" ++
@@ -765,6 +766,12 @@ const compact_tab_css =
     "frame.noctty-settings-group, frame.noctty-sharing-group { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; padding: 4px; }" ++
     "frame.noctty-settings-group > label, frame.noctty-sharing-group > label { color: @theme_text_color; }" ++
     "button.noctty-sharing-action { min-height: 30px; padding: 3px 10px; border-radius: 6px; }" ++
+    "button.noctty-sharing-action-primary { color: @theme_selected_bg_color; font-weight: 600; }" ++
+    "button.noctty-sharing-action-primary:hover { background: alpha(@theme_selected_bg_color, 0.18); }" ++
+    "button.noctty-sharing-action-primary:active { background: alpha(@theme_selected_bg_color, 0.32); }" ++
+    "button.noctty-sharing-action-danger { color: @error_color; }" ++
+    "button.noctty-sharing-action-danger:hover { background: alpha(@error_color, 0.16); }" ++
+    "button.noctty-sharing-action-danger:active { background: alpha(@error_color, 0.28); }" ++
     "button.noctty-sharing-action:hover { background: alpha(@theme_fg_color, 0.12); }" ++
     "button.noctty-sharing-action:active { background: alpha(@theme_selected_bg_color, 0.26); }" ++
     "button.noctty-sharing-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: 1px; }" ++
@@ -6014,6 +6021,21 @@ fn sharingActionButton(
         gtk_widget_get_style_context(button),
         "noctty-sharing-action",
     );
+    const tone_class: ?[*:0]const u8 = switch (
+        NativeGridLogic.sharing_action_tone(action.action)
+    ) {
+        NativeGridLogic.sharing_action_tone_primary =>
+            "noctty-sharing-action-primary",
+        NativeGridLogic.sharing_action_tone_danger =>
+            "noctty-sharing-action-danger",
+        else => null,
+    };
+    if (tone_class) |class_name|
+        gtk_style_context_add_class(
+            gtk_widget_get_style_context(button),
+            class_name,
+        );
+
     g_object_set_data(
         object(button),
         "noctty-sharing-action",
