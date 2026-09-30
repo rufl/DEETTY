@@ -48,6 +48,13 @@ scripts/nocted_native_smoke.sh
 scripts/nocted_resource_qualification.sh
 scripts/nocted_single_instance_smoke.sh
 '
+backend_neutral='
+scripts/native_grid_layout_tui_matrix.sh
+scripts/native_grid_resource_qualification.sh
+scripts/native_grid_single_instance_smoke.sh
+scripts/native_grid_state_recovery_smoke.sh
+scripts/native_grid_tab_color_smoke.sh
+'
 
 dedicated='
 scripts/capture_alpha_screenshots.sh
@@ -80,6 +87,16 @@ for script in $self_isolated; do
   grep -F 'run_isolated_' "$script" >/dev/null
   grep -F 'require_isolated_display.sh' "$script" >/dev/null
   self_count=$((self_count + 1))
+done
+backend_neutral_count=0
+for script in $backend_neutral; do
+  test -s "$script"
+  grep -F 'NOCTTY_ISOLATED_DISPLAY' "$script" >/dev/null
+  if grep -E 'GDK_BACKEND=(x11|wayland|"x11"|"wayland")' "$script" >/dev/null; then
+    echo "display_isolation error=backend_hardcode script=$script" >&2
+    exit 1
+  fi
+  backend_neutral_count=$((backend_neutral_count + 1))
 done
 
 dedicated_count=0
@@ -154,4 +171,4 @@ grep -F 'require_isolated_display.sh" --dedicated' \
   scripts/terminal_benchmark.sh >/dev/null
 
 printf '%s\n' \
-  "display_isolation self_isolated=$self_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true repository_x11_runner=true namespace_mount=true namespace_pid=true namespace_ipc=true namespace_network=true private_home=true private_xdg=true private_system_bus=true private_x11_wm=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true legacy_runtime_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"
+  "display_isolation self_isolated=$self_count backend_neutral=$backend_neutral_count dedicated=$dedicated_count guarded=$guarded_count installed_contract_headless=true benchmark_guarded=true repository_x11_runner=true namespace_mount=true namespace_pid=true namespace_ipc=true namespace_network=true private_home=true private_xdg=true private_system_bus=true private_x11_wm=true pressure_retry_bounded=true scoped_install_fallback=true legacy_tmp_private=true legacy_runtime_private=true ci_native_opt_in=true active_display_default=false fail_closed=true"
