@@ -30,6 +30,11 @@ assert {item["target"] for item in manifest["artifacts"]} == {"x86_64-linux", "x
 for item in manifest["artifacts"]:
     assert item["name"].startswith("noctty-")
     assert item["sha256"] and len(item["sha256"]) == 64
+    size_bytes = item["size_bytes"]
+    assert isinstance(size_bytes, int) and not isinstance(size_bytes, bool) and size_bytes > 0
+    archive = pathlib.Path(sys.argv[1]).parent / item["name"]
+    assert archive.is_file()
+    assert archive.stat().st_size == size_bytes
     print(item["target"], item["name"])
 PY
 )
@@ -74,4 +79,4 @@ NOCTTY_RENDERER=grid NOCTED_DISABLE_SINGLE_INSTANCE=1 \
 timeout --kill-after=2 30 "$smoke_root/$linux_root/noctty" --package-smoke > "$smoke_root/linux-smoke-output"
 grep -F 'package_smoke noctty=true headless=true' "$smoke_root/linux-smoke-output" >/dev/null
 
-printf 'package_ztash_smoke manifest=true checksums=true linux_archive=true windows_archive=true roots=true required_files=true linux_package_smoke=true scratch_clean=true\n'
+printf 'package_ztash_smoke manifest=true checksums=true sizes=true linux_archive=true windows_archive=true roots=true required_files=true linux_package_smoke=true scratch_clean=true\n'

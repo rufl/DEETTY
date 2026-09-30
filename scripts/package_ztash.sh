@@ -5,7 +5,7 @@ IFS=$'\n\t'
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 release_dir="${NOCTTY_ZTASH_RELEASE_DIR:-$root/dist/ztash}"
 
-for command_name in git zig tar zip unzip sha256sum timeout python3 mktemp; do
+for command_name in git zig tar zip unzip sha256sum timeout python3 mktemp stat; do
   command -v "$command_name" >/dev/null || {
     printf 'package_ztash: missing dependency: %s\n' "$command_name" >&2
     exit 2
@@ -151,6 +151,8 @@ find "$linux_root" "$windows_root" -type f -exec touch -h -d '1980-01-01 00:00:0
 
 linux_sha="$(sha256sum "$stage_root/$linux_archive" | awk '{print $1}')"
 windows_sha="$(sha256sum "$stage_root/$windows_archive" | awk '{print $1}')"
+linux_size="$(stat -c '%s' "$stage_root/$linux_archive")"
+windows_size="$(stat -c '%s' "$stage_root/$windows_archive")"
 created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat > "$stage_root/ztash-release.json" <<EOF
 {
@@ -168,12 +170,14 @@ cat > "$stage_root/ztash-release.json" <<EOF
     {
       "name": "$linux_archive",
       "target": "x86_64-linux",
-      "sha256": "$linux_sha"
+      "sha256": "$linux_sha",
+      "size_bytes": $linux_size
     },
     {
       "name": "$windows_archive",
       "target": "x86_64-windows-gnu",
-      "sha256": "$windows_sha"
+      "sha256": "$windows_sha",
+      "size_bytes": $windows_size
     }
   ]
 }
