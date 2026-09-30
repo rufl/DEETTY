@@ -7,6 +7,11 @@ if [[ ${NOCTTY_ISOLATED_DISPLAY:-} != x11 &&
     exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
+backend=${NOCTTY_ISOLATED_DISPLAY:-x11}
+case "$backend" in
+    x11|wayland) ;;
+    *) echo "native_grid_resource_qualification error=unsupported_backend backend=$backend" >&2; exit 2 ;;
+esac
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-resource-qualification.XXXXXX")
 cleanup() {
@@ -24,7 +29,7 @@ for mode in Debug ReleaseSafe; do
         --global-cache-dir .zig-cache/global
     output_file="$scratch/output-$mode"
     start_ns=$(date +%s%N)
-    env GDK_BACKEND=x11 NO_AT_BRIDGE=1 \
+    env GDK_BACKEND="$backend" NO_AT_BRIDGE=1 \
         "$prefix/bin/noctty-smoke" --native-grid-layout-preset-smoke \
         >"$output_file" &
     runner_pid=$!

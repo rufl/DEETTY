@@ -26,9 +26,22 @@ run_case() {
         "$backend" "$application"
 }
 
-run_case wayland vim
-run_case wayland btop
-run_case x11 vim
-run_case x11 btop
-
-echo 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true'
+case "${NOCTTY_ISOLATED_DISPLAY:-}" in
+    '')
+        run_case wayland vim
+        run_case wayland btop
+        run_case x11 vim
+        run_case x11 btop
+        echo 'native_grid_layout_tui_matrix wayland=true x11=true applications=vim,btop panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true'
+        ;;
+    wayland|x11)
+        run_case "$NOCTTY_ISOLATED_DISPLAY" vim
+        run_case "$NOCTTY_ISOLATED_DISPLAY" btop
+        printf 'native_grid_layout_tui_backend backend=%s applications=vim,btop panes=16 production_4x4=true mapped=true all_panes_drawn=true all_panes_nonblank=true rendered=true input_routed=true source_tab_preserved=true\n' \
+            "$NOCTTY_ISOLATED_DISPLAY"
+        ;;
+    *)
+        echo "native_grid_layout_tui_matrix error=unsupported_backend backend=$NOCTTY_ISOLATED_DISPLAY" >&2
+        exit 2
+        ;;
+esac

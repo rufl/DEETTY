@@ -408,6 +408,9 @@ const NativeGridSessionPool = struct {
                 rows,
                 &self.pump_scratch,
             );
+            // The pool's live scrollback setting is authoritative for every
+            // native-grid session, including sessions launched from profiles.
+            try session.grid.setHistoryLimit(self.history_limit);
         } else {
             const cwd_z = try self.allocator.dupeZ(u8, cwd);
             defer self.allocator.free(cwd_z);
@@ -3431,6 +3434,9 @@ export fn noctty_grid_event(raw: ?*anyopaque, pane_id: u64, event: c_int, exit_c
         return;
     }
     if (event == 109) {
+        // GTK can transiently report an unset shared spin value while the
+        // settings control is rebuilt; never treat zero as a reset request.
+        if (exit_code == 0) return;
         if (exit_code < 0) {
             bridge.callback_failed = true;
             return;

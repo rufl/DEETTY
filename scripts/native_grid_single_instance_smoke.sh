@@ -6,6 +6,11 @@ if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
+backend=${NOCTTY_ISOLATED_DISPLAY:-x11}
+case "$backend" in
+  x11|wayland) ;;
+  *) echo "native_grid_single_instance_smoke error=unsupported_backend backend=$backend" >&2; exit 2 ;;
+esac
 
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in
@@ -27,17 +32,19 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 : > "$scratch/pids"
 
+NOCTTY_SINGLE_INSTANCE_BACKEND=$backend \
 NOCTTY_SINGLE_INSTANCE_BINARY=$binary \
 NOCTTY_SINGLE_INSTANCE_SCRATCH=$scratch \
 sh -eu -c '
   binary=$NOCTTY_SINGLE_INSTANCE_BINARY
   scratch=$NOCTTY_SINGLE_INSTANCE_SCRATCH
+  backend=$NOCTTY_SINGLE_INSTANCE_BACKEND
   export HOME="$scratch/home"
   export XDG_CONFIG_HOME="$scratch/config"
   export XDG_STATE_HOME="$scratch/state"
   export XDG_CACHE_HOME="$scratch/cache"
   export XDG_DATA_HOME="$scratch/data"
-  export GDK_BACKEND=x11
+  export GDK_BACKEND="$backend"
   export NO_AT_BRIDGE=1
   mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" \
     "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
@@ -188,12 +195,12 @@ sh -eu -c '
   XDG_ACTIVATION_TOKEN=noctty-smoke-token "$binary" --show >/dev/null
   attempt=0
   while [ "$attempt" -lt 40 ]; do
-    grep -F "noctty_xdg_activation applied=true backend=x11" \
+    grep -F "noctty_xdg_activation applied=true backend=$backend" \
       "$scratch/primary-hidden.log" >/dev/null 2>&1 && break
     attempt=$((attempt + 1))
     sleep 0.05
   done
-  grep -F "noctty_xdg_activation applied=true backend=x11" \
+  grep -F "noctty_xdg_activation applied=true backend=$backend" \
     "$scratch/primary-hidden.log" >/dev/null
 
   "$binary" --hide >/dev/null
@@ -215,7 +222,7 @@ sh -eu -c '
   attempt=0
   while [ "$attempt" -lt 40 ]; do
     applied_count=$(grep -c \
-      "noctty_xdg_activation applied=true backend=x11" \
+      "noctty_xdg_activation applied=true backend=$backend" \
       "$scratch/primary-hidden.log" || true)
     [ "$applied_count" -ge 2 ] && break
     attempt=$((attempt + 1))
@@ -233,7 +240,7 @@ sh -eu -c '
   XDG_ACTIVATION_TOKEN= "$binary" --show >/dev/null
   sleep 0.1
   applied_count=$(grep -c \
-    "noctty_xdg_activation applied=true backend=x11" \
+    "noctty_xdg_activation applied=true backend=$backend" \
     "$scratch/primary-hidden.log" || true)
   [ "$applied_count" -eq 2 ]
 

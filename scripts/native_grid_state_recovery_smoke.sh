@@ -6,6 +6,11 @@ if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
+backend=${NOCTTY_ISOLATED_DISPLAY:-x11}
+case "$backend" in
+  x11|wayland) ;;
+  *) echo "native_grid_state_recovery_smoke error=unsupported_backend backend=$backend" >&2; exit 2 ;;
+esac
 
 binary=${1:-./zig-out/bin/noctty}
 case "$binary" in
@@ -23,17 +28,19 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
+NOCTTY_RECOVERY_BACKEND=$backend \
 NOCTTY_RECOVERY_BINARY=$binary \
 NOCTTY_RECOVERY_SCRATCH=$scratch \
 sh -eu -c '
   binary=$NOCTTY_RECOVERY_BINARY
   scratch=$NOCTTY_RECOVERY_SCRATCH
+  backend=$NOCTTY_RECOVERY_BACKEND
   export HOME="$scratch/home"
   export XDG_CONFIG_HOME="$scratch/config"
   export XDG_STATE_HOME="$scratch/state"
   export XDG_CACHE_HOME="$scratch/cache"
   export XDG_DATA_HOME="$scratch/data"
-  export GDK_BACKEND=x11
+  export GDK_BACKEND="$backend"
   export NO_AT_BRIDGE=1
   config="$HOME/.config/noctty/settings.nocttycfg"
   themes="$HOME/.config/noctty/themes.nocttythemes"
