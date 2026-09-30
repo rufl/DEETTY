@@ -24,6 +24,7 @@ scripts/native_grid_notification_smoke.sh
 scripts/native_grid_palette_rename_smoke.sh
 scripts/native_grid_pane_close_smoke.sh
 scripts/native_grid_pane_move_smoke.sh
+scripts/native_grid_pane_scrollbar_smoke.sh
 scripts/native_grid_project_editor_smoke.sh
 scripts/native_grid_recursive_split_smoke.sh
 scripts/native_grid_resize_overlay_smoke.sh
@@ -51,6 +52,7 @@ scripts/nocted_single_instance_smoke.sh
 backend_neutral='
 scripts/native_grid_layout_tui_matrix.sh
 scripts/native_grid_resource_qualification.sh
+scripts/native_grid_pane_scrollbar_smoke.sh
 scripts/native_grid_single_instance_smoke.sh
 scripts/native_grid_state_recovery_smoke.sh
 scripts/native_grid_tab_color_smoke.sh

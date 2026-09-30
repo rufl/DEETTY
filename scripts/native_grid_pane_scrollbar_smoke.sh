@@ -6,6 +6,7 @@ if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
   export NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=${NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-180}
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
+./scripts/require_isolated_display.sh
 
 cache_local="${TMPDIR:-/tmp}/noctty-pane-scrollbar-local"
 cache_global="${TMPDIR:-/tmp}/noctty-pane-scrollbar-global"
