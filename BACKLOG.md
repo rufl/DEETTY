@@ -352,6 +352,41 @@ matrix and external compositor/release gates.
   90% without counting file moves, duplicate implementations, or unrelated new
   code as architectural progress. Retain focused Linux runtime proof and
   supported-Windows acceptance for each migrated behavior.
+##### NCT-127 fixed definition of done
+
+NCT-127 closes only when Linux and Windows have feature/behavior parity for
+the supported terminal workspace, while retaining native platform boundaries
+(GTK/Cairo plus POSIX PTY on Linux; Win32/GDI plus ConPTY on Windows). A
+different native widget or transport implementation is not a parity failure;
+an undocumented user-visible capability gap is.
+
+1. **Parity inventory:** one locked source-tree matrix maps every Linux
+   workspace capability to a Windows implementation or an explicit,
+   user-approved platform exception. The matrix covers terminal input/output,
+   tabs, recursive splits, focus, selection, scrolling, profiles, themes,
+   persistence/recovery, Smart Tabs, dropdown/global-hotkey behavior, NoctEd,
+   and session sharing.
+2. **Windows runtime proof:** the Windows implementation passes the matrix on
+   supported Windows 10/11 hosts with real ConPTY sessions, Win32/GDI drawing,
+   DPI, high-contrast, IME/keyboard, clipboard, accessibility, process
+   lifecycle, and clean exit. Cross-builds, Wine, and policy tests are
+   supporting evidence only.
+3. **Cross-platform proof:** Linux↔Windows session sharing, remote input
+   permissions, routed-VPN connectivity, persistence compatibility, and
+   workspace/tab/pane identity transitions pass with real hosts on both sides.
+4. **Receipt integrity:** Linux and Windows receipts identify the same locked
+   commit, exact package/archive digests, supported-host versions, exercised
+   capabilities, and explicit skips/failures. No source-only, loopback-only,
+   isolated-runner-only, or Wine-only result closes this gate.
+5. **Boundary accounting:** signing, publication, redistribution review,
+   final compositor acceptance, and consented physical HID remain separate
+   Release Operations gates; they cannot be silently counted as parity.
+
+Current status: shared Zig behavior and native Windows controls are
+implemented in substantial slices, but physical Windows qualification,
+cross-machine Linux↔Windows proof, and the remaining workspace parity receipts
+are still open.
+
 
 ### P3 — Release operations
 

@@ -156,6 +156,11 @@ Platform widgets and PTY lifetimes remain separate.
 Cross-compilation proves build compatibility. Isolated Wine can exercise native
 controls and command dispatch, but does not establish physical Windows
 ConPTY/GDI, DPI, IME, or accessibility parity.
+The full Linux × Windows acceptance definition is the fixed NCT-127 DoD in
+`BACKLOG.md`: it requires a capability-by-capability matrix, supported-host
+ConPTY/GDI/DPI/input/accessibility receipts, and real cross-machine
+Linux↔Windows proof. Build compatibility and Wine control coverage do not
+close that parity gate.
 
 ### Focused native-control qualification
 
