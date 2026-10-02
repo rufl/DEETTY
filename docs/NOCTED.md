@@ -1,6 +1,6 @@
 # NoctEd
 
-Last verified: 2026-08-29.
+Last verified: 2026-10-02.
 
 NoctEd is NOCTTY's standalone native project editor. It is built as the separate `nocted` executable, runs in its own process, and does not share NOCTTY's terminal lifetime. The implementation is Zig; `src/nocted/gtk.zig` is a narrow declaration-only GTK 3 and GtkSourceView 4 ABI boundary.
 
@@ -55,6 +55,17 @@ NOCTTY's `Open NoctEd Here` action starts the sibling NoctEd process with the se
 - At most two lazy single-thread GLib lanes separate foreground document load/save/Save-As path work from background project scan/search work. The application caps outstanding jobs at 64, cancels obsolete generations before admission, copies immutable request data before submission, and transfers completed state through GTK's main context. Shutdown cancels jobs, joins both lanes, drains completions, removes monitors, and only then releases documents and widgets (`nocted_worker=bounded`, `nocted_worker_lanes=2`).
 
 NoctEd performs no telemetry, update checks, crash upload, syntax download, plugin execution, or network access. It is an LSP client only and never implements language semantics or acts as an LSP server. Tools-menu actions start an installed local server on demand over bounded stdio JSON-RPC, send the active in-memory document, enforce an 8-second response timeout and 4 MiB message cap, answer server-to-client requests conservatively, and stop the process after the request. Diagnostics, selectable completion, hover, definition navigation, references, rename, document symbols, and formatting are available. Rename edits are restricted to the open project (or current file without a project), non-local edits are rejected, open buffers remain unsaved, and closed files are updated atomically. The display-independent installed-clangd probe retains `nocted_lsp_smoke client=true server=false transport=stdio framing=true initialize=true did_open=true symbols=true clangd=true timeout=true scratch_clean=true`. Tools also offers bounded Check/Build/Test/Run project tasks detected from `build.zig`, `Cargo.toml`, `go.mod`, Flutter/Dart metadata, validated `package.json` scripts, .NET project/solution files, Python manifests, or Makefiles. Detection accepts regular manifest files only, is bounded to fixed manifest sizes and 4,096 root entries; actions with no defensible generic command are left unavailable rather than guessed. Tasks run on the foreground worker with a 120-second limit, independently enforced 1 MiB stdout/stderr caps, no shell evaluation, and desktop activation variables removed from the child environment. Each task owns a process group and polls worker cancellation at most every 50 ms while idle; supersession gives that group a bounded 100 ms TERM grace before killing remaining descendants, instead of occupying the foreground lane until timeout (`nocted_task_smoke ecosystems=9 manifest_detection=true package_script_validation=true bounded=true background_worker=true activation_token=false output=true exit_status=true scratch_clean=true`).
+
+## KOF4J compatibility gate
+
+NoctEd's open KOF4J acceptance gate requires 100% compatibility with the
+canonical project's language inventory, linter, and required LSP workflows. The
+fixture must pin its repository revision, file/language inventory, tool paths,
+configuration, versions, and approved unsupported cases. The gate also covers
+diagnostic fidelity, unsaved-buffer versions, project/linter/server restart,
+cancellation, timeout, and clean shutdown; source inspection or a mock server
+does not count. See the [fixed bilingual KOF4J DoD](NOCTED_KOF4J_DOD.md) and
+[Chinese contract](NOCTED_KOF4J_DOD.zh-CN.md).
 
 ## Syntax Definitions
 

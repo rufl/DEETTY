@@ -23,6 +23,9 @@ docs/DOGFOOD_RUNBOOK.md
 docs/INSTALL.md
 docs/KNOWN_LIMITATIONS.md
 docs/NATIVE_HOST.md
+docs/NOCTED.md
+docs/NOCTED_KOF4J_DOD.md
+docs/NOCTED_KOF4J_DOD.zh-CN.md
 docs/WINDOWS.md
 docs/WINDOWS_LINUX_PARITY.md
 docs/WINDOWS_LINUX_PARITY.zh-CN.md
@@ -144,6 +147,9 @@ parity_status=$(./scripts/check_windows_linux_parity.sh)
 printf '%s\n' "$parity_status" | grep -F 'windows_linux_parity commit=' >/dev/null
 printf '%s\n' "$parity_status" | grep -F 'rows=13' >/dev/null
 printf '%s\n' "$parity_status" | grep -F 'physical_windows=OPEN cross_machine=OPEN' >/dev/null
+grep -F 'NCT-128' BACKLOG.md docs/NOCTED_KOF4J_DOD.md docs/NOCTED_KOF4J_DOD.zh-CN.md >/dev/null
+grep -F 'nocted_kof4j_compatibility languages=100% linter=100% lsp=100% lifecycle=true' \
+  docs/NOCTED_KOF4J_DOD.md docs/NOCTED_KOF4J_DOD.zh-CN.md >/dev/null
 
 printf '%s\n' "$dogfood_status" | grep -F 'dogfood_omp_status observed_sessions=' >/dev/null
 printf '%s\n' "$dogfood_status" | grep -F 'compatible=' >/dev/null

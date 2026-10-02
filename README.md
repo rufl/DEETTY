@@ -59,6 +59,8 @@ the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairnes
 The locked [Linux/Windows parity matrix](docs/WINDOWS_LINUX_PARITY.md) and its
 [Simplified Chinese companion](docs/WINDOWS_LINUX_PARITY.zh-CN.md) separate
 implemented code from physical-host and cross-machine acceptance.
+The open [NoctEd KOF4J compatibility DoD](docs/NOCTED_KOF4J_DOD.md) requires
+100% language, linter, and required LSP coverage on a pinned project fixture.
 
 ### Local-agent resource research
 

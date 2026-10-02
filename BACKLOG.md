@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-09-26.
+Last refreshed: 2026-10-02.
 
 ## Source Of Truth Policy
 
@@ -22,6 +22,7 @@ Only incomplete accepted work lives here. `[status:yellow]` is locally evidenced
 | P2 | NCT-123 experimental Windows host | Blocked on physical/operator evidence: qualify the packaged host on supported Windows systems. |
 | P2 | NCT-126 first-party native-adapter migration | Source-ready incremental migration plus mapped/physical retirement gates. |
 | P2 | NCT-127 shared native behavior and Windows feature parity | Share toolkit-neutral libraries while adding native Windows workspace controls and preserving Linux behavior. |
+| P2 | NCT-128 NoctEd KOF4J tooling compatibility | Prove 100% project language, linter, and required LSP compatibility on the canonical KOF4J fixture. |
 | P3 | Release Operations | Operator/external evidence owns signing, publication, redistribution review, compositor, and consented HID acceptance. |
 
 Every open bundle is listed once above. Source-ready work is locally executable;
@@ -388,6 +389,51 @@ Current status: the locked bilingual source-tree inventory is now maintained in
 DPI-aware status footer without changing the native boundary. Physical Windows
 qualification, cross-machine Linux↔Windows proof, and the remaining workspace
 parity receipts are still open.
+
+#### NCT-128 NoctEd KOF4J tooling compatibility — open
+
+- [ ] [status:yellow] Qualify NoctEd against the canonical KOF4J project fixture
+  with 100% language coverage, 100% linter compatibility, and 100% required
+  LSP compatibility. The fixture must pin its repository revision, file/language
+  inventory, linter configuration/version, LSP configuration/server versions,
+  tool paths, and approved unsupported cases; no compatibility claim exists
+  until every manifest row has an observable result.
+  `[truth:test,docs,external]`
+
+##### NCT-128 fixed definition of done
+
+NCT-128 closes only when every supported NoctEd target claimed by the release
+passes the canonical KOF4J project:
+
+1. **100% language coverage:** every inventoried source, opened generated file,
+   config, template, and documentation type has the correct language identity
+   and complete declared syntax/highlighting behavior; unsupported or
+   misidentified rows are zero.
+2. **100% linter compatibility:** NoctEd discovers and invokes the exact KOF4J
+   linter/configuration from the project root, preserves cwd/arguments, and
+   presents every fixture diagnostic with correct file, range, severity, message,
+   and version. Clean output, warnings, errors, malformed output, non-zero exit,
+   cancellation, timeout, and missing executable paths have explicit results.
+3. **100% required LSP compatibility:** NoctEd passes every KOF4J-required,
+   server-advertised initialization, workspace-root, document-version,
+   diagnostics, completion, hover, definition, references, rename, symbols,
+   formatting, cancellation, restart, and shutdown case over bounded local
+   stdio JSON-RPC. Unsupported capabilities are reported, not counted as pass.
+4. **Lifecycle compatibility:** project open/reload/rename, nested modules,
+   generated/vendor ignores, unsaved buffers, multi-file state, linter failure,
+   server restart, and clean exit preserve project/tool state without stale
+   diagnostics or cross-project leakage.
+5. **Receipt integrity:** the receipt names the KOF4J revision, exact tool/server
+   versions, configuration hashes, NoctEd commit/package digest, language/linter/
+   LSP cases, approved skips, failures, host/backend, and Debug/`ReleaseSafe`
+   native-smoke results. Source inspection, one opened file, or a mock server
+   cannot close the gate.
+
+The required receipt is
+`nocted_kof4j_compatibility languages=100% linter=100% lsp=100% lifecycle=true`.
+The current tree has no pinned KOF4J fixture or compatibility receipt, so this
+gate remains open. The detailed bilingual contract is in
+`docs/NOCTED_KOF4J_DOD.md` and `docs/NOCTED_KOF4J_DOD.zh-CN.md`.
 
 
 ### P3 — Release operations
