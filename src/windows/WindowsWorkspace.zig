@@ -32,6 +32,7 @@ const WorkspacePane = struct {
     tab: u8,
     node: u8,
     tag_mask: u8 = 0,
+    profile_index: u8 = 0,
 };
 
 const WorkspaceTab = struct {
@@ -81,6 +82,7 @@ const SnapshotPane = struct {
     tab: u8 = invalid_index,
     node: u8 = invalid_index,
     tag_mask: u8 = 0,
+    profile_index: u8 = 0,
 };
 
 pub const WorkspaceSnapshot = struct {
@@ -157,6 +159,38 @@ pub const WindowsWorkspace = struct {
         return filter_mask == 0 or (pane_tags & filter_mask) != 0;
     }
 
+    pub fn paneProfileIndex(self: *const WindowsWorkspace, index: usize) ?u8 {
+        if (index >= self.panes.len) return null;
+        return if (self.panes[index]) |pane| pane.profile_index else null;
+    }
+
+    pub fn setPaneProfileIndex(self: *WindowsWorkspace, index: usize, profile_index: u8) !bool {
+        if (index >= self.panes.len or self.panes[index] == null)
+            return error.InvalidWindowsPane;
+        if (self.panes[index].?.profile_index == profile_index) return false;
+        self.panes[index].?.profile_index = profile_index;
+        return true;
+    }
+
+    pub fn remapProfileIndexAfterRemoval(self: *WindowsWorkspace, removed: u8) void {
+        for (&self.panes) |*pane_slot| {
+            if (pane_slot.*) |*pane| {
+                if (pane.profile_index == removed)
+                    pane.profile_index = 0
+                else if (pane.profile_index > removed)
+                    pane.profile_index -= 1;
+            }
+        }
+    }
+    pub fn normalizeProfileIndices(self: *WindowsWorkspace, profile_count: usize) void {
+        for (&self.panes) |*pane_slot| {
+            if (pane_slot.*) |*pane| {
+                if (@as(usize, pane.profile_index) >= profile_count)
+                    pane.profile_index = 0;
+            }
+        }
+    }
+
     pub fn smartFilterMask(self: *const WindowsWorkspace) u8 {
         return self.smart_filter_mask;
     }
@@ -200,6 +234,7 @@ pub const WindowsWorkspace = struct {
         tab_index: usize,
         columns: usize,
         rows: usize,
+        profile_index: u8,
     ) !usize {
         const pane_index = for (&self.panes, 0..) |pane, index| {
             if (pane == null) break index;
@@ -217,6 +252,7 @@ pub const WindowsWorkspace = struct {
             .grid = grid,
             .tab = @intCast(tab_index),
             .node = @intCast(node_index),
+            .profile_index = profile_index,
         };
         return pane_index;
     }
@@ -230,9 +266,18 @@ pub const WindowsWorkspace = struct {
     }
 
     pub fn newTab(self: *WindowsWorkspace, columns: usize, rows: usize) !usize {
+        return self.newTabWithProfile(columns, rows, 0);
+    }
+
+    pub fn newTabWithProfile(
+        self: *WindowsWorkspace,
+        columns: usize,
+        rows: usize,
+        profile_index: u8,
+    ) !usize {
         if (self.tab_count >= self.tabs.len) return error.WindowsTabLimit;
         const tab_index = self.tab_count;
-        const pane_index = try self.allocatePane(tab_index, columns, rows);
+        const pane_index = try self.allocatePane(tab_index, columns, rows, profile_index);
         const pane = self.panes[pane_index].?;
         var labels = [_]bool{false} ** (max_tabs + 1);
         for (self.tabs[0..self.tab_count]) |tab| labels[tab.label] = true;
@@ -265,6 +310,7 @@ pub const WindowsWorkspace = struct {
             self.active_tab,
             columns,
             rows,
+            old_pane.profile_index,
         ) catch |err| return err;
         errdefer self.releasePane(new_pane_index);
         const new_pane = self.panes[new_pane_index].?;
@@ -648,6 +694,7 @@ pub const WindowsWorkspace = struct {
                 .tab = pane.tab,
                 .node = pane.node,
                 .tag_mask = pane.tag_mask,
+                .profile_index = pane.profile_index,
             };
         }
         return result;
@@ -681,6 +728,7 @@ pub const WindowsWorkspace = struct {
                 .tab = pane.tab,
                 .node = pane.node,
                 .tag_mask = pane.tag_mask,
+                .profile_index = pane.profile_index,
             };
         }
         self.deinit();
@@ -713,7 +761,7 @@ pub fn copyTitle(value: []const u8, output: []u8) usize {
 }
 
 pub const persisted_state_capacity = 4096;
-const persisted_state_magic = "NWS4";
+const persisted_state_magic = "NWS5";
 const StateWriter = struct {
     bytes: []u8,
     index: usize = 0,
@@ -871,7 +919,8 @@ fn validateWorkspaceSnapshot(snapshot_value: *const WorkspaceSnapshot) !void {
     }
     for (snapshot_value.panes, 0..) |pane, index| {
         if (!pane.used) {
-            if (pane.tab != invalid_index or pane.node != invalid_index or pane.tag_mask != 0)
+            if (pane.tab != invalid_index or pane.node != invalid_index or
+                pane.tag_mask != 0 or pane.profile_index != 0)
                 return error.InvalidWindowsWorkspace;
             continue;
         }
@@ -921,6 +970,7 @@ pub fn encodePersistedWindowsState(
             try writer.put(pane.tab);
             try writer.put(pane.node);
             try writer.put(pane.tag_mask);
+            try writer.put(pane.profile_index);
         }
     }
     try writer.putU32(windowsStateChecksum(output[0..writer.index]));
@@ -938,16 +988,16 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
     for ("NWS") |expected|
         if (try reader.take() != expected) return error.InvalidWindowsState;
     const version = try reader.take();
-    if (version != '1' and version != '2' and version != '3' and version != '4')
+    if (version != '1' and version != '2' and version != '3' and version != '4' and version != '5')
         return error.InvalidWindowsState;
     const theme_value = try reader.take();
     if (!WindowsAppearance.validTheme(theme_value) or
-        ((version != '3' and version != '4') and theme_value > 1))
+        ((version != '3' and version != '4' and version != '5') and theme_value > 1))
         return error.InvalidWindowsState;
     const theme: WindowsTheme = @enumFromInt(theme_value);
     const font_size = try reader.take();
     if (!WindowsAppearance.validFontSize(font_size) or
-        ((version != '3' and version != '4') and (font_size < 10 or font_size > 24)))
+        ((version != '3' and version != '4' and version != '5') and (font_size < 10 or font_size > 24)))
         return error.InvalidWindowsState;
     const launch_profile: WindowsLaunchProfile = switch (try reader.take()) {
         0 => .powershell,
@@ -995,7 +1045,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .first = try reader.take(),
                 .second = try reader.take(),
                 .pane = try reader.take(),
-                .ratio_permille = if (version == '3' or version == '4') try reader.takeU16() else 500,
+                .ratio_permille = if (version == '3' or version == '4' or version == '5') try reader.takeU16() else 500,
             };
         }
         for (&snapshot_value.panes) |*pane| {
@@ -1003,7 +1053,8 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
                 .used = try reader.takeBool(),
                 .tab = try reader.take(),
                 .node = try reader.take(),
-                .tag_mask = if (version == '4') try reader.take() else 0,
+                .tag_mask = if (version == '4' or version == '5') try reader.take() else 0,
+                .profile_index = if (version == '5') try reader.take() else 0,
             };
         }
         try validateWorkspaceSnapshot(&snapshot_value);
@@ -1142,7 +1193,7 @@ fn signTestState(bytes: []u8) void {
     std.mem.writeInt(u32, bytes[bytes.len - 4 ..][0..4], windowsStateChecksum(bytes[0 .. bytes.len - 4]), .little);
 }
 
-test "Windows workspace: NWS1 migrates to NWS3 preserving order with automatic labels" {
+test "Windows workspace: NWS1 migrates to NWS5 preserving order with automatic labels" {
     // Two leaf tabs, second selected. This is the original NWS1 wire format,
     // independent of the current encoder.
     const payload = "NWS1\x00\x0d\x00\x01\x01\x02\x01" ++
@@ -1164,7 +1215,7 @@ test "Windows workspace: NWS1 migrates to NWS3 preserving order with automatic l
     _ = try workspace.renameTab(1, "legacy");
     var encoded: [persisted_state_capacity]u8 = undefined;
     const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
-    try std.testing.expectEqualStrings("NWS4", encoded[0..4]);
+    try std.testing.expectEqualStrings("NWS5", encoded[0..4]);
     const migrated = try decodePersistedWindowsState(encoded[0..length]);
     try workspace.restore(migrated.workspace.?, 12, 4);
     try std.testing.expectEqual(@as(usize, 1), workspace.activePaneIndex().?);
@@ -1341,7 +1392,7 @@ test "Windows workspace: NWS2 split ratios migrate to equal and NWS4 preserves b
     try std.testing.expectError(error.InvalidWindowsState, encodePersistedWindowsState(.{ .preferences = .{ .font_size_pt = 33 } }, &encoded));
 }
 
-test "Windows workspace: signed NWS4 rejects malicious ratios and noncanonical node metadata" {
+test "Windows workspace: signed NWS5 rejects malicious ratios and noncanonical node metadata" {
     var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
     defer workspace.deinit();
     _ = try workspace.splitActive(.horizontal, false, 12, 4);
@@ -1400,6 +1451,28 @@ test "Windows workspace: pane tags roundtrip and matching remain bounded" {
     var corrupt = encoded;
     corrupt[length - 1] ^= 1;
     try std.testing.expectError(error.InvalidWindowsState, decodePersistedWindowsState(corrupt[0..length]));
+}
+test "Windows workspace: pane launch profiles inherit and persist independently" {
+    var workspace = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer workspace.deinit();
+    const second = try workspace.newTabWithProfile(12, 4, 3);
+    const split = try workspace.splitActive(.horizontal, false, 12, 4);
+    try std.testing.expectEqual(@as(u8, 3), workspace.paneProfileIndex(second).?);
+    try std.testing.expectEqual(@as(u8, 3), workspace.paneProfileIndex(split).?);
+    try std.testing.expect(try workspace.setPaneProfileIndex(0, 2));
+    var encoded: [persisted_state_capacity]u8 = undefined;
+    const length = try encodePersistedWindowsState(.{ .workspace = workspace.snapshot() }, &encoded);
+    const decoded = try decodePersistedWindowsState(encoded[0..length]);
+    try std.testing.expectEqual(@as(u8, 2), decoded.workspace.?.panes[0].profile_index);
+    try std.testing.expectEqual(@as(u8, 3), decoded.workspace.?.panes[split].profile_index);
+    var restored = try WindowsWorkspace.init(std.testing.allocator, 12, 4);
+    defer restored.deinit();
+    try restored.restore(decoded.workspace.?, 12, 4);
+    try std.testing.expectEqual(@as(u8, 2), restored.paneProfileIndex(0).?);
+    try std.testing.expectEqual(@as(u8, 3), restored.paneProfileIndex(split).?);
+    restored.remapProfileIndexAfterRemoval(2);
+    try std.testing.expectEqual(@as(u8, 0), restored.paneProfileIndex(0).?);
+    try std.testing.expectEqual(@as(u8, 2), restored.paneProfileIndex(split).?);
 }
 
 test "Windows workspace: Smart Tab filter hides unmatched panes and hands focus to a match" {

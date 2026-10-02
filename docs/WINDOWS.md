@@ -24,8 +24,8 @@ Included:
   independent ConPTY process, Zig VT grid, output ring, reply path, resize
   state, and lifecycle per pane
 - native Win32 Settings, Workspace, and Terminal menus exposing themes,
-  font sizes, launch profile, workspace creation/navigation/guarded close,
-  layout persistence, copy/paste, and focused-terminal Ctrl+L
+  font sizes, per-pane launch profiles, workspace creation/navigation/guarded
+  close, layout persistence, copy/paste, and focused-terminal Ctrl+L
 - a native tab strip with direct tab selection, custom tab names, drag reordering,
   and left/right ordering commands; pane sessions retain their identities
 - proportional split dividers with drag preview, menu-based pane resizing,
@@ -34,6 +34,11 @@ Included:
   Unicode file dialogs using the shared Linux theme codec
 - explicit, checksummed save/restore of the bounded tab and split layout;
   restoring launches replacement shells rather than serializing shell contents
+- per-pane launch-profile identity, inherited by splits, selected by profile
+  save/select actions, remapped on profile deletion, and persisted in the NWS5
+  workspace envelope
+- native Smart Tab tag filters and the Ctrl+Alt+Space dropdown/global-hotkey
+  entry point; physical input and lifecycle qualification remains open
 - explicit command-line LAN discovery, pairing, and encrypted terminal
   sharing/receiving with a native GDI remote view and host-approved,
   connection-scoped input; while receiving a Linux workspace, `Ctrl+Tab`
@@ -45,18 +50,19 @@ Included:
   desktop shortcuts, reversible NoctEd Open-With registration, silent lifecycle
   support, and a fail-closed operator-provided signing hook
 - no telemetry, analytics, update checks, crash uploads, or remote flags
-- physical Windows 11 automated host qualification covering ConPTY, VT parsing,
-  GDI painting, settings, input coordinates, selection, clipboard, and clean exit
+- an automated host-qualification harness covering ConPTY, VT parsing, GDI
+  painting, settings, input coordinates, selection, clipboard, and clean exit;
+  completed physical Windows 10/11 parity receipts remain open
 
 Not included or claimed yet:
 
-- Smart Tabs and Linux tag-filtered tab views
-- dropdown/global-hotkey behavior
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
   updates
 - graphical paired-device/session-sharing controls
-- a broad physical Windows 10/11 compatibility matrix
+- the physical Windows 10/11 capability matrix, including Smart Tabs,
+  dropdown/global-hotkey behavior, DPI/high-contrast/IME/accessibility
+  coverage, and cross-machine session-sharing receipts
 
 This should be treated as a testable Windows terminal alpha, not as Windows
 parity with the current Linux workspace.

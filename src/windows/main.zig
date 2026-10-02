@@ -188,12 +188,22 @@ fn applyPersistedProfiles(state: *State) void {
     var bytes: [WindowsLaunchProfiles.max_state_bytes]u8 = undefined;
     const length = (Dpapi.profileStateLoad(&bytes) catch {
         state.startup_persistence_warning = true;
+        state.workspace.normalizeProfileIndices(state.profiles.count());
         return;
-    }) orelse return;
-    state.profiles = WindowsLaunchProfiles.decodeState(bytes[0..length]) catch {
-        state.startup_persistence_warning = true;
+    }) orelse {
+        state.workspace.normalizeProfileIndices(state.profiles.count());
         return;
     };
+    state.profiles = WindowsLaunchProfiles.decodeState(bytes[0..length]) catch {
+        state.startup_persistence_warning = true;
+        state.workspace.normalizeProfileIndices(state.profiles.count());
+        return;
+    };
+    state.workspace.normalizeProfileIndices(state.profiles.count());
+    if (!state.preferences.restore_workspace) {
+        if (state.workspace.activePaneIndex()) |pane_index|
+            _ = state.workspace.setPaneProfileIndex(pane_index, @intCast(state.profiles.selected)) catch {};
+    }
 }
 
 
@@ -1072,7 +1082,11 @@ fn workspaceAction(
     const state = stateFromRaw(raw) orelse return -1;
     if (state.live_viewer != null) return 0;
     const pane_index = switch (action) {
-        1 => state.workspace.newTab(@intCast(columns), @intCast(rows)),
+        1 => state.workspace.newTabWithProfile(
+            @intCast(columns),
+            @intCast(rows),
+            @intCast(state.profiles.selected),
+        ),
         2 => state.workspace.splitActive(
             .vertical,
             false,
@@ -1139,6 +1153,11 @@ fn profileCount(raw: ?*anyopaque) callconv(.c) c_int {
 
 fn profileActive(raw: ?*anyopaque) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
+    if (state.live_viewer == null) {
+        if (state.workspace.activePaneIndex()) |pane_index|
+            if (state.workspace.paneProfileIndex(pane_index)) |profile_index|
+                return @intCast(profile_index);
+    }
     return @intCast(state.profiles.selected);
 }
 
@@ -1161,7 +1180,16 @@ fn profileGet(raw: ?*anyopaque, index: c_int, output: *LaunchProfile.NamedProfil
 fn profileSave(raw: ?*anyopaque, index: c_int, name: [*]const u8, length: usize, profile: *const LaunchProfile.Profile) callconv(.c) c_int {
     if (index < -1 or index == 0 or index == 1 or length == 0 or length > LaunchProfile.max_name_bytes) return -1;
     const state = stateFromRaw(raw) orelse return -1;
-    _ = state.profiles.save(if (index == -1) null else @intCast(index), name[0..length], profile.*, ProfileSink{}) catch return -1;
+    const selected = state.profiles.save(
+        if (index == -1) null else @intCast(index),
+        name[0..length],
+        profile.*,
+        ProfileSink{},
+    ) catch return -1;
+    if (state.live_viewer == null) {
+        if (state.workspace.activePaneIndex()) |pane_index|
+            _ = state.workspace.setPaneProfileIndex(pane_index, @intCast(selected)) catch return -1;
+    }
     return 0;
 }
 
@@ -1169,6 +1197,7 @@ fn profileRemove(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     if (index < 2) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     state.profiles.remove(@intCast(index), ProfileSink{}) catch return -1;
+    state.workspace.remapProfileIndexAfterRemoval(@intCast(index));
     if (state.profiles.selected < 2) state.preferences.launch_profile = @enumFromInt(state.profiles.selected);
     return 0;
 }
@@ -1177,6 +1206,10 @@ fn profileSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     if (index < 0) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     state.profiles.select(@intCast(index), ProfileSink{}) catch return -1;
+    if (state.live_viewer == null) {
+        if (state.workspace.activePaneIndex()) |pane_index|
+            _ = state.workspace.setPaneProfileIndex(pane_index, @intCast(index)) catch return -1;
+    }
     if (index < 2) state.preferences.launch_profile = @enumFromInt(index);
     return 0;
 }
@@ -1185,11 +1218,12 @@ fn profileLaunch(raw: ?*anyopaque, pane_index: c_int, output: *LaunchProfile.Pro
     if (pane_index < 0) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     const grid = state.workspace.paneGrid(@intCast(pane_index)) orelse return -1;
-    if (state.profiles.selected < 2) {
+    const profile_index = state.workspace.paneProfileIndex(@intCast(pane_index)) orelse return -1;
+    if (profile_index < 2) {
         grid.setHistoryLimit(LaunchProfile.default_scrollback_lines) catch return -1;
-        return @intCast(state.profiles.selected);
+        return @intCast(profile_index);
     }
-    const profile = &(state.profiles.get(state.profiles.selected) orelse return -1).profile;
+    const profile = &(state.profiles.get(@intCast(profile_index)) orelse return -1).profile;
     WindowsLaunchProfiles.validateProfile(profile) catch return -1;
     grid.setHistoryLimit(profile.scrollback_lines) catch return -1;
     output.* = profile.*;
@@ -1961,6 +1995,7 @@ fn profileSelfTest(state: *State) bool {
         state.profiles.custom.selected_index = 0;
         state.profiles.selected = 2;
         state.profiles.validate() catch break :tryProfile;
+        _ = state.workspace.setPaneProfileIndex(0, 2) catch break :tryProfile;
         if (profileGet(state, 2, &named) != 0 or !named.profile.eql(&profile) or
             preferenceGet(state, 3) != 2 or profileActive(state) != 2) return false;
         const grid = state.workspace.paneGrid(0) orelse return false;
