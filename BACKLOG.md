@@ -382,10 +382,12 @@ an undocumented user-visible capability gap is.
    final compositor acceptance, and consented physical HID remain separate
    Release Operations gates; they cannot be silently counted as parity.
 
-Current status: shared Zig behavior and native Windows controls are
-implemented in substantial slices, but physical Windows qualification,
-cross-machine Linux↔Windows proof, and the remaining workspace parity receipts
-are still open.
+Current status: the locked bilingual source-tree inventory is now maintained in
+`docs/WINDOWS_LINUX_PARITY.md` and
+`docs/WINDOWS_LINUX_PARITY.zh-CN.md`, and the Windows host adds a
+DPI-aware status footer without changing the native boundary. Physical Windows
+qualification, cross-machine Linux↔Windows proof, and the remaining workspace
+parity receipts are still open.
 
 
 ### P3 — Release operations

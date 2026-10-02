@@ -56,6 +56,9 @@ Not claimed yet:
 
 See [Known limitations](docs/KNOWN_LIMITATIONS.md), the [no-surprise network check](docs/NO_SURPRISE_NETWORK.md), the [code map](docs/CODE_MAP.md), the [Konsole resilience review](docs/KONSOLE_RESILIENCE_REVIEW.md),
 the [terminal peer research](docs/TERMINAL_PEER_RESEARCH.md), the [agent fairness qualification](docs/TERMINAL_AGENT_FAIRNESS_QUALIFICATION.md), the [mapped presentation qualification](docs/NATIVE_GRID_PRESENTATION_QUALIFICATION.md), the [full-stack mapped qualification](docs/NATIVE_GRID_FULL_STACK_QUALIFICATION.md), the [hidden/visible stability qualification](docs/NATIVE_GRID_STABILITY_QUALIFICATION.md), the [authenticated Codex qualification](docs/AUTHENTICATED_AGENT_QUALIFICATION.md), the [installed tmux/Zellij continuity qualification](docs/INSTALLED_CONTINUITY_QUALIFICATION.md), the [NoctEd native endurance qualification](docs/NOCTED_NATIVE_ENDURANCE_QUALIFICATION.md), and the detailed historical status in [Technical status](docs/TECHNICAL_STATUS.md).
+The locked [Linux/Windows parity matrix](docs/WINDOWS_LINUX_PARITY.md) and its
+[Simplified Chinese companion](docs/WINDOWS_LINUX_PARITY.zh-CN.md) separate
+implemented code from physical-host and cross-machine acceptance.
 
 ### Local-agent resource research
 
@@ -123,7 +126,8 @@ zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
 ./scripts/package_windows.sh dist/noctty-windows-x86_64-alpha.zip
 ```
 
-See [Windows alpha](docs/WINDOWS.md) for the current feature and proof boundary.
+See [Windows alpha](docs/WINDOWS.md) for the current feature and proof boundary,
+and the [native parity matrix](docs/WINDOWS_LINUX_PARITY.md).
 
 ## Install/package locally
 

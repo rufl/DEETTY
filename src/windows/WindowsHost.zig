@@ -116,6 +116,9 @@ const Host = struct {
     menu: ?*Menu.Menu = null,
     tabs: Tabs.Strip = .{},
     content_top: c_int = 0,
+    content_bottom: c_int = 0,
+    status_text: [256]u16 = undefined,
+    status_text_length: c_int = 0,
     theme: c_int = 0,
     font_size_pt: c_int = 0,
     launch_profile: c_int = 0,
@@ -250,7 +253,9 @@ fn paneGeometry(host: *Host, pane_index: c_int, client: *const c.RECT, result: *
     if (host.callbacks.pane_layout(host.callbacks.userdata, pane_index, &x, &y, &width, &height, &selected, &host_active) <= 0 or
         host.callbacks.pane_dimensions(host.callbacks.userdata, pane_index, &columns, &rows) <= 0 or columns == 0 or rows == 0) return false;
     var geometry: Logic.PaneGeometry = undefined;
-    if (Logic.noctty_windows_compute_pane_geometry(client.left, @min(host.content_top, client.bottom), client.right, client.bottom, x, y, width, height, 3, &geometry) == 0) return false;
+    const content_bottom = if (host.content_bottom > 0) @min(host.content_bottom, client.bottom) else client.bottom;
+    if (content_bottom <= @min(host.content_top, content_bottom)) return false;
+    if (Logic.noctty_windows_compute_pane_geometry(client.left, @min(host.content_top, content_bottom), client.right, content_bottom, x, y, width, height, 3, &geometry) == 0) return false;
     result.* = .{
         .pane_index = pane_index,
         .pane = .{ .left = geometry.pane_left, .top = geometry.pane_top, .right = geometry.pane_right, .bottom = geometry.pane_bottom },
@@ -284,7 +289,7 @@ fn cellForPane(host: *Host, pane_index: c_int, pointer_x: c_int, pointer_y: c_in
 }
 
 fn hitTestPaneCell(host: *Host, pointer_x: c_int, pointer_y: c_int, result: *PaneHit) bool {
-    if (pointer_y < host.content_top or dividerHit(host, pointer_x, pointer_y) != null) return false;
+    if (pointer_y < host.content_top or (host.content_bottom > 0 and pointer_y >= host.content_bottom) or dividerHit(host, pointer_x, pointer_y) != null) return false;
     var client: c.RECT = undefined;
     _ = c.GetClientRect(host.window, &client);
     const count = host.callbacks.pane_count(host.callbacks.userdata);
@@ -326,6 +331,7 @@ fn cellSelected(host: *const Host, pane_index: c_int, column: c_int, row: c_int)
 }
 
 fn paint(host: *Host) void {
+    updateStatus(host);
     var state: Renderer.State = std.mem.zeroes(Renderer.State);
     state.window = @ptrCast(host.window);
     state.callbacks = @ptrCast(host.callbacks);
@@ -334,6 +340,9 @@ fn paint(host: *Host) void {
     state.cell_width = host.cell_width;
     state.cell_height = host.cell_height;
     state.content_top = host.content_top;
+    state.content_bottom = host.content_bottom;
+    state.status_text = @ptrCast(&host.status_text);
+    state.status_text_length = host.status_text_length;
     state.columns = host.columns;
     state.rows = host.rows;
     state.foreground = host.foreground;
@@ -348,6 +357,46 @@ fn paint(host: *Host) void {
     state.divider_preview_ratio = if (host.divider_drag) |drag| drag.preview else 500;
     Renderer.noctty_windows_render(&state, &host.paint_count);
 }
+fn statusBarHeight(host: *const Host) c_int {
+    var dpi = if (host.window != null) c.GetDpiForWindow(host.window) else 96;
+    if (dpi == 0) dpi = 96;
+    return @max(c.MulDiv(24, @intCast(dpi), 96), 22);
+}
+
+fn updateStatus(host: *Host) void {
+    var profile_name: [96]u8 = undefined;
+    const profile_index = host.callbacks.profile_active(host.callbacks.userdata);
+    const profile_length = if (profile_index >= 0)
+        host.callbacks.profile_name(host.callbacks.userdata, profile_index, &profile_name, profile_name.len)
+    else
+        -1;
+    const profile = if (profile_length > 0 and profile_length <= @as(c_int, @intCast(profile_name.len)))
+        profile_name[0..@intCast(profile_length)]
+    else
+        "profile";
+    const tab_count = @max(host.callbacks.tab_count(host.callbacks.userdata), 0);
+    const tab_active = host.callbacks.tab_active(host.callbacks.userdata);
+    const pane_count = @max(host.callbacks.pane_count(host.callbacks.userdata), 0);
+    const pane_active = host.callbacks.active_pane(host.callbacks.userdata);
+    const mode = if (host.remote_mode != 0) "Remote" else if (host.broadcast_enabled) "Broadcast" else "Local";
+    const tab_number = if (tab_active >= 0 and tab_active < tab_count) tab_active + 1 else 0;
+    const pane_number = if (pane_active >= 0 and pane_active < pane_count) pane_active + 1 else 0;
+    var text_utf8: [256]u8 = undefined;
+    const text = std.fmt.bufPrint(
+        &text_utf8,
+        "{s}  |  Tab {d}/{d}  |  Pane {d}/{d}  |  {s}",
+        .{ mode, tab_number, tab_count, pane_number, pane_count, profile },
+    ) catch {
+        host.status_text_length = 0;
+        return;
+    };
+    const length = std.unicode.utf8ToUtf16Le(&host.status_text, text) catch {
+        host.status_text_length = 0;
+        return;
+    };
+    host.status_text_length = @intCast(length);
+}
+
 
 fn activeSession(host: *Host) ?*Session {
     const index = host.callbacks.active_pane(host.callbacks.userdata);
@@ -387,6 +436,7 @@ fn toggleBroadcast(host: *Host) void {
     ) != c.IDYES) return;
     host.broadcast_enabled = !host.broadcast_enabled;
     updateMenu(host);
+    _ = c.InvalidateRect(host.window, null, c.FALSE);
     _ = c.SetFocus(host.window);
 }
 
@@ -504,12 +554,14 @@ fn updateTitle(host: *Host) void {
     const exited = if (active) |session| Pty.noctty_windows_pty_exited(session.pty) else 0;
     const valid_count: usize = if (count > 0 and count <= @as(c_int, @intCast(title_utf8.len))) @intCast(count) else 0;
     _ = Title.noctty_windows_update_title(@ptrCast(host.window), if (valid_count != 0) &title_utf8 else null, valid_count, exited);
+    updateStatus(host);
 }
 
 fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
     _ = host.tabs.sync(host.callbacks);
     host.content_top = host.tabs.layout(width, height);
-    const content_height = @max(0, height - host.content_top);
+    host.content_bottom = @max(host.content_top, height - statusBarHeight(host));
+    const content_height = @max(0, host.content_bottom - host.content_top);
     if (Logic.noctty_windows_grid_dimensions(width, content_height, host.cell_width, host.cell_height, &host.columns, &host.rows) == 0) return;
     var pane_count: c_int = 0;
     if (Logic.noctty_windows_workspace_local_operation(host.remote_mode) != 0) pane_count = host.callbacks.pane_count(host.callbacks.userdata);
@@ -1684,7 +1736,9 @@ fn hostFromWindow(window: c.HWND) ?*Host {
 fn dividerClient(host: *Host) c.RECT {
     var client: c.RECT = std.mem.zeroes(c.RECT);
     _ = c.GetClientRect(host.window, &client);
-    client.top = @min(host.content_top, client.bottom);
+    const content_bottom = if (host.content_bottom > 0) @min(host.content_bottom, client.bottom) else client.bottom;
+    client.top = @min(host.content_top, content_bottom);
+    client.bottom = content_bottom;
     return client;
 }
 

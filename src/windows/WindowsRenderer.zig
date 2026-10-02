@@ -67,7 +67,7 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     var client: c.RECT = undefined;
     if (c.GetClientRect(render.window, &client) == 0) return;
     if (client.right <= 0 or client.bottom <= 0) return;
-
+    const full_client = client;
     const buffer_device = c.CreateCompatibleDC(target) orelse return;
     defer _ = c.DeleteDC(buffer_device);
     const buffer_bitmap = c.CreateCompatibleBitmap(
@@ -84,6 +84,11 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     defer _ = c.DeleteObject(background);
     _ = c.FillRect(buffer_device, &client, background);
 
+    const content_bottom = if (render.content_bottom > render.content_top)
+        @min(render.content_bottom, client.bottom)
+    else
+        client.bottom;
+    client.bottom = content_bottom;
     client.top = @min(render.content_top, client.bottom);
     const pane_count = callbacks(render).pane_count(callbacks(render).userdata);
     if (pane_count > 0) {
@@ -95,12 +100,13 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
         drawLegacyGrid(render, buffer_device);
     }
     drawDividers(render, buffer_device, client);
+    drawStatusBar(render, buffer_device, full_client);
     _ = c.BitBlt(
         target,
         0,
         0,
-        client.right,
-        client.bottom,
+        full_client.right,
+        full_client.bottom,
         buffer_device,
         0,
         0,
@@ -108,6 +114,35 @@ pub export fn noctty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     );
     counter.* +%= 1;
 }
+fn drawStatusBar(state: *const State, device: c.HDC, client: c.RECT) void {
+    const top = if (state.content_bottom > state.content_top)
+        @min(state.content_bottom, client.bottom)
+    else
+        client.bottom;
+    if (top >= client.bottom) return;
+    var bar = client;
+    bar.top = top;
+    const surface = Logic.noctty_windows_blend_rgb(state.foreground, state.background, 18);
+    const brush = c.CreateSolidBrush(Logic.noctty_windows_colorref_from_rgb(surface)) orelse return;
+    defer _ = c.DeleteObject(brush);
+    _ = c.FillRect(device, &bar, brush);
+    const text = state.status_text orelse return;
+    if (state.status_text_length <= 0) return;
+    _ = c.SetTextColor(device, Logic.noctty_windows_colorref_from_rgb(state.foreground));
+    const previous_mode = c.SetBkMode(device, c.TRANSPARENT);
+    defer _ = c.SetBkMode(device, previous_mode);
+    var text_rectangle = bar;
+    text_rectangle.left += 10;
+    text_rectangle.right -= 10;
+    _ = c.DrawTextW(
+        device,
+        text,
+        state.status_text_length,
+        &text_rectangle,
+        c.DT_SINGLELINE | c.DT_VCENTER | c.DT_END_ELLIPSIS | c.DT_NOPREFIX,
+    );
+}
+
 
 fn drawDividers(state: *const State, device: c.HDC, client: c.RECT) void {
     const cb = callbacks(state);

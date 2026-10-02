@@ -1,6 +1,8 @@
 # Native Plasma and Noctalia Host
 
-Last verified: 2026-09-29.
+Last verified: 2026-10-02. The Windows boundary is tracked in the
+[Linux/Windows parity matrix](WINDOWS_LINUX_PARITY.md) and its
+[Simplified Chinese companion](WINDOWS_LINUX_PARITY.zh-CN.md).
 
 ## Outcome
 

@@ -1,8 +1,12 @@
-# Windows Alpha
+# Windows Native Host / Parity Boundary
 
-NOCTTY now has an experimental native Windows terminal host. It is a real
-Windows build rather than a Linux executable renamed for Windows, but it is the
-first portability tranche and does not yet have Linux feature parity.
+NOCTTY has an experimental native Windows terminal host. It is a real
+Windows build rather than a Linux executable renamed for Windows, but it is
+the first portability tranche and does not yet have Linux feature parity.
+
+Last refreshed: 2026-10-02. The locked [Linux/Windows parity matrix](WINDOWS_LINUX_PARITY.md)
+and [Simplified Chinese companion](WINDOWS_LINUX_PARITY.zh-CN.md) distinguish
+implemented code, supporting evidence, and physical-host gates.
 
 ## Current Windows boundary
 
@@ -37,6 +41,8 @@ Included:
 - per-pane launch-profile identity, inherited by splits, selected by profile
   save/select actions, remapped on profile deletion, and persisted in the NWS5
   workspace envelope
+- a DPI-aware compact status footer that reserves terminal height and reports
+  local/remote mode, tab/pane position, and the active launch profile
 - native Smart Tab tag filters and the Ctrl+Alt+Space dropdown/global-hotkey
   entry point; physical input and lifecycle qualification remains open
 - explicit command-line LAN discovery, pairing, and encrypted terminal
@@ -59,7 +65,8 @@ Not included or claimed yet:
 - shell-content recovery or Linux workspace continuity parity
 - real release Authenticode signatures, MSIX packaging, ARM64, or automatic
   updates
-- graphical paired-device/session-sharing controls
+- supported-Windows visual and physical-input acceptance for the implemented
+  paired-device/session-sharing controls
 - the physical Windows 10/11 capability matrix, including Smart Tabs,
   dropdown/global-hotkey behavior, DPI/high-contrast/IME/accessibility
   coverage, and cross-machine session-sharing receipts
@@ -142,7 +149,9 @@ input is available locally through the Workspace menu or
 `Ctrl+Shift+B`; enabling it requires confirmation, sends input to every live
 local pane, and is disabled for remote viewers. The setting is session-scoped
 and starts disabled after restart. Smart Tabs, dropdown/global-hotkey behavior,
-and Linux workspace continuity remain unimplemented.
+and sharing controls are implemented in the native source path; their physical
+Windows and cross-machine qualification remains open. Linux workspace
+continuity also remains open.
 
 ### Parity development boundary
 
@@ -152,12 +161,14 @@ GDK key values and Windows virtual keys stay in their respective adapters.
 GTK/Cairo and Win32/GDI remain native surfaces, and POSIX PTY versus ConPTY
 ownership remains platform-specific.
 
-The next larger parity work is Smart Tabs plus workspace continuity; graphical
-sharing controls remain a separate external boundary. Windows' bounded
-workspace tree and versioned snapshot codec live in
-`src/windows/WindowsWorkspace.zig`. Its divider conversions use
-`src/workspace/SplitRatio.zig`, also consumed by the GTK divider adapter.
-Platform widgets and PTY lifetimes remain separate.
+The next larger parity work is physical qualification of the implemented
+Windows workspace surface and Linux workspace continuity. The source-level
+Smart Tabs, dropdown/global-hotkey, broadcast, pairing, and sharing controls
+are already represented in the parity matrix; physical host and cross-machine
+receipts remain separate gates. Windows' bounded workspace tree and versioned
+snapshot codec live in `src/windows/WindowsWorkspace.zig`. Its divider
+conversions use `src/workspace/SplitRatio.zig`, also consumed by the GTK
+divider adapter. Platform widgets and PTY lifetimes remain separate.
 
 Cross-compilation proves build compatibility. Isolated Wine can exercise native
 controls and command dispatch, but does not establish physical Windows
@@ -167,6 +178,9 @@ The full Linux × Windows acceptance definition is the fixed NCT-127 DoD in
 ConPTY/GDI/DPI/input/accessibility receipts, and real cross-machine
 Linux↔Windows proof. Build compatibility and Wine control coverage do not
 close that parity gate.
+
+The [parity matrix](WINDOWS_LINUX_PARITY.md) is the source-tree inventory for
+NCT-127; the [Chinese version](WINDOWS_LINUX_PARITY.zh-CN.md) is kept beside it.
 
 ### Focused native-control qualification
 

@@ -23,7 +23,9 @@ docs/DOGFOOD_RUNBOOK.md
 docs/INSTALL.md
 docs/KNOWN_LIMITATIONS.md
 docs/NATIVE_HOST.md
-docs/NOCTED.md
+docs/WINDOWS.md
+docs/WINDOWS_LINUX_PARITY.md
+docs/WINDOWS_LINUX_PARITY.zh-CN.md
 docs/NO_SURPRISE_NETWORK.md
 docs/PUBLIC_ALPHA_GO_NO_GO.md
 docs/PUBLIC_ALPHA_PLAN.md
@@ -138,7 +140,12 @@ grep -F 'ABI v4 packed-row fetches' docs/RELEASE_CHECKLIST.md >/dev/null
 dogfood_status=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status" | grep -F 'dogfood_status counted_sessions=' >/dev/null
 printf '%s\n' "$dogfood_status" | grep -F 'five_sessions=' >/dev/null
+parity_status=$(./scripts/check_windows_linux_parity.sh)
+printf '%s\n' "$parity_status" | grep -F 'windows_linux_parity commit=' >/dev/null
+printf '%s\n' "$parity_status" | grep -F 'rows=13' >/dev/null
+printf '%s\n' "$parity_status" | grep -F 'physical_windows=OPEN cross_machine=OPEN' >/dev/null
+
 printf '%s\n' "$dogfood_status" | grep -F 'dogfood_omp_status observed_sessions=' >/dev/null
 printf '%s\n' "$dogfood_status" | grep -F 'compatible=' >/dev/null
 
-echo 'docs_truth required_docs=true links=true backlog_partition=true task_ids_unique=true claims_bounded=true stale_surfaces=false abi_current=true dogfood_status=true omp_status=true'
+echo 'docs_truth required_docs=true links=true backlog_partition=true task_ids_unique=true claims_bounded=true stale_surfaces=false abi_current=true dogfood_status=true omp_status=true parity_matrix=true'

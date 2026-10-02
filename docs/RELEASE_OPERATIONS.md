@@ -1,8 +1,8 @@
 # Release Operations Evidence
 
-Last refreshed: 2026-07-18.
+Last refreshed: 2026-10-02.
 
-The 0.1.0 product behavior and local release-source evidence are complete. The remaining release operations need external runners, release credentials, unavailable compositor sessions, or explicit user consent. Local verification must keep those operations visible without converting them into source-code success.
+The 0.1.0 product behavior and local release-source evidence are complete. The remaining release operations need external runners, release credentials, unavailable compositor sessions, or explicit user consent. Local verification must keep those operations visible without converting them into source-code success. The ztash path builds reproducible x86_64 Linux and Windows archives with manifest/checksum receipts, but remains build-only and reports `remote_deployment=not_performed`; it is not a release signature, publication, or physical-host receipt.
 
 The maintained local status command is:
 
