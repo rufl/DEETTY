@@ -13,6 +13,7 @@ const Rule = struct {
     first: []const u8,
     second: []const u8 = "",
     style: []const u8,
+    parent: ?usize = null,
 };
 
 pub const Conversion = struct {
@@ -87,6 +88,7 @@ pub fn convertAlloc(
         patterns_value.array.items,
         repository,
         &rules,
+        null,
         &stats,
         &include_stack,
         0,
@@ -138,6 +140,16 @@ pub fn convertAlloc(
                 try writer.writeAll("</start><end>");
                 try writeXml(writer, rule.second, false);
                 try writer.writeAll("</end>\n");
+                var has_children = false;
+                for (rules.items, 0..) |child, child_index| {
+                    if (child.parent != index) continue;
+                    if (!has_children) {
+                        try writer.writeAll("      <include>\n");
+                        has_children = true;
+                    }
+                    try writer.print("        <context ref=\"rule-{d}\"/>\n", .{child_index});
+                }
+                if (has_children) try writer.writeAll("      </include>\n");
             },
         }
         try writer.writeAll("    </context>\n");
@@ -145,8 +157,10 @@ pub fn convertAlloc(
     try writer.writeAll("    <context id=\"");
     try writeXml(writer, language_id, true);
     try writer.writeAll("\">\n      <include>\n");
-    for (rules.items, 0..) |_, index|
-        try writer.print("        <context ref=\"rule-{d}\"/>\n", .{index});
+    for (rules.items, 0..) |child, child_index| {
+        if (child.parent != null) continue;
+        try writer.print("        <context ref=\"rule-{d}\"/>\n", .{child_index});
+    }
     try writer.writeAll("      </include>\n    </context>\n  </definitions>\n</language>\n");
 
     return .{
@@ -163,6 +177,7 @@ fn collectPatternArray(
     values: []const std.json.Value,
     repository: ?*const std.json.ObjectMap,
     rules: *std.array_list.Managed(Rule),
+    parent: ?usize,
     stats: *Stats,
     include_stack: *[max_include_depth][]const u8,
     depth: usize,
@@ -172,6 +187,7 @@ fn collectPatternArray(
         value,
         repository,
         rules,
+        parent,
         stats,
         include_stack,
         depth,
@@ -182,6 +198,7 @@ fn collectPattern(
     value: *const std.json.Value,
     repository: ?*const std.json.ObjectMap,
     rules: *std.array_list.Managed(Rule),
+    parent: ?usize,
     stats: *Stats,
     include_stack: *[max_include_depth][]const u8,
     depth: usize,
@@ -200,23 +217,37 @@ fn collectPattern(
         "";
     if (object.get("match")) |match_value| {
         if (match_value != .string) return error.InvalidTextMatePattern;
-        try appendRule(rules, .{
+        const index = try appendRule(rules, .{
             .kind = .match,
             .first = match_value.string,
             .style = styleForScope(scope),
         });
+        attachRule(rules, index, parent);
         return;
     }
     if (object.get("begin")) |begin_value| {
         const end_value = object.get("end") orelse return error.InvalidTextMatePattern;
         if (begin_value != .string or end_value != .string)
             return error.InvalidTextMatePattern;
-        try appendRule(rules, .{
+        const index = try appendRule(rules, .{
             .kind = .range,
             .first = begin_value.string,
             .second = end_value.string,
             .style = styleForScope(scope),
         });
+        attachRule(rules, index, parent);
+        if (object.get("patterns")) |nested| {
+            if (nested != .array) return error.InvalidTextMatePattern;
+            try collectPatternArray(
+                nested.array.items,
+                repository,
+                rules,
+                index,
+                stats,
+                include_stack,
+                depth + 1,
+            );
+        }
         return;
     }
     if (object.get("include")) |include_value| {
@@ -235,7 +266,7 @@ fn collectPattern(
         const included = repo.getPtr(key) orelse return error.TextMateRepositoryEntryMissing;
         if (depth >= max_include_depth) return error.TextMateGrammarTooDeep;
         include_stack[depth] = key;
-        try collectPattern(included, repository, rules, stats, include_stack, depth + 1);
+        try collectPattern(included, repository, rules, parent, stats, include_stack, depth + 1);
         return;
     }
     if (object.get("patterns")) |nested| {
@@ -244,6 +275,7 @@ fn collectPattern(
             nested.array.items,
             repository,
             rules,
+            parent,
             stats,
             include_stack,
             depth + 1,
@@ -253,7 +285,11 @@ fn collectPattern(
     stats.skipped += 1;
 }
 
-fn appendRule(rules: *std.array_list.Managed(Rule), rule: Rule) !void {
+fn attachRule(rules: *std.array_list.Managed(Rule), index: usize, parent: ?usize) void {
+    rules.items[index].parent = parent;
+}
+
+fn appendRule(rules: *std.array_list.Managed(Rule), rule: Rule) !usize {
     if (rules.items.len >= max_patterns) return error.TooManyTextMatePatterns;
     if (rule.first.len == 0 or rule.first.len > max_pattern_bytes or
         (rule.kind == .range and
@@ -262,7 +298,9 @@ fn appendRule(rules: *std.array_list.Managed(Rule), rule: Rule) !void {
     if (std.mem.indexOfAny(u8, rule.first, "\x00\r\n") != null or
         std.mem.indexOfAny(u8, rule.second, "\x00\r\n") != null)
         return error.InvalidTextMatePattern;
+    const index = rules.items.len;
     try rules.append(rule);
+    return index;
 }
 
 fn requiredString(
@@ -377,6 +415,47 @@ test "converts bounded TextMate JSON with repository includes" {
     try std.testing.expect(std.mem.indexOf(u8, converted.xml, "style-ref=\"keyword\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, converted.xml, "style-ref=\"comment\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, converted.xml, "style-ref=\"number\"") != null);
+}
+
+test "keeps nested range patterns scoped to their parent" {
+    const source =
+        \\{
+        \\  "name": "Nested",
+        \\  "scopeName": "source.nested",
+        \\  "fileTypes": ["nested"],
+        \\  "patterns": [{
+        \\    "begin": "\"",
+        \\    "end": "\"",
+        \\    "name": "string.quoted",
+        \\    "patterns": [
+        \\      {
+        \\        "begin": "\\\\[",
+        \\        "end": "\\\\]",
+        \\        "name": "comment.block",
+        \\        "patterns": [{"match": "x", "name": "constant.character.escape"}]
+        \\      },
+        \\      {"match": "\\\\n", "name": "constant.character.escape"}
+        \\    ]
+        \\  }]
+        \\}
+    ;
+    var converted = try convertAlloc(std.testing.allocator, source);
+    defer converted.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 4), converted.pattern_count);
+    try std.testing.expect(std.mem.indexOf(
+        u8,
+        converted.xml,
+        "<context id=\"rule-0\" style-ref=\"string\">\n      <start>\"</start><end>\"</end>\n      <include>\n        <context ref=\"rule-1\"/>\n        <context ref=\"rule-3\"/>",
+    ) != null);
+    try std.testing.expect(std.mem.indexOf(
+        u8,
+        converted.xml,
+        "<context id=\"rule-1\" style-ref=\"comment\">\n      <start>\\\\[</start><end>\\\\]</end>\n      <include>\n        <context ref=\"rule-2\"/>",
+    ) != null);
+    const root_start = std.mem.indexOf(u8, converted.xml, "<context id=\"nested\">").?;
+    const root_xml = converted.xml[root_start..];
+    try std.testing.expect(std.mem.indexOf(u8, root_xml, "ref=\"rule-0\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, root_xml, "ref=\"rule-1\"") == null);
 }
 
 test "rejects malformed oversized and unsafe TextMate grammars" {

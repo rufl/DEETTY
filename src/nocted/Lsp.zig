@@ -326,6 +326,30 @@ pub fn serverForPath(path: []const u8) ?Server {
         return .{ .language_id = "json", .argv = &.{ "vscode-json-language-server", "--stdio" } };
     return null;
 }
+pub fn serverForPathInRoot(io: std.Io, path: []const u8, root: []const u8) ?Server {
+    var server = serverForPath(path) orelse return null;
+    if (!std.mem.eql(u8, server.language_id, "kof") or !hasKofDistribution(io, root))
+        return server;
+    server.argv = &.{ "./bin/kof", "lsp" };
+    server.alternate_argv = &.{ "kof", "lsp" };
+    return server;
+}
+
+fn hasKofDistribution(io: std.Io, root: []const u8) bool {
+    return hasKind(io, root, "bin/kof", .file) and hasKind(io, root, "lib/kof.jar", .file);
+}
+
+fn hasKind(
+    io: std.Io,
+    root: []const u8,
+    name: []const u8,
+    expected: std.Io.File.Kind,
+) bool {
+    const path = std.fs.path.join(std.heap.page_allocator, &.{ root, name }) catch return false;
+    defer std.heap.page_allocator.free(path);
+    const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
+    return stat.kind == expected;
+}
 
 pub fn fileUriAlloc(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
     var output: std.Io.Writer.Allocating = .init(allocator);
@@ -771,6 +795,26 @@ test "maps common languages to existing local LSP commands" {
     try std.testing.expectEqualStrings("kof", kof.argv[0]);
     try std.testing.expectEqualStrings("lsp", kof.argv[1]);
     try std.testing.expect(serverForPath("data.csv") == null);
+}
+
+test "prefers the project-local Kof launcher for a packaged distribution" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "bin");
+    try tmp.dir.createDirPath(std.testing.io, "lib");
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "bin/kof", .data = "#!/bin/sh\n" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "lib/kof.jar", .data = "fixture\n" });
+
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root_length = try tmp.dir.realPath(std.testing.io, &root_buffer);
+    const root = root_buffer[0..root_length];
+    const path = try std.fs.path.join(std.testing.allocator, &.{ root, "Main.kf" });
+    defer std.testing.allocator.free(path);
+
+    const server = serverForPathInRoot(std.testing.io, path, root).?;
+    try std.testing.expectEqualStrings("./bin/kof", server.argv[0]);
+    try std.testing.expectEqualStrings("lsp", server.argv[1]);
+    try std.testing.expectEqualStrings("kof", server.alternate_argv.?[0]);
 }
 
 test "encodes file URIs and UTF-16 positions" {

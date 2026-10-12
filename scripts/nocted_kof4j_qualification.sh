@@ -47,6 +47,15 @@ main() {
 }
 EOF
 cp "$scratch/Main.kf" "$scratch/Main.kof"
+mkdir -p "$scratch/bin" "$scratch/lib" "$scratch/fallback"
+cat >"$scratch/bin/kof" <<EOF
+#!/bin/sh
+exec "$kof_bin" "\$@"
+EOF
+chmod +x "$scratch/bin/kof"
+ln -s "$kof_root/lib/kof.jar" "$scratch/lib/kof.jar"
+cp "$scratch/Main.kf" "$scratch/fallback/Main.kf"
+cp "$scratch/Main.kof" "$scratch/fallback/Main.kof"
 
 info=$($kof_bin info --json)
 printf '%s\n' "$info" | jq -e '.lsp == true and .editorSupport == true and (.kof | length > 0)' >/dev/null
@@ -66,10 +75,15 @@ $kof_bin fmt "$scratch/Main.kf" >/dev/null
 
 zig build -Doptimize=Debug >/dev/null
 test -x "$nocted_bin"
+timeout_bin=$(command -v timeout)
+local_path_probe=$(PATH=/usr/bin:/bin "$timeout_bin" 30 "$nocted_bin" --lsp-probe "$scratch/Main.kf")
 export PATH="$(dirname "$kof_bin"):$PATH"
 lsp_kf=$(timeout 30 "$nocted_bin" --lsp-probe "$scratch/Main.kf")
 lsp_kof=$(timeout 30 "$nocted_bin" --lsp-probe "$scratch/Main.kof")
-printf '%s\n' "$lsp_kf" "$lsp_kof" | grep -F 'server=kof language=kof response=main' >/dev/null
+lsp_fallback=$(timeout 30 "$nocted_bin" --lsp-probe "$scratch/fallback/Main.kf")
+for probe in "$local_path_probe" "$lsp_kf" "$lsp_kof" "$lsp_fallback"; do
+  printf '%s\n' "$probe" | grep -F 'language=kof response=main' >/dev/null
+done
 
 kof_revision=$(git -C "$kof_source" rev-parse HEAD 2>/dev/null || printf 'unavailable')
 nocted_commit=$(git -C "$nocted_root" rev-parse HEAD)

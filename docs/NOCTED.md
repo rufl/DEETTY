@@ -86,7 +86,7 @@ NoctEd uses GtkSourceView XML `.lang` definitions, an established reusable synta
   and checked into the generated `kof.lang` definition for `.kf` and `.kof`.
 - A bundled Zig definition provides a stable baseline.
 - `Tools > Import Syntax Definitions...` lets the user add a directory containing `.lang` files without editing the settings file. Up to 16 imported directories are retained.
-- `Tools > Import TextMate JSON Grammar...` accepts bounded JSON TextMate grammars used by VS Code extensions, converts supported match/range/repository rules into a non-executing GtkSourceView definition, and activates the result without settings-file editing.
+- `Tools > Import TextMate JSON Grammar...` accepts bounded JSON TextMate grammars used by VS Code extensions, converts supported match/range/repository rules (including nested range patterns scoped to their parent) into a non-executing GtkSourceView definition, and activates the result without settings-file editing.
 - TextMate input is capped at 1 MiB, 512 supported patterns, 4096 bytes per expression, 32 file types, and 16 repository-include levels. Empty, malformed, oversized, cyclic, missing-pattern, unsafe-extension, and unsupported-only grammars are rejected before installation.
 - Converted definitions are atomically stored under NoctEd's configuration directory. A normalized scope name owns the output identity, so a later import of the same ID deliberately replaces the earlier generated definition; generated definitions precede bundled, GUI-imported, and system search paths. Runtime activation replaces the language manager before re-detecting open buffers because GtkSourceView does not permit changing an enumerated manager's search path.
 

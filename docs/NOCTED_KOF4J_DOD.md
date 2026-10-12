@@ -15,7 +15,8 @@ configuration.
 ## Current implementation baseline (not acceptance)
 
 The source tree now carries the official `source.kof` grammar as both its
-vendored TextMate input and generated GtkSourceView `kof.lang` definition.
+vendored TextMate input and generated GtkSourceView `kof.lang` definition,
+including the grammar's nested string, function, and class contexts.
 NoctEd maps `.kf` and `.kof` to `kof lsp`, and Kof tooling-project detection
 invokes the local distribution launcher for `check`, `build`, and `test`.
 `scripts/nocted_kof4j_qualification.sh` exercises a supplied real

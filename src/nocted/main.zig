@@ -4474,7 +4474,8 @@ const App = struct {
             self.updateStatus("Save the file before using a language service");
             return;
         };
-        const server = core.lsp.serverForPath(path) orelse {
+        const cwd_source = self.project_root orelse std.fs.path.dirname(path) orelse ".";
+        const server = core.lsp.serverForPathInRoot(self.io, path, cwd_source) orelse {
             self.updateStatus("No language-service preset for this file type");
             return;
         };
@@ -4487,7 +4488,6 @@ const App = struct {
         const uri = core.lsp.fileUriAlloc(self.allocator, path) catch return;
         var uri_owned = true;
         defer if (uri_owned) self.allocator.free(uri);
-        const cwd_source = self.project_root orelse std.fs.path.dirname(path) orelse ".";
         const cwd = self.allocator.dupe(u8, cwd_source) catch return;
         var cwd_owned = true;
         defer if (cwd_owned) self.allocator.free(cwd);
@@ -6684,9 +6684,9 @@ pub fn main(init: std.process.Init) !void {
     if (args.len > 2 and std.mem.eql(u8, args[1], "--lsp-probe")) {
         var loaded = try core.document.loadFileAlloc(allocator, init.io, args[2]);
         defer loaded.deinit(allocator);
-        const server = core.lsp.serverForPath(loaded.path) orelse
-            return error.LanguageServerUnavailable;
         const cwd = std.fs.path.dirname(loaded.path) orelse ".";
+        const server = core.lsp.serverForPathInRoot(init.io, loaded.path, cwd) orelse
+            return error.LanguageServerUnavailable;
         const uri = try core.lsp.fileUriAlloc(allocator, loaded.path);
         defer allocator.free(uri);
         const root_uri = try core.lsp.fileUriAlloc(allocator, cwd);
