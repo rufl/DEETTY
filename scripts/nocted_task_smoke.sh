@@ -22,13 +22,14 @@ test -z "${DESKTOP_STARTUP_ID:-}"
 printf '%s:%s\n' "$(basename "$0")" "$*"
 EOF
 chmod +x "$scratch/shims/task-tool"
-for tool in cargo go flutter dart npm dotnet python3; do
+for tool in cargo go flutter dart npm dotnet python3 kof; do
   ln -s task-tool "$scratch/shims/$tool"
 done
 export PATH="$scratch/shims:$PATH"
 
 mkdir -p "$scratch/zig" "$scratch/cargo" "$scratch/go" "$scratch/flutter" \
-  "$scratch/dart" "$scratch/npm" "$scratch/dotnet" "$scratch/python" "$scratch/kof"
+  "$scratch/dart" "$scratch/npm" "$scratch/dotnet" "$scratch/python" \
+  "$scratch/kof" "$scratch/kof-source/src"
 printf 'pub fn build(_: *anyopaque) void {}\n' >"$scratch/zig/build.zig"
 printf '[package]\nname = "sample"\nversion = "0.1.0"\n' \
   >"$scratch/cargo/Cargo.toml"
@@ -57,6 +58,8 @@ printf '#!/bin/sh\n' >"$scratch/kof/VERSION"
 printf 'fixture\n' >"$scratch/kof/lib/kof.jar"
 printf 'print("sample")\n' >"$scratch/python/main.py"
 
+printf '[project]\nname = "source-only"\n' >"$scratch/kof-source/kof.toml"
+printf 'main() {}\n' >"$scratch/kof-source/src/Main.kf"
 zig build -Doptimize=Debug >/dev/null
 ln -s task-tool "$scratch/shims/zig"
 
@@ -90,5 +93,7 @@ probe python run \
   'nocted_task_probe project=Python action=run success=true output=python3:main.py'
 probe kof check \
   'nocted_task_probe project=Kof action=check success=true output=kof:check . --json'
+probe kof-source check \
+  'nocted_task_probe project=Kof action=check success=true output=kof:check . --json'
 
-echo 'nocted_task_smoke ecosystems=10 manifest_detection=true package_script_validation=true bounded=true background_worker=true activation_token=false output=true exit_status=true scratch_clean=true'
+echo 'nocted_task_smoke ecosystems=10 manifest_detection=true kof_manifest_detection=true package_script_validation=true bounded=true background_worker=true activation_token=false output=true exit_status=true scratch_clean=true'

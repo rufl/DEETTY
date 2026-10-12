@@ -70,7 +70,8 @@ does not count. See the [fixed bilingual KOF4J DoD](NOCTED_KOF4J_DOD.md) and
 The reachable KOF4J integration slice now bundles the official `source.kof`
 TextMate grammar as a generated GtkSourceView definition, maps `.kf` and
 `.kof` files to the canonical local `kof lsp` command, and detects KOF4J
-tooling projects for `kof check . --json`, `kof build .`, and `kof test .`.
+tooling roots, `kof.toml` projects, and root-level KOF source projects for
+`kof check . --json`, `kof build .`, and `kof test .`.
 `scripts/nocted_kof4j_qualification.sh` runs an opt-in real-distribution
 qualification for the bundled grammar, clean type-check/test/format paths, and
 the NoctEd symbols probe. Its receipt is deliberately `status=partial` until a

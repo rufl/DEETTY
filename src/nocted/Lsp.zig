@@ -79,6 +79,8 @@ pub const Session = struct {
     child: std.process.Child,
     framer: Framer,
     diagnostics: ?[]u8 = null,
+    initialized: bool = false,
+    document_uri: ?[]const u8 = null,
 
     pub fn start(
         allocator: std.mem.Allocator,
@@ -103,10 +105,39 @@ pub const Session = struct {
     }
 
     pub fn deinit(self: *Session) void {
+        if (self.initialized) {
+            self.closeDocument();
+            self.shutdown();
+        }
         self.child.kill(self.io);
         if (self.diagnostics) |diagnostics| self.allocator.free(diagnostics);
         self.framer.deinit();
         self.* = undefined;
+    }
+
+    fn closeDocument(self: *Session) void {
+        const uri = self.document_uri orelse return;
+        self.document_uri = null;
+        self.send(.{
+            .jsonrpc = "2.0",
+            .method = "textDocument/didClose",
+            .params = .{ .textDocument = .{ .uri = uri } },
+        }) catch {};
+    }
+
+    fn shutdown(self: *Session) void {
+        self.send(.{
+            .jsonrpc = "2.0",
+            .id = 3,
+            .method = "shutdown",
+            .params = @as(?u8, null),
+        }) catch return;
+        const response = self.responseAllocWithTimeout(3, 250 * std.time.ns_per_ms) catch {
+            self.send(.{ .jsonrpc = "2.0", .method = "exit" }) catch {};
+            return;
+        };
+        self.allocator.free(response);
+        self.send(.{ .jsonrpc = "2.0", .method = "exit" }) catch {};
     }
 
     fn send(self: *Session, value: anytype) !void {
@@ -116,6 +147,10 @@ pub const Session = struct {
     }
 
     fn responseAlloc(self: *Session, wanted_id: i64) ![]u8 {
+        return self.responseAllocWithTimeout(wanted_id, 8 * std.time.ns_per_s);
+    }
+
+    fn responseAllocWithTimeout(self: *Session, wanted_id: i64, timeout_ns: i128) ![]u8 {
         var read_buffer: [16 * 1024]u8 = undefined;
         const started = std.Io.Clock.awake.now(self.io);
         while (true) {
@@ -139,13 +174,9 @@ pub const Session = struct {
                         continue;
                     }
                 }
-                if (object.get("id")) |id| {
-                    const number: ?i64 = switch (id) {
-                        .integer => |value| value,
-                        else => null,
-                    };
-                    if (number == wanted_id) return payload;
-                    if (object.get("method") != null) {
+                if (responseMatchesId(parsed.value, wanted_id)) return payload;
+                if (object.get("method") != null) {
+                    if (object.get("id")) |id| {
                         try self.send(.{ .jsonrpc = "2.0", .id = id, .result = @as(?u8, null) });
                     }
                 }
@@ -158,7 +189,6 @@ pub const Session = struct {
                 .revents = 0,
             }};
             const elapsed_ns = @max(started.durationTo(std.Io.Clock.awake.now(self.io)).nanoseconds, 0);
-            const timeout_ns = 8 * std.time.ns_per_s;
             if (elapsed_ns >= timeout_ns) return error.ServerTimeout;
             const remaining_ms: i32 = @intCast(@max(@divTrunc(timeout_ns - elapsed_ns, std.time.ns_per_ms), 1));
             if (try std.posix.poll(&descriptors, remaining_ms) == 0) return error.ServerTimeout;
@@ -168,6 +198,18 @@ pub const Session = struct {
             if (count == 0) return error.ServerExited;
             try self.framer.feed(read_buffer[0..count]);
         }
+    }
+    fn responseMatchesId(value: std.json.Value, wanted_id: i64) bool {
+        const object = switch (value) {
+            .object => |object| object,
+            else => return false,
+        };
+        if (object.get("method") != null) return false;
+        const id = object.get("id") orelse return false;
+        return switch (id) {
+            .integer => |number| number == wanted_id,
+            else => false,
+        };
     }
 
     /// Starts the protocol, opens one in-memory document, and returns one raw
@@ -207,6 +249,7 @@ pub const Session = struct {
         });
         const initialized_response = try self.responseAlloc(1);
         self.allocator.free(initialized_response);
+        self.initialized = true;
         try self.send(.{ .jsonrpc = "2.0", .method = "initialized", .params = .{} });
         try self.send(.{
             .jsonrpc = "2.0",
@@ -218,6 +261,7 @@ pub const Session = struct {
                 .text = text,
             } },
         });
+        self.document_uri = uri;
         try self.send(.{ .jsonrpc = "2.0", .id = 2, .method = method, .params = params });
         const response = try self.responseAlloc(2);
         if (std.mem.eql(u8, method, "textDocument/diagnostic") and self.diagnostics != null) {
@@ -264,27 +308,28 @@ pub fn runFeatureAlloc(
     defer session.deinit();
     const document = .{ .uri = uri };
     const position = .{ .line = line, .character = character };
-    return switch (feature) {
-        .diagnostics => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/diagnostic", .{ .textDocument = document }),
-        .completion => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/completion", .{ .textDocument = document, .position = position }),
-        .hover => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/hover", .{ .textDocument = document, .position = position }),
-        .definition => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/definition", .{ .textDocument = document, .position = position }),
-        .references => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/references", .{
+    const response = switch (feature) {
+        .diagnostics => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/diagnostic", .{ .textDocument = document }),
+        .completion => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/completion", .{ .textDocument = document, .position = position }),
+        .hover => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/hover", .{ .textDocument = document, .position = position }),
+        .definition => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/definition", .{ .textDocument = document, .position = position }),
+        .references => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/references", .{
             .textDocument = document,
             .position = position,
             .context = .{ .includeDeclaration = true },
         }),
-        .rename => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/rename", .{
+        .rename => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/rename", .{
             .textDocument = document,
             .position = position,
             .newName = new_name orelse return error.NewNameMissing,
         }),
-        .symbols => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/documentSymbol", .{ .textDocument = document }),
-        .formatting => session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/formatting", .{
+        .symbols => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/documentSymbol", .{ .textDocument = document }),
+        .formatting => try session.requestAlloc(root_uri, uri, server.language_id, text, "textDocument/formatting", .{
             .textDocument = document,
             .options = .{ .tabSize = 4, .insertSpaces = true },
         }),
     };
+    return response;
 }
 
 pub const Server = struct {
@@ -738,6 +783,26 @@ test "parses completion edits" {
     }
     try std.testing.expectEqualStrings("alpha", completions[0].label);
     try std.testing.expectEqualStrings("alpha()", completions[0].edit.new_text);
+}
+
+test "does not consume server requests that reuse response IDs" {
+    const request = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"workspace/configuration\",\"params\":{}}",
+        .{},
+    );
+    defer request.deinit();
+    try std.testing.expect(!Session.responseMatchesId(request.value, 2));
+
+    const response = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":null}",
+        .{},
+    );
+    defer response.deinit();
+    try std.testing.expect(Session.responseMatchesId(response.value, 2));
 }
 
 fn exerciseWorkspaceEditAllocationFailures(allocator: std.mem.Allocator) !void {

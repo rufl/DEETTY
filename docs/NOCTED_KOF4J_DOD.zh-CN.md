@@ -12,7 +12,8 @@ linter/LSP 传输、诊断、补全、悬停、定义、引用、重命名、符
 
 当前源码树已同时保留官方 `source.kof` TextMate 输入和生成的 GtkSourceView
 `kof.lang` 定义，其中包含语法声明的嵌套字符串、函数和类上下文。NoctEd 将
-`.kf`、`.kof` 映射到 `kof lsp`，并在 Kof 工具项目中调用本地发行版的
+`.kf`、`.kof` 映射到 `kof lsp`；Kof 项目检测接受 KOF4J 工具根目录、
+`kof.toml` 清单和根目录 KOF 源文件，然后通过存在时的本地发行版启动器调用
 `check`、`build`、`test`。脚本
 `scripts/nocted_kof4j_qualification.sh` 会对指定的真实发行版执行资格检查，
 但收据仍为 `status=partial`：尚未提交规范 fixture manifest、完整的已声明能力

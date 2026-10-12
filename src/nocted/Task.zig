@@ -37,8 +37,10 @@ pub fn detect(io: std.Io, root: []const u8, action: Action) ?Plan {
 }
 
 fn isKofProject(io: std.Io, root: []const u8) bool {
-    return hasFile(io, root, "editor/kof.tmLanguage.json") and
-        hasFile(io, root, "tooling/README.md");
+    return (hasFile(io, root, "editor/kof.tmLanguage.json") and
+        hasFile(io, root, "tooling/README.md")) or
+        hasFile(io, root, "kof.toml") or
+        hasProjectFileExtension(io, root, &.{ ".kf", ".kof" });
 }
 
 fn kofPlan(io: std.Io, root: []const u8, action: Action) ?Plan {
@@ -711,6 +713,46 @@ test "detects Kof tooling projects and uses the local launcher" {
     try std.testing.expect(detect(std.testing.io, root, .run) == null);
 }
 
+test "detects Kof manifest projects with nested sources" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "src");
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "kof.toml",
+        .data = "[project]\nname = \"sample\"\n",
+    });
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "src/Main.kf",
+        .data = "main() {}\n",
+    });
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+
+    const check = detect(std.testing.io, root, .check).?;
+    try std.testing.expectEqualStrings("Kof", check.name);
+    try std.testing.expectEqualStrings("kof", check.argv[0]);
+    try std.testing.expectEqualStrings("check", check.argv[1]);
+    try std.testing.expectEqualStrings(".", check.argv[2]);
+    try std.testing.expectEqualStrings("--json", check.argv[3]);
+}
+
+test "detects ordinary Kof source projects without repository tooling files" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "Main.kf",
+        .data = "main() {}\n",
+    });
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+
+    const check = detect(std.testing.io, root, .check).?;
+    try std.testing.expectEqualStrings("Kof", check.name);
+    try std.testing.expectEqualStrings("kof", check.argv[0]);
+    try std.testing.expectEqualStrings("check", check.argv[1]);
+    try std.testing.expectEqualStrings(".", check.argv[2]);
+    try std.testing.expectEqualStrings("--json", check.argv[3]);
+}
 
 test "distinguishes Flutter and Dart actions" {
     var tmp = std.testing.tmpDir(.{});
