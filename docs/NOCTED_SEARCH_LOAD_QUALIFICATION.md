@@ -22,7 +22,7 @@ Stable opt-in endurance extension:
 nocted_core_endurance_matrix debug=true release_safe=true cycles_per_mode=512 total_cycles=1024 fixture_files=128 document_round_trip=true edit_fold=true project_scan=true project_search=true quick_open=true deterministic_ranking=true ranking_queries=3 ranking_evaluations=3072 grammar_conversion=true allocator_leak_free=true latency_percentiles=true process_memory=true duration_recorded=true scratch_clean=true
 ```
 
-The dated [core endurance receipt](NOCTED_CORE_ENDURANCE_QUALIFICATION.md) retains the complete 459-second run, all operation distributions, root memory samples, and exact proof boundary. Its 1,024 total core cycles extend deterministic-ranking and allocator evidence but do not execute the GLib workers or GTK publication path.
+The refreshed [core endurance receipt](NOCTED_CORE_ENDURANCE_QUALIFICATION.md) retains the complete 59-second run, all operation distributions, root memory samples, and exact proof boundary. Its 1,024 total core cycles extend deterministic-ranking and allocator evidence but do not execute the GLib workers or GTK publication path.
 
 ## Retained Headless GLib Worker Results
 

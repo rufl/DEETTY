@@ -1,6 +1,6 @@
 # NoctEd Core Endurance Qualification
 
-Retained on 2026-07-18 with Zig 0.16.0 on Linux x86_64. This is the opt-in bounded endurance companion to the maintained 128-cycle core stability gate.
+Refreshed on 2026-10-12 at commit `5882e28` with Zig 0.16.0 on Linux x86_64. This is the opt-in bounded endurance companion to the maintained 128-cycle core stability gate.
 
 ## Method
 
@@ -14,31 +14,31 @@ nocted_core_endurance_matrix debug=true release_safe=true cycles_per_mode=512 to
 
 ## Retained Results
 
-The complete two-mode run took 459 seconds. Operation values are monotonic-clock nanoseconds and are host-local observations, not thresholds.
+The complete two-mode run took 59 seconds. Operation values are monotonic-clock nanoseconds and are host-local observations, not thresholds.
 
 | Mode | Operation | p50 ns | p95 ns | p99 ns |
 |---|---|---:|---:|---:|
-| Debug | atomic save | 390,359,790 | 1,580,301,421 | 2,597,666,794 |
-| Debug | load | 186,836 | 300,877 | 512,848 |
-| Debug | edit/fold | 121,404 | 191,971 | 290,343 |
-| Debug | project scan | 760,402 | 959,016 | 1,895,598 |
-| Debug | project search | 2,241,018 | 2,642,003 | 4,952,211 |
-| Debug | Quick Open | 4,956,257 | 6,267,059 | 19,118,625 |
-| Debug | grammar conversion | 247,222 | 304,121 | 506,381 |
-| ReleaseSafe | atomic save | 173,230,753 | 1,166,785,074 | 1,975,770,798 |
-| ReleaseSafe | load | 60,388 | 158,365 | 325,551 |
-| ReleaseSafe | edit/fold | 31,310 | 77,854 | 98,309 |
-| ReleaseSafe | project scan | 203,618 | 269,677 | 456,801 |
-| ReleaseSafe | project search | 629,238 | 875,011 | 1,429,382 |
-| ReleaseSafe | Quick Open | 1,043,697 | 4,828,871 | 8,073,035 |
-| ReleaseSafe | grammar conversion | 55,314 | 84,108 | 122,307 |
+| Debug | atomic save | 127,687 | 199,105 | 247,682 |
+| Debug | load | 113,600 | 139,137 | 186,547 |
+| Debug | edit/fold | 154,013 | 178,966 | 259,698 |
+| Debug | project scan | 1,321,789 | 1,391,587 | 1,653,368 |
+| Debug | project search | 4,282,048 | 4,491,166 | 5,117,967 |
+| Debug | Quick Open | 964,600 | 1,017,817 | 1,283,575 |
+| Debug | grammar conversion | 346,355 | 402,572 | 506,339 |
+| ReleaseSafe | atomic save | 92,231 | 144,493 | 195,419 |
+| ReleaseSafe | load | 55,422 | 72,203 | 105,774 |
+| ReleaseSafe | edit/fold | 52,327 | 73,830 | 111,344 |
+| ReleaseSafe | project scan | 382,109 | 459,012 | 622,404 |
+| ReleaseSafe | project search | 1,460,785 | 1,598,485 | 2,352,430 |
+| ReleaseSafe | Quick Open | 231,414 | 281,890 | 362,228 |
+| ReleaseSafe | grammar conversion | 125,176 | 155,904 | 202,353 |
 
 Both modes indexed 137 entries and returned 131 search results in every cycle. All 3,072 ranking evaluations retained fingerprint `12892608525683143802`. The largest allocator-accounted checkpoint was 30,689 bytes and final requested-byte residue was zero.
 
 | Mode | Peak root PSS KiB | Peak root RSS KiB | Samples |
 |---|---:|---:|---:|
-| Debug | 7,092 | 7,084 | 18,144 |
-| ReleaseSafe | 1,688 | 1,700 | 8,993 |
+| Debug | 6,348 | 6,348 | 225 |
+| ReleaseSafe | 1,712 | 1,708 | 67 |
 
 Atomic-save percentiles include the managed filesystem's replacement and durability latency. They are not a storage benchmark or release limit.
 
