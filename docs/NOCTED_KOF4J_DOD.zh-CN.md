@@ -8,6 +8,15 @@ linter/LSP 传输、诊断、补全、悬停、定义、引用、重命名、符
 配置和版本、LSP 配置和 server 版本，以及所有需要的本地工具。NoctEd 不得
 静默下载工具，也不得替换项目配置。
 
+## 当前实现基线（不代表验收关闭）
+
+当前源码树已同时保留官方 `source.kof` TextMate 输入和生成的 GtkSourceView
+`kof.lang` 定义。NoctEd 将 `.kf`、`.kof` 映射到 `kof lsp`，并在 Kof
+工具项目中调用本地发行版的 `check`、`build`、`test`。脚本
+`scripts/nocted_kof4j_qualification.sh` 会对指定的真实发行版执行资格检查，
+但收据仍为 `status=partial`：尚未提交规范 fixture manifest、完整的已声明能力
+矩阵、生命周期收据，或隔离的 native Debug/`ReleaseSafe` 证据。
+
 ## 固定 DoD
 
 只有在每个发布声明支持的 NoctEd 目标上，KOF4J 基准项目通过以下全部条件后，

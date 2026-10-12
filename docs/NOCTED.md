@@ -1,6 +1,6 @@
 # NoctEd
 
-Last verified: 2026-10-02.
+Last verified: 2026-10-12.
 
 NoctEd is NOCTTY's standalone native project editor. It is built as the separate `nocted` executable, runs in its own process, and does not share NOCTTY's terminal lifetime. The implementation is Zig; `src/nocted/gtk.zig` is a narrow declaration-only GTK 3 and GtkSourceView 4 ABI boundary.
 
@@ -67,13 +67,24 @@ cancellation, timeout, and clean shutdown; source inspection or a mock server
 does not count. See the [fixed bilingual KOF4J DoD](NOCTED_KOF4J_DOD.md) and
 [Chinese contract](NOCTED_KOF4J_DOD.zh-CN.md).
 
+The reachable KOF4J integration slice now bundles the official `source.kof`
+TextMate grammar as a generated GtkSourceView definition, maps `.kf` and
+`.kof` files to the canonical local `kof lsp` command, and detects KOF4J
+tooling projects for `kof check . --json`, `kof build .`, and `kof test .`.
+`scripts/nocted_kof4j_qualification.sh` runs an opt-in real-distribution
+qualification for the bundled grammar, clean type-check/test/format paths, and
+the NoctEd symbols probe. Its receipt is deliberately `status=partial` until a
+pinned fixture manifest, the complete advertised LSP matrix, lifecycle cases,
+and isolated Debug/`ReleaseSafe` native evidence are retained.
+
 ## Syntax Definitions
 
 NoctEd uses GtkSourceView XML `.lang` definitions, an established reusable syntax format available from Linux distributions and editor language-pack projects.
 
 - The installed GtkSourceView 4 search paths are used automatically.
+- Bundled Kof syntax is sourced from `resources/nocted/language-specs/kof.tmLanguage.json`
+  and checked into the generated `kof.lang` definition for `.kf` and `.kof`.
 - A bundled Zig definition provides a stable baseline.
-- On first launch, NoctEd compares GtkSourceView 3 user and system definitions with the GtkSourceView 4 baseline. It prompts to import only directories that add language definitions.
 - `Tools > Import Syntax Definitions...` lets the user add a directory containing `.lang` files without editing the settings file. Up to 16 imported directories are retained.
 - `Tools > Import TextMate JSON Grammar...` accepts bounded JSON TextMate grammars used by VS Code extensions, converts supported match/range/repository rules into a non-executing GtkSourceView definition, and activates the result without settings-file editing.
 - TextMate input is capped at 1 MiB, 512 supported patterns, 4096 bytes per expression, 32 file types, and 16 repository-include levels. Empty, malformed, oversized, cyclic, missing-pattern, unsafe-extension, and unsupported-only grammars are rejected before installation.

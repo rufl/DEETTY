@@ -12,6 +12,17 @@ versions, and every required local tool must be pinned in the retained receipt.
 NoctEd must not silently download tools or substitute a different project
 configuration.
 
+## Current implementation baseline (not acceptance)
+
+The source tree now carries the official `source.kof` grammar as both its
+vendored TextMate input and generated GtkSourceView `kof.lang` definition.
+NoctEd maps `.kf` and `.kof` to `kof lsp`, and Kof tooling-project detection
+invokes the local distribution launcher for `check`, `build`, and `test`.
+`scripts/nocted_kof4j_qualification.sh` exercises a supplied real
+distribution, but its receipt remains `status=partial`: no canonical fixture
+manifest, complete advertised-capability matrix, lifecycle receipt, or
+isolated native Debug/`ReleaseSafe` evidence is committed.
+
 ## Fixed DoD
 
 The gate closes only when the canonical KOF4J project passes all of these on

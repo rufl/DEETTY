@@ -1,6 +1,6 @@
 # NOCTTY Backlog
 
-Last refreshed: 2026-10-02.
+Last refreshed: 2026-10-12.
 
 ## Source Of Truth Policy
 
@@ -431,8 +431,12 @@ passes the canonical KOF4J project:
 
 The required receipt is
 `nocted_kof4j_compatibility languages=100% linter=100% lsp=100% lifecycle=true`.
-The current tree has no pinned KOF4J fixture or compatibility receipt, so this
-gate remains open. The detailed bilingual contract is in
+The implementation baseline now bundles the official Kof grammar, maps `.kf` and
+`.kof` to `kof lsp`, and detects KOF4J `check`/`build`/`test` tooling projects.
+`scripts/nocted_kof4j_qualification.sh` produces a real-distribution
+`status=partial` receipt. The gate remains open because no pinned fixture
+manifest, complete LSP/lifecycle matrix, or isolated native Debug/`ReleaseSafe`
+receipt is retained. The detailed bilingual contract is in
 `docs/NOCTED_KOF4J_DOD.md` and `docs/NOCTED_KOF4J_DOD.zh-CN.md`.
 
 

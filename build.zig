@@ -550,6 +550,8 @@ pub fn build(b: *std.Build) void {
     b.installFile("resources/com.noctty.NoctEd.svg", "share/icons/hicolor/scalable/apps/com.noctty.NoctEd.svg");
     b.installFile("resources/nocted/language-specs/zig.lang", "share/nocted/language-specs/zig.lang");
     b.installFile("resources/nocted/language-specs/svelte.lang", "share/nocted/language-specs/svelte.lang");
+    b.installFile("resources/nocted/language-specs/kof.lang", "share/nocted/language-specs/kof.lang");
+    b.installFile("resources/nocted/language-specs/kof.tmLanguage.json", "share/nocted/language-specs/kof.tmLanguage.json");
     b.installFile("resources/nocted/styles/nocted-dark.xml", "share/nocted/styles/nocted-dark.xml");
     b.installFile("resources/icons/48x48/com.noctty.NOCTTY.png", "share/icons/hicolor/48x48/apps/com.noctty.NOCTTY.png");
     b.installFile("resources/icons/128x128/com.noctty.NOCTTY.png", "share/icons/hicolor/128x128/apps/com.noctty.NOCTTY.png");

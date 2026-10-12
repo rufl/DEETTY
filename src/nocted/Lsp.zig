@@ -296,6 +296,8 @@ pub const Server = struct {
 pub fn serverForPath(path: []const u8) ?Server {
     const extension = std.fs.path.extension(path);
     if (std.ascii.eqlIgnoreCase(extension, ".zig")) return .{ .language_id = "zig", .argv = &.{"zls"} };
+    if (std.ascii.eqlIgnoreCase(extension, ".kf") or std.ascii.eqlIgnoreCase(extension, ".kof"))
+        return .{ .language_id = "kof", .argv = &.{ "kof", "lsp" } };
     if (std.ascii.eqlIgnoreCase(extension, ".dart")) return .{ .language_id = "dart", .argv = &.{ "dart", "language-server", "--protocol=lsp" } };
     if (std.ascii.eqlIgnoreCase(extension, ".svelte")) return .{ .language_id = "svelte", .argv = &.{ "svelteserver", "--stdio" } };
     if (std.ascii.eqlIgnoreCase(extension, ".ts") or std.ascii.eqlIgnoreCase(extension, ".tsx") or
@@ -764,6 +766,10 @@ test "maps common languages to existing local LSP commands" {
     try std.testing.expectEqualStrings("zls", serverForPath("build.zig").?.argv[0]);
     try std.testing.expectEqualStrings("svelteserver", serverForPath("App.svelte").?.argv[0]);
     try std.testing.expectEqualStrings("clangd", serverForPath("native.cpp").?.argv[0]);
+    const kof = serverForPath("Main.KF").?;
+    try std.testing.expectEqualStrings("kof", kof.language_id);
+    try std.testing.expectEqualStrings("kof", kof.argv[0]);
+    try std.testing.expectEqualStrings("lsp", kof.argv[1]);
     try std.testing.expect(serverForPath("data.csv") == null);
 }
 

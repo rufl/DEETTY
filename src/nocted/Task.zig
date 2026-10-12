@@ -14,6 +14,7 @@ pub const Plan = struct {
 };
 
 pub fn detect(io: std.Io, root: []const u8, action: Action) ?Plan {
+    if (isKofProject(io, root)) return kofPlan(io, root, action);
     if (hasFile(io, root, "build.zig")) return zigPlan(action);
     if (hasFile(io, root, "Cargo.toml")) return cargoPlan(action);
     if (hasFile(io, root, "go.mod")) return goPlan(action);
@@ -33,6 +34,29 @@ pub fn detect(io: std.Io, root: []const u8, action: Action) ?Plan {
         return makePlan(io, root, "makefile", action);
     }
     return null;
+}
+
+fn isKofProject(io: std.Io, root: []const u8) bool {
+    return hasFile(io, root, "editor/kof.tmLanguage.json") and
+        hasFile(io, root, "tooling/README.md");
+}
+
+fn kofPlan(io: std.Io, root: []const u8, action: Action) ?Plan {
+    const local = hasFile(io, root, "bin/kof") and hasFile(io, root, "lib/kof.jar");
+    return .{
+        .name = "Kof",
+        .argv = if (local) switch (action) {
+            .check => &.{ "./bin/kof", "check", ".", "--json" },
+            .build => &.{ "./bin/kof", "build", "." },
+            .test_project => &.{ "./bin/kof", "test", "." },
+            .run => return null,
+        } else switch (action) {
+            .check => &.{ "kof", "check", ".", "--json" },
+            .build => &.{ "kof", "build", "." },
+            .test_project => &.{ "kof", "test", "." },
+            .run => return null,
+        },
+    };
 }
 
 fn zigPlan(action: Action) Plan {
@@ -652,6 +676,41 @@ test "detects package scripts without inventing absent actions" {
     try std.testing.expectEqualStrings("dev", run.argv[2]);
     try std.testing.expect(detect(std.testing.io, root, .test_project) == null);
 }
+test "detects Kof tooling projects and uses the local launcher" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "editor");
+    try tmp.dir.createDirPath(std.testing.io, "tooling");
+    try tmp.dir.createDirPath(std.testing.io, "bin");
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "editor/kof.tmLanguage.json",
+        .data = "{\"name\":\"Kof\"}\n",
+    });
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "tooling/README.md",
+        .data = "# Kof tooling\n",
+    });
+    try tmp.dir.createDirPath(std.testing.io, "lib");
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "lib/kof.jar",
+        .data = "fixture\n",
+    });
+    try tmp.dir.writeFile(std.testing.io, .{
+        .sub_path = "bin/kof",
+        .data = "#!/bin/sh\n",
+    });
+    var root_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const root = try temporaryRoot(&tmp, &root_buffer);
+
+    const check = detect(std.testing.io, root, .check).?;
+    try std.testing.expectEqualStrings("Kof", check.name);
+    try std.testing.expectEqualStrings("./bin/kof", check.argv[0]);
+    try std.testing.expectEqualStrings("check", check.argv[1]);
+    try std.testing.expectEqualStrings(".", check.argv[2]);
+    try std.testing.expectEqualStrings("--json", check.argv[3]);
+    try std.testing.expect(detect(std.testing.io, root, .run) == null);
+}
+
 
 test "distinguishes Flutter and Dart actions" {
     var tmp = std.testing.tmpDir(.{});

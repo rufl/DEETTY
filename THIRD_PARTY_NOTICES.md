@@ -5,6 +5,16 @@ system libraries retain their upstream copyrights and licenses; NOCTTY's MIT
 license does not relicense them. None of the dependencies below adds a browser
 runtime, telemetry service, or runtime download.
 
+## KOF4J Kof grammar
+
+`resources/nocted/language-specs/kof.tmLanguage.json` is the official Kof
+TextMate grammar from KOF4J, and `kof.lang` is its generated GtkSourceView
+form. The grammar remains separately licensed under GNU GPL v3; the
+qualification receipt records the source revision and normalized grammar
+digest. Its corresponding source is retained beside the generated definition.
+The upstream license is available at
+<https://www.gnu.org/licenses/gpl-3.0.html>.
+
 ## Unicode Character Database 17.0.0
 
 `src/terminal/UnicodeData.zig` is generated from the Unicode Character Database
