@@ -92,8 +92,8 @@ a static scheduling calculation, not a new benchmark delta; see
 [DAILY_DRIVER.md](DAILY_DRIVER.md).
 
 A later display-independent pipeline lane now feeds that exact Cairo path from
-a real shell, production PTY/`TerminalSession`/VT, and ABI-v2 packed rows for
-two 64-sample runs per mode. It retains input-write/PTY-read-start-to-draw
+a real shell, production PTY/`TerminalSession`/VT, and ABI-v7 packed frame
+snapshots for two 64-sample runs per mode. It retains input-write/PTY-read-start-to-draw
 percentiles, repeat/cross-mode-identical pixels, zero warm-frame renderer
 allocations, and separate root/tree memory
 (`native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`). It is likewise not folded into writer-completion numbers. Separate live mapped receipts now cover synthetic production key-handler-to-draw/after-paint distributions, Wayland GDK presentation feedback, and Wayland/X11 idle/fullscreen compositor pixels plus memory/wakeups. Physical input remains separate.

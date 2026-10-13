@@ -1,0 +1,2 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,uss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,uss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms,visual_tail_median_ms,visual_tail_mad_ms
+noctty,noctty 0.1.0,8,295,336,339,46.293,79.398,37.387,0.000,198.635,6.683,3,3,0.021,0.102,3,9.966,7,8,51,52,283.907,3,13.398,85.272,3.432

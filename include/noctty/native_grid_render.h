@@ -58,8 +58,8 @@ typedef struct {
 typedef void (*NocttyGridDrawCodepoint)(
     void *, cairo_t *, uint32_t, double, double, uint32_t);
 
-typedef uint64_t (*NocttyGridCellValue)(void *, int, int);
-typedef int (*NocttyGridRowValue)(void *, int, uint64_t *, size_t);
+typedef int (*NocttyGridFrameValue)(
+    void *, int, int, uint64_t *, size_t);
 typedef int (*NocttyGridCellSelected)(void *, int, int);
 typedef void (*NocttyGridDrawCellText)(
     void *, cairo_t *, int, int, double, double, uint32_t);
@@ -68,16 +68,15 @@ typedef struct {
     NocttyGridRenderPalette ui_palette;
     NocttyGridTerminalPalette terminal_palette;
     NocttyGridGlyphCache glyph_cache;
-    uint64_t **row_cells;
-    size_t *row_capacity;
-    unsigned int *row_allocations;
-    unsigned int *row_batches;
+    uint64_t **frame_cells;
+    size_t *frame_capacity;
+    unsigned int *frame_allocations;
+    unsigned int *frame_batches;
     unsigned int *glyph_batches;
     unsigned int *glyph_cells;
     unsigned int *rich_style_cells;
     void *source_context;
-    NocttyGridCellValue cell;
-    NocttyGridRowValue row;
+    NocttyGridFrameValue frame;
     void *selection_context;
     NocttyGridCellSelected selected;
     void *draw_context;

@@ -85,8 +85,7 @@ pub const AsciiRun = extern struct {
     draw_codepoint: ?DrawCodepoint,
 };
 
-pub const CellValue = *const fn (?*anyopaque, c_int, c_int) callconv(.c) u64;
-pub const RowValue = *const fn (?*anyopaque, c_int, [*]u64, usize) callconv(.c) c_int;
+pub const FrameValue = *const fn (?*anyopaque, c_int, c_int, [*]u64, usize) callconv(.c) c_int;
 pub const CellSelected = *const fn (?*anyopaque, c_int, c_int) callconv(.c) c_int;
 pub const DrawCellText = *const fn (
     ?*anyopaque,
@@ -102,16 +101,15 @@ pub const GridCells = extern struct {
     ui_palette: Palette,
     terminal_palette: TerminalPalette,
     glyph_cache: GlyphCache,
-    row_cells: ?*?[*]u64,
-    row_capacity: ?*usize,
-    row_allocations: ?*c_uint,
-    row_batches: ?*c_uint,
+    frame_cells: ?*?[*]u64,
+    frame_capacity: ?*usize,
+    frame_allocations: ?*c_uint,
+    frame_batches: ?*c_uint,
     glyph_batches: ?*c_uint,
     glyph_cells: ?*c_uint,
     rich_style_cells: ?*c_uint,
     source_context: ?*anyopaque,
-    cell: ?CellValue,
-    row: ?RowValue,
+    frame: ?FrameValue,
     selection_context: ?*anyopaque,
     selected: ?CellSelected,
     draw_context: ?*anyopaque,
@@ -540,15 +538,24 @@ pub export fn noctty_grid_render_ascii_run(
     return drawn;
 }
 
-fn ensureRowBuffer(options: *const GridCells) bool {
-    const row_cells = options.row_cells orelse return false;
-    const capacity = options.row_capacity orelse return false;
-    const required: usize = @intCast(@max(options.columns, 1));
-    if (row_cells.* != null and capacity.* >= required) return true;
-    const allocation = g_try_realloc_n(row_cells.*, required, @sizeOf(u64)) orelse return false;
-    row_cells.* = @ptrCast(@alignCast(allocation));
+fn ensureFrameBuffer(options: *const GridCells, row_count: c_int) bool {
+    const frame_cells = options.frame_cells orelse return false;
+    const capacity = options.frame_capacity orelse return false;
+    if (row_count <= 0 or options.columns <= 0) return false;
+    const required = std.math.mul(
+        usize,
+        @intCast(row_count),
+        @intCast(options.columns),
+    ) catch return false;
+    if (frame_cells.* != null and capacity.* >= required) return true;
+    const allocation = g_try_realloc_n(
+        frame_cells.*,
+        required,
+        @sizeOf(u64),
+    ) orelse return false;
+    frame_cells.* = @ptrCast(@alignCast(allocation));
     capacity.* = required;
-    if (options.row_allocations) |count| count.* +%= 1;
+    if (options.frame_allocations) |count| count.* +%= 1;
     return true;
 }
 
@@ -753,31 +760,26 @@ pub export fn noctty_grid_render_cells(
 
     var result: c_int = 1;
     var selected_face: c_int = -1;
-    const row_buffer_ready = options.row != null and ensureRowBuffer(options);
+    const frame_row_count = viewport.end_row - viewport.first_row;
+    const frame_ready = options.frame != null and
+        ensureFrameBuffer(options, frame_row_count);
+    const frame_cells = if (options.frame_cells) |field| field.* else null;
+    if (!frame_ready or frame_cells == null or options.frame_capacity == null)
+        return 0;
+    const frame_count = options.frame.?(
+        options.source_context,
+        viewport.first_row,
+        frame_row_count,
+        frame_cells.?,
+        options.frame_capacity.?.*,
+    );
+    if (frame_count != frame_row_count) return 0;
+    if (options.frame_batches) |count| count.* +%= 1;
     var row_index = viewport.first_row;
     while (row_index < viewport.end_row) : (row_index += 1) {
-        const cells = if (options.row_cells) |field| field.* else null;
-        const row_ready = row_buffer_ready and cells != null and
-            options.row.?(options.source_context, row_index, cells.?, @intCast(options.columns)) == options.columns and
-            options.row_capacity.?.* >= @as(usize, @intCast(viewport.end_column));
-        if (!row_ready) {
-            const cell_value = options.cell orelse continue;
-            var column = viewport.first_column;
-            while (column < viewport.end_column) : (column += 1) {
-                drawSingleCell(
-                    cr,
-                    options,
-                    cell_value(options.source_context, column, row_index),
-                    column,
-                    row_index,
-                    &selected_face,
-                    &result,
-                );
-            }
-            continue;
-        }
-        if (options.row_batches) |count| count.* +%= 1;
-        const row_cells = cells.?;
+        const row_offset = @as(usize, @intCast(row_index - viewport.first_row)) *
+            @as(usize, @intCast(options.columns));
+        const row_cells = frame_cells.? + row_offset;
 
         var column = viewport.first_column;
         while (column < viewport.end_column) {

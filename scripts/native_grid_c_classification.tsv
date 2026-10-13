@@ -583,6 +583,7 @@ finish_terminal_close_focus_smoke	orchestration
 request_terminal_final_pane_guard_smoke	orchestration
 finish_terminal_chord_smoke	orchestration
 preset_unique_band_count	effect
+count_grid_nonblank	orchestration
 verify_layout_preset_geometry	effect
 verify_layout_terminals_ready	effect
 verify_layout_auto_fit	effect

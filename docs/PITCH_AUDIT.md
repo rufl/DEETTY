@@ -4,7 +4,7 @@ Last refreshed: 2026-08-04.
 
 This matrix reconciles the README product promise with user-visible runtime evidence. Model-only or structural plumbing is not counted as end-to-end proof.
 
-The NCT-112/NCT-119 pipeline receipt advances beyond synthetic cells: two 64-sample Debug/`ReleaseSafe` runs feed the exact Cairo renderer from a real shell, PTY, `TerminalSession`, VT grid, and ABI-v2 packed rows. The mapped companion adds key-handler-to-draw/after-paint samples and Wayland GDK presentation feedback. The final NCT-119 lane archives live Wayland/X11 idle/fullscreen compositor pixels, external memory, and bounded wakeups; it does not claim physical HID, X11 completed presentation timing, or photon latency. The installed-activation harness separately retains mapped two-tab child receipts with controlled zero exit.
+The NCT-112/NCT-119 pipeline receipt advances beyond synthetic cells: two 64-sample Debug/`ReleaseSafe` runs feed the exact Cairo renderer from a real shell, PTY, `TerminalSession`, VT grid, and ABI-v7 packed frame snapshots. The mapped companion adds key-handler-to-draw/after-paint samples and Wayland GDK presentation feedback. The final NCT-119 lane archives live Wayland/X11 idle/fullscreen compositor pixels, external memory, and bounded wakeups; it does not claim physical HID, X11 completed presentation timing, or photon latency. The installed-activation harness separately retains mapped two-tab child receipts with controlled zero exit.
 
 | Pitch promise | Status | End-to-end evidence | Honest boundary |
 | --- | --- | --- | --- |

@@ -260,12 +260,21 @@ static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
             g_timeout_add(50, request_compact_hyperlink_smoke, root);
         } else {
             guint underlined = 0;
-            for (int row = 0; row < root->rows; row++) {
-                for (int column = 0; column < root->columns; column++) {
-                    uint32_t style = (uint32_t)(
-                        root->cell(root->userdata, column, row) >> 32);
-                    if (style & 8) underlined++;
+            uint64_t *cells = root->columns > 0
+                ? g_try_malloc_n((gsize)root->columns, sizeof(*cells))
+                : NULL;
+            if (cells != NULL) {
+                for (int row = 0; row < root->rows; row++) {
+                    if (root->frame(
+                            root->userdata, row, 1, cells,
+                            (size_t)root->columns) != 1)
+                        continue;
+                    for (int column = 0; column < root->columns; column++) {
+                        uint32_t style = (uint32_t)(cells[column] >> 32);
+                        if (style & 8) underlined++;
+                    }
                 }
+                g_free(cells);
             }
             g_printerr("native_grid_hyperlink_scan underlined=%u rows=%d columns=%d\n",
                        underlined, root->rows, root->columns);

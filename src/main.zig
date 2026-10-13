@@ -251,8 +251,7 @@ fn runNativeGridHost(options: NativeGridRunOptions) c_int {
         .userdata = options.session,
         .pump = noctty_grid_pump,
         .write = options.write,
-        .cell = noctty_grid_cell,
-        .row = noctty_grid_row,
+        .frame = noctty_grid_frame,
         .dirty_rows = noctty_grid_take_dirty_rows,
         .dirty_spans = noctty_grid_take_dirty_spans,
         .presentation_ready = noctty_grid_presentation_ready,
@@ -5677,8 +5676,7 @@ fn terminalPipelineQualification(
         .userdata = &session,
         .pump = noctty_grid_pump,
         .write = noctty_grid_write,
-        .cell = noctty_grid_cell,
-        .row = noctty_grid_row,
+        .frame = noctty_grid_frame,
         .dirty_rows = noctty_grid_take_dirty_rows,
         .dirty_spans = noctty_grid_take_dirty_spans,
         .presentation_ready = noctty_grid_presentation_ready,
@@ -5807,18 +5805,31 @@ export fn noctty_grid_terminal_chord_write(raw: ?*anyopaque, bytes: [*]const u8,
     return @intCast(length);
 }
 
-export fn noctty_grid_cell(raw: ?*anyopaque, column: c_int, row: c_int) callconv(.c) u64 {
-    if (raw == null or column < 0 or row < 0)
-        return @as(u64, ' ') | (@as(u64, 0xffffff00) << 32);
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    return session.grid.packedCell(@intCast(column), @intCast(row));
-}
-
-export fn noctty_grid_row(raw: ?*anyopaque, row: c_int, output: [*]u64, capacity: usize) callconv(.c) c_int {
-    if (raw == null or row < 0 or capacity == 0) return 0;
-    const session: *noctty.terminal_session.TerminalSession = @ptrCast(@alignCast(raw.?));
-    const count = session.grid.packedRow(@intCast(row), output[0..capacity]);
-    return std.math.cast(c_int, count) orelse -1;
+export fn noctty_grid_frame(
+    raw: ?*anyopaque,
+    first_row: c_int,
+    row_count: c_int,
+    output: [*]u64,
+    capacity: usize,
+) callconv(.c) c_int {
+    if (raw == null or first_row < 0 or row_count <= 0 or capacity == 0)
+        return 0;
+    const session: *noctty.terminal_session.TerminalSession =
+        @ptrCast(@alignCast(raw.?));
+    const start: usize = @intCast(first_row);
+    if (start >= session.grid.rows) return 0;
+    const requested: usize = @intCast(row_count);
+    const count = @min(requested, session.grid.rows - start);
+    const columns = session.grid.columns;
+    const required = std.math.mul(usize, count, columns) catch return -1;
+    if (capacity < required) return -1;
+    const blank: u64 = @as(u64, ' ');
+    for (0..count) |offset| {
+        const row_output = output[offset * columns ..][0..columns];
+        const copied = session.grid.packedRow(start + offset, row_output);
+        if (copied < columns) @memset(row_output[copied..columns], blank);
+    }
+    return @intCast(count);
 }
 
 export fn noctty_grid_take_dirty_rows(raw: ?*anyopaque, output: [*]u8, capacity: usize) callconv(.c) c_int {

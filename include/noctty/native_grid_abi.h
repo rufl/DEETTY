@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define NOCTTY_NATIVE_GRID_ABI_VERSION 6u
+#define NOCTTY_NATIVE_GRID_ABI_VERSION 7u
 
 typedef struct {
     uint32_t first;
@@ -13,8 +13,7 @@ typedef struct {
 
 typedef int (*NocttyGridPump)(void *);
 typedef int (*NocttyGridWrite)(void *, const char *, size_t);
-typedef uint64_t (*NocttyGridCell)(void *, int, int);
-typedef int (*NocttyGridRow)(void *, int, uint64_t *, size_t);
+typedef int (*NocttyGridFrame)(void *, int, int, uint64_t *, size_t);
 typedef int (*NocttyGridDirtyRows)(void *, uint8_t *, size_t);
 typedef int (*NocttyGridDirtySpans)(void *, NocttyGridDirtySpan *, size_t);
 typedef int (*NocttyGridPresentationReady)(void *);
@@ -47,8 +46,7 @@ typedef struct {
     void *userdata;
     NocttyGridPump pump;
     NocttyGridWrite write;
-    NocttyGridCell cell;
-    NocttyGridRow row;
+    NocttyGridFrame frame;
     NocttyGridDirtyRows dirty_rows;
     NocttyGridDirtySpans dirty_spans;
     NocttyGridPresentationReady presentation_ready;

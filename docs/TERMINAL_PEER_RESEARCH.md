@@ -196,8 +196,8 @@ assuming every consumer is always ready.
 
 Transfer to NOCTTY:
 
-- NOCTTY's ABI-v2 borrowed packed rows and dirty spans already avoid an owned
-  full-grid clone for every frame.
+- NOCTTY's ABI-v7 borrowed packed frame snapshots and dirty spans avoid
+  per-cell/row callbacks and avoid an owned full-grid clone for every frame.
 - PTY writes were the missing backpressure boundary: `Pty.writeAll` slept in a
   loop on `EAGAIN`, and native GTK input called it synchronously.
 - The retained direct GLib lane now measures one flooding pane against 29 marker panes before any change to the successful 2 MiB read budget or source priority. `ReleaseSafe` delivered every marker below 2.5 ms on the retained host, so no scheduler rewrite is justified.

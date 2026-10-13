@@ -21,7 +21,7 @@ typedef struct {
     guint first_frame_owned_allocations;
     guint warm_frame_owned_allocations;
     size_t peak_owned_scratch_bytes;
-    guint row_buffer_allocations;
+    guint frame_buffer_allocations;
     guint glyph_scratch_allocations;
     guint glyph_cache_builds;
 } NocttyRendererQualificationResult;
@@ -59,23 +59,21 @@ static uint64_t renderer_fixture_cell_value(
     return (uint64_t)codepoint | ((uint64_t)style << 32);
 }
 
-static uint64_t renderer_fixture_cell(void *userdata, int column, int row) {
+static int renderer_fixture_frame(void *userdata, int first_row,
+                                  int row_count, uint64_t *output,
+                                  size_t capacity) {
     NocttyRendererFixture *fixture = userdata;
-    if (fixture == NULL || column < 0 || row < 0 ||
-        column >= fixture->columns || row >= fixture->rows)
-        return (uint64_t)' ' | ((uint64_t)0xffffff00u << 32);
-    return renderer_fixture_cell_value(fixture, column, row);
-}
-
-static int renderer_fixture_row(void *userdata, int row, uint64_t *output,
-                                size_t capacity) {
-    NocttyRendererFixture *fixture = userdata;
-    if (fixture == NULL || output == NULL || row < 0 ||
-        row >= fixture->rows || capacity < (size_t)fixture->columns)
+    if (fixture == NULL || output == NULL || first_row < 0 ||
+        row_count <= 0 || first_row >= fixture->rows)
         return 0;
-    for (int column = 0; column < fixture->columns; column++)
-        output[column] = renderer_fixture_cell_value(fixture, column, row);
-    return fixture->columns;
+    int bounded_rows = MIN(row_count, fixture->rows - first_row);
+    size_t required = (size_t)bounded_rows * (size_t)fixture->columns;
+    if (capacity < required) return 0;
+    for (int row = 0; row < bounded_rows; row++)
+        for (int column = 0; column < fixture->columns; column++)
+            output[(size_t)row * (size_t)fixture->columns + (size_t)column] =
+                renderer_fixture_cell_value(fixture, column, first_row + row);
+    return bounded_rows;
 }
 
 static uint32_t renderer_fixture_cursor(void *userdata) {
@@ -724,9 +722,7 @@ static GtkAllocation renderer_allocation_for_context(
 static void renderer_init_context(NocttyGridContext *context,
                                   NocttyRendererFixture *fixture) {
     memset(context, 0, sizeof(*context));
-    context->userdata = fixture;
-    context->cell = renderer_fixture_cell;
-    context->row = renderer_fixture_row;
+    context->frame = renderer_fixture_frame;
     context->color_rgb = renderer_fixture_color;
     context->cell_text = renderer_fixture_cell_text;
     context->cursor = renderer_fixture_cursor;
@@ -748,13 +744,13 @@ static void renderer_init_context(NocttyGridContext *context,
 
 static guint renderer_owned_allocation_count(
     const NocttyGridContext *context) {
-    return context->row_buffer_allocations +
+    return context->frame_buffer_allocations +
         context->glyph_scratch_allocations + context->glyph_cache_builds;
 }
 
 static size_t renderer_owned_scratch_bytes(
     const NocttyGridContext *context) {
-    return context->row_cell_capacity * sizeof(*context->row_cells) +
+    return context->frame_cell_capacity * sizeof(*context->frame_cells) +
         context->glyph_scratch_capacity * sizeof(*context->glyph_scratch);
 }
 
@@ -842,7 +838,7 @@ static int renderer_qualify_scenario(
             cairo_surface_destroy(surface);
             cairo_surface_destroy(comparison);
             destroy_grid_glyph_cache(&context);
-            g_clear_pointer(&context.row_cells, g_free);
+            g_clear_pointer(&context.frame_cells, g_free);
             return -1;
         }
         samples[frame] = finished - started;
@@ -865,7 +861,7 @@ static int renderer_qualify_scenario(
     (void)draw_grid_contents(&context, comparison_cr, allocation);
     result->pixel_diff = renderer_surface_pixel_diff(
         surface, comparison, allocation);
-    result->row_buffer_allocations = context.row_buffer_allocations;
+    result->frame_buffer_allocations = context.frame_buffer_allocations;
     result->glyph_scratch_allocations = context.glyph_scratch_allocations;
     result->glyph_cache_builds = context.glyph_cache_builds;
 
@@ -883,7 +879,7 @@ static int renderer_qualify_scenario(
     cairo_surface_destroy(surface);
     cairo_surface_destroy(comparison);
     destroy_grid_glyph_cache(&context);
-    g_clear_pointer(&context.row_cells, g_free);
+    g_clear_pointer(&context.frame_cells, g_free);
     return artifact_status == CAIRO_STATUS_SUCCESS &&
         result->pixel_diff == 0 &&
         result->warm_frame_owned_allocations == 0 ? 0 : -1;
@@ -911,7 +907,7 @@ static int renderer_resize_scratch_qualification(
     }
     (void)draw_grid_contents(&context, cr, allocation);
     *peak_owned_scratch_bytes = renderer_owned_scratch_bytes(&context);
-    guint before_growth = context.row_buffer_allocations +
+    guint before_growth = context.frame_buffer_allocations +
         context.glyph_scratch_allocations;
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
@@ -925,11 +921,11 @@ static int renderer_resize_scratch_qualification(
         CAIRO_FORMAT_ARGB32, allocation.width, allocation.height);
     cr = cairo_create(surface);
     (void)draw_grid_contents(&context, cr, allocation);
-    *growth_allocations = context.row_buffer_allocations +
+    *growth_allocations = context.frame_buffer_allocations +
         context.glyph_scratch_allocations - before_growth;
     *peak_owned_scratch_bytes = MAX(
         *peak_owned_scratch_bytes, renderer_owned_scratch_bytes(&context));
-    guint before_shrink = context.row_buffer_allocations +
+    guint before_shrink = context.frame_buffer_allocations +
         context.glyph_scratch_allocations;
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
@@ -943,12 +939,12 @@ static int renderer_resize_scratch_qualification(
         CAIRO_FORMAT_ARGB32, allocation.width, allocation.height);
     cr = cairo_create(surface);
     (void)draw_grid_contents(&context, cr, allocation);
-    *shrink_allocations = context.row_buffer_allocations +
+    *shrink_allocations = context.frame_buffer_allocations +
         context.glyph_scratch_allocations - before_shrink;
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
     destroy_grid_glyph_cache(&context);
-    g_clear_pointer(&context.row_cells, g_free);
+    g_clear_pointer(&context.frame_cells, g_free);
     return *growth_allocations > 0 && *shrink_allocations == 0 ? 0 : -1;
 }
 
@@ -992,7 +988,7 @@ int noctty_native_grid_renderer_qualification(
         "idle_hash=%llu fullscreen_hash=%llu rich_hash=%llu pixel_diff=%u "
         "first_frame_owned_allocations=%u warm_frame_owned_allocations=%u "
         "resize_growth_allocations=%u resize_shrink_allocations=%u "
-        "peak_owned_scratch_bytes=%zu row_buffer_allocations=%u "
+        "peak_owned_scratch_bytes=%zu frame_buffer_allocations=%u "
         "glyph_scratch_allocations=%u glyph_cache_builds=%u "
         "artifacts=3 assertions=true\n",
         mode,
@@ -1016,8 +1012,8 @@ int noctty_native_grid_renderer_qualification(
         resize_growth_allocations,
         resize_shrink_allocations,
         peak_scratch_bytes,
-        idle.row_buffer_allocations + full.row_buffer_allocations +
-            rich.row_buffer_allocations,
+        idle.frame_buffer_allocations + full.frame_buffer_allocations +
+            rich.frame_buffer_allocations,
         idle.glyph_scratch_allocations + full.glyph_scratch_allocations +
             rich.glyph_scratch_allocations,
         idle.glyph_cache_builds + full.glyph_cache_builds +
@@ -1034,7 +1030,7 @@ int noctty_native_grid_pipeline_qualification(
     if (callbacks == NULL ||
         callbacks->abi_version != NOCTTY_NATIVE_GRID_ABI_VERSION ||
         callbacks->struct_size < sizeof(*callbacks) ||
-        callbacks->cell == NULL || callbacks->row == NULL ||
+        callbacks->frame == NULL ||
         callbacks->color_rgb == NULL || callbacks->cell_text == NULL ||
         callbacks->cursor == NULL || advance == NULL ||
         columns <= 0 || rows <= 0 || artifact_path == NULL ||
@@ -1044,8 +1040,7 @@ int noctty_native_grid_pipeline_qualification(
     NocttyGridContext context = {0};
     context.root = &context;
     context.userdata = callbacks->userdata;
-    context.cell = callbacks->cell;
-    context.row = callbacks->row;
+    context.frame = callbacks->frame;
     context.color_rgb = callbacks->color_rgb;
     context.ui_color_rgb = callbacks->ui_color_rgb;
     context.cell_text = callbacks->cell_text;
@@ -1155,7 +1150,7 @@ int noctty_native_grid_pipeline_qualification(
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
     destroy_grid_glyph_cache(&context);
-    g_clear_pointer(&context.row_cells, g_free);
+    g_clear_pointer(&context.frame_cells, g_free);
     return artifact_status == CAIRO_STATUS_SUCCESS && pixel_hash != 0 &&
         first_frame_owned_allocations > 0 && warm_frame_owned_allocations == 0
         ? 0 : -1;
@@ -1164,6 +1159,6 @@ pipeline_failure:
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
     destroy_grid_glyph_cache(&context);
-    g_clear_pointer(&context.row_cells, g_free);
+    g_clear_pointer(&context.frame_cells, g_free);
     return -1;
 }

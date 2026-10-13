@@ -238,8 +238,7 @@ typedef struct NocttyGridContextTag {
     void *userdata;
     NocttyGridPump pump;
     NocttyGridWrite write;
-    NocttyGridCell cell;
-    NocttyGridRow row;
+    NocttyGridFrame frame;
     NocttyGridDirtyRows dirty_rows;
     NocttyGridDirtySpans dirty_spans;
     NocttyGridPresentationReady presentation_ready;
@@ -790,8 +789,8 @@ typedef struct NocttyGridContextTag {
     int pending_resize_rows;
     int pending_resize_width;
     int pending_resize_height;
-    uint64_t *row_cells;
-    size_t row_cell_capacity;
+    uint64_t *frame_cells;
+    size_t frame_cell_capacity;
     uint8_t *dirty_row_buffer;
     size_t dirty_row_capacity;
     NocttyGridDirtySpan *dirty_span_buffer;
@@ -809,12 +808,12 @@ typedef struct NocttyGridContextTag {
     guint damage_rows_queued;
     guint damage_cells_queued;
     guint damage_spans_queued;
-    guint row_batches_drawn;
+    guint frame_batches_drawn;
     guint glyph_batches_drawn;
     guint glyph_cells_batched;
     guint glyph_cache_hits;
     guint glyph_fallback_conversions;
-    guint row_buffer_allocations;
+    guint frame_buffer_allocations;
     guint glyph_scratch_allocations;
     guint glyph_cache_builds;
     guint grapheme_cells_drawn;
@@ -1623,16 +1622,15 @@ static gboolean draw_grid_contents(NocttyGridContext *context, cairo_t *cr,
             .cache_hits = &context->glyph_cache_hits,
             .fallback_conversions = &context->glyph_fallback_conversions,
         },
-        .row_cells = &context->row_cells,
-        .row_capacity = &context->row_cell_capacity,
-        .row_allocations = &context->row_buffer_allocations,
-        .row_batches = &root->row_batches_drawn,
+        .frame_cells = &context->frame_cells,
+        .frame_capacity = &context->frame_cell_capacity,
+        .frame_allocations = &context->frame_buffer_allocations,
+        .frame_batches = &root->frame_batches_drawn,
         .glyph_batches = &root->glyph_batches_drawn,
         .glyph_cells = &root->glyph_cells_batched,
         .rich_style_cells = &root->rich_style_cells_drawn,
         .source_context = context->userdata,
-        .cell = context->cell,
-        .row = context->row,
+        .frame = context->frame,
         .selection_context = context,
         .selected = grid_cell_selected_bridge,
         .draw_context = context,
@@ -6651,8 +6649,7 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->contexts = root->contexts;
     created->pump = root->pump;
     created->write = root->write;
-    created->cell = root->cell;
-    created->row = root->row;
+    created->frame = root->frame;
     created->dirty_rows = root->dirty_rows;
     created->dirty_spans = root->dirty_spans;
     created->presentation_ready = root->presentation_ready;
@@ -7559,7 +7556,7 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     remove_grid_source(&context->sharing_status_source);
     context->display_title = noctty_grid_memory_clear(context->display_title);
     context->font_family = noctty_grid_memory_clear(context->font_family);
-    context->row_cells = noctty_grid_memory_clear(context->row_cells);
+    context->frame_cells = noctty_grid_memory_clear(context->frame_cells);
     context->dirty_row_buffer = noctty_grid_memory_clear(context->dirty_row_buffer);
     context->dirty_span_buffer = noctty_grid_memory_clear(context->dirty_span_buffer);
     destroy_grid_glyph_cache(context);
@@ -15355,6 +15352,30 @@ static gboolean verify_layout_preset_geometry(NocttyGridContext *context,
     return valid;
 }
 
+static guint count_grid_nonblank(NocttyGridContext *context, guint limit) {
+    if (context == NULL || limit == 0 || context->frame == NULL ||
+        context->columns <= 0 || context->rows <= 0)
+        return 0;
+    uint64_t *cells = g_try_malloc_n(
+        (gsize)context->columns, sizeof(*cells));
+    if (cells == NULL) return 0;
+    guint count = 0;
+    for (int row = 0; row < context->rows && count < limit; row++) {
+        if (context->frame(
+                context->userdata, row, 1, cells,
+                (size_t)context->columns) != 1)
+            continue;
+        for (int column = 0;
+             column < context->columns && count < limit;
+             column++) {
+            uint32_t glyph = (uint32_t)cells[column];
+            if (glyph != 0 && glyph != ' ') count++;
+        }
+    }
+    g_free(cells);
+    return count;
+}
+
 static gboolean verify_layout_terminals_ready(NocttyGridContext *context,
                                                guint expected) {
     NocttyGridContext *root = root_grid_context(context);
@@ -15368,17 +15389,7 @@ static gboolean verify_layout_terminals_ready(NocttyGridContext *context,
         if (!candidate->active || candidate->exited ||
             candidate->page != page || candidate->area == NULL)
             continue;
-        gboolean nonblank = FALSE;
-        for (int row = 0; row < candidate->rows && !nonblank; row++) {
-            for (int column = 0; column < candidate->columns; column++) {
-                uint32_t glyph = (uint32_t)candidate->cell(
-                    candidate->userdata, column, row);
-                if (glyph != 0 && glyph != ' ') {
-                    nonblank = TRUE;
-                    break;
-                }
-            }
-        }
+        gboolean nonblank = count_grid_nonblank(candidate, 1) > 0;
         /* Buffer content alone does not prove a visible pane. Requiring the
          * draw callback catches mapped terminals that GTK has not painted. */
         if (grid_context_session_available(candidate) &&
@@ -15441,15 +15452,7 @@ static gboolean verify_layout_tui(NocttyGridContext *context) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (!candidate->active || candidate->exited ||
             candidate->page != page) continue;
-        guint nonblank = 0;
-        for (int row = 0; row < candidate->rows && nonblank < 8; row++) {
-            for (int column = 0; column < candidate->columns && nonblank < 8;
-                 column++) {
-                uint32_t glyph = (uint32_t)candidate->cell(
-                    candidate->userdata, column, row);
-                if (glyph != 0 && glyph != ' ') nonblank++;
-            }
-        }
+        guint nonblank = count_grid_nonblank(candidate, 8);
         if (nonblank >= 8) rendered++;
         if (write_layout_smoke_input(candidate, "l", 1)) input++;
     }
@@ -16755,7 +16758,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         callbacks->struct_size < sizeof(*callbacks) ||
         options->struct_size < sizeof(*options) ||
         callbacks->pump == NULL || callbacks->write == NULL ||
-        callbacks->cell == NULL || callbacks->row == NULL ||
+        callbacks->frame == NULL ||
         callbacks->dirty_rows == NULL || callbacks->dirty_spans == NULL ||
         callbacks->presentation_ready == NULL ||
         callbacks->color_rgb == NULL ||
@@ -16781,7 +16784,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     void *userdata = callbacks->userdata;
     NocttyGridPump pump = callbacks->pump;
     NocttyGridWrite write = callbacks->write;
-    NocttyGridCell cell = callbacks->cell;
+    NocttyGridFrame frame = callbacks->frame;
     NocttyGridPollExit poll_exit = callbacks->poll_exit;
     NocttyGridResize resize = callbacks->resize;
     NocttyGridMouse mouse = callbacks->mouse;
@@ -16839,8 +16842,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.userdata = userdata;
     context.pump = pump;
     context.write = write;
-    context.cell = cell;
-    context.row = callbacks->row;
+    context.frame = frame;
     context.dirty_rows = callbacks->dirty_rows;
     context.dirty_spans = callbacks->dirty_spans;
     context.presentation_ready = callbacks->presentation_ready;
@@ -17188,7 +17190,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         NocttyGridContext *candidate = g_ptr_array_index(context.contexts, index);
         candidate->display_title = noctty_grid_memory_clear(candidate->display_title);
         candidate->font_family = noctty_grid_memory_clear(candidate->font_family);
-        candidate->row_cells = noctty_grid_memory_clear(candidate->row_cells);
+        candidate->frame_cells = noctty_grid_memory_clear(candidate->frame_cells);
         candidate->dirty_row_buffer = noctty_grid_memory_clear(candidate->dirty_row_buffer);
         candidate->dirty_span_buffer = noctty_grid_memory_clear(candidate->dirty_span_buffer);
         destroy_grid_glyph_cache(candidate);
@@ -17700,7 +17702,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
              (guint)context.layout_preset_closed_count +
                  context.contexts->len);
     int renderer_damage_ok = workspace_smoke != 0 ||
-        (context.row_batches_drawn > 0 && context.damage_rows_queued > 0 &&
+        (context.frame_batches_drawn > 0 && context.damage_rows_queued > 0 &&
          context.damage_cells_queued > 0 && context.damage_spans_queued > 0 &&
          context.terminal_dirty_spans_used &&
          context.glyph_batches_drawn > 0 &&
@@ -17742,7 +17744,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         NocttyGridContext *candidate = g_ptr_array_index(context.contexts, index);
         candidate->display_title = noctty_grid_memory_clear(candidate->display_title);
         candidate->font_family = noctty_grid_memory_clear(candidate->font_family);
-        candidate->row_cells = noctty_grid_memory_clear(candidate->row_cells);
+        candidate->frame_cells = noctty_grid_memory_clear(candidate->frame_cells);
         candidate->dirty_row_buffer = noctty_grid_memory_clear(candidate->dirty_row_buffer);
         candidate->dirty_span_buffer = noctty_grid_memory_clear(candidate->dirty_span_buffer);
         destroy_grid_glyph_cache(candidate);
@@ -17767,9 +17769,9 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     host_ok = host_ok && renderer_damage_ok &&
         context.application_icon_ready;
     if (workspace_smoke == 0) {
-        g_print("native_grid_renderer_smoke abi=%d row_batches=%u damage_rows=%u damage_cells=%u damage_spans=%u damage_source=dirty_spans glyph_batches=%u glyph_cells=%u glyph_cache_hits=%u glyph_fallback_conversions=%u grapheme_cells=%u rich_style_cells=%u frame_presentations=%u timeout_presentations=%u resize_requests=%u resize_commits=%u sync_deferrals=%u sync_releases=%u sync_deadman_releases=%u passed=%s\n",
+        g_print("native_grid_renderer_smoke abi=%d frame_batches=%u damage_rows=%u damage_cells=%u damage_spans=%u damage_source=dirty_spans glyph_batches=%u glyph_cells=%u glyph_cache_hits=%u glyph_fallback_conversions=%u grapheme_cells=%u rich_style_cells=%u frame_presentations=%u timeout_presentations=%u resize_requests=%u resize_commits=%u sync_deferrals=%u sync_releases=%u sync_deadman_releases=%u passed=%s\n",
                 NOCTTY_NATIVE_GRID_ABI_VERSION,
-                context.row_batches_drawn, context.damage_rows_queued,
+                context.frame_batches_drawn, context.damage_rows_queued,
                 context.damage_cells_queued, context.damage_spans_queued,
                 context.glyph_batches_drawn, context.glyph_cells_batched,
                 context.glyph_cache_hits,

@@ -3,6 +3,10 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Batched VT damage generations per PTY feed, restored the bounded 2 MiB native
+  pump budget, and skipped empty pending-write flushes on read-only PTY pumps,
+  reducing avoidable terminal main-loop overhead during multi-pane output
+  without changing the renderer contract.
 - Moved command-palette dispatch, split orientation/rendered-event selection,
   tab-rename boundary validation, and restored-session dimension minimums behind
   focused Zig policy plans; GTK retains activation, layout, editor, and session

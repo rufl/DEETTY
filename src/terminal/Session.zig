@@ -10,7 +10,8 @@ const Vt = @import("Vt.zig");
 const LaunchProfile = @import("LaunchProfile.zig");
 
 pub const TerminalSession = struct {
-    const max_pump_bytes = 128 * 1024;
+    // Bound each main-loop dispatch while amortizing PTY readiness and redraw scheduling.
+    const max_pump_bytes = 2 * 1024 * 1024;
     const output_buffer_bytes = 128 * 1024;
     // Queue blocked PTY input instead of sleeping on the native UI thread.
     pub const max_pending_write_bytes = 64 * 1024 * 1024;
@@ -277,10 +278,10 @@ pub const TerminalSession = struct {
         if (self.pump_scratch.in_use) return error.TerminalSessionPumpReentered;
         self.pump_scratch.in_use = true;
         defer self.pump_scratch.in_use = false;
-        _ = try self.flushPendingWrites();
+        if (self.hasPendingWrites()) _ = try self.flushPendingWrites();
         const result = try self.pumpFrom(&self.pty);
         try self.flushReplies();
-        _ = try self.flushPendingWrites();
+        if (self.hasPendingWrites()) _ = try self.flushPendingWrites();
         return result;
     }
 

@@ -47,9 +47,10 @@ fallback:
   only if descriptor registration fails;
 - hidden panes still drain and parse PTY output, but presentation is coalesced
   to 100 ms and unmapped drawing areas do not queue redraws;
-- native-grid ABI v6 consumes terminal-owned dirty column spans, coalesces
-  equal-background fills, and caches eligible Cairo glyph conversion without
-  weakening grapheme, rich-style, fallback-font, or full-redraw paths;
+- native-grid ABI v7 consumes terminal-owned dirty column spans, requests one
+  borrowed packed frame snapshot for visible rows, coalesces equal-background
+  fills, and caches eligible Cairo glyph conversion without weakening grapheme,
+  rich-style, fallback-font, or full-redraw paths;
 - mapped output uses one owned GTK frame-clock callback, hidden output retains
   its 100 ms path, and resize commits only the latest bounded geometry;
 - split creation initializes pane ownership explicitly from one root controller
@@ -84,7 +85,7 @@ Production `noctty` also excludes VTE, Tree-sitter, and smoke commands. The
 optional fallback and smoke hosts are separate non-default binaries, reducing
 production code and dependency surface without weakening the verification matrix.
 
-The source-backed [performance and algorithm research](PERFORMANCE_ALGORITHM_RESEARCH.md) keeps GTK/Cairo and event-driven descriptor reads. Its frame-clock, glyph-cache, resize-coalescing, ABI-v2 dirty-span, bounded parser, synchronized-output, and grapheme-aware logical-line designs are implemented. NCT-120's compact-history/reflow qualification is complete. NCT-110 now combines pinned protocol/state, malformed-input, Unicode, installed Codex/Vim/btop, ncurses/system-TUI, and authenticated mapped Codex 0.144.6 evidence at the accepted one-host boundary.
+The source-backed [performance and algorithm research](PERFORMANCE_ALGORITHM_RESEARCH.md) keeps GTK/Cairo and event-driven descriptor reads. Its frame-clock, glyph-cache, resize-coalescing, ABI-v7 dirty-span/frame-snapshot, bounded parser, synchronized-output, and grapheme-aware logical-line designs are implemented. NCT-120's compact-history/reflow qualification is complete. NCT-110 now combines pinned protocol/state, malformed-input, Unicode, installed Codex/Vim/btop, ncurses/system-TUI, and authenticated mapped Codex 0.144.6 evidence at the accepted one-host boundary.
 
 NCT-119 is complete through four complementary boundaries: exact display-independent Cairo fixtures, real-shell PTY/VT-to-Cairo distributions, a live mapped Plasma presentation matrix, and live Wayland/X11 idle/fullscreen compositor-pixel plus memory/wakeup receipts. The presentation lane records 64 synthetic production key-handler-to-draw/after-paint samples per mode, frame intervals, predictions, and completed Wayland GDK presentation feedback; the full-stack lane records zero fallback PTY timer ticks and bounded idle callbacks. Neither claims physical input, X11 completed presentation timing, or multi-day evidence. GPU rendering and dedicated thread sets per pane remain deferred (`performance_algorithm_research=true`).
 

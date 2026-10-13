@@ -83,7 +83,7 @@ for mode in Debug ReleaseSafe; do
         'idle_hash=[1-9][0-9]* fullscreen_hash=[1-9][0-9]* rich_hash=[1-9][0-9]* pixel_diff=0' \
         >/dev/null
     printf '%s\n' "$output" | grep -E \
-        'first_frame_owned_allocations=[1-9][0-9]* warm_frame_owned_allocations=0 resize_growth_allocations=[1-9][0-9]* resize_shrink_allocations=0 peak_owned_scratch_bytes=[1-9][0-9]* row_buffer_allocations=[1-9][0-9]* glyph_scratch_allocations=[1-9][0-9]* glyph_cache_builds=[1-9][0-9]* artifacts=3 assertions=true' \
+        'first_frame_owned_allocations=[1-9][0-9]* warm_frame_owned_allocations=0 resize_growth_allocations=[1-9][0-9]* resize_shrink_allocations=0 peak_owned_scratch_bytes=[1-9][0-9]* frame_buffer_allocations=[1-9][0-9]* glyph_scratch_allocations=[1-9][0-9]* glyph_cache_builds=[1-9][0-9]* artifacts=3 assertions=true' \
         >/dev/null
     resource=$(cat "$scratch/resource-$mode")
     printf '%s\n' "$resource"

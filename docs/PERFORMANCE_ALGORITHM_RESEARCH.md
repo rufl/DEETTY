@@ -168,9 +168,9 @@ derived from peer architecture alone.
   and a bounded table-driven parser with rich cell state and replies.
 - `src/gui/native_grid_host.c` uses one owned frame-clock callback while mapped,
   retains the 100 ms hidden path, caches guarded glyph conversions, coalesces
-  resize, and consumes ABI-v2 dirty column spans with full-redraw fallback. Its
-  exact production draw function is shared with the display-independent
-  Debug/`ReleaseSafe` renderer qualification.
+  resize, consumes ABI-v7 dirty spans, and requests one borrowed packed frame
+  snapshot for visible rows. Its exact production draw function is shared with
+  the display-independent Debug/`ReleaseSafe` renderer qualification.
 - NCT-120's 100000-line Debug/`ReleaseSafe` reflow and grow/shrink qualification
   is complete. NCT-110's bounded protocol/state, malformed-input, Unicode
   mutation, complete Unicode 17 grapheme, and allocator-accounting matrix is
@@ -186,7 +186,7 @@ derived from peer architecture alone.
   rich-style draws per mode with exact repeat/cross-mode pixels, renderer-owned
   warm/resize allocation counts, process-CPU percentiles, and root memory:
   `native_grid_renderer_qualification_matrix debug=true release_safe=true frames_per_scenario=128 scenarios=3 pixel_repeat_exact=true cross_mode_artifacts_identical=true idle_draw_cpu=true fullscreen_draw_cpu=true rich_style_draw_cpu=true owned_allocation_counts=true warm_frame_owned_allocations=0 resize_growth_bounded=true resize_shrink_allocations=0 process_memory=true scratch_clean=true`.
-  The complementary real-shell pipeline retains two 64-sample runs per mode through production PTY/`TerminalSession`/VT/ABI-v2/Cairo with input-write and PTY-read-start-to-draw percentiles, repeat/cross-mode pixels, zero warm-frame renderer allocations, and separate root/tree memory: `native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`.
+  The complementary real-shell pipeline retains two 64-sample runs per mode through production PTY/`TerminalSession`/VT/ABI-v7 packed frame snapshots/Cairo with input-write and PTY-read-start-to-draw percentiles, repeat/cross-mode pixels, zero warm-frame renderer allocations, and separate root/tree memory: `native_grid_pipeline_matrix debug=true release_safe=true samples_per_run=64 runs_per_mode=2 production_pty=true production_vt=true production_cairo=true input_write_to_draw=true pty_read_to_draw=true latency_percentiles=true artifact_repeat_exact=true cross_mode_artifacts_identical=true warm_frame_owned_allocations=0 root_memory_separate=true process_tree_memory=true compositor_presented=false scratch_clean=true`.
   The direct GLib lane additionally retains thirty real PTY/session/VT instances behind equal-priority Unix-FD sources, with one continuous flood, twenty-nine exact markers, one shared guarded pump scratch, an 8 MiB drained paste, and pending-paste teardown: `terminal_agent_fairness_matrix debug=true release_safe=true panes=30 flood_panes=1 marker_panes=29 all_markers=true shared_pump_scratch=true glib_fd_sources=true large_paste_bytes=8388608 paste_queue_exercised=true paste_drained=true paste_pending_teardown=true allocator_leak_free=true process_residual=0 scratch_clean=true`.
   The live mapped companion retains 64 synthetic production key-handler-to-draw/after-paint samples per mode on Plasma Wayland/X11, frame intervals, predictions, and completed Wayland GDK presentation feedback: `native_grid_presentation_matrix debug=true release_safe=true wayland=true x11=true samples_per_run=64 production_pty=true production_vt=true production_gtk=true mapped_surface=true key_to_draw=true key_to_frame=true frame_intervals=true wayland_presentation_feedback=true x11_presentation_feedback_optional=true synthetic_gtk_keys=true gdk_event_queue=false hid=false scratch_clean=true`.
   The final NCT-119 lane retains live Debug/`ReleaseSafe` Wayland/X11 idle and fullscreen compositor pixels, external root/tree memory, zero fallback PTY ticks, and bounded cursor/maintenance wakeups. The authenticated Codex companion closes NCT-110 at the accepted one-host boundary. NCT-112's mode-40 hidden/visible runner now passes a short four-lane matrix with phase resources and compositor pixels; the retained 48-hour execution still requires elapsed time, and physical input remains a release operation.
@@ -265,9 +265,10 @@ plus root memory are retained in
 not Cairo/Pango/library-internal allocations.
 
 The real-shell pipeline lane additionally feeds this context through the
-production PTY, bounded `TerminalSession` pump, VT grid, and ABI-v2 packed rows.
-It retains input-write/PTY-read-start-to-Cairo percentiles, repeat/cross-mode
-pixels, zero warm-frame renderer allocations, and separate root/tree memory.
+production PTY, bounded `TerminalSession` pump, VT grid, and ABI-v7 packed frame
+snapshots. It retains input-write/PTY-read-start-to-Cairo percentiles,
+repeat/cross-mode pixels, zero warm-frame renderer allocations, and separate
+root/tree memory.
 
 **Proof still required.** Retain the fixed live-output corpus on mapped Plasma
 Wayland and X11 surfaces with Cairo fallback conversion counts, full-stack
@@ -285,11 +286,11 @@ Its
 also keeps adjacent frame damage and previous cursor/selection state.
 
 **Implemented in NOCTTY.** Each visible row retains a bounded dirty span with a
-clean sentinel. Every VT mutation records its affected range. ABI v2 returns
-row spans and retains a complete-row callback only as a compatibility fallback
-inside the same size/version-checked struct. Full clear,
-selection, font, theme, mapping, and resize operations still invalidate the
-required full region.
+clean sentinel. Every VT mutation records its affected range. ABI v7 returns
+row spans and one borrowed packed frame snapshot for the visible rows; the old
+complete-row and per-cell callbacks are no longer part of the Linux native
+contract. Full clear, selection, font, theme, mapping, and resize operations
+still invalidate the required full region.
 
 **Proof.** Compare cells submitted and Cairo draw time for shell typing, a
 single-cell progress spinner, ncurses partial updates, and full-screen agent

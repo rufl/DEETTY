@@ -1339,6 +1339,8 @@ pub const Grid = struct {
     }
 
     pub fn feed(self: *Grid, bytes: []const u8) !void {
+        if (bytes.len == 0) return;
+        _ = self.beginDamage();
         var index: usize = 0;
         while (index < bytes.len) {
             if (self.parser.isGround() and self.utf8_expected == 0 and
@@ -1358,12 +1360,17 @@ pub const Grid = struct {
                     }
                 }
             }
-            try self.feedByte(bytes[index]);
+            try self.feedByteInBatch(bytes[index]);
             index += 1;
         }
     }
 
     pub fn feedByte(self: *Grid, byte: u8) !void {
+        _ = self.beginDamage();
+        try self.feedByteInBatch(byte);
+    }
+
+    fn feedByteInBatch(self: *Grid, byte: u8) !void {
         if (self.utf8_expected > 0) {
             if (byte >= 0x80 and byte <= 0xbf) {
                 self.utf8_codepoint = (self.utf8_codepoint << 6) | (byte & 0x3f);
@@ -1903,7 +1910,7 @@ pub const Grid = struct {
     fn markDirtyRange(self: *Grid, first: usize, last_inclusive: usize) void {
         if (first >= self.rows) return;
         const end = @min(last_inclusive + 1, self.rows);
-        const generation = self.beginDamage();
+        const generation = self.damage_generation;
         @memset(self.row_damage_generation[first..end], generation);
         if (first == 0 and end == self.rows) {
             self.all_rows_dirty = true;
@@ -1921,7 +1928,7 @@ pub const Grid = struct {
         const bounded_end = @min(end, self.columns);
         const meta = self.rowMeta(row);
         meta.used_columns = @max(meta.used_columns, @as(u16, @intCast(bounded_end)));
-        self.row_damage_generation[row] = self.beginDamage();
+        self.row_damage_generation[row] = self.damage_generation;
         if (self.all_rows_dirty) return;
         self.dirty_rows[row] = true;
         const span = &self.dirty_spans[row];

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const version: u32 = 6;
+pub const version: u32 = 7;
 
 pub const DirtySpan = extern struct {
     first: u32,
@@ -9,8 +9,7 @@ pub const DirtySpan = extern struct {
 
 pub const Pump = *const fn (?*anyopaque) callconv(.c) c_int;
 pub const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
-pub const Cell = *const fn (?*anyopaque, c_int, c_int) callconv(.c) u64;
-pub const Row = *const fn (?*anyopaque, c_int, [*]u64, usize) callconv(.c) c_int;
+pub const Frame = *const fn (?*anyopaque, c_int, c_int, [*]u64, usize) callconv(.c) c_int;
 pub const DirtyRows = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;
 pub const DirtySpans = *const fn (?*anyopaque, [*]DirtySpan, usize) callconv(.c) c_int;
 pub const PresentationReady = *const fn (?*anyopaque) callconv(.c) c_int;
@@ -38,8 +37,7 @@ pub const Callbacks = extern struct {
     userdata: ?*anyopaque,
     pump: Pump,
     write: Write,
-    cell: Cell,
-    row: Row,
+    frame: Frame,
     dirty_rows: DirtyRows,
     dirty_spans: DirtySpans,
     presentation_ready: PresentationReady,
@@ -101,7 +99,7 @@ fn countPasteBytes(_: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.
 }
 
 test "native grid ABI layout is explicit and versioned" {
-    try std.testing.expectEqual(@as(u32, 6), version);
+    try std.testing.expectEqual(@as(u32, 7), version);
     try std.testing.expect(@sizeOf(Callbacks) >= 2 * @sizeOf(u32));
     try std.testing.expect(@sizeOf(LaunchOptions) >= 2 * @sizeOf(u32));
 }

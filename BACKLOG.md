@@ -295,7 +295,7 @@ Focused Debug and `ReleaseSafe` builds plus the 141-test Zig policy suite pass.
 The complete focused renderer matrix
 (`NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=300 ./scripts/native_grid_smoke.sh`)
 now passes in serialized private X11 and private Wayland namespaces:
-`native_grid_renderer_matrix x11=true wayland=true abi=6 dirty_spans=true
+`native_grid_renderer_matrix x11=true wayland=true abi=7 dirty_spans=true
 frame_clock=true glyph_cache=true resize_coalesced=true
 synchronized_output=true deadman=true warning_fatal=true`. The individual
 receipts report `resize_commits=1`, `sync_deferrals=4`,
