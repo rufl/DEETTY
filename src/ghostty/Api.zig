@@ -34,7 +34,7 @@ pub const Target = extern struct {
 
 pub const Action = extern struct {
     tag: c_int = 0,
-    payload: [128]u8 = [_]u8{0} ** 128,
+    payload: [128]u8 = @splat(0),
 };
 
 pub const SurfaceConfig = extern struct {
@@ -319,9 +319,9 @@ test "symbol names track published libghostty entry points" {
     try std.testing.expectEqualStrings("ghostty_surface_draw", SymbolNames.surface_draw);
     try std.testing.expectEqualStrings("ghostty_surface_key", SymbolNames.surface_key);
     try std.testing.expectEqualStrings("ghostty_surface_text", SymbolNames.surface_text);
-    try std.testing.expectEqual(@as(c_int, 0), @intFromEnum(Platform.invalid));
-    try std.testing.expectEqual(@as(c_int, 1), @intFromEnum(Platform.macos));
-    try std.testing.expectEqual(@as(c_int, 2), @intFromEnum(Platform.ios));
+    try std.testing.expectEqual(@as(c_int, 0), @backingInt(Platform.invalid));
+    try std.testing.expectEqual(@as(c_int, 1), @backingInt(Platform.macos));
+    try std.testing.expectEqual(@as(c_int, 2), @backingInt(Platform.ios));
 }
 
 test "probe reports unavailable library without failing" {

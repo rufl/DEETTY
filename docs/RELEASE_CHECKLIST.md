@@ -131,7 +131,7 @@ The maintained NCT-106/NCT-122 GLib worker lane retains the shared admission and
 - [x] Pane-local Ctrl+wheel font increase/decrease with isolated dynamic cell geometry, ordinary wheel preservation, and workspace-persisted reload
 - [x] Exact-pane `Profile` submenu with five Zig-owned presets (Global default, Compact, Readable, High contrast, and Mono no ligatures), live isolated family/size/high-contrast/ligature state, Settings `Active pane profile`, and workspace persistence/restoration; the current Cairo lane proves preference delivery rather than visible ligature shaping
 - [x] Keyboard, mouse, focus, resize, selection, copy, and safe paste
-- [x] ABI v4 packed-row fetches, terminal-owned dirty-span damage with full fallback, coalesced equal-background fills, guarded Cairo glyph caching, rich-style/grapheme fallback, selective cursor redraw, mapped frame-clock presentation, hidden 100 ms coalescing, synchronized-output deadman release, and final-geometry resize coalescing
+- [x] ABI v7 borrowed packed-frame snapshots with a lazy per-row Zig packing cache keyed by damage generation and viewport, terminal-owned dirty-span damage with full fallback, coalesced equal-background fills, guarded Cairo glyph caching, rich-style/grapheme fallback, selective cursor redraw, mapped frame-clock presentation, hidden 100 ms coalescing, synchronized-output deadman release, and final-geometry resize coalescing
 - [x] GUI-configurable bounded VT scrollback from 0 through 100000 lines applies live, releases excess storage, and preserves logical oldest-to-newest history across resize
 - [x] Wayland and X11 clipboard round trips
 - [x] Plasma shortcut registration, conflict fallback, recorder persistence, and cleanup

@@ -39,7 +39,7 @@ pub const ChromeColor = enum(u8) {
     terminal_cursor,
     pane_gap,
 
-    pub const count = @typeInfo(ChromeColor).@"enum".fields.len;
+    pub const count = @typeInfo(ChromeColor).@"enum".field_names.len;
 };
 
 pub const Theme = struct {
@@ -165,11 +165,11 @@ pub const Theme = struct {
     }
 
     pub fn chromeColor(self: Theme, color: ChromeColor) Color {
-        return self.chrome[@intFromEnum(color)];
+        return self.chrome[@backingInt(color)];
     }
 
     pub fn setChromeColor(self: *Theme, color: ChromeColor, value: Color) void {
-        self.chrome[@intFromEnum(color)] = value;
+        self.chrome[@backingInt(color)] = value;
     }
 };
 

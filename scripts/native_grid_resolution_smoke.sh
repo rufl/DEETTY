@@ -227,7 +227,7 @@ run_case() {
 }
 
 cd "$repo_root"
-zig build noctty-smoke-binary -j1 --global-cache-dir .zig-cache/global
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build -j1 noctty-smoke-binary
 kscreen-doctor output.1.addCustomMode.1024.640.60000.full >/dev/null
 run_case dropdown --native-grid-resolution-dropdown-smoke \
     'NOCTTY resolution dropdown qualification' 1382 495 983 352

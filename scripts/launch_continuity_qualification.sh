@@ -52,11 +52,10 @@ run_mode() {
     mode_xdg_cache="$scratch/xdg-cache-$mode"
     mkdir -p "$mode_tmp" "$mode_xdg_cache"
     TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
-        zig build launch-continuity-qualification-binary \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build launch-continuity-qualification-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
 
     PATH="$scratch/bin:$PATH" \
         "$prefix/bin/noctty-launch-continuity-qualification" \

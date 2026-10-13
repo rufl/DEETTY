@@ -25,7 +25,7 @@ export XDG_CACHE_HOME="$verify_root/xdg-cache"
 export NOCTTY_ZIG_CACHE_DIR="$verify_root/zig-local"
 export NOCTTY_ZIG_GLOBAL_CACHE_DIR="$verify_root/zig-global"
 export NOCTTY_INSTALL_PREFIX="$verify_root/install"
-export NOCTTY_BUNDLE_PARENT="$verify_root/tmp"
+export ZIG_GLOBAL_CACHE_DIR="$NOCTTY_ZIG_GLOBAL_CACHE_DIR"
 export NOCTTY_HISTORY_PARENT="$verify_root/tmp"
 export NOCTTY_FAIRNESS_PARENT="$verify_root/tmp"
 export NOCTTY_NCURSES_QUALIFICATION_PARENT="$verify_root/tmp"
@@ -58,10 +58,9 @@ run_pressure_gated_display() {
 ./scripts/check_display_isolation.sh
 run_pressure_gated_display ./scripts/isolated_display_smoke.sh
 run_pressure_gated_display ./scripts/native_grid_pane_close_smoke.sh
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" test
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR" check
-run_zig_build --prefix "$visible_root" --cache-dir "$NOCTTY_ZIG_CACHE_DIR" \
-  --global-cache-dir "$NOCTTY_ZIG_GLOBAL_CACHE_DIR"
+run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" test
+run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" check
+run_zig_build --prefix "$visible_root" --cache-dir "$NOCTTY_ZIG_CACHE_DIR"
 ./scripts/cli_smoke.sh "$visible_root/bin/noctty" "$visible_root/bin/nocted"
 run_pressure_gated_display ./scripts/nocted_single_instance_smoke.sh \
   "$visible_root/bin/nocted"

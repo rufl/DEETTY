@@ -8,7 +8,7 @@ pub const HostPeer = struct {
     publisher: Presentation.Publisher,
     receive_sequence: Protocol.Sequence = .{},
     permission: Protocol.PermissionState = .{},
-    changed_rows: [Protocol.max_rows]bool = [_]bool{false} ** Protocol.max_rows,
+    changed_rows: [Protocol.max_rows]bool = @splat(false),
     checkpoint_required: bool = true,
     stopped: bool = false,
 
@@ -390,7 +390,7 @@ pub fn validateWorkspaceManifest(manifest: WorkspaceManifest) !void {
             return error.InvalidShareWorkspace;
 
         const nodes = manifest.nodes[node_offset .. node_offset + tab.node_count];
-        var visited = [_]bool{false} ** Protocol.max_layout_nodes;
+        var visited: [Protocol.max_layout_nodes]bool = @splat(false);
         var stack: [Protocol.max_layout_nodes]u16 = undefined;
         var stack_len: usize = 1;
         stack[0] = tab.root_node;
@@ -452,7 +452,7 @@ pub fn encodeWorkspaceManifestAlloc(
     var bytes = std.array_list.Managed(u8).init(allocator);
     errdefer bytes.deinit();
     var header: [manifest_header_length]u8 = undefined;
-    header[0] = @intFromEnum(manifest.scope);
+    header[0] = @backingInt(manifest.scope);
     header[1] = 0;
     std.mem.writeInt(u16, header[2..4], @intCast(manifest.tabs.len), .big);
     std.mem.writeInt(u16, header[4..6], @intCast(manifest.panes.len), .big);
@@ -483,8 +483,8 @@ pub fn encodeWorkspaceManifestAlloc(
     for (manifest.nodes) |node| {
         var fixed: [layout_manifest_fixed_length]u8 = undefined;
         std.mem.writeInt(u64, fixed[0..8], node.tab_id, .big);
-        fixed[8] = @intFromEnum(node.kind);
-        fixed[9] = @intFromEnum(node.axis);
+        fixed[8] = @backingInt(node.kind);
+        fixed[9] = @backingInt(node.axis);
         std.mem.writeInt(u16, fixed[10..12], node.ratio_permille, .big);
         std.mem.writeInt(u64, fixed[12..20], node.pane_id, .big);
         std.mem.writeInt(u16, fixed[20..22], node.first, .big);

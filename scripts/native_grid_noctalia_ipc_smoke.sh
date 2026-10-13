@@ -11,8 +11,8 @@ export LC_ALL=C
 export NO_AT_BRIDGE=1
 
 
-zig build --global-cache-dir .zig-cache/global
-zig build --global-cache-dir .zig-cache/global smoke-binaries
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 output=/tmp/noctty-native-grid-noctalia-ipc.txt
 ready=/tmp/noctty-noctalia-control-ready
 rm -f "$output" "$ready"

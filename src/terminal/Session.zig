@@ -5,6 +5,7 @@
 //! groups, descriptors, allocator state, and history storage are released once.
 
 const std = @import("std");
+const Compat = @import("compat");
 const Pty = @import("Pty.zig");
 const Vt = @import("Vt.zig");
 const LaunchProfile = @import("LaunchProfile.zig");
@@ -31,6 +32,15 @@ pub const TerminalSession = struct {
     pump_scratch_owned: bool,
     pending_write: std.array_list.Managed(u8),
     pending_write_start: usize = 0,
+    // Lazily caches packed visible rows; resize, damage, and viewport tokens invalidate it.
+    frame_cache_cells: ?[]u64 = null,
+    frame_cache_row_generations: ?[]u64 = null,
+    frame_cache_row_valid: ?[]bool = null,
+    frame_cache_columns: usize = 0,
+    frame_cache_rows: usize = 0,
+    frame_cache_viewport_offset: usize = std.math.maxInt(usize),
+    frame_cache_history_count: usize = std.math.maxInt(usize),
+    frame_cache_damage_generation: u64 = 0,
     deinitialized: bool = false,
 
     pub fn spawn(allocator: std.mem.Allocator, cwd: [:0]const u8, shell: [:0]const u8, columns: u16, rows: u16) !TerminalSession {
@@ -139,13 +149,13 @@ pub const TerminalSession = struct {
         normalized_profile.normalizeScrollback();
         try normalized_profile.validate();
         const profile_effective = &normalized_profile;
-        const cwd = try allocator.dupeZ(u8, profile_effective.workingDirectory(pane_cwd));
+        const cwd = try Compat.dupeZ(allocator, profile_effective.workingDirectory(pane_cwd));
         defer allocator.free(cwd);
-        const program = try allocator.dupeZ(u8, profile_effective.shellPath(fallback_shell));
+        const program = try Compat.dupeZ(allocator, profile_effective.shellPath(fallback_shell));
         defer allocator.free(program);
-        const argument = try allocator.dupeZ(u8, profile_effective.argument());
+        const argument = try Compat.dupeZ(allocator, profile_effective.argument());
         defer allocator.free(argument);
-        const environment = try allocator.dupeZ(u8, profile_effective.environment.slice());
+        const environment = try Compat.dupeZ(allocator, profile_effective.environment.slice());
         defer allocator.free(environment);
 
         var pty = try Pty.Session.spawnProfile(.{
@@ -175,10 +185,106 @@ pub const TerminalSession = struct {
         };
     }
 
+    fn clearFrameCache(self: *TerminalSession) void {
+        if (self.frame_cache_cells) |cells| self.allocator.free(cells);
+        if (self.frame_cache_row_generations) |generations|
+            self.allocator.free(generations);
+        if (self.frame_cache_row_valid) |valid| self.allocator.free(valid);
+        self.frame_cache_cells = null;
+        self.frame_cache_row_generations = null;
+        self.frame_cache_row_valid = null;
+        self.frame_cache_columns = 0;
+        self.frame_cache_rows = 0;
+        self.frame_cache_viewport_offset = std.math.maxInt(usize);
+        self.frame_cache_history_count = std.math.maxInt(usize);
+        self.frame_cache_damage_generation = 0;
+    }
+
+    fn ensureFrameCache(self: *TerminalSession) !void {
+        const columns = self.grid.columns;
+        const rows = self.grid.rows;
+        const required = std.math.mul(usize, columns, rows) catch
+            return error.FrameCacheTooLarge;
+        if (self.frame_cache_cells) |cells| {
+            if (cells.len == required and
+                self.frame_cache_columns == columns and
+                self.frame_cache_rows == rows and
+                self.frame_cache_row_generations != null and
+                self.frame_cache_row_valid != null)
+                return;
+        }
+
+        const cells = try self.allocator.alloc(u64, required);
+        errdefer self.allocator.free(cells);
+        const generations = try self.allocator.alloc(u64, rows);
+        errdefer self.allocator.free(generations);
+        const valid = try self.allocator.alloc(bool, rows);
+        errdefer self.allocator.free(valid);
+        @memset(valid, false);
+        self.clearFrameCache();
+        self.frame_cache_cells = cells;
+        self.frame_cache_row_generations = generations;
+        self.frame_cache_row_valid = valid;
+        self.frame_cache_columns = columns;
+        self.frame_cache_rows = rows;
+    }
+
+    pub fn packedFrame(
+        self: *TerminalSession,
+        first_row: usize,
+        requested_rows: usize,
+        output: []u64,
+    ) !usize {
+        if (requested_rows == 0 or first_row >= self.grid.rows) return 0;
+        const row_count = @min(requested_rows, self.grid.rows - first_row);
+        const columns = self.grid.columns;
+        const required = std.math.mul(usize, row_count, columns) catch
+            return error.FrameCacheTooLarge;
+        if (output.len < required) return error.FrameCacheCapacity;
+        try self.ensureFrameCache();
+
+        const cache = self.frame_cache_cells.?;
+        const generations = self.frame_cache_row_generations.?;
+        const valid = self.frame_cache_row_valid.?;
+        const viewport_offset = self.grid.viewportOffset();
+        const history_count = self.grid.historyCount();
+        const damage_generation = self.grid.damageGeneration();
+        const viewport_changed =
+            self.frame_cache_viewport_offset != viewport_offset or
+            self.frame_cache_history_count != history_count;
+        const scrolled_damage =
+            viewport_offset > 0 and
+            self.frame_cache_damage_generation != damage_generation;
+        const damage_wrapped = damage_generation < self.frame_cache_damage_generation;
+        if (viewport_changed or scrolled_damage or damage_wrapped) @memset(valid, false);
+        self.frame_cache_viewport_offset = viewport_offset;
+        self.frame_cache_history_count = history_count;
+        self.frame_cache_damage_generation = damage_generation;
+
+        const blank: u64 = @as(u64, ' ');
+        for (0..row_count) |offset| {
+            const row = first_row + offset;
+            const generation = if (viewport_offset == 0)
+                self.grid.rowDamageGeneration(row)
+            else
+                damage_generation;
+            const cache_row = cache[row * columns ..][0..columns];
+            if (!valid[row] or generations[row] != generation) {
+                const copied = self.grid.packedRow(row, cache_row);
+                if (copied < columns) @memset(cache_row[copied..], blank);
+                generations[row] = generation;
+                valid[row] = true;
+            }
+            @memcpy(output[offset * columns ..][0..columns], cache_row);
+        }
+        return row_count;
+    }
+
     pub fn deinit(self: *TerminalSession) void {
         if (self.deinitialized) return;
         self.pty.deinit();
         self.grid.deinit();
+        self.clearFrameCache();
         self.pending_write.deinit();
         if (self.pump_scratch_owned) self.allocator.destroy(self.pump_scratch);
         self.deinitialized = true;
@@ -269,8 +375,10 @@ pub const TerminalSession = struct {
 
     pub fn resize(self: *TerminalSession, columns: u16, rows: u16, width_px: u32, height_px: u32) !void {
         if (self.deinitialized) return error.TerminalSessionClosed;
+        const changed = columns != self.grid.columns or rows != self.grid.rows;
         try self.pty.resize(rows, columns, width_px, height_px);
         try self.grid.resize(columns, rows);
+        if (changed) self.clearFrameCache();
     }
 
     pub fn pump(self: *TerminalSession) !Pumped {
@@ -363,6 +471,53 @@ test "terminal session pump drains PTY bytes to a bounded per-tick budget" {
         .would_block => {},
         else => return error.ExpectedPumpWouldBlock,
     }
+}
+
+test "terminal session packed frame cache follows output and viewport changes" {
+    var pump_scratch = TerminalSession.PumpScratch{};
+    var session = TerminalSession{
+        .allocator = std.testing.allocator,
+        .pty = undefined,
+        .grid = try Vt.Grid.init(std.testing.allocator, 4, 2),
+        .pump_scratch = &pump_scratch,
+        .pump_scratch_owned = false,
+        .pending_write = std.array_list.Managed(u8).init(std.testing.allocator),
+    };
+    defer session.clearFrameCache();
+    defer session.pending_write.deinit();
+    defer session.grid.deinit();
+
+    try session.grid.feed("ab\r\ncd\r\nef");
+    try std.testing.expect(session.grid.historyCount() > 0);
+    var cached: [8]u64 = undefined;
+    var direct: [8]u64 = undefined;
+    try std.testing.expectEqual(@as(usize, 2), try session.packedFrame(
+        0,
+        2,
+        &cached,
+    ));
+    for (0..2) |row| _ = session.grid.packedRow(
+        row,
+        direct[row * 4 ..][0..4],
+    );
+    try std.testing.expectEqualSlices(u64, &direct, &cached);
+
+    try session.grid.feed("\x1b[1;1HZ");
+    _ = try session.packedFrame(0, 2, &cached);
+    for (0..2) |row| _ = session.grid.packedRow(
+        row,
+        direct[row * 4 ..][0..4],
+    );
+    try std.testing.expectEqualSlices(u64, &direct, &cached);
+
+    session.grid.scrollViewport(1);
+    try std.testing.expect(session.grid.viewportOffset() > 0);
+    _ = try session.packedFrame(0, 2, &cached);
+    for (0..2) |row| _ = session.grid.packedRow(
+        row,
+        direct[row * 4 ..][0..4],
+    );
+    try std.testing.expectEqualSlices(u64, &direct, &cached);
 }
 
 test "terminal sessions keep recurring pump storage outside the session value" {

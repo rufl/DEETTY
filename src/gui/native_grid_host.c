@@ -9,7 +9,7 @@
  * testable. NOCTTY_ENABLE_SMOKE adds qualification orchestration; it must not
  * alter production behavior.
  */
-#include <gtk/gtk.h>
+#include <epoxy/gl.h>
 #include <gtk/gtk-a11y.h>
 #include <gdk/gdkwayland.h>
 #include <glib-unix.h>
@@ -771,6 +771,18 @@ typedef struct NocttyGridContextTag {
     gchar *font_family;
     int font_antialias;
     int font_hinting;
+    int renderer_backend;
+    cairo_surface_t *gpu_surface;
+    int gpu_surface_width;
+    int gpu_surface_height;
+    int gpu_surface_scale;
+    GLuint gpu_texture;
+    GLuint gpu_program;
+    GLuint gpu_vao;
+    GLuint gpu_vbo;
+    GLint gpu_sampler;
+    guint gpu_fallback_source;
+    int gpu_fallback_pending;
     int ligatures;
     int profile_preset;
     int high_contrast;
@@ -855,6 +867,11 @@ typedef struct NocttyGridContextTag {
 } NocttyGridContext;
 
 static NocttyGridContext *root_grid_context(NocttyGridContext *context);
+static gboolean on_gpu_render(GtkGLArea *area, GdkGLContext *gl_context,
+                              gpointer user_data);
+static gboolean fallback_grid_renderer_idle(gpointer user_data);
+static void destroy_gpu_resources(NocttyGridContext *context);
+static void connect_grid_area(NocttyGridContext *context);
 static gchar *current_tab_title_alloc(NocttyGridContext *context);
 static void update_compact_tab(NocttyGridContext *context);
 static void open_grid_settings(NocttyGridContext *context);
@@ -1117,6 +1134,17 @@ typedef struct {
 G_DEFINE_TYPE(
     NocttyTerminalArea, noctty_terminal_area, GTK_TYPE_DRAWING_AREA)
 
+typedef struct {
+    GtkGLArea parent;
+} NocttyTerminalGLArea;
+
+typedef struct {
+    GtkGLAreaClass parent_class;
+} NocttyTerminalGLAreaClass;
+
+G_DEFINE_TYPE(
+    NocttyTerminalGLArea, noctty_terminal_gl_area, GTK_TYPE_GL_AREA)
+
 static void noctty_terminal_area_class_init(
     NocttyTerminalAreaClass *class) {
     noctty_grid_widget_class_set_accessible_type(
@@ -1127,7 +1155,25 @@ static void noctty_terminal_area_init(NocttyTerminalArea *area) {
     (void)area;
 }
 
-static GtkWidget *noctty_terminal_area_new(void) {
+static void noctty_terminal_gl_area_class_init(
+    NocttyTerminalGLAreaClass *class) {
+    noctty_grid_widget_class_set_accessible_type(
+        class, noctty_terminal_accessible_get_type());
+}
+
+static void noctty_terminal_gl_area_init(NocttyTerminalGLArea *area) {
+    (void)area;
+}
+
+static GtkWidget *noctty_terminal_area_new(int renderer_backend) {
+    if (renderer_backend != 0) {
+        GtkWidget *area = GTK_WIDGET(
+            g_object_new(noctty_terminal_gl_area_get_type(), NULL));
+        gtk_gl_area_set_has_alpha(GTK_GL_AREA(area), TRUE);
+        gtk_gl_area_set_auto_render(GTK_GL_AREA(area), TRUE);
+        gtk_gl_area_set_required_version(GTK_GL_AREA(area), 3, 2);
+        return area;
+    }
     GtkWidget *area = GTK_WIDGET(
         g_object_new(noctty_terminal_area_get_type(), NULL));
     noctty_grid_widget_set_app_paintable(area, TRUE);
@@ -1680,6 +1726,336 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 #include "../../tests/native_grid_smoke_draw_counters.inc"
 #endif
     return result;
+}
+static gboolean request_gpu_fallback(NocttyGridContext *context) {
+    if (context == NULL || context->gpu_fallback_pending) return FALSE;
+    context->gpu_fallback_pending = 1;
+    context->gpu_fallback_source =
+        g_idle_add(fallback_grid_renderer_idle, context);
+    return TRUE;
+}
+
+static void destroy_gpu_resources(NocttyGridContext *context) {
+    if (context == NULL) return;
+    if (context->gpu_fallback_source != 0) {
+        g_source_remove(context->gpu_fallback_source);
+        context->gpu_fallback_source = 0;
+        context->gpu_fallback_pending = 0;
+    }
+    if (context->area != NULL &&
+        GTK_IS_GL_AREA(context->area) &&
+        gtk_widget_get_realized(context->area)) {
+        gtk_gl_area_make_current(GTK_GL_AREA(context->area));
+        if (context->gpu_vbo != 0) {
+            glDeleteBuffers(1, &context->gpu_vbo);
+            context->gpu_vbo = 0;
+        }
+        if (context->gpu_vao != 0) {
+            glDeleteVertexArrays(1, &context->gpu_vao);
+            context->gpu_vao = 0;
+        }
+        if (context->gpu_texture != 0) {
+            glDeleteTextures(1, &context->gpu_texture);
+            context->gpu_texture = 0;
+        }
+        if (context->gpu_program != 0) {
+            glDeleteProgram(context->gpu_program);
+            context->gpu_program = 0;
+        }
+    } else {
+        context->gpu_vbo = 0;
+        context->gpu_vao = 0;
+        context->gpu_texture = 0;
+        context->gpu_program = 0;
+    }
+    if (context->gpu_surface != NULL) {
+        cairo_surface_destroy(context->gpu_surface);
+        context->gpu_surface = NULL;
+    }
+    context->gpu_surface_width = 0;
+    context->gpu_surface_height = 0;
+    context->gpu_surface_scale = 0;
+    context->gpu_sampler = -1;
+}
+
+static gboolean compile_gpu_shader(
+    GLenum type, const char *source, GLuint *shader_out) {
+    GLuint shader = glCreateShader(type);
+    if (shader == 0) return FALSE;
+    const GLchar *sources[] = { source };
+    glShaderSource(shader, 1, sources, NULL);
+    glCompileShader(shader);
+    GLint compiled = GL_FALSE;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (compiled == GL_FALSE) {
+        char log[1024] = {0};
+        GLsizei length = 0;
+        glGetShaderInfoLog(
+            shader, (GLsizei)(sizeof(log) - 1), &length, log);
+        log[length < (GLsizei)(sizeof(log) - 1) ? length :
+            (GLsizei)(sizeof(log) - 1)] = '\0';
+        g_printerr("native_grid_gpu_shader_failed %s\n", log);
+        glDeleteShader(shader);
+        return FALSE;
+    }
+    *shader_out = shader;
+    return TRUE;
+}
+
+static gboolean initialize_gpu_resources(
+    NocttyGridContext *context, GtkGLArea *area) {
+    gtk_gl_area_make_current(area);
+    GError *error = gtk_gl_area_get_error(area);
+    if (error != NULL) {
+        g_printerr("native_grid_gpu_context_failed %s\n", error->message);
+        return FALSE;
+    }
+    if (glGetString(GL_VERSION) == NULL) return FALSE;
+    if (context->gpu_program != 0) return TRUE;
+
+    static const char vertex_source[] =
+        "#version 150\n"
+        "in vec2 a_position;\n"
+        "in vec2 a_texcoord;\n"
+        "out vec2 v_texcoord;\n"
+        "void main() {\n"
+        "  gl_Position = vec4(a_position, 0.0, 1.0);\n"
+        "  v_texcoord = a_texcoord;\n"
+        "}\n";
+    static const char fragment_source[] =
+        "#version 150\n"
+        "uniform sampler2D u_texture;\n"
+        "in vec2 v_texcoord;\n"
+        "out vec4 out_color;\n"
+        "void main() { out_color = texture(u_texture, v_texcoord); }\n";
+    GLuint vertex_shader = 0;
+    GLuint fragment_shader = 0;
+    if (!compile_gpu_shader(
+            GL_VERTEX_SHADER, vertex_source, &vertex_shader) ||
+        !compile_gpu_shader(
+            GL_FRAGMENT_SHADER, fragment_source, &fragment_shader)) {
+        if (vertex_shader != 0) glDeleteShader(vertex_shader);
+        if (fragment_shader != 0) glDeleteShader(fragment_shader);
+        return FALSE;
+    }
+    context->gpu_program = glCreateProgram();
+    if (context->gpu_program == 0) {
+        glDeleteShader(vertex_shader);
+        glDeleteShader(fragment_shader);
+        return FALSE;
+    }
+    glAttachShader(context->gpu_program, vertex_shader);
+    glAttachShader(context->gpu_program, fragment_shader);
+    glBindAttribLocation(context->gpu_program, 0, "a_position");
+    glBindAttribLocation(context->gpu_program, 1, "a_texcoord");
+    glLinkProgram(context->gpu_program);
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+    GLint linked = GL_FALSE;
+    glGetProgramiv(context->gpu_program, GL_LINK_STATUS, &linked);
+    if (linked == GL_FALSE) {
+        char log[1024] = {0};
+        GLsizei length = 0;
+        glGetProgramInfoLog(
+            context->gpu_program, (GLsizei)(sizeof(log) - 1), &length, log);
+        log[length < (GLsizei)(sizeof(log) - 1) ? length :
+            (GLsizei)(sizeof(log) - 1)] = '\0';
+        g_printerr("native_grid_gpu_program_failed %s\n", log);
+        glDeleteProgram(context->gpu_program);
+        context->gpu_program = 0;
+        return FALSE;
+    }
+    context->gpu_sampler =
+        glGetUniformLocation(context->gpu_program, "u_texture");
+    if (context->gpu_sampler < 0) return FALSE;
+
+    static const GLfloat vertices[] = {
+        -1.0f, -1.0f, 0.0f, 1.0f,
+         1.0f, -1.0f, 1.0f, 1.0f,
+        -1.0f,  1.0f, 0.0f, 0.0f,
+         1.0f,  1.0f, 1.0f, 0.0f,
+    };
+    glGenVertexArrays(1, &context->gpu_vao);
+    glGenBuffers(1, &context->gpu_vbo);
+    glBindVertexArray(context->gpu_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, context->gpu_vbo);
+    glBufferData(
+        GL_ARRAY_BUFFER, (GLsizeiptr)sizeof(vertices), vertices,
+        GL_STATIC_DRAW);
+    glVertexAttribPointer(
+        0, 2, GL_FLOAT, GL_FALSE, (GLsizei)(4 * sizeof(GLfloat)),
+        (const void *)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(
+        1, 2, GL_FLOAT, GL_FALSE, (GLsizei)(4 * sizeof(GLfloat)),
+        (const void *)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glGenTextures(1, &context->gpu_texture);
+    glBindTexture(GL_TEXTURE_2D, context->gpu_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    if (glGetError() != GL_NO_ERROR) {
+        destroy_gpu_resources(context);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static gboolean ensure_gpu_surface(
+    NocttyGridContext *context, int width, int height, int scale) {
+    if (width <= 0 || height <= 0 || scale <= 0) return FALSE;
+    if (context->gpu_surface != NULL &&
+        context->gpu_surface_width == width &&
+        context->gpu_surface_height == height &&
+        context->gpu_surface_scale == scale)
+        return TRUE;
+    if (context->gpu_surface != NULL) {
+        cairo_surface_destroy(context->gpu_surface);
+        context->gpu_surface = NULL;
+    }
+    context->gpu_surface = cairo_image_surface_create(
+        CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(context->gpu_surface) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(context->gpu_surface);
+        context->gpu_surface = NULL;
+        return FALSE;
+    }
+    cairo_surface_set_device_scale(
+        context->gpu_surface, (double)scale, (double)scale);
+    context->gpu_surface_width = width;
+    context->gpu_surface_height = height;
+    context->gpu_surface_scale = scale;
+    return TRUE;
+}
+
+static gboolean on_gpu_render(
+    GtkGLArea *area, GdkGLContext *gl_context, gpointer user_data) {
+    (void)gl_context;
+    NocttyGridContext *context = user_data;
+    if (context == NULL || context->renderer_backend == 0) return TRUE;
+    if (gtk_gl_area_get_error(area) != NULL ||
+        !initialize_gpu_resources(context, area)) {
+        request_gpu_fallback(context);
+        return TRUE;
+    }
+    GtkAllocation allocation;
+    noctty_grid_widget_get_allocation(GTK_WIDGET(area), &allocation);
+    int scale = gtk_widget_get_scale_factor(GTK_WIDGET(area));
+    int width = allocation.width * scale;
+    int height = allocation.height * scale;
+    if (!ensure_gpu_surface(context, width, height, scale)) {
+        request_gpu_fallback(context);
+        return TRUE;
+    }
+    cairo_t *cr = cairo_create(context->gpu_surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        cairo_destroy(cr);
+        request_gpu_fallback(context);
+        return TRUE;
+    }
+    (void)draw_grid_contents(context, cr, allocation);
+    cairo_destroy(cr);
+    if (cairo_surface_status(context->gpu_surface) != CAIRO_STATUS_SUCCESS) {
+        request_gpu_fallback(context);
+        return TRUE;
+    }
+    refresh_terminal_accessible_text(context);
+    cairo_surface_flush(context->gpu_surface);
+    gtk_gl_area_make_current(area);
+    glViewport(0, 0, width, height);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(context->gpu_program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, context->gpu_texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_BGRA,
+        GL_UNSIGNED_BYTE, cairo_image_surface_get_data(context->gpu_surface));
+    glUniform1i(context->gpu_sampler, 0);
+    glBindVertexArray(context->gpu_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+    if (glGetError() != GL_NO_ERROR) request_gpu_fallback(context);
+    return TRUE;
+}
+
+static gboolean fallback_grid_renderer_idle(gpointer user_data) {
+    NocttyGridContext *context = user_data;
+    if (context == NULL) return G_SOURCE_REMOVE;
+    context->gpu_fallback_source = 0;
+    context->gpu_fallback_pending = 0;
+    if (context->renderer_backend == 0 || context->area == NULL)
+        return G_SOURCE_REMOVE;
+    GtkWidget *old_area = context->area;
+    GtkWidget *parent = gtk_widget_get_parent(old_area);
+    GtkWidget *new_area = noctty_terminal_area_new(0);
+    if (parent == NULL || new_area == NULL) {
+        if (new_area != NULL) gtk_widget_destroy(new_area);
+        context->renderer_backend = 0;
+        destroy_gpu_resources(context);
+        return G_SOURCE_REMOVE;
+    }
+    int margin_start = gtk_widget_get_margin_start(old_area);
+    int margin_end = gtk_widget_get_margin_end(old_area);
+    int margin_top = gtk_widget_get_margin_top(old_area);
+    int margin_bottom = gtk_widget_get_margin_bottom(old_area);
+    gtk_widget_set_margin_start(new_area, margin_start);
+    gtk_widget_set_margin_end(new_area, margin_end);
+    gtk_widget_set_margin_top(new_area, margin_top);
+    gtk_widget_set_margin_bottom(new_area, margin_bottom);
+    gboolean expand = TRUE;
+    gboolean fill = TRUE;
+    guint padding = 0;
+    GtkPackType pack = GTK_PACK_START;
+    gboolean parent_is_box = GTK_IS_BOX(parent);
+    if (parent_is_box)
+        gtk_box_query_child_packing(
+            GTK_BOX(parent), old_area, &expand, &fill, &padding, &pack);
+    GtkWidget *paned = NULL;
+    gboolean paned_first = FALSE;
+    if (GTK_IS_PANED(parent)) {
+        if (gtk_paned_get_child1(GTK_PANED(parent)) == old_area) {
+            paned = parent;
+            paned_first = TRUE;
+        } else if (gtk_paned_get_child2(GTK_PANED(parent)) == old_area) {
+            paned = parent;
+        }
+    }
+    destroy_gpu_resources(context);
+    context->renderer_backend = 0;
+    gtk_container_remove(GTK_CONTAINER(parent), old_area);
+    if (parent_is_box) {
+        if (pack == GTK_PACK_END)
+            gtk_box_pack_end(
+                GTK_BOX(parent), new_area, expand, fill, padding);
+        else
+            gtk_box_pack_start(
+                GTK_BOX(parent), new_area, expand, fill, padding);
+        gtk_box_set_child_packing(
+            GTK_BOX(parent), new_area, expand, fill, padding, pack);
+    } else if (paned != NULL) {
+        if (paned_first) gtk_paned_add1(GTK_PANED(paned), new_area);
+        else gtk_paned_add2(GTK_PANED(paned), new_area);
+    } else {
+        gtk_container_add(GTK_CONTAINER(parent), new_area);
+    }
+    context->area = new_area;
+    connect_grid_area(context);
+    gtk_widget_show_all(new_area);
+    g_warning("NOCTTY OpenGL presentation unavailable; using Cairo renderer");
+    return G_SOURCE_REMOVE;
 }
 
 #if NOCTTY_ENABLE_SMOKE
@@ -6714,7 +7090,9 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->font_min_size = root->font_min_size;
     created->font_max_size = root->font_max_size;
     created->ligatures = source->ligatures;
-    created->high_contrast = source->high_contrast;
+    created->font_antialias = root->font_antialias;
+    created->font_hinting = root->font_hinting;
+    created->renderer_backend = root->renderer_backend;
     created->profile_preset = source->profile_preset;
 }
 
@@ -6722,7 +7100,7 @@ static NocttyGridContext *create_grid_context_for_session(
     NocttyGridContext *source, void *userdata, uint64_t pane_id) {
     NocttyGridContext *created = g_new0(NocttyGridContext, 1);
     inherit_grid_session_context(created, source);
-    created->area = noctty_terminal_area_new();
+    created->area = noctty_terminal_area_new(created->renderer_backend);
     int spacing_leading = created->pane_spacing_px / 2;
     int spacing_trailing = created->pane_spacing_px - spacing_leading;
     noctty_grid_widget_set_margins(
@@ -7560,6 +7938,7 @@ static void destroy_retired_grid_context(NocttyGridContext *root,
     context->dirty_row_buffer = noctty_grid_memory_clear(context->dirty_row_buffer);
     context->dirty_span_buffer = noctty_grid_memory_clear(context->dirty_span_buffer);
     destroy_grid_glyph_cache(context);
+    destroy_gpu_resources(context);
     context->im_context = noctty_grid_object_clear(context->im_context);
     g_ptr_array_remove(root->contexts, context);
     noctty_grid_memory_free(context);
@@ -10878,6 +11257,17 @@ static void on_settings_hinting_changed(GtkComboBox *combo,
         user_data, noctty_grid_settings_event_code(
             NOCTTY_GRID_SETTINGS_EVENT_HINTING), value);
 }
+static void on_settings_renderer_changed(GtkComboBox *combo,
+                                         gpointer user_data) {
+    NocttyGridContext *context = user_data;
+    int value = noctty_grid_combo_box_get_active(combo);
+    if (value >= 0 && context->event != NULL)
+        context->event(
+            context->event_data, context->pane_id,
+            noctty_grid_settings_event_code(
+                NOCTTY_GRID_SETTINGS_EVENT_RENDERER_BACKEND),
+            value, (uint64_t)(g_get_monotonic_time() / 1000));
+}
 
 static void on_settings_shortcut_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
@@ -11385,7 +11775,9 @@ static void open_grid_settings(NocttyGridContext *context) {
         .font_max = context->font_max_size,
         .font_size = context->font_size,
         .antialias = context->font_antialias,
-        .hinting = context->font_hinting,
+        .renderer_backend = context->event_data != NULL
+            ? noctty_grid_compact_setting(context->event_data, 34)
+            : context->renderer_backend,
         .translucency = context->background_translucency,
         .alpha_supported = context->background_alpha_supported,
         .opacity_percent = context->background_opacity_percent,
@@ -11422,6 +11814,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     GtkWidget *font = appearance.font;
     GtkWidget *antialias = appearance.antialias;
     GtkWidget *hinting = appearance.hinting;
+    GtkWidget *renderer = appearance.renderer;
     GtkWidget *translucency = appearance.translucency;
     GtkWidget *background_opacity = appearance.opacity;
     GtkWidget *transparency_status = appearance.transparency_status;
@@ -11493,6 +11886,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     noctty_grid_object_set_data(G_OBJECT(dialog), "noctty-settings-font", font);
     noctty_grid_object_set_data(G_OBJECT(dialog), "noctty-settings-antialias", antialias);
     noctty_grid_object_set_data(G_OBJECT(dialog), "noctty-settings-hinting", hinting);
+    noctty_grid_object_set_data(G_OBJECT(dialog), "noctty-settings-renderer", renderer);
     context->settings_dialog = dialog;
     context->settings_categories = categories;
     context->settings_stack = stack;
@@ -11587,6 +11981,7 @@ static void open_grid_settings(NocttyGridContext *context) {
     noctty_grid_signal_connect(family, "changed", G_CALLBACK(on_settings_family_changed), target);
     noctty_grid_signal_connect(antialias, "changed", G_CALLBACK(on_settings_antialias_changed), target);
     noctty_grid_signal_connect(hinting, "changed", G_CALLBACK(on_settings_hinting_changed), target);
+    noctty_grid_signal_connect(renderer, "changed", G_CALLBACK(on_settings_renderer_changed), target);
     noctty_grid_signal_connect(dialog, "response", G_CALLBACK(on_settings_response), NULL);
     noctty_grid_signal_connect(dialog, "destroy", G_CALLBACK(on_settings_destroy), context);
     GtkListBoxRow *first = noctty_grid_list_box_get_row_at_index(
@@ -16592,6 +16987,11 @@ static void on_grid_area_realize(GtkWidget *widget, gpointer user_data) {
     }
     if (context->im_context != NULL)
         noctty_grid_im_context_set_client_window(context->im_context, window);
+    if (context->renderer_backend != 0 && GTK_IS_GL_AREA(widget)) {
+        gtk_gl_area_make_current(GTK_GL_AREA(widget));
+        if (gtk_gl_area_get_error(GTK_GL_AREA(widget)) != NULL)
+            request_gpu_fallback(context);
+    }
 }
 
 static void on_grid_area_unrealize(GtkWidget *widget, gpointer user_data) {
@@ -16624,7 +17024,12 @@ static void connect_grid_area(NocttyGridContext *context) {
                 context->pane_id, (unsigned char *)name, sizeof(name)) > 0)
             noctty_grid_atk_object_set_name(accessible, name);
     }
-    noctty_grid_signal_connect(context->area, "draw", G_CALLBACK(on_draw), context);
+    if (context->renderer_backend != 0)
+        noctty_grid_signal_connect(
+            context->area, "render", G_CALLBACK(on_gpu_render), context);
+    else
+        noctty_grid_signal_connect(
+            context->area, "draw", G_CALLBACK(on_draw), context);
     noctty_grid_signal_connect(context->area, "key-press-event", G_CALLBACK(on_key_press), context);
     noctty_grid_signal_connect(context->area, "key-release-event",
                      G_CALLBACK(on_key_release), context);
@@ -16896,6 +17301,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.inactive_pane_dim_enabled = settings.inactive_pane_dim_enabled;
     context.inactive_pane_brightness_percent =
         settings.inactive_pane_brightness_percent;
+    context.renderer_backend = settings.renderer_backend;
     context.pane_divider_px = settings.pane_divider_px;
     context.pane_border_px = settings.pane_border_px;
     context.pane_border_focused_px = settings.pane_border_focused_px;
@@ -16937,7 +17343,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.last_notification_serial =
         noctty_grid_notification_serial(userdata);
     context.window = create_grid_toplevel(&context);
-    context.area = noctty_terminal_area_new();
+    context.area = noctty_terminal_area_new(context.renderer_backend);
     context.im_context = noctty_grid_input_context_new();
     context.contexts = g_ptr_array_new();
     g_ptr_array_add(context.contexts, &context);
@@ -16957,7 +17363,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         secondary.focused = 0;
         secondary.last_cursor_position = UINT32_MAX;
         secondary.window = context.window;
-        secondary.area = noctty_terminal_area_new();
+        secondary.area = noctty_terminal_area_new(secondary.renderer_backend);
         secondary.im_context = noctty_grid_input_context_new();
         g_ptr_array_add(context.contexts, &secondary);
         (void)sync_grid_context_profile(&secondary);
@@ -17194,6 +17600,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         candidate->dirty_row_buffer = noctty_grid_memory_clear(candidate->dirty_row_buffer);
         candidate->dirty_span_buffer = noctty_grid_memory_clear(candidate->dirty_span_buffer);
         destroy_grid_glyph_cache(candidate);
+        destroy_gpu_resources(candidate);
         g_clear_pointer(&candidate->note_overlay_font,
                         pango_font_description_free);
         candidate->im_context = noctty_grid_object_clear(candidate->im_context);
@@ -17748,6 +18155,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         candidate->dirty_row_buffer = noctty_grid_memory_clear(candidate->dirty_row_buffer);
         candidate->dirty_span_buffer = noctty_grid_memory_clear(candidate->dirty_span_buffer);
         destroy_grid_glyph_cache(candidate);
+        destroy_gpu_resources(candidate);
         g_clear_pointer(&candidate->note_overlay_font, pango_font_description_free);
         candidate->im_context = noctty_grid_object_clear(candidate->im_context);
         if (candidate->heap_allocated) noctty_grid_memory_free(candidate);

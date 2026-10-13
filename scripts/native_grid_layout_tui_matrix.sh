@@ -16,7 +16,7 @@ run_case() {
     application=$2
     output=$(timeout 180 env GDK_BACKEND="$backend" GTK_MODULES= \
         NO_AT_BRIDGE=1 NOCTTY_LAYOUT_TUI="$application" \
-        zig build --global-cache-dir .zig-cache/global smoke-run -- \
+        ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- \
         --native-grid-4x4-smoke 2>&1)
     printf '%s\n' "$output"
     printf '%s\n' "$output" | grep -F \

@@ -39,11 +39,10 @@ run_mode() {
     done
     printf 'NOCTTY_REAL_TUI_VIM\nreal ncurses fixture\n' >"$state/vim-fixture.txt"
 
-    if ! zig build terminal-real-tui-qualification-binary \
+    if ! ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-real-tui-qualification-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"; then
+        --cache-dir "$local_cache"; then
         return 1
     fi
 

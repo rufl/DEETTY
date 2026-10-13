@@ -1164,17 +1164,18 @@ test "selection and special keys preserve Win32 host policy" {
 }
 
 test "Windows key adapter preserves cursor mode and atomic capacity failures" {
-    var bytes = [_]u8{0xa5} ** 8;
+    var bytes: [8]u8 = @splat(0xa5);
+    const untouched: [8]u8 = @splat(0xa5);
     var count = noctty_windows_special_key_sequence(0x25, 0, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1b[D", bytes[0..count]);
     count = noctty_windows_special_key_sequence(0x25, -1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1bOD", bytes[0..count]);
     count = noctty_windows_special_key_sequence(0x24, 1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1b[H", bytes[0..count]);
-    bytes = [_]u8{0xa5} ** 8;
+    bytes = @splat(0xa5);
     try std.testing.expectEqual(@as(usize, 0), noctty_windows_special_key_sequence(0x7b, 0, &bytes, 4));
     try std.testing.expectEqual(@as(usize, 0), noctty_windows_special_key_sequence(0x0d, 0, &bytes, bytes.len));
-    try std.testing.expectEqualSlices(u8, &([_]u8{0xa5} ** 8), &bytes);
+    try std.testing.expectEqualSlices(u8, &untouched, &bytes);
     count = noctty_windows_special_key_sequence(0x7b, 0, &bytes, 5);
     try std.testing.expectEqualStrings("\x1b[24~", bytes[0..count]);
     try std.testing.expectEqual(@as(u8, 0xa5), bytes[5]);

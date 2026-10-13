@@ -16,6 +16,7 @@ native_gtk=src/gui/NativeGtk.zig
 native_gtk_header=include/noctty/native_gtk.h
 main=src/main.zig
 pty=src/terminal/Pty.zig
+session=src/terminal/Session.zig
 vt=src/terminal/Vt.zig
 nocted=src/nocted/main.zig
 nocted_gtk=src/nocted/gtk.zig
@@ -53,6 +54,7 @@ windows_nocted_zig_smoke=scripts/windows_nocted_zig_smoke.sh
 for path in "$grid" "$grid_abi" "$grid_abi_zig" "$grid_logic" "$grid_logic_header" "$grid_render" "$grid_render_header" "$grid_qualification" "$native_gtk" "$native_gtk_header" "$main" "$pty" "$vt" "$nocted" "$nocted_settings" "$nocted_task" "$nocted_worker" "$isolated_x11" "$isolated_wayland" "$nocted_endurance" "$auth_agent" "$installed_continuity" "$stability" "$zig_ownership" "$c_classification" "$c_inventory" "$windows_host" "$windows_logic" "$windows_diagnostics" "$windows_pty" "$windows_pty_logic" "$windows_clipboard" "$windows_process" "$windows_menu" "$windows_fonts" "$windows_title" "$windows_renderer" "$windows_main" "$windows_nocted" "$windows_nocted_host" "$windows_nocted_qualification" "$windows_package" "$windows_smoke" "$windows_nocted_zig_smoke"; do
   test -s "$path"
 done
+test -s "$session"
 for path in tests/native_grid_smoke_*.inc; do
   test -s "$path"
 done
@@ -482,6 +484,8 @@ grep -F 'checkAllAllocationFailures' src/terminal/Terminal.zig >/dev/null
 grep -F 'checkAllAllocationFailures' src/workspace/Workspace.zig >/dev/null
 grep -F '_ = execve(options.program.ptr' "$pty" >/dev/null
 grep -F 'pub fn packedRow(self: Grid, row: usize, output: []u64) usize {' "$vt" >/dev/null
+grep -F 'pub fn packedFrame(' "$session" >/dev/null
+grep -F 'const packed_count = session.packedFrame(' "$main" >/dev/null
 
 grep -F 'c.CreatePseudoConsole(size, input_read, output_write' "$windows_pty" >/dev/null
 ! grep -F 'CreatePseudoConsole(' "$windows_host" >/dev/null

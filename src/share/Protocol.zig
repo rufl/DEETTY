@@ -76,7 +76,7 @@ pub fn encodeHeader(output: *[header_length]u8, header: Header) !void {
     try header.validate();
     @memcpy(output[0..magic.len], magic);
     output[4] = version;
-    output[5] = @intFromEnum(header.message_type);
+    output[5] = @backingInt(header.message_type);
     std.mem.writeInt(u16, output[6..8], @bitCast(header.flags), .big);
     std.mem.writeInt(u32, output[8..12], header.stream_id, .big);
     std.mem.writeInt(u64, output[12..20], header.sequence, .big);

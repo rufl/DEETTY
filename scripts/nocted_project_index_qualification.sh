@@ -13,11 +13,10 @@ for mode in Debug ReleaseSafe; do
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache"
-    zig build nocted-project-index-binary \
+    ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build nocted-project-index-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
 
     for scale in 4000 25000 100000; do
         project="$scratch/project-$mode-$scale"

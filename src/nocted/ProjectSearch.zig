@@ -82,7 +82,7 @@ pub const Cursor = struct {
     truncated: bool,
     finished: bool = false,
     read_buffer: [read_buffer_bytes]u8 = undefined,
-    query_prefix: [max_query_bytes]u16 = [_]u16{0} ** max_query_bytes,
+    query_prefix: [max_query_bytes]u16 = @splat(0),
 
     pub fn init(
         allocator: std.mem.Allocator,

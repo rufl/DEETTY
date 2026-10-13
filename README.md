@@ -80,8 +80,9 @@ NOCTTY inference engine, agent scheduler or change to default behavior.
 
 Linux requirements:
 
-- Zig 0.16.x (the build intentionally rejects other minor versions)
-- GTK 3 development files discoverable through `pkg-config`
+- Zig 0.17.x (the build intentionally rejects other minor versions)
+- libepoxy development files discoverable through `pkg-config` for optional
+  OpenGL presentation
 - GtkSourceView 4 development files discoverable through `pkg-config`
 - system `gtk-layer-shell` at runtime for Wayland dropdown placement;
   dependency bundles and dogfood installs copy the host package's library into

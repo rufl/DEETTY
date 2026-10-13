@@ -37,7 +37,7 @@ pub const Identity = struct {
 
     pub fn fromSecret(secret_key: [secret_key_length]u8) !Identity {
         return .{
-            .public_key = try X25519.recoverPublicKey(secret_key),
+            .public_key = X25519.recoverPublicKey(secret_key),
             .secret_key = secret_key,
         };
     }
@@ -101,7 +101,7 @@ const SymmetricState = struct {
     handshake_hash: [32]u8,
 
     fn init() SymmetricState {
-        var initial: [32]u8 = [_]u8{0} ** 32;
+        var initial: [32]u8 = @splat(0);
         if (protocol_name.len <= initial.len) {
             @memcpy(initial[0..protocol_name.len], protocol_name);
         } else {
@@ -357,7 +357,7 @@ pub const Transport = struct {
 };
 
 fn noiseNonce(value: u64) [Cipher.nonce_length]u8 {
-    var nonce = [_]u8{0} ** Cipher.nonce_length;
+    var nonce: [Cipher.nonce_length]u8 = @splat(0);
     std.mem.writeInt(u64, nonce[4..12], value, .little);
     return nonce;
 }
@@ -391,10 +391,10 @@ pub fn formatSas(output: *[6]u8, sas: u32) void {
 }
 
 test "Noise XX pairing agrees on identity SAS and transport keys" {
-    const initiator_identity = try Identity.fromSecret([_]u8{1} ** 32);
-    const responder_identity = try Identity.fromSecret([_]u8{2} ** 32);
-    const initiator_ephemeral = try Identity.fromSecret([_]u8{3} ** 32);
-    const responder_ephemeral = try Identity.fromSecret([_]u8{4} ** 32);
+    const initiator_identity = try Identity.fromSecret(@as([32]u8, @splat(1)));
+    const responder_identity = try Identity.fromSecret(@as([32]u8, @splat(2)));
+    const initiator_ephemeral = try Identity.fromSecret(@as([32]u8, @splat(3)));
+    const responder_ephemeral = try Identity.fromSecret(@as([32]u8, @splat(4)));
     var initiator = Initiator.initDeterministic(initiator_identity, initiator_ephemeral);
     var responder = Responder.initDeterministic(responder_identity, responder_ephemeral);
 
@@ -422,20 +422,20 @@ test "Noise XX pairing agrees on identity SAS and transport keys" {
 }
 
 test "Noise transport rejects tampering replay and substituted pinned keys" {
-    const first = try Identity.fromSecret([_]u8{5} ** 32);
-    const second = try Identity.fromSecret([_]u8{6} ** 32);
-    var initiator = Initiator.initDeterministic(first, try Identity.fromSecret([_]u8{7} ** 32));
-    var responder = Responder.initDeterministic(second, try Identity.fromSecret([_]u8{8} ** 32));
+    const first = try Identity.fromSecret(@as([32]u8, @splat(5)));
+    const second = try Identity.fromSecret(@as([32]u8, @splat(6)));
+    var initiator = Initiator.initDeterministic(first, try Identity.fromSecret(@as([32]u8, @splat(7))));
+    var responder = Responder.initDeterministic(second, try Identity.fromSecret(@as([32]u8, @splat(8))));
     const message1 = try initiator.writeMessage1();
     try responder.readMessage1(&message1);
     const message2 = try responder.writeMessage2();
     try initiator.readMessage2(&message2);
     const message3 = try initiator.writeMessage3();
     try responder.readMessage3(&message3);
-    try std.testing.expectError(error.PairedDeviceKeyChanged, initiator.finish([_]u8{9} ** 32));
+    try std.testing.expectError(error.PairedDeviceKeyChanged, initiator.finish(@as([32]u8, @splat(9))));
 
-    var initiator_ok = Initiator.initDeterministic(first, try Identity.fromSecret([_]u8{7} ** 32));
-    var responder_ok = Responder.initDeterministic(second, try Identity.fromSecret([_]u8{8} ** 32));
+    var initiator_ok = Initiator.initDeterministic(first, try Identity.fromSecret(@as([32]u8, @splat(7))));
+    var responder_ok = Responder.initDeterministic(second, try Identity.fromSecret(@as([32]u8, @splat(8))));
     const one = try initiator_ok.writeMessage1();
     try responder_ok.readMessage1(&one);
     const two = try responder_ok.writeMessage2();

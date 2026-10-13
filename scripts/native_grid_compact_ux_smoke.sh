@@ -14,7 +14,7 @@ output_file="${TMPDIR:-/tmp}/noctty-compact-ux-output.$$"
 rm -rf "$cache_local" "$cache_global"
 trap 'rm -rf "$cache_local" "$cache_global"; rm -f "$output_file"' EXIT HUP INT TERM
 
-if GTK_THEME=Adwaita:light zig build smoke-run --cache-dir "$cache_local" --global-cache-dir "$cache_global" -- --native-grid-compact-ux-smoke >"$output_file" 2>&1; then
+if GTK_THEME=Adwaita:light ZIG_GLOBAL_CACHE_DIR="$cache_global" zig build --cache-dir "$cache_local" smoke-run -- --native-grid-compact-ux-smoke >"$output_file" 2>&1; then
   :
 else
   status=$?

@@ -19,7 +19,7 @@ unregister_shortcut() {
 
 unregister_shortcut
 
-zig build --global-cache-dir .zig-cache/global smoke-binaries
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 output=/tmp/noctty-native-grid-shortcut-live.txt
 ready=/tmp/noctty-native-grid-shortcut-ready
 activated=/tmp/noctty-native-grid-shortcut-activated

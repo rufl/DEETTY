@@ -10,7 +10,7 @@ fi
 
 export LC_ALL=C
 
-zig build --global-cache-dir .zig-cache/global install smoke-binaries
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build install smoke-binaries
 if output="$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
   ./zig-out/bin/noctty-smoke --native-grid-project-editor-smoke 2>&1)"; then
   :

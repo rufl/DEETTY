@@ -1,12 +1,6 @@
 //! Bounded UTF-8 window-title conversion for the Win32 terminal host.
 
-const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-});
+const c = @import("c");
 
 const title_utf8_max: usize = 512;
 const title_utf16_max: usize = 640;

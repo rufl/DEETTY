@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compat = @import("compat");
 const GridLogic = @import("NativeGridLogic.zig");
 
 const Cairo = opaque {};
@@ -1012,15 +1013,15 @@ pub export fn noctty_grid_render_resize_overlay(
 
     var label_buffer: [64]u8 = undefined;
     const label = if (options.floor_reached != 0)
-        std.fmt.bufPrintZ(&label_buffer, "Min 3pt · {d} × {d}", .{ options.columns, options.rows }) catch return 0
+        Compat.bufPrintZ(&label_buffer, "Min 3pt · {d} × {d}", .{ options.columns, options.rows }) catch return 0
     else if (options.zoom_percent > 0 and options.zoom_percent < 100)
-        std.fmt.bufPrintZ(
+        Compat.bufPrintZ(
             &label_buffer,
             "Zoom {d}% · {d} × {d}",
             .{ options.zoom_percent, options.columns, options.rows },
         ) catch return 0
     else
-        std.fmt.bufPrintZ(&label_buffer, "{d} × {d}", .{ options.columns, options.rows }) catch return 0;
+        Compat.bufPrintZ(&label_buffer, "{d} × {d}", .{ options.columns, options.rows }) catch return 0;
 
     cairo_save(cr);
     defer cairo_restore(cr);

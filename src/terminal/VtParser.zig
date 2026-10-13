@@ -7,8 +7,8 @@ pub const max_string_bytes = 4096;
 const empty_parameter = Parameter{};
 
 pub const Parameter = struct {
-    values: [max_subparameters]u16 = [_]u16{0} ** max_subparameters,
-    present: [max_subparameters]bool = [_]bool{false} ** max_subparameters,
+    values: [max_subparameters]u16 = @splat(0),
+    present: [max_subparameters]bool = @splat(false),
     count: usize = 1,
 
     pub fn valueOr(self: *const Parameter, index: usize, default: u16) u16 {
@@ -40,9 +40,9 @@ pub const Parameter = struct {
 
 pub const Csi = struct {
     private_marker: u8 = 0,
-    intermediates: [max_intermediates]u8 = [_]u8{0} ** max_intermediates,
+    intermediates: [max_intermediates]u8 = @splat(0),
     intermediate_count: usize = 0,
-    parameters: [max_parameters]Parameter = [_]Parameter{.{}} ** max_parameters,
+    parameters: [max_parameters]Parameter = @splat(.{}),
     parameter_count: usize = 1,
     final: u8 = 0,
 
@@ -60,7 +60,7 @@ pub const Csi = struct {
 };
 
 pub const Escape = struct {
-    intermediates: [max_intermediates]u8 = [_]u8{0} ** max_intermediates,
+    intermediates: [max_intermediates]u8 = @splat(0),
     intermediate_count: usize = 0,
     final: u8,
 };
@@ -118,7 +118,7 @@ const ByteClass = enum {
 };
 
 const byte_classes = blk: {
-    var table = [_]ByteClass{.high} ** 256;
+    var table: [256]ByteClass = @splat(.high);
     for (0x00..0x20) |byte| table[byte] = .c0;
     table[0x1b] = .escape;
     table[0x7f] = .delete;
@@ -135,7 +135,7 @@ pub const Parser = struct {
     state: State = .ground,
     csi: Csi = .{},
     dcs_header: Csi = .{},
-    escape_intermediates: [max_intermediates]u8 = [_]u8{0} ** max_intermediates,
+    escape_intermediates: [max_intermediates]u8 = @splat(0),
     escape_intermediate_count: usize = 0,
     string_kind: StringKind = .osc,
     string_bytes: [max_string_bytes]u8 = undefined,

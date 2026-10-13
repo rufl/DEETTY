@@ -43,9 +43,9 @@ chmod 700 "$wrapper"
 receipt='native_grid_credentialed_ssh_smoke profile=true system_client=true system_server=true credential=publickey identity_isolated=true host_key=pinned transport=stdio_proxy network_bind=false remote_marker=true exited=true'
 output=$(PATH="$scratch/bin:$PATH" \
   NOCTTY_SSH_SMOKE_TARGET="$login_name@noctty-credential-smoke" \
+  ZIG_GLOBAL_CACHE_DIR="$project_dir/.zig-cache/global" \
   zig build -j1 smoke-run \
   --cache-dir "$project_dir/.zig-cache" \
-  --global-cache-dir "$project_dir/.zig-cache/global" \
   -- --native-grid-credentialed-ssh-smoke)
 printf '%s\n' "$output"
 printf '%s\n' "$output" | grep -q "^${receipt}$"

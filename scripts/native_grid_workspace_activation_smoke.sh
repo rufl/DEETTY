@@ -18,9 +18,8 @@ trap cleanup EXIT HUP INT TERM
 mkdir -p "$scratch/tmp" "$scratch/xdg-cache" "$scratch/local-cache" "$scratch/global-cache"
 
 output=$(TMPDIR="$scratch/tmp" XDG_CACHE_HOME="$scratch/xdg-cache" \
-  zig build -j1 smoke-run \
+  ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build -j1 smoke-run \
     --cache-dir "$scratch/local-cache" \
-    --global-cache-dir "$scratch/global-cache" \
     -- --native-grid-workspace-activation-smoke)
 printf '%s\n' "$output"
 printf '%s\n' "$output" | grep -q "^${receipt}$"

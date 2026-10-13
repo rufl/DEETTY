@@ -2,13 +2,13 @@ Source: noctty
 Section: utils
 Priority: optional
 Maintainer: LichForge <opensource@lichforge.com>
-Build-Depends: debhelper-compat (= 13), zig (>= 0.16), pkg-config, libgtk-3-dev, libgtksourceview-4-dev
+Build-Depends: debhelper-compat (= 13), zig (>= 0.17), pkg-config, libgtk-3-dev, libepoxy-dev, libgtksourceview-4-dev
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 
 Package: noctty
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libgtk-layer-shell0
+Depends: ${shlibs:Depends}, ${misc:Depends}, libepoxy0, libgtk-layer-shell0
 Description: Zig-native terminal workspace for Plasma and Noctalia
  Native PTY/VT terminal workspace with dropdown, windowed, fullscreen,
  tabs, splits, project workspaces, and the standalone NoctEd editor.

@@ -11,6 +11,12 @@ const new_id = 40901;
 const delete_id = 40902;
 const error_id = 40903;
 const field_ids = [_]u16{ 40910, 40911, 40912, 40913, 40914, 40915 };
+fn repeatBytes(comptime pattern: []const u8, comptime count: usize) [pattern.len * count]u8 {
+    var output: [pattern.len * count]u8 = undefined;
+    for (0..count) |index|
+        @memcpy(output[index * pattern.len ..][0..pattern.len], pattern);
+    return output;
+}
 const State = struct {
     callbacks: *const Abi.Callbacks,
     index: c_int = -1,
@@ -225,7 +231,7 @@ fn dialogProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
 
 // DWORD-aligned standard dialog template, matching the native font/tab editors.
 const Template = struct {
-    words: [2048]u16 align(4) = [_]u16{0} ** 2048,
+    words: [2048]u16 align(4) = @splat(0),
     used: usize = 0,
     fn word(self: *Template, value: u16) void {
         self.words[self.used] = value;
@@ -354,7 +360,7 @@ pub fn qualify(parent: c.HWND, cb: *const Abi.Callbacks) bool {
     _ = c.SetDlgItemTextW(dialog, field_ids[1], &malformed);
     if (!rejected(dialog, &state, 3, 2)) return false;
     if (!fill(dialog, &state, 2)) return false;
-    if (!setText(dialog, field_ids[0], "中" ** 22) or !rejected(dialog, &state, 3, 2)) return false;
+    if (!setText(dialog, field_ids[0], &repeatBytes("中", 22)) or !rejected(dialog, &state, 3, 2)) return false;
 
     // Rename, duplicate rejection, and exact supported byte boundaries.
     if (!fill(dialog, &state, 2) or !setText(dialog, field_ids[0], "Renamed")) return false;
@@ -364,11 +370,11 @@ pub fn qualify(parent: c.HWND, cb: *const Abi.Callbacks) bool {
     if (!setText(dialog, field_ids[0], "renamed") or !setText(dialog, field_ids[1], "C:\\shell.exe") or !rejected(dialog, &state, 3, 2)) return false;
     state.confirmation = true;
     command(dialog, new_id);
-    if (!setText(dialog, field_ids[0], "N" ** Launch.max_name_bytes) or
-        !setText(dialog, field_ids[1], "C:\\" ++ "x" ** (Launch.max_shell_bytes - 3)) or
-        !setText(dialog, field_ids[2], "a" ** Launch.max_command_bytes) or
-        !setText(dialog, field_ids[3], "C:\\" ++ "x" ** (Launch.max_working_directory_bytes - 3)) or
-        !setText(dialog, field_ids[4], "X=" ++ "v" ** (Launch.max_environment_bytes - 2)) or
+    if (!setText(dialog, field_ids[0], &repeatBytes("N", Launch.max_name_bytes)) or
+        !setText(dialog, field_ids[1], "C:\\" ++ repeatBytes("x", Launch.max_shell_bytes - 3)) or
+        !setText(dialog, field_ids[2], &repeatBytes("a", Launch.max_command_bytes)) or
+        !setText(dialog, field_ids[3], "C:\\" ++ repeatBytes("x", Launch.max_working_directory_bytes - 3)) or
+        !setText(dialog, field_ids[4], "X=" ++ repeatBytes("v", Launch.max_environment_bytes - 2)) or
         !setText(dialog, field_ids[5], "100000")) return false;
     command(dialog, c.IDOK);
     if (state.dirty or cb.profile_count(cb.userdata) != 4 or cb.profile_active(cb.userdata) != 3 or !qualifyDurable(cb)) return false;

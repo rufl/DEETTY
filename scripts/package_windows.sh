@@ -43,14 +43,13 @@ stage="$scratch/stage"
 package="$scratch/noctty-windows-x86_64"
 mkdir -p "$stage" "$package" "$scratch/local-cache" "$scratch/global-cache"
 
-zig build \
+ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build \
   -Dtarget=x86_64-windows-gnu \
   -Doptimize="$optimize" \
   -Dstrip=false \
   -j1 \
   --prefix "$stage" \
-  --cache-dir "$scratch/local-cache" \
-  --global-cache-dir "$scratch/global-cache"
+  --cache-dir "$scratch/local-cache"
 
 test -s "$stage/bin/noctty.exe"
 test -s "$stage/bin/nocted.exe"

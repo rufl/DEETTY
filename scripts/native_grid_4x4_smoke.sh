@@ -8,7 +8,7 @@ fi
 ./scripts/require_isolated_display.sh
 
 output=$(timeout 90 env GDK_BACKEND=wayland GTK_MODULES= NO_AT_BRIDGE=1 \
-    zig build smoke-run --global-cache-dir .zig-cache/global -- \
+    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- \
     --native-grid-4x4-smoke 2>&1)
 printf '%s\n' "$output"
 printf '%s\n' "$output" | grep -qx \

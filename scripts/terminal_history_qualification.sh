@@ -22,11 +22,10 @@ mkdir -p "$local_cache" "$global_cache" "$XDG_CACHE_HOME" "$TMPDIR"
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
     mkdir -p "$prefix"
-    zig build smoke-binaries \
+    ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build smoke-binaries \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
     output=$(
         "$prefix/bin/noctty-smoke" --terminal-history-qualification
     )

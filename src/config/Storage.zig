@@ -7,7 +7,7 @@ const Io = std.Io;
 const Dir = std.Io.Dir;
 
 const config_magic = "NOCTTYCFG";
-const config_version: u8 = 16;
+const config_version: u8 = 17;
 const default_launch_profile_tail_bytes: usize = 1 + (5 * 8) + 4;
 const default_launch_library_tail_bytes: usize = 2;
 const default_recent_workspace_tail_bytes: usize = 1;
@@ -127,8 +127,8 @@ pub fn exportConfigAlloc(allocator: std.mem.Allocator, config: ConfigMod.Config)
     try writer.writeU8(config.recent_workspaces.count);
     for (config.recent_workspaces.entries[0..config.recent_workspaces.count]) |*entry|
         try writer.writeString(entry.slice());
-    try writer.writeU8(@intFromEnum(config.font.antialias));
-    try writer.writeU8(@intFromEnum(config.font.hinting));
+    try writer.writeU8(@backingInt(config.font.antialias));
+    try writer.writeU8(@backingInt(config.font.hinting));
     try writer.writeU16(config.dropdown.width_px);
     try writer.writeU16(config.dropdown.height_px);
     try writer.writeBool(config.background.translucency);
@@ -145,6 +145,7 @@ pub fn exportConfigAlloc(allocator: std.mem.Allocator, config: ConfigMod.Config)
     try writer.writeBool(config.panels.gaps_transparent);
     try writer.writeBool(config.panels.inactive_dim_enabled);
     try writer.writeU8(config.panels.inactive_brightness_percent);
+    try writer.writeU8(@backingInt(config.renderer_backend));
 
     return writer.bytes.toOwnedSlice();
 }
@@ -280,6 +281,13 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
         config.panels.inactive_dim_enabled = try reader.readBool();
         config.panels.inactive_brightness_percent = try reader.readU8();
     }
+    if (version >= 17) {
+        config.renderer_backend = switch (try reader.readU8()) {
+            0 => .cairo,
+            1 => .opengl,
+            else => return error.InvalidConfigSnapshot,
+        };
+    }
 
     if (!reader.finished()) return error.InvalidConfigSnapshot;
     // Older or interrupted snapshots could persist zero, which disables
@@ -296,7 +304,7 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
 }
 
 fn writeLaunchProfile(writer: *ConfigWriter, profile: LaunchProfile.Profile) !void {
-    try writer.writeU8(@intFromEnum(profile.kind));
+    try writer.writeU8(@backingInt(profile.kind));
     try writer.writeString(profile.shell.slice());
     try writer.writeString(profile.command.slice());
     try writer.writeString(profile.working_directory.slice());
@@ -454,7 +462,7 @@ const ConfigWriter = struct {
     }
 
     fn writeShortcut(self: *ConfigWriter, shortcut: ConfigMod.Shortcut) !void {
-        try self.writeU8(@intFromEnum(shortcut.key));
+        try self.writeU8(@backingInt(shortcut.key));
         try self.writeBool(shortcut.ctrl);
         try self.writeBool(shortcut.shift);
         try self.writeBool(shortcut.alt);
@@ -553,8 +561,9 @@ const ConfigReader = struct {
 
     fn readShortcutKey(self: *ConfigReader) !ConfigMod.Shortcut.Key {
         const raw = try self.readU8();
-        inline for (std.meta.fields(ConfigMod.Shortcut.Key)) |field| {
-            if (field.value == raw) return @enumFromInt(raw);
+        const info = @typeInfo(ConfigMod.Shortcut.Key).@"enum";
+        inline for (info.field_values) |value| {
+            if (value == raw) return @fromBackingInt(@intCast(raw));
         }
         return error.InvalidConfigSnapshot;
     }
@@ -662,6 +671,7 @@ test "config snapshots export and import owned gui settings" {
     config.panels.gaps_transparent = false;
     config.panels.inactive_dim_enabled = false;
     config.panels.inactive_brightness_percent = 84;
+    config.renderer_backend = .opengl;
 
     const bytes = try exportConfigAlloc(allocator, config);
     defer allocator.free(bytes);
@@ -719,6 +729,7 @@ test "config snapshots export and import owned gui settings" {
         @as(u8, 84),
         loaded.config.panels.inactive_brightness_percent,
     );
+    try std.testing.expectEqual(ConfigMod.RendererBackend.opengl, loaded.config.renderer_backend);
 }
 
 test "version one config snapshots load with pointer focus disabled" {
@@ -730,10 +741,10 @@ test "version one config snapshots load with pointer focus disabled" {
     defer allocator.free(current);
 
     const focus_field_offset = config_magic.len + 1 + 1 + 5 + 1 + 1 + 2 + 1 + 1 + 2 + 1 + 1;
-    const legacy = try allocator.alloc(u8, current.len - 6 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes));
+    const legacy = try allocator.alloc(u8, current.len - 7 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes));
     defer allocator.free(legacy);
     @memcpy(legacy[0..focus_field_offset], current[0..focus_field_offset]);
-    @memcpy(legacy[focus_field_offset..], current[focus_field_offset + 1 .. current.len - 5 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    @memcpy(legacy[focus_field_offset..], current[focus_field_offset + 1 .. current.len - 6 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     legacy[config_magic.len] = 1;
 
     var loaded = try importConfigAlloc(allocator, legacy);
@@ -749,7 +760,7 @@ test "version three config snapshots enable pane information by default" {
     const allocator = std.testing.allocator;
     const current = try exportConfigAlloc(allocator, ConfigMod.Config.defaults());
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 5 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 6 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 3;
 
@@ -763,7 +774,7 @@ test "version four config snapshots use the bounded scrollback default" {
     const allocator = std.testing.allocator;
     const current = try exportConfigAlloc(allocator, ConfigMod.Config.defaults());
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 5 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 4;
 
@@ -778,7 +789,7 @@ test "version five config snapshots carry scrollback into the default launch pro
     try config.terminal.setScrollbackLines(4_321);
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 1 - default_launch_profile_tail_bytes - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 5;
 
@@ -799,7 +810,7 @@ test "version six config snapshots retain the active profile with an empty libra
     try config.terminal.setLaunchProfile(profile);
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 1 - default_launch_library_tail_bytes - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 6;
 
@@ -819,7 +830,7 @@ test "version seven config snapshots retain named profiles with no recent worksp
     _ = try config.terminal.saveAndSelectLaunchProfile("Legacy build", profile);
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 1 - default_recent_workspace_tail_bytes - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 7;
 
@@ -843,7 +854,7 @@ test "version nine config snapshots retain continuity profiles" {
 
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const bytes = try allocator.dupe(u8, current[0 .. current.len - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const bytes = try allocator.dupe(u8, current[0 .. current.len - 1 - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(bytes);
     bytes[config_magic.len] = 9;
 
@@ -870,7 +881,7 @@ test "version eight config snapshots retain recent workspaces" {
     try config.recent_workspaces.record("/tmp/legacy-eight.nocttyws");
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 1 - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 8;
 
@@ -892,7 +903,7 @@ test "version eleven config snapshots use safe background defaults" {
     defer allocator.free(current);
     const legacy = try allocator.dupe(
         u8,
-        current[0 .. current.len - 20],
+        current[0 .. current.len - 21],
     );
     defer allocator.free(legacy);
     legacy[config_magic.len] = 11;
@@ -910,7 +921,7 @@ test "version twelve config snapshots use safe scroll defaults" {
     config.terminal.smooth_scroll = false;
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 18]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 19]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 12;
 
@@ -929,7 +940,7 @@ test "version thirteen config snapshots use safe border thickness defaults" {
     config.panels.dragger_px = 15;
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 16]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 17]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 13;
 
@@ -950,7 +961,7 @@ test "version fourteen migrates only the old default dragger thickness" {
     defer allocator.free(default_current);
     const default_bytes = try allocator.dupe(
         u8,
-        default_current[0 .. default_current.len - 4],
+        default_current[0 .. default_current.len - 5],
     );
     defer allocator.free(default_bytes);
     default_bytes[config_magic.len] = 14;
@@ -966,7 +977,7 @@ test "version fourteen migrates only the old default dragger thickness" {
     defer allocator.free(custom_current);
     const custom_bytes = try allocator.dupe(
         u8,
-        custom_current[0 .. custom_current.len - 4],
+        custom_current[0 .. custom_current.len - 5],
     );
     defer allocator.free(custom_bytes);
     custom_bytes[config_magic.len] = 14;
@@ -985,7 +996,7 @@ test "version fifteen config snapshots use safe pane visual defaults" {
     config.panels.inactive_brightness_percent = 84;
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
-    const legacy = try allocator.dupe(u8, current[0 .. current.len - 4]);
+    const legacy = try allocator.dupe(u8, current[0 .. current.len - 5]);
     defer allocator.free(legacy);
     legacy[config_magic.len] = 15;
 

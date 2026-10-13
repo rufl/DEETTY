@@ -10,9 +10,9 @@ pub const max_endpoint_bytes: usize = 253;
 
 pub const Peer = struct {
     public_key: [Crypto.public_key_length]u8,
-    alias_storage: [Protocol.max_alias_bytes]u8 = [_]u8{0} ** Protocol.max_alias_bytes,
+    alias_storage: [Protocol.max_alias_bytes]u8 = @splat(0),
     alias_length: u8 = 0,
-    endpoint_storage: [max_endpoint_bytes]u8 = [_]u8{0} ** max_endpoint_bytes,
+    endpoint_storage: [max_endpoint_bytes]u8 = @splat(0),
     endpoint_length: u8 = 0,
     port: u16 = 0,
     paired_at_seconds: u64 = 0,
@@ -235,11 +235,11 @@ pub fn loadFile(allocator: std.mem.Allocator, io: std.Io, dir: std.Io.Dir, path:
 }
 
 test "paired device store round trips identity peers and revocation" {
-    var store = Store.init(try Crypto.Identity.fromSecret([_]u8{11} ** 32));
+    var store = Store.init(try Crypto.Identity.fromSecret(@as([32]u8, @splat(11))));
     defer store.deinit();
-    try store.addOrUpdate(try Peer.init([_]u8{12} ** 32, "Laptop", "laptop.tailnet.ts.net", 45123, 123456));
-    try store.addOrUpdate(try Peer.init([_]u8{13} ** 32, "Workstation", "10.0.0.7", 45124, 123457));
-    try store.revoke([_]u8{13} ** 32);
+    try store.addOrUpdate(try Peer.init(@as([32]u8, @splat(12)), "Laptop", "laptop.tailnet.ts.net", 45123, 123456));
+    try store.addOrUpdate(try Peer.init(@as([32]u8, @splat(13)), "Workstation", "10.0.0.7", 45124, 123457));
+    try store.revoke(@as([32]u8, @splat(13)));
     const encoded = try exportAlloc(std.testing.allocator, &store);
     defer std.testing.allocator.free(encoded);
     var decoded = try import(encoded);
@@ -253,31 +253,31 @@ test "paired device store round trips identity peers and revocation" {
 
 test "paired device store rejects truncation and duplicate overflow" {
     try std.testing.expectError(error.InvalidPairedDeviceStore, import("NCTPAIR"));
-    var store = Store.init(try Crypto.Identity.fromSecret([_]u8{14} ** 32));
+    var store = Store.init(try Crypto.Identity.fromSecret(@as([32]u8, @splat(14))));
     defer store.deinit();
     var index: usize = 0;
     while (index < max_peers) : (index += 1) {
-        var key = [_]u8{15} ** 32;
+        var key: [32]u8 = @splat(15);
         key[0] = @intCast(index);
         try store.addOrUpdate(try Peer.init(key, "Peer", "127.0.0.1", 1, 0));
     }
     try std.testing.expectError(error.TooManyPairedDevices, store.addOrUpdate(
-        try Peer.init([_]u8{255} ** 32, "Overflow", "127.0.0.1", 1, 0),
+        try Peer.init(@as([32]u8, @splat(255)), "Overflow", "127.0.0.1", 1, 0),
     ));
 }
 
 test "paired device store reclaims revoked capacity for a new confirmed peer" {
-    var store = Store.init(try Crypto.Identity.fromSecret([_]u8{16} ** 32));
+    var store = Store.init(try Crypto.Identity.fromSecret(@as([32]u8, @splat(16))));
     defer store.deinit();
     var index: usize = 0;
     while (index < max_peers) : (index += 1) {
-        var key = [_]u8{17} ** 32;
+        var key: [32]u8 = @splat(17);
         key[0] = @intCast(index);
         try store.addOrUpdate(try Peer.init(key, "Peer", "127.0.0.1", 1, 0));
     }
     store.peers[7].revoked = true;
     const replacement = try Peer.init(
-        [_]u8{254} ** 32,
+        @as([32]u8, @splat(254)),
         "Replacement",
         "127.0.0.2",
         2,

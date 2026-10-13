@@ -12,7 +12,7 @@ expected='native_grid_notification_smoke tooltip=true status_border=true dbus=tr
 attempt=1
 max_attempts=3
 while [ "$attempt" -le "$max_attempts" ]; do
-    output=$(zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-notification-smoke 2>&1 || true)
+    output=$(ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- --native-grid-notification-smoke 2>&1 || true)
     printf '%s\n' "$output"
     if printf '%s\n' "$output" | grep -q "^${expected}$"; then
         exit 0

@@ -25,7 +25,7 @@ pub const WorkspacePath = struct {
 };
 
 pub const RecentWorkspaces = struct {
-    entries: [max_recent_workspaces]WorkspacePath = [_]WorkspacePath{.{}} ** max_recent_workspaces,
+    entries: [max_recent_workspaces]WorkspacePath = @splat(.{}),
     count: u8 = 0,
 
     pub fn validate(self: RecentWorkspaces) !void {

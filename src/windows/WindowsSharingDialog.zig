@@ -302,7 +302,7 @@ fn dialogProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
 }
 
 const Template = struct {
-    words: [2048]u16 align(4) = [_]u16{0} ** 2048,
+    words: [2048]u16 align(4) = @splat(0),
     used: usize = 0,
     fn word(self: *Template, value: u16) void {
         self.words[self.used] = value;

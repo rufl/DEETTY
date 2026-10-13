@@ -8,8 +8,8 @@ if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
 fi
 ./scripts/require_isolated_display.sh
 
-output=$(GDK_SCALE=2 GDK_DPI_SCALE=1 zig build smoke-run \
-  --global-cache-dir .zig-cache/global -- --native-grid-settings-smoke)
+output=$(GDK_SCALE=2 GDK_DPI_SCALE=1 ZIG_GLOBAL_CACHE_DIR=.zig-cache/global \
+  zig build smoke-run -- --native-grid-settings-smoke)
 printf '%s\n' "$output"
 receipt=$(printf '%s\n' "$output" |
   grep '^native_grid_settings_smoke rendered=true ')

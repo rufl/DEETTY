@@ -13,9 +13,7 @@ cache_global="${TMPDIR:-/tmp}/noctty-pane-scrollbar-global"
 output_file="${TMPDIR:-/tmp}/noctty-pane-scrollbar-output.$$"
 trap 'rm -f "$output_file"' EXIT HUP INT TERM
 
-if zig build smoke-run --cache-dir "$cache_local" \
-    --global-cache-dir "$cache_global" -- \
-    --native-grid-pane-scrollbar-smoke >"$output_file" 2>&1; then
+if ZIG_GLOBAL_CACHE_DIR="$cache_global" zig build --cache-dir "$cache_local" smoke-run -- --native-grid-pane-scrollbar-smoke >"$output_file" 2>&1; then
   :
 else
   status=$?

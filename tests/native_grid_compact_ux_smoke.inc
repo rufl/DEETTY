@@ -664,6 +664,8 @@ static void set_settings_smoke_values(GtkWidget *dialog) {
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-font")), 16);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-antialias")), 1);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-hinting")), 2);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(
+        G_OBJECT(dialog), "noctty-settings-renderer")), 1);
 }
 
 static gboolean request_settings_smoke(gpointer user_data) {

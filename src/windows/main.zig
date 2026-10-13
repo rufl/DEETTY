@@ -159,10 +159,11 @@ const ThemeSink = struct {
 fn applyPersistedThemes(state: *State) void {
     // Legacy preferences seed only the fallback; corrupt state is never repaired
     // implicitly. An explicit selection/import is the only durable replacement.
-    state.themes.selected = @intFromEnum(state.preferences.theme);
+    state.themes.selected = @backingInt(state.preferences.theme);
     const allocator = state.themes.allocator;
     const bytes = (Dpapi.themeStateLoadAlloc(
-        allocator, WindowsThemeLibrary.max_state_bytes,
+        allocator,
+        WindowsThemeLibrary.max_state_bytes,
     ) catch {
         state.startup_persistence_warning = true;
         return;
@@ -176,7 +177,6 @@ fn applyPersistedThemes(state: *State) void {
     state.themes = loaded;
 }
 
-
 const ProfileSink = struct {
     pub fn save(_: @This(), bytes: []const u8) !void {
         try Dpapi.profileStateSave(bytes);
@@ -184,7 +184,7 @@ const ProfileSink = struct {
 };
 
 fn applyPersistedProfiles(state: *State) void {
-    state.profiles = .init(@intFromEnum(state.preferences.launch_profile));
+    state.profiles = .init(@backingInt(state.preferences.launch_profile));
     var bytes: [WindowsLaunchProfiles.max_state_bytes]u8 = undefined;
     const length = (Dpapi.profileStateLoad(&bytes) catch {
         state.startup_persistence_warning = true;
@@ -205,7 +205,6 @@ fn applyPersistedProfiles(state: *State) void {
             _ = state.workspace.setPaneProfileIndex(pane_index, @intCast(state.profiles.selected)) catch {};
     }
 }
-
 
 pub export fn wWinMain(
     instance: windows.HINSTANCE,
@@ -299,9 +298,7 @@ pub export fn wWinMain(
         applyPersistedProfiles(&state);
         if (state.startup_persistence_warning)
             showWindowsMessage(
-                "NOCTTY could not fully restore saved Windows state. "
-                ++ "The current session remains usable; review Settings and "
-                ++ "save a fresh workspace, theme, or profile state.",
+                "NOCTTY could not fully restore saved Windows state. " ++ "The current session remains usable; review Settings and " ++ "save a fresh workspace, theme, or profile state.",
             );
     }
 
@@ -529,9 +526,9 @@ const ShareMode = struct {
     kind: Kind = .local,
     index: usize = 0,
     port: u16 = 0,
-    host: [Share.identity.max_endpoint_bytes]u8 = [_]u8{0} ** Share.identity.max_endpoint_bytes,
+    host: [Share.identity.max_endpoint_bytes]u8 = @splat(0),
     host_length: usize = 0,
-    alias: [Share.protocol.max_alias_bytes]u8 = [_]u8{0} ** Share.protocol.max_alias_bytes,
+    alias: [Share.protocol.max_alias_bytes]u8 = @splat(0),
     alias_length: usize = 0,
 
     fn hostSlice(self: *const ShareMode) []const u8 {
@@ -617,7 +614,7 @@ fn parseShareMode(command: []const u16) !ShareMode {
 }
 
 fn showWindowsMessage(message: []const u8) void {
-    var wide: [4096:0]u16 = [_:0]u16{0} ** 4096;
+    var wide: [4096:0]u16 = @splat(0);
     const count = @min(message.len, wide.len - 1);
     for (message[0..count], 0..) |byte, index| wide[index] = byte;
     _ = MessageBoxW(
@@ -662,7 +659,7 @@ fn confirmWindowsSas(sas: u32) bool {
         "Compare this code on both devices: {d:0>6}. Confirm only if identical.",
         .{sas},
     ) catch return false;
-    var wide: [128:0]u16 = [_:0]u16{0} ** 128;
+    var wide: [128:0]u16 = @splat(0);
     for (text, 0..) |byte, index| wide[index] = byte;
     return MessageBoxW(
         null,
@@ -1198,7 +1195,7 @@ fn profileRemove(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return -1;
     state.profiles.remove(@intCast(index), ProfileSink{}) catch return -1;
     state.workspace.remapProfileIndexAfterRemoval(@intCast(index));
-    if (state.profiles.selected < 2) state.preferences.launch_profile = @enumFromInt(state.profiles.selected);
+    if (state.profiles.selected < 2) state.preferences.launch_profile = @fromBackingInt(@intCast(state.profiles.selected));
     return 0;
 }
 
@@ -1210,7 +1207,7 @@ fn profileSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
         if (state.workspace.activePaneIndex()) |pane_index|
             _ = state.workspace.setPaneProfileIndex(pane_index, @intCast(index)) catch return -1;
     }
-    if (index < 2) state.preferences.launch_profile = @enumFromInt(index);
+    if (index < 2) state.preferences.launch_profile = @fromBackingInt(@intCast(index));
     return 0;
 }
 
@@ -1254,7 +1251,7 @@ fn themeSelect(raw: ?*anyopaque, index: c_int) callconv(.c) c_int {
     if (index < 0) return -1;
     const state = stateFromRaw(raw) orelse return -1;
     state.themes.select(@intCast(index), ThemeSink{}) catch return -1;
-    if (WindowsAppearance.validTheme(index)) state.preferences.theme = @enumFromInt(index);
+    if (WindowsAppearance.validTheme(index)) state.preferences.theme = @fromBackingInt(@intCast(index));
     return 0;
 }
 
@@ -2035,9 +2032,9 @@ fn selfTest(state: *State, command: []const u16) bool {
     if (grid.colorRgb(first.foreground) != 0x8fb8ff) return false;
     for ([_]Workspace.WindowsPreferences{ .{ .theme = .dark }, .{ .theme = .high_contrast }, .{ .theme = .paseo_black_zinc } }) |preferences| {
         state.preferences = preferences;
-        state.themes.selected = @intFromEnum(preferences.theme);
-        if (themeActive(state) != @intFromEnum(preferences.theme) or themeCount(state) != 3) return false;
-        const defaults = WindowsAppearance.colors(@intFromEnum(preferences.theme));
+        state.themes.selected = @backingInt(preferences.theme);
+        if (themeActive(state) != @backingInt(preferences.theme) or themeCount(state) != 3) return false;
+        const defaults = WindowsAppearance.colors(@backingInt(preferences.theme));
         if (themeColor(state, 0) != defaults.foreground or themeColor(state, 1) != defaults.background)
             return false;
         var name: [128]u8 = undefined;
@@ -2049,7 +2046,7 @@ fn selfTest(state: *State, command: []const u16) bool {
             colorRgb(state, 202) != grid.colorRgb(202) or
             paneColorRgb(state, 0, 202) != grid.colorRgb(202))
             return false;
-        const red = WindowsAppearance.indexedColor(@intFromEnum(preferences.theme), 1) orelse return false;
+        const red = WindowsAppearance.indexedColor(@backingInt(preferences.theme), 1) orelse return false;
         if (colorRgb(state, 1) != red or paneColorRgb(state, 0, 1) != red)
             return false;
     }

@@ -152,7 +152,7 @@ pub const Publisher = struct {
         .bracketed_paste = false,
     },
     title_initialized: bool = false,
-    last_title_digest: [32]u8 = [_]u8{0} ** 32,
+    last_title_digest: [32]u8 = @splat(0),
     history_initialized: bool = false,
     history_tail: ?Vt.HistoryIdentity = null,
 
@@ -533,7 +533,7 @@ test "presentation publisher observes damage after local renderer consumes it" {
 }
 
 test "presentation decoder rejects truncated and invalid UTF-8 rows" {
-    var bytes = [_]u8{0} ** (row_header_length + cell_header_length + 1);
+    var bytes: [row_header_length + cell_header_length + 1]u8 = @splat(0);
     std.mem.writeInt(u16, bytes[4..6], 1, .big);
     bytes[row_header_length] = 1;
     bytes[row_header_length + cell_header_length] = 0xff;

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compat = @import("compat");
 const NativeGridLogic = @import("NativeGridLogic.zig");
 
 const GtkWidget = opaque {};
@@ -264,10 +265,8 @@ extern fn gtk_toggle_button_set_active(*GtkToggleButton, c_int) void;
 extern fn gtk_entry_new() ?*GtkWidget;
 extern fn gtk_entry_set_text(*GtkEntry, [*:0]const u8) void;
 extern fn gtk_entry_get_text(*GtkEntry) ?[*:0]const u8;
-extern fn gtk_entry_set_icon_from_icon_name(
-    *GtkEntry, c_int, ?[*:0]const u8) void;
-extern fn gtk_entry_set_icon_tooltip_text(
-    *GtkEntry, c_int, ?[*:0]const u8) void;
+extern fn gtk_entry_set_icon_from_icon_name(*GtkEntry, c_int, ?[*:0]const u8) void;
+extern fn gtk_entry_set_icon_tooltip_text(*GtkEntry, c_int, ?[*:0]const u8) void;
 extern fn gtk_entry_set_has_frame(*GtkEntry, c_int) void;
 extern fn gtk_entry_set_alignment(*GtkEntry, f32) void;
 extern fn gtk_entry_set_width_chars(*GtkEntry, c_int) void;
@@ -303,13 +302,10 @@ extern fn gtk_combo_box_text_append(
     [*:0]const u8,
 ) void;
 extern fn gtk_combo_box_set_active(*GtkComboBox, c_int) void;
-extern fn gtk_combo_box_set_active_id(
-    *GtkComboBox, [*:0]const u8) c_int;
+extern fn gtk_combo_box_set_active_id(*GtkComboBox, [*:0]const u8) c_int;
 extern fn gtk_combo_box_get_active(*GtkComboBox) c_int;
-extern fn gtk_combo_box_get_active_id(
-    *GtkComboBox) ?[*:0]const u8;
-extern fn gtk_combo_box_text_get_active_text(
-    *GtkComboBoxText) ?[*:0]u8;
+extern fn gtk_combo_box_get_active_id(*GtkComboBox) ?[*:0]const u8;
+extern fn gtk_combo_box_text_get_active_text(*GtkComboBoxText) ?[*:0]u8;
 extern fn gtk_dialog_new_with_buttons(
     [*:0]const u8,
     *GtkWidget,
@@ -336,19 +332,13 @@ extern fn gtk_notebook_set_current_page(*GtkNotebook, c_int) void;
 extern fn gtk_notebook_get_n_pages(*GtkNotebook) c_int;
 extern fn gtk_notebook_get_current_page(*GtkNotebook) c_int;
 extern fn gtk_notebook_get_nth_page(*GtkNotebook, c_int) ?*GtkWidget;
-extern fn gtk_notebook_get_tab_label(
-    *GtkNotebook, *GtkWidget) ?*GtkWidget;
+extern fn gtk_notebook_get_tab_label(*GtkNotebook, *GtkWidget) ?*GtkWidget;
 extern fn gtk_notebook_get_show_tabs(*GtkNotebook) c_int;
-extern fn gtk_notebook_get_action_widget(
-    *GtkNotebook, c_int) ?*GtkWidget;
+extern fn gtk_notebook_get_action_widget(*GtkNotebook, c_int) ?*GtkWidget;
 extern fn gtk_notebook_get_tab_pos(*GtkNotebook) c_int;
 extern fn gtk_notebook_page_num(*GtkNotebook, *GtkWidget) c_int;
-extern fn gtk_notebook_reorder_child(
-    *GtkNotebook, *GtkWidget, c_int) void;
+extern fn gtk_notebook_reorder_child(*GtkNotebook, *GtkWidget, c_int) void;
 extern fn gtk_notebook_remove_page(*GtkNotebook, c_int) void;
-
-
-
 
 extern fn gtk_clipboard_get(?*anyopaque) ?*GtkClipboard;
 extern fn gtk_clipboard_request_text(
@@ -356,8 +346,7 @@ extern fn gtk_clipboard_request_text(
     GtkClipboardTextReceivedCallback,
     ?*anyopaque,
 ) void;
-extern fn gtk_clipboard_set_text(
-    *GtkClipboard, [*:0]const u8, c_int) void;
+extern fn gtk_clipboard_set_text(*GtkClipboard, [*:0]const u8, c_int) void;
 extern fn gtk_selection_data_set_text(
     *GtkSelectionData,
     [*:0]const u8,
@@ -366,8 +355,7 @@ extern fn gtk_selection_data_set_text(
 extern fn gtk_selection_data_get_text(*GtkSelectionData) ?[*:0]u8;
 extern fn gtk_im_context_focus_in(*GtkIMContext) void;
 extern fn gtk_im_context_focus_out(*GtkIMContext) void;
-extern fn gtk_im_context_filter_keypress(
-    *GtkIMContext, ?*anyopaque) c_int;
+extern fn gtk_im_context_filter_keypress(*GtkIMContext, ?*anyopaque) c_int;
 extern fn gtk_editable_select_region(*GtkWidget, c_int, c_int) void;
 extern fn gtk_im_context_set_client_window(
     *GtkIMContext,
@@ -383,8 +371,7 @@ extern fn gtk_window_set_modal(*GtkWindow, c_int) void;
 extern fn gtk_window_set_position(*GtkWindow, c_int) void;
 extern fn gtk_window_set_type_hint(*GtkWindow, c_int) void;
 extern fn gtk_window_set_destroy_with_parent(*GtkWindow, c_int) void;
-extern fn gtk_window_set_geometry_hints(
-    *GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
+extern fn gtk_window_set_geometry_hints(*GtkWindow, ?*GtkWindow, *const GdkGeometry, c_int) void;
 extern fn gtk_window_set_title(*GtkWindow, [*:0]const u8) void;
 extern fn gtk_window_get_window_type(*GtkWindow) c_int;
 extern fn gtk_window_get_title(*GtkWindow) ?[*:0]const u8;
@@ -414,29 +401,21 @@ extern fn gtk_window_set_transient_for(*GtkWindow, ?*GtkWindow) void;
 extern fn gtk_window_resize(*GtkWindow, c_int, c_int) void;
 extern fn gtk_window_move(*GtkWindow, c_int, c_int) void;
 
-
-
-
 extern fn gtk_file_chooser_dialog_new([*:0]const u8, *GtkWidget, c_int, [*:0]const u8, ...) ?*GtkWidget;
 extern fn gtk_file_chooser_set_current_name(*GtkWidget, [*:0]const u8) void;
 extern fn gtk_file_chooser_set_extra_widget(*GtkWidget, *GtkWidget) void;
 extern fn gtk_file_chooser_set_do_overwrite_confirmation(*GtkWidget, c_int) void;
-extern fn gtk_file_chooser_get_filename(
-    *GtkFileChooser) ?[*:0]u8;
-extern fn gtk_list_box_get_row_at_index(
-    *GtkListBox, c_int) ?*GtkListBoxRow;
-extern fn gtk_list_box_select_row(
-    *GtkListBox, ?*GtkListBoxRow) void;
+extern fn gtk_file_chooser_get_filename(*GtkFileChooser) ?[*:0]u8;
+extern fn gtk_list_box_get_row_at_index(*GtkListBox, c_int) ?*GtkListBoxRow;
+extern fn gtk_list_box_select_row(*GtkListBox, ?*GtkListBoxRow) void;
 extern fn gtk_list_box_new() ?*GtkWidget;
 extern fn gtk_list_box_set_selection_mode(*GtkListBox, c_int) void;
 extern fn gtk_list_box_set_activate_on_single_click(*GtkListBox, c_int) void;
 extern fn gtk_list_box_get_selected_row(*GtkListBox) ?*GtkListBoxRow;
 extern fn gtk_text_view_new() ?*GtkWidget;
 extern fn gtk_text_view_set_editable(*GtkTextView, c_int) void;
-extern fn gtk_render_background(
-    *GtkStyleContext, *anyopaque, f64, f64, f64, f64) void;
-extern fn gdk_event_get_scroll_deltas(
-    *GdkEvent, ?*f64, ?*f64) c_int;
+extern fn gtk_render_background(*GtkStyleContext, *anyopaque, f64, f64, f64, f64) void;
+extern fn gdk_event_get_scroll_deltas(*GdkEvent, ?*f64, ?*f64) c_int;
 extern fn gdk_event_new(c_int) ?*GdkEvent;
 extern fn gdk_event_set_device(*GdkEvent, *GdkDevice) void;
 extern fn gdk_event_free(*GdkEvent) void;
@@ -451,16 +430,12 @@ extern fn gtk_container_forall(
 extern fn gtk_text_view_set_wrap_mode(*GtkTextView, c_int) void;
 extern fn gtk_text_view_get_buffer(*GtkTextView) *GtkTextBuffer;
 extern fn gtk_text_buffer_set_text(*GtkTextBuffer, [*:0]const u8, c_int) void;
-extern fn gtk_text_buffer_get_bounds(
-    *GtkTextBuffer, *anyopaque, *anyopaque) void;
-extern fn gtk_text_buffer_get_text(
-    *GtkTextBuffer, *anyopaque, *anyopaque, c_int) ?[*:0]u8;
+extern fn gtk_text_buffer_get_bounds(*GtkTextBuffer, *anyopaque, *anyopaque) void;
+extern fn gtk_text_buffer_get_text(*GtkTextBuffer, *anyopaque, *anyopaque, c_int) ?[*:0]u8;
 extern fn gtk_combo_box_get_model(*GtkComboBox) ?*GtkTreeModel;
-extern fn gtk_tree_model_iter_n_children(
-    *GtkTreeModel, ?*anyopaque) c_int;
+extern fn gtk_tree_model_iter_n_children(*GtkTreeModel, ?*anyopaque) c_int;
 extern fn gtk_button_get_image(*GtkButton) ?*GtkWidget;
-extern fn gtk_image_get_icon_name(
-    *GtkImage, ?*?[*:0]const u8, ?*c_int) void;
+extern fn gtk_image_get_icon_name(*GtkImage, ?*?[*:0]const u8, ?*c_int) void;
 extern fn gtk_button_get_label(*GtkButton) ?[*:0]const u8;
 extern fn gtk_widget_get_sensitive(*GtkWidget) c_int;
 extern fn gtk_bin_get_child(*GtkBin) ?*GtkWidget;
@@ -485,8 +460,7 @@ extern fn gtk_widget_grab_focus(*GtkWidget) c_int;
 extern fn gtk_widget_show(*GtkWidget) void;
 extern fn gtk_widget_hide(*GtkWidget) void;
 extern fn gtk_widget_queue_draw(*GtkWidget) void;
-extern fn gtk_widget_queue_draw_area(
-    *GtkWidget, c_int, c_int, c_int, c_int) void;
+extern fn gtk_widget_queue_draw_area(*GtkWidget, c_int, c_int, c_int, c_int) void;
 extern fn gtk_widget_queue_resize(*GtkWidget) void;
 extern fn gtk_widget_get_scale_factor(*GtkWidget) c_int;
 extern fn gtk_widget_set_visible(*GtkWidget, c_int) void;
@@ -499,8 +473,7 @@ extern fn gtk_widget_has_focus(*GtkWidget) c_int;
 extern fn gtk_widget_get_frame_clock(*GtkWidget) ?*GdkFrameClock;
 extern fn gtk_widget_get_display(*GtkWidget) ?*GdkDisplay;
 extern fn gtk_widget_get_ancestor(*GtkWidget, GType) ?*GtkWidget;
-extern fn gtk_widget_get_size_request(
-    *GtkWidget, ?*c_int, ?*c_int) void;
+extern fn gtk_widget_get_size_request(*GtkWidget, ?*c_int, ?*c_int) void;
 extern fn gtk_widget_get_allocated_width(*GtkWidget) c_int;
 extern fn gtk_widget_get_allocated_height(*GtkWidget) c_int;
 extern fn gtk_widget_has_grab(*GtkWidget) c_int;
@@ -648,10 +621,8 @@ extern fn gtk_style_context_add_provider(*GtkStyleContext, *GtkStyleProvider, c_
 extern fn gtk_style_context_remove_provider(*GtkStyleContext, *GtkStyleProvider) void;
 extern fn gtk_style_context_add_provider_for_screen(*GdkScreen, *GtkStyleProvider, c_uint) void;
 extern fn gtk_style_context_add_class(*GtkStyleContext, [*:0]const u8) void;
-extern fn gtk_style_context_remove_class(
-    *GtkStyleContext, [*:0]const u8) void;
-extern fn gtk_style_context_has_class(
-    *GtkStyleContext, [*:0]const u8) c_int;
+extern fn gtk_style_context_remove_class(*GtkStyleContext, [*:0]const u8) void;
+extern fn gtk_style_context_has_class(*GtkStyleContext, [*:0]const u8) c_int;
 extern fn atk_object_set_name(*AtkObject, [*:0]const u8) void;
 extern fn atk_object_set_description(*AtkObject, [*:0]const u8) void;
 extern fn atk_object_get_description(*AtkObject) ?[*:0]const u8;
@@ -660,24 +631,36 @@ extern fn atk_object_set_role(*AtkObject, c_int) void;
 extern fn atk_object_get_name(*AtkObject) ?[*:0]const u8;
 extern fn g_type_check_instance_is_a(*GTypeInstance, GType) c_int;
 extern fn g_signal_connect_data(
-    ?*anyopaque, [*:0]const u8, GCallback, ?*anyopaque,
-    ?*anyopaque, c_uint,
+    ?*anyopaque,
+    [*:0]const u8,
+    GCallback,
+    ?*anyopaque,
+    ?*anyopaque,
+    c_uint,
 ) c_ulong;
 extern fn g_object_unref(?*anyopaque) void;
 extern fn g_idle_add(function: GSourceFunc, data: ?*anyopaque) c_uint;
 extern fn g_timeout_add(
-    interval: c_uint, function: GSourceFunc, data: ?*anyopaque,
+    interval: c_uint,
+    function: GSourceFunc,
+    data: ?*anyopaque,
 ) c_uint;
 extern fn g_timeout_add_seconds(
-    interval: c_uint, function: GSourceFunc, data: ?*anyopaque,
+    interval: c_uint,
+    function: GSourceFunc,
+    data: ?*anyopaque,
 ) c_uint;
 extern fn g_source_remove(source_id: c_uint) c_int;
 extern fn g_main_context_iteration(
-    context: ?*anyopaque, may_block: c_int,
+    context: ?*anyopaque,
+    may_block: c_int,
 ) c_int;
 extern fn g_object_set_data(*GObject, [*:0]const u8, ?*anyopaque) void;
 extern fn g_object_set_data_full(
-    *GObject, [*:0]const u8, ?*anyopaque, ?GDestroyNotify,
+    *GObject,
+    [*:0]const u8,
+    ?*anyopaque,
+    ?GDestroyNotify,
 ) void;
 extern fn g_object_get_data(*GObject, [*:0]const u8) ?*anyopaque;
 extern fn g_strdup([*:0]const u8) ?*anyopaque;
@@ -691,24 +674,19 @@ extern fn g_strcmp0(?[*:0]const u8, ?[*:0]const u8) c_int;
 extern fn g_list_free(?*GList) void;
 extern fn gdk_window_get_display(*GdkWindow) *GdkDisplay;
 extern fn gdk_window_set_cursor(*GdkWindow, ?*GdkCursor) void;
-extern fn gdk_cursor_new_from_name(
-    *GdkDisplay, [*:0]const u8) ?*GdkCursor;
-extern fn gdk_cursor_new_for_display(
-    *GdkDisplay, c_int) ?*GdkCursor;
+extern fn gdk_cursor_new_from_name(*GdkDisplay, [*:0]const u8) ?*GdkCursor;
+extern fn gdk_cursor_new_for_display(*GdkDisplay, c_int) ?*GdkCursor;
 extern fn gdk_screen_get_default() ?*GdkScreen;
 extern fn gdk_window_get_origin(*GdkWindow, *c_int, *c_int) void;
-extern fn gdk_display_get_monitor_at_window(
-    *GdkDisplay, *GdkWindow) ?*GdkMonitor;
+extern fn gdk_display_get_monitor_at_window(*GdkDisplay, *GdkWindow) ?*GdkMonitor;
 extern fn gdk_display_get_primary_monitor(*GdkDisplay) ?*GdkMonitor;
 extern fn gdk_display_get_default_seat(*GdkDisplay) ?*GdkSeat;
 extern fn gdk_seat_get_pointer(*GdkSeat) ?*GdkDevice;
-extern fn gdk_device_get_position(
-    *GdkDevice, ?*?*GdkScreen, *c_int, *c_int) void;
+extern fn gdk_device_get_position(*GdkDevice, ?*?*GdkScreen, *c_int, *c_int) void;
 extern fn gdk_monitor_get_geometry(*GdkMonitor, *GdkRectangle) void;
 extern fn gdk_monitor_get_workarea(*GdkMonitor, *GdkRectangle) void;
 extern fn gdk_monitor_get_scale_factor(*GdkMonitor) c_int;
-extern fn gdk_display_get_monitor_at_point(
-    *GdkDisplay, c_int, c_int) ?*GdkMonitor;
+extern fn gdk_display_get_monitor_at_point(*GdkDisplay, c_int, c_int) ?*GdkMonitor;
 extern fn gdk_display_get_n_monitors(*GdkDisplay) c_int;
 extern fn gdk_display_get_monitor(*GdkDisplay, c_int) ?*GdkMonitor;
 extern fn gdk_window_set_fullscreen_mode(*GdkWindow, c_int) void;
@@ -832,8 +810,8 @@ pub export fn noctty_grid_sync_split_visibility(
     if (pane_count == 0 or pane_count > pane_count_max) return FALSE;
     const panes = pane_pointer[0..pane_count];
 
-    var pending: [split_walk_max]?*GtkWidget = [_]?*GtkWidget{null} ** split_walk_max;
-    var splits: [split_count_max]?*GtkWidget = [_]?*GtkWidget{null} ** split_count_max;
+    var pending: [split_walk_max]?*GtkWidget = @splat(null);
+    var splits: [split_count_max]?*GtkWidget = @splat(null);
     var pending_count: usize = 1;
     var split_count: usize = 0;
     pending[0] = content;
@@ -1009,7 +987,7 @@ fn applyPaneDividerStyle(widget: *GtkWidget, width_px: c_int) void {
         const provider = widgetCssProvider(widget, "noctty-divider-provider") orelse return;
         var css_buffer: [96]u8 = undefined;
         const width = std.math.clamp(width_px, 1, 64);
-        const css = std.fmt.bufPrintZ(
+        const css = Compat.bufPrintZ(
             &css_buffer,
             "paned > separator {{ min-width: {d}px; min-height: {d}px; }}",
             .{ width, width },
@@ -1196,13 +1174,13 @@ fn setPaneGapStyle(widget: *GtkWidget, rgb: u32, is_opaque: bool) void {
     );
     var css_buffer: [160]u8 = undefined;
     const css = if (is_opaque)
-        std.fmt.bufPrintZ(
+        Compat.bufPrintZ(
             &css_buffer,
             ".noctty-pane-gap-surface {{ background-color: rgb({d},{d},{d}); }}",
             .{ (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff },
         ) catch return
     else
-        std.fmt.bufPrintZ(
+        Compat.bufPrintZ(
             &css_buffer,
             ".noctty-pane-gap-surface {{ background-color: rgba(0,0,0,0); }}",
             .{},
@@ -1481,7 +1459,7 @@ pub export fn noctty_apply_tab_color_style(tab_widget: ?*GtkWidget, rgb: u32, is
 
     const foreground = if (noctty_tab_color_uses_dark_text(rgb) != 0) "#11151b" else "#ffffff";
     var css_buffer: [768]u8 = undefined;
-    const css = std.fmt.bufPrintZ(
+    const css = Compat.bufPrintZ(
         &css_buffer,
         ".noctty-tab-content {{ background-color: #{x:0>6}; color: {s}; border-radius: 9px 9px 0 0; box-shadow: inset 0 {s} 0 rgba(255,255,255,{s}); }}" ++
             ".noctty-tab-label {{ color: {s}; }}" ++
@@ -1627,7 +1605,7 @@ pub export fn noctty_settings_category_row_new(
     gtk_widget_set_focus_on_click(row, TRUE);
     gtk_widget_set_size_request(row, -1, 52);
     var tooltip_buffer: [96]u8 = undefined;
-    const tooltip = std.fmt.bufPrintZ(
+    const tooltip = Compat.bufPrintZ(
         &tooltip_buffer,
         "Open {s} settings",
         .{std.mem.span(label_value)},
@@ -2590,7 +2568,6 @@ pub export fn noctty_grid_window_get_window_type(
     return gtk_window_get_window_type(@ptrCast(window));
 }
 
-
 pub export fn noctty_grid_window_get_default_widget(
     window_optional: ?*anyopaque,
 ) ?*GtkWidget {
@@ -2688,7 +2665,6 @@ pub export fn noctty_grid_dialog_get_widget_for_response(
     const dialog = dialog_optional orelse return null;
     return gtk_dialog_get_widget_for_response(@ptrCast(dialog), response);
 }
-
 
 pub export fn noctty_grid_dialog_run(
     dialog_optional: ?*anyopaque,
@@ -2812,8 +2788,7 @@ pub export fn noctty_grid_object_set_data_full(
     destroy: ?GDestroyNotify,
 ) void {
     const object_value = object_optional orelse return;
-    g_object_set_data_full(
-        @ptrCast(@alignCast(object_value)), key, value, destroy);
+    g_object_set_data_full(@ptrCast(@alignCast(object_value)), key, value, destroy);
 }
 
 pub export fn noctty_grid_object_ref(
@@ -3072,7 +3047,6 @@ pub export fn noctty_grid_spin_button_get_value(
     return gtk_spin_button_get_value(@ptrCast(spin));
 }
 
-
 pub export fn noctty_grid_toggle_button_get_active(
     toggle_optional: ?*anyopaque,
 ) c_int {
@@ -3120,7 +3094,6 @@ pub export fn noctty_grid_widget_get_sensitive(
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_get_sensitive(@ptrCast(widget));
 }
-
 
 pub export fn noctty_grid_widget_get_allocated_width(
     widget_optional: ?*anyopaque,
@@ -3183,8 +3156,7 @@ pub export fn noctty_grid_text_buffer_get_text(
     const buffer = buffer_optional orelse return null;
     const start = start_optional orelse return null;
     const end = end_optional orelse return null;
-    return gtk_text_buffer_get_text(
-        @ptrCast(buffer), start, end, include_hidden);
+    return gtk_text_buffer_get_text(@ptrCast(buffer), start, end, include_hidden);
 }
 
 pub export fn noctty_grid_text_buffer_set_text(
@@ -3250,7 +3222,7 @@ pub export fn noctty_grid_button_event_new(
     y_root: f64,
 ) ?*GdkEvent {
     const event = gdk_event_new(GDK_BUTTON_PRESS) orelse return null;
-    const event_button: *GdkEventButton = @alignCast(@ptrCast(event));
+    const event_button: *GdkEventButton = @ptrCast(@alignCast(event));
     if (window_optional) |window| {
         event_button.window = @ptrCast(g_object_ref(window) orelse return event);
     }
@@ -3437,13 +3409,11 @@ pub export fn noctty_grid_gdk_display_is_wayland(
     display_optional: ?*anyopaque,
 ) c_int {
     const display = display_optional orelse return 0;
-    return if (g_type_check_instance_is_a(
-        @alignCast(@ptrCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
+    return if (g_type_check_instance_is_a(@ptrCast(@alignCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
 }
 pub export fn noctty_grid_gdk_default_display_is_wayland() c_int {
     const display = gdk_display_get_default() orelse return 0;
-    return if (g_type_check_instance_is_a(
-        @alignCast(@ptrCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
+    return if (g_type_check_instance_is_a(@ptrCast(@alignCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
 }
 
 pub export fn noctty_grid_event_set_pointer_device(
@@ -3469,7 +3439,6 @@ pub export fn noctty_grid_button_get_label(
     const button = button_optional orelse return null;
     return gtk_button_get_label(@ptrCast(button));
 }
-
 
 pub export fn noctty_grid_image_get_icon_name(
     image_optional: ?*anyopaque,
@@ -3728,7 +3697,6 @@ pub export fn noctty_grid_selection_data_get_text(
     return gtk_selection_data_get_text(@ptrCast(selection));
 }
 
-
 pub export fn noctty_grid_editable_select_region(
     editable_optional: ?*anyopaque,
     start_pos: c_int,
@@ -3849,8 +3817,7 @@ pub export fn noctty_grid_widget_is_type(
         21 => gtk_radio_menu_item_get_type,
         else => return FALSE,
     };
-    return if (g_type_check_instance_is_a(
-        @ptrCast(@alignCast(widget)), get_type()) != 0) TRUE else FALSE;
+    return if (g_type_check_instance_is_a(@ptrCast(@alignCast(widget)), get_type()) != 0) TRUE else FALSE;
 }
 
 pub export fn noctty_grid_widget_has_focus(
@@ -3983,7 +3950,6 @@ pub export fn noctty_grid_window_set_default_icon_name(
 ) void {
     gtk_window_set_default_icon_name(name);
 }
-
 
 pub export fn noctty_grid_drag_finish(
     drag: ?*anyopaque,
@@ -4135,9 +4101,6 @@ pub export fn noctty_grid_widget_queue_resize(
     const widget = widget_optional orelse return;
     gtk_widget_queue_resize(widget);
 }
-
-
-
 
 const GridWindowCallbacks = extern struct {
     delete_event: ?GCallback,
@@ -4410,10 +4373,6 @@ pub export fn noctty_grid_menu_popup_at_rect(
         event,
     );
 }
-
-
-
-
 
 pub export fn noctty_grid_page_new(
     panel_padding: c_int,
@@ -5345,6 +5304,7 @@ const SettingsAppearanceOptions = extern struct {
     font_size: f64,
     antialias: c_int,
     hinting: c_int,
+    renderer_backend: c_int,
     translucency: c_int,
     alpha_supported: c_int,
     opacity_percent: f64,
@@ -5376,6 +5336,7 @@ const SettingsAppearanceContents = extern struct {
     font: ?*GtkWidget,
     antialias: ?*GtkWidget,
     hinting: ?*GtkWidget,
+    renderer: ?*GtkWidget,
     translucency: ?*GtkWidget,
     opacity: ?*GtkWidget,
     transparency_status: ?*GtkWidget,
@@ -5411,12 +5372,8 @@ pub export fn noctty_settings_appearance_contents_new(
 
     const tabs = comboText(&.{ "Top", "Bottom", "Left", "Right" }, options.tab_position) orelse return FALSE;
     const status = comboText(&.{ "Background", "Border" }, 1) orelse return FALSE;
-    const padding = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.panel_padding),
-        0, 64, options.panel_padding) orelse return FALSE;
-    const spacing = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.pane_spacing),
-        0, 64, options.pane_spacing) orelse return FALSE;
+    const padding = panelMetricSpin(NativeGridLogic.settings_event_code(.panel_padding), 0, 64, options.panel_padding) orelse return FALSE;
+    const spacing = panelMetricSpin(NativeGridLogic.settings_event_code(.pane_spacing), 0, 64, options.pane_spacing) orelse return FALSE;
     const pane_gaps_enabled = gtk_check_button_new_with_label(
         "Show pixel gaps between panes",
     ) orelse return FALSE;
@@ -5427,8 +5384,7 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(pane_gaps_enabled),
         "noctty-panel-metric-event",
-        @ptrFromInt(@as(usize, @intCast(
-            NativeGridLogic.settings_event_code(.pane_gaps_enabled)))),
+        @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.pane_gaps_enabled)))),
     );
     const pane_gaps_transparent = gtk_check_button_new_with_label(
         "Keep pane gaps transparent",
@@ -5444,8 +5400,7 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(pane_gaps_transparent),
         "noctty-panel-metric-event",
-        @ptrFromInt(@as(usize, @intCast(
-            NativeGridLogic.settings_event_code(.pane_gaps_transparent)))),
+        @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.pane_gaps_transparent)))),
     );
     const inactive_pane_dim_enabled = gtk_check_button_new_with_label(
         "Dim inactive panes",
@@ -5457,8 +5412,7 @@ pub export fn noctty_settings_appearance_contents_new(
     g_object_set_data(
         object(inactive_pane_dim_enabled),
         "noctty-panel-metric-event",
-        @ptrFromInt(@as(usize, @intCast(
-            NativeGridLogic.settings_event_code(.inactive_pane_dim)))),
+        @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.inactive_pane_dim)))),
     );
     const inactive_pane_brightness = gtk_scale_new_with_range(
         GTK_ORIENTATION_HORIZONTAL,
@@ -5489,30 +5443,14 @@ pub export fn noctty_settings_appearance_contents_new(
         "noctty-inactive-brightness",
         inactive_pane_brightness,
     );
-    const divider = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.pane_divider),
-        1, 16, options.pane_divider) orelse return FALSE;
-    const pane_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.pane_border),
-        0, 12, options.pane_border) orelse return FALSE;
-    const focused_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.focused_border),
-        1, 12, options.focused_border) orelse return FALSE;
-    const selected_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.selected_border),
-        1, 12, options.selected_border) orelse return FALSE;
-    const status_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.status_border),
-        1, 12, options.status_border) orelse return FALSE;
-    const overlay_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.overlay_border),
-        1, 12, options.overlay_border) orelse return FALSE;
-    const window_border = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.window_border),
-        1, 16, options.window_border) orelse return FALSE;
-    const dragger = panelMetricSpin(
-        NativeGridLogic.settings_event_code(.dragger),
-        1, 32, options.dragger) orelse return FALSE;
+    const divider = panelMetricSpin(NativeGridLogic.settings_event_code(.pane_divider), 1, 16, options.pane_divider) orelse return FALSE;
+    const pane_border = panelMetricSpin(NativeGridLogic.settings_event_code(.pane_border), 0, 12, options.pane_border) orelse return FALSE;
+    const focused_border = panelMetricSpin(NativeGridLogic.settings_event_code(.focused_border), 1, 12, options.focused_border) orelse return FALSE;
+    const selected_border = panelMetricSpin(NativeGridLogic.settings_event_code(.selected_border), 1, 12, options.selected_border) orelse return FALSE;
+    const status_border = panelMetricSpin(NativeGridLogic.settings_event_code(.status_border), 1, 12, options.status_border) orelse return FALSE;
+    const overlay_border = panelMetricSpin(NativeGridLogic.settings_event_code(.overlay_border), 1, 12, options.overlay_border) orelse return FALSE;
+    const window_border = panelMetricSpin(NativeGridLogic.settings_event_code(.window_border), 1, 16, options.window_border) orelse return FALSE;
+    const dragger = panelMetricSpin(NativeGridLogic.settings_event_code(.dragger), 1, 32, options.dragger) orelse return FALSE;
     const pane_info = gtk_check_button_new_with_label("Show bottom pane and resource bar") orelse return FALSE;
     gtk_toggle_button_set_active(@ptrCast(pane_info), options.show_pane_info);
     const theme_scope_tab = gtk_check_button_new_with_label(
@@ -5525,6 +5463,10 @@ pub export fn noctty_settings_appearance_contents_new(
     const font = spinButton(options.font_min, options.font_max, 1, options.font_size) orelse return FALSE;
     const antialias = comboText(&.{ "System default", "Grayscale", "Subpixel (smoothest)" }, options.antialias) orelse return FALSE;
     const hinting = comboText(&.{ "None", "Slight", "Full" }, options.hinting) orelse return FALSE;
+    const renderer = comboText(
+        &.{ "Cairo (CPU)", "OpenGL (GPU presentation; restart required)" },
+        options.renderer_backend,
+    ) orelse return FALSE;
 
     var body: *GtkWidget = undefined;
     const page = noctty_settings_page_new(
@@ -5538,7 +5480,7 @@ pub export fn noctty_settings_appearance_contents_new(
         .{ "Theme", theme },                 .{ "Theme scope", theme_scope_tab },
         .{ "Theme library", theme_library }, .{ "Font family", family },
         .{ "Font size", font },              .{ "Font smoothing", antialias },
-        .{ "Font hinting", hinting },
+        .{ "Font hinting", hinting },        .{ "Renderer", renderer },
     });
     if (!packSettingsGroup(body, "Terminal", terminal_grid)) return FALSE;
     const chrome_grid = noctty_settings_grid_new() orelse return FALSE;
@@ -5630,6 +5572,7 @@ pub export fn noctty_settings_appearance_contents_new(
         .font = font,
         .antialias = antialias,
         .hinting = hinting,
+        .renderer = renderer,
         .translucency = translucency,
         .opacity = opacity,
         .transparency_status = transparency_status,
@@ -6021,13 +5964,9 @@ fn sharingActionButton(
         gtk_widget_get_style_context(button),
         "noctty-sharing-action",
     );
-    const tone_class: ?[*:0]const u8 = switch (
-        NativeGridLogic.sharing_action_tone(action.action)
-    ) {
-        NativeGridLogic.sharing_action_tone_primary =>
-            "noctty-sharing-action-primary",
-        NativeGridLogic.sharing_action_tone_danger =>
-            "noctty-sharing-action-danger",
+    const tone_class: ?[*:0]const u8 = switch (NativeGridLogic.sharing_action_tone(action.action)) {
+        NativeGridLogic.sharing_action_tone_primary => "noctty-sharing-action-primary",
+        NativeGridLogic.sharing_action_tone_danger => "noctty-sharing-action-danger",
         else => null,
     };
     if (tone_class) |class_name|

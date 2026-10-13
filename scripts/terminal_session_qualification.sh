@@ -13,11 +13,10 @@ run_mode() {
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache-$mode"
-    if ! zig build terminal-session-qualification-binary \
+    if ! ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-session-qualification-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"; then
+        --cache-dir "$local_cache"; then
         return 1
     fi
 

@@ -49,11 +49,10 @@ for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
     mkdir -p "$prefix"
     XDG_CACHE_HOME="$xdg_cache" TMPDIR="$build_tmp" \
-        zig build smoke-binaries \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build smoke-binaries \
             -Doptimize="$mode" \
             --prefix "$prefix" \
-            --cache-dir "$build_cache-$mode" \
-            --global-cache-dir "$global_cache"
+            --cache-dir "$build_cache-$mode"
 done
 
 printf '%s\n' \

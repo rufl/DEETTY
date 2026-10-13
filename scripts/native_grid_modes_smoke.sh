@@ -14,7 +14,7 @@ if [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
 fi
 
 for mode in --native-grid-smoke --native-grid-windowed-smoke --native-grid-zen-smoke; do
-  if output="$(GTK_MODULES= zig build --global-cache-dir .zig-cache/global smoke-run -- "$mode" 2>&1)"; then
+  if output="$(GTK_MODULES= ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- "$mode" 2>&1)"; then
     :
   else
     status=$?

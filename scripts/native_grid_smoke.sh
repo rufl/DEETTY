@@ -23,7 +23,7 @@ case "$backend:${NOCTTY_ISOLATED_DISPLAY}" in
 esac
 
 if output="$(env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
-  GDK_BACKEND="$backend" zig build --global-cache-dir .zig-cache/global \
+  GDK_BACKEND="$backend" ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build \
   smoke-run -- --native-grid-smoke 2>&1)"; then
   :
 else

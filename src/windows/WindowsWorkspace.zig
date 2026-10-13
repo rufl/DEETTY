@@ -10,6 +10,12 @@ pub const max_panes: usize = 32;
 const max_layout_nodes: usize = max_panes * 2 - 1;
 const invalid_index: u8 = std.math.maxInt(u8);
 pub const max_tab_name_bytes = 128;
+fn repeatBytes(comptime pattern: []const u8, comptime count: usize) [pattern.len * count]u8 {
+    var output: [pattern.len * count]u8 = undefined;
+    for (0..count) |index|
+        @memcpy(output[index * pattern.len ..][0..pattern.len], pattern);
+    return output;
+}
 
 const LayoutKind = enum(u8) {
     leaf,
@@ -42,7 +48,7 @@ const WorkspaceTab = struct {
     /// Stable automatic label, independent of visual position and pane reuse.
     label: u8 = 0,
     name_length: u8 = 0,
-    name: [max_tab_name_bytes]u8 = [_]u8{0} ** max_tab_name_bytes,
+    name: [max_tab_name_bytes]u8 = @splat(0),
 };
 
 const PaneRect = struct {
@@ -86,9 +92,9 @@ const SnapshotPane = struct {
 };
 
 pub const WorkspaceSnapshot = struct {
-    panes: [max_panes]SnapshotPane = [_]SnapshotPane{.{}} ** max_panes,
-    nodes: [max_layout_nodes]LayoutNode = [_]LayoutNode{.{}} ** max_layout_nodes,
-    tabs: [max_tabs]WorkspaceTab = [_]WorkspaceTab{.{}} ** max_tabs,
+    panes: [max_panes]SnapshotPane = @splat(.{}),
+    nodes: [max_layout_nodes]LayoutNode = @splat(.{}),
+    tabs: [max_tabs]WorkspaceTab = @splat(.{}),
     tab_count: u8 = 0,
     active_tab: u8 = 0,
 };
@@ -100,9 +106,9 @@ pub const PersistedWindowsState = struct {
 
 pub const WindowsWorkspace = struct {
     allocator: std.mem.Allocator,
-    panes: [max_panes]?WorkspacePane = [_]?WorkspacePane{null} ** max_panes,
-    nodes: [max_layout_nodes]LayoutNode = [_]LayoutNode{.{}} ** max_layout_nodes,
-    tabs: [max_tabs]WorkspaceTab = [_]WorkspaceTab{.{}} ** max_tabs,
+    panes: [max_panes]?WorkspacePane = @splat(null),
+    nodes: [max_layout_nodes]LayoutNode = @splat(.{}),
+    tabs: [max_tabs]WorkspaceTab = @splat(.{}),
     tab_count: usize = 0,
     active_tab: usize = 0,
     /// Volatile view query; tags remain persisted, filter resets on restart.
@@ -279,7 +285,7 @@ pub const WindowsWorkspace = struct {
         const tab_index = self.tab_count;
         const pane_index = try self.allocatePane(tab_index, columns, rows, profile_index);
         const pane = self.panes[pane_index].?;
-        var labels = [_]bool{false} ** (max_tabs + 1);
+        var labels: [max_tabs + 1]bool = @splat(false);
         for (self.tabs[0..self.tab_count]) |tab| labels[tab.label] = true;
         const label = for (1..labels.len) |index| {
             if (!labels[index]) break index;
@@ -877,8 +883,8 @@ fn validateWorkspaceSnapshot(snapshot_value: *const WorkspaceSnapshot) !void {
     if (snapshot_value.tab_count == 0 or snapshot_value.tab_count > max_tabs or
         snapshot_value.active_tab >= snapshot_value.tab_count)
         return error.InvalidWindowsWorkspace;
-    var visited = [_]bool{false} ** max_layout_nodes;
-    var labels = [_]bool{false} ** (max_tabs + 1);
+    var visited: [max_layout_nodes]bool = @splat(false);
+    var labels: [max_tabs + 1]bool = @splat(false);
     for (snapshot_value.tabs, 0..) |tab, index| {
         if (tab.name_length > max_tab_name_bytes) return error.InvalidWindowsWorkspace;
         validateTabName(tab.name[0..tab.name_length]) catch
@@ -934,14 +940,14 @@ pub fn encodePersistedWindowsState(
     value: PersistedWindowsState,
     output: []u8,
 ) !usize {
-    if (!WindowsAppearance.validTheme(@intFromEnum(value.preferences.theme)) or
+    if (!WindowsAppearance.validTheme(@backingInt(value.preferences.theme)) or
         !WindowsAppearance.validFontSize(value.preferences.font_size_pt))
         return error.InvalidWindowsState;
     var writer = StateWriter{ .bytes = output };
     for (persisted_state_magic) |byte| try writer.put(byte);
-    try writer.put(@intFromEnum(value.preferences.theme));
+    try writer.put(@backingInt(value.preferences.theme));
     try writer.put(value.preferences.font_size_pt);
-    try writer.put(@intFromEnum(value.preferences.launch_profile));
+    try writer.put(@backingInt(value.preferences.launch_profile));
     try writer.put(@intFromBool(value.preferences.restore_workspace));
     try writer.put(@intFromBool(value.workspace != null));
     if (value.workspace) |snapshot_value| {
@@ -958,7 +964,7 @@ pub fn encodePersistedWindowsState(
         }
         for (snapshot_value.nodes) |node| {
             try writer.put(@intFromBool(node.used));
-            try writer.put(@intFromEnum(node.kind));
+            try writer.put(@backingInt(node.kind));
             try writer.put(node.parent);
             try writer.put(node.first);
             try writer.put(node.second);
@@ -994,7 +1000,7 @@ pub fn decodePersistedWindowsState(bytes: []const u8) !PersistedWindowsState {
     if (!WindowsAppearance.validTheme(theme_value) or
         ((version != '3' and version != '4' and version != '5') and theme_value > 1))
         return error.InvalidWindowsState;
-    const theme: WindowsTheme = @enumFromInt(theme_value);
+    const theme: WindowsTheme = @fromBackingInt(@intCast(theme_value));
     const font_size = try reader.take();
     if (!WindowsAppearance.validFontSize(font_size) or
         ((version != '3' and version != '4' and version != '5') and (font_size < 10 or font_size > 24)))
@@ -1151,7 +1157,7 @@ test "Windows workspace: bounded UTF-8 names reset to automatic titles and round
     try std.testing.expect(!(try workspace.renameTab(0, "界é")));
     try std.testing.expect(try workspace.renameTab(0, ""));
     try std.testing.expectEqualStrings("automatic", buffer[0..try workspace.tabTitle(0, &buffer)]);
-    for ([_][]const u8{ "\xff", "\xc0\xaf", "bad\nname", "bad\x7f", "bad\x00", "a" ** 129 }) |invalid| {
+    for ([_][]const u8{ "\xff", "\xc0\xaf", "bad\nname", "bad\x7f", "bad\x00", &repeatBytes("a", 129) }) |invalid| {
         try std.testing.expectError(error.InvalidWindowsTabName, workspace.renameTab(0, invalid));
     }
     try std.testing.expectError(error.InvalidWindowsTab, workspace.renameTab(1, "missing"));
@@ -1160,7 +1166,7 @@ test "Windows workspace: bounded UTF-8 names reset to automatic titles and round
     try std.testing.expect(!(try workspace.selectTab(0)));
     try std.testing.expect(!(try workspace.moveTab(0, 0)));
 
-    const maximum_name = "界" ** 42 ++ "aa";
+    const maximum_name = repeatBytes("界", 42) ++ "aa";
     _ = try workspace.renameTab(0, maximum_name);
     for (1..max_tabs) |_| {
         _ = try workspace.newTab(12, 4);
@@ -1197,10 +1203,10 @@ test "Windows workspace: NWS1 migrates to NWS5 preserving order with automatic l
     // Two leaf tabs, second selected. This is the original NWS1 wire format,
     // independent of the current encoder.
     const payload = "NWS1\x00\x0d\x00\x01\x01\x02\x01" ++
-        "\x01\x00\x00\x01\x01\x01" ++ "\x00\xff\xff" ** 14 ++
+        "\x01\x00\x00\x01\x01\x01" ++ repeatBytes("\x00\xff\xff", 14) ++
         "\x01\x00\xff\xff\xff\x00\x01\x00\xff\xff\xff\x01" ++
-        "\x00\x00\xff\xff\xff\xff" ** 61 ++
-        "\x01\x00\x00\x01\x01\x01" ++ "\x00\xff\xff" ** 30;
+        repeatBytes("\x00\x00\xff\xff\xff\xff", 61) ++
+        "\x01\x00\x00\x01\x01\x01" ++ repeatBytes("\x00\xff\xff", 30);
     var legacy: [payload.len + 4]u8 = undefined;
     @memcpy(legacy[0..payload.len], payload);
     signTestState(&legacy);
@@ -1357,12 +1363,12 @@ test "Windows workspace: focused adjustment follows child side and nearest match
 
 test "Windows workspace: NWS2 split ratios migrate to equal and NWS4 preserves boundary ratios" {
     const payload = "NWS2\x00\x0d\x00\x01\x01\x01\x00" ++
-        "\x01\x01\x01\x01\x03old" ++ "\x00\xff\xff\x00\x00" ** 15 ++
+        "\x01\x01\x01\x01\x03old" ++ repeatBytes("\x00\xff\xff\x00\x00", 15) ++
         "\x01\x00\x01\xff\xff\x00" ++ // First leaf.
         "\x01\x01\xff\x00\x02\xff" ++ // Horizontal root.
         "\x01\x00\x01\xff\xff\x01" ++ // Second leaf.
-        "\x00\x00\xff\xff\xff\xff" ** 60 ++
-        "\x01\x00\x00\x01\x00\x02" ++ "\x00\xff\xff" ** 30;
+        repeatBytes("\x00\x00\xff\xff\xff\xff", 60) ++
+        "\x01\x00\x00\x01\x00\x02" ++ repeatBytes("\x00\xff\xff", 30);
     var legacy: [payload.len + 4]u8 = undefined;
     @memcpy(legacy[0..payload.len], payload);
     signTestState(&legacy);

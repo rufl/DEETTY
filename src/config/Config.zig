@@ -229,6 +229,10 @@ pub const KeyEvent = struct {
 
 pub const FontAntialias = enum { system, grayscale, subpixel };
 pub const FontHinting = enum { none, slight, full };
+pub const RendererBackend = enum(u8) {
+    cairo,
+    opengl,
+};
 
 pub const FontConfig = struct {
     family: []const u8 = "Monospace",
@@ -439,6 +443,7 @@ pub const Config = struct {
     clipboard: ClipboardConfig = .{},
     terminal: TerminalConfig = .{},
     background: BackgroundConfig = .{},
+    renderer_backend: RendererBackend = .cairo,
     recent_workspaces: WorkspaceActivation.RecentWorkspaces = .{},
     default_theme: []const u8 = "noctty-dark",
     syntax_theme: []const u8 = "noctty-syntax-default",
@@ -503,6 +508,7 @@ test "defaults match product constraints" {
     try std.testing.expectEqual(@as(u8, 70), cfg.panels.inactive_brightness_percent);
     try std.testing.expect(cfg.background.translucency);
     try std.testing.expectEqual(@as(u8, 92), cfg.background.opacity_percent);
+    try std.testing.expectEqual(RendererBackend.cairo, cfg.renderer_backend);
 }
 
 test "zero scrollback normalizes to the hard default for active and named profiles" {

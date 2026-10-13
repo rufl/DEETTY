@@ -2,6 +2,7 @@
 # Names are mapped by the package-manager manifests in this directory.
 glibc
 gtk3
+libepoxy
 gtk-layer-shell
 gtksourceview4
 glib2

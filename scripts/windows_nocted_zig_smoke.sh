@@ -18,13 +18,12 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 mkdir -p "$scratch/stage" "$scratch/local-cache" "$scratch/global-cache"
 
-zig build windows-nocted-host-qualification \
+ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build windows-nocted-host-qualification \
   -Dtarget=x86_64-windows-gnu \
   -Doptimize="$optimize" \
   -j1 \
   --prefix "$scratch/stage" \
-  --cache-dir "$scratch/local-cache" \
-  --global-cache-dir "$scratch/global-cache" >/dev/null
+  --cache-dir "$scratch/local-cache" >/dev/null
 
 test -s "$scratch/stage/bin/nocted-host-qualification.exe"
 

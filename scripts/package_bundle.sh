@@ -49,11 +49,10 @@ manifest_tmp=$(mktemp "$out_dir/.$out_name.manifest.tmp.XXXXXX")
 manifest_path="$out_path.manifest"
 
 mkdir -p "$stage" "$local_cache" "$global_cache" "$TMPDIR" "$XDG_CACHE_HOME"
-zig build --cache-dir "$local_cache" --global-cache-dir "$global_cache" test >/dev/null
-zig build --cache-dir "$local_cache" --global-cache-dir "$global_cache" check >/dev/null
-zig build -Doptimize=ReleaseSafe -Dstrip=true --prefix "$stage" \
-  --cache-dir "$local_cache" \
-  --global-cache-dir "$global_cache"
+ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build --cache-dir "$local_cache" test >/dev/null
+ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build --cache-dir "$local_cache" check >/dev/null
+ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build -Doptimize=ReleaseSafe -Dstrip=true --prefix "$stage" \
+  --cache-dir "$local_cache"
 mkdir -p "$stage/libexec/noctty/lib"
 mv "$stage/bin/noctty" "$stage/libexec/noctty/noctty"
 mv "$stage/bin/nocted" "$stage/libexec/noctty/nocted"

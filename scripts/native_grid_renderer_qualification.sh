@@ -19,11 +19,10 @@ run_mode() {
     mode_xdg_cache="$scratch/xdg-cache-$mode"
     mkdir -p "$artifact_dir" "$mode_tmp" "$mode_xdg_cache"
     if ! TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
-        zig build noctty-smoke-binary \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build noctty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"; then
+        --cache-dir "$local_cache"; then
         return 1
     fi
 

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compat = @import("compat");
 const LaunchProfile = @import("LaunchProfile.zig");
 
 extern fn tcgetpgrp(fd: c_int) c_int;
@@ -72,14 +73,14 @@ fn readFile(path: [*:0]const u8, buffer: []u8) ?[]u8 {
 fn readProcFile(pid: i32, leaf: []const u8, buffer: []u8) ?[]u8 {
     if (pid <= 0 or buffer.len == 0) return null;
     var path_buffer: [96]u8 = undefined;
-    const path = std.fmt.bufPrintZ(&path_buffer, "/proc/{d}/{s}", .{ pid, leaf }) catch return null;
+    const path = Compat.bufPrintZ(&path_buffer, "/proc/{d}/{s}", .{ pid, leaf }) catch return null;
     return readFile(path.ptr, buffer);
 }
 
 fn readProcLink(pid: i32, leaf: []const u8, buffer: []u8) ?[]u8 {
     if (pid <= 0 or buffer.len == 0) return null;
     var path_buffer: [96]u8 = undefined;
-    const path = std.fmt.bufPrintZ(&path_buffer, "/proc/{d}/{s}", .{ pid, leaf }) catch return null;
+    const path = Compat.bufPrintZ(&path_buffer, "/proc/{d}/{s}", .{ pid, leaf }) catch return null;
     const length = std.c.readlink(path.ptr, buffer.ptr, buffer.len);
     if (length <= 0) return null;
     return buffer[0..@intCast(length)];
@@ -121,7 +122,7 @@ fn addTotals(target: *ProcessTotals, process: ProcessTotals) void {
 
 fn walkProcessTree(root_pid: i32, pane_root_pid: i32) ?ProcessWalk {
     if (root_pid <= 0) return null;
-    const page_size_raw = std.c.sysconf(@intFromEnum(std.c._SC.PAGESIZE));
+    const page_size_raw = std.c.sysconf(@backingInt(std.c._SC.PAGESIZE));
     if (page_size_raw <= 0) return null;
     const page_size: u64 = @intCast(page_size_raw);
     var queue: [4096]i32 = undefined; // ponytail: bounded /proc walk; raise if 4096 descendants becomes real.
@@ -144,7 +145,7 @@ fn walkProcessTree(root_pid: i32, pane_root_pid: i32) ?ProcessWalk {
 
         var children_buffer: [8192]u8 = undefined;
         var path_buffer: [96]u8 = undefined;
-        const path = std.fmt.bufPrintZ(
+        const path = Compat.bufPrintZ(
             &path_buffer,
             "/proc/{d}/task/{d}/children",
             .{ pid, pid },
@@ -371,7 +372,7 @@ fn resolveExecutableInPath(name: []const u8, path: []const u8, buffer: []u8) ?[:
     var directories = std.mem.splitScalar(u8, path, ':');
     while (directories.next()) |directory| {
         if (!std.fs.path.isAbsolute(directory)) continue;
-        const candidate = std.fmt.bufPrintZ(
+        const candidate = Compat.bufPrintZ(
             buffer,
             "{s}/{s}",
             .{ directory, name },
@@ -448,7 +449,7 @@ pub fn sleepBrief(milliseconds: u32) void {
 
 fn processGroupAlive(process_group: c_int, own_group: c_int) bool {
     if (process_group <= 1 or process_group == own_group) return false;
-    const result = std.c.kill(-process_group, @enumFromInt(0));
+    const result = std.c.kill(-process_group, @fromBackingInt(@intCast(0)));
     return result == 0 or std.posix.errno(result) == .PERM;
 }
 
@@ -627,7 +628,7 @@ pub const Session = struct {
         self.exit_code = if (std.c.W.IFEXITED(wait_status))
             std.c.W.EXITSTATUS(wait_status)
         else if (std.c.W.IFSIGNALED(wait_status))
-            @intCast(128 + @intFromEnum(std.c.W.TERMSIG(wait_status)))
+            @intCast(128 + @backingInt(std.c.W.TERMSIG(wait_status)))
         else
             255;
         return self.exit_code;

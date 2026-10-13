@@ -314,7 +314,9 @@ pub fn resolveSavePathAlloc(
         &.{ canonical_parent_buffer[0..canonical_parent_length], basename },
     );
     defer allocator.free(joined);
-    return allocator.dupeZ(u8, joined);
+    const result = try allocator.allocSentinel(u8, joined.len, 0);
+    @memcpy(result, joined);
+    return result;
 }
 
 test "loads editable UTF-8 and writes it back atomically" {

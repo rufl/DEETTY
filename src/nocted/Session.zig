@@ -171,7 +171,7 @@ pub fn save(io: std.Io, path: []const u8, state: *const State) !void {
             return error.SessionStateTooLarge;
     }
     var atomic = try std.Io.Dir.cwd().createFileAtomic(io, path, .{
-        .permissions = @enumFromInt(0o600),
+        .permissions = @fromBackingInt(@intCast(0o600)),
         .make_path = true,
         .replace = true,
     });

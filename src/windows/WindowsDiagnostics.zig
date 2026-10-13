@@ -5,16 +5,11 @@
 
 const std = @import("std");
 
-const c = @cImport({
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-    @cInclude("dbghelp.h");
-});
+const c = @import("c");
 
 const path_capacity: usize = c.MAX_PATH * 2;
 var log_file: c.HANDLE = c.INVALID_HANDLE_VALUE;
-var dump_path: [path_capacity:0]u16 = [_:0]u16{0} ** path_capacity;
+var dump_path: [path_capacity:0]u16 = @splat(0);
 
 pub export fn noctty_windows_diagnostics_init() callconv(.c) c_int {
     var base: [c.MAX_PATH:0]u16 = undefined;
@@ -27,7 +22,7 @@ pub export fn noctty_windows_diagnostics_init() callconv(.c) c_int {
             length -= 1;
     }
 
-    var directory: [path_capacity:0]u16 = [_:0]u16{0} ** path_capacity;
+    var directory: [path_capacity:0]u16 = @splat(0);
     @memcpy(directory[0..length], base[0..length]);
     appendWide(&directory, &length, std.unicode.utf8ToUtf16LeStringLiteral("\\NOCTTY")) catch
         return 0;

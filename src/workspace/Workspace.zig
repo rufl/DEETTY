@@ -570,7 +570,7 @@ pub const ProjectPanelActionExecutionSpec = struct {
     operation: ProjectPanelActionOperation,
     path: ?[]const u8 = null,
     commit: ?[]const u8 = null,
-    argv: [max_project_panel_action_argv][]const u8 = .{""} ** max_project_panel_action_argv,
+    argv: [max_project_panel_action_argv][]const u8 = @splat(""),
     argv_count: usize = 0,
     requires_process: bool = false,
     requires_editor: bool = false,
@@ -1341,7 +1341,7 @@ const SnapshotWriter = struct {
 
     fn writeAgentResume(self: *SnapshotWriter, reference: Continuity.AgentResume) !void {
         try self.writeBool(reference.enabled);
-        try self.writeU8(@intFromEnum(reference.provider));
+        try self.writeU8(@backingInt(reference.provider));
         try self.writeString(reference.session_id.slice());
         try self.writeString(reference.label.slice());
     }
@@ -1403,7 +1403,7 @@ const SnapshotWriter = struct {
     fn writeOptionalTabAccent(self: *SnapshotWriter, value: ?TabAccent) !void {
         if (value) |accent| {
             try self.writeBool(true);
-            try self.writeU8(@intFromEnum(accent.preset));
+            try self.writeU8(@backingInt(accent.preset));
             try self.writeU8(@intCast(accent.shade - TabAccent.min_shade));
         } else {
             try self.writeBool(false);
@@ -1612,9 +1612,9 @@ const SnapshotReader = struct {
     fn readOptionalTabAccent(self: *SnapshotReader) !?TabAccent {
         if (!try self.readBool()) return null;
         const preset_raw = try self.readU8();
-        if (preset_raw > @intFromEnum(TabColorPreset.pink))
+        if (preset_raw > @backingInt(TabColorPreset.pink))
             return error.InvalidWorkspaceSnapshot;
-        const preset: TabColorPreset = @enumFromInt(preset_raw);
+        const preset: TabColorPreset = @fromBackingInt(@intCast(preset_raw));
         const encoded_shade = try self.readU8();
         const shade_range: u8 = @intCast(TabAccent.max_shade - TabAccent.min_shade);
         if (encoded_shade > shade_range) return error.InvalidWorkspaceSnapshot;
@@ -2843,6 +2843,7 @@ test "layout and tab mutation remain unchanged on allocation failure" {
     layout.nodes.shrinkAndFree(layout.nodes.items.len);
     try std.testing.expectEqual(layout.nodes.items.len, layout.nodes.capacity);
     failing.fail_index = failing.alloc_index;
+    failing.resize_fail_index = failing.resize_index;
     try std.testing.expectError(
         error.OutOfMemory,
         layout.splitPane(7, 8, .right),

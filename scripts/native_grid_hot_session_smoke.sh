@@ -6,11 +6,11 @@ export LC_ALL=C
 
 receipt='native_grid_hot_session_smoke autosave=true atomic=true write_through=true startup_restore=true tabs=2 panes=5 recursive_layout=true ratios=true titles=true colors=true tags=true smart_filter=true profiles=true settings=true cwd=true corrupt_fallback=true processes=restarted exited=true'
 
-wayland_output=$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings GDK_BACKEND=wayland zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-hot-session-smoke)
+wayland_output=$(GDK_BACKEND=wayland ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- --native-grid-hot-session-smoke)
 printf '%s\n' "$wayland_output"
 printf '%s\n' "$wayland_output" | grep -q "^${receipt}$"
 
-x11_output=$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings GDK_BACKEND=x11 zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-hot-session-smoke)
+x11_output=$(GDK_BACKEND=x11 ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- --native-grid-hot-session-smoke)
 printf '%s\n' "$x11_output"
 printf '%s\n' "$x11_output" | grep -q "^${receipt}$"
 

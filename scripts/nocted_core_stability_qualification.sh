@@ -42,11 +42,10 @@ for mode in Debug ReleaseSafe; do
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache"
-    zig build nocted-stability-binary \
+    ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build nocted-stability-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
 
     output_file="$scratch/output-$mode"
     "$prefix/bin/nocted-core-stability" "$project" "$cycles" >"$output_file" &

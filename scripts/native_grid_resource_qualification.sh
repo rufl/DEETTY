@@ -22,11 +22,10 @@ trap cleanup EXIT HUP INT TERM
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
     cache="$scratch/cache-$mode"
-    zig build noctty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build noctty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$cache" \
-        --global-cache-dir .zig-cache/global
+        --cache-dir "$cache"
     output_file="$scratch/output-$mode"
     start_ns=$(date +%s%N)
     env GDK_BACKEND="$backend" NO_AT_BRIDGE=1 \

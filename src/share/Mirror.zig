@@ -38,7 +38,7 @@ pub const Grid = struct {
     cursor_visible: bool = true,
     application_cursor_keys: bool = false,
     bracketed_paste: bool = false,
-    title_storage: [Protocol.max_title_bytes]u8 = [_]u8{0} ** Protocol.max_title_bytes,
+    title_storage: [Protocol.max_title_bytes]u8 = @splat(0),
     title_length: u16 = 0,
 
     pub fn init(allocator: std.mem.Allocator) Grid {
@@ -294,9 +294,8 @@ pub const Receiver = struct {
     sequence: Protocol.Sequence = .{},
     permission: Protocol.PermissionState = .{},
     snapshot_active: bool = false,
-    snapshot_rows: [Protocol.max_rows]bool = [_]bool{false} ** Protocol.max_rows,
-    snapshot_history: [Protocol.max_scrollback_rows]bool =
-        [_]bool{false} ** Protocol.max_scrollback_rows,
+    snapshot_rows: [Protocol.max_rows]bool = @splat(false),
+    snapshot_history: [Protocol.max_scrollback_rows]bool = @splat(false),
     awaiting_resync: bool = false,
     grid: Grid,
 

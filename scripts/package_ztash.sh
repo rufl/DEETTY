@@ -55,8 +55,8 @@ trap cleanup EXIT HUP INT TERM
 build_target() {
   local prefix="$1"
   shift
-  (cd "$root" && zig build "$@" -Doptimize=ReleaseFast -Dstrip=true \
-    --prefix "$prefix" --cache-dir "$cache_dir" --global-cache-dir "$global_cache_dir")
+  (cd "$root" && ZIG_GLOBAL_CACHE_DIR="$global_cache_dir" zig build "$@" -Doptimize=ReleaseFast -Dstrip=true \
+    --prefix "$prefix" --cache-dir "$cache_dir")
 }
 
 mkdir -p -- "$linux_root" "$windows_root"

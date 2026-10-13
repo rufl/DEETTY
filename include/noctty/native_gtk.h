@@ -809,6 +809,7 @@ typedef struct {
     double font_size;
     int antialias;
     int hinting;
+    int renderer_backend;
     gboolean translucency;
     gboolean alpha_supported;
     double opacity_percent;
@@ -840,6 +841,7 @@ typedef struct {
     GtkWidget *font;
     GtkWidget *antialias;
     GtkWidget *hinting;
+    GtkWidget *renderer;
     GtkWidget *translucency;
     GtkWidget *opacity;
     GtkWidget *transparency_status;

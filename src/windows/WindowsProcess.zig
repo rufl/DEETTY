@@ -2,13 +2,7 @@
 
 const std = @import("std");
 
-const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-});
+const c = @import("c");
 
 const path_capacity: usize = c.MAX_PATH * 2;
 

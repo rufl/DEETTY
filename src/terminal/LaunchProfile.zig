@@ -28,7 +28,7 @@ pub fn BoundedText(comptime capacity: usize) type {
     return struct {
         const Self = @This();
 
-        bytes: [capacity]u8 = [_]u8{0} ** capacity,
+        bytes: [capacity]u8 = @splat(0),
         len: u16 = 0,
 
         pub fn set(self: *Self, value: []const u8) !void {
@@ -172,7 +172,7 @@ pub const Library = LibraryFor(native_path_style);
 pub fn LibraryFor(comptime style: PathStyle) type {
     return struct {
         const Self = @This();
-        entries: [max_named_profiles]NamedProfile = [_]NamedProfile{.{}} ** max_named_profiles,
+        entries: [max_named_profiles]NamedProfile = @splat(.{}),
         count: u8 = 0,
         selected_index: u8 = no_selection,
 

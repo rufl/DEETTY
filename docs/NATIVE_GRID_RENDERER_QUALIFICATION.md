@@ -74,6 +74,22 @@ This advances NCT-119's display-independent production renderer boundary. It pro
 
 This synthetic lane does not initialize GTK, map a native surface, exercise a compositor or frame clock, measure Cairo/Pango/library allocations, archive release pixel artifacts, or measure PTY-read-to-draw, key-write-to-draw, frame intervals, idle wakeups, fullscreen-window behavior, GPU work, or real agent-TUI presentation. The complementary [terminal pipeline qualification](TERMINAL_PIPELINE_QUALIFICATION.md) feeds the same draw function from a real shell/PTY/VT and retains display-independent input-write/PTY-read-start-to-Cairo distributions. The [mapped presentation qualification](NATIVE_GRID_PRESENTATION_QUALIFICATION.md) adds synthetic production key-handler-to-draw/after-paint distributions and Wayland GDK presentation feedback, while the [full-stack qualification](NATIVE_GRID_FULL_STACK_QUALIFICATION.md) retains live idle/fullscreen pixels, memory, and wakeups. Together these close NCT-119.
 
+## Optional OpenGL Presentation
+
+The persisted `OpenGL (GPU presentation)` choice creates a native
+`GtkGLArea`; Cairo remains the authoritative rasterizer and the resulting
+ARGB image is uploaded as one texture for a fullscreen quad. The path is
+restart-applied and has no GPU glyph, VT, Pango, or theme implementation.
+Initialization, shader, texture, surface, and draw failures are handled by an
+idle widget replacement that reconnects the same pane to the Cairo `draw`
+signal.
+
+The existing qualification receipt above intentionally remains Cairo-only and
+does not claim GPU performance. A mapped GPU-versus-Cairo latency or power
+benchmark requires a compositor-backed session and is not retained by this
+display-independent runner. The accepted limitation is presentation-only
+acceleration with runtime fallback, not end-to-end GPU terminal rendering.
+
 ## Reproduce
 
 ```sh

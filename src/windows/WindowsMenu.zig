@@ -7,13 +7,7 @@ const Logic = @import("WindowsHostLogic.zig");
 const Appearance = @import("WindowsAppearance.zig");
 const Abi = @import("WindowsHostAbi.zig");
 
-const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-});
+const c = @import("c");
 
 const id_theme_dark = Logic.menu_theme_dark;
 const id_theme_high_contrast = Logic.menu_theme_high_contrast;

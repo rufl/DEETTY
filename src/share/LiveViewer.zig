@@ -628,12 +628,10 @@ pub const LiveViewer = struct {
         errdefer new_nodes.deinit();
         try new_nodes.appendSlice(node_specs[0..node_count]);
 
-        var owned_titles: [Protocol.max_streams]?[]u8 =
-            [_]?[]u8{null} ** Protocol.max_streams;
+        var owned_titles: [Protocol.max_streams]?[]u8 = @splat(null);
         errdefer for (owned_titles) |owned|
             if (owned) |owned_title| self.allocator.free(owned_title);
-        var new_receivers: [Protocol.max_streams]?Mirror.Receiver =
-            [_]?Mirror.Receiver{null} ** Protocol.max_streams;
+        var new_receivers: [Protocol.max_streams]?Mirror.Receiver = @splat(null);
         errdefer for (&new_receivers) |*receiver|
             if (receiver.*) |*value| value.deinit();
         for (pane_specs[0..pane_count], 0..) |pane, index| {

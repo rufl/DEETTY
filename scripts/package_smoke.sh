@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-zig build --prefix "$prefix" --cache-dir "$cache_dir" --global-cache-dir "$global_cache_dir"
+ZIG_GLOBAL_CACHE_DIR="$global_cache_dir" zig build --prefix "$prefix" --cache-dir "$cache_dir"
 
 test -x "$prefix/bin/noctty"
 test -x "$prefix/bin/nocted"

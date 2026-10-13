@@ -2,9 +2,8 @@
 set -euo pipefail
 
 for mode in Debug ReleaseSafe; do
-    zig build test \
-        -Doptimize="$mode" \
-        --global-cache-dir .zig-cache/global
+    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build test \
+        -Doptimize="$mode"
     printf 'nocted_fuzz_race_qualification mode=%s tests=true\n' "$mode"
 done
 

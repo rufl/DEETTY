@@ -2,6 +2,7 @@ const std = @import("std");
 const windows = std.os.windows;
 const core = @import("nocted_core");
 const NoctedHost = @import("NoctedHost.zig");
+const Compat = @import("compat");
 const log = std.log.scoped(.nocted_windows);
 
 const allocator = std.heap.page_allocator;
@@ -332,7 +333,7 @@ const EditorApp = struct {
             errdefer allocator.free(name);
             const contents = try allocator.dupe(u8, tab.contents orelse "");
             errdefer allocator.free(contents);
-            const path = if (tab.path) |value| try allocator.dupeZ(u8, value) else null;
+            const path = if (tab.path) |value| try Compat.dupeZ(allocator, value) else null;
             errdefer if (path) |value| allocator.free(value);
             try self.documents.append(.{
                 .path = path,

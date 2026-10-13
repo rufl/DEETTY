@@ -5,7 +5,7 @@ cache_dir="${NOCTTY_ZIG_CACHE_DIR:-.zig-cache}"
 global_cache_dir="${NOCTTY_ZIG_GLOBAL_CACHE_DIR:-.zig-cache/global}"
 prefix="${NOCTTY_INSTALL_PREFIX:-zig-out}"
 
-if output="$(zig build --prefix "$prefix" --cache-dir "$cache_dir" --global-cache-dir "$global_cache_dir" run -- --ghostty-probe 2>&1)"; then
+if output="$(ZIG_GLOBAL_CACHE_DIR="$global_cache_dir" zig build --prefix "$prefix" --cache-dir "$cache_dir" run -- --ghostty-probe 2>&1)"; then
   :
 else
   status=$?

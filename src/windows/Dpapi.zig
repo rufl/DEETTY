@@ -5,13 +5,7 @@
 
 const std = @import("std");
 
-const c = @cImport({
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-    @cInclude("bcrypt.h");
-    @cInclude("dpapi.h");
-});
+const c = @import("c");
 
 const path_capacity: usize = c.MAX_PATH * 2;
 const identity_blob_bytes_max: usize = 4_096;

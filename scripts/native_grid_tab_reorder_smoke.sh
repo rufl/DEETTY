@@ -17,7 +17,7 @@ test -n "${DISPLAY:-}" || {
   exit 1
 }
 
-zig build --global-cache-dir .zig-cache/global smoke-binaries
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 
 log=$(mktemp /tmp/noctty-tab-reorder.XXXXXX)
 pid=

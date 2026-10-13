@@ -24,7 +24,7 @@ if [ "${1:-}" = --project-lifecycle ]; then
   shift
 fi
 if [ "$#" -eq 0 ]; then
-  zig build nocted-smoke-binary --global-cache-dir .zig-cache/global
+  ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build nocted-smoke-binary
   binary=./zig-out/bin/nocted-smoke
 else
   binary=$1

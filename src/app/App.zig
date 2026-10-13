@@ -130,6 +130,7 @@ pub const App = struct {
         set_font_family: []const u8,
         set_font_antialias: Config.FontAntialias,
         set_font_hinting: Config.FontHinting,
+        set_renderer_backend: Config.RendererBackend,
         set_background: Config.BackgroundConfig,
         set_default_theme: []const u8,
         set_syntax_theme: []const u8,
@@ -367,6 +368,7 @@ pub const App = struct {
         font_family,
         font_antialias,
         font_hinting,
+        renderer_backend,
         background,
         default_theme,
         syntax_theme,
@@ -1254,6 +1256,12 @@ pub const App = struct {
                 next.font.hinting = hinting;
                 try self.applyConfig(next);
                 return .{ .config_changed = .font_hinting };
+            },
+            .set_renderer_backend => |backend| {
+                var next = self.config;
+                next.renderer_backend = backend;
+                try self.applyConfig(next);
+                return .{ .config_changed = .renderer_backend };
             },
             .set_background => |background| {
                 var next = self.config;

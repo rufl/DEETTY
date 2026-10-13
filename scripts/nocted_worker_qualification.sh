@@ -16,11 +16,10 @@ for mode in Debug ReleaseSafe; do
     project="$scratch/project-$mode"
     output_file="$scratch/output-$mode"
     mkdir -p "$project"
-    zig build nocted-worker-qualification-binary \
+    ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build nocted-worker-qualification-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
 
     "$prefix/bin/nocted-worker-qualification" "$project" >"$output_file" &
     runner_pid=$!

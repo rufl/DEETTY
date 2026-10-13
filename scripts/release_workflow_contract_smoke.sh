@@ -4,7 +4,7 @@ set -eu
 workflow=.github/workflows/release.yml
 test -s "$workflow"
 
-grep -F 'version: 0.16.0' "$workflow" >/dev/null
+grep -F 'version: 0.17.0' "$workflow" >/dev/null
 ! grep -F 'version: master' "$workflow" >/dev/null
 grep -F 'contents: read' "$workflow" >/dev/null
 grep -F 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' "$workflow" >/dev/null
@@ -69,4 +69,4 @@ grep -F 'windows-runtime:' "$workflow" >/dev/null
 grep -F 'runs-on: windows-latest' "$workflow" >/dev/null
 grep -F 'WINDOWS-SMOKE.ps1 -AutomatedHost' "$workflow" >/dev/null
 
-echo "release_workflow_contract zig=0.16.0 x86_64=true aarch64=true layer_shell=true layer_shell_source=system gtksourceview=true nocted=true arch_assert=true bounded_source_alpha=true repository_isolated_display=true private_x11_wm=true maintainer_verify=false bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"
+echo "release_workflow_contract zig=0.17.0 x86_64=true aarch64=true layer_shell=true layer_shell_source=system gtksourceview=true nocted=true arch_assert=true bounded_source_alpha=true repository_isolated_display=true private_x11_wm=true maintainer_verify=false bundle=true archive_validation=true sidecar_validation=true manifest_validation=true upload=true retained_artifacts_external=true windows_alpha=true windows_conpty=true windows_gtk=false windows_runtime_smoke=true"

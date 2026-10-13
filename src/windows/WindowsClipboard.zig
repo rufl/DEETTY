@@ -5,12 +5,7 @@
 
 const std = @import("std");
 
-const c = @cImport({
-    @cDefine("WIN32_LEAN_AND_MEAN", "");
-    @cDefine("NOMINMAX", "");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-});
+const c = @import("c");
 
 const paste_bytes_max: usize = 8 * 1024 * 1024;
 const copy_bytes_max: usize = 2 * 1024 * 1024;

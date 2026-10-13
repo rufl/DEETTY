@@ -3,10 +3,24 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Added a persisted optional `OpenGL (GPU presentation)` renderer setting
+  (settings snapshot v17). The GTK `GtkGLArea` path uploads the authoritative
+  Cairo image as a texture; context, shader, surface, texture, and draw
+  failures replace the pane with Cairo on the main loop. GPU glyph rasterization
+  and end-to-end GPU terminal rendering remain out of scope.
+- Migrated the native build and compatibility layer to Zig 0.17.0, including
+  translated C modules for the Tree-sitter and networking adapters.
 - Batched VT damage generations per PTY feed, restored the bounded 2 MiB native
   pump budget, and skipped empty pending-write flushes on read-only PTY pumps,
   reducing avoidable terminal main-loop overhead during multi-pane output
   without changing the renderer contract.
+- Replaced per-row native-grid callbacks with one borrowed packed-frame
+  snapshot per paint (ABI v7). The host owns and reuses the packed buffer;
+  renderer qualification retains pixel parity and zero warm-frame allocations
+  while reducing the C/Zig callback crossings.
+- Added a lazy per-row Zig packed-frame cache keyed by row damage generations
+  and viewport state, avoiding repeated cell-to-u64 packing on warm paints
+  while preserving the ABI v7 host-owned frame buffer.
 - Moved command-palette dispatch, split orientation/rendered-event selection,
   tab-rename boundary validation, and restored-session dimension minimums behind
   focused Zig policy plans; GTK retains activation, layout, editor, and session

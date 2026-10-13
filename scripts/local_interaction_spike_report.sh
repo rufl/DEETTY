@@ -48,9 +48,8 @@ latest_matching_receipt() {
 }
 
 previous_receipt=$(latest_matching_receipt)
-zig build noctty-smoke-binary nocted-smoke-binary \
-    -Doptimize=ReleaseSafe \
-    --global-cache-dir .zig-cache/global
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build noctty-smoke-binary nocted-smoke-binary \
+    -Doptimize=ReleaseSafe
 
 scenario_names=()
 scenario_elapsed_ms=()

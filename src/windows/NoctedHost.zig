@@ -7,16 +7,7 @@ const std = @import("std");
 const windows = std.os.windows;
 const allocator = std.heap.page_allocator;
 
-const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-    @cInclude("commctrl.h");
-    @cInclude("commdlg.h");
-    @cInclude("richedit.h");
-});
+const c = @import("c");
 
 const abi_version: u32 = 3;
 pub const close_ok: c_int = 1;
@@ -726,7 +717,7 @@ fn setWindowTextJoined(
     middle: []const u16,
     suffix: []const u16,
 ) void {
-    var text: [path_wide_capacity:0]u16 = [_:0]u16{0} ** path_wide_capacity;
+    var text: [path_wide_capacity:0]u16 = @splat(0);
     var length: usize = 0;
     for ([_][]const u16{ prefix, middle, suffix }) |part| {
         const count = @min(part.len, text.len - length - 1);
@@ -811,7 +802,7 @@ fn editorChanged(host: *Host) void {
 }
 
 fn openFileDialog(host: *Host, project: bool) bool {
-    var path: [path_wide_capacity:0]u16 = [_:0]u16{0} ** path_wide_capacity;
+    var path: [path_wide_capacity:0]u16 = @splat(0);
     var dialog: c.OPENFILENAMEW = std.mem.zeroes(c.OPENFILENAMEW);
     dialog.lStructSize = @sizeOf(c.OPENFILENAMEW);
     dialog.hwndOwner = host.window;
@@ -846,7 +837,7 @@ fn openFileDialog(host: *Host, project: bool) bool {
 }
 
 fn saveAs(host: *Host) bool {
-    var path: [path_wide_capacity:0]u16 = [_:0]u16{0} ** path_wide_capacity;
+    var path: [path_wide_capacity:0]u16 = @splat(0);
     if (callbackText(host, host.callbacks.active_path)) |current| {
         defer allocator.free(current);
         const count = @min(current.len, path.len - 1);
@@ -934,7 +925,7 @@ fn confirmExit(host: *Host) bool {
         );
         return false;
     }
-    var discard = [_]bool{false} ** tab_count_max;
+    var discard: [tab_count_max]bool = @splat(false);
     for (0..count) |index| {
         var ignored: u8 = 0;
         var dirty: c_int = 0;

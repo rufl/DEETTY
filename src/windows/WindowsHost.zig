@@ -128,7 +128,7 @@ const Host = struct {
     settings_menu_ready: c_int = 0,
     preferences_ready: c_int = 0,
     rows: c_int = default_rows,
-    sessions: [max_sessions]Session = [_]Session{.{}} ** max_sessions,
+    sessions: [max_sessions]Session = @splat(.{}),
     hotkey_registered: bool = false,
     workspace: Logic.WorkspaceState = .{ .live_sessions = 0, .pending_close = 0 },
     remote_mode: c_int = 0,
@@ -396,7 +396,6 @@ fn updateStatus(host: *Host) void {
     };
     host.status_text_length = @intCast(length);
 }
-
 
 fn activeSession(host: *Host) ?*Session {
     const index = host.callbacks.active_pane(host.callbacks.userdata);
@@ -1461,7 +1460,8 @@ fn themeSmoke(host: *Host) bool {
     defer allocator.free(destination);
     defer deleteThemeSmokePath(destination);
     var first = Share.theme.Theme.builtinDark();
-    first.name = " " ** 256 ++ "Native first" ++ " " ** 256;
+    const padding: [256]u8 = @splat(' ');
+    first.name = padding ++ "Native first" ++ padding;
     first.foreground = .fromHex(0xd1e2f3);
     first.background = .fromHex(0x142536);
     first.cursor = .fromHex(0x51a2f3);

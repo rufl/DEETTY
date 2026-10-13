@@ -232,11 +232,10 @@ launch_lane() {
 
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
-    zig build noctty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build noctty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$scratch/cache-$mode" \
-        --global-cache-dir "$scratch/global-cache"
+        --cache-dir "$scratch/cache-$mode"
     mode_name=$(tr '[:upper:]' '[:lower:]' <<<"$mode")
     for backend in wayland x11; do
         for kind in tmux zellij; do

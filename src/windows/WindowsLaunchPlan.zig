@@ -190,7 +190,7 @@ test "Windows launch plan: quoted Unicode executable preserves raw arguments" {
     try std.testing.expectEqualSlices(u16, std.unicode.utf8ToUtf16LeStringLiteral(cwd), plan.directory[0..plan.directory_len]);
     try std.testing.expectError(error.InvalidWindowsCommand, plan.setCommand(std.unicode.utf8ToUtf16LeStringLiteral("C:\\bad\"name.exe"), &.{}));
     try std.testing.expectError(error.InvalidWindowsCommand, plan.setCommand(std.unicode.utf8ToUtf16LeStringLiteral("C:\\directory\\"), &.{}));
-    const oversized = [_]u16{'x'} ** command_capacity;
+    const oversized: [command_capacity]u16 = @splat('x');
     try std.testing.expectError(error.WindowsCommandTooLong, plan.setCommand(exe, &oversized));
     try std.testing.expectError(error.InvalidWindowsText, utf16(&plan.directory, "\xff"));
 }

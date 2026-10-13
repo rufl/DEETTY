@@ -4,16 +4,7 @@
 //! them. Keeping one Windows header import also prevents pseudo-handle types
 //! from diverging across independently translated declarations.
 
-pub const c = @cImport({
-    @cDefine("UNICODE", "1");
-    @cDefine("_UNICODE", "1");
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("NOMINMAX", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-    @cInclude("commctrl.h");
-    @cInclude("commdlg.h");
-});
+pub const c = @import("c");
 
 const LaunchProfile = @import("noctty_share").launch_profile;
 const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;

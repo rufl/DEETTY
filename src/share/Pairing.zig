@@ -8,9 +8,9 @@ const confirmation_payload = "NOCTTY-PAIR-CONFIRMED-v1";
 
 pub const Session = struct {
     pending: Transport.PendingConnection,
-    remote_alias: [Protocol.max_alias_bytes]u8 = [_]u8{0} ** Protocol.max_alias_bytes,
+    remote_alias: [Protocol.max_alias_bytes]u8 = @splat(0),
     remote_alias_length: u8,
-    remote_endpoint: [Identity.max_endpoint_bytes]u8 = [_]u8{0} ** Identity.max_endpoint_bytes,
+    remote_endpoint: [Identity.max_endpoint_bytes]u8 = @splat(0),
     remote_endpoint_length: u8,
     remote_port: u16,
     finished: bool = false,

@@ -251,7 +251,7 @@ pub const LiveHost = struct {
         errdefer new_nodes.deinit();
         try new_nodes.appendSlice(layout_specs);
 
-        var owned_titles: [Protocol.max_streams]?[]u8 = [_]?[]u8{null} ** Protocol.max_streams;
+        var owned_titles: [Protocol.max_streams]?[]u8 = @splat(null);
         errdefer for (owned_titles) |owned| if (owned) |title| self.allocator.free(title);
         for (stream_specs, 0..) |spec, index|
             owned_titles[index] = try self.allocator.dupe(u8, spec.title);
@@ -1191,7 +1191,7 @@ test "live host invalidated trust discards input and cannot be revived" {
     host.mutex = .{};
     host.stop_requested = false;
     host.peer_trusted = Authority.check;
-    host.paired_peer.public_key = [_]u8{0} ** Crypto.public_key_length;
+    host.paired_peer.public_key = @splat(0);
     host.input_length = 4;
     host.input_stream_id = 1;
     @memcpy(host.input[0..4], "late");

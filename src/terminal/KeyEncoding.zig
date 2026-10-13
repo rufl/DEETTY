@@ -115,6 +115,7 @@ test "application cursor mode changes only unmodified arrows" {
 }
 
 test "bounded encoding is atomic at every key boundary" {
+    const untouched: [17]u8 = @splat(0xa5);
     for (std.meta.tags(Key)) |key| {
         for ([_]c_int{ 1, 2 }) |modifier| {
             var expected: [16]u8 = undefined;
@@ -122,11 +123,11 @@ test "bounded encoding is atomic at every key boundary" {
             const length = encode(key, options, &expected);
             if (length == 0) continue;
             for (0..length + 1) |capacity| {
-                var output = [_]u8{0xa5} ** 17;
+                var output: [17]u8 = @splat(0xa5);
                 const count = encode(key, options, output[0..capacity]);
                 if (capacity < length) {
                     try std.testing.expectEqual(@as(usize, 0), count);
-                    try std.testing.expectEqualSlices(u8, &([_]u8{0xa5} ** 17), &output);
+                    try std.testing.expectEqualSlices(u8, &untouched, &output);
                 } else {
                     try std.testing.expectEqualStrings(expected[0..length], output[0..count]);
                     try std.testing.expectEqual(@as(u8, 0xa5), output[length]);
@@ -137,12 +138,13 @@ test "bounded encoding is atomic at every key boundary" {
 }
 
 test "invalid modifiers and insufficient capacity leave output untouched" {
-    var output = [_]u8{0xa5} ** 32;
+    var output: [32]u8 = @splat(0xa5);
+    const untouched: [32]u8 = @splat(0xa5);
     try std.testing.expectEqual(@as(usize, 0), encode(.up, .{ .modifier = 0 }, &output));
     try std.testing.expectEqual(@as(usize, 0), encode(.up, .{ .modifier = -1 }, &output));
     try std.testing.expectEqual(@as(usize, 0), encode(.tab, .{ .modifier = 2 }, &output));
     try std.testing.expectEqual(@as(usize, 0), encode(.f12, .{ .modifier = std.math.maxInt(c_int) }, output[0..15]));
-    try std.testing.expectEqualSlices(u8, &([_]u8{0xa5} ** 32), &output);
+    try std.testing.expectEqualSlices(u8, &untouched, &output);
     const length = encode(.f12, .{ .modifier = std.math.maxInt(c_int) }, output[0..16]);
     try std.testing.expectEqualStrings("\x1b[24;2147483647~", output[0..length]);
     try std.testing.expectEqual(@as(u8, 0xa5), output[16]);

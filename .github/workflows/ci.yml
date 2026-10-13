@@ -22,12 +22,12 @@ jobs:
           persist-credentials: false
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libvte-2.91-dev libgtksourceview-4-dev libgtk-layer-shell0
+          sudo apt-get install -y libgtk-3-dev libepoxy-dev libvte-2.91-dev libgtksourceview-4-dev libgtk-layer-shell0
       - name: Check source hygiene
         run: ./scripts/check_public_source_hygiene.sh
       - name: Check formatting
@@ -48,7 +48,7 @@ jobs:
           persist-credentials: false
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       - name: Compile experimental Windows host
         run: zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --summary all

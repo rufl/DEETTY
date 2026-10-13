@@ -109,7 +109,7 @@ pub const Library = struct {
         try writer.byte(self.custom.count);
         for (self.custom.entries[0..self.custom.count]) |*entry| {
             try writer.text(entry.name.slice());
-            try writer.byte(@intFromEnum(entry.profile.kind));
+            try writer.byte(@backingInt(entry.profile.kind));
             var number: [4]u8 = undefined;
             std.mem.writeInt(u32, &number, entry.profile.scrollback_lines, .little);
             try writer.put(&number);

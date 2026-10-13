@@ -10,7 +10,7 @@ fi
 export LC_ALL=C
 
 if output="$(GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
-  zig build smoke-run --global-cache-dir .zig-cache/global -- \
+  ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- \
   --native-grid-click-focus-smoke 2>&1)"; then
   :
 else

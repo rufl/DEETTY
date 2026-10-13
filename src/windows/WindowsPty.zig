@@ -10,12 +10,7 @@ const OutputRing = @import("WindowsPtyLogic.zig").OutputRing;
 const Share = @import("noctty_share");
 const LaunchPlan = @import("WindowsLaunchPlan.zig");
 
-const c = @cImport({
-    @cDefine("WIN32_LEAN_AND_MEAN", "");
-    @cDefine("NOMINMAX", "");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("windows.h");
-});
+const c = @import("c");
 
 const output_ring_bytes: usize = 1024 * 1024;
 const io_chunk_bytes: usize = 64 * 1024;

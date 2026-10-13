@@ -25,14 +25,14 @@ jobs:
           persist-credentials: false
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       - name: Install Linux build and isolated-display dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             bubblewrap dbus-x11 xvfb xauth openbox kwin-wayland \
-            libgtk-3-dev libvte-2.91-dev libgtksourceview-4-dev \
+            libgtk-3-dev libepoxy-dev libvte-2.91-dev libgtksourceview-4-dev \
             libgtk-layer-shell0 libgtk-layer-shell-dev \
             desktop-file-utils libxml2-utils rpm
       - name: Assert runner architecture
@@ -92,7 +92,7 @@ jobs:
           persist-credentials: false
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       - name: Compile Windows host
         run: zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --summary all
@@ -123,7 +123,7 @@ jobs:
           persist-credentials: false
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       - name: Build on Windows
         shell: pwsh

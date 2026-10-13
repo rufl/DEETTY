@@ -258,8 +258,8 @@ fn epsilonClosure(pattern: []const u8, states: *[max_rule_bytes + 1]bool) void {
 
 fn globMatch(pattern: []const u8, value: []const u8) bool {
     if (pattern.len > max_rule_bytes) return false;
-    var current = [_]bool{false} ** (max_rule_bytes + 1);
-    var next = [_]bool{false} ** (max_rule_bytes + 1);
+    var current: [max_rule_bytes + 1]bool = @splat(false);
+    var next: [max_rule_bytes + 1]bool = @splat(false);
     current[0] = true;
     epsilonClosure(pattern, &current);
     for (value) |byte| {

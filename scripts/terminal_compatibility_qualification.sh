@@ -23,11 +23,10 @@ run_mode() {
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache-$mode"
-    zig build terminal-compatibility-binary \
+    ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-compatibility-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
     "$prefix/bin/noctty-terminal-compatibility" >"$scratch/output-$mode"
 }
 

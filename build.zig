@@ -2,22 +2,37 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
-    if (builtin.zig_version.major != 0 or builtin.zig_version.minor != 16) {
+    if (builtin.zig_version.major != 0 or builtin.zig_version.minor != 17) {
         std.debug.panic(
-            "NOCTTY requires Zig 0.16.x (found {d}.{d}.{d}).",
+            "NOCTTY requires Zig 0.17.x (found {d}.{d}.{d}).",
             .{ builtin.zig_version.major, builtin.zig_version.minor, builtin.zig_version.patch },
         );
     }
 
     var target = b.standardTargetOptions(.{});
     if (target.query.isNative() and builtin.target.os.tag == .linux) {
-        // Zig 0.16's linker cannot read newer distro CRT .sframe relocations.
+        // Zig 0.17's linker still cannot read newer distro CRT .sframe relocations.
         // Keep the host OS/libc native while avoiding host-specific CPU instructions.
         target = b.resolveTargetQuery(.{ .cpu_model = .baseline });
         b.addSearchPrefix("/usr");
     }
     const optimize = b.standardOptimizeOption(.{});
     const strip = b.option(bool, "strip", "Strip debug and symbol sections from packaged binaries") orelse false;
+    const net_translate = b.addTranslateC(.{
+        .root_source_file = b.path("src/share/net.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const net_c_mod = net_translate.createModule();
+    const tree_sitter_translate = b.addTranslateC(.{
+        .root_source_file = b.path("src/tree_sitter.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    tree_sitter_translate.addIncludePath(b.path("vendor/tree-sitter/lib/include"));
+    const tree_sitter_c_mod = tree_sitter_translate.createModule();
 
     if (target.result.os.tag == .windows) {
         addWindowsBuild(b, target, optimize, strip);
@@ -26,6 +41,11 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag != .linux) {
         std.debug.panic("NOCTTY currently supports Linux and experimental Windows targets.", .{});
     }
+    const compat_mod = b.createModule(.{
+        .root_source_file = b.path("src/Compat.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const root_mod = b.createModule(.{
         .root_source_file = b.path("src/root.zig"),
@@ -34,6 +54,8 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    root_mod.addImport("compat", compat_mod);
+    root_mod.addImport("c", net_c_mod);
 
     const nocted_core_mod = b.createModule(.{
         .root_source_file = b.path("src/nocted/root.zig"),
@@ -53,6 +75,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    tree_sitter_mod.addImport("c", tree_sitter_c_mod);
     addTreeSitterSources(b, tree_sitter_mod);
     const ghostty_vt_public_mod = b.createModule(.{
         .root_source_file = b.path("src/ghostty/VtPublic.zig"),
@@ -68,6 +91,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    vte_host_test_mod.addImport("compat", compat_mod);
     const unicode_generator_mod = b.createModule(.{
         .root_source_file = b.path("tools/generate_terminal_unicode.zig"),
         .target = target,
@@ -111,6 +135,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    windows_workspace_share_mod.addImport("c", net_c_mod);
     windows_workspace_share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const windows_workspace_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsWorkspace.zig"),
@@ -168,6 +193,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    exe_mod.addImport("compat", compat_mod);
     const runtime_options = b.addOptions();
     runtime_options.addOption(bool, "enable_smoke", false);
     runtime_options.addOption(bool, "enable_vte", false);
@@ -199,6 +225,7 @@ pub fn build(b: *std.Build) void {
     nocted_mod.addImport("nocted_core", nocted_core_mod);
     nocted_mod.addImport("noctty_release", release_mod);
     nocted_mod.addImport("tree_sitter", tree_sitter_mod);
+    nocted_mod.addImport("compat", compat_mod);
     nocted_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_exe = b.addExecutable(.{
@@ -215,6 +242,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    vte_mod.addImport("compat", compat_mod);
     const vte_options = b.addOptions();
     vte_options.addOption(bool, "enable_smoke", false);
     vte_options.addOption(bool, "enable_vte", true);
@@ -244,6 +272,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         .strip = strip,
     });
+    smoke_mod.addImport("compat", compat_mod);
     const smoke_options = b.addOptions();
     smoke_options.addOption(bool, "enable_smoke", true);
     smoke_options.addOption(bool, "enable_vte", true);
@@ -274,6 +303,7 @@ pub fn build(b: *std.Build) void {
     nocted_smoke_mod.addImport("nocted_core", nocted_core_mod);
     nocted_smoke_mod.addImport("noctty_release", release_mod);
     nocted_smoke_mod.addImport("tree_sitter", tree_sitter_mod);
+    nocted_smoke_mod.addImport("compat", compat_mod);
     nocted_smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_smoke_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_smoke_exe = b.addExecutable(.{
@@ -590,24 +620,24 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_cmd.addArgs(args);
+    run_cmd.addPassthruArgs();
 
     const run_step = b.step("run", "Run the NOCTTY development launcher");
     run_step.dependOn(&run_cmd.step);
 
     const run_smoke_cmd = b.addRunArtifact(smoke_exe);
-    if (b.args) |args| run_smoke_cmd.addArgs(args);
+    run_smoke_cmd.addPassthruArgs();
     const run_smoke_step = b.step("smoke-run", "Run the smoke-only NOCTTY binary");
     run_smoke_step.dependOn(&run_smoke_cmd.step);
 
     const run_nocted_cmd = b.addRunArtifact(nocted_exe);
     run_nocted_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_nocted_cmd.addArgs(args);
+    run_nocted_cmd.addPassthruArgs();
     const run_nocted_step = b.step("run-nocted", "Run the NoctEd development editor");
     run_nocted_step.dependOn(&run_nocted_cmd.step);
 
     const run_nocted_smoke_cmd = b.addRunArtifact(nocted_smoke_exe);
-    if (b.args) |args| run_nocted_smoke_cmd.addArgs(args);
+    run_nocted_smoke_cmd.addPassthruArgs();
     const run_nocted_smoke_step = b.step("run-nocted-smoke", "Run the smoke-only NoctEd binary");
     run_nocted_smoke_step.dependOn(&run_nocted_smoke_cmd.step);
 
@@ -773,6 +803,25 @@ fn addWindowsBuild(
         .target = target,
         .optimize = optimize,
     });
+    const net_translate = b.addTranslateC(.{
+        .root_source_file = b.path("src/share/net.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const net_c_mod = net_translate.createModule();
+    const windows_c_translate = b.addTranslateC(.{
+        .root_source_file = b.path("src/windows/noctty_windows.h"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const windows_c_mod = windows_c_translate.createModule();
+    const compat_mod = b.createModule(.{
+        .root_source_file = b.path("src/Compat.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const release_mod = b.createModule(.{
         .root_source_file = b.path("src/release.zig"),
@@ -792,6 +841,8 @@ fn addWindowsBuild(
         .link_libc = true,
         .strip = strip,
     });
+    nocted_windows_mod.addImport("c", windows_c_mod);
+    nocted_windows_mod.addImport("compat", compat_mod);
     nocted_windows_mod.addImport("nocted_core", nocted_core_mod);
     nocted_windows_mod.linkSystemLibrary("kernel32", .{});
     nocted_windows_mod.linkSystemLibrary("user32", .{});
@@ -813,12 +864,14 @@ fn addWindowsBuild(
         .link_libc = true,
         .strip = strip,
     });
+    windows_mod.addImport("c", windows_c_mod);
     const share_mod = b.createModule(.{
         .root_source_file = b.path("src/share_module.zig"),
         .target = target,
         .optimize = optimize,
         .strip = strip,
     });
+    share_mod.addImport("c", net_c_mod);
     share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     windows_mod.addImport("noctty_share", share_mod);
     windows_mod.addImport("noctty_release", release_mod);
@@ -865,6 +918,7 @@ fn addWindowsBuild(
         .link_libc = true,
         .strip = strip,
     });
+    nocted_host_qualification_mod.addImport("c", windows_c_mod);
     nocted_host_qualification_mod.linkSystemLibrary("kernel32", .{});
     nocted_host_qualification_mod.linkSystemLibrary("user32", .{});
     nocted_host_qualification_mod.linkSystemLibrary("gdi32", .{});
@@ -967,4 +1021,5 @@ fn addNativeGridSources(
         .file = b.path("src/gui/native_grid_host.c"),
         .flags = flags,
     });
+    module.linkSystemLibrary("epoxy", .{ .use_pkg_config = .force });
 }

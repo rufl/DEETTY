@@ -44,10 +44,9 @@ workspace="$scratch/activation.nocttyws"
 desktop_id=com.noctty.NOCTTY.desktop
 
 mkdir -p "$data_home/applications" "$config_home" "$smoke_home" "$shim"
-zig build -j1 install smoke-binaries \
+ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build -j1 install smoke-binaries \
     --prefix "$prefix" \
-    --cache-dir "$cache" \
-    --global-cache-dir "$global_cache"
+    --cache-dir "$cache"
 
 ln -s "$prefix/bin/noctty-smoke" "$shim/noctty"
 env NOCTTY_SMOKE_HOME="$smoke_home" \

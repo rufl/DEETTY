@@ -181,11 +181,10 @@ phase_timeout=$((phase_seconds + 180))
 root_growth_kib_max=${NOCTTY_STABILITY_ROOT_GROWTH_KIB_MAX:-65536}
 for build_mode in "${modes[@]}"; do
     prefix="$scratch/$build_mode"
-    zig build noctty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build noctty-smoke-binary \
         -Doptimize="$build_mode" \
         --prefix "$prefix" \
-        --cache-dir "$scratch/cache-$build_mode" \
-        --global-cache-dir "$scratch/global-cache"
+        --cache-dir "$scratch/cache-$build_mode"
     mode_name=$(tr '[:upper:]' '[:lower:]' <<<"$build_mode")
     for backend in "${backends[@]}"; do
         lane="$mode_name-$backend"

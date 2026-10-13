@@ -184,7 +184,8 @@ pub fn connect(allocator: std.mem.Allocator, io: Crypto.RandomContext, host: []c
     if (host.len == 0 or host.len > max_endpoint_host_bytes or port == 0 or
         std.mem.indexOfScalar(u8, host, 0) != null)
         return error.InvalidShareEndpoint;
-    const host_z = try allocator.dupeZ(u8, host);
+    const host_z = try allocator.allocSentinel(u8, host.len, 0);
+    @memcpy(host_z, host);
     defer allocator.free(host_z);
     const socket = Net.tcpConnect(host_z.ptr, port);
     if (socket == invalid_socket) return error.ShareConnectFailed;
@@ -326,7 +327,7 @@ fn writeExact(socket: Socket, bytes: []const u8, deadline: Deadline) !void {
 
 test "discovery announcements are bounded and omit identity keys" {
     const announcement = Announcement{
-        .instance_id = [_]u8{7} ** 16,
+        .instance_id = @splat(7),
         .tcp_port = 45123,
         .accepts_sessions = true,
         .alias = "Release workstation",
@@ -344,7 +345,7 @@ test "discovery announcements are bounded and omit identity keys" {
 test "discovery rejects malformed aliases and lengths" {
     var bytes: [max_discovery_bytes]u8 = undefined;
     try std.testing.expectError(error.InvalidShareAlias, encodeAnnouncement(&bytes, .{
-        .instance_id = [_]u8{0} ** 16,
+        .instance_id = @splat(0),
         .tcp_port = 1,
         .accepts_sessions = false,
         .alias = "bad\nname",
@@ -355,7 +356,7 @@ test "opt-in LAN discovery receives a bounded announcement" {
     var discovery = Discovery.open() catch return error.SkipZigTest;
     defer discovery.close();
     const expected = Announcement{
-        .instance_id = [_]u8{9} ** 16,
+        .instance_id = @splat(9),
         .tcp_port = 49331,
         .accepts_sessions = true,
         .alias = "NOCTTY discovery smoke",
@@ -412,7 +413,7 @@ test "loopback pairing carries authenticated framed terminal data" {
     var context = ServerContext{
         .listener = &listener,
         .io = Crypto.testingRandomContext(),
-        .identity = try Crypto.Identity.fromSecret([_]u8{21} ** 32),
+        .identity = try Crypto.Identity.fromSecret(@as([32]u8, @splat(21))),
     };
     const thread = try std.Thread.spawn(.{}, ServerContext.run, .{&context});
     var pending = try connect(
@@ -420,7 +421,7 @@ test "loopback pairing carries authenticated framed terminal data" {
         Crypto.testingRandomContext(),
         "127.0.0.1",
         listener.port,
-        try Crypto.Identity.fromSecret([_]u8{22} ** 32),
+        try Crypto.Identity.fromSecret(@as([32]u8, @splat(22))),
         null,
     );
     const connection = try pending.confirm(pending.sas);

@@ -86,11 +86,10 @@ run_mode() {
         >"$state/noctty-system.1"
 
     TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
-        zig build terminal-system-tui-qualification-binary \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-system-tui-qualification-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
-        --cache-dir "$local_cache" \
-        --global-cache-dir "$global_cache"
+        --cache-dir "$local_cache"
 
     output_file="$scratch/output-$mode"
     "$prefix/bin/noctty-terminal-system-tui-qualification" \

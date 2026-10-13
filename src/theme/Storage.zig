@@ -308,22 +308,22 @@ const ThemeReader = struct {
         var palette: [16]ThemeMod.Color = undefined;
         for (&palette) |*color| color.* = try self.readColor();
         var chrome = ThemeMod.Theme.builtinDark().chrome;
-        const cursor_index = @intFromEnum(ThemeMod.ChromeColor.terminal_cursor);
+        const cursor_index = @backingInt(ThemeMod.ChromeColor.terminal_cursor);
         if (self.version >= 2) {
             for (chrome[0..cursor_index]) |*color| color.* = try self.readColor();
             if (self.version >= 3) chrome[cursor_index] = try self.readColor();
             if (self.version >= 4) {
-                chrome[@intFromEnum(ThemeMod.ChromeColor.pane_gap)] =
+                chrome[@backingInt(ThemeMod.ChromeColor.pane_gap)] =
                     try self.readColor();
             }
         } else {
-            chrome[@intFromEnum(ThemeMod.ChromeColor.workspace_background)] = background;
-            chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_background)] = background;
-            chrome[@intFromEnum(ThemeMod.ChromeColor.overlay_foreground)] = foreground;
+            chrome[@backingInt(ThemeMod.ChromeColor.workspace_background)] = background;
+            chrome[@backingInt(ThemeMod.ChromeColor.overlay_background)] = background;
+            chrome[@backingInt(ThemeMod.ChromeColor.overlay_foreground)] = foreground;
         }
         if (self.version < 3) chrome[cursor_index] = cursor;
         if (self.version < 4) {
-            chrome[@intFromEnum(ThemeMod.ChromeColor.pane_gap)] = background;
+            chrome[@backingInt(ThemeMod.ChromeColor.pane_gap)] = background;
         }
 
         return .{
@@ -508,7 +508,7 @@ test "theme import releases duplicate records on rejection" {
 }
 
 test "theme import rejects overflowing name length" {
-    const bytes = "NOCTTYTHM\x04\x01\x00\x00\x00\x00\x00\x00\x00" ++ "\xff" ** 8;
+    const bytes = "NOCTTYTHM\x04\x01\x00\x00\x00\x00\x00\x00\x00" ++ "\xff\xff\xff\xff\xff\xff\xff\xff";
     try std.testing.expectError(error.InvalidThemeLibrarySnapshot, importThemeLibraryAlloc(std.testing.allocator, bytes));
 }
 

@@ -8,7 +8,7 @@ if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
 fi
 ./scripts/require_isolated_display.sh
 
-if output="$(zig build smoke-run --global-cache-dir .zig-cache/global -- --native-grid-tab-title-smoke 2>&1)"; then
+if output="$(ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run -- --native-grid-tab-title-smoke 2>&1)"; then
   :
 else
   status=$?

@@ -7,24 +7,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const is_windows = builtin.os.tag == .windows;
-const c = if (is_windows) @cImport({
-    @cDefine("WIN32_LEAN_AND_MEAN", "1");
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cInclude("winsock2.h");
-    @cInclude("ws2tcpip.h");
-}) else @cImport({
-    @cDefine("_FORTIFY_SOURCE", "0");
-    @cDefine("_POSIX_C_SOURCE", "200112L");
-    @cDefine("_DEFAULT_SOURCE", "1");
-    @cInclude("arpa/inet.h");
-    @cInclude("errno.h");
-    @cInclude("fcntl.h");
-    @cInclude("netdb.h");
-    @cInclude("netinet/in.h");
-    @cInclude("poll.h");
-    @cInclude("sys/socket.h");
-    @cInclude("unistd.h");
-});
+const c = @import("c");
 
 pub const Socket = isize;
 pub const invalid_socket: Socket = -1;
@@ -263,7 +246,7 @@ fn openTcp(
     connect_socket: bool,
     bound_port: ?*u16,
 ) NativeSocket {
-    var service: [6:0]u8 = [_:0]u8{0} ** 6;
+    var service: [6:0]u8 = @splat(0);
     const service_text = std.fmt.bufPrint(service[0..5], "{d}", .{port}) catch
         return invalidNativeSocket();
     service[service_text.len] = 0;

@@ -5,10 +5,12 @@ Summary:        Zig-native terminal workspace for Plasma and Noctalia
 License:        MIT AND Unicode-3.0 AND Unicode-DFS-2016 AND ICU
 URL:            https://github.com/lichforge/noctty
 Source0:        %{name}-%{version}.tar.gz
-BuildRequires:  zig >= 0.16
+BuildRequires:  zig >= 0.17
 BuildRequires:  pkgconfig(gtk+-3.0)
+BuildRequires:  pkgconfig(epoxy)
 BuildRequires:  pkgconfig(gtksourceview-4)
 Requires:       gtk3
+Requires:       libepoxy
 Requires:       gtk-layer-shell
 Requires:       gtksourceview4
 

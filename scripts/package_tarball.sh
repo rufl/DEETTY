@@ -46,10 +46,9 @@ build_archive() {
   archive="$build_root/noctty.tar.gz"
   mkdir -p "$stage" "$build_root/local-cache" "$build_root/global-cache"
 
-  zig build -Doptimize=ReleaseSafe -Dstrip=true \
+  ZIG_GLOBAL_CACHE_DIR="$build_root/global-cache" zig build -Doptimize=ReleaseSafe -Dstrip=true \
     --prefix "$stage" \
-    --cache-dir "$build_root/local-cache" \
-    --global-cache-dir "$build_root/global-cache"
+    --cache-dir "$build_root/local-cache"
 
   test -x "$stage/bin/noctty"
   test -x "$stage/bin/nocted"

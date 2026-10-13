@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compat = @import("compat");
 
 pub const Event = enum(c_int) {
     started = 1,
@@ -245,7 +246,7 @@ const Context = struct {
     expected_y: c_int = 0,
     expected_width: c_int = 0,
     expected_height: c_int = 0,
-    smoke_marker_path: [128]u8 = [_]u8{0} ** 128,
+    smoke_marker_path: [128]u8 = @splat(0),
     shortcut_dialog: ?*GtkWidget = null,
     shortcut_feedback: ?*GtkWidget = null,
     tabs: ?*GtkWidget = null,
@@ -427,7 +428,7 @@ fn configureDropdownPlacement(ctx: *Context) void {
             ctx.placement = .wayland_constrained;
         }
     }
-    if (ctx.placement != .x11_top) emit(ctx, .placement, @intFromEnum(ctx.placement));
+    if (ctx.placement != .x11_top) emit(ctx, .placement, @backingInt(ctx.placement));
 }
 
 fn configureWindowMode(ctx: *Context) void {
@@ -444,7 +445,7 @@ fn configureWindowMode(ctx: *Context) void {
         gtk_window_set_position(asWindow(ctx.window), GTK_WIN_POS_CENTER);
         ctx.placement = .windowed;
     }
-    emit(ctx, .placement, @intFromEnum(ctx.placement));
+    emit(ctx, .placement, @backingInt(ctx.placement));
 }
 
 fn onChildExited(terminal: *VteTerminal, status: c_int, raw: ?*anyopaque) callconv(.c) void {
@@ -743,7 +744,7 @@ fn onPresetChanged(combo: *GtkComboBoxText, raw: ?*anyopaque) callconv(.c) void 
     const name = gtk_combo_box_text_get_active_text(combo) orelse return;
     defer g_free(name);
     var message_buffer: [256]u8 = undefined;
-    const message = std.fmt.bufPrintZ(&message_buffer, "Preset selected: {s}\nApply through settings to persist.", .{std.mem.span(name)}) catch return;
+    const message = Compat.bufPrintZ(&message_buffer, "Preset selected: {s}\nApply through settings to persist.", .{std.mem.span(name)}) catch return;
     if (ctx.shortcut_feedback) |feedback| gtk_label_set_text(asLabel(feedback), message.ptr);
     emit(ctx, .preset_changed, gtk_combo_box_get_active(combo));
 }
@@ -819,7 +820,7 @@ fn onWindowMap(_: *GtkWidget, raw: ?*anyopaque) callconv(.c) void {
         gtk_window_get_position(asWindow(ctx.window), &x, &y);
         gtk_window_get_size(asWindow(ctx.window), &width, &height);
         if (x == ctx.expected_x and y == ctx.expected_y and width == ctx.expected_width and height == ctx.expected_height)
-            emit(ctx, .placement, @intFromEnum(ctx.placement));
+            emit(ctx, .placement, @backingInt(ctx.placement));
     }
     emit(ctx, .shown, 0);
 }
@@ -892,9 +893,9 @@ pub fn run(pane_id: u64, shortcut_key: c_int, callback: Callback, callback_data:
     var smoke_argv = [_:null]?[*:0]u8{@constCast(@as([*:0]const u8, "/bin/sh"))};
     var pane_buffer: [32]u8 = undefined;
     if (smoke != 0) {
-        const pane_text = std.fmt.bufPrintZ(&pane_buffer, "{d}", .{pane_id}) catch return 2;
+        const pane_text = Compat.bufPrintZ(&pane_buffer, "{d}", .{pane_id}) catch return 2;
         _ = g_setenv("NOCTTY_SMOKE_PANE", pane_text.ptr, 1);
-        const marker = std.fmt.bufPrintZ(&ctx.smoke_marker_path, "/tmp/noctty-native-input-{d}-{d}", .{ std.c.getpid(), pane_id }) catch return 2;
+        const marker = Compat.bufPrintZ(&ctx.smoke_marker_path, "/tmp/noctty-native-input-{d}-{d}", .{ std.c.getpid(), pane_id }) catch return 2;
         _ = std.c.unlink(marker.ptr);
         _ = g_setenv("NOCTTY_SMOKE_MARKER", marker.ptr, 1);
         _ = g_setenv("NOCTTY_SMOKE_DELAY", if (smoke == 3) "5" else if (smoke == 4) "12" else "1.5", 1);
@@ -973,7 +974,7 @@ test "activation tokens and control timeouts are bounded" {
     try std.testing.expect(!validActivationToken(""));
     try std.testing.expect(!validActivationToken("bad\ntoken"));
     try std.testing.expect(!validActivationToken(&[_]u8{0xff}));
-    const oversized = [_]u8{'a'} ** 4097;
+    const oversized: [4097]u8 = @splat('a');
     try std.testing.expect(!validActivationToken(&oversized));
 
     try std.testing.expect(validControlTimeout(1));

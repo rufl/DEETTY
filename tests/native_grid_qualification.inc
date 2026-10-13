@@ -722,6 +722,7 @@ static GtkAllocation renderer_allocation_for_context(
 static void renderer_init_context(NocttyGridContext *context,
                                   NocttyRendererFixture *fixture) {
     memset(context, 0, sizeof(*context));
+    context->userdata = fixture;
     context->frame = renderer_fixture_frame;
     context->color_rgb = renderer_fixture_color;
     context->cell_text = renderer_fixture_cell_text;

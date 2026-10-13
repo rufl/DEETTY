@@ -7,7 +7,9 @@ install; dependency bundles and signed releases have additional requirements.
 
 Building requires:
 
-- Zig 0.16.x (CI pins 0.16.0; other minor versions are rejected);
+- Zig 0.17.x (CI pins 0.17.0; other minor versions are rejected);
+- libepoxy development files discoverable through `pkg-config` for the
+  optional OpenGL presentation path;
 - `pkg-config`;
 - GTK 3 development files;
 - GtkSourceView 4 development files;
@@ -22,16 +24,16 @@ Debian/Ubuntu before the first dogfood install or any bundle build.
 
 VTE 2.91 development files are required only for `zig build check`, smoke binaries, or the optional `noctty-vte` fallback. Production `noctty` links neither VTE nor Tree-sitter. Production `nocted` statically includes its vendored Tree-sitter parsers and adds no Tree-sitter runtime package; distribution manifests do not require VTE. Runtime package names are mapped in `packaging/runtime-dependencies.txt`.
 
-Install Zig 0.16.0 from [ziglang.org](https://ziglang.org/download/) and put its
-`zig` executable on `PATH`; distribution packages may provide a different
-minor version. Then install the native production-build dependencies:
+- Install Zig 0.17.0 from [ziglang.org](https://ziglang.org/download/) and put its
+  `zig` executable on `PATH`; distribution packages may provide a different
+  minor version. Then install the native production-build dependencies:
 
 ```sh
 # Debian/Ubuntu
-sudo apt-get install build-essential pkg-config libgtk-3-dev libgtksourceview-4-dev libgtk-layer-shell0
+sudo apt-get install build-essential pkg-config libgtk-3-dev libepoxy-dev libgtksourceview-4-dev libgtk-layer-shell0
 
 # Arch Linux (alternative, not an additional step)
-sudo pacman -S --needed base-devel gtk3 gtksourceview4 gtk-layer-shell
+sudo pacman -S --needed base-devel gtk3 libepoxy gtksourceview4 gtk-layer-shell
 ```
 
 For `zig build check`, additionally install `libvte-2.91-dev` on Debian/Ubuntu
@@ -232,7 +234,7 @@ The reproducible tarball and same-architecture dependency bundle both compile `R
 
 The repository does not redistribute an unverified `gtk-layer-shell` fallback. A first dogfood install requires the system `libgtk-layer-shell.so.0`; a later dogfood refresh and dependency-bundle build may reuse only the checksum-matching private copy from the previous dogfood receipt when the system library is absent. Bundles copy the current host-package library when present, or the receipt-matched private copy otherwise, and record that retained-runtime source explicitly. For every copied host library, the Arch/pacman or Debian/dpkg backend stores the owning package/version/expression/source and copies package-installed notices/copyright files plus available canonical SPDX license/exception texts into `share/licenses/noctty/dependencies`. A package with no resolvable ownership or retained text aborts the bundle. The synthetic Debian backend smoke validates multiarch ownership, version, copyright, inventory, and license receipts.
 
-The release workflow is configured for x86_64 and aarch64 runners, pinned to Zig `0.16.0`, and locally guarded by `scripts/release_workflow_contract_smoke.sh`. Each job provisions `libgtk-layer-shell.so.0`, asserts the runner architecture matches the artifact label, and validates the generated archive plus SHA-256 sidecar before upload. Tagged architecture artifacts, checksums, manifests, and signatures must still be run and retained before release.
+- The release workflow is configured for x86_64 and aarch64 runners, pinned to Zig `0.17.0`, and locally guarded by `scripts/release_workflow_contract_smoke.sh`. Each job provisions `libgtk-layer-shell.so.0`, asserts the runner architecture matches the artifact label, and validates the generated archive plus SHA-256 sidecar before upload. Tagged architecture artifacts, checksums, manifests, and signatures must still be run and retained before release.
 
 `./scripts/release_operations_status.sh` tracks the external release evidence boundary. The current local receipt is `release_operations_status version=0.1.0 tagged_artifacts=false signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=6`; `--list-missing` emits deterministic issue rows such as `release_operations_issue category=tagged_artifacts path=noctty-linux-x86_64.tar.gz reason=missing`. The focused smoke reports `semantic_receipts=true`, so retained manifests and receipts must include the expected fields before `--require-complete` can pass. The required retained files and `NOCTTY_RELEASE_EVIDENCE_DIR` override are documented in [RELEASE_OPERATIONS.md](RELEASE_OPERATIONS.md).
 

@@ -1800,6 +1800,18 @@ pub const Grid = struct {
     pub fn historyCount(self: Grid) usize {
         return self.history.items.len;
     }
+    pub fn viewportOffset(self: Grid) usize {
+        return self.viewport_offset;
+    }
+
+    pub fn damageGeneration(self: Grid) u64 {
+        return self.damage_generation;
+    }
+
+    pub fn rowDamageGeneration(self: Grid, row: usize) u64 {
+        if (row >= self.rows) return 0;
+        return self.row_damage_generation[row];
+    }
 
     pub fn viewportHistoryCount(self: Grid) usize {
         return if (self.alternate_cells != null)
@@ -1970,7 +1982,7 @@ pub const Grid = struct {
     }
 
     pub fn mouseModeBits(self: Grid) u32 {
-        return @as(u32, @intFromEnum(self.mouse_tracking)) |
+        return @as(u32, @backingInt(self.mouse_tracking)) |
             (if (self.mouse_encoding == .sgr) @as(u32, 0x100) else 0);
     }
 

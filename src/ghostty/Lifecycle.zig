@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compat = @import("compat");
 const Api = @import("Api.zig");
 
 pub const SurfaceOptions = struct {
@@ -67,9 +68,9 @@ pub const Session = struct {
         };
         errdefer session.deinit();
 
-        session.cwd_z = try allocator.dupeZ(u8, options.working_directory);
-        if (options.command) |command| session.command_z = try allocator.dupeZ(u8, command);
-        if (options.initial_input) |initial_input| session.initial_input_z = try allocator.dupeZ(u8, initial_input);
+        session.cwd_z = try Compat.dupeZ(allocator, options.working_directory);
+        if (options.command) |command| session.command_z = try Compat.dupeZ(allocator, command);
+        if (options.initial_input) |initial_input| session.initial_input_z = try Compat.dupeZ(allocator, initial_input);
 
         session.config = symbols.config_new.?() orelse return error.GhosttyConfigCreateFailed;
         if (symbols.config_finalize) |finalize| finalize(session.config);
@@ -166,7 +167,7 @@ pub const Session = struct {
             self.allocator.free(text);
             self.key_text_z = null;
         }
-        if (input.text) |text| self.key_text_z = try self.allocator.dupeZ(u8, text);
+        if (input.text) |text| self.key_text_z = try Compat.dupeZ(self.allocator, text);
         return surface_key(self.surface, .{
             .action = input.action,
             .mods = input.mods,

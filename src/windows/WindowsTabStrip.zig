@@ -47,7 +47,7 @@ pub const Strip = struct {
     window: c.HWND = null,
     count: usize = 0,
     height: c_int = 0,
-    lengths: [Protocol.max_tabs]usize = [_]usize{0} ** Protocol.max_tabs,
+    lengths: [Protocol.max_tabs]usize = @splat(0),
     labels: [Protocol.max_tabs][Protocol.max_title_bytes]u8 = undefined,
     callbacks: ?*const Abi.Callbacks = null,
     remote: bool = true,
@@ -516,7 +516,7 @@ const Rename = struct {
     callbacks: *const Abi.Callbacks,
     index: c_int,
     pane: c_int,
-    initial: [name_capacity + 1]u16 = [_]u16{0} ** (name_capacity + 1),
+    initial: [name_capacity + 1]u16 = @splat(0),
     modal: bool = true,
     result: c_int = 0,
 };
@@ -610,7 +610,7 @@ fn renameProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
 // DWORD-aligned controls. Dialog manager supplies system colors and keyboard
 // navigation (label mnemonic, Tab, Enter/default OK, Escape/Cancel).
 const Template = struct {
-    words: [512]u16 align(4) = [_]u16{0} ** 512,
+    words: [512]u16 align(4) = @splat(0),
     used: usize = 0,
     fn word(self: *Template, value: u16) void {
         self.words[self.used] = value;
@@ -675,12 +675,12 @@ pub fn qualifyRename(parent: c.HWND, callbacks: *const Abi.Callbacks) bool {
     }
     if (c.IsWindowVisible(dialog) != 0 or c.GetDlgItem(dialog, edit_id) == null or c.GetDlgItem(dialog, c.IDOK) == null or c.GetDlgItem(dialog, c.IDCANCEL) == null) return false;
     // The native edit accepts UTF-16; byte-bound validation must reject 129 bytes.
-    var overlong: [44]u16 = [_]u16{0x4e2d} ** 44;
+    var overlong: [44]u16 = @splat(0x4e2d);
     overlong[43] = 0;
     _ = c.SetDlgItemTextW(dialog, edit_id, &overlong);
     _ = c.SendMessageW(dialog, c.WM_COMMAND, c.IDOK, 0);
     if (c.IsWindow(dialog) == 0 or state.result != 0) return false;
-    var oversized: [name_capacity + 2]u16 = [_]u16{'X'} ** (name_capacity + 2);
+    var oversized: [name_capacity + 2]u16 = @splat('X');
     oversized[oversized.len - 1] = 0;
     _ = c.SetDlgItemTextW(dialog, edit_id, &oversized);
     _ = c.SendMessageW(dialog, c.WM_COMMAND, c.IDOK, 0);

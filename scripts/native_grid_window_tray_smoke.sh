@@ -11,7 +11,7 @@ fi
 output=/tmp/noctty-native-grid-window-tray.txt
 errors=/tmp/noctty-native-grid-window-tray.stderr
 ready=/tmp/noctty-native-grid-window-tray-ready
-zig build --global-cache-dir .zig-cache/global smoke-binaries
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 rm -f "$output" "$errors" "$ready"
 
 ./zig-out/bin/noctty-smoke --native-grid-window-tray-smoke >"$output" 2>"$errors" &

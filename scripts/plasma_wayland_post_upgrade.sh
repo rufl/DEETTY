@@ -23,13 +23,11 @@ zig build check -j1 --summary all
 
 if [[ "$mode" == --full ]]; then
     env GTK_MODULES= NO_AT_BRIDGE=1 GDK_BACKEND=wayland \
-        zig build smoke-run \
+        ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-run \
         -Doptimize=ReleaseSafe \
-        --global-cache-dir .zig-cache/global \
         -- --native-grid-maintenance-smoke
-    zig build nocted-smoke-binary \
-        -Doptimize=ReleaseSafe \
-        --global-cache-dir .zig-cache/global
+    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build nocted-smoke-binary \
+        -Doptimize=ReleaseSafe
     NOCTED_GDK_BACKEND=wayland \
         NOCTED_SKIP_PROJECT_LIFECYCLE=1 \
         ./scripts/nocted_native_smoke.sh ./zig-out/bin/nocted-smoke

@@ -29,9 +29,9 @@ pub const Controller = struct {
     reject_requested: bool = false,
     sas_value: u32 = 0,
     peer: ?Identity.Peer = null,
-    alias: [Protocol.max_alias_bytes]u8 = [_]u8{0} ** Protocol.max_alias_bytes,
+    alias: [Protocol.max_alias_bytes]u8 = @splat(0),
     alias_length: u8,
-    endpoint: [Identity.max_endpoint_bytes]u8 = [_]u8{0} ** Identity.max_endpoint_bytes,
+    endpoint: [Identity.max_endpoint_bytes]u8 = @splat(0),
     endpoint_length: u8,
     port_value: u16,
 

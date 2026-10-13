@@ -36,7 +36,7 @@ pub fn save(io: std.Io, path: []const u8, root: []const u8) !void {
     std.debug.assert(output.writer.buffered().len <= max_state_bytes);
 
     var atomic = try std.Io.Dir.cwd().createFileAtomic(io, path, .{
-        .permissions = @enumFromInt(0o600),
+        .permissions = @fromBackingInt(@intCast(0o600)),
         .make_path = true,
         .replace = true,
     });

@@ -135,10 +135,10 @@ test ! -e scripts/native_grid_editor_shutdown_smoke.sh
 
 current_abi_docs='docs/ARCHITECTURE.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/TECHNICAL_STATUS.md'
 for document in $current_abi_docs; do
-  grep -F 'ABI v6' "$document" >/dev/null
+  grep -E 'ABI[ -]v7' "$document" >/dev/null
   ! grep -E 'ABI v2|render_abi_version=2' "$document" >/dev/null
 done
-grep -F 'ABI v4 packed-row fetches' docs/RELEASE_CHECKLIST.md >/dev/null
+grep -F 'ABI v7 borrowed packed-frame snapshots' docs/RELEASE_CHECKLIST.md >/dev/null
 
 dogfood_status=$(./scripts/dogfood_status.sh)
 printf '%s\n' "$dogfood_status" | grep -F 'dogfood_status counted_sessions=' >/dev/null

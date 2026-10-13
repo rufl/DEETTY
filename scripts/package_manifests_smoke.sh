@@ -11,14 +11,18 @@ test -s packaging/nocted-launcher
 grep -q '^Architecture: any$' packaging/debian/control
 grep -q "arch=('x86_64' 'aarch64')" packaging/arch/PKGBUILD
 grep -q 'pkgconfig(gtk+-3.0)' packaging/rpm/noctty.spec
-grep -q 'pkgconfig(gtksourceview-4)' packaging/rpm/noctty.spec
+grep -q 'pkgconfig(epoxy)' packaging/rpm/noctty.spec
 grep -q '^gtksourceview4$' packaging/runtime-dependencies.txt
+grep -q '^libepoxy$' packaging/runtime-dependencies.txt
 grep -q '^gtk-layer-shell$' packaging/runtime-dependencies.txt
 grep -q "'gtk-layer-shell'" packaging/arch/PKGBUILD
+grep -q "'libepoxy'" packaging/arch/PKGBUILD
 grep -q "'gtksourceview4'" packaging/arch/PKGBUILD
 grep -q 'libgtksourceview-4-dev' packaging/debian/control
 grep -q 'libgtk-layer-shell0' packaging/debian/control
+grep -q 'libepoxy-dev' packaging/debian/control
 grep -q '^Requires:       gtk-layer-shell$' packaging/rpm/noctty.spec
+grep -q '^Requires:       libepoxy$' packaging/rpm/noctty.spec
 grep -q '^Requires:       gtksourceview4$' packaging/rpm/noctty.spec
 if grep -Eq '(^vte3$|libvte|vte291|pkgconfig\(vte)' \
     packaging/runtime-dependencies.txt packaging/debian/control \

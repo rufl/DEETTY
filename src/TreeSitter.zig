@@ -1,8 +1,6 @@
 const std = @import("std");
 
-const c = @cImport({
-    @cInclude("tree_sitter/api.h");
-});
+const c = @import("c");
 
 extern fn tree_sitter_json() callconv(.c) *const c.TSLanguage;
 extern fn tree_sitter_c() callconv(.c) *const c.TSLanguage;
@@ -91,7 +89,7 @@ pub const Document = struct {
 
         const capture_count = c.ts_query_capture_count(query);
         if (capture_count > max_query_captures) return error.QueryUnavailable;
-        var capture_scopes = [_]Scope{.keyword} ** max_query_captures;
+        var capture_scopes: [max_query_captures]Scope = @splat(.keyword);
         for (0..capture_count) |index| {
             var name_length: u32 = 0;
             const name_ptr = c.ts_query_capture_name_for_id(
@@ -204,8 +202,9 @@ fn queryFor(language: Language) []const u8 {
 }
 
 fn scopeFor(name: []const u8) Scope {
-    inline for (std.meta.fields(Scope)) |field| {
-        if (std.mem.eql(u8, name, field.name)) return @enumFromInt(field.value);
+    const info = @typeInfo(Scope).@"enum";
+    inline for (info.field_names, info.field_values) |field_name, field_value| {
+        if (std.mem.eql(u8, name, field_name)) return @fromBackingInt(@intCast(field_value));
     }
     return .keyword;
 }

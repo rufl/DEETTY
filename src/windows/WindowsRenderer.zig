@@ -143,7 +143,6 @@ fn drawStatusBar(state: *const State, device: c.HDC, client: c.RECT) void {
     );
 }
 
-
 fn drawDividers(state: *const State, device: c.HDC, client: c.RECT) void {
     const cb = callbacks(state);
     const count = cb.divider_count(cb.userdata);

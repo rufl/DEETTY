@@ -6,6 +6,7 @@
 //! completion path before mutating GTK state.
 
 const std = @import("std");
+const Compat = @import("compat");
 const core = @import("nocted_core");
 const build_options = @import("build_options");
 
@@ -39,7 +40,7 @@ const InstanceLock = struct {
         try std.Io.Dir.cwd().createDirPath(io, config_directory);
         const path = try std.fs.path.join(allocator, &.{ config_directory, "instance.lock" });
         defer allocator.free(path);
-        const path_z = try allocator.dupeZ(u8, path);
+        const path_z = try Compat.dupeZ(allocator, path);
         defer allocator.free(path_z);
         const fd = std.posix.openatZ(
             std.posix.AT.FDCWD,
@@ -234,10 +235,11 @@ const Document = struct {
         start: *c.GtkTextIter,
         end: *c.GtkTextIter,
     ) void {
-        inline for (std.meta.fields(SyntaxTags)) |field| {
+        const info = @typeInfo(SyntaxTags).@"struct";
+        inline for (info.field_names) |field_name| {
             c.gtk_text_buffer_remove_tag(
                 @ptrCast(self.buffer),
-                @field(self.syntax_tags, field.name),
+                @field(self.syntax_tags, field_name),
                 start,
                 end,
             );
@@ -786,7 +788,7 @@ fn appendOwnedLanguagePath(
     paths: *std.array_list.Managed([:0]u8),
     path: []const u8,
 ) !void {
-    const owned_path = try allocator.dupeZ(u8, path);
+    const owned_path = try Compat.dupeZ(allocator, path);
     errdefer allocator.free(owned_path);
     try paths.append(owned_path);
 }
@@ -803,7 +805,7 @@ const App = struct {
     settings: core.settings.Settings,
     session: core.session.State,
     recent_project_items: [core.session.max_recent_projects]?*c.GtkWidget =
-        [_]?*c.GtkWidget{null} ** core.session.max_recent_projects,
+        @splat(null),
     recent_project_actions: [core.session.max_recent_projects]RecentProjectAction = undefined,
     suppress_session_persist: bool = false,
     session_persist_source: c_uint = 0,
@@ -1019,7 +1021,7 @@ const App = struct {
         try app.applySyntaxPaths();
         const style_path = try std.fs.path.join(allocator, &.{ resource_root, "styles" });
         defer allocator.free(style_path);
-        const style_path_z = try allocator.dupeZ(u8, style_path);
+        const style_path_z = try Compat.dupeZ(allocator, style_path);
         defer allocator.free(style_path_z);
         c.gtk_source_style_scheme_manager_prepend_search_path(
             native.style_manager,
@@ -1073,7 +1075,7 @@ const App = struct {
 
     fn applyUiFontCss(self: *App, font_size_pt: u8) !void {
         var css_buffer: [160]u8 = undefined;
-        const css = try std.fmt.bufPrintZ(
+        const css = try Compat.bufPrintZ(
             &css_buffer,
             "label, button, entry, spinbutton, treeview, menuitem " ++
                 "{{ font-size: {d}pt; }}",
@@ -1098,7 +1100,7 @@ const App = struct {
             100,
         );
         var css_buffer: [72]u8 = undefined;
-        const css = try std.fmt.bufPrintZ(
+        const css = try Compat.bufPrintZ(
             &css_buffer,
             "#nocted-editor {{ font-size: {d}pt; }}",
             .{scaled_points},
@@ -1137,7 +1139,7 @@ const App = struct {
         self.settings.ui_font_size_pt = value;
 
         var status_buffer: [48]u8 = undefined;
-        const status = std.fmt.bufPrintZ(
+        const status = Compat.bufPrintZ(
             &status_buffer,
             "Interface font size: {d} pt",
             .{value},
@@ -1155,7 +1157,7 @@ const App = struct {
         try self.applyEditorZoomCss(bounded);
         self.editor_zoom_percent = bounded;
         var status_buffer: [32]u8 = undefined;
-        const status = std.fmt.bufPrintZ(
+        const status = Compat.bufPrintZ(
             &status_buffer,
             "Editor zoom: {d}%",
             .{bounded},
@@ -1770,8 +1772,8 @@ const App = struct {
                 c.gtk_widget_hide(item);
                 continue;
             }
-            const path_z = self.allocator.dupeZ(
-                u8,
+            const path_z = Compat.dupeZ(
+                self.allocator,
                 self.session.recent_projects.items[index],
             ) catch continue;
             defer self.allocator.free(path_z);
@@ -1814,7 +1816,7 @@ const App = struct {
             return;
         }
         var status_buffer: [160]u8 = undefined;
-        const status = std.fmt.bufPrintZ(
+        const status = Compat.bufPrintZ(
             &status_buffer,
             "Unable to preserve unsaved files: {s}",
             .{@errorName(err)},
@@ -1826,8 +1828,7 @@ const App = struct {
         if (self.suppress_session_persist) return;
         self.cancelSessionPersist();
         var tabs: [core.session.max_open_files]core.session.TabInput = undefined;
-        var snapshots: [core.session.max_open_files]?[]u8 =
-            [_]?[]u8{null} ** core.session.max_open_files;
+        var snapshots: [core.session.max_open_files]?[]u8 = @splat(null);
         defer for (snapshots) |snapshot| {
             if (snapshot) |contents| self.allocator.free(contents);
         };
@@ -1894,8 +1895,7 @@ const App = struct {
         const was_suppressed = self.suppress_session_persist;
         self.suppress_session_persist = true;
         defer self.suppress_session_persist = was_suppressed;
-        var restored: [core.session.max_open_files]?*Document =
-            [_]?*Document{null} ** core.session.max_open_files;
+        var restored: [core.session.max_open_files]?*Document = @splat(null);
         var restored_named_edits = false;
         for (self.session.tabs.items, 0..) |tab, index| {
             if (tab.contents) |contents| {
@@ -2526,19 +2526,19 @@ const App = struct {
         }
         var status_buffer: [96]u8 = undefined;
         const status = if (load.delta)
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "Project updated (+{d}/-{d})",
                 .{ load.delta_stats.added_entries, load.delta_stats.removed_entries },
             ) catch return
         else if (self.project_truncated)
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} project items (bounded)",
                 .{self.project_entry_count},
             ) catch return
         else
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} project items",
                 .{self.project_entry_count},
@@ -2569,7 +2569,7 @@ const App = struct {
     }
 
     fn addProjectMonitor(self: *App, path: []const u8) !bool {
-        const path_z = try self.allocator.dupeZ(u8, path);
+        const path_z = try Compat.dupeZ(self.allocator, path);
         defer self.allocator.free(path_z);
         const file = c.g_file_new_for_path(path_z.ptr) orelse return false;
         defer c.g_object_unref(@ptrCast(file));
@@ -3033,7 +3033,7 @@ const App = struct {
         if (self.documents.items.len >= core.session.max_open_files)
             return error.TooManyOpenFiles;
         const language = if (path) |value| blk: {
-            const path_z = try self.allocator.dupeZ(u8, value);
+            const path_z = try Compat.dupeZ(self.allocator, value);
             defer self.allocator.free(path_z);
             break :blk c.gtk_source_language_manager_guess_language(
                 self.language_manager,
@@ -3045,13 +3045,13 @@ const App = struct {
         if (path != null) try self.documents_by_path.ensureUnusedCapacity(1);
         var metadata_owned = true;
         const owned_path = if (path) |value|
-            try self.allocator.dupeZ(u8, value)
+            try Compat.dupeZ(self.allocator, value)
         else
             null;
         errdefer if (metadata_owned) {
             if (owned_path) |value| self.allocator.free(value);
         };
-        const owned_display_name = try self.allocator.dupeZ(u8, display_name);
+        const owned_display_name = try Compat.dupeZ(self.allocator, display_name);
         errdefer if (metadata_owned) self.allocator.free(owned_display_name);
         const document = try self.allocator.create(Document);
         var document_initialized = false;
@@ -3231,13 +3231,13 @@ const App = struct {
         defer matches.deinit(self.allocator);
         var buffer: [128]u8 = undefined;
         const status = if (matches.truncated)
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &buffer,
                 "{d} occurrences selected (bounded)",
                 .{matches.ranges.len},
             ) catch return
         else
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &buffer,
                 "{d} occurrences selected",
                 .{matches.ranges.len},
@@ -3356,8 +3356,8 @@ const App = struct {
             self.updateStatusError("Save As failed: out of memory");
             return false;
         };
-        const display_name = self.allocator.dupeZ(
-            u8,
+        const display_name = Compat.dupeZ(
+            self.allocator,
             std.fs.path.basename(resolved),
         ) catch {
             self.updateStatusError("Save As failed: out of memory");
@@ -3448,7 +3448,7 @@ const App = struct {
         else
             self.project_root;
         if (folder) |value| {
-            const folder_z = self.allocator.dupeZ(u8, value) catch null;
+            const folder_z = Compat.dupeZ(self.allocator, value) catch null;
             if (folder_z) |folder_path| {
                 _ = c.gtk_file_chooser_set_current_folder(
                     @ptrCast(dialog),
@@ -3457,7 +3457,7 @@ const App = struct {
                 self.allocator.free(folder_path);
             }
         }
-        const name_z = self.allocator.dupeZ(u8, document.display_name) catch null;
+        const name_z = Compat.dupeZ(self.allocator, document.display_name) catch null;
         if (name_z) |name| {
             c.gtk_file_chooser_set_current_name(@ptrCast(dialog), name.ptr);
             self.allocator.free(name);
@@ -3491,7 +3491,7 @@ const App = struct {
             return false;
         }
         if (c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) == 0) return true;
-        const basename_z = self.allocator.dupeZ(u8, document.display_name) catch return false;
+        const basename_z = Compat.dupeZ(self.allocator, document.display_name) catch return false;
         defer self.allocator.free(basename_z);
         const dialog = c.gtk_message_dialog_new(
             asWindow(self.window),
@@ -3599,7 +3599,7 @@ const App = struct {
         const mark = c.gtk_text_buffer_get_insert(@ptrCast(document.buffer));
         c.gtk_text_buffer_get_iter_at_mark(@ptrCast(document.buffer), &iter, mark);
         var position_buffer: [64]u8 = undefined;
-        const position = std.fmt.bufPrintZ(
+        const position = Compat.bufPrintZ(
             &position_buffer,
             "Line {d}, Column {d}",
             .{
@@ -3620,7 +3620,7 @@ const App = struct {
         const dirty = c.gtk_text_buffer_get_modified(@ptrCast(document.buffer)) != 0;
         var close_buffer: [std.fs.max_path_bytes + 16]u8 = undefined;
         var close_name: [*:0]const u8 = "Close file";
-        if (std.fmt.bufPrintZ(
+        if (Compat.bufPrintZ(
             &close_buffer,
             "Close file: {s}",
             .{document.display_name},
@@ -3634,7 +3634,7 @@ const App = struct {
             return;
         }
         var label_buffer: [std.fs.max_path_bytes + 4]u8 = undefined;
-        const label = std.fmt.bufPrintZ(
+        const label = Compat.bufPrintZ(
             &label_buffer,
             "{s} *",
             .{document.display_name},
@@ -3733,7 +3733,7 @@ const App = struct {
         self.quick_open_truncated = results.truncated;
         var status_buffer: [96]u8 = undefined;
         const status = if (results.truncated)
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} of {d} files",
                 .{ results.matches.len, results.total_matches },
@@ -3741,7 +3741,7 @@ const App = struct {
         else if (results.matches.len == 1)
             "1 file"
         else
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} files",
                 .{results.matches.len},
@@ -3934,13 +3934,13 @@ const App = struct {
 
         var status_buffer: [128]u8 = undefined;
         const status = if (payload.search.truncated)
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} matching lines in {d} files (bounded)",
                 .{ payload.search.results.len, payload.search.files_scanned },
             ) catch return
         else
-            std.fmt.bufPrintZ(
+            Compat.bufPrintZ(
                 &status_buffer,
                 "{d} matching lines in {d} files",
                 .{ payload.search.results.len, payload.search.files_scanned },
@@ -3976,7 +3976,7 @@ const App = struct {
             self.project_search_result_count += 1;
         }
         var status_buffer: [80]u8 = undefined;
-        const status = std.fmt.bufPrintZ(
+        const status = Compat.bufPrintZ(
             &status_buffer,
             "Searching... {d} matches",
             .{self.project_search_result_count},
@@ -4043,7 +4043,7 @@ const App = struct {
         const status = if (count < 0)
             "..."
         else
-            std.fmt.bufPrintZ(&status_buffer, "{d} matches", .{count}) catch return;
+            Compat.bufPrintZ(&status_buffer, "{d} matches", .{count}) catch return;
         setStatusFeedback(self.search_status, status.ptr, false);
     }
 
@@ -4327,7 +4327,7 @@ const App = struct {
         var length = @min(raw.len, 16 * 1024);
         while (length > 0 and !std.unicode.utf8ValidateSlice(raw[0..length])) length -= 1;
         const output = if (length == 0) "Task output was not UTF-8" else raw[0..length];
-        const output_z = self.allocator.dupeZ(u8, output) catch return;
+        const output_z = Compat.dupeZ(self.allocator, output) catch return;
         defer self.allocator.free(output_z);
         const dialog = c.gtk_message_dialog_new(
             asWindow(self.window),
@@ -4675,7 +4675,7 @@ const App = struct {
         const combo = c.gtk_combo_box_text_new() orelse return false;
         setAccessibleName(combo, "Language-service completions");
         for (completions) |completion| {
-            const label = self.allocator.dupeZ(u8, completion.label) catch return false;
+            const label = Compat.dupeZ(self.allocator, completion.label) catch return false;
             defer self.allocator.free(label);
             c.gtk_combo_box_text_append_text(@ptrCast(combo), label.ptr);
         }
@@ -4730,7 +4730,7 @@ const App = struct {
             return;
         };
         defer self.allocator.free(summary);
-        const summary_z = self.allocator.dupeZ(u8, summary) catch return;
+        const summary_z = Compat.dupeZ(self.allocator, summary) catch return;
         defer self.allocator.free(summary_z);
         const dialog = c.gtk_message_dialog_new(
             asWindow(self.window),
@@ -5039,7 +5039,7 @@ const App = struct {
             !self.project_monitor_truncated and
             model.p50_ns > 0 and draw.p50_ns >= model.p50_ns;
         var receipt_buffer: [1024]u8 = undefined;
-        const receipt = std.fmt.bufPrintZ(
+        const receipt = Compat.bufPrintZ(
             &receipt_buffer,
             "nocted_project_real_project_qualification pass={d} cycles={d} " ++
                 "entries={d} model_p50_ns={d} model_p95_ns={d} model_p99_ns={d} " ++
@@ -5147,7 +5147,7 @@ const App = struct {
             self.project_load_source == 0 and
             publication.p50_ns > 0 and overflow_ns > 0;
         var receipt_buffer: [1200]u8 = undefined;
-        const receipt = std.fmt.bufPrintZ(
+        const receipt = Compat.bufPrintZ(
             &receipt_buffer,
             "nocted_project_monitor_qualification pass={d} burst_cycles={d} " ++
                 "files_per_burst={d} monitor_events={d} delta_updates={d} " ++
@@ -5289,8 +5289,7 @@ const App = struct {
         var open_values: [cycles]u64 = undefined;
         var save_values: [cycles]u64 = undefined;
         var quick_values: [quick_samples]u64 = undefined;
-        var ranking_fingerprints: [ranking_queries.len]?u64 =
-            [_]?u64{null} ** ranking_queries.len;
+        var ranking_fingerprints: [ranking_queries.len]?u64 = @splat(null);
 
         const previous_models = self.project_model_commits;
         self.openProject(root) catch return searchLoadFailure("open_project");
@@ -5332,7 +5331,7 @@ const App = struct {
                 c.gtk_entry_set_text(@ptrCast(self.quick_open_entry), "");
                 self.cancelQuickOpenUpdate();
                 const started = std.Io.Clock.awake.now(self.io);
-                const query_z = self.allocator.dupeZ(u8, query) catch
+                const query_z = Compat.dupeZ(self.allocator, query) catch
                     return searchLoadFailure("quick_open_query");
                 defer self.allocator.free(query_z);
                 c.gtk_entry_set_text(@ptrCast(self.quick_open_entry), query_z.ptr);
@@ -5453,7 +5452,7 @@ const App = struct {
             self.worker_peak_search_batches <= WorkerJob.max_search_batches and
             self.worker_peak_search_batches > 0 and self.worker_jobs.items.len == 0;
         var receipt_buffer: [2048]u8 = undefined;
-        const receipt = std.fmt.bufPrintZ(
+        const receipt = Compat.bufPrintZ(
             &receipt_buffer,
             "nocted_search_load_qualification pass={d} cycles={d} entries={d} " ++
                 "first_p50_ns={d} first_p95_ns={d} first_p99_ns={d} " ++
@@ -5519,7 +5518,7 @@ const App = struct {
             self.project_monitor_source == 0 and worker_drained;
         self.project_lifecycle_passed = qualification_passed and hot_exit and late_guard;
         var receipt_buffer: [512]u8 = undefined;
-        const receipt = std.fmt.bufPrintZ(
+        const receipt = Compat.bufPrintZ(
             &receipt_buffer,
             "nocted_project_lifecycle_teardown pass={d} callback_after_widget=true " ++
                 "late_callback_ignored={d} source_scheduled={d} worker_drained={d}\n",
@@ -5707,7 +5706,7 @@ const App = struct {
                     }
                     var path_buffer: [32]u8 = undefined;
                     const sample_path_text = if (sample_ordinal) |ordinal|
-                        std.fmt.bufPrintZ(&path_buffer, "0:0:{d}", .{ordinal}) catch null
+                        Compat.bufPrintZ(&path_buffer, "0:0:{d}", .{ordinal}) catch null
                     else
                         null;
                     if (sample_path_text) |path_text| {
@@ -6477,7 +6476,7 @@ fn appendApplicationFile(
     files: *std.array_list.Managed(*c.GFile),
     path: []const u8,
 ) !void {
-    const path_z = try allocator.dupeZ(u8, path);
+    const path_z = try Compat.dupeZ(allocator, path);
     defer allocator.free(path_z);
     try files.append(c.g_file_new_for_path(path_z) orelse
         return error.ApplicationFileUnavailable);
@@ -6546,7 +6545,7 @@ fn forwardApplicationOpen(
     }
     var hint_buffer: [std.fs.max_path_bytes:0]u8 = undefined;
     const hint = if (project) |path| blk: {
-        const copied = std.fmt.bufPrintZ(&hint_buffer, "{s}", .{path}) catch
+        const copied = Compat.bufPrintZ(&hint_buffer, "{s}", .{path}) catch
             return error.ApplicationPathTooLong;
         break :blk copied.ptr;
     } else "";
@@ -6578,7 +6577,7 @@ fn applicationIdForDirectory(directory: []const u8, buffer: *[64:0]u8) [*:0]cons
         hash ^= byte;
         hash *%= 1099511628211;
     }
-    const formatted = std.fmt.bufPrintZ(
+    const formatted = Compat.bufPrintZ(
         buffer,
         "com.noctty.NoctEd.n{x}",
         .{hash},
@@ -7072,7 +7071,7 @@ const ToolAction = enum(usize) {
 
 fn appendToolAction(menu: *c.GtkWidget, label: [*:0]const u8, action: ToolAction, app: *App) void {
     const item = c.gtk_menu_item_new_with_label(label) orelse unreachable;
-    c.g_object_set_data(item, "nocted-tool-action", @ptrFromInt(@intFromEnum(action) + 1));
+    c.g_object_set_data(item, "nocted-tool-action", @ptrFromInt(@backingInt(action) + 1));
     connect(item, "activate", @ptrCast(&onToolAction), app);
     c.gtk_menu_shell_append(@ptrCast(menu), item);
 }
@@ -7145,7 +7144,7 @@ fn treeStoreSet(
     entry_index: u64,
     is_directory: bool,
 ) !void {
-    const name_z = try allocator.dupeZ(u8, name);
+    const name_z = try Compat.dupeZ(allocator, name);
     defer allocator.free(name_z);
     const icon = if (is_directory) "folder-symbolic" else "text-x-generic-symbolic";
     c.gtk_tree_store_set(
@@ -7170,7 +7169,7 @@ fn quickOpenStoreSet(
     relative_path: []const u8,
     entry_index: usize,
 ) !void {
-    const relative_z = try allocator.dupeZ(u8, relative_path);
+    const relative_z = try Compat.dupeZ(allocator, relative_path);
     defer allocator.free(relative_z);
     c.gtk_tree_store_set(
         store,
@@ -7756,7 +7755,7 @@ fn onOpenFile(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     ) orelse return;
     c.gtk_file_chooser_set_local_only(@ptrCast(dialog), 1);
     if (app.project_root) |root| {
-        const root_z = app.allocator.dupeZ(u8, root) catch null;
+        const root_z = Compat.dupeZ(app.allocator, root) catch null;
         if (root_z) |value| {
             _ = c.gtk_file_chooser_set_current_folder(@ptrCast(dialog), value.ptr);
             app.allocator.free(value);
@@ -7788,7 +7787,7 @@ fn onProjectLoadStep(data: ?*anyopaque) callconv(.c) c.gboolean {
         app.project_load_source = 0;
         app.destroyProjectLoad();
         var status_buffer: [128]u8 = undefined;
-        const status = std.fmt.bufPrintZ(
+        const status = Compat.bufPrintZ(
             &status_buffer,
             "Folder open failed: {s}",
             .{@errorName(err)},
@@ -8164,7 +8163,7 @@ fn onImportTextMateGrammar(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) voi
 
 fn onToolAction(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const raw = c.g_object_get_data(widget, "nocted-tool-action") orelse return;
-    const action: ToolAction = @enumFromInt(@intFromPtr(raw) - 1);
+    const action: ToolAction = @fromBackingInt(@intCast(@intFromPtr(raw) - 1));
     const app: *App = @ptrCast(@alignCast(data.?));
     switch (action) {
         .diagnostics => app.runLanguageFeature(.diagnostics, null),
@@ -8416,7 +8415,7 @@ fn onSmokeCapture(data: ?*anyopaque) callconv(.c) c.gboolean {
         }
     }
     if (nonblack_samples < 64) return c.G_SOURCE_REMOVE;
-    const path_z = app.allocator.dupeZ(u8, path) catch return c.G_SOURCE_REMOVE;
+    const path_z = Compat.dupeZ(app.allocator, path) catch return c.G_SOURCE_REMOVE;
     defer app.allocator.free(path_z);
     const saved = c.cairo_surface_write_to_png(surface, path_z.ptr) ==
         c.CAIRO_STATUS_SUCCESS;
