@@ -1,0 +1,43 @@
+terminal_benchmark date=2026-10-14T06:58:17+01:00
+kernel=Linux 7.2.9-arch1-1 x86_64 GNU/Linux
+cpu=Genuine Intel(R) 0000
+session=wayland desktop=niri offscreen=0 display=:0
+common_backend=native_wayland renderer=cairo window=1200x800 font_size=11 runs=3 panes=1 2 4 output_panes=1 2 4 output_lines=5000 payload_bytes=435000 idle_cpu_sample_ms=1000 visual_timeout_ms=30000 inter_trial_settle_ms=1000 post_output_settle_ms=250 expect_idle_compaction=0 skip_build=1 terminal_order=rotated_snake
+yakuake_exclusive=true yakuake_pids_stopped_before=none
+payload_sha256=a40cd8f34b7c0ceea90d6d7635aeb280b40a34a95f92575361174c7a72a5c7c2 workload_sha256=b8a3a2fab7488cf5a6bdff697d0780210b4a9493ddf3147373d2bb66f98264f5 harness_sha256=d8f72a140f696b7b7ca8dd5604f63eb765154e2283a5b4b95f2ed79b11aac754 noctty_binary_sha256=6aa8b4db63262a224976df0abd2425de97969a79b902403652f7008edead1b4c
+git_commit=a7f699ea54f51c8cd5b272ad19f8ab5279534418 git_dirty=true git_diff_sha256=bc595bf49dbf3ebcbbfc46b50404d2bcee804fcb1be873007f0902c41427df15
+cpu_count=16 cpu_governors=powersave, memory_kib=48847880 locale=en_US.UTF-8 compositor=niri
+metric_startup=launch_to_all_workloads_spawned metric_output=writer_completion metric_visual=unavailable_native_wayland metric_visual_tail=unavailable_native_wayland metric_memory=process_tree_pss_excluding_workloads metric_cpu=process_tree_jiffies_excluding_workloads
+parity_font=monospace:11 parity_geometry=1200x800 parity_scrollback_lines=1000 ghostty_scrollback_bytes=87000 yakuake_profile=isolated
+adapter_noctty=benchmark_mode_prebuilt_balanced_tree adapter_noctty_production=normal_windowed_single_pane adapter_terminator=prebuilt_config_tree adapter_konsole=dbus_splits adapter_kitty=remote_control_splits adapter_wezterm=cli_splits adapter_ghostty=keyboard_splits adapter_alacritty=single_pane adapter_yakuake=dbus_balanced_splits
+environment_NOCTTY_BENCH_DISPLAY_BACKEND=wayland
+environment_NOCTTY_BENCH_OUTPUT_LINES=5000
+environment_NOCTTY_BENCH_OUTPUT_PANES=1 2 4
+environment_NOCTTY_BENCH_PANES=1 2 4
+environment_NOCTTY_BENCH_RENDERER=cairo
+environment_NOCTTY_BENCH_RUNS=3
+environment_NOCTTY_BENCH_SKIP_BUILD=1
+environment_NOCTTY_BENCH_STAMP=gpu-wayland-cairo-20261014-0745
+environment_NOCTTY_BENCH_TERMINALS=noctty
+environment_NOCTTY_BENCH_WARMUP=1
+noctty_version=noctty 0.1.0
+noctty_executable=/home/lich/lichforge/code/monorepo/desktop/NOCTTY/zig-out/bin/noctty
+renderer_receipt run_serial=2 terminal=noctty scenario=idle panes=1 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=3 terminal=noctty scenario=idle panes=1 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=4 terminal=noctty scenario=idle panes=1 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=6 terminal=noctty scenario=idle panes=2 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=7 terminal=noctty scenario=idle panes=2 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=8 terminal=noctty scenario=idle panes=2 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=10 terminal=noctty scenario=idle panes=4 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=11 terminal=noctty scenario=idle panes=4 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=12 terminal=noctty scenario=idle panes=4 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=14 terminal=noctty scenario=output panes=1 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=15 terminal=noctty scenario=output panes=1 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=16 terminal=noctty scenario=output panes=1 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=18 terminal=noctty scenario=output panes=2 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=19 terminal=noctty scenario=output panes=2 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=20 terminal=noctty scenario=output panes=2 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=22 terminal=noctty scenario=output panes=4 trial=1 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=23 terminal=noctty scenario=output panes=4 trial=2 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+renderer_receipt run_serial=24 terminal=noctty scenario=output panes=4 trial=3 lines=native_grid_benchmark renderer=cairo;native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0;
+yakuake_pids_after=none yakuake_clean=true

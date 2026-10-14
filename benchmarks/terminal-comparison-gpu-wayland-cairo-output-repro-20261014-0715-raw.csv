@@ -1,0 +1,2 @@
+terminal,version,scenario,panes,trial,startup_ms,pss_kib,rss_kib,uss_kib,idle_cpu_pct,ingest_ms,ingest_mib_s,process_count,run_serial,order_index,launch_pid,root_pid,start_ns,ready_ns,go_ns,done_ns,rows_min,rows_max,columns_min,columns_max,visual_ms,visual_end_ns,visual_tail_ms
+noctty,noctty 0.1.0,idle,1,1,145,57875,105796,45192,4.507,,,7,1,0,108522,108522,1791957143633098337,1791957143777806793,1791957144032413780,1791957144042531328,40,40,120,120,,,

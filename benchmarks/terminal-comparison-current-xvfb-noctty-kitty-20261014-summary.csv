@@ -1,0 +1,7 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,uss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,uss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms,visual_tail_median_ms,visual_tail_mad_ms
+noctty,noctty 0.1.0,1,297,299,311,45.421,77.312,37.027,0.966,55.468,7.479,3,2,0.021,0.004,3,1.058,33,33,106,106,153.485,3,0.82,97.779,0.238
+noctty,noctty 0.1.0,2,302,312,313,45.545,77.289,37.172,0.967,97.829,8.481,3,1,0.038,0.207,3,4.353,33,40,105,120,195.259,3,6.366,98.989,1.559
+noctty,noctty 0.1.0,4,297,302,350,46.994,77.898,39.594,0.961,170.921,9.709,3,5,0.046,0.039,3,1.861,16,40,51,120,283.126,3,19.411,112.205,2.156
+kitty,kitty 0.49.2 created by Kovid Goyal,1,461,482,489,172.170,228.266,140.668,26.291,50.006,8.296,3,7,0.136,0.051,3,3.301,40,40,133,133,153.302,3,2.074,103.296,5.375
+kitty,kitty 0.49.2 created by Kovid Goyal,2,540,559,578,173.097,230.180,142.371,26.321,72.995,11.366,3,19,0.312,0.891,3,6.027,40,40,66,66,161.067,3,0.934,94.195,7.056
+kitty,kitty 0.49.2 created by Kovid Goyal,4,702,740,779,176.704,233.004,145.902,25.342,88.713,18.705,3,38,0.747,0.715,3,15.082,19,19,66,66,185.162,3,16.391,88.865,0.67

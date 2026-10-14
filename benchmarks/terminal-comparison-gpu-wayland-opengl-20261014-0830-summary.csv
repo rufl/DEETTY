@@ -1,0 +1,4 @@
+terminal,version,panes,startup_min_ms,startup_median_ms,startup_max_ms,pss_median_mib,rss_median_mib,uss_median_mib,idle_cpu_median_pct,ingest_median_ms,ingest_median_mib_s,startup_n,startup_mad_ms,pss_mad_mib,uss_mad_mib,ingest_n,ingest_mad_ms,rows_min,rows_max,columns_min,columns_max,visual_median_ms,visual_n,visual_mad_ms,visual_tail_median_ms,visual_tail_mad_ms
+noctty,noctty 0.1.0,1,491,549,557,235.396,313.363,218.910,3.629,49.726,8.343,3,8,0.046,0.039,3,0.854,33,33,64,64,,0,,,
+noctty,noctty 0.1.0,2,479,538,583,235.477,313.582,219.070,2.774,101.649,8.162,3,45,0.156,0.168,3,11.805,32,40,64,120,,0,,,
+noctty,noctty 0.1.0,4,516,588,605,241.402,319.238,225.000,3.577,209.974,7.903,3,17,3.862,3.922,3,0.472,16,40,31,120,,0,,,
