@@ -40,7 +40,7 @@ reject without trusting NOCTTY.
 | Output ingestion | 1, 2, 4, 8 | release writers → last writer marker timestamp | Cross-terminal PTY ingestion |
 | External pixel completion | 1, 2, 4, 8 | release writers → fixed RGB marker observed in captured X11 window | Cross-terminal; includes screenshot-observer cost, not compositor presentation |
 | Production startup | 1 | normal `noctty --native-grid-windowed` path with isolated state and external workload shell | NOCTTY parity/control row, reported separately as `noctty-production` |
-| Renderer/pipeline | internal | real PTY/VT → exact Cairo draw | NOCTTY qualification only; never used for peer ranking |
+| Renderer/pipeline | internal | real PTY/VT → exact Cairo draw → optional GL presentation | NOCTTY qualification only; never used for peer ranking |
 | Compatibility/TUI | internal | deterministic VT and installed TUI qualifications | NOCTTY qualification only |
 
 The suite deliberately does **not** call the screenshot lane compositor
@@ -101,6 +101,22 @@ NOCTTY_BENCH_RUNS=15 \
 NOCTTY_BENCH_OFFSCREEN=1 \
 ./scripts/terminal_benchmark.sh
 ```
+## Renderer A/B lane
+
+Set `NOCTTY_BENCH_RENDERER=cairo` or `opengl` for the NOCTTY fixture; the
+default is `cairo`. The OpenGL mode keeps Cairo as the authoritative
+rasterizer and benchmarks texture upload plus `GtkGLArea` presentation, not
+GPU glyph rasterization. Compare only matched runs. The benchmark metadata retains
+the renderer receipt; it is valid GPU evidence only when the app log or retained
+receipt contains `native_grid_gpu_context` and reports
+`renderer_requested=opengl renderer_effective=opengl`, `gpu_render_frames>0`,
+and `gpu_fallbacks=0`.
+
+Set `NOCTTY_BENCH_DISPLAY_BACKEND=wayland` for a native Wayland run. It requires
+a live `WAYLAND_DISPLAY` socket under `XDG_RUNTIME_DIR`; `visual_ms` and
+`visual_tail_ms` are unavailable in this lane because the retained pixel observer
+is X11-only.
+
 
 Slow renderers get 30 seconds to expose the visual marker. Override that only
 when needed with `NOCTTY_BENCH_VISUAL_TIMEOUT_MS`.

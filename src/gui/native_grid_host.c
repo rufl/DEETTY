@@ -772,6 +772,7 @@ typedef struct NocttyGridContextTag {
     int font_antialias;
     int font_hinting;
     int renderer_backend;
+    int renderer_backend_requested;
     cairo_surface_t *gpu_surface;
     int gpu_surface_width;
     int gpu_surface_height;
@@ -783,6 +784,11 @@ typedef struct NocttyGridContextTag {
     GLint gpu_sampler;
     guint gpu_fallback_source;
     int gpu_fallback_pending;
+    int gpu_context_reported;
+    guint gpu_render_frames;
+    guint gpu_texture_uploads;
+    int gpu_receipt_reported;
+    guint gpu_fallbacks;
     int ligatures;
     int profile_preset;
     int high_contrast;
@@ -1730,6 +1736,13 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 static gboolean request_gpu_fallback(NocttyGridContext *context) {
     if (context == NULL || context->gpu_fallback_pending) return FALSE;
     context->gpu_fallback_pending = 1;
+    NocttyGridContext *root = root_grid_context(context);
+    root->gpu_fallbacks++;
+    if (g_getenv("NOCTTY_BENCH_RENDERER") != NULL)
+        g_printerr(
+            "native_grid_renderer_fallback renderer_requested=%s gpu_fallbacks=%u\n",
+            root->renderer_backend_requested != 0 ? "opengl" : "cairo",
+            root->gpu_fallbacks);
     context->gpu_fallback_source =
         g_idle_add(fallback_grid_renderer_idle, context);
     return TRUE;
@@ -1810,7 +1823,19 @@ static gboolean initialize_gpu_resources(
         g_printerr("native_grid_gpu_context_failed %s\n", error->message);
         return FALSE;
     }
-    if (glGetString(GL_VERSION) == NULL) return FALSE;
+    const GLubyte *version = glGetString(GL_VERSION);
+    if (version == NULL) return FALSE;
+    if (!context->gpu_context_reported) {
+        const GLubyte *vendor = glGetString(GL_VENDOR);
+        const GLubyte *renderer = glGetString(GL_RENDERER);
+        g_print(
+            "native_grid_gpu_context vendor=%s renderer=%s version=%s\n",
+            vendor != NULL ? (const char *)vendor : "unknown",
+            renderer != NULL ? (const char *)renderer : "unknown",
+            (const char *)version);
+        fflush(stdout);
+        context->gpu_context_reported = 1;
+    }
     if (context->gpu_program != 0) return TRUE;
 
     static const char vertex_source[] =
@@ -1986,8 +2011,24 @@ static gboolean on_gpu_render(
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
-    if (glGetError() != GL_NO_ERROR) request_gpu_fallback(context);
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        request_gpu_fallback(context);
+        return TRUE;
+    }
+    NocttyGridContext *root = root_grid_context(context);
+    root->gpu_render_frames++;
+    root->gpu_texture_uploads++;
+    if (root->gpu_render_frames == 1 && !root->gpu_receipt_reported) {
+        g_print(
+            "native_grid_renderer_receipt renderer_requested=%s renderer_effective=%s gpu_render_frames=%u gpu_texture_uploads=%u gpu_fallbacks=%u\n",
+            root->renderer_backend_requested != 0 ? "opengl" : "cairo",
+            root->renderer_backend != 0 ? "opengl" : "cairo",
+            root->gpu_render_frames, root->gpu_texture_uploads,
+            root->gpu_fallbacks);
+        fflush(stdout);
+        root->gpu_receipt_reported = 1;
+    }
     return TRUE;
 }
 
@@ -5282,9 +5323,12 @@ static int deliver_grid_paste(NocttyGridContext *source, const char *bytes,
 static NocttyGridContext *grid_context_for_page(NocttyGridContext *context,
                                                 GtkWidget *page) {
     NocttyGridContext *root = root_grid_context(context);
-    for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
+    if (root != NULL && root->active && root->page == page) return root;
+    for (guint index = 0; root != NULL && root->contexts != NULL &&
+         index < root->contexts->len; index++) {
         NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
-        if (candidate->active && candidate->page == page) return candidate;
+        if (candidate != root && candidate->active && candidate->page == page)
+            return candidate;
     }
     return NULL;
 }
@@ -7093,6 +7137,7 @@ static void inherit_grid_session_context(NocttyGridContext *created,
     created->font_antialias = root->font_antialias;
     created->font_hinting = root->font_hinting;
     created->renderer_backend = root->renderer_backend;
+    created->renderer_backend_requested = root->renderer_backend_requested;
     created->profile_preset = source->profile_preset;
 }
 
@@ -7292,24 +7337,32 @@ static gboolean split_grid_context(NocttyGridContext *source, NocttyGridContext 
 }
 
 static guint grid_contexts_on_page(NocttyGridContext *context, GtkWidget *page) {
-    guint count = 0;
-    for (guint index = 0; context->contexts != NULL &&
-         index < context->contexts->len; index++) {
+    NocttyGridContext *root = root_grid_context(context);
+    guint count = root != NULL && root->active && root->page == page ? 1 : 0;
+    for (guint index = 0; root != NULL && root->contexts != NULL &&
+         index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
-            g_ptr_array_index(context->contexts, index);
-        if (candidate->active && candidate->page == page) count++;
+            g_ptr_array_index(root->contexts, index);
+        if (candidate != root && candidate->active && candidate->page == page)
+            count++;
     }
     return count;
 }
 
 static NocttyGridContext *grid_context_for_pane(NocttyGridContext *context,
                                                 uint64_t pane_id) {
+    NocttyGridContext *root = root_grid_context(context);
     NocttyGridContext *fallback = NULL;
-    for (guint index = 0; context->contexts != NULL &&
-         index < context->contexts->len; index++) {
+    if (root != NULL && root->pane_id == pane_id) {
+        if (root->userdata != NULL && !root->retiring && !root->exited)
+            return root;
+        fallback = root;
+    }
+    for (guint index = 0; root != NULL && root->contexts != NULL &&
+         index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
-            g_ptr_array_index(context->contexts, index);
-        if (candidate->pane_id != pane_id) continue;
+            g_ptr_array_index(root->contexts, index);
+        if (candidate == root || candidate->pane_id != pane_id) continue;
         if (candidate->userdata != NULL && !candidate->retiring &&
             !candidate->exited)
             return candidate;
@@ -7531,10 +7584,16 @@ static gboolean rebuild_hot_session_page(
     int node_count, int root_node) {
     if (root == NULL || !noctty_grid_widget_is_type(page, NOCTTY_GTK_BOX)) return FALSE;
     GPtrArray *held_areas = g_ptr_array_new();
+    if (root->page == page && root->area != NULL &&
+        noctty_grid_widget_get_parent(root->area) != NULL) {
+        noctty_grid_object_ref(root->area);
+        g_ptr_array_add(held_areas, root->area);
+    }
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(root->contexts, index);
+        if (candidate == root) continue;
         if (candidate->page == page && candidate->area != NULL &&
             noctty_grid_widget_get_parent(candidate->area) != NULL) {
             noctty_grid_object_ref(candidate->area);
@@ -7557,8 +7616,11 @@ static gboolean rebuild_hot_session_page(
         noctty_grid_signal_connect(layout, "size-allocate",
                          G_CALLBACK(on_restored_layout_size_allocate), NULL);
     }
-    for (guint index = 0; index < held_areas->len; index++)
-        noctty_grid_object_unref(g_ptr_array_index(held_areas, index));
+    /* A successful repack transfers the held widget ownership to the container. */
+    if (layout == NULL) {
+        for (guint index = 0; index < held_areas->len; index++)
+            noctty_grid_object_unref(g_ptr_array_index(held_areas, index));
+    }
     g_ptr_array_free(held_areas, TRUE);
     return layout != NULL;
 }
@@ -17302,6 +17364,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.inactive_pane_brightness_percent =
         settings.inactive_pane_brightness_percent;
     context.renderer_backend = settings.renderer_backend;
+    context.renderer_backend_requested = settings.renderer_backend;
     context.pane_divider_px = settings.pane_divider_px;
     context.pane_border_px = settings.pane_border_px;
     context.pane_border_focused_px = settings.pane_border_focused_px;
@@ -17346,7 +17409,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.area = noctty_terminal_area_new(context.renderer_backend);
     context.im_context = noctty_grid_input_context_new();
     context.contexts = g_ptr_array_new();
-    g_ptr_array_add(context.contexts, &context);
+    if (g_getenv("NOCTTY_BENCH_RENDERER") != NULL &&
+        context.renderer_backend == 0) {
+        g_print(
+            "native_grid_renderer_receipt renderer_requested=cairo renderer_effective=cairo gpu_render_frames=0 gpu_texture_uploads=0 gpu_fallbacks=0\n");
+        fflush(stdout);
+        context.gpu_receipt_reported = 1;
+    }
     (void)sync_grid_context_profile(&context);
     if (secondary_userdata != NULL) {
         inherit_grid_session_context(&secondary, &context);
@@ -17387,11 +17456,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
             context.window_toolbar_controls,
             &context,
             &notebook_callbacks)) {
+        g_printerr("native_grid_host_init_failed stage=notebook_configure\n");
         noctty_grid_widget_destroy(context.window);
         return 2;
     }
     NocttyGridShellContents shell = {0};
     if (!noctty_grid_shell_contents_new(&shell)) {
+        g_printerr("native_grid_host_init_failed stage=shell_contents\n");
         noctty_grid_widget_destroy(context.window);
         return 2;
     }
@@ -17404,6 +17475,7 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     context.pane_info_strip =
         noctty_pane_info_strip_new(context.show_pane_info);
     if (context.pane_info_strip == NULL) {
+        g_printerr("native_grid_host_init_failed stage=pane_info_strip\n");
         noctty_grid_widget_destroy(context.window);
         return 2;
     }
@@ -17530,6 +17602,8 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
     NocttyGridContext *initial_focus = hot_session_restored
         ? focused_grid_context(&context) : &context;
     noctty_grid_focus_widget(NULL, initial_focus->area);
+    if (context.active && context.tick_source == 0)
+        start_grid_context(&context);
     for (guint index = 0; index < context.contexts->len; index++) {
         NocttyGridContext *candidate =
             g_ptr_array_index(context.contexts, index);
@@ -18176,8 +18250,10 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
         stability_ok && installed_continuity_ok && pane_scrollbar_ok;
     host_ok = host_ok && renderer_damage_ok &&
         context.application_icon_ready;
-    if (workspace_smoke == 0) {
-        g_print("native_grid_renderer_smoke abi=%d frame_batches=%u damage_rows=%u damage_cells=%u damage_spans=%u damage_source=dirty_spans glyph_batches=%u glyph_cells=%u glyph_cache_hits=%u glyph_fallback_conversions=%u grapheme_cells=%u rich_style_cells=%u frame_presentations=%u timeout_presentations=%u resize_requests=%u resize_commits=%u sync_deferrals=%u sync_releases=%u sync_deadman_releases=%u passed=%s\n",
+    const gboolean renderer_benchmark =
+        workspace_smoke == 0 || g_getenv("NOCTTY_BENCH_RENDERER") != NULL;
+    if (renderer_benchmark) {
+        g_print("native_grid_renderer_smoke abi=%d frame_batches=%u damage_rows=%u damage_cells=%u damage_spans=%u damage_source=dirty_spans glyph_batches=%u glyph_cells=%u glyph_cache_hits=%u glyph_fallback_conversions=%u grapheme_cells=%u rich_style_cells=%u frame_presentations=%u timeout_presentations=%u resize_requests=%u resize_commits=%u sync_deferrals=%u sync_releases=%u sync_deadman_releases=%u renderer_requested=%s renderer_effective=%s gpu_render_frames=%u gpu_texture_uploads=%u gpu_fallbacks=%u passed=%s\n",
                 NOCTTY_NATIVE_GRID_ABI_VERSION,
                 context.frame_batches_drawn, context.damage_rows_queued,
                 context.damage_cells_queued, context.damage_spans_queued,
@@ -18192,7 +18268,13 @@ int noctty_native_grid_host_run_v2(const NocttyGridCallbacks *callbacks,
                 context.synchronized_output_deferrals,
                 context.synchronized_output_releases,
                 context.synchronized_output_deadman_releases,
+                context.renderer_backend_requested != 0 ? "opengl" : "cairo",
+                context.renderer_backend != 0 ? "opengl" : "cairo",
+                context.gpu_render_frames,
+                context.gpu_texture_uploads,
+                context.gpu_fallbacks,
                 renderer_damage_ok ? "true" : "false");
+        fflush(stdout);
     }
 #if NOCTTY_ENABLE_SMOKE
 #include "../../tests/native_grid_smoke_reports.inc"

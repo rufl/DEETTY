@@ -8,6 +8,20 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   Cairo image as a texture; context, shader, surface, texture, and draw
   failures replace the pane with Cairo on the main loop. GPU glyph rasterization
   and end-to-end GPU terminal rendering remain out of scope.
+- Added renderer A/B benchmark selection through
+  `NOCTTY_BENCH_RENDERER=cairo|opengl`; the native benchmark receipt records
+  requested/effective backend, successful GPU presentations, texture uploads,
+  and fallback count so software or Cairo fallback runs cannot be reported as
+  GPU results.
+- Fixed restored hot-session page rebuilding to retain the root pane widget
+  and resolve root contexts in page/pane helpers, preventing GTK object
+  use-after-free during native startup and benchmark setup.
+- Started the primary native-grid context's PTY and event sources during host
+  startup so output workloads continue draining beyond the PTY buffer.
+- Fixed the OpenGL benchmark receipt validator to accept a zero-fallback
+  receipt at end of line.
+- Updated benchmark auditing to accept the documented native-Wayland visual
+  metric omission.
 - Migrated the native build and compatibility layer to Zig 0.17.0, including
   translated C modules for the Tree-sitter and networking adapters.
 - Batched VT damage generations per PTY feed, restored the bounded 2 MiB native

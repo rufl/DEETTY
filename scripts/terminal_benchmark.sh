@@ -25,6 +25,18 @@ window_width=${NOCTTY_BENCH_WINDOW_WIDTH:-1200}
 window_height=${NOCTTY_BENCH_WINDOW_HEIGHT:-800}
 font_size=${NOCTTY_BENCH_FONT_SIZE:-11}
 offscreen=${NOCTTY_BENCH_OFFSCREEN:-0}
+display_backend=${NOCTTY_BENCH_DISPLAY_BACKEND:-x11}
+renderer=${NOCTTY_BENCH_RENDERER:-cairo}
+export NOCTTY_BENCH_RENDERER="$renderer"
+if [[ "$display_backend" == wayland ]]; then
+    backend_label=native_wayland
+    visual_metric=unavailable_native_wayland
+    visual_tail_metric=unavailable_native_wayland
+else
+    backend_label=x11_xwayland
+    visual_metric=release_to_external_pixel_marker
+    visual_tail_metric=writer_completion_to_external_pixel_marker
+fi
 run_stamp=${NOCTTY_BENCH_STAMP:-$(date +%Y-%m-%d-%H%M%S)}
 raw_csv="$benchmark_dir/terminal-comparison-$run_stamp-raw.csv"
 summary_csv="$benchmark_dir/terminal-comparison-$run_stamp-summary.csv"
@@ -154,6 +166,21 @@ wait_for_count() {
     printf 'terminal_benchmark timeout marker=%s expected=%d actual=%d run_dir=%s\n' \
         "$prefix" "$expected" "$count" "$directory" >&2
     [[ ! -f "$directory/app.log" ]] || tail -80 "$directory/app.log" >&2
+    return 1
+}
+
+wait_for_log() {
+    local file=$1
+    local pattern=$2
+    local timeout_ms=$3
+    local deadline=$(( $(now_ms) + timeout_ms ))
+    while (( $(now_ms) < deadline )); do
+        [[ -f "$file" ]] && grep -Eq "$pattern" "$file" && return 0
+        sleep 0.01
+    done
+    printf 'terminal_benchmark timeout log_pattern=%s file=%s\n' \
+        "$pattern" "$file" >&2
+    [[ ! -f "$file" ]] || tail -80 "$file" >&2
     return 1
 }
 
@@ -427,16 +454,29 @@ launch_terminal() {
     launch_pid=0
     case "$terminal" in
         noctty)
-            GDK_BACKEND=x11 "$noctty_bin" --native-grid-benchmark "$panes" \
-                >"$run_dir/app.log" 2>&1 &
+            if [[ "$display_backend" == wayland ]]; then
+                NO_AT_BRIDGE=1 GDK_BACKEND=wayland DISPLAY= "$noctty_bin" --native-grid-benchmark "$panes" \
+                    >"$run_dir/app.log" 2>&1 &
+            else
+                NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$noctty_bin" --native-grid-benchmark "$panes" \
+                    >"$run_dir/app.log" 2>&1 &
+            fi
             launch_pid=$!
             ;;
         noctty-production)
             mkdir -p "$run_dir/home" "$run_dir/config" "$run_dir/state"
-            HOME="$run_dir/home" XDG_CONFIG_HOME="$run_dir/config" \
-                XDG_STATE_HOME="$run_dir/state" SHELL="$workload" \
-                GDK_BACKEND=x11 "$noctty_bin" --native-grid-windowed \
-                >"$run_dir/app.log" 2>&1 &
+            if [[ "$display_backend" == wayland ]]; then
+                HOME="$run_dir/home" XDG_CONFIG_HOME="$run_dir/config" \
+                    XDG_STATE_HOME="$run_dir/state" SHELL="$workload" \
+                    NO_AT_BRIDGE=1 GDK_BACKEND=wayland DISPLAY= \
+                    "$noctty_bin" --native-grid-windowed \
+                    >"$run_dir/app.log" 2>&1 &
+            else
+                HOME="$run_dir/home" XDG_CONFIG_HOME="$run_dir/config" \
+                    XDG_STATE_HOME="$run_dir/state" SHELL="$workload" \
+                    NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$noctty_bin" --native-grid-windowed \
+                    >"$run_dir/app.log" 2>&1 &
+            fi
             launch_pid=$!
             ;;
         konsole)
@@ -811,26 +851,43 @@ run_trial() {
 
     start_ms=$(now_ms)
     start_ns=$(now_ns)
+    window_id=""
     launch_terminal "$terminal" "$panes" "$run_dir" "$title"
     wait_for_count "$run_dir" spawned 1 15000
-    if [[ "$terminal" == yakuake ]]; then
-        wait_for_window class yakuake 15000
-    else
-        wait_for_window name "$title" 15000 "$launch_pid"
+    if [[ "$display_backend" != wayland ]]; then
+        if [[ "$terminal" == yakuake ]]; then
+            wait_for_window class yakuake 15000
+        else
+            wait_for_window name "$title" 15000 "$launch_pid"
+        fi
+        [[ -n "$window_id" ]] || {
+            tail -80 "$run_dir/app.log" >&2 || true
+            die "window_not_found:$terminal"
+        }
+        enforce_window_geometry || die "window_geometry:$terminal"
     fi
-    [[ -n "$window_id" ]] || {
-        tail -80 "$run_dir/app.log" >&2 || true
-        die "window_not_found:$terminal"
-    }
-    enforce_window_geometry || die "window_geometry:$terminal"
     create_splits "$terminal" "$panes" || {
         tail -80 "$run_dir/app.log" >&2 || true
         die "split_creation:$terminal"
     }
     wait_for_count "$run_dir" spawned "$panes" 20000
+    if [[ "$terminal" == noctty ]]; then
+        if [[ "$renderer" == opengl ]]; then
+            wait_for_log "$run_dir/app.log" \
+                'native_grid_(renderer_receipt|renderer_fallback)' 15000 ||
+                die "renderer_startup_timeout:$renderer"
+        else
+            wait_for_log "$run_dir/app.log" 'native_grid_renderer_receipt' 15000 ||
+                die "renderer_startup_timeout:$renderer"
+        fi
+    fi
     ready_ms=$(now_ms)
     ready_ns=$(now_ns)
-    window_pid=$(xdotool getwindowpid "$window_id" 2>/dev/null || true)
+    if [[ "$display_backend" != wayland ]]; then
+        window_pid=$(xdotool getwindowpid "$window_id" 2>/dev/null || true)
+    else
+        window_pid=""
+    fi
     root_candidate=${window_pid:-$launch_pid}
     [[ "$root_candidate" =~ ^[0-9]+$ ]] || root_candidate=$launch_pid
     active_roots=("$launch_pid" "$root_candidate")
@@ -843,7 +900,7 @@ run_trial() {
     ingest_ms=$(awk -v start="$output_start_ns" -v finish="$output_end_ns" \
         'BEGIN { printf "%.3f", (finish - start) / 1000000 }')
     read -r rows_min rows_max columns_min columns_max < <(geometry_stats "$run_dir")
-    if [[ "$scenario" == output ]]; then
+    if [[ "$scenario" == output && "$display_backend" != wayland ]]; then
         wait_for_visual_marker || die "visual_marker_timeout:$terminal:$panes"
         visual_ms=$(awk -v start="$output_start_ns" -v finish="$visual_end_ns" \
             'BEGIN { printf "%.3f", (finish - start) / 1000000 }')
@@ -895,6 +952,32 @@ run_trial() {
     fi
     wait_for_exit "$root_candidate"
     wait "$launch_pid" 2>/dev/null || true
+    if [[ "$record" == 1 && "$terminal" == noctty ]]; then
+        renderer_receipt=$(grep -E '^native_grid_(benchmark renderer|gpu_context|renderer_receipt|renderer_smoke|renderer_fallback)' \
+            "$run_dir/app.log" | tr '\n' ';' || true)
+        printf 'renderer_receipt run_serial=%d terminal=%s scenario=%s panes=%d trial=%d lines=%s\n' \
+            "$trial_serial" "$terminal" "$scenario" "$panes" "$trial" "${renderer_receipt:-missing}" \
+            >>"$metadata_file"
+        if [[ -z "$renderer_receipt" ]]; then
+            tail -80 "$run_dir/app.log" >&2 || true
+            die "renderer_receipt_missing:$renderer"
+        fi
+        if ! grep -Eq "native_grid_(renderer_receipt|renderer_smoke) .*renderer_requested=${renderer} renderer_effective=${renderer} " \
+            "$run_dir/app.log"; then
+            tail -80 "$run_dir/app.log" >&2 || true
+            die "renderer_receipt_mismatch:$renderer"
+        fi
+        if grep -Eq '^native_grid_renderer_fallback ' "$run_dir/app.log"; then
+            die "renderer_fallback:$renderer"
+        fi
+        if [[ "$renderer" == opengl ]]; then
+            if ! grep -Eq 'native_grid_(renderer_receipt|renderer_smoke) .*gpu_render_frames=[1-9][0-9]* .*gpu_fallbacks=0([[:space:]]|$)' \
+                "$run_dir/app.log"; then
+                tail -80 "$run_dir/app.log" >&2 || true
+                die "gpu_presentation_missing"
+            fi
+        fi
+    fi
     if [[ "$expect_idle_compaction" == 1 && "$scenario" == output &&
           "$terminal" == noctty* ]]; then
         grep -E 'native_grid_benchmark idle_history_compactions=[1-9][0-9]*' \
@@ -1000,8 +1083,21 @@ done
 [[ "$expect_idle_compaction" == 0 || "$expect_idle_compaction" == 1 ]] ||
     die "invalid_idle_compaction_expectation:$expect_idle_compaction"
 [[ "$skip_build" == 0 || "$skip_build" == 1 ]] || die "invalid_skip_build:$skip_build"
-[[ "$offscreen" == 0 || "$offscreen" == 1 ]] || die "invalid_offscreen:$offscreen"
-command -v import >/dev/null || die "visual_completion_requires_imagemagick"
+[[ "$renderer" == cairo || "$renderer" == opengl ]] || die "invalid_renderer:$renderer"
+case "$display_backend" in
+    x11) ;;
+    wayland)
+        (( offscreen == 0 )) || die "wayland_offscreen_unsupported"
+        [[ -n "${WAYLAND_DISPLAY:-}" ]] || die "wayland_display_missing"
+        [[ -n "${XDG_RUNTIME_DIR:-}" &&
+            -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]] ||
+            die "wayland_socket_missing"
+        ;;
+    *) die "invalid_display_backend:$display_backend" ;;
+esac
+if [[ "$display_backend" == x11 ]]; then
+    command -v import >/dev/null || die "visual_completion_requires_imagemagick"
+fi
 
 if (( offscreen == 1 )); then
     if [[ "${NOCTTY_BENCH_XVFB:-}" != 1 ]]; then
@@ -1054,8 +1150,8 @@ fi
     printf 'kernel=%s\n' "$(uname -srmo)"
     printf 'cpu=%s\n' "$(awk -F: '/model name/ { sub(/^[ \t]+/, "", $2); print $2; exit }' /proc/cpuinfo)"
     printf 'session=%s desktop=%s offscreen=%s display=%s\n' "${XDG_SESSION_TYPE:-unknown}" "${XDG_CURRENT_DESKTOP:-unknown}" "$offscreen" "${DISPLAY:-unknown}"
-    printf 'common_backend=x11_xwayland window=%sx%s font_size=%s runs=%s panes=%s output_panes=%s output_lines=%s payload_bytes=%s idle_cpu_sample_ms=%s visual_timeout_ms=%s inter_trial_settle_ms=%s post_output_settle_ms=%s expect_idle_compaction=%s skip_build=%s terminal_order=rotated_snake\n' \
-        "$window_width" "$window_height" "$font_size" "$runs" "$pane_counts" \
+    printf 'common_backend=%s renderer=%s window=%sx%s font_size=%s runs=%s panes=%s output_panes=%s output_lines=%s payload_bytes=%s idle_cpu_sample_ms=%s visual_timeout_ms=%s inter_trial_settle_ms=%s post_output_settle_ms=%s expect_idle_compaction=%s skip_build=%s terminal_order=rotated_snake\n' \
+        "$backend_label" "$renderer" "$window_width" "$window_height" "$font_size" "$runs" "$pane_counts" \
         "$output_pane_counts" "$output_lines" "$payload_bytes" "$cpu_sample_ms" \
         "$visual_timeout_ms" "$inter_trial_settle_ms" "$post_output_settle_ms" \
         "$expect_idle_compaction" "$skip_build"
@@ -1074,7 +1170,8 @@ fi
         "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null | sort -u | tr '\n' ',' || printf unknown)" \
         "$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)" \
         "${LC_ALL:-${LANG:-unknown}}" "${XDG_CURRENT_DESKTOP:-unknown}"
-    printf 'metric_startup=launch_to_all_workloads_spawned metric_output=writer_completion metric_visual=release_to_external_pixel_marker metric_visual_tail=writer_completion_to_external_pixel_marker metric_memory=process_tree_pss_excluding_workloads metric_cpu=process_tree_jiffies_excluding_workloads\n'
+    printf 'metric_startup=launch_to_all_workloads_spawned metric_output=writer_completion metric_visual=%s metric_visual_tail=%s metric_memory=process_tree_pss_excluding_workloads metric_cpu=process_tree_jiffies_excluding_workloads\n' \
+        "$visual_metric" "$visual_tail_metric"
     printf 'parity_font=monospace:%s parity_geometry=%sx%s parity_scrollback_lines=1000 ghostty_scrollback_bytes=87000 yakuake_profile=isolated\n' \
         "$font_size" "$window_width" "$window_height"
     printf 'adapter_noctty=benchmark_mode_prebuilt_balanced_tree adapter_noctty_production=normal_windowed_single_pane adapter_terminator=prebuilt_config_tree adapter_konsole=dbus_splits adapter_kitty=remote_control_splits adapter_wezterm=cli_splits adapter_ghostty=keyboard_splits adapter_alacritty=single_pane adapter_yakuake=dbus_balanced_splits\n'

@@ -90,6 +90,12 @@ benchmark requires a compositor-backed session and is not retained by this
 display-independent runner. The accepted limitation is presentation-only
 acceleration with runtime fallback, not end-to-end GPU terminal rendering.
 
+The complementary [terminal benchmark renderer lane](TERMINAL_BENCHMARK.md#renderer-ab)
+qualifies the mapped `GtkGLArea` path with real PTY/VT workload timing. It retains
+the requested/effective backend, GPU context, successful presentations, texture
+uploads, and fallback count; it does not turn Cairo glyph rasterization into GPU
+work.
+
 ## Reproduce
 
 ```sh

@@ -8794,6 +8794,15 @@ fn runNativeGridBenchmark(
         environ_map.get("NOCTTY_BENCH_FONT_SIZE") orelse "11",
     ) catch return error.InvalidBenchmarkFontSize;
     _ = try app.dispatch(.{ .set_font_size = font_size });
+    const renderer = environ_map.get("NOCTTY_BENCH_RENDERER") orelse "cairo";
+    if (std.mem.eql(u8, renderer, "cairo")) {
+        _ = try app.dispatch(.{ .set_renderer_backend = .cairo });
+    } else if (std.mem.eql(u8, renderer, "opengl")) {
+        _ = try app.dispatch(.{ .set_renderer_backend = .opengl });
+    } else {
+        return error.InvalidBenchmarkRenderer;
+    }
+    std.debug.print("native_grid_benchmark renderer={s}\n", .{renderer});
     const tab = app.workspace.activeTab() orelse return error.NoActiveTab;
     var pane_ids: [32]u64 = undefined;
     pane_ids[0] = tab.active_pane_id;
@@ -8847,7 +8856,10 @@ fn runNativeGridBenchmark(
         .pane_id = tab.active_pane_id,
         .columns = 120,
         .rows = 40,
+        .use_layer_shell = 0,
+        .claim_control = 0,
     });
+    std.debug.print("native_grid_benchmark_host_status={d}\n", .{status});
     if (status != 0) return error.NativeGridBenchmarkHostUnavailable;
     if (bridge.callback_failed) return error.NativeGridBenchmarkStateSyncFailed;
     if (bridge.created_session_count + 1 != pane_count)

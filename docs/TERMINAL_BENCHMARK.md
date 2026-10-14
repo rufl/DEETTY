@@ -33,6 +33,45 @@ overwritten. Verify a run with:
 ./scripts/audit_terminal_benchmark.sh \
   benchmarks/terminal-comparison-<stamp>-SHA256SUMS
 ```
+## Renderer A/B
+
+The NOCTTY benchmark fixture accepts `NOCTTY_BENCH_RENDERER=cairo|opengl`;
+`cairo` is the default. Both modes use the same authoritative Cairo rasterizer.
+`opengl` measures the optional GPU presentation path: the Cairo image is
+uploaded as a texture and presented through `GtkGLArea`; it is not GPU glyph
+rasterization.
+
+Use a disposable real X11/XWayland display when qualifying GPU presentation:
+
+```sh
+NOCTTY_DEDICATED_DISPLAY=1 \
+NOCTTY_BENCH_RENDERER=cairo \
+NOCTTY_BENCH_TERMINALS=noctty \
+NOCTTY_BENCH_PANES='1' \
+NOCTTY_BENCH_OUTPUT_PANES='1' \
+./scripts/terminal_benchmark.sh
+```
+
+For a native Wayland run, set `NOCTTY_BENCH_DISPLAY_BACKEND=wayland`,
+preserve `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR`, and use the same command.
+The Wayland lane intentionally leaves `visual_ms` and `visual_tail_ms`
+unavailable because the retained pixel observer is X11-only.
+
+Repeat with `NOCTTY_BENCH_RENDERER=opengl` and a different
+`NOCTTY_BENCH_STAMP`. The app log must contain
+`native_grid_gpu_context`, and the renderer receipt must report
+`renderer_requested=opengl renderer_effective=opengl`,
+`gpu_render_frames>0`, and `gpu_fallbacks=0`. A receipt with
+`renderer_effective=cairo` is a fallback and is not a GPU result.
+
+The harness retains renderer lines in the metadata receipt and fails a NOCTTY
+trial when the requested renderer is not observed. An offscreen Xvfb run may
+use llvmpipe; it validates the benchmark pipeline but is not a hardware-GPU
+result.
+
+Compare startup, PSS/RSS/USS, idle CPU, writer completion, and final-pixel
+timings only between runs with identical workload, geometry, font, pane count,
+trial count, and display conditions.
 
 Writer completion measures PTY backpressure and ingestion. A separate captured
 X11 pixel marker measures externally observed draw completion, including
