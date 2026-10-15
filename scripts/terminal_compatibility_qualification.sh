@@ -40,8 +40,13 @@ wait "$release_safe_pid"
 for mode in Debug ReleaseSafe; do
     output=$(cat "$scratch/output-$mode")
     printf '%s\n' "$output"
+    case "$mode" in
+        Debug) expected_mode=debug ;;
+        ReleaseSafe) expected_mode=safe ;;
+        *) exit 1 ;;
+    esac
     printf '%s\n' "$output" | grep -F \
-        "mode=$mode protocol_cases=23 schedules=6 protocol_runs=138 malformed_cases=128 malformed_bytes=524288 unicode_mutations=256 grapheme_cases=766 unicode_version=17.0.0" \
+        "mode=$expected_mode protocol_cases=23 schedules=6 protocol_runs=138 malformed_cases=128 malformed_bytes=524288 unicode_mutations=256 grapheme_cases=766 unicode_version=17.0.0" \
         >/dev/null
     printf '%s\n' "$output" | grep -F \
         'state_diff=true replies=true modes=true sgr=true osc8=true osc52_blocked=true c1=true parser_bounds=true allocator_leak_free=true allocator_residual_bytes=0 assertions=true' \

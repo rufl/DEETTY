@@ -98,6 +98,13 @@ and private huge pages from `/proc/<pid>/smaps_rollup`.
 Receipt: `split_terminal_benchmark=true yakuake_exclusive=true
 process_tree_pss=true process_tree_uss=true pty_pump_bounded_drain=true`.
 
+The retained 2026-10-14 offscreen X11 receipt compares NOCTTY and Kitty v0.49.2
+under the same 1200×800, 5000-line, three-trial workload. Its median process
+tree PSS is 45.421–46.994 MiB for NOCTTY versus 172.170–176.704 MiB for Kitty;
+startup favors NOCTTY, while Kitty has lower visual completion in the retained
+matrix. The full table and source-pinned architecture comparison are in
+[`PERFORMANCE_ALGORITHM_RESEARCH.md`](PERFORMANCE_ALGORITHM_RESEARCH.md).
+
 The accepted 32-session memory experiment and rejected buffer/history/renderer
 variants are recorded in
 [TERMINAL_AGENT_SCALE_RESEARCH.md](TERMINAL_AGENT_SCALE_RESEARCH.md).

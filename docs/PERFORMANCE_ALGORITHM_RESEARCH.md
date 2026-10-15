@@ -120,6 +120,47 @@ of importing a peer stack:
 The complete source links, decisions, privacy boundary, retained GLib fair-pump and large-paste qualification, and deferred compositor-feedback, agent-resume, and hibernation work are in
 [`TERMINAL_PEER_RESEARCH.md`](TERMINAL_PEER_RESEARCH.md).
 
+### Direct Kitty comparison on the retained host
+
+The 2026-10-14 offscreen X11 matrix is a retained engineering baseline, not a
+universal ranking. It used the same 1200×800 window, monospace 11 pt workload,
+5000 output lines, three trials, rotated order, and process-tree accounting
+that excludes workload children. Values below are medians from
+`benchmarks/terminal-comparison-current-xvfb-noctty-kitty-20261014-summary.csv`.
+
+| Panes | NOCTTY startup / PSS / USS / ingest / visual | Kitty startup / PSS / USS / ingest / visual |
+| ---: | ---: | ---: |
+| 1 | 299 ms / 45.421 MiB / 37.027 MiB / 55.468 ms / 153.485 ms | 482 ms / 172.170 MiB / 140.668 MiB / 50.006 ms / 153.302 ms |
+| 2 | 312 ms / 45.545 MiB / 37.172 MiB / 97.829 ms / 195.259 ms | 559 ms / 173.097 MiB / 142.371 MiB / 72.995 ms / 161.067 ms |
+| 4 | 302 ms / 46.994 MiB / 39.594 MiB / 170.921 ms / 283.126 ms | 740 ms / 176.704 MiB / 145.902 MiB / 88.713 ms / 185.162 ms |
+
+The post-change NOCTTY-only receipt
+(`benchmarks/terminal-comparison-post-simd-ascii-20261015-084301-*`) repeats
+the same 1/2/4-pane workload and passes checksum audit. Its medians are
+52.313/54.053/55.948 MiB PSS, 52.292/81.265/204.130 ms ingest, and
+144.051/231.249/293.740 ms visual completion. This is a pipeline
+qualification, not a causal speedup claim against the older Kitty matrix:
+the retained artifacts use different kernel/build commits and the new run
+contains no scalar-parser control binary.
+
+Kitty's official performance notes identify three relevant mechanisms:
+[the child-monitor I/O thread and delayed wakeups](https://github.com/kovidgoyal/kitty/blob/v0.48.2/kitty/child-monitor.c),
+[SIMD-oriented parsing and GPU glyph caching](https://github.com/kovidgoyal/kitty/blob/master/docs/performance.rst),
+and [segmented history storage](https://github.com/kovidgoyal/kitty/blob/v0.48.2/kitty/history.c).
+NOCTTY keeps the transferable parts at smaller boundaries: one bounded 2 MiB
+GLib pump budget, one guarded shared PTY scratch, coalesced frame-clock
+presentation, contiguous ASCII writes, a Cairo glyph cache, and compact hot/cold
+history. The new `findAsciiRunEnd` scanner uses Zig SIMD comparisons only to
+locate the next non-printable byte; all state mutation still runs through the
+existing `putAscii` or parser paths.
+
+The retained measurements do not justify importing Kitty's I/O thread, GPU
+renderer, or mmap history: NOCTTY already has lower process memory and
+competitive 2/4-pane ingestion, while those rewrites would add synchronization,
+driver, and restoration failure modes. The remaining evidence gate is parser
+throughput and mapped physical-input-to-presentation latency, not architecture
+parity by itself.
+
 ### Local profiling gate
 
 Use the existing exact renderer and real PTY pipeline directly:
@@ -153,7 +194,7 @@ The implementation order and current acceptance state are:
 Machine-readable decision receipt:
 
 ```text
-performance_algorithm_research=true terminal_frame_clock=implemented terminal_glyph_cache=implemented terminal_resize_coalescing=implemented terminal_sync_output=implemented terminal_logical_lines=implemented terminal_gpu_rewrite=deferred terminal_per_pane_threads=deferred nocted_shared_index=implemented nocted_search_streaming=implemented nocted_worker_priority=implemented nocted_custom_rope=deferred nocted_tree_sitter_default=false
+performance_algorithm_research=true terminal_frame_clock=implemented terminal_glyph_cache=implemented terminal_resize_coalescing=implemented terminal_sync_output=implemented terminal_ascii_run_simd=implemented terminal_logical_lines=implemented terminal_gpu_rewrite=deferred terminal_per_pane_threads=deferred nocted_shared_index=implemented nocted_search_streaming=implemented nocted_worker_priority=implemented nocted_custom_rope=deferred nocted_tree_sitter_default=false
 ```
 
 ## Audit Baseline
@@ -323,13 +364,14 @@ path injection in the
 Correctness and bounded failure behavior are the transferable lessons; SIMD is
 not the first step.
 
-Kitty 0.48.0 uses one child-monitor I/O thread to drain all PTYs into bounded
-1 MiB parser buffers, coalesces main-loop wakeups with `input_delay`, and routes
-contiguous text through `simd-string.h` before screen mutation. NOCTTY already
-has contiguous ASCII runs and coalesced presentation; its current transferable
-steps are larger bounded reads and direct hot-history ring reuse. Add a shared
-I/O reader only if PTY-read-to-draw profiling proves GTK-thread parsing remains
-the bottleneck; per-pane thread sets remain deferred.
+Kitty 0.48.2 uses one child-monitor I/O thread to drain all PTYs into bounded
+parser buffers, coalesces main-loop wakeups with `input_delay`, and routes
+contiguous text through SIMD helpers before screen mutation. NOCTTY already has
+contiguous ASCII runs and coalesced presentation. Its new `findAsciiRunEnd`
+uses a vector comparison to find the first byte outside `0x20..0x7e`, then
+preserves the existing scalar tail and `putAscii`/parser state transitions.
+Add a shared I/O reader only if PTY-read-to-draw profiling proves GTK-thread
+parsing remains the bottleneck; per-pane thread sets remain deferred.
 
 **Implemented in NOCTTY.** NCT-110 introduces:
 
@@ -343,6 +385,8 @@ the bottleneck; per-pane thread sets remain deferred.
 - a protocol policy layer for clipboard, hyperlinks, notifications, and future
   graphics rather than parser-owned GUI effects;
 - byte-chunk ASCII/control classification only after corpus and fuzz parity.
+- a SIMD-assisted printable-ASCII boundary scan that never bypasses parser
+  state, UTF-8 continuation handling, or grapheme mutation;
 
 `libghostty` remains a valid isolated adapter candidate. Ghostty currently
 describes its behavior as stable but its API signatures as still in flux, so

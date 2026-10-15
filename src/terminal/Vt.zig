@@ -1338,6 +1338,25 @@ pub const Grid = struct {
             hot_slot % target_hot_lines;
     }
 
+    fn findAsciiRunEnd(bytes: []const u8, start: usize) usize {
+        var index = start;
+        if (std.simd.suggestVectorLength(u8)) |block_len| {
+            const Block = @Vector(block_len, u8);
+            const lower: Block = @splat(0x20);
+            const upper: Block = @splat(0x7e);
+            while (index + block_len <= bytes.len) {
+                const block: Block = bytes[index..][0..block_len].*;
+                const non_printable = (block < lower) | (block > upper);
+                if (@reduce(.Or, non_printable))
+                    return index + std.simd.firstTrue(non_printable).?;
+                index += block_len;
+            }
+        }
+        while (index < bytes.len and bytes[index] >= 0x20 and bytes[index] <= 0x7e)
+            index += 1;
+        return index;
+    }
+
     pub fn feed(self: *Grid, bytes: []const u8) !void {
         if (bytes.len == 0) return;
         _ = self.beginDamage();
@@ -1347,8 +1366,7 @@ pub const Grid = struct {
                 !self.insert_mode and self.auto_wrap and !self.wide_cells_present and
                 !self.activeDecSpecialCharset())
             {
-                var end = index;
-                while (end < bytes.len and bytes[end] >= 0x20 and bytes[end] <= 0x7e) : (end += 1) {}
+                const end = findAsciiRunEnd(bytes, index);
                 if (end > index) {
                     var grapheme_probe = self.grapheme_stream;
                     const starts_cluster = !self.last_grapheme_valid or
@@ -3962,6 +3980,37 @@ test "terminal grid printable run path matches byte feeding" {
     try std.testing.expectEqual(bytewise.screen_origin, fast.screen_origin);
     try std.testing.expectEqual(bytewise.history.items.len, fast.history.items.len);
     try std.testing.expectEqualStrings(bytewise.titleSlice(), fast.titleSlice());
+    const total_lines = fast.history.items.len + fast.rows;
+    for (0..total_lines) |line_index| {
+        for (0..fast.columns) |column| {
+            try std.testing.expectEqualDeep(
+                bytewise.lineCell(line_index, column),
+                fast.lineCell(line_index, column),
+            );
+        }
+    }
+}
+
+test "terminal SIMD ASCII boundary preserves mixed feed semantics" {
+    var input: [192]u8 = undefined;
+    for (&input, 0..) |*byte, index| byte.* = @intCast('A' + index % 26);
+    input[80] = '\n';
+    input[113] = 0x7f;
+    input[160] = 0xc3;
+    input[161] = 0xa9;
+
+    var fast = try Grid.init(std.testing.allocator, 32, 8);
+    defer fast.deinit();
+    var bytewise = try Grid.init(std.testing.allocator, 32, 8);
+    defer bytewise.deinit();
+
+    try fast.feed(&input);
+    for (input) |byte| try bytewise.feedByte(byte);
+
+    try std.testing.expectEqual(bytewise.cursor_column, fast.cursor_column);
+    try std.testing.expectEqual(bytewise.cursor_row, fast.cursor_row);
+    try std.testing.expectEqual(bytewise.wrap_pending, fast.wrap_pending);
+    try std.testing.expectEqual(bytewise.history.items.len, fast.history.items.len);
     const total_lines = fast.history.items.len + fast.rows;
     for (0..total_lines) |line_index| {
         for (0..fast.columns) |column| {

@@ -3,6 +3,18 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Added SIMD-assisted detection of contiguous printable ASCII runs in the VT
+  ground state. It reduces parser boundary scanning without changing escape,
+  UTF-8, grapheme, or control-sequence semantics.
+- Fixed the terminal compatibility qualification receipt to match Zig's
+  lowercase `debug` and `safe` mode names instead of rejecting valid
+  parser and allocator results.
+- Recorded a source-pinned Kitty comparison in the performance research: the
+  retained 2026-10-14 offscreen matrix shows NOCTTY at 45.4–47.0 MiB PSS and
+  37.0–39.6 MiB USS for 1/2/4 panes versus Kitty at 172.2–176.7 MiB PSS and
+  140.7–145.9 MiB USS; Kitty's I/O-thread, SIMD parser, GPU glyph cache, and
+  segmented-history architecture remain reference points, not copied runtime
+  dependencies.
 - Added a persisted optional `OpenGL (GPU presentation)` renderer setting
   (settings snapshot v17). The GTK `GtkGLArea` path uploads the authoritative
   Cairo image as a texture; context, shader, surface, texture, and draw
