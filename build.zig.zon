@@ -12,6 +12,7 @@
         "tests",
         "tools",
         "dependencies",
+        "scripts",
         "vendor",
         "resources",
         "docs",
