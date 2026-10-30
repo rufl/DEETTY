@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language id="kof" name="Kof" version="2.0" _section="Source">
+  <metadata>
+    <property name="globs">*.kf;*.kof</property>
+  </metadata>
+  <styles>
+    <style id="comment" name="Comment" map-to="def:comment"/>
+    <style id="string" name="String" map-to="def:string"/>
+    <style id="number" name="Number" map-to="def:number"/>
+    <style id="keyword" name="Keyword" map-to="def:keyword"/>
+    <style id="type" name="Data Type" map-to="def:type"/>
+    <style id="function" name="Function" map-to="def:function"/>
+    <style id="variable" name="Variable" map-to="def:identifier"/>
+    <style id="special" name="Special" map-to="def:special-char"/>
+    <style id="error" name="Error" map-to="def:error"/>
+  </styles>
+  <definitions>
+    <context id="rule-0" style-ref="comment">
+      <match>//.*$</match>
+    </context>
+    <context id="rule-1" style-ref="comment">
+      <start>/\*</start><end>\*/</end>
+    </context>
+    <context id="rule-2" style-ref="string">
+      <start>"</start><end>"</end>
+      <include>
+        <context ref="rule-3"/>
+        <context ref="rule-4"/>
+      </include>
+    </context>
+    <context id="rule-3" style-ref="special">
+      <match>\\[\\"nrt0bf]</match>
+    </context>
+    <context id="rule-4" style-ref="special">
+      <match>\\u[0-9a-fA-F]{4}</match>
+    </context>
+    <context id="rule-5" style-ref="string">
+      <start>'</start><end>'</end>
+      <include>
+        <context ref="rule-6"/>
+      </include>
+    </context>
+    <context id="rule-6" style-ref="special">
+      <match>\\[\\'nrt0bf]</match>
+    </context>
+    <context id="rule-7" style-ref="number">
+      <match>\b(0[xX][0-9a-fA-F]+|0[bB][01]+|[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?[lLfFdD]?)\b</match>
+    </context>
+    <context id="rule-8" style-ref="keyword">
+      <match>\b(if|else|for|while|do|switch|case|break|continue|return|throw|try|catch|finally|instanceof|as|new|this|super)\b</match>
+    </context>
+    <context id="rule-9" style-ref="keyword">
+      <match>\b(class|interface|record|extends|implements|sealed|permits|package|import|public|private|protected|static|final|abstract|transient|volatile|synchronized|native|default|override|var|val|void|constructor)\b</match>
+    </context>
+    <context id="rule-10" style-ref="special">
+      <match>\b(true|false|null)\b</match>
+    </context>
+    <context id="rule-11" style-ref="keyword">
+      <match>\b(bool|byte|short|int|long|float|double|char|string|String|Int|Long|Float|Double|Bool|Byte|Short|Char|List|ArrayList)\b</match>
+    </context>
+    <context id="rule-12" style-ref="function">
+      <start>(?&lt;=^|\{|;)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(</start><end>(?=\{|\n)</end>
+      <include>
+        <context ref="rule-13"/>
+        <context ref="rule-14"/>
+        <context ref="rule-15"/>
+        <context ref="rule-16"/>
+      </include>
+    </context>
+    <context id="rule-13" style-ref="function">
+      <match>[a-zA-Z_][a-zA-Z0-9_]*</match>
+    </context>
+    <context id="rule-14" style-ref="keyword">
+      <match>\b(bool|byte|short|int|long|float|double|char|string|String|Int|Long|Float|Double|Bool|Byte|Short|Char|List|ArrayList)\b</match>
+    </context>
+    <context id="rule-15" style-ref="comment">
+      <match>//.*$</match>
+    </context>
+    <context id="rule-16" style-ref="comment">
+      <start>/\*</start><end>\*/</end>
+    </context>
+    <context id="rule-17" style-ref="type">
+      <start>\b(class|interface|record)\b</start><end>(?=\{|\n)</end>
+      <include>
+        <context ref="rule-18"/>
+        <context ref="rule-19"/>
+        <context ref="rule-20"/>
+        <context ref="rule-21"/>
+      </include>
+    </context>
+    <context id="rule-18" style-ref="type">
+      <match>[a-zA-Z_][a-zA-Z0-9_]*</match>
+    </context>
+    <context id="rule-19" style-ref="keyword">
+      <match>\b(bool|byte|short|int|long|float|double|char|string|String|Int|Long|Float|Double|Bool|Byte|Short|Char|List|ArrayList)\b</match>
+    </context>
+    <context id="rule-20" style-ref="comment">
+      <match>//.*$</match>
+    </context>
+    <context id="rule-21" style-ref="comment">
+      <start>/\*</start><end>\*/</end>
+    </context>
+    <context id="rule-22" style-ref="keyword">
+      <match>[+\-*/%]</match>
+    </context>
+    <context id="rule-23" style-ref="keyword">
+      <match>==|!=|&lt;=|&gt;=|&lt;|&gt;</match>
+    </context>
+    <context id="rule-24" style-ref="keyword">
+      <match>&amp;&amp;|\|\||!</match>
+    </context>
+    <context id="rule-25" style-ref="keyword">
+      <match>&amp;|\||\^|&lt;&lt;|&gt;&gt;|&gt;&gt;&gt;|~</match>
+    </context>
+    <context id="rule-26" style-ref="keyword">
+      <match>=|\+=|-=|\*=|/=|%=|&amp;=|\|=|\^=|&lt;&lt;=|&gt;&gt;=</match>
+    </context>
+    <context id="rule-27" style-ref="function">
+      <match>\b(listOf|json)\b</match>
+    </context>
+    <context id="kof">
+      <include>
+        <context ref="rule-0"/>
+        <context ref="rule-1"/>
+        <context ref="rule-2"/>
+        <context ref="rule-5"/>
+        <context ref="rule-7"/>
+        <context ref="rule-8"/>
+        <context ref="rule-9"/>
+        <context ref="rule-10"/>
+        <context ref="rule-11"/>
+        <context ref="rule-12"/>
+        <context ref="rule-17"/>
+        <context ref="rule-22"/>
+        <context ref="rule-23"/>
+        <context ref="rule-24"/>
+        <context ref="rule-25"/>
+        <context ref="rule-26"/>
+        <context ref="rule-27"/>
+      </include>
+    </context>
+  </definitions>
+</language>

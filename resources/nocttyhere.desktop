@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Service
+Name=NOCTTY Service Menu
+TryExec=noctty
+MimeType=inode/directory;
+Actions=OpenNOCTTYHere;
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-MaxNumberOfUrls=1
+X-KDE-Priority=TopLevel
+
+[Desktop Action OpenNOCTTYHere]
+Name=Open NOCTTY Here
+Icon=com.noctty.NOCTTY
+Exec=noctty --new-window --working-directory %f

@@ -1,0 +1,9 @@
+# Optional Noctalia v5 custom_button settings for a compact NOCTTY bar button.
+[widget.noctty]
+type = "custom_button"
+glyph = "terminal-2"
+tooltip = "Show or hide NOCTTY"
+
+[widget.noctty.actions]
+left = "exec noctty --toggle"
+right = "exec noctty --show"

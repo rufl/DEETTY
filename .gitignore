@@ -1,7 +1,19 @@
 .zig-cache/
 zig-out/
-build/
-dist/
+/dist/
+.noctty-*/
+.pi/
+
+# Local configuration, credentials, editor state, and crash artifacts.
 .env
 .env.*
 !.env.example
+.direnv/
+.DS_Store
+*.swp
+*.swo
+*~
+core
+core.*
+*.dmp
+*.dump
