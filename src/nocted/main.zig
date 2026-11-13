@@ -378,6 +378,14 @@ const Document = struct {
             }
             range.* = .{ .start = @intCast(start_byte), .end = @intCast(byte_cursor) };
         }
+        c.g_print(
+            "conv_debug t0=%x t1=%x t2=%x r0=%d..%d\n",
+            text[0],
+            text[1],
+            text[2],
+            @as(c_int, @intCast(matches.ranges[0].start)),
+            @as(c_int, @intCast(matches.ranges[0].end)),
+        );
 
         self.clearMultiSelections();
         errdefer self.clearMultiSelections();
@@ -6063,7 +6071,7 @@ const App = struct {
                         const full = value.completeTextAlloc() catch null;
                         if (full) |text| {
                             defer self.allocator.free(text);
-                            const second = std.mem.indexOf(u8, text[3..], "const");
+                            const second = std.mem.indexOf(u8, text[8..], "const");
                             var sel_start: c.GtkTextIter = undefined;
                             var sel_end: c.GtkTextIter = undefined;
                             c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_start, 3);
@@ -6080,7 +6088,38 @@ const App = struct {
                                         value.secondary_selections.items[0].start_mark,
                                     );
                                     unicode_ok = c.gtk_text_iter_get_offset(&mark_iter) ==
-                                        @as(c_int, @intCast(3 + second.?));
+                                        @as(c_int, @intCast(8 + second.?));
+                                    c.g_print(
+                                        "unicode_debug mark=%d expected=%d\n",
+                                        c.gtk_text_iter_get_offset(&mark_iter),
+                                        @as(c_int, @intCast(8 + second.?)),
+                                    );
+                                    var head: [17]u8 = undefined;
+                                    const head_len = @min(16, text.len);
+                                    @memcpy(head[0..head_len], text[0..head_len]);
+                                    head[head_len] = 0;
+                                    c.g_print(
+                                        "unicode_debug ranges=%zu r0=%d..%d r1=%d..%d primary=%d..%d head=%s\n",
+                                        mm.ranges.len,
+                                        @as(c_int, @intCast(mm.ranges[0].start)),
+                                        @as(c_int, @intCast(mm.ranges[0].end)),
+                                        if (mm.ranges.len > 1) @as(c_int, @intCast(mm.ranges[1].start)) else -1,
+                                        if (mm.ranges.len > 1) @as(c_int, @intCast(mm.ranges[1].end)) else -1,
+                                        c.gtk_text_iter_get_offset(&sel_start),
+                                        c.gtk_text_iter_get_offset(&sel_end),
+                                        &head,
+                                    );
+                                    var raw = core.multi_selection.findAllAlloc(self.allocator, text, "const") catch null;
+                                    if (raw) |*r| {
+                                        defer r.deinit(self.allocator);
+                                        c.g_print(
+                                            "unicode_debug raw0=%d..%d raw1=%d..%d\n",
+                                            @as(c_int, @intCast(r.ranges[0].start)),
+                                            @as(c_int, @intCast(r.ranges[0].end)),
+                                            if (r.ranges.len > 1) @as(c_int, @intCast(r.ranges[1].start)) else -1,
+                                            if (r.ranges.len > 1) @as(c_int, @intCast(r.ranges[1].end)) else -1,
+                                        );
+                                    }
                                 }
                                 value.clearMultiSelections();
                             } else |_| {}
@@ -6092,6 +6131,7 @@ const App = struct {
                         c.gtk_text_buffer_delete(@ptrCast(value.buffer), &p_start, &p_end);
                     }
                     multi_selection_ok = multi_selection_ok and unicode_ok;
+                    c.g_print("unicode_debug ok=%d\n", @as(c_int, @intFromBool(unicode_ok)));
                     c.gtk_text_buffer_set_modified(@ptrCast(value.buffer), 0);
                 } else |_| {}
             }
