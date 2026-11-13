@@ -16,10 +16,9 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   `nocted-smoke --window-mode-smoke` in the native editor gate.
 - Fixed editor startup error-path double frees and a GObject leak when no
   default GdkScreen exists; `App.deinit` now destroys a still-live window.
-- Fixed multi-caret selection corrupting non-ASCII documents: occurrence
-  ranges are converted from codepoint to byte offsets before GTK iter use,
-  and the post-replace caret uses byte length; the native smoke now asserts
-  byte offsets with a non-ASCII prefix.
+- Added a non-ASCII multi-caret regression assertion to the native editor
+  smoke, pinning the GTK character-offset contract between the occurrence
+  finder and GtkTextBuffer iters.
 - `Fold Current Region` no longer clears unrelated folds; the overlap guard
   handles conflicts.
 - Canceling or hiding Find in Files clears stale results instead of leaving

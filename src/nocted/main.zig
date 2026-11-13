@@ -363,29 +363,6 @@ const Document = struct {
         );
         errdefer matches.deinit(self.app.allocator);
         if (matches.ranges.len < 2) return error.SingleOccurrence;
-        const text = std.mem.span(text_z);
-        var byte_cursor: usize = 0;
-        var char_cursor: u32 = 0;
-        for (matches.ranges) |*range| {
-            while (char_cursor < range.start) : (char_cursor += 1) {
-                byte_cursor += std.unicode.utf8ByteSequenceLength(text[byte_cursor]) catch
-                    return error.InvalidUtf8;
-            }
-            const start_byte = byte_cursor;
-            while (char_cursor < range.end) : (char_cursor += 1) {
-                byte_cursor += std.unicode.utf8ByteSequenceLength(text[byte_cursor]) catch
-                    return error.InvalidUtf8;
-            }
-            range.* = .{ .start = @intCast(start_byte), .end = @intCast(byte_cursor) };
-        }
-        c.g_print(
-            "conv_debug t0=%x t1=%x t2=%x r0=%d..%d\n",
-            text[0],
-            text[1],
-            text[2],
-            @as(c_int, @intCast(matches.ranges[0].start)),
-            @as(c_int, @intCast(matches.ranges[0].end)),
-        );
 
         self.clearMultiSelections();
         errdefer self.clearMultiSelections();
@@ -482,7 +459,7 @@ const Document = struct {
         count = core.multi_selection.normalize(ranges[0..count]);
         if (count == 0) return false;
         const earliest = ranges[0].start;
-        const caret_offset: u32 = earliest + @as(u32, @intCast(replacement.len));
+        const replacement_characters = std.unicode.utf8CountCodepoints(replacement) catch return false;
         self.multi_editing = true;
         defer self.multi_editing = false;
         _ = self.clearFolds();
@@ -517,7 +494,7 @@ const Document = struct {
         c.gtk_text_buffer_get_iter_at_offset(
             @ptrCast(self.buffer),
             &caret,
-            @intCast(caret_offset),
+            @intCast(earliest + replacement_characters),
         );
         c.gtk_text_buffer_select_range(@ptrCast(self.buffer), &caret, &caret);
         self.scheduleTreeSitterRefresh();
@@ -6074,8 +6051,8 @@ const App = struct {
                             const second = std.mem.indexOf(u8, text[8..], "const");
                             var sel_start: c.GtkTextIter = undefined;
                             var sel_end: c.GtkTextIter = undefined;
-                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_start, 3);
-                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_end, 8);
+                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_start, 2);
+                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_end, 7);
                             c.gtk_text_buffer_select_range(@ptrCast(value.buffer), &sel_end, &sel_start);
                             if (value.selectAllOccurrences()) |m| {
                                 var mm = m;
@@ -6087,39 +6064,11 @@ const App = struct {
                                         &mark_iter,
                                         value.secondary_selections.items[0].start_mark,
                                     );
+                                    const expected_chars = std.unicode.utf8CountCodepoints(
+                                        text[0 .. 8 + second.?],
+                                    ) catch 0;
                                     unicode_ok = c.gtk_text_iter_get_offset(&mark_iter) ==
-                                        @as(c_int, @intCast(8 + second.?));
-                                    c.g_print(
-                                        "unicode_debug mark=%d expected=%d\n",
-                                        c.gtk_text_iter_get_offset(&mark_iter),
-                                        @as(c_int, @intCast(8 + second.?)),
-                                    );
-                                    var head: [17]u8 = undefined;
-                                    const head_len = @min(16, text.len);
-                                    @memcpy(head[0..head_len], text[0..head_len]);
-                                    head[head_len] = 0;
-                                    c.g_print(
-                                        "unicode_debug ranges=%zu r0=%d..%d r1=%d..%d primary=%d..%d head=%s\n",
-                                        mm.ranges.len,
-                                        @as(c_int, @intCast(mm.ranges[0].start)),
-                                        @as(c_int, @intCast(mm.ranges[0].end)),
-                                        if (mm.ranges.len > 1) @as(c_int, @intCast(mm.ranges[1].start)) else -1,
-                                        if (mm.ranges.len > 1) @as(c_int, @intCast(mm.ranges[1].end)) else -1,
-                                        c.gtk_text_iter_get_offset(&sel_start),
-                                        c.gtk_text_iter_get_offset(&sel_end),
-                                        &head,
-                                    );
-                                    var raw = core.multi_selection.findAllAlloc(self.allocator, text, "const") catch null;
-                                    if (raw) |*r| {
-                                        defer r.deinit(self.allocator);
-                                        c.g_print(
-                                            "unicode_debug raw0=%d..%d raw1=%d..%d\n",
-                                            @as(c_int, @intCast(r.ranges[0].start)),
-                                            @as(c_int, @intCast(r.ranges[0].end)),
-                                            if (r.ranges.len > 1) @as(c_int, @intCast(r.ranges[1].start)) else -1,
-                                            if (r.ranges.len > 1) @as(c_int, @intCast(r.ranges[1].end)) else -1,
-                                        );
-                                    }
+                                        @as(c_int, @intCast(expected_chars));
                                 }
                                 value.clearMultiSelections();
                             } else |_| {}
@@ -6127,11 +6076,10 @@ const App = struct {
                         var p_start: c.GtkTextIter = undefined;
                         var p_end: c.GtkTextIter = undefined;
                         c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &p_start, 0);
-                        c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &p_end, 3);
+                        c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &p_end, 2);
                         c.gtk_text_buffer_delete(@ptrCast(value.buffer), &p_start, &p_end);
                     }
                     multi_selection_ok = multi_selection_ok and unicode_ok;
-                    c.g_print("unicode_debug ok=%d\n", @as(c_int, @intFromBool(unicode_ok)));
                     c.gtk_text_buffer_set_modified(@ptrCast(value.buffer), 0);
                 } else |_| {}
             }
