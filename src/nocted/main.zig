@@ -177,7 +177,7 @@ const Document = struct {
 
     fn deinit(self: *Document) void {
         self.cancelTreeSitterRefresh();
-        if (self.syntax) |*syntax| syntax.deinit();
+        if (self.syntax) |*syntax| syntax.deinit(self.app.allocator);
         self.clearMultiSelections();
         self.secondary_selections.deinit();
         _ = self.clearFolds();
@@ -198,7 +198,7 @@ const Document = struct {
 
     fn configureTreeSitter(self: *Document, path: ?[]const u8) void {
         self.cancelTreeSitterRefresh();
-        if (self.syntax) |*syntax| syntax.deinit();
+        if (self.syntax) |*syntax| syntax.deinit(self.app.allocator);
         self.syntax = null;
         self.syntax_capture_count = 0;
         const language = tree_sitter.languageForPath(path orelse "") orelse {
@@ -214,7 +214,7 @@ const Document = struct {
     }
 
     fn fallbackToSourceViewSyntax(self: *Document, err: anyerror) void {
-        if (self.syntax) |*syntax| syntax.deinit();
+        if (self.syntax) |*syntax| syntax.deinit(self.app.allocator);
         self.syntax = null;
         self.syntax_capture_count = 0;
         var start: c.GtkTextIter = undefined;
@@ -270,8 +270,7 @@ const Document = struct {
             return error.TreeSitterDocumentTooLarge;
         const syntax = if (self.syntax) |*value| value else return;
         try syntax.update(text);
-        const captures = try syntax.capturesAlloc(self.app.allocator);
-        defer self.app.allocator.free(captures);
+        const captures = try syntax.captures(self.app.allocator);
         self.syntax_capture_count = captures.len;
 
         self.removeTreeSitterTags(&start, &end);
@@ -305,6 +304,7 @@ const Document = struct {
     }
 
     fn clearMultiSelections(self: *Document) void {
+        if (self.secondary_selections.items.len == 0) return;
         var start: c.GtkTextIter = undefined;
         var end: c.GtkTextIter = undefined;
         c.gtk_text_buffer_get_bounds(@ptrCast(self.buffer), &start, &end);
@@ -363,6 +363,21 @@ const Document = struct {
         );
         errdefer matches.deinit(self.app.allocator);
         if (matches.ranges.len < 2) return error.SingleOccurrence;
+        const text = std.mem.span(text_z);
+        var byte_cursor: usize = 0;
+        var char_cursor: u32 = 0;
+        for (matches.ranges) |*range| {
+            while (char_cursor < range.start) : (char_cursor += 1) {
+                byte_cursor += std.unicode.utf8ByteSequenceLength(text[byte_cursor]) catch
+                    return error.InvalidUtf8;
+            }
+            const start_byte = byte_cursor;
+            while (char_cursor < range.end) : (char_cursor += 1) {
+                byte_cursor += std.unicode.utf8ByteSequenceLength(text[byte_cursor]) catch
+                    return error.InvalidUtf8;
+            }
+            range.* = .{ .start = @intCast(start_byte), .end = @intCast(byte_cursor) };
+        }
 
         self.clearMultiSelections();
         errdefer self.clearMultiSelections();
@@ -459,7 +474,7 @@ const Document = struct {
         count = core.multi_selection.normalize(ranges[0..count]);
         if (count == 0) return false;
         const earliest = ranges[0].start;
-        const replacement_characters = std.unicode.utf8CountCodepoints(replacement) catch return false;
+        const caret_offset: u32 = earliest + @as(u32, @intCast(replacement.len));
         self.multi_editing = true;
         defer self.multi_editing = false;
         _ = self.clearFolds();
@@ -494,7 +509,7 @@ const Document = struct {
         c.gtk_text_buffer_get_iter_at_offset(
             @ptrCast(self.buffer),
             &caret,
-            @intCast(earliest + replacement_characters),
+            @intCast(caret_offset),
         );
         c.gtk_text_buffer_select_range(@ptrCast(self.buffer), &caret, &caret);
         self.scheduleTreeSitterRefresh();
@@ -868,6 +883,8 @@ const App = struct {
     editor_zoom_percent: i16 = editor_zoom_percent_default,
     editor_zoom_scroll_delta: f64 = 0,
     window: *c.GtkWidget = undefined,
+    ui_built: bool = false,
+    window_destroyed: bool = false,
     main_paned: *c.GtkWidget = undefined,
     sidebar: *c.GtkWidget = undefined,
     sidebar_toggle_button: *c.GtkWidget = undefined,
@@ -943,6 +960,7 @@ const App = struct {
         home: []const u8,
         config_home: ?[]const u8,
     ) !App {
+        var init_owned = true;
         const settings_path = if (config_home) |root|
             try std.fs.path.join(allocator, &.{ root, "nocted/settings.conf" })
         else
@@ -950,24 +968,26 @@ const App = struct {
                 home,
                 ".config/nocted/settings.conf",
             });
-        errdefer allocator.free(settings_path);
+        errdefer if (init_owned) allocator.free(settings_path);
         const settings_directory = std.fs.path.dirname(settings_path) orelse ".";
         const session_path = try std.fs.path.join(allocator, &.{
             settings_directory,
             "session.conf",
         });
-        errdefer allocator.free(session_path);
+        errdefer if (init_owned) allocator.free(session_path);
         const generated_language_path = try std.fs.path.join(allocator, &.{
             settings_directory,
             "imported-language-specs",
         });
-        errdefer allocator.free(generated_language_path);
+        errdefer if (init_owned) allocator.free(generated_language_path);
         var settings = try core.settings.loadAlloc(allocator, io, settings_path);
-        errdefer settings.deinit(allocator);
+        errdefer if (init_owned) settings.deinit(allocator);
         var session = try core.session.loadAlloc(allocator, io, session_path);
-        errdefer session.deinit(allocator);
+        errdefer if (init_owned) session.deinit(allocator);
         const resource_root = try locateResourceRoot(allocator, io);
-        errdefer allocator.free(resource_root);
+        errdefer if (init_owned) allocator.free(resource_root);
+        const ui_font_screen = c.gdk_screen_get_default() orelse
+            return error.UiFontScreenUnavailable;
         const native = blk: {
             const language_manager = c.gtk_source_language_manager_new() orelse
                 return error.LanguageManagerUnavailable;
@@ -988,6 +1008,7 @@ const App = struct {
                 .editor_zoom_provider = editor_zoom_provider,
             };
         };
+        init_owned = false;
         var app = App{
             .allocator = allocator,
             .io = io,
@@ -1010,8 +1031,7 @@ const App = struct {
             .language_manager = native.language_manager,
             .style_manager = native.style_manager,
             .ui_font_provider = native.ui_font_provider,
-            .ui_font_screen = c.gdk_screen_get_default() orelse
-                return error.UiFontScreenUnavailable,
+            .ui_font_screen = ui_font_screen,
             .editor_zoom_provider = native.editor_zoom_provider,
         };
         errdefer app.deinit();
@@ -1037,6 +1057,8 @@ const App = struct {
     }
 
     fn deinit(self: *App) void {
+        if (self.ui_built and !self.window_destroyed)
+            c.gtk_widget_destroy(self.window);
         self.cancelSessionPersist();
         self.cancelProjectLoad();
         self.cancelProjectSearch();
@@ -1614,6 +1636,7 @@ const App = struct {
         self.window_mode = self.settings.window_mode;
         self.applyWindowMode(self.window_mode, false);
         self.updateStatus("Ready");
+        self.ui_built = true;
     }
 
     fn buildMenuBar(self: *App) *c.GtkWidget {
@@ -3937,6 +3960,11 @@ const App = struct {
         self.cancelWorkerJobs(.project_search);
         self.project_search_started = null;
         self.project_search_draw_started = null;
+        if (self.ui_built) {
+            c.gtk_tree_store_clear(self.project_search_store);
+            self.project_search_result_count = 0;
+            self.project_search_truncated = false;
+        }
     }
 
     fn publishProjectSearch(self: *App, job: *WorkerJob) void {
@@ -4257,7 +4285,6 @@ const App = struct {
             self.updateStatus("Region is already folded");
             return;
         }
-        _ = document.clearFolds();
         const line = document.cursorLine();
         var analysis = document.analyzeFolds() catch {
             self.updateStatus("Unable to analyze fold regions");
@@ -6028,6 +6055,43 @@ const App = struct {
                             self.allocator.free(text);
                         }
                     }
+                    var unicode_ok = false;
+                    {
+                        var prefix_start: c.GtkTextIter = undefined;
+                        c.gtk_text_buffer_get_start_iter(@ptrCast(value.buffer), &prefix_start);
+                        c.gtk_text_buffer_insert(@ptrCast(value.buffer), &prefix_start, "λ ", 3);
+                        const full = value.completeTextAlloc() catch null;
+                        if (full) |text| {
+                            defer self.allocator.free(text);
+                            const second = std.mem.indexOf(u8, text[3..], "const");
+                            var sel_start: c.GtkTextIter = undefined;
+                            var sel_end: c.GtkTextIter = undefined;
+                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_start, 3);
+                            c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &sel_end, 8);
+                            c.gtk_text_buffer_select_range(@ptrCast(value.buffer), &sel_end, &sel_start);
+                            if (value.selectAllOccurrences()) |m| {
+                                var mm = m;
+                                defer mm.deinit(self.allocator);
+                                if (value.secondary_selections.items.len > 0 and second != null) {
+                                    var mark_iter: c.GtkTextIter = undefined;
+                                    c.gtk_text_buffer_get_iter_at_mark(
+                                        @ptrCast(value.buffer),
+                                        &mark_iter,
+                                        value.secondary_selections.items[0].start_mark,
+                                    );
+                                    unicode_ok = c.gtk_text_iter_get_offset(&mark_iter) ==
+                                        @as(c_int, @intCast(3 + second.?));
+                                }
+                                value.clearMultiSelections();
+                            } else |_| {}
+                        }
+                        var p_start: c.GtkTextIter = undefined;
+                        var p_end: c.GtkTextIter = undefined;
+                        c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &p_start, 0);
+                        c.gtk_text_buffer_get_iter_at_offset(@ptrCast(value.buffer), &p_end, 3);
+                        c.gtk_text_buffer_delete(@ptrCast(value.buffer), &p_start, &p_end);
+                    }
+                    multi_selection_ok = multi_selection_ok and unicode_ok;
                     c.gtk_text_buffer_set_modified(@ptrCast(value.buffer), 0);
                 } else |_| {}
             }
@@ -6783,10 +6847,9 @@ pub fn main(init: std.process.Init) !void {
     }
     if (args.len > 1 and std.mem.eql(u8, args[1], "--runtime-contract")) {
         var document = try tree_sitter.Document.init(.zig);
-        defer document.deinit();
+        defer document.deinit(allocator);
         try document.update("const runtime_contract = true;\n");
-        const captures = try document.capturesAlloc(allocator);
-        defer allocator.free(captures);
+        const captures = try document.captures(allocator);
         if (captures.len == 0) return error.TreeSitterContractFailed;
         const overflow_line = "const value: usize = 1;\n";
         var overflow_source: [overflow_line.len * 2000]u8 = undefined;
@@ -6795,8 +6858,7 @@ pub fn main(init: std.process.Init) !void {
             @memcpy(overflow_source[start..][0..overflow_line.len], overflow_line);
         }
         try document.update(&overflow_source);
-        if (document.capturesAlloc(allocator)) |overflow| {
-            allocator.free(overflow);
+        if (document.captures(allocator)) |_| {
             return error.TreeSitterCaptureLimitMissing;
         } else |err| if (err != error.TreeSitterCaptureLimitExceeded) return err;
         var buffer: [192]u8 = undefined;
@@ -7324,6 +7386,7 @@ fn treeValueUInt64(model: *c.GtkTreeModel, iter: *c.GtkTreeIter, column: c_int) 
 
 fn onWindowDestroy(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
+    app.window_destroyed = true;
     if (!app.shutting_down) app.persistSession() catch |err| {
         log.err("session save failed during window teardown: {s}", .{@errorName(err)});
     };

@@ -10,6 +10,7 @@ pub const Capture = core.Capture;
 pub const Document = struct {
     raw: core.Document,
     language: Language,
+    capture_buffer: []Capture = &.{},
 
     pub fn init(language: Language) !Document {
         return .{
@@ -18,7 +19,8 @@ pub const Document = struct {
         };
     }
 
-    pub fn deinit(self: *Document) void {
+    pub fn deinit(self: *Document, allocator: std.mem.Allocator) void {
+        if (self.capture_buffer.len != 0) allocator.free(self.capture_buffer);
         self.raw.deinit();
         self.* = undefined;
     }
@@ -27,23 +29,18 @@ pub const Document = struct {
         try self.raw.update(source, null);
     }
 
-    pub fn capturesAlloc(
-        self: *Document,
-        allocator: std.mem.Allocator,
-    ) ![]Capture {
-        var captures = try allocator.alloc(Capture, max_captures);
-        errdefer allocator.free(captures);
-        const total = try self.raw.collectCaptures(captures);
-        if (total > captures.len) return error.TreeSitterCaptureLimitExceeded;
-        const count = total;
-        if (count != captures.len)
-            captures = try allocator.realloc(captures, count);
-        std.mem.sort(Capture, captures, {}, struct {
+    pub fn captures(self: *Document, allocator: std.mem.Allocator) ![]Capture {
+        if (self.capture_buffer.len == 0)
+            self.capture_buffer = try allocator.alloc(Capture, max_captures);
+        const total = try self.raw.collectCaptures(self.capture_buffer);
+        if (total > self.capture_buffer.len) return error.TreeSitterCaptureLimitExceeded;
+        const slice = self.capture_buffer[0..total];
+        std.mem.sort(Capture, slice, {}, struct {
             fn lessThan(_: void, lhs: Capture, rhs: Capture) bool {
                 return lhs.start < rhs.start;
             }
         }.lessThan);
-        return captures;
+        return slice;
     }
 };
 

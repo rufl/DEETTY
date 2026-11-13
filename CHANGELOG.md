@@ -14,6 +14,19 @@ This changelog starts from the live repository state refreshed on 2026-07-18. Ea
   xdg-shell on Wayland (Aqueous/Pearl server-side decorations) and EWMH on
   X11, with compositor state changes reconciled back into the UI. Covered by
   `nocted-smoke --window-mode-smoke` in the native editor gate.
+- Fixed editor startup error-path double frees and a GObject leak when no
+  default GdkScreen exists; `App.deinit` now destroys a still-live window.
+- Fixed multi-caret selection corrupting non-ASCII documents: occurrence
+  ranges are converted from codepoint to byte offsets before GTK iter use,
+  and the post-replace caret uses byte length; the native smoke now asserts
+  byte offsets with a non-ASCII prefix.
+- `Fold Current Region` no longer clears unrelated folds; the overlap guard
+  handles conflicts.
+- Canceling or hiding Find in Files clears stale results instead of leaving
+  the previous query visible.
+- Editor Tree-sitter refreshes reuse a persistent capture buffer instead of
+  allocating ~200 KB per tick, and multi-selection tag cleanup skips the
+  full-buffer pass when no secondary selections exist.
 - Replaced direct Claude/Codex agent-resume choices with fixed Pi, OMP, and
   local-only ZIPI launchers. Workspace snapshots now use version 8 and reject
   enabled legacy direct-provider references instead of remapping them.
