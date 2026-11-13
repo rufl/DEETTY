@@ -13,6 +13,44 @@ No shell command is assembled from the session name. tmux and Zellij remain opti
 
 Settings snapshot version 9 admits the two new launch kinds while retaining the version-8 byte layout and recent-workspace MRU. Versions 1–8 remain importable; a snapshot labeled as an older version cannot smuggle a new kind into the decoder.
 
+## Agent resume
+
+Agent resume references are GUI-owned opaque identifiers. NOCTTY stores only a
+bounded session ID and optional display label; it does not discover IDs from
+terminal output, store credentials, or call provider APIs.
+
+The supported launcher choices are:
+
+- Pi: `pi --resume SESSION`
+- OMP: `omp --resume=SESSION`
+- ZIPI: `zipi --resume SESSION` (local model only)
+
+Pi and OMP may connect to the external providers configured inside those
+launchers. ZIPI remains local-only. NOCTTY does not expose Codex or Claude as
+providers and does not infer which provider a launcher uses.
+
+Workspace snapshot version 8 encodes these launcher identities. Enabled
+pre-version-8 direct-provider resume references are rejected rather than
+silently remapped; register the reference again with Pi, OMP, or ZIPI.
+
+## Bounded agent activity
+
+The terminal model accepts provider-neutral OSC 9, OSC 99, and OSC 777
+notifications. Each event has a bounded UTF-8 title (128 bytes), body (1024
+bytes), monotonic serial, and optional safe action (`focus-pane` or
+`open-project`). Progress/query forms do not create activity events.
+
+The native host copies the bounded event before asynchronous desktop
+notification delivery. Payloads cannot execute commands or alter workspace
+state; actions require the existing explicit UI interaction.
+
+The native adapter exposes this through
+`noctty_grid_notification_serial`, `noctty_grid_notification_title`, and
+`noctty_grid_notification_body`. Agent control remains provider-neutral through
+the existing `noctty_grid_set_agent_resume` and
+`noctty_grid_clear_agent_resume` ABI calls; no provider-specific socket or
+arbitrary command execution path is added.
+
 ## Verification boundary
 
 Run:

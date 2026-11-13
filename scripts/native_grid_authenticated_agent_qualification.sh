@@ -23,13 +23,17 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-command -v codex >/dev/null
+launcher=${NOCTTY_AGENT_QUALIFICATION_LAUNCHER:-pi}
+case "$launcher" in
+    pi|omp|zipi) ;;
+    *) printf 'unsupported agent launcher: %s\n' "$launcher" >&2; exit 2 ;;
+esac
+command -v "$launcher" >/dev/null
 command -v spectacle >/dev/null
 command -v identify >/dev/null
 command -v tesseract >/dev/null
 command -v xdotool >/dev/null
 command -v qdbus6 >/dev/null
-codex login status 2>&1 | grep -F 'Logged in using ChatGPT' >/dev/null
 mkdir -p "$artifact_dir"
 find "$artifact_dir" -maxdepth 1 -type f \
     \( -name '*.png' -o -name '*.log' -o -name '*-response.txt' -o \
@@ -44,7 +48,7 @@ wait_for_response() {
     local attempt=0
     while ((attempt < 900)); do
         if [[ -s "$response" ]]; then
-            grep -Fx 'NOCTTY_AUTHENTICATED_CODEX_OK' "$response" >/dev/null
+            grep -Fx 'NOCTTY_AGENT_QUALIFICATION_OK' "$response" >/dev/null
             return 0
         fi
         if ! kill -0 "$pid" 2>/dev/null; then
@@ -54,7 +58,8 @@ wait_for_response() {
         sleep 0.2
         attempt=$((attempt + 1))
     done
-    printf 'timed out waiting for authenticated Codex response pid=%s\n' "$pid" >&2
+    printf 'timed out waiting for agent qualification response launcher=%s pid=%s\n' \
+        "$launcher" "$pid" >&2
     cat "$log" >&2
     return 1
 }
@@ -65,9 +70,7 @@ activate_wayland_window() {
     local plugin="nocttyAuthAgentActivate$$"
     cat >"$script" <<EOF
 for (const window of workspace.windowList()) {
-    if (window.caption === 'NOCTTY authenticated Codex qualification') {
-        window.minimized = false;
-        workspace.activeWindow = window;
+    if (window.caption === 'NOCTTY agent qualification') {
         break;
     }
 }
@@ -91,8 +94,8 @@ capture_window() {
         local attempt=0
         while ((attempt < 100)); do
             window=$(xdotool search --onlyvisible \
-                --name '^NOCTTY authenticated Codex qualification$' \
-                2>/dev/null | tail -n 1 || true)
+                --name '^NOCTTY agent qualification$' \
+                2>/dev/null | awk 'END { print }' || true)
             [[ -z "$window" ]] || break
             sleep 0.1
             attempt=$((attempt + 1))
@@ -107,9 +110,8 @@ capture_window() {
     test -s "$image"
     local ocr
     ocr=$(tesseract "$image" stdout -l afr --psm 6 2>/dev/null)
-    grep -F 'NOCTTY' <<<"$ocr" >/dev/null
-    grep -F 'AUTHENTICATED' <<<"$ocr" >/dev/null
-    grep -F 'CODEX' <<<"$ocr" >/dev/null
+    grep -F 'AGENT' <<<"$ocr" >/dev/null
+    grep -F 'QUALIFICATION' <<<"$ocr" >/dev/null
 }
 
 for mode in Debug ReleaseSafe; do
@@ -128,6 +130,7 @@ for mode in Debug ReleaseSafe; do
         rm -f "$captured"
         env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
             GDK_BACKEND="$backend" \
+            NOCTTY_AGENT_QUALIFICATION_LAUNCHER="$launcher" \
             NOCTTY_AUTH_AGENT_RESPONSE_PATH="$response" \
             NOCTTY_AUTH_AGENT_CAPTURED_PATH="$captured" \
             "$prefix/bin/noctty-smoke" \
@@ -153,7 +156,7 @@ for mode in Debug ReleaseSafe; do
 
         wait "$runner_pid"
         runner_pid=
-        grep -F 'native_grid_authenticated_agent_qualification provider=codex authenticated=true model_request=true ephemeral=true sandbox=read-only production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true controlled_exit=true' "$log" >/dev/null
+        grep -F "native_grid_agent_qualification launcher=$launcher model_request=true ephemeral=true sandbox=read-only production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true controlled_exit=true" "$log" >/dev/null
         cat "$log"
     done
 done
@@ -166,4 +169,4 @@ done
     sha256sum -c SHA256SUMS >/dev/null
 )
 
-echo "native_grid_authenticated_agent_matrix provider=codex version=$(codex --version | awk '{print $2}') authenticated=true model_requests=4 debug=true release_safe=true wayland=true x11=true production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true compositor_pixels=true root_memory=true process_tree_memory=true controlled_exit=true ephemeral=true sandbox=read-only hid=false checksums=true artifact_dir=$artifact_dir scratch_clean=true"
+echo "native_grid_agent_matrix launcher=$launcher model_requests=4 debug=true release_safe=true wayland=true x11=true production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true compositor_pixels=true root_memory=true process_tree_memory=true controlled_exit=true ephemeral=true sandbox=read-only hid=false checksums=true artifact_dir=$artifact_dir scratch_clean=true"

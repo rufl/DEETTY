@@ -2083,7 +2083,7 @@ export fn noctty_grid_create_session(raw: ?*anyopaque, source_pane_id: u64, even
                 restore_profile = profile;
                 profile_override = &restore_profile;
             } else |err| switch (err) {
-                error.AgentResumeProviderUnsupported, error.AgentResumeUnavailable => {},
+                error.AgentResumeUnavailable => {},
                 else => {
                     bridge.callback_failed = true;
                     return null;
@@ -3958,7 +3958,7 @@ pub fn main(init: std.process.Init) !void {
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-authenticated-agent-qualification")) {
-                try nativeGridAuthenticatedAgentQualification(init.io, stdout);
+                try nativeGridAgentQualification(init.io, stdout);
                 return;
             }
             if (std.mem.eql(u8, cmd, "--native-grid-installed-continuity-qualification")) {
@@ -6096,6 +6096,32 @@ export fn noctty_grid_notification_action(raw: ?*anyopaque) callconv(.c) c_int {
     return @backingInt(session.grid.notification_action);
 }
 
+export fn noctty_grid_notification_title(
+    raw: ?*anyopaque,
+    output: [*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const session: *const noctty.terminal_session.TerminalSession =
+        @ptrCast(@alignCast(raw orelse return -1));
+    const value = session.grid.notificationTitle();
+    const length = @min(value.len, capacity);
+    @memcpy(output[0..length], value[0..length]);
+    return @intCast(length);
+}
+
+export fn noctty_grid_notification_body(
+    raw: ?*anyopaque,
+    output: [*]u8,
+    capacity: usize,
+) callconv(.c) c_int {
+    const session: *const noctty.terminal_session.TerminalSession =
+        @ptrCast(@alignCast(raw orelse return -1));
+    const value = session.grid.notificationBody();
+    const length = @min(value.len, capacity);
+    @memcpy(output[0..length], value[0..length]);
+    return @intCast(length);
+}
+
 export fn noctty_grid_set_agent_resume(
     raw: ?*anyopaque,
     pane_id: u64,
@@ -6414,24 +6440,37 @@ fn nativeGridStabilityQualification() !void {
     if (status != 0) return error.NativeGridStabilityQualificationFailed;
 }
 
-fn nativeGridAuthenticatedAgentQualification(io: std.Io, out: anytype) !void {
+fn nativeGridAgentQualification(io: std.Io, out: anytype) !void {
     const response_path_raw = getenv("NOCTTY_AUTH_AGENT_RESPONSE_PATH") orelse
         return error.MissingAuthenticatedAgentResponsePath;
     const response_path = std.mem.span(response_path_raw);
-    var profile = noctty.launch_profile.Profile{ .kind = .command };
-    try profile.command.set(
-        "printf '\\033]2;NOCTTY authenticated Codex qualification\\007'" ++
-            "; printf 'Authenticated Codex model request through NOCTTY\\r\\n'" ++
-            "; codex exec --ephemeral --skip-git-repo-check --sandbox read-only" ++
-            " --color never -C /tmp -o \"$NOCTTY_AUTH_AGENT_RESPONSE_PATH\"" ++
-            " 'Do not run commands or inspect files. Reply with exactly" ++
-            " NOCTTY_AUTHENTICATED_CODEX_OK.' </dev/null; status=$?" ++
-            "; printf '\\r\\nNOCTTY AUTHENTICATED CODEX EXIT=%d\\r\\n' \"$status\"" ++
+    const launcher_raw = getenv("NOCTTY_AGENT_QUALIFICATION_LAUNCHER") orelse "pi";
+    const launcher = std.mem.span(launcher_raw);
+    const launcher_command = if (std.mem.eql(u8, launcher, "pi"))
+        "pi --print --no-session --no-tools --no-extensions --no-skills --no-context-files"
+    else if (std.mem.eql(u8, launcher, "omp"))
+        "omp --print --no-session --no-tools --no-extensions --no-skills --no-rules"
+    else if (std.mem.eql(u8, launcher, "zipi"))
+        "zipi --offline --print --no-session --no-tools --no-extensions --no-skills --no-context-files"
+    else
+        return error.InvalidAgentQualificationLauncher;
+    var command: [noctty.launch_profile.max_command_bytes]u8 = undefined;
+    const command_text = try std.fmt.bufPrint(
+        &command,
+        "printf '\\033]2;NOCTTY agent qualification\\007'" ++
+            "; printf 'Agent launcher request through NOCTTY\\r\\n'" ++
+            "; {s} 'Do not run commands or inspect files. Reply with exactly" ++
+            " NOCTTY_AGENT_QUALIFICATION_OK.' > \"$NOCTTY_AUTH_AGENT_RESPONSE_PATH\"" ++
+            "; status=$?" ++
+            "; printf '\\r\\nNOCTTY AGENT EXIT=%d\\r\\n' \"$status\"" ++
             "; count=0; while [ ! -e \"$NOCTTY_AUTH_AGENT_CAPTURED_PATH\" ]" ++
             " && [ \"$count\" -lt 600 ]; do sleep 0.1; count=$((count + 1)); done" ++
             "; [ -e \"$NOCTTY_AUTH_AGENT_CAPTURED_PATH\" ] || exit 124" ++
             "; exit \"$status\"",
+        .{launcher_command},
     );
+    var profile = noctty.launch_profile.Profile{ .kind = .command };
+    try profile.command.set(command_text);
     var session = try noctty.terminal_session.TerminalSession.spawnProfile(
         std.heap.page_allocator,
         &profile,
@@ -6446,7 +6485,7 @@ fn nativeGridAuthenticatedAgentQualification(io: std.Io, out: anytype) !void {
         .mode = 1,
         .workspace_smoke = 38,
     });
-    if (status != 0) return error.NativeGridAuthenticatedAgentQualificationFailed;
+    if (status != 0) return error.NativeGridAgentQualificationFailed;
     const response = try std.Io.Dir.cwd().readFileAlloc(
         io,
         response_path,
@@ -6457,14 +6496,14 @@ fn nativeGridAuthenticatedAgentQualification(io: std.Io, out: anytype) !void {
     if (!std.mem.eql(
         u8,
         std.mem.trim(u8, response, " \t\r\n"),
-        "NOCTTY_AUTHENTICATED_CODEX_OK",
-    )) return error.AuthenticatedAgentResponseMismatch;
+        "NOCTTY_AGENT_QUALIFICATION_OK",
+    )) return error.AgentQualificationResponseMismatch;
     try out.print(
-        "native_grid_authenticated_agent_qualification provider=codex " ++
-            "authenticated=true model_request=true ephemeral=true sandbox=read-only " ++
+        "native_grid_agent_qualification launcher={s} local_only={} " ++
+            "model_request=true ephemeral=true sandbox=read-only " ++
             "production_pty=true production_vt=true production_gtk=true " ++
             "production_cairo=true response_exact=true controlled_exit=true\n",
-        .{},
+        .{ launcher, std.mem.eql(u8, launcher, "zipi") },
     );
 }
 
@@ -8958,7 +8997,7 @@ fn applyRestoreMode(
                     try app.config.terminal.setLaunchProfile(profile);
                     return;
                 } else |err| switch (err) {
-                    error.AgentResumeProviderUnsupported, error.AgentResumeUnavailable => {},
+                    error.AgentResumeUnavailable => {},
                     else => return err,
                 }
             }

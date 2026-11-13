@@ -39,6 +39,9 @@ pub const NotificationAction = enum(u8) {
     focus_pane,
     open_project,
 };
+pub const max_notification_title_bytes: usize = 128;
+pub const max_notification_body_bytes: usize = 1024;
+const default_notification_title = "Terminal notification";
 pub const first_truecolor_id: u16 = 256;
 
 pub const MouseTracking = enum(u2) {
@@ -445,6 +448,10 @@ pub const Grid = struct {
     bell_serial: u64 = 0,
     notification_serial: u64 = 0,
     notification_action: NotificationAction = .none,
+    notification_title: [max_notification_title_bytes]u8 = undefined,
+    notification_title_len: usize = 0,
+    notification_body: [max_notification_body_bytes]u8 = undefined,
+    notification_body_len: usize = 0,
     history: std.array_list.Managed([]Cell),
     history_meta: std.array_list.Managed(RowMeta),
     history_cold: std.array_list.Managed(?ColdRow),
@@ -1682,19 +1689,40 @@ pub const Grid = struct {
                     9 => {
                         if (value.len > 0 and !std.mem.eql(u8, value, "4") and
                             !std.mem.startsWith(u8, value, "4;"))
-                            self.notification_serial +%= 1;
+                            recordNotification(self, default_notification_title, value, .none);
                     },
                     52 => self.blocked_osc52 +%= 1,
                     99 => {
                         if (value.len > 0 and std.mem.indexOf(u8, value, "p=?") == null) {
-                            self.notification_action = notificationAction(value);
-                            self.notification_serial +%= 1;
+                            const metadata_separator = std.mem.indexOfScalar(u8, value, ';');
+                            const metadata = if (metadata_separator) |index| value[0..index] else value;
+                            const body = if (metadata_separator) |index| value[index + 1 ..] else value;
+                            recordNotification(
+                                self,
+                                notificationTitleFromMetadata(metadata),
+                                body,
+                                notificationAction(value),
+                            );
                         }
                     },
                     777 => {
                         if (std.mem.startsWith(u8, value, "notify;") and value.len > 7) {
-                            self.notification_action = notificationAction(value);
-                            self.notification_serial +%= 1;
+                            const notification = value["notify;".len..];
+                            if (std.mem.indexOfScalar(u8, notification, ';')) |title_separator| {
+                                recordNotification(
+                                    self,
+                                    notification[0..title_separator],
+                                    notification[title_separator + 1 ..],
+                                    notificationAction(value),
+                                );
+                            } else {
+                                recordNotification(
+                                    self,
+                                    default_notification_title,
+                                    notification,
+                                    notificationAction(value),
+                                );
+                            }
                         }
                     },
                     else => {},
@@ -1972,6 +2000,14 @@ pub const Grid = struct {
 
     pub fn titleSlice(self: Grid) []const u8 {
         return self.title.items;
+    }
+
+    pub fn notificationTitle(self: *const Grid) []const u8 {
+        return self.notification_title[0..self.notification_title_len];
+    }
+
+    pub fn notificationBody(self: *const Grid) []const u8 {
+        return self.notification_body[0..self.notification_body_len];
     }
 
     pub fn styleBits(self: Grid, column: usize, row: usize) u32 {
@@ -4890,14 +4926,87 @@ test "terminal grid recognizes standard bounded notification sequences" {
     defer grid.deinit();
 
     try grid.feed("\x1b]9;agent needs input\x1b\\");
+    try std.testing.expectEqual(@as(u64, 1), grid.notification_serial);
+    try std.testing.expectEqualStrings("Terminal notification", grid.notificationTitle());
+    try std.testing.expectEqualStrings("agent needs input", grid.notificationBody());
+
     try grid.feed("\x1b]99;i=agent:d=0;task finished\x1b\\");
-    try grid.feed("\x1b]777;notify;Build;complete\x1b\\");
+    try std.testing.expectEqual(@as(u64, 2), grid.notification_serial);
+    try std.testing.expectEqualStrings("Terminal notification", grid.notificationTitle());
+    try std.testing.expectEqualStrings("task finished", grid.notificationBody());
+
+    try grid.feed("\x1b]99;title=Review:d=0;task queued\x1b\\");
     try std.testing.expectEqual(@as(u64, 3), grid.notification_serial);
+    try std.testing.expectEqualStrings("Review", grid.notificationTitle());
+    try std.testing.expectEqualStrings("task queued", grid.notificationBody());
+    try grid.feed("\x1b]777;notify;Bu");
+    try grid.feed("ild;complete\x1b\\");
+    try std.testing.expectEqual(@as(u64, 4), grid.notification_serial);
+    try std.testing.expectEqualStrings("Build", grid.notificationTitle());
+    try std.testing.expectEqualStrings("complete", grid.notificationBody());
 
     try grid.feed("\x1b]9;4;1;50\x1b\\");
     try grid.feed("\x1b]99;i=query:p=?;\x1b\\");
     try grid.feed("\x1b]777;progress;50\x1b\\");
-    try std.testing.expectEqual(@as(u64, 3), grid.notification_serial);
+    try std.testing.expectEqual(@as(u64, 4), grid.notification_serial);
+}
+
+test "terminal grid truncates notification fields without splitting utf8" {
+    var grid = try Grid.init(std.testing.allocator, 20, 4);
+    defer grid.deinit();
+
+    var body: [max_notification_body_bytes + 16]u8 = undefined;
+    @memset(body[0..], 'x');
+    var input: [body.len + 6]u8 = undefined;
+    @memcpy(input[0..4], "\x1b]9;");
+    @memcpy(input[4 .. 4 + body.len], body[0..]);
+    @memcpy(input[4 + body.len ..], "\x1b\\");
+    try grid.feed(input[0..]);
+    try std.testing.expectEqual(max_notification_body_bytes, grid.notificationBody().len);
+    try std.testing.expectEqual(@as(u8, 'x'), grid.notificationBody()[0]);
+    try std.testing.expectEqual(@as(u8, 'x'), grid.notificationBody()[max_notification_body_bytes - 1]);
+}
+
+fn notificationTitleFromMetadata(metadata: []const u8) []const u8 {
+    var start: usize = 0;
+    while (start < metadata.len) {
+        const remaining = metadata[start..];
+        const field_length = std.mem.indexOfScalar(u8, remaining, ':') orelse remaining.len;
+        const field = remaining[0..field_length];
+        if (std.mem.startsWith(u8, field, "title="))
+            return field["title=".len..];
+        if (std.mem.startsWith(u8, field, "t="))
+            return field["t=".len..];
+        if (field_length == remaining.len) break;
+        start += field_length + 1;
+    }
+    return default_notification_title;
+}
+
+fn copyNotificationText(destination: []u8, source: []const u8) usize {
+    const nul = std.mem.indexOfScalar(u8, source, 0) orelse source.len;
+    var length = @min(destination.len, nul);
+    while (length > 0 and !std.unicode.utf8ValidateSlice(source[0..length]))
+        length -= 1;
+    @memcpy(destination[0..length], source[0..length]);
+    return length;
+}
+
+fn recordNotification(
+    self: *Grid,
+    title: []const u8,
+    body: []const u8,
+    action: NotificationAction,
+) void {
+    self.notification_title_len = copyNotificationText(&self.notification_title, title);
+    if (self.notification_title_len == 0)
+        self.notification_title_len = copyNotificationText(
+            &self.notification_title,
+            default_notification_title,
+        );
+    self.notification_body_len = copyNotificationText(&self.notification_body, body);
+    self.notification_action = action;
+    self.notification_serial +%= 1;
 }
 
 fn notificationAction(value: []const u8) NotificationAction {

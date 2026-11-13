@@ -176,7 +176,7 @@ read this as engineering evidence, not as extra product surface.
 - `scripts/native_grid_resolution_smoke.sh`: focused private-KWin live output-mode
   switch proof for proportional dropdown reflow and current-monitor fullscreen.
 - `scripts/native_grid_stability_qualification.sh`: NCT-112 hidden/visible phase runner. `--smoke` checks Debug/`ReleaseSafe` Wayland/X11 quickly; `--run` retains the default 48-hour authenticated `ReleaseSafe` matrix.
-- `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in authenticated Codex exact-response matrix through production PTY/VT/GTK/Cairo in dedicated Wayland/X11 sessions.
+- `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in launcher-selected Pi/OMP/ZIPI exact-response matrix through production PTY/VT/GTK/Cairo in dedicated Wayland/X11 sessions; Pi and OMP own external-provider access, while ZIPI is local-only.
 - `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, NOCTTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path.
 - `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.

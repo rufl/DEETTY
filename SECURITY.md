@@ -49,10 +49,12 @@ NOCTTY should maintain these boundaries:
 - settings/session files must recover safely from malformed or oversized data;
   NoctEd dirty-buffer snapshots and encrypted `.nocttyhs` history exports use
   atomic private (`0600`) storage
-- agent resume references are opaque, bounded, provider-limited, and never
-  inferred from terminal output; restore actions require explicit user choice
+- agent resume references are opaque, bounded, and never inferred from
+  terminal output; the only supported launchers are Pi, OMP, and local-only
+  ZIPI, and restore actions require explicit user choice
 - dependency bundles must keep ownership/license payload checks fail-closed
-- the opt-in authenticated Codex qualification uses the installed CLI's existing login, retains only the exact response/log/screenshot, and never copies provider credentials into repository evidence
+- the opt-in launcher qualification retains only bounded response/log/screenshot
+  evidence; Pi and OMP own external-provider credentials and ZIPI is local-only
 - session sharing opens network sockets only after an explicit pair, discover,
   share, or receive action; pairing-listener announcements are bounded to the
   LAN and stop with the listener, and discovery stops when its UI closes
@@ -82,8 +84,8 @@ The alpha source tree does not yet claim:
 - independent security or cryptographic audit
 - signed release artifact trust
 - universal terminal escape security
-- provider-owned agent resume correctness beyond validated Claude Code/Codex
-  command construction
+- provider-owned agent session discovery or authentication outside the Pi,
+  OMP, and ZIPI launcher boundary
 
 Treat NOCTTY as a local developer tool and run untrusted commands with the same
 care you would use in any terminal emulator.

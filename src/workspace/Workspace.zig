@@ -1191,7 +1191,7 @@ pub const WorkspaceExport = struct {
 };
 
 const workspace_export_magic = "NOCTTYWS";
-const workspace_export_version: u8 = 7;
+const workspace_export_version: u8 = 8;
 
 pub fn exportSnapshotAlloc(allocator: std.mem.Allocator, snapshot: ProjectSnapshot) ![]u8 {
     var writer = SnapshotWriter.init(allocator);
@@ -1283,7 +1283,7 @@ pub fn importSnapshotAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Pro
             return error.InvalidWorkspaceSnapshot;
         for (tabs) |*tab| {
             for (tab.panes) |*pane| {
-                pane.agent_resume = try reader.readAgentResume();
+                pane.agent_resume = try reader.readAgentResume(version);
             }
         }
     }
@@ -1595,14 +1595,22 @@ const SnapshotReader = struct {
         };
     }
 
-    fn readAgentResume(self: *SnapshotReader) !Continuity.AgentResume {
+    fn readAgentResume(self: *SnapshotReader, version: u8) !Continuity.AgentResume {
         const enabled = try self.readBool();
-        const provider = try Continuity.providerFromInt(try self.readU8());
-        var reference = Continuity.AgentResume{ .enabled = enabled, .provider = provider };
+        const provider_raw = try self.readU8();
         const session_id = try self.readStringAlloc();
         defer self.allocator.free(session_id);
         const label = try self.readStringAlloc();
         defer self.allocator.free(label);
+
+        if (version < 8) {
+            if (enabled) return error.InvalidWorkspaceSnapshot;
+            return .{};
+        }
+
+        const provider = Continuity.providerFromInt(provider_raw) catch
+            return error.InvalidWorkspaceSnapshot;
+        var reference = Continuity.AgentResume{ .enabled = enabled, .provider = provider };
         reference.session_id.set(session_id) catch return error.InvalidWorkspaceSnapshot;
         reference.label.set(label) catch return error.InvalidWorkspaceSnapshot;
         reference.validate() catch return error.InvalidWorkspaceSnapshot;
@@ -3908,8 +3916,8 @@ test "workspace snapshot export imports equivalent owned snapshot" {
         .ligatures = false,
     });
     ws.findPane(2).?.status = .long_running;
-    var resume_reference = Continuity.AgentResume{ .enabled = true, .provider = .codex };
-    try resume_reference.session_id.set("codex-session-42");
+    var resume_reference = Continuity.AgentResume{ .enabled = true, .provider = .omp };
+    try resume_reference.session_id.set("omp-session-42");
     try resume_reference.label.set("Review agent");
     try ws.findPane(2).?.setAgentResume(resume_reference);
     _ = try ws.renameTab(1, "Build logs");
@@ -3951,13 +3959,30 @@ test "workspace snapshot export imports equivalent owned snapshot" {
     try std.testing.expectEqualStrings("workspace-dark", imported.tabs[0].panes[1].profile.theme_name);
     try std.testing.expectEqualStrings("agent", imported.tabs[0].panes[1].tags[0]);
     try std.testing.expect(imported.tabs[0].panes[1].agent_resume.enabled);
-    try std.testing.expectEqual(Continuity.Provider.codex, imported.tabs[0].panes[1].agent_resume.provider);
-    try std.testing.expectEqualStrings("codex-session-42", imported.tabs[0].panes[1].agent_resume.session_id.slice());
+    try std.testing.expectEqual(Continuity.Provider.omp, imported.tabs[0].panes[1].agent_resume.provider);
+    try std.testing.expectEqualStrings("omp-session-42", imported.tabs[0].panes[1].agent_resume.session_id.slice());
     try std.testing.expectEqualStrings("Review agent", imported.tabs[0].panes[1].agent_resume.label.slice());
     try std.testing.expect(imported.tabs[0].panes[1].profile.theme_name.ptr != snapshot.tabs[0].panes[1].profile.theme_name.ptr);
     try std.testing.expectEqual(GitFileState.renamed, imported.project_panels.git_status[0].state);
     try std.testing.expectEqualStrings("panel-state", imported.project_panels.git_graph[0].branch.?);
     try std.testing.expect(imported.project_panels.files[0].path.ptr != snapshot.project_panels.files[0].path.ptr);
+}
+
+test "workspace snapshot rejects enabled legacy direct-provider resume references" {
+    const allocator = std.testing.allocator;
+    var ws = try Workspace.init(allocator, "/repo/main");
+    defer ws.deinit();
+
+    var resume_reference = Continuity.AgentResume{ .enabled = true, .provider = .pi };
+    try resume_reference.session_id.set("pi-session-legacy");
+    try ws.findPane(1).?.setAgentResume(resume_reference);
+    var snapshot = try ws.captureSnapshot();
+    defer snapshot.deinit(allocator);
+    const bytes = try exportSnapshotAlloc(allocator, snapshot);
+    defer allocator.free(bytes);
+
+    bytes[workspace_export_magic.len] = 7;
+    try std.testing.expectError(error.InvalidWorkspaceSnapshot, importSnapshotAlloc(allocator, bytes));
 }
 
 test "workspace snapshot import rejects malformed or trailing data" {

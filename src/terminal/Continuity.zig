@@ -5,9 +5,9 @@ pub const max_session_id_bytes: usize = 256;
 pub const max_label_bytes: usize = 64;
 
 pub const Provider = enum(u8) {
-    claude_code,
-    codex,
-    custom,
+    pi,
+    omp,
+    zipi,
 };
 
 pub const RestoreMode = enum(u8) {
@@ -25,7 +25,7 @@ pub const Kind = enum(u8) {
 
 pub const AgentResume = struct {
     enabled: bool = false,
-    provider: Provider = .custom,
+    provider: Provider = .pi,
     session_id: LaunchProfile.BoundedText(max_session_id_bytes) = .{},
     label: LaunchProfile.BoundedText(max_label_bytes) = .{},
 
@@ -73,17 +73,17 @@ pub const AgentResume = struct {
 
 pub fn providerLabel(provider: Provider) []const u8 {
     return switch (provider) {
-        .claude_code => "Claude Code",
-        .codex => "Codex",
-        .custom => "agent",
+        .pi => "Pi",
+        .omp => "OMP",
+        .zipi => "ZIPI (local)",
     };
 }
 
 pub fn providerFromInt(value: u8) !Provider {
     return switch (value) {
-        0 => .claude_code,
-        1 => .codex,
-        2 => .custom,
+        0 => .pi,
+        1 => .omp,
+        2 => .zipi,
         else => error.InvalidAgentResumeReference,
     };
 }
@@ -95,16 +95,15 @@ pub fn profileForResume(
 ) !LaunchProfile.Profile {
     try reference.validate();
     if (!reference.enabled) return error.AgentResumeUnavailable;
-    if (reference.provider == .custom) return error.AgentResumeProviderUnsupported;
     var profile = LaunchProfile.Profile{};
     profile.kind = .command;
     try profile.shell.set("/bin/sh");
     try profile.working_directory.set(cwd);
     profile.scrollback_lines = scrollback_lines;
     const command_name = switch (reference.provider) {
-        .claude_code => "claude --resume ",
-        .codex => "codex --no-alt-screen resume ",
-        .custom => unreachable,
+        .pi => "pi --resume ",
+        .omp => "omp --resume=",
+        .zipi => "zipi --resume ",
     };
     var command: [LaunchProfile.max_command_bytes]u8 = undefined;
     const command_slice = try std.fmt.bufPrint(&command, "{s}{s}", .{
@@ -130,29 +129,35 @@ test "continuity labels distinguish restart, live, and agent sessions" {
     try std.testing.expectEqualStrings("live tmux", reference.labelText(.tmux));
     try std.testing.expectEqualStrings("live Zellij", reference.labelText(.zellij));
 
-    var configured = AgentResume{ .enabled = true, .provider = .codex };
+    var configured = AgentResume{ .enabled = true, .provider = .pi };
     try configured.session_id.set("session-123");
     try configured.validate();
-    try std.testing.expectEqualStrings("Codex", configured.labelText(.shell));
+    try std.testing.expectEqualStrings("Pi", configured.labelText(.shell));
+
+    configured.provider = .omp;
+    try std.testing.expectEqualStrings("OMP", configured.labelText(.shell));
+    configured.provider = .zipi;
+    try std.testing.expectEqualStrings("ZIPI (local)", configured.labelText(.shell));
 }
 
-test "resume profiles use fixed provider argv-shaped shell commands" {
-    var reference = AgentResume{ .enabled = true, .provider = .claude_code };
+test "resume profiles use fixed launcher commands" {
+    var reference = AgentResume{ .enabled = true, .provider = .pi };
     try reference.session_id.set("abc-123");
-    const profile = try profileForResume(reference, "/tmp/project", 1000);
-    try std.testing.expectEqual(LaunchProfile.Kind.command, profile.kind);
-    try std.testing.expectEqualStrings("claude --resume abc-123", profile.command.slice());
+    const pi_profile = try profileForResume(reference, "/tmp/project", 1000);
+    try std.testing.expectEqual(LaunchProfile.Kind.command, pi_profile.kind);
+    try std.testing.expectEqualStrings("pi --resume abc-123", pi_profile.command.slice());
 
-    reference.provider = .codex;
-    const codex_profile = try profileForResume(reference, "/tmp/project", 1000);
-    try std.testing.expectEqualStrings(
-        "codex --no-alt-screen resume abc-123",
-        codex_profile.command.slice(),
-    );
+    reference.provider = .omp;
+    const omp_profile = try profileForResume(reference, "/tmp/project", 1000);
+    try std.testing.expectEqualStrings("omp --resume=abc-123", omp_profile.command.slice());
+
+    reference.provider = .zipi;
+    const zipi_profile = try profileForResume(reference, "/tmp/project", 1000);
+    try std.testing.expectEqualStrings("zipi --resume abc-123", zipi_profile.command.slice());
 }
 
 test "resume references reject shell metacharacters" {
-    var reference = AgentResume{ .enabled = true, .provider = .codex };
+    var reference = AgentResume{ .enabled = true, .provider = .omp };
     try reference.session_id.set("bad;id");
     try std.testing.expectError(error.InvalidAgentResumeReference, reference.validate());
 }

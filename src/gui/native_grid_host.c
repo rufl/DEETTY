@@ -89,6 +89,8 @@ extern int noctty_grid_scroll_state(void *, uint64_t *, uint64_t *, uint32_t *);
 extern uint64_t noctty_grid_bell_serial(void *);
 extern uint64_t noctty_grid_notification_serial(void *);
 extern int noctty_grid_notification_action(void *);
+extern int noctty_grid_notification_title(void *, char *, size_t);
+extern int noctty_grid_notification_body(void *, char *, size_t);
 extern int noctty_grid_set_agent_resume(void *, uint64_t, int, const char *, size_t, const char *, size_t);
 extern int noctty_grid_clear_agent_resume(void *, uint64_t);
 extern int noctty_grid_save_encrypted_history(void *, void *, const char *, size_t, const char *, size_t);
@@ -6246,6 +6248,8 @@ typedef struct {
     uint64_t pane_id;
     int exit_code;
     int attention;
+    char title[129];
+    char body[1025];
 } NocttyNotificationRequest;
 
 static void on_grid_notification_sent(GObject *source, GAsyncResult *result,
@@ -6278,15 +6282,24 @@ static void on_grid_notification_bus_ready(GObject *source,
         noctty_grid_memory_free(request);
         return;
     }
-    char body[256];
-    if (noctty_grid_attention_notification_text(
+    char fallback_body[256];
+    const char *body = request->body[0] != '\0'
+        ? request->body
+        : fallback_body;
+    if (request->body[0] == '\0' &&
+        noctty_grid_attention_notification_text(
             request->pane_id, request->attention, request->exit_code,
-            (unsigned char *)body, sizeof(body)) <= 0) {
+            (unsigned char *)fallback_body, sizeof(fallback_body)) <= 0) {
         finish_grid_dbus_operation(request->root);
         noctty_grid_memory_free(request);
         noctty_grid_object_unref(bus);
         return;
     }
+    const char *summary =
+        request->attention && request->title[0] != '\0'
+            ? request->title
+            : request->attention ? "Terminal needs attention"
+                                  : "Terminal finished";
     GVariantBuilder hints;
     g_variant_builder_init(&hints, G_VARIANT_TYPE("a{sv}"));
     g_dbus_connection_call(
@@ -6295,8 +6308,7 @@ static void on_grid_notification_bus_ready(GObject *source,
         "Notify",
         g_variant_new("(susss@as@a{sv}i)", "NOCTTY", 0u,
                       "com.lichforge.NOCTTY",
-                      request->attention ? "Terminal needs attention" :
-                                           "Terminal finished",
+                      summary,
                       body,
                       g_variant_new_strv(NULL, 0),
                       g_variant_builder_end(&hints),
@@ -6330,6 +6342,12 @@ static void send_attention_notification(NocttyGridContext *context,
     request->root = root;
     request->pane_id = context->pane_id;
     request->attention = 1;
+    if (noctty_grid_notification_title(
+            context->userdata, request->title, sizeof(request->title) - 1) < 0)
+        request->title[0] = '\0';
+    if (noctty_grid_notification_body(
+            context->userdata, request->body, sizeof(request->body) - 1) < 0)
+        request->body[0] = '\0';
     begin_grid_dbus_operation(root);
     g_bus_get(G_BUS_TYPE_SESSION, root->dbus_cancellable,
               on_grid_notification_bus_ready, request);
@@ -16371,7 +16389,7 @@ static gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer use
     const int route = scroll_plan.route;
     /* The native rail owns pointer events inside its visible hit target even
      * when the foreground TUI enables terminal mouse reporting. Otherwise
-     * apps such as Codex consume the wheel before NOCTTY can move history. */
+     * full-screen apps consume the wheel before NOCTTY can move history. */
     if (route == NOCTTY_GRID_ROUTE_SCROLLBAR) {
         int steps = terminal_scroll_steps(context, event);
         if (steps != 0)

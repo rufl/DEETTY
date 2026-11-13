@@ -3,6 +3,15 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Replaced direct Claude/Codex agent-resume choices with fixed Pi, OMP, and
+  local-only ZIPI launchers. Workspace snapshots now use version 8 and reject
+  enabled legacy direct-provider references instead of remapping them.
+- Added bounded structured OSC 9/99/777 activity fields to the VT grid and
+  forwarded title/body payloads through the native desktop notification path;
+  progress/query forms remain suppressed and actions stay limited to focus or
+  project navigation.
+- Made the mapped agent qualification launcher-neutral. Pi and OMP own any
+  external-provider authentication; ZIPI runs in offline local-only mode.
 - Added SIMD-assisted detection of contiguous printable ASCII runs in the VT
   ground state. It reduces parser boundary scanning without changing escape,
   UTF-8, grapheme, or control-sequence semantics.

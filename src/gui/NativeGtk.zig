@@ -4941,7 +4941,7 @@ pub export fn noctty_agent_resume_contents_new(
     const provider = gtk_combo_box_text_new() orelse return FALSE;
     const session = gtk_entry_new() orelse return FALSE;
     const label = gtk_entry_new() orelse return FALSE;
-    for ([_][*:0]const u8{ "Claude Code", "Codex" }) |text|
+    for ([_][*:0]const u8{ "Pi", "OMP", "ZIPI (local)" }) |text|
         gtk_combo_box_text_append_text(@ptrCast(provider), text);
     gtk_combo_box_set_active(@ptrCast(provider), 0);
     gtk_entry_set_placeholder_text(@ptrCast(session), "Opaque session ID");
