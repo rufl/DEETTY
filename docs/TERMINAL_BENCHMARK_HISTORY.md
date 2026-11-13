@@ -12,17 +12,17 @@ results below predate parts of that stricter protocol and must not be mixed
 with a new run as if they were one controlled matrix.
 
 > **Audit correction:** the historical harness configured peers at 11 pt but
-> left NOCTTY's benchmark-only path at its 13 pt default. That unequal visible
+> left DINTTY's benchmark-only path at its 13 pt default. That unequal visible
 > grid can affect wrapping, scrolling, and rendering work. Historical tables
 > remain useful development receipts, but they are not font-parity rankings.
-> The current harness passes the same explicit font size into NOCTTY and every
+> The current harness passes the same explicit font size into DINTTY and every
 > peer; publishable cross-terminal claims require a fresh full matrix.
 
 ## Scope
 
 | Terminal | Version |
 | --- | --- |
-| NOCTTY | 0.1.0 |
+| DINTTY | 0.1.0 |
 | Konsole | 26.04.3-1 |
 | Kitty | 0.48.0-1 |
 | WezTerm | 20240203.110809.5046fc22-2 |
@@ -113,7 +113,7 @@ Each startup cell is median milliseconds followed by median PSS in MiB.
 
 | Terminal | 1 pane | 2 panes | 4 panes | 8 panes |
 | --- | ---: | ---: | ---: | ---: |
-| NOCTTY | 164 / 33.621 | 164 / 33.635 | 177 / 33.596 | 178 / 33.884 |
+| DINTTY | 164 / 33.621 | 164 / 33.635 | 177 / 33.596 | 178 / 33.884 |
 | Konsole | 276 / 34.094 | 317 / 34.984 | 429 / 38.081 | 634 / 43.776 |
 | Kitty | 278 / 87.656 | 298 / 95.547 | 385 / 103.334 | 479 / 122.146 |
 | WezTerm | 196 / 83.715 | 184 / 84.454 | 218 / 84.839 | 292 / 89.289 |
@@ -121,7 +121,7 @@ Each startup cell is median milliseconds followed by median PSS in MiB.
 | Ghostty | 680 / 116.896 | 838 / 126.094 | 1220 / 144.737 | 1946 / 183.536 |
 
 The startup range is retained because desktop launch variance remains visible.
-NOCTTY's ranges were 163-166, 150-168, 176-177, and 173-193 ms for 1/2/4/8
+DINTTY's ranges were 163-166, 150-168, 176-177, and 173-193 ms for 1/2/4/8
 panes; Konsole's four-pane range was 422-616 ms. The raw CSV is the source for
 every min/median/max value; output is measured in a separate scenario.
 
@@ -130,21 +130,21 @@ Four-pane output results:
 | Terminal | Writer median | Throughput |
 | --- | ---: | ---: |
 | Kitty | 64 ms | 103.712 MiB/s |
-| NOCTTY | 66 ms | 100.569 MiB/s |
+| DINTTY | 66 ms | 100.569 MiB/s |
 | Ghostty | 66 ms | 100.569 MiB/s |
 | Terminator | 113 ms | 58.740 MiB/s |
 | WezTerm | 129 ms | 51.454 MiB/s |
 | Konsole | 163 ms | 40.721 MiB/s |
 
-NOCTTY used the least PSS and had the lowest median startup at every pane count.
+DINTTY used the least PSS and had the lowest median startup at every pane count.
 Relative to the next-lowest PSS, Konsole, its advantage was 1.4 percent at one
 pane and 22.6 percent at eight panes. Relative to the next-fastest startup
 median, its advantage ranged from 10.9 percent at two panes to 39.0 percent at
-eight panes. NOCTTY's median idle CPU sample was 0.0 percent at every pane
+eight panes. DINTTY's median idle CPU sample was 0.0 percent at every pane
 count; all idle results remain too close to one-jiffy resolution for a precise
 CPU ranking.
 
-The initial matrix exposed a one-read-per-tick NOCTTY bottleneck. Four-pane
+The initial matrix exposed a one-read-per-tick DINTTY bottleneck. Four-pane
 writer completion was 7129 ms because each 16 ms GTK tick consumed only one
 4 KiB PTY read. `TerminalSession.pump` first moved to drain-to-`EAGAIN` with a
 128 KiB per-pane budget, reducing the median to 318 ms. NCT-101 then added a
@@ -164,7 +164,7 @@ faster than the original result (`native_output_throughput=true`,
 The retained [pre-pump summary](../benchmarks/terminal-comparison-2026-07-15-pre-pump-fix-summary.csv),
 [pre-active-output summary](../benchmarks/terminal-comparison-2026-07-15-pre-active-output-summary.csv),
 and [pre-event-source summary](../benchmarks/terminal-comparison-2026-07-15-pre-event-source-summary.csv)
-preserve all three baselines independently of the current matrix. NOCTTY trails
+preserve all three baselines independently of the current matrix. DINTTY trails
 Kitty by 2 ms, ties Ghostty, and leads Konsole, WezTerm, and Terminator on writer
 completion. This remains ingestion evidence, not final-frame proof.
 
@@ -180,22 +180,22 @@ and [metadata](../benchmarks/terminal-comparison-2026-07-20-220831-post-lightnes
 
 | Terminal | 1-pane startup / PSS | 2-pane | 4-pane | 8-pane |
 | --- | ---: | ---: | ---: | ---: |
-| NOCTTY | 121 ms / 15.048 MiB | 143 / 15.449 | 127 / 17.950 | 121 / 17.066 |
+| DINTTY | 121 ms / 15.048 MiB | 143 / 15.449 | 127 / 17.950 | 121 / 17.066 |
 | Konsole | 223 / 28.509 | 272 / 29.612 | 373 / 32.477 | 581 / 38.081 |
 | Kitty | 245 / 86.846 | 282 / 88.536 | 339 / 92.509 | 439 / 96.760 |
 | WezTerm | 135 / 81.582 | 175 / 81.661 | 194 / 82.585 | 281 / 87.225 |
 | Terminator | 320 / 61.798 | 341 / 63.297 | 397 / 65.217 | 524 / 67.342 |
 | Ghostty | 617 / 110.454 | 758 / 122.142 | 1100 / 138.791 | 1903 / 177.063 |
 
-NOCTTY again has the lowest median startup and PSS at every pane count. Against
+DINTTY again has the lowest median startup and PSS at every pane count. Against
 next-lowest-memory Konsole it uses 44.7–55.2% less PSS; against next-fastest
-startup WezTerm it is 10.4–56.9% faster. One NOCTTY eight-pane startup trial was
+startup WezTerm it is 10.4–56.9% faster. One DINTTY eight-pane startup trial was
 a 502 ms outlier; the other two were 117 and 121 ms.
 
 Four-pane writer completion now ranks Kitty 64 ms, Ghostty 65 ms, Terminator
-95 ms, WezTerm 135 ms, NOCTTY 146 ms, and Konsole 167 ms. NOCTTY is 12.6%
+95 ms, WezTerm 135 ms, DINTTY 146 ms, and Konsole 167 ms. DINTTY is 12.6%
 faster than Konsole but slower than the other four peers on this ingestion-only
-metric. This is materially better than NOCTTY's immediately preceding 237 ms
+metric. This is materially better than DINTTY's immediately preceding 237 ms
 run, while slower than the older NCT-102 66 ms retained above. The compact
 hot/cold history design traded ingestion throughput for much lower retained
 memory; final-frame latency remains outside this harness.
@@ -214,20 +214,20 @@ A final same-session 15-trial leader matrix retained
 [raw samples](../benchmarks/terminal-comparison-ingest-durable-final-raw.csv),
 [summary](../benchmarks/terminal-comparison-ingest-durable-final-summary.csv),
 and [metadata](../benchmarks/terminal-comparison-ingest-durable-final-metadata.txt).
-NOCTTY completed the four-pane writers in **66 ms / 100.569 MiB/s**, Kitty in
+DINTTY completed the four-pane writers in **66 ms / 100.569 MiB/s**, Kitty in
 **67 ms / 99.068 MiB/s**, and Ghostty in **68 ms / 97.611 MiB/s**. The other
 retained peers remain slower at 95 ms or more. On this machine-local,
-writer-completion-only boundary, NOCTTY is therefore the fastest measured
+writer-completion-only boundary, DINTTY is therefore the fastest measured
 terminal, while the 1–2 ms lead is narrow enough that future comparisons must
 retain multiple rotated trials. Final-frame presentation remains unmeasured.
 
 ## Current rerun (2026-07-21)
 
-A fresh three-trial XWayland run retained [raw samples](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-raw.csv), [summary](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-summary.csv), and [metadata](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-metadata.txt). It rebuilt NOCTTY in `ReleaseFast`, used rotated order and one-second teardown intervals, and includes isolated one-pane Alacritty and Yakuake startup, memory, and writer samples.
+A fresh three-trial XWayland run retained [raw samples](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-raw.csv), [summary](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-summary.csv), and [metadata](../benchmarks/terminal-comparison-2026-07-21-font-cache-rerun-metadata.txt). It rebuilt DINTTY in `ReleaseFast`, used rotated order and one-second teardown intervals, and includes isolated one-pane Alacritty and Yakuake startup, memory, and writer samples.
 
 | Terminal | 1-pane startup / PSS | 2-pane | 4-pane | 8-pane |
 | --- | ---: | ---: | ---: | ---: |
-| NOCTTY | 135 ms / 16.573 MiB | 135 / 16.923 | 135 / 17.664 | 138 / 18.842 |
+| DINTTY | 135 ms / 16.573 MiB | 135 / 16.923 | 135 / 17.664 | 138 / 18.842 |
 | Konsole | 220 ms / 29.773 MiB | 264 / 30.729 | 361 / 33.592 | 591 / 39.235 |
 | Kitty | 229 ms / 92.043 MiB | 285 / 91.804 | 318 / 94.360 | 415 / 101.836 |
 | WezTerm | 155 ms / 85.685 MiB | 157 / 86.266 | 188 / 87.526 | 259 / 91.812 |
@@ -238,7 +238,7 @@ A fresh three-trial XWayland run retained [raw samples](../benchmarks/terminal-c
 
 | Terminal | One-pane writer median | Throughput |
 | --- | ---: | ---: |
-| NOCTTY | 20 ms | 82.970 MiB/s |
+| DINTTY | 20 ms | 82.970 MiB/s |
 | Alacritty | 32 ms | 51.856 MiB/s |
 | Kitty | 34 ms | 48.806 MiB/s |
 | Terminator | 34 ms | 48.806 MiB/s |
@@ -251,12 +251,12 @@ A fresh three-trial XWayland run retained [raw samples](../benchmarks/terminal-c
 | --- | ---: | ---: |
 | Ghostty | 63 ms | 105.358 MiB/s |
 | Kitty | 64 ms | 103.712 MiB/s |
-| NOCTTY | 65 ms | 102.117 MiB/s |
+| DINTTY | 65 ms | 102.117 MiB/s |
 | Terminator | 90 ms | 73.751 MiB/s |
 | WezTerm | 121 ms | 54.856 MiB/s |
 | Konsole | 190 ms | 34.935 MiB/s |
 
-NOCTTY had the lowest median startup and idle PSS at every split-capable pane count, and at one pane against Alacritty and Yakuake. At one pane it started 12.9% faster than WezTerm and used 44.3% less PSS than Konsole, the next-lowest-memory peer. It led the one-pane writer lane and ranked third in the four-pane writer lane; both remain ingestion-only evidence.
+DINTTY had the lowest median startup and idle PSS at every split-capable pane count, and at one pane against Alacritty and Yakuake. At one pane it started 12.9% faster than WezTerm and used 44.3% less PSS than Konsole, the next-lowest-memory peer. It led the one-pane writer lane and ranked third in the four-pane writer lane; both remain ingestion-only evidence.
 
 That historical run kept Alacritty and Yakuake to one pane. The current harness still limits Alacritty, which has no native split-tree interface, but restores Yakuake's native D-Bus `splitTerminalTopBottom`/`splitTerminalLeftRight` path for balanced 2/4/8-panel trees. Yakuake starts only when no instance already exists, uses isolated configuration and Konsole profile directories, applies the common font and 1000-line history to every terminal, and exits through its own D-Bus API. Existing user sessions remain an enforced hard stop.
 
@@ -273,10 +273,10 @@ A rotated 15-trial leader run retained
 [summary](../benchmarks/terminal-comparison-2026-07-21-ns-final-summary.csv), and
 [metadata](../benchmarks/terminal-comparison-2026-07-21-ns-final-metadata.txt).
 Kitty completed the four-pane writers in **52.384 ms / 126.710 MiB/s**,
-NOCTTY in **56.378 ms / 117.733 MiB/s**, and Ghostty in
-**59.187 ms / 112.146 MiB/s**. NOCTTY remains the startup and memory leader,
+DINTTY in **56.378 ms / 117.733 MiB/s**, and Ghostty in
+**59.187 ms / 112.146 MiB/s**. DINTTY remains the startup and memory leader,
 but Kitty is the honest four-pane writer-completion leader by 3.994 ms in this
-run. Tested 256 KiB and 1 MiB NOCTTY read buffers regressed the focused median,
+run. Tested 256 KiB and 1 MiB DINTTY read buffers regressed the focused median,
 so the 128 KiB buffer remains.
 
 ## Boundaries
@@ -284,7 +284,7 @@ so the 128 KiB buffer remains.
 - Native Wayland performance was not compared because the window/control
   automation requires a common X11 path.
 - PSS depends on other processes sharing the same libraries. GTK libraries can
-  be shared by NOCTTY, Terminator, and Ghostty; Qt/KDE pages can be shared by
+  be shared by DINTTY, Terminator, and Ghostty; Qt/KDE pages can be shared by
   Konsole and Yakuake.
 - The harness does not measure keystroke latency, frame latency, GPU time,
   mapped visual correctness under load, shell startup customization, or
@@ -304,16 +304,16 @@ Install the seven peer terminals plus `xdotool` and `qdbus`, then run from an
 acknowledged disposable KDE display session:
 
 ```sh
-NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
+DINTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
 Environment variables can narrow a diagnostic run, for example:
 
 ```sh
-NOCTTY_DEDICATED_DISPLAY=1 \
-NOCTTY_BENCH_TERMINALS='noctty kitty' \
-NOCTTY_BENCH_PANES='1 4 8' \
-NOCTTY_BENCH_RUNS=3 \
+DINTTY_DEDICATED_DISPLAY=1 \
+DINTTY_BENCH_TERMINALS='dintty kitty' \
+DINTTY_BENCH_PANES='1 4 8' \
+DINTTY_BENCH_RUNS=3 \
 ./scripts/terminal_benchmark.sh
 ```
 

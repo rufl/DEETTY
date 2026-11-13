@@ -50,10 +50,10 @@ jobs:
           OVERZEER_DISPLAY_RUNNER: ${{ github.workspace }}/scripts/isolated_display_runner.sh
         run: ./scripts/public_alpha_verify.sh
       - run: ./scripts/package_manifests_smoke.sh
-      - run: ./scripts/package_bundle.sh "noctty-linux-${{ matrix.arch }}.tar.gz"
+      - run: ./scripts/package_bundle.sh "dintty-linux-${{ matrix.arch }}.tar.gz"
       - name: Validate release archive
         run: |
-          archive="noctty-linux-${{ matrix.arch }}.tar.gz"
+          archive="dintty-linux-${{ matrix.arch }}.tar.gz"
           test -s "$archive"
           test -s "$archive.sha256"
           test -s "$archive.manifest"
@@ -67,21 +67,21 @@ jobs:
           grep -F 'all_copied_host_libraries_accounted=true' "$archive.manifest" >/dev/null
           grep -F 'bundle_license_payload_complete=true' "$archive.manifest" >/dev/null
           grep -F 'gtk_layer_shell_source=system' "$archive.manifest" >/dev/null
-          tar -tzf "$archive" | grep -F './bin/noctty' >/dev/null
+          tar -tzf "$archive" | grep -F './bin/dintty' >/dev/null
           tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
-          tar -tzf "$archive" | grep -F './libexec/noctty/noctty' >/dev/null
-          tar -tzf "$archive" | grep -F './libexec/noctty/nocted' >/dev/null
+          tar -tzf "$archive" | grep -F './libexec/dintty/dintty' >/dev/null
+          tar -tzf "$archive" | grep -F './libexec/dintty/nocted' >/dev/null
           tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
           tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
-          tar -tzf "$archive" | grep -F './libexec/noctty/lib/libgtk-layer-shell.so.0' >/dev/null
-          tar -tzf "$archive" | grep -F './share/licenses/noctty/dependencies/packages/' >/dev/null
+          tar -tzf "$archive" | grep -F './libexec/dintty/lib/libgtk-layer-shell.so.0' >/dev/null
+          tar -tzf "$archive" | grep -F './share/licenses/dintty/dependencies/packages/' >/dev/null
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: noctty-linux-${{ matrix.arch }}
+          name: dintty-linux-${{ matrix.arch }}
           path: |
-            noctty-linux-${{ matrix.arch }}.tar.gz
-            noctty-linux-${{ matrix.arch }}.tar.gz.sha256
-            noctty-linux-${{ matrix.arch }}.tar.gz.manifest
+            dintty-linux-${{ matrix.arch }}.tar.gz
+            dintty-linux-${{ matrix.arch }}.tar.gz.sha256
+            dintty-linux-${{ matrix.arch }}.tar.gz.manifest
 
   windows:
     timeout-minutes: 30
@@ -97,22 +97,22 @@ jobs:
       - name: Compile Windows host
         run: zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -j1 --summary all
       - name: Package Windows alpha
-        run: ./scripts/package_windows.sh noctty-windows-x86_64-alpha.zip
+        run: ./scripts/package_windows.sh dintty-windows-x86_64-alpha.zip
       - name: Validate Windows archive
         run: |
-          sha256sum -c noctty-windows-x86_64-alpha.zip.sha256
-          grep -F 'win32_native=true' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
-          grep -F 'conpty=true' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
-          grep -F 'gtk_runtime=false' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
-          grep -F 'physical_windows_validation=false' noctty-windows-x86_64-alpha.zip.manifest >/dev/null
-          unzip -l noctty-windows-x86_64-alpha.zip | grep -F 'noctty-windows-x86_64/noctty.exe' >/dev/null
+          sha256sum -c dintty-windows-x86_64-alpha.zip.sha256
+          grep -F 'win32_native=true' dintty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'conpty=true' dintty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'gtk_runtime=false' dintty-windows-x86_64-alpha.zip.manifest >/dev/null
+          grep -F 'physical_windows_validation=false' dintty-windows-x86_64-alpha.zip.manifest >/dev/null
+          unzip -l dintty-windows-x86_64-alpha.zip | grep -F 'dintty-windows-x86_64/dintty.exe' >/dev/null
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: noctty-windows-x86_64-alpha
+          name: dintty-windows-x86_64-alpha
           path: |
-            noctty-windows-x86_64-alpha.zip
-            noctty-windows-x86_64-alpha.zip.sha256
-            noctty-windows-x86_64-alpha.zip.manifest
+            dintty-windows-x86_64-alpha.zip
+            dintty-windows-x86_64-alpha.zip.sha256
+            dintty-windows-x86_64-alpha.zip.manifest
 
   windows-runtime:
     timeout-minutes: 15

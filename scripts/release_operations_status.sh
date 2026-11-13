@@ -12,7 +12,7 @@ has_file() {
 }
 
 version=$(release_value version)
-evidence_dir="${NOCTTY_RELEASE_EVIDENCE_DIR:-release/evidence/$version}"
+evidence_dir="${DINTTY_RELEASE_EVIDENCE_DIR:-release/evidence/$version}"
 require_complete=false
 list_missing=false
 
@@ -34,7 +34,7 @@ done
 
 issues_report=
 if [ "$list_missing" = true ]; then
-  issues_report=$(mktemp "${TMPDIR:-/tmp}/noctty-release-issues.XXXXXX")
+  issues_report=$(mktemp "${TMPDIR:-/tmp}/dintty-release-issues.XXXXXX")
 fi
 
 cleanup() {
@@ -91,8 +91,8 @@ checksum_digest() {
 
 validate_manifest() {
   arch=$1
-  checksum_file="noctty-linux-$arch.tar.gz.sha256"
-  manifest_file="noctty-linux-$arch.tar.gz.manifest"
+  checksum_file="dintty-linux-$arch.tar.gz.sha256"
+  manifest_file="dintty-linux-$arch.tar.gz.manifest"
   digest=$(checksum_digest "$evidence_dir/$checksum_file")
   ok=true
   if ! check_contains tagged_artifacts "$manifest_file" "architecture=$arch" "manifest_architecture_mismatch"; then
@@ -119,12 +119,12 @@ validate_manifest() {
 tagged_artifacts=false
 tagged_artifacts_ready=true
 for file in \
-  noctty-linux-x86_64.tar.gz \
-  noctty-linux-x86_64.tar.gz.sha256 \
-  noctty-linux-x86_64.tar.gz.manifest \
-  noctty-linux-aarch64.tar.gz \
-  noctty-linux-aarch64.tar.gz.sha256 \
-  noctty-linux-aarch64.tar.gz.manifest; do
+  dintty-linux-x86_64.tar.gz \
+  dintty-linux-x86_64.tar.gz.sha256 \
+  dintty-linux-x86_64.tar.gz.manifest \
+  dintty-linux-aarch64.tar.gz \
+  dintty-linux-aarch64.tar.gz.sha256 \
+  dintty-linux-aarch64.tar.gz.manifest; do
   if ! check_file tagged_artifacts "$file"; then
     tagged_artifacts_ready=false
   fi
@@ -132,8 +132,8 @@ done
 if [ "$tagged_artifacts_ready" = true ]; then
   (
     cd "$evidence_dir"
-    sha256sum -c noctty-linux-x86_64.tar.gz.sha256 >/dev/null
-    sha256sum -c noctty-linux-aarch64.tar.gz.sha256 >/dev/null
+    sha256sum -c dintty-linux-x86_64.tar.gz.sha256 >/dev/null
+    sha256sum -c dintty-linux-aarch64.tar.gz.sha256 >/dev/null
   )
   if ! validate_manifest x86_64; then
     tagged_artifacts_ready=false
@@ -149,24 +149,24 @@ fi
 signatures=false
 signatures_ready=true
 for file in \
-  noctty-linux-x86_64.tar.gz.sig \
-  noctty-linux-aarch64.tar.gz.sig \
-  noctty-linux-x86_64.tar.gz.sha256.sig \
-  noctty-linux-aarch64.tar.gz.sha256.sig \
-  noctty-linux-x86_64.tar.gz.manifest.sig \
-  noctty-linux-aarch64.tar.gz.manifest.sig; do
+  dintty-linux-x86_64.tar.gz.sig \
+  dintty-linux-aarch64.tar.gz.sig \
+  dintty-linux-x86_64.tar.gz.sha256.sig \
+  dintty-linux-aarch64.tar.gz.sha256.sig \
+  dintty-linux-x86_64.tar.gz.manifest.sig \
+  dintty-linux-aarch64.tar.gz.manifest.sig; do
   if ! check_file signatures "$file"; then
     signatures_ready=false
   fi
 done
 if [ "$signatures_ready" = true ]; then
   for file in \
-    noctty-linux-x86_64.tar.gz.sig \
-    noctty-linux-aarch64.tar.gz.sig \
-    noctty-linux-x86_64.tar.gz.sha256.sig \
-    noctty-linux-aarch64.tar.gz.sha256.sig \
-    noctty-linux-x86_64.tar.gz.manifest.sig \
-    noctty-linux-aarch64.tar.gz.manifest.sig; do
+    dintty-linux-x86_64.tar.gz.sig \
+    dintty-linux-aarch64.tar.gz.sig \
+    dintty-linux-x86_64.tar.gz.sha256.sig \
+    dintty-linux-aarch64.tar.gz.sha256.sig \
+    dintty-linux-x86_64.tar.gz.manifest.sig \
+    dintty-linux-aarch64.tar.gz.manifest.sig; do
     if ! check_no_placeholder signatures "$file"; then
       signatures_ready=false
     fi

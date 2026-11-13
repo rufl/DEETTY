@@ -50,4 +50,4 @@ The lane intentionally retains the existing one-callback/2 MiB pump ceiling and 
 ./scripts/terminal_agent_fairness_qualification.sh
 ```
 
-Use `NOCTTY_FAIRNESS_PARENT=/dev/shm` when repository-backed cache writes would contend with unrelated host dirty pages.
+Use `DINTTY_FAIRNESS_PARENT=/dev/shm` when repository-backed cache writes would contend with unrelated host dirty pages.

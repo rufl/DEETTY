@@ -36,18 +36,18 @@ fi
 # Exercise the exact installed wrappers after the source gates. These bounded
 # invocations create current-install receipts without opening a GUI or reading
 # terminal content.
-"$HOME/.local/bin/noctty" --version
+"$HOME/.local/bin/dintty" --version
 "$HOME/.local/bin/nocted" --version
 
 report=$(./scripts/local_diagnostic_report.sh)
 printf '%s\n' "$report"
 crash_line=$(printf '%s\n' "$report" | grep '^local_diagnostic_crashes ')
 grep -F 'install_baseline=true' <<<"$crash_line" >/dev/null
-grep -F 'since_install_noctty=0' <<<"$crash_line" >/dev/null
+grep -F 'since_install_dintty=0' <<<"$crash_line" >/dev/null
 grep -F 'since_install_nocted=0' <<<"$crash_line" >/dev/null
-grep -F 'since_install_noctty_smoke=0' <<<"$crash_line" >/dev/null
+grep -F 'since_install_dintty_smoke=0' <<<"$crash_line" >/dev/null
 grep -F 'since_install_nocted_smoke=0' <<<"$crash_line" >/dev/null
-for app in noctty nocted; do
+for app in dintty nocted; do
     install_line=$(grep "^local_diagnostic_current_install app=$app " <<<"$report")
     grep -E ' sessions=[1-9][0-9]* ' <<<"$install_line" >/dev/null
     grep -F ' failed=0 ' <<<"$install_line" >/dev/null

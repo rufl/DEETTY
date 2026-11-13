@@ -365,7 +365,7 @@ test "launch profiles validate shell command cwd environment and ssh modes" {
     try profile.shell.set("/bin/sh");
     try profile.command.set("printf ready");
     try profile.working_directory.set("/tmp");
-    try profile.environment.set("NOCTTY_PROFILE=ready;TERM_PROGRAM=NOCTTY");
+    try profile.environment.set("DINTTY_PROFILE=ready;TERM_PROGRAM=DINTTY");
     profile.scrollback_lines = 4096;
     try profile.validateFor(.posix);
     try std.testing.expectEqual(@as(usize, 2), profile.environmentEntryCount());
@@ -377,13 +377,13 @@ test "launch profiles validate shell command cwd environment and ssh modes" {
     try std.testing.expectEqualStrings("alice@example.com", profile.argument());
 
     profile.kind = .tmux;
-    try profile.ssh_target.set("noctty-work");
+    try profile.ssh_target.set("dintty-work");
     try profile.validateFor(.posix);
-    try std.testing.expectEqualStrings("noctty-work", profile.argument());
+    try std.testing.expectEqualStrings("dintty-work", profile.argument());
 
     profile.kind = .zellij;
     try profile.validateFor(.posix);
-    try std.testing.expectEqualStrings("noctty-work", profile.argument());
+    try std.testing.expectEqualStrings("dintty-work", profile.argument());
 }
 
 test "explicit initial working directory overrides a configured profile cwd" {

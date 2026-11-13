@@ -4,7 +4,7 @@ set -eu
 export LC_ALL=C
 export TZ=UTC
 
-out="${1:-/tmp/noctty-local.tar.gz}"
+out="${1:-/tmp/dintty-local.tar.gz}"
 case "$out" in
   /*) out_path="$out" ;;
   *) out_path="$(pwd)/$out" ;;
@@ -35,7 +35,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-tarball.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-tarball.XXXXXX")
 publish_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")
 sidecar_tmp=$(mktemp "$out_dir/.${out_name}.sha256.tmp.XXXXXX")
 
@@ -43,16 +43,16 @@ build_archive() {
   build_name=$1
   build_root="$scratch/$build_name"
   stage="$build_root/stage"
-  archive="$build_root/noctty.tar.gz"
+  archive="$build_root/dintty.tar.gz"
   mkdir -p "$stage" "$build_root/local-cache" "$build_root/global-cache"
 
   ZIG_GLOBAL_CACHE_DIR="$build_root/global-cache" zig build -Doptimize=ReleaseSafe -Dstrip=true \
     --prefix "$stage" \
     --cache-dir "$build_root/local-cache"
 
-  test -x "$stage/bin/noctty"
+  test -x "$stage/bin/dintty"
   test -x "$stage/bin/nocted"
-  test "$("$stage/bin/noctty" --version)" = "noctty $version"
+  test "$("$stage/bin/dintty" --version)" = "dintty $version"
   test "$("$stage/bin/nocted" --version)" = "nocted $version"
 
   tar -C "$stage" \
@@ -64,20 +64,20 @@ build_archive() {
     -cf - . | gzip -n > "$archive"
 
   test -s "$archive"
-  tar -tzf "$archive" | grep -F './bin/noctty' >/dev/null
+  tar -tzf "$archive" | grep -F './bin/dintty' >/dev/null
   tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
-  tar -tzf "$archive" | grep -F './share/applications/com.noctty.NOCTTY.desktop' >/dev/null
-  tar -tzf "$archive" | grep -F './share/kio/servicemenus/nocttyhere.desktop' >/dev/null
-  tar -tzf "$archive" | grep -F './share/applications/com.noctty.NoctEd.desktop' >/dev/null
-  tar -tzf "$archive" | grep -F './share/metainfo/com.noctty.NOCTTY.metainfo.xml' >/dev/null
-  tar -tzf "$archive" | grep -F './share/metainfo/com.noctty.NoctEd.metainfo.xml' >/dev/null
-  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.noctty.NOCTTY.svg' >/dev/null
-  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.noctty.NoctEd.svg' >/dev/null
+  tar -tzf "$archive" | grep -F './share/applications/com.dintty.DINTTY.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './share/kio/servicemenus/dinttyhere.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './share/applications/com.dintty.NoctEd.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './share/metainfo/com.dintty.DINTTY.metainfo.xml' >/dev/null
+  tar -tzf "$archive" | grep -F './share/metainfo/com.dintty.NoctEd.metainfo.xml' >/dev/null
+  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.dintty.DINTTY.svg' >/dev/null
+  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.dintty.NoctEd.svg' >/dev/null
   tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
   tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
   tar -tzf "$archive" | grep -F './share/nocted/styles/nocted-dark.xml' >/dev/null
-  tar -tzf "$archive" | grep -F './share/licenses/noctty/LICENSE' >/dev/null
-  if tar -tzf "$archive" | grep -Eq '/(noctty-smoke|nocted-smoke|noctty-vte)$'; then
+  tar -tzf "$archive" | grep -F './share/licenses/dintty/LICENSE' >/dev/null
+  if tar -tzf "$archive" | grep -Eq '/(dintty-smoke|nocted-smoke|dintty-vte)$'; then
     echo 'package_tarball error=optional_binary_in_default_install' >&2
     return 1
   fi
@@ -86,8 +86,8 @@ build_archive() {
 build_archive build-a
 build_archive build-b
 
-archive_a="$scratch/build-a/noctty.tar.gz"
-archive_b="$scratch/build-b/noctty.tar.gz"
+archive_a="$scratch/build-a/dintty.tar.gz"
+archive_b="$scratch/build-b/dintty.tar.gz"
 cmp -s "$archive_a" "$archive_b"
 
 digest_a=$(sha256sum "$archive_a" | awk '{print $1}')

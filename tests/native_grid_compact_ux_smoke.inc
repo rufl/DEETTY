@@ -1,26 +1,26 @@
 /* Test-only compact UX, settings, note, and toolbar smoke callbacks. */
 static gboolean inspect_compact_palette_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     root->compact_palette_context_opened = root->palette_dialog != NULL;
     root->compact_palette_rename_suppressed =
         root->palette_dialog != NULL && root->tab_rename_entry == NULL;
     if (root->palette_dialog != NULL &&
-        noctty_grid_style_context_has_class(
-            noctty_grid_widget_get_style_context(root->palette_dialog),
-            "noctty-palette-dialog") &&
+        dintty_grid_style_context_has_class(
+            dintty_grid_widget_get_style_context(root->palette_dialog),
+            "dintty-palette-dialog") &&
         root->palette_search != NULL &&
-        noctty_grid_style_context_has_class(
-            noctty_grid_widget_get_style_context(root->palette_search),
-            "noctty-utility-search") &&
+        dintty_grid_style_context_has_class(
+            dintty_grid_widget_get_style_context(root->palette_search),
+            "dintty-utility-search") &&
         root->palette_list != NULL &&
-        noctty_grid_style_context_has_class(
-            noctty_grid_widget_get_style_context(root->palette_list),
-            "noctty-palette-list"))
+        dintty_grid_style_context_has_class(
+            dintty_grid_widget_get_style_context(root->palette_list),
+            "dintty-palette-list"))
         root->compact_utility_visual_polish |= 1u;
     if (root->palette_dialog != NULL) {
         GtkWidget *shortcut_hint = g_object_get_data(
             G_OBJECT(root->palette_dialog),
-            "noctty-visibility-shortcut-hint");
+            "dintty-visibility-shortcut-hint");
         root->compact_shortcut_label_dynamic =
             GTK_IS_LABEL(shortcut_hint) &&
             g_strcmp0(gtk_label_get_text(GTK_LABEL(shortcut_hint)),
@@ -37,7 +37,7 @@ static gboolean inspect_compact_palette_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_palette_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     root->compact_palette_previous_shortcut = root->requested_shortcut_key;
     root->requested_shortcut_key = 0x0100003a;
     if (!open_smoke_workspace_menu(root)) {
@@ -89,22 +89,22 @@ static gboolean request_compact_palette_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_find_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     open_terminal_find(root);
     if (root->find_entry != NULL) {
         if (root->find_dialog != NULL &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->find_dialog),
-                "noctty-utility-dialog") &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->find_entry),
-                "noctty-utility-search") &&
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->find_dialog),
+                "dintty-utility-dialog") &&
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->find_entry),
+                "dintty-utility-search") &&
             root->find_status != NULL &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->find_status),
-                "noctty-utility-status"))
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->find_status),
+                "dintty-utility-status"))
             root->compact_utility_visual_polish |= 2u;
-        gtk_entry_set_text(GTK_ENTRY(root->find_entry), "NOCTTY_COMPACT_SEARCH");
+        gtk_entry_set_text(GTK_ENTRY(root->find_entry), "DINTTY_COMPACT_SEARCH");
         if (widget_has_accessible_name(root->find_entry,
                                        "Search terminal scrollback") &&
             widget_has_accessible_name(root->find_status,
@@ -115,20 +115,20 @@ static gboolean request_compact_find_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_note_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     open_quick_note(root);
     if (root->note_view != NULL) {
         if (root->note_dialog != NULL &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->note_dialog),
-                "noctty-utility-dialog") &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->note_view),
-                "noctty-note-editor") &&
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->note_dialog),
+                "dintty-utility-dialog") &&
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->note_view),
+                "dintty-note-editor") &&
             root->note_status != NULL &&
-            noctty_grid_style_context_has_class(
-                noctty_grid_widget_get_style_context(root->note_status),
-                "noctty-utility-status"))
+            dintty_grid_style_context_has_class(
+                dintty_grid_widget_get_style_context(root->note_status),
+                "dintty-utility-status"))
             root->compact_utility_visual_polish |= 4u;
         if (widget_has_accessible_name(root->note_view,
                                        "Workspace quick note") &&
@@ -147,7 +147,7 @@ static gboolean request_compact_note_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_zoom_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     toggle_grid_zoom(root);
     root->compact_zoom_hid_tab_bar =
         !gtk_notebook_get_show_tabs(GTK_NOTEBOOK(root->notebook)) &&
@@ -157,7 +157,7 @@ static gboolean request_compact_zoom_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_navigation_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     if (root->zoomed_pane_id != 0) {
         toggle_grid_zoom(root);
         root->compact_zoom_restored_tab_bar =
@@ -166,7 +166,7 @@ static gboolean request_compact_navigation_smoke(gpointer user_data) {
             gtk_widget_get_child_visible(root->new_tab_button);
     }
     if (root->contexts != NULL && root->contexts->len > 1) {
-        NocttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
+        DinttyGridContext *primary = g_ptr_array_index(root->contexts, 0);
         gtk_widget_grab_focus(primary->area);
         (void)focus_grid_direction(primary, 0, 1);
     }
@@ -174,15 +174,15 @@ static gboolean request_compact_navigation_smoke(gpointer user_data) {
 }
 
 static gboolean inspect_compact_pane_info_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     refresh_active_pane_info(root);
     gint page_index = gtk_notebook_get_current_page(GTK_NOTEBOOK(root->notebook));
     GtkWidget *page = gtk_notebook_get_nth_page(
         GTK_NOTEBOOK(root->notebook), page_index);
     GtkWidget *strip = pane_info_strip_for_page(page);
-    NocttyGridContext *active = focused_grid_context(root);
-    const char *text = noctty_pane_info_strip_text(strip);
-    const char *tooltip = noctty_pane_info_strip_tooltip(strip);
+    DinttyGridContext *active = focused_grid_context(root);
+    const char *text = dintty_pane_info_strip_text(strip);
+    const char *tooltip = dintty_pane_info_strip_tooltip(strip);
 
     GList *children = gtk_container_get_children(
         GTK_CONTAINER(root->content_box));
@@ -205,13 +205,13 @@ static gboolean inspect_compact_pane_info_smoke(gpointer user_data) {
         strstr(tooltip, pane_marker) != NULL &&
         strstr(tooltip, "Process: sleep (PID ") != NULL &&
         strstr(tooltip, "Directory: /") != NULL &&
-        strstr(tooltip, "NOCTTY tree:") != NULL &&
+        strstr(tooltip, "DINTTY tree:") != NULL &&
         strstr(tooltip, "Selected terminal tree:") != NULL;
 
-    guint revision = noctty_pane_info_strip_revision(strip);
+    guint revision = dintty_pane_info_strip_revision(strip);
     refresh_active_pane_info(root);
     root->compact_pane_info_dedup =
-        revision > 0 && revision == noctty_pane_info_strip_revision(strip);
+        revision > 0 && revision == dintty_pane_info_strip_revision(strip);
     return G_SOURCE_REMOVE;
 }
 
@@ -232,14 +232,14 @@ static int compact_tui_wheel_smoke_mouse(
 }
 
 static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    NocttyGridContext *target = NULL;
+    DinttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *target = NULL;
     int hyperlink_column = -1;
     int hyperlink_row = -1;
     char uri_byte = 0;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len && target == NULL; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(
+        DinttyGridContext *candidate = g_ptr_array_index(
             root->contexts, index);
         if (!grid_context_session_available(candidate)) continue;
         (void)scroll_terminal_to_offset(candidate, 0);
@@ -282,9 +282,9 @@ static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
 
-    NocttyGridMouseMode original_mouse_mode = target->mouse_mode;
+    DinttyGridMouseMode original_mouse_mode = target->mouse_mode;
     target->mouse_mode = compact_tui_wheel_smoke_mouse_mode;
-    NocttyGridFontMetrics metrics = grid_font_metrics(target);
+    DinttyGridFontMetrics metrics = grid_font_metrics(target);
     GdkEventButton event = {0};
     event.type = GDK_BUTTON_PRESS;
     event.button = 1;
@@ -303,10 +303,10 @@ static gboolean request_compact_hyperlink_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_linear_selection_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     if (root->rows < 4 || root->columns < 8) return G_SOURCE_REMOVE;
     clear_grid_selection(root);
-    NocttyGridFontMetrics metrics = grid_font_metrics(root);
+    DinttyGridFontMetrics metrics = grid_font_metrics(root);
     GdkEventButton button = {0};
     button.type = GDK_BUTTON_PRESS;
     button.button = 1;
@@ -346,9 +346,9 @@ static gboolean request_compact_linear_selection_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_font_scroll_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     double initial = root->font_size;
-    NocttyGridContext *other = root->contexts != NULL && root->contexts->len > 1
+    DinttyGridContext *other = root->contexts != NULL && root->contexts->len > 1
         ? g_ptr_array_index(root->contexts, 1) : NULL;
     double other_initial = other != NULL ? other->font_size : 0.0;
     GdkEventScroll event = {0};
@@ -367,8 +367,8 @@ static gboolean request_compact_font_scroll_smoke(gpointer user_data) {
     (void)on_scroll(root->area, &event, root);
     event.state = 0;
     (void)on_scroll(root->area, &event, root);
-    NocttyGridMouse original_mouse = root->mouse;
-    NocttyGridMouseMode original_mouse_mode = root->mouse_mode;
+    DinttyGridMouse original_mouse = root->mouse;
+    DinttyGridMouseMode original_mouse_mode = root->mouse_mode;
     root->mouse = compact_tui_wheel_smoke_mouse;
     root->mouse_mode = compact_tui_wheel_smoke_mouse_mode;
     root->compact_tui_wheel_mapping = 0;
@@ -430,10 +430,10 @@ static gboolean request_compact_font_scroll_smoke(gpointer user_data) {
 }
 
 static gboolean request_pane_scrollbar_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     GtkAllocation allocation;
     gtk_widget_get_allocation(root->area, &allocation);
-    NocttyTerminalScrollbarGeometry scrollbar;
+    DinttyTerminalScrollbarGeometry scrollbar;
     if (!terminal_scrollbar_geometry(root, allocation, &scrollbar) ||
         scrollbar.history_lines == 0) {
         if (root->project_smoke_attempts++ < 100) {
@@ -462,11 +462,11 @@ static gboolean request_pane_scrollbar_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
 
     /* Codex and other full-screen TUIs enable mouse reporting. The visible
-     * native rail must still scroll NOCTTY history without forwarding a TUI
+     * native rail must still scroll DINTTY history without forwarding a TUI
      * mouse event. */
     (void)scroll_terminal_to_offset(root, 0);
-    NocttyGridMouse original_mouse = root->mouse;
-    NocttyGridMouseMode original_mouse_mode = root->mouse_mode;
+    DinttyGridMouse original_mouse = root->mouse;
+    DinttyGridMouseMode original_mouse_mode = root->mouse_mode;
     root->mouse = compact_tui_wheel_smoke_mouse;
     root->mouse_mode = compact_tui_wheel_smoke_mouse_mode;
     root->compact_scrollbar_tui_forwarded = 0;
@@ -508,18 +508,18 @@ static gboolean request_pane_scrollbar_smoke(gpointer user_data) {
 }
 
 static gboolean request_compact_save_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     (void)save_grid_scrollback_to_path(root,
-        "/tmp/noctty-native-grid-compact-scrollback.txt");
+        "/tmp/dintty-native-grid-compact-scrollback.txt");
     return G_SOURCE_REMOVE;
 }
 
 static gboolean finish_compact_smoke(gpointer user_data) {
-    NocttyGridContext *root = user_data;
+    DinttyGridContext *root = user_data;
     if (root->find_dialog != NULL) gtk_widget_destroy(root->find_dialog);
     if (root->note_dialog != NULL) gtk_widget_destroy(root->note_dialog);
     for (guint index = 0; root->contexts != NULL && index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
+        DinttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->active && !candidate->exited)
             (void)candidate->write(candidate->userdata, "exit 0\n", 7);
     }
@@ -527,7 +527,7 @@ static gboolean finish_compact_smoke(gpointer user_data) {
 }
 
 static gboolean request_note_overlay_alt_press_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     root->project_smoke_attempts = 0;
     GdkEventKey event = {0};
     event.type = GDK_KEY_PRESS;
@@ -539,12 +539,12 @@ static gboolean request_note_overlay_alt_press_smoke(gpointer user_data) {
 static gboolean check_note_overlay_hidden_smoke(gpointer user_data);
 
 static gboolean check_note_overlay_drawn_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     int visible_panes = 0;
     int drawn_panes = 0;
     if (root->contexts != NULL) {
         for (guint index = 0; index < root->contexts->len; index++) {
-            NocttyGridContext *candidate =
+            DinttyGridContext *candidate =
                 g_ptr_array_index(root->contexts, index);
             if (!candidate->active || candidate->area == NULL ||
                 !gtk_widget_get_mapped(candidate->area)) continue;
@@ -574,14 +574,14 @@ static gboolean check_note_overlay_drawn_smoke(gpointer user_data) {
 }
 
 static gboolean check_note_overlay_hidden_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     root->note_overlay_smoke_hidden =
         root->note_overlay_alt_released && !root->note_overlay_visible &&
         root->note_overlay_text == NULL &&
         root->note_overlay_label == NULL;
     for (guint index = 0;
          root->contexts != NULL && index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
+        DinttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->active && !candidate->exited)
             (void)candidate->write(candidate->userdata, "exit 0\n", 7);
     }
@@ -590,68 +590,68 @@ static gboolean check_note_overlay_hidden_smoke(gpointer user_data) {
 
 static void set_settings_smoke_values(GtkWidget *dialog) {
     GtkComboBox *mode = GTK_COMBO_BOX(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-mode"));
+        G_OBJECT(dialog), "dintty-settings-mode"));
     gtk_combo_box_set_active(mode, 0);
     gtk_combo_box_set_active(mode, 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-width")), 90);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-height")), 40);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-animation")), 120);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-hide-focus")), TRUE);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-focus-pointer")), TRUE);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-preset")), 2);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-scrollback")), 256);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-width")), 90);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-height")), 40);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-animation")), 120);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-hide-focus")), TRUE);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-focus-pointer")), TRUE);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-preset")), 2);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-scrollback")), 256);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-scroll-lines")), 7);
+        G_OBJECT(dialog), "dintty-settings-scroll-lines")), 7);
     GtkToggleButton *smooth_scroll = GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-smooth-scroll"));
+        G_OBJECT(dialog), "dintty-settings-smooth-scroll"));
     gtk_toggle_button_set_active(smooth_scroll, FALSE);
     GtkToggleButton *notifications = GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-notifications"));
+        G_OBJECT(dialog), "dintty-settings-notifications"));
     gtk_toggle_button_set_active(notifications, TRUE);
     gtk_toggle_button_set_active(notifications, FALSE);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-tabs")), 1);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-status")), 0);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-padding")), 8);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-spacing")), 6);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-tabs")), 1);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-status")), 0);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-padding")), 8);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-spacing")), 6);
     GtkToggleButton *pane_gaps = GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-pane-gaps"));
+        G_OBJECT(dialog), "dintty-settings-pane-gaps"));
     gtk_toggle_button_set_active(pane_gaps, FALSE);
     gtk_toggle_button_set_active(pane_gaps, TRUE);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-gap-transparent")), FALSE);
+        G_OBJECT(dialog), "dintty-settings-gap-transparent")), FALSE);
     GtkToggleButton *inactive_dim = GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-inactive-dim"));
+        G_OBJECT(dialog), "dintty-settings-inactive-dim"));
     gtk_toggle_button_set_active(inactive_dim, FALSE);
     gtk_toggle_button_set_active(inactive_dim, TRUE);
     gtk_range_set_value(GTK_RANGE(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-inactive-brightness")), 68.0);
+        G_OBJECT(dialog), "dintty-settings-inactive-brightness")), 68.0);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-divider")), 5);
+        G_OBJECT(dialog), "dintty-settings-divider")), 5);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-pane-border")), 2);
+        G_OBJECT(dialog), "dintty-settings-pane-border")), 2);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-focused-border")), 6);
+        G_OBJECT(dialog), "dintty-settings-focused-border")), 6);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-selected-border")), 4);
+        G_OBJECT(dialog), "dintty-settings-selected-border")), 4);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-status-border")), 3);
+        G_OBJECT(dialog), "dintty-settings-status-border")), 3);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-overlay-border")), 2);
+        G_OBJECT(dialog), "dintty-settings-overlay-border")), 2);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-window-border")), 7);
+        G_OBJECT(dialog), "dintty-settings-window-border")), 7);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-dragger")), 12);
+        G_OBJECT(dialog), "dintty-settings-dragger")), 12);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-theme-scope-tab")), FALSE);
-    gtk_combo_box_set_active_id(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-theme")), "noctty-high-contrast");
+        G_OBJECT(dialog), "dintty-settings-theme-scope-tab")), FALSE);
+    gtk_combo_box_set_active_id(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-theme")), "dintty-high-contrast");
     GtkToggleButton *translucency = GTK_TOGGLE_BUTTON(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-translucency"));
+        G_OBJECT(dialog), "dintty-settings-translucency"));
     gtk_toggle_button_set_active(translucency, FALSE);
     gtk_toggle_button_set_active(translucency, TRUE);
     gtk_range_set_value(GTK_RANGE(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-opacity")), 78.0);
+        G_OBJECT(dialog), "dintty-settings-opacity")), 78.0);
     GtkWidget *tint = g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-background-tint");
+        G_OBJECT(dialog), "dintty-settings-background-tint");
     GdkRGBA tint_color = {
         .red = 0x19 / 255.0,
         .green = 0x32 / 255.0,
@@ -660,22 +660,22 @@ static void set_settings_smoke_values(GtkWidget *dialog) {
     };
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(tint), &tint_color);
     g_signal_emit_by_name(tint, "color-set");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-family")), 0);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "noctty-settings-font")), 16);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-antialias")), 1);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "noctty-settings-hinting")), 2);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-family")), 0);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_object_get_data(G_OBJECT(dialog), "dintty-settings-font")), 16);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-antialias")), 1);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(G_OBJECT(dialog), "dintty-settings-hinting")), 2);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_object_get_data(
-        G_OBJECT(dialog), "noctty-settings-renderer")), 1);
+        G_OBJECT(dialog), "dintty-settings-renderer")), 1);
 }
 
 static gboolean request_settings_smoke(gpointer user_data) {
-    NocttyGridContext *context = root_grid_context(user_data);
+    DinttyGridContext *context = root_grid_context(user_data);
     if (context->window_settings_button != NULL)
         gtk_button_clicked(GTK_BUTTON(context->window_settings_button));
     context->settings_opened = context->settings_dialog != NULL;
     GtkWidget *transparency_status = context->settings_dialog != NULL
         ? g_object_get_data(G_OBJECT(context->settings_dialog),
-                            "noctty-settings-transparency-status")
+                            "dintty-settings-transparency-status")
         : NULL;
     const gchar *transparency_text = GTK_IS_LABEL(transparency_status)
         ? gtk_label_get_text(GTK_LABEL(transparency_status)) : NULL;
@@ -710,18 +710,18 @@ static gboolean request_settings_smoke(gpointer user_data) {
             context->settings_dialog != NULL &&
             gtk_style_context_has_class(
                 gtk_widget_get_style_context(context->settings_dialog),
-                "noctty-settings-dialog") &&
+                "dintty-settings-dialog") &&
             gtk_style_context_has_class(
                 gtk_widget_get_style_context(context->settings_categories),
-                "noctty-settings-sidebar") &&
+                "dintty-settings-sidebar") &&
             first != NULL &&
             gtk_style_context_has_class(
                 gtk_widget_get_style_context(GTK_WIDGET(first)),
-                "noctty-settings-category") &&
+                "dintty-settings-category") &&
             GTK_IS_SCROLLED_WINDOW(window_page) &&
             gtk_style_context_has_class(
                 gtk_widget_get_style_context(window_page),
-                "noctty-settings-page");
+                "dintty-settings-page");
         if (GTK_IS_SCROLLED_WINDOW(window_page) &&
             GTK_IS_SCROLLED_WINDOW(behavior_page)) {
             GtkPolicyType window_horizontal = GTK_POLICY_NEVER;
@@ -811,10 +811,10 @@ static gboolean request_settings_smoke(gpointer user_data) {
         context->inactive_pane_brightness_percent == 68 &&
         GTK_IS_TOGGLE_BUTTON(g_object_get_data(
             G_OBJECT(context->settings_dialog),
-            "noctty-settings-theme-scope-tab")) &&
+            "dintty-settings-theme-scope-tab")) &&
         GTK_IS_RANGE(g_object_get_data(
             G_OBJECT(context->settings_dialog),
-            "noctty-settings-inactive-brightness")) &&
+            "dintty-settings-inactive-brightness")) &&
         context->pane_divider_px == 5 && context->pane_border_px == 2 &&
         context->pane_border_focused_px == 6 &&
         context->pane_border_selected_px == 4 &&
@@ -825,28 +825,28 @@ static gboolean request_settings_smoke(gpointer user_data) {
         gtk_widget_get_margin_start(context->area) == 3 &&
         gtk_widget_get_margin_end(context->area) == 3 &&
         g_object_get_data(G_OBJECT(settings_page),
-                          "noctty-pane-gap-provider") != NULL &&
+                          "dintty-pane-gap-provider") != NULL &&
         side_width == 7 && dragger_height == 12;
     if (context->launch_profile_setting_control) {
         gtk_combo_box_set_active(GTK_COMBO_BOX(context->settings_launch_kind),
                                  3);
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_ssh_target),
-                           "noctty-tmux");
+                           "dintty-tmux");
         gtk_button_clicked(GTK_BUTTON(context->settings_launch_apply));
         gtk_combo_box_set_active(GTK_COMBO_BOX(context->settings_launch_kind),
                                  4);
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_ssh_target),
-                           "noctty-zellij");
+                           "dintty-zellij");
         gtk_button_clicked(GTK_BUTTON(context->settings_launch_apply));
         gtk_combo_box_set_active(GTK_COMBO_BOX(context->settings_launch_kind),
                                  1);
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_shell),
                            "/bin/sh");
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_command),
-                           "printf 'NOCTTY_LAUNCH_PROFILE_OK:%s:%s' \"$PWD\" \"$NOCTTY_PROFILE\"");
+                           "printf 'DINTTY_LAUNCH_PROFILE_OK:%s:%s' \"$PWD\" \"$DINTTY_PROFILE\"");
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_cwd), "/tmp");
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_environment),
-                           "NOCTTY_PROFILE=ready;NOCTTY_SECOND=value");
+                           "DINTTY_PROFILE=ready;DINTTY_SECOND=value");
         gtk_entry_set_text(GTK_ENTRY(context->settings_launch_ssh_target),
                            "alice@example.com");
         gtk_spin_button_set_value(
@@ -868,7 +868,7 @@ static gboolean request_settings_smoke(gpointer user_data) {
     }
     (void)sync_grid_context_profile(context);
     GtkWidget *shortcut_button = g_object_get_data(
-        G_OBJECT(context->settings_dialog), "noctty-settings-shortcut");
+        G_OBJECT(context->settings_dialog), "dintty-settings-shortcut");
     const gchar *initial_shortcut_label = GTK_IS_BUTTON(shortcut_button)
         ? gtk_button_get_label(GTK_BUTTON(shortcut_button)) : NULL;
     context->settings_shortcut_label_current =
@@ -888,14 +888,14 @@ static gboolean request_settings_smoke(gpointer user_data) {
 }
 
 static gboolean request_settings_stacking_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     open_grid_settings(root);
     open_terminal_find(root);
     return G_SOURCE_REMOVE;
 }
 
 static gboolean check_settings_stacking_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     GtkWidget *dialog = root->settings_dialog;
     GtkWidget *find_dialog = root->find_dialog;
     if (GTK_IS_WINDOW(dialog)) {
@@ -923,11 +923,11 @@ static gboolean check_settings_stacking_smoke(gpointer user_data) {
                 GTK_WINDOW(root->window);
         root->settings_keep_above = 1;
         if (root->layer_shell_active && root->layer_shell_library != NULL) {
-            NocttyLayerIsLayerWindow is_layer_window =
-                (NocttyLayerIsLayerWindow)dlsym(root->layer_shell_library,
+            DinttyLayerIsLayerWindow is_layer_window =
+                (DinttyLayerIsLayerWindow)dlsym(root->layer_shell_library,
                                                 "gtk_layer_is_layer_window");
-            NocttyLayerGetInt get_layer =
-                (NocttyLayerGetInt)dlsym(root->layer_shell_library,
+            DinttyLayerGetInt get_layer =
+                (DinttyLayerGetInt)dlsym(root->layer_shell_library,
                                          "gtk_layer_get_layer");
             root->settings_layer_overlay = is_layer_window != NULL &&
                 get_layer != NULL && is_layer_window(GTK_WINDOW(dialog)) &&
@@ -950,7 +950,7 @@ static gboolean check_settings_stacking_smoke(gpointer user_data) {
     }
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
+        DinttyGridContext *candidate = g_ptr_array_index(root->contexts, index);
         if (candidate->active && !candidate->exited)
             (void)candidate->write(candidate->userdata, "exit 0\n", 7);
     }
@@ -960,7 +960,7 @@ static gboolean check_settings_stacking_smoke(gpointer user_data) {
 static gboolean action_button_tooltip_ready(GtkWidget *button) {
     if (!GTK_IS_BUTTON(button) || !gtk_widget_get_has_tooltip(button) ||
         g_object_get_data(G_OBJECT(button),
-                          "noctty-action-affordance") == NULL)
+                          "dintty-action-affordance") == NULL)
         return FALSE;
     gchar *tooltip = gtk_widget_get_tooltip_text(button);
     gboolean ready = tooltip != NULL && tooltip[0] != '\0';
@@ -972,27 +972,27 @@ static gboolean action_button_pointer_is_normal(GtkWidget *button,
                                                 int *cursor_type_out) {
     if (cursor_type_out != NULL) *cursor_type_out = -1;
     if (!GTK_IS_BUTTON(button)) return FALSE;
-    GdkWindow *window = noctty_action_button_event_window(button);
+    GdkWindow *window = dintty_action_button_event_window(button);
     if (window == NULL) return FALSE;
-    (void)noctty_action_button_enter(button);
+    (void)dintty_action_button_enter(button);
     GdkCursor *cursor = gdk_window_get_cursor(window);
     if (cursor_type_out != NULL && cursor != NULL)
         *cursor_type_out = (int)gdk_cursor_get_cursor_type(cursor);
     gboolean active = g_object_get_data(
-        G_OBJECT(button), "noctty-action-pointer-active") != NULL;
+        G_OBJECT(button), "dintty-action-pointer-active") != NULL;
     const gchar *pointer_name = g_object_get_data(
-        G_OBJECT(button), "noctty-action-pointer-name");
+        G_OBJECT(button), "dintty-action-pointer-name");
     gboolean normal = active && g_strcmp0(pointer_name, "default") == 0 &&
         (cursor == NULL ||
          gdk_cursor_get_cursor_type(cursor) == GDK_CURSOR_IS_PIXMAP ||
          gdk_cursor_get_cursor_type(cursor) == GDK_ARROW ||
          gdk_cursor_get_cursor_type(cursor) == GDK_LEFT_PTR);
-    (void)noctty_action_button_leave(button);
+    (void)dintty_action_button_leave(button);
     return normal;
 }
 
 static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     GtkWidget *controls = root->window_toolbar_controls;
     GList *children = controls != NULL
         ? gtk_container_get_children(GTK_CONTAINER(controls))
@@ -1048,12 +1048,12 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
                        index,
                        GTK_IS_BUTTON(action_buttons[index]),
                        action_buttons[index] != NULL &&
-                           noctty_action_button_event_window(
+                           dintty_action_button_event_window(
                                action_buttons[index]) != NULL,
                        cursor_type,
                        action_buttons[index] != NULL &&
                            g_object_get_data(G_OBJECT(action_buttons[index]),
-                                             "noctty-action-affordance") != NULL);
+                                             "dintty-action-affordance") != NULL);
         }
         if (!action_button_tooltip_ready(action_buttons[index]))
             root->action_button_tooltips_ready = 0;
@@ -1090,7 +1090,7 @@ static gboolean inspect_window_toolbar_smoke(gpointer user_data) {
         settings_accessible != NULL &&
         g_strcmp0(atk_object_get_name(settings_accessible), "Settings") == 0 &&
         close_accessible != NULL &&
-        g_strcmp0(atk_object_get_name(close_accessible), "Close NOCTTY") == 0;
+        g_strcmp0(atk_object_get_name(close_accessible), "Close DINTTY") == 0;
     g_list_free(children);
     return G_SOURCE_REMOVE;
 }

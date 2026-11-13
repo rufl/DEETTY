@@ -1,4 +1,4 @@
-pkgname=noctty
+pkgname=dintty
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Zig-native terminal workspace for Plasma and Noctalia'

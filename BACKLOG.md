@@ -1,4 +1,4 @@
-# NOCTTY Backlog
+# DINTTY Backlog
 
 Last refreshed: 2026-10-12.
 
@@ -37,7 +37,7 @@ elapsed, physical, and operator evidence is not implied by source completion.
 - [ ] [status:yellow] Retain a clean two-hour Plasma Wayland session on the
   current installed dogfood build that uses Codex scrollbar wheel/drag
   navigation, opens and closes native menus/dialogs, exercises Project / NoctEd
-  once, and exits both NOCTTY and NoctEd normally. The source
+  once, and exits both DINTTY and NoctEd normally. The source
   slice fixes the Codex mouse-mode scrollbar priority, bounds project refresh
   to its visible GUI, owns sharing refresh timers, rejects retired menu
   contexts, anchors popups to the top-level surface, makes NoctEd teardown
@@ -72,7 +72,7 @@ elapsed, physical, and operator evidence is not implied by source completion.
   initial aggregate check passed 418/418; the
   final current-source run passed 411 tests, skipped one, and failed only six
   loopback-sharing tests because this sandbox denies socket creation. Fresh
-  production NOCTTY plus both smoke binaries compile. The focused graphical
+  production DINTTY plus both smoke binaries compile. The focused graphical
   scrollbar proof correctly failed closed because this sandbox could not create
   the private display namespace. The current visual-flow audit likewise stopped
   at sandbox-denied private D-Bus socket creation and did not touch the active
@@ -249,7 +249,7 @@ source tree. Once closed, no further percentage-driven GTK rewrites are part
 of this item.
 
 1. **Scope lock:** record the final source-tree commit and the counted
-   ownership inventory. Count only first-party `src/` and `include/noctty/`
+   ownership inventory. Count only first-party `src/` and `include/dintty/`
    policy code; keep generated/vendor code, system headers, and display
    orchestration excluded exactly as documented.
 2. **Ownership target:** the locked inventory reports at least 90.00% Zig
@@ -293,7 +293,7 @@ new or stale C definitions fail the inventory checker.
 
 Focused Debug and `ReleaseSafe` builds plus the 141-test Zig policy suite pass.
 The complete focused renderer matrix
-(`NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=300 ./scripts/native_grid_smoke.sh`)
+(`DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=300 ./scripts/native_grid_smoke.sh`)
 now passes in serialized private X11 and private Wayland namespaces:
 `native_grid_renderer_matrix x11=true wayland=true abi=7 dirty_spans=true
 frame_clock=true glyph_cache=true resize_coalesced=true

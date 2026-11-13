@@ -4,7 +4,7 @@ set -eu
 export LC_ALL=C
 export TZ=UTC
 
-installer=${1:-dist/noctty-windows-x86_64-setup-unsigned.exe}
+installer=${1:-dist/dintty-windows-x86_64-setup-unsigned.exe}
 case "$installer" in
   /*) installer_path=$installer ;;
   *) installer_path="$(pwd -P)/$installer" ;;
@@ -22,26 +22,26 @@ grep -Fx 'scope=per-user' "$installer_path.manifest" >/dev/null
 grep -Fx 'open_with_only=true' "$installer_path.manifest" >/dev/null
 grep -Fx 'user_data_preserved_on_uninstall=true' "$installer_path.manifest" >/dev/null
 
-wine=${NOCTTY_WINE:-wine}
-wineboot=${NOCTTY_WINEBOOT:-wineboot}
-winepath=${NOCTTY_WINEPATH:-winepath}
-wineserver=${NOCTTY_WINESERVER:-wineserver}
+wine=${DINTTY_WINE:-wine}
+wineboot=${DINTTY_WINEBOOT:-wineboot}
+winepath=${DINTTY_WINEPATH:-winepath}
+wineserver=${DINTTY_WINESERVER:-wineserver}
 command -v "$wine" >/dev/null
 command -v "$wineboot" >/dev/null
 command -v "$winepath" >/dev/null
 command -v "$wineserver" >/dev/null
 command -v timeout >/dev/null
 
-wine_prefix=$(mktemp -d "${TMPDIR:-/tmp}/noctty-installer-wine.XXXXXX")
+wine_prefix=$(mktemp -d "${TMPDIR:-/tmp}/dintty-installer-wine.XXXXXX")
 cleanup() {
-  timeout --kill-after=5 "${NOCTTY_WINE_CLEANUP_TIMEOUT_SECONDS:-15}" \
+  timeout --kill-after=5 "${DINTTY_WINE_CLEANUP_TIMEOUT_SECONDS:-15}" \
     env WINEPREFIX="$wine_prefix" "$wineboot" -e >/dev/null 2>&1 || true
   rm -rf "$wine_prefix"
 }
 trap cleanup EXIT HUP INT TERM
 export WINEPREFIX=$wine_prefix
 export WINEDEBUG=${WINEDEBUG:--all}
-step_timeout=${NOCTTY_WINE_STEP_TIMEOUT_SECONDS:-90}
+step_timeout=${DINTTY_WINE_STEP_TIMEOUT_SECONDS:-90}
 case "$step_timeout" in
   ''|*[!0-9]*|0)
     echo 'windows_installer_smoke error=invalid_step_timeout' >&2
@@ -65,21 +65,21 @@ run_step install "$wine" "$installer_path" /S
 local_appdata_win=$(run_step local_appdata "$wine" cmd /d /c 'echo %LOCALAPPDATA%' | tr -d '\r' | sed -n '$p')
 appdata_win=$(run_step appdata "$wine" cmd /d /c 'echo %APPDATA%' | tr -d '\r' | sed -n '$p')
 userprofile_win=$(run_step userprofile "$wine" cmd /d /c 'echo %USERPROFILE%' | tr -d '\r' | sed -n '$p')
-install_dir=$("$winepath" -u "$local_appdata_win\\Programs\\NOCTTY")
-user_data_dir=$("$winepath" -u "$local_appdata_win\\NOCTTY")
-start_menu_dir=$("$winepath" -u "$appdata_win\\Microsoft\\Windows\\Start Menu\\Programs\\NOCTTY")
+install_dir=$("$winepath" -u "$local_appdata_win\\Programs\\DINTTY")
+user_data_dir=$("$winepath" -u "$local_appdata_win\\DINTTY")
+start_menu_dir=$("$winepath" -u "$appdata_win\\Microsoft\\Windows\\Start Menu\\Programs\\DINTTY")
 
-test -s "$install_dir/noctty.exe"
+test -s "$install_dir/dintty.exe"
 test -s "$install_dir/nocted.exe"
 test -s "$install_dir/Uninstall.exe"
 cmp "$install_dir/UNICODE-LICENSE.txt" dependencies/UNICODE-LICENSE.txt
-test -s "$start_menu_dir/NOCTTY.lnk"
+test -s "$start_menu_dir/DINTTY.lnk"
 test -s "$start_menu_dir/NoctEd.lnk"
-test -s "$start_menu_dir/Uninstall NOCTTY.lnk"
-test ! -e "$("$winepath" -u "$userprofile_win\\Desktop\\NOCTTY.lnk")"
+test -s "$start_menu_dir/Uninstall DINTTY.lnk"
+test ! -e "$("$winepath" -u "$userprofile_win\\Desktop\\DINTTY.lnk")"
 test ! -e "$("$winepath" -u "$userprofile_win\\Desktop\\NoctEd.lnk")"
 
-uninstall_key='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\NOCTTY'
+uninstall_key='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DINTTY'
 application_key='HKCU\Software\Classes\Applications\nocted.exe\shell\open\command'
 progid_key='HKCU\Software\Classes\NoctEd.Text\shell\open\command'
 run_step uninstall_registry "$wine" reg query "$uninstall_key" /v QuietUninstallString >/dev/null
@@ -94,19 +94,19 @@ done
 mkdir -p "$user_data_dir"
 printf 'preserve user state\n' > "$user_data_dir/installer-smoke-user-state"
 printf 'preserve non-installer file\n' > "$install_dir/operator-owned-file"
-run_step noctty_self_test "$wine" "$install_dir/noctty.exe" --self-test
+run_step dintty_self_test "$wine" "$install_dir/dintty.exe" --self-test
 run_step nocted_self_test "$wine" "$install_dir/nocted.exe" --self-test
 run_step uninstall "$wine" "$install_dir/Uninstall.exe" /S
 run_step wineserver_wait "$wineserver" -w
 
-test ! -e "$install_dir/noctty.exe"
+test ! -e "$install_dir/dintty.exe"
 test ! -e "$install_dir/nocted.exe"
 test ! -e "$install_dir/Uninstall.exe"
 test -s "$install_dir/operator-owned-file"
 test -s "$user_data_dir/installer-smoke-user-state"
-test ! -e "$start_menu_dir/NOCTTY.lnk"
+test ! -e "$start_menu_dir/DINTTY.lnk"
 test ! -e "$start_menu_dir/NoctEd.lnk"
-test ! -e "$start_menu_dir/Uninstall NOCTTY.lnk"
+test ! -e "$start_menu_dir/Uninstall DINTTY.lnk"
 if "$wine" reg query "$uninstall_key" >/dev/null 2>&1; then
   echo 'windows_installer_smoke error=uninstall_key_survived' >&2
   exit 1

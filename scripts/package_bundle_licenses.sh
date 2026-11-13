@@ -18,7 +18,7 @@ license_files=$5
 test -s "$library_sources"
 test -d "$stage"
 
-package_backend=${NOCTTY_PACKAGE_BACKEND:-}
+package_backend=${DINTTY_PACKAGE_BACKEND:-}
 if [ -z "$package_backend" ]; then
   if command -v pacman >/dev/null 2>&1; then
     package_backend=arch
@@ -38,7 +38,7 @@ case "$package_backend" in
     ;;
 esac
 
-license_root="$stage/share/licenses/noctty/dependencies"
+license_root="$stage/share/licenses/dintty/dependencies"
 work="$package_inventory.work"
 seen_packages="$work/seen-packages.txt"
 package_records="$work/package-records.txt"
@@ -70,7 +70,7 @@ copy_notice() {
   mkdir -p "$(dirname "$target_file")"
   cp -L "$source_file" "$target_file"
   digest=$(sha256sum "$target_file" | awk '{print $1}')
-  printf 'share/licenses/noctty/dependencies/%s sha256=%s\n' \
+  printf 'share/licenses/dintty/dependencies/%s sha256=%s\n' \
     "$relative_target" "$digest" >>"$license_files"
 }
 
@@ -81,7 +81,7 @@ register_package() {
   fi
 
   if [ "$package" = gtk-layer-shell ] &&
-     [ -n "${NOCTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ]; then
+     [ -n "${DINTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ]; then
     package_version=$(pacman -Si gtk-layer-shell 2>/dev/null |
       sed -n 's/^Version[[:space:]]*:[[:space:]]*//p' | sed -n '1p')
     license_expression=$(pacman -Si gtk-layer-shell 2>/dev/null |
@@ -179,8 +179,8 @@ while IFS= read -r library; do
   name=$(basename "$library")
   owners="$work/owners.txt"
   source_kind=system
-  if [ -n "${NOCTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ] &&
-     [ "$library" = "$NOCTTY_BUNDLE_RETAINED_LAYER_SHELL" ]; then
+  if [ -n "${DINTTY_BUNDLE_RETAINED_LAYER_SHELL:-}" ] &&
+     [ "$library" = "$DINTTY_BUNDLE_RETAINED_LAYER_SHELL" ]; then
     package=gtk-layer-shell
     source_kind=retained-private-runtime
   else
@@ -211,7 +211,7 @@ while IFS= read -r library; do
   package_version=$(printf '%s\n' "$record" | cut -d '|' -f 2)
   license_expression=$(printf '%s\n' "$record" | cut -d '|' -f 3)
   license_source=$(printf '%s\n' "$record" | cut -d '|' -f 4)
-  printf '%s source=%s path=%s package=%s package_version=%s license="%s" license_source=%s notice_root=share/licenses/noctty/dependencies\n' \
+  printf '%s source=%s path=%s package=%s package_version=%s license="%s" license_source=%s notice_root=share/licenses/dintty/dependencies\n' \
     "$name" "$source_kind" "$library" "$package" "$package_version" \
     "$license_expression" "$license_source" >>"$library_inventory"
 done <"$library_sources"

@@ -4,7 +4,7 @@ Status: bounded NCT-110/NCT-112 installed top/watch/info/whiptail/fzf/sqlite3/gl
 
 ## Qualified Boundary
 
-`scripts/terminal_system_tui_qualification.sh` discovers installed procps top, procps watch, GNU info, newt whiptail, fzf, SQLite, Glances, Bash, man-db, less, OpenSSH SFTP client, and OpenSSH SFTP server executables and builds the native Zig `noctty-terminal-system-tui-qualification` runner in Debug and `ReleaseSafe`. Each of the ten application cases starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
+`scripts/terminal_system_tui_qualification.sh` discovers installed procps top, procps watch, GNU info, newt whiptail, fzf, SQLite, Glances, Bash, man-db, less, OpenSSH SFTP client, and OpenSSH SFTP server executables and builds the native Zig `dintty-terminal-system-tui-qualification` runner in Debug and `ReleaseSafe`. Each of the ten application cases starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
 
 The isolated cases are:
 
@@ -19,7 +19,7 @@ The isolated cases are:
 - man-db 2.13.1 formats a deterministic local manual page and hands it to the explicitly selected installed less pager. The nested pager owns the foreground terminal, renders styled text on the alternate screen, accepts `q`, returns control to man, and both processes exit cleanly.
 - OpenSSH SFTP 10.4p1 attaches directly to the installed local `sftp-server` with `-D`, renders its plaintext interactive prompt on the primary screen, accepts `pwd` and `quit`, and exits cleanly without SSH transport, credential use, or a network bind.
 
-The external tools do not enter NOCTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request or bind, credential, telemetry, or persisted user state.
+The external tools do not enter DINTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request or bind, credential, telemetry, or persisted user state.
 
 ## Retained Result
 
@@ -38,7 +38,7 @@ terminal_system_tui_matrix debug=true release_safe=true applications=top,watch,i
 
 ## Proof Boundary
 
-This is real installed-application, headless production PTY/VT model evidence. It proves that these exact installed versions generated and consumed compatible terminal streams through NOCTTY's production session model. It does not initialize GTK, map a native surface, exercise Cairo or a compositor, compare pixels, or measure key-to-frame latency.
+This is real installed-application, headless production PTY/VT model evidence. It proves that these exact installed versions generated and consumed compatible terminal streams through DINTTY's production session model. It does not initialize GTK, map a native surface, exercise Cairo or a compositor, compare pixels, or measure key-to-frame latency.
 
 Ten applications are not universal TUI compatibility. The SFTP case is direct local client/server protocol evidence, not remote-network or credentialed SSH acceptance. This lane does not prove Claude Code, Antigravity, other terminal applications, compositor-backed pixels, Plasma interaction, or multi-day stability. The separate authenticated Codex and installed tmux/Zellij mapped matrices close NCT-110/NCT-111 at their accepted one-host boundaries. NCT-112's hidden/visible harness shakedown passes; the retained 48-hour run remains open.
 
@@ -50,4 +50,4 @@ The lane is opt-in because it intentionally requires the installed external tool
 ./scripts/terminal_system_tui_qualification.sh
 ```
 
-`NOCTTY_SYSTEM_TUI_TOP`, `NOCTTY_SYSTEM_TUI_WATCH`, `NOCTTY_SYSTEM_TUI_INFO`, `NOCTTY_SYSTEM_TUI_WHIPTAIL`, `NOCTTY_SYSTEM_TUI_FZF`, `NOCTTY_SYSTEM_TUI_SQLITE`, `NOCTTY_SYSTEM_TUI_GLANCES`, `NOCTTY_SYSTEM_TUI_BASH`, `NOCTTY_SYSTEM_TUI_MAN`, `NOCTTY_SYSTEM_TUI_LESS`, `NOCTTY_SYSTEM_TUI_SFTP`, and `NOCTTY_SYSTEM_TUI_SFTP_SERVER` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, temporary directories, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.
+`DINTTY_SYSTEM_TUI_TOP`, `DINTTY_SYSTEM_TUI_WATCH`, `DINTTY_SYSTEM_TUI_INFO`, `DINTTY_SYSTEM_TUI_WHIPTAIL`, `DINTTY_SYSTEM_TUI_FZF`, `DINTTY_SYSTEM_TUI_SQLITE`, `DINTTY_SYSTEM_TUI_GLANCES`, `DINTTY_SYSTEM_TUI_BASH`, `DINTTY_SYSTEM_TUI_MAN`, `DINTTY_SYSTEM_TUI_LESS`, `DINTTY_SYSTEM_TUI_SFTP`, and `DINTTY_SYSTEM_TUI_SFTP_SERVER` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, temporary directories, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.

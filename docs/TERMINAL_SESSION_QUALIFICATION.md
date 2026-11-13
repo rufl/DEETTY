@@ -4,7 +4,7 @@ Status: bounded NCT-112 allocator-accounted PTY lifecycle and forced foreground-
 
 ## Qualified Boundary
 
-`scripts/terminal_session_qualification.sh` builds the native Zig-only `noctty-terminal-session-qualification` runner in Debug and `ReleaseSafe`. Each mode uses the production `TerminalSession`, PTY adapter, VT grid, resize path, output pump, exit polling, and teardown path for 64 ordinary sessions plus eight forced-shutdown sessions.
+`scripts/terminal_session_qualification.sh` builds the native Zig-only `dintty-terminal-session-qualification` runner in Debug and `ReleaseSafe`. Each mode uses the production `TerminalSession`, PTY adapter, VT grid, resize path, output pump, exit polling, and teardown path for 64 ordinary sessions plus eight forced-shutdown sessions.
 
 The ordinary cycle starts a real interactive `/bin/sh` PTY, performs two resizes, drains 32 output lines and an OSC title marker into the production grid, observes exit zero, deinitializes twice to exercise the idempotent public boundary, and requires Zig `DebugAllocator` requested bytes to return to the pre-cycle baseline. The forced cycle starts a foreground shell loop that deliberately ignores `SIGHUP` and `SIGTERM`, waits until the PTY reports its distinct foreground process group, closes the session, requires the 500 ms grace path to expire, and then requires both the owned shell and stubborn foreground group to disappear. Requested bytes again return to baseline after every cycle and zero at process exit.
 

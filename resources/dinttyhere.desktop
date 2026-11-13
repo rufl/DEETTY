@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Service
+Name=DINTTY Service Menu
+TryExec=dintty
+MimeType=inode/directory;
+Actions=OpenDINTTYHere;
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-MaxNumberOfUrls=1
+X-KDE-Priority=TopLevel
+
+[Desktop Action OpenDINTTYHere]
+Name=Open DINTTY Here
+Icon=com.dintty.DINTTY
+Exec=dintty --new-window --working-directory %f

@@ -4,7 +4,7 @@ Status: bounded NCT-110/NCT-112 installed-application PTY/VT tranche passed on 2
 
 ## Qualified Boundary
 
-`scripts/terminal_real_tui_qualification.sh` discovers installed Codex, Vim, and btop executables and builds the native Zig `noctty-terminal-real-tui-qualification` runner in Debug and `ReleaseSafe`. Each application starts through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid` at 120x40. The runner waits for application-owned screen markers, inspects foreground-process identity through the production `/proc` seam, records terminal modes and rendered cell state, routes application input, observes a controlled zero exit, releases the session, and requires Zig `DebugAllocator` requested bytes to return to the pre-case baseline and zero at process exit.
+`scripts/terminal_real_tui_qualification.sh` discovers installed Codex, Vim, and btop executables and builds the native Zig `dintty-terminal-real-tui-qualification` runner in Debug and `ReleaseSafe`. Each application starts through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid` at 120x40. The runner waits for application-owned screen markers, inspects foreground-process identity through the production `/proc` seam, records terminal modes and rendered cell state, routes application input, observes a controlled zero exit, releases the session, and requires Zig `DebugAllocator` requested bytes to return to the pre-case baseline and zero at process exit.
 
 The isolated cases are:
 
@@ -12,7 +12,7 @@ The isolated cases are:
 - Vim 9.2 with `-Nu NONE`, no swap or viminfo, and a disposable two-line fixture, proving fixture text, alternate screen, bracketed paste, focus reporting, `:q!` routing, and clean exit.
 - btop 1.4.7 with disposable XDG configuration/state/cache roots, proving its CPU/memory/process dashboard markers, alternate screen, mouse plus SGR-mouse reporting, truecolor, Unicode, `q` routing, and clean exit.
 
-The external Codex package's implementation does not enter NOCTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product Node/browser dependency, network request, credential, telemetry, or persisted user state.
+The external Codex package's implementation does not enter DINTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product Node/browser dependency, network request, credential, telemetry, or persisted user state.
 
 ## Retained Result
 
@@ -47,4 +47,4 @@ The lane is opt-in because it intentionally requires installed Codex, Vim, and b
 ./scripts/terminal_real_tui_qualification.sh
 ```
 
-`NOCTTY_REAL_TUI_CODEX`, `NOCTTY_REAL_TUI_VIM`, and `NOCTTY_REAL_TUI_BTOP` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.
+`DINTTY_REAL_TUI_CODEX`, `DINTTY_REAL_TUI_VIM`, and `DINTTY_REAL_TUI_BTOP` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.

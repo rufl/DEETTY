@@ -1,4 +1,4 @@
-Name:           noctty
+Name:           dintty
 Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Zig-native terminal workspace for Plasma and Noctalia
@@ -29,18 +29,18 @@ rm -rf %{buildroot}
 zig build -Doptimize=ReleaseSafe --prefix %{buildroot}%{_prefix}
 
 %files
-%{_bindir}/noctty
+%{_bindir}/dintty
 %{_bindir}/nocted
-%{_datadir}/applications/com.noctty.NOCTTY.desktop
-%{_datadir}/applications/com.noctty.NoctEd.desktop
-%{_datadir}/kio/servicemenus/nocttyhere.desktop
-%{_datadir}/metainfo/com.noctty.NOCTTY.metainfo.xml
-%{_datadir}/metainfo/com.noctty.NoctEd.metainfo.xml
-%{_datadir}/icons/hicolor/*/apps/com.noctty.NOCTTY.*
-%{_datadir}/icons/hicolor/*/apps/com.noctty.NoctEd.*
+%{_datadir}/applications/com.dintty.DINTTY.desktop
+%{_datadir}/applications/com.dintty.NoctEd.desktop
+%{_datadir}/kio/servicemenus/dinttyhere.desktop
+%{_datadir}/metainfo/com.dintty.DINTTY.metainfo.xml
+%{_datadir}/metainfo/com.dintty.NoctEd.metainfo.xml
+%{_datadir}/icons/hicolor/*/apps/com.dintty.DINTTY.*
+%{_datadir}/icons/hicolor/*/apps/com.dintty.NoctEd.*
 %{_datadir}/nocted/*
-%{_datadir}/noctty/noctalia/*
-%license %{_datadir}/licenses/noctty/
+%{_datadir}/dintty/noctalia/*
+%license %{_datadir}/licenses/dintty/
 
 %changelog
 * Tue Jul 14 2026 LichForge <opensource@lichforge.com> - 0.1.0-1

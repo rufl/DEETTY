@@ -14,20 +14,20 @@ fn open(parent: c.HWND, allocator: std.mem.Allocator, exporting: bool, cancel_pr
     defer allocator.free(path);
     @memset(path, 0);
     if (exporting) {
-        const initial = wide("themes.nocttythemes");
+        const initial = wide("themes.dinttythemes");
         @memcpy(path[0..initial.len], initial);
     }
     var dialog: c.OPENFILENAMEW = std.mem.zeroes(c.OPENFILENAMEW);
     dialog.lStructSize = @sizeOf(c.OPENFILENAMEW);
     dialog.lpstrFilter = if (exporting)
-        wide("NOCTTY theme libraries (*.nocttythemes)\x00*.nocttythemes\x00")
+        wide("DINTTY theme libraries (*.dinttythemes)\x00*.dinttythemes\x00")
     else
-        wide("Theme sources and libraries (*.nocttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json)\x00*.nocttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json\x00All files (*.*)\x00*.*\x00");
+        wide("Theme sources and libraries (*.dinttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json)\x00*.dinttythemes;*.conf;*.ghostty;*.Xresources;*.xdefaults;*.toml;*.json\x00All files (*.*)\x00*.*\x00");
     dialog.nFilterIndex = 1;
     dialog.lpstrFile = path.ptr;
     dialog.nMaxFile = @intCast(path.len);
-    dialog.lpstrDefExt = if (exporting) wide("nocttythemes") else wide("conf");
-    dialog.lpstrTitle = if (exporting) wide("Export NOCTTY theme library") else wide("Import terminal theme source or library");
+    dialog.lpstrDefExt = if (exporting) wide("dinttythemes") else wide("conf");
+    dialog.lpstrTitle = if (exporting) wide("Export DINTTY theme library") else wide("Import terminal theme source or library");
     dialog.Flags = @intCast(c.OFN_EXPLORER | c.OFN_NOCHANGEDIR | c.OFN_PATHMUSTEXIST |
         (if (exporting) c.OFN_OVERWRITEPROMPT else c.OFN_FILEMUSTEXIST));
     if (cancel_probe) {
@@ -60,9 +60,9 @@ fn cancelHook(window: c.HWND, message: c.UINT, _: c.WPARAM, _: c.LPARAM) callcon
 /// Exercise real import/export dialog cancellation without touching a file.
 pub fn qualify(parent: c.HWND) bool {
     const allocator = std.heap.page_allocator;
-    const encoded = utf8Path(allocator, wide("C:\\NOCTTY-中-😀\\themes.nocttythemes")) catch return false;
+    const encoded = utf8Path(allocator, wide("C:\\DINTTY-中-😀\\themes.dinttythemes")) catch return false;
     defer allocator.free(encoded);
-    if (!std.mem.eql(u8, encoded, "C:\\NOCTTY-中-😀\\themes.nocttythemes")) return false;
+    if (!std.mem.eql(u8, encoded, "C:\\DINTTY-中-😀\\themes.dinttythemes")) return false;
     for ([_]bool{ false, true }) |exporting| {
         const result = open(parent, allocator, exporting, true) catch return false;
         if (result) |path| {

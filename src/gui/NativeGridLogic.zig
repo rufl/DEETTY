@@ -4,22 +4,22 @@ const std = @import("std");
 const KeyEncoding = @import("terminal_key_encoding");
 const SplitRatio = @import("split_ratio");
 
-pub export fn noctty_grid_split_ratio(position: c_int, extent: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_split_ratio(position: c_int, extent: c_int) callconv(.c) c_int {
     if (extent <= 0) return 0;
     return @intCast(SplitRatio.fromPosition(position, @intCast(extent)));
 }
 
-pub export fn noctty_grid_split_position(extent: c_int, ratio: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_split_position(extent: c_int, ratio: c_int) callconv(.c) c_int {
     if (extent <= 0) return 0;
     return @intCast(SplitRatio.position(@intCast(extent), @intCast(std.math.clamp(ratio, 0, 1000))));
 }
 
 test "split ratio ABI bounds signed geometry without multiplication overflow" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_ratio(-1, 100));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_ratio(100, 0));
-    try std.testing.expectEqual(@as(c_int, 500), noctty_grid_split_ratio(1_000_000_000, 2_000_000_000));
-    try std.testing.expectEqual(std.math.maxInt(c_int), noctty_grid_split_position(std.math.maxInt(c_int), std.math.maxInt(c_int)));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_split_position(100, -1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_split_ratio(-1, 100));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_split_ratio(100, 0));
+    try std.testing.expectEqual(@as(c_int, 500), dintty_grid_split_ratio(1_000_000_000, 2_000_000_000));
+    try std.testing.expectEqual(std.math.maxInt(c_int), dintty_grid_split_position(std.math.maxInt(c_int), std.math.maxInt(c_int)));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_split_position(100, -1));
 }
 
 pub const ScrollbarGeometry = extern struct {
@@ -289,7 +289,7 @@ pub fn settings_event_code(kind: SettingsEventKind) c_int {
     };
 }
 
-pub export fn noctty_grid_settings_event_code(kind: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_settings_event_code(kind: c_int) callconv(.c) c_int {
     if (kind < 0 or kind >= settings_event_kind_count) return -1;
     return settings_event_code(@fromBackingInt(@intCast(kind)));
 }
@@ -428,7 +428,7 @@ pub fn host_event_code(kind: HostEventKind) c_int {
     };
 }
 
-pub export fn noctty_grid_host_event_code(kind: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_host_event_code(kind: c_int) callconv(.c) c_int {
     if (kind < 0 or kind >= host_event_kind_count) return -1;
     return host_event_code(@fromBackingInt(@intCast(kind)));
 }
@@ -746,7 +746,7 @@ fn closeSchedulePreflight(coordinator: *CloseCoordinator) CloseTransition {
     return closeTransition(close_effect_schedule_preflight, coordinator.origin, true);
 }
 
-pub export fn noctty_grid_close_request(
+pub export fn dintty_grid_close_request(
     coordinator_output: ?*CloseCoordinator,
     origin: u32,
 ) callconv(.c) CloseTransition {
@@ -764,7 +764,7 @@ pub export fn noctty_grid_close_request(
     return closeSchedulePreflight(coordinator);
 }
 
-pub export fn noctty_grid_close_modal_begin(
+pub export fn dintty_grid_close_modal_begin(
     coordinator_output: ?*CloseCoordinator,
 ) callconv(.c) CloseTransition {
     const coordinator = coordinator_output orelse return .{};
@@ -780,7 +780,7 @@ pub export fn noctty_grid_close_modal_begin(
     return closeTransition(cancellation, coordinator.origin, true);
 }
 
-pub export fn noctty_grid_close_modal_end(
+pub export fn dintty_grid_close_modal_end(
     coordinator_output: ?*CloseCoordinator,
 ) callconv(.c) CloseTransition {
     const coordinator = coordinator_output orelse return .{};
@@ -798,7 +798,7 @@ pub export fn noctty_grid_close_modal_end(
     );
 }
 
-pub export fn noctty_grid_close_source_fired(
+pub export fn dintty_grid_close_source_fired(
     coordinator_output: ?*CloseCoordinator,
     source: u32,
 ) callconv(.c) CloseTransition {
@@ -822,7 +822,7 @@ pub export fn noctty_grid_close_source_fired(
     return closeTransition(0, coordinator.origin, false);
 }
 
-pub export fn noctty_grid_close_preflight_result(
+pub export fn dintty_grid_close_preflight_result(
     coordinator_output: ?*CloseCoordinator,
     accepted: c_int,
 ) callconv(.c) CloseTransition {
@@ -859,14 +859,14 @@ const gdk_super_mask: u32 = 1 << 26;
 const gdk_key_kp_add: u32 = 0xffab;
 const gdk_key_kp_subtract: u32 = 0xffad;
 
-pub export fn noctty_grid_is_alt_key(keyval: u32) callconv(.c) c_int {
+pub export fn dintty_grid_is_alt_key(keyval: u32) callconv(.c) c_int {
     return @intFromBool(
         keyval == gdk_key_alt_l or keyval == gdk_key_alt_r or
             keyval == gdk_key_meta_l or keyval == gdk_key_meta_r,
     );
 }
 
-pub export fn noctty_grid_input_modifiers(state: u32) callconv(.c) u32 {
+pub export fn dintty_grid_input_modifiers(state: u32) callconv(.c) u32 {
     var modifiers: u32 = 0;
     if (state & gdk_shift_mask != 0) modifiers |= modifier_shift;
     if (state & gdk_control_mask != 0) modifiers |= modifier_control;
@@ -874,7 +874,7 @@ pub export fn noctty_grid_input_modifiers(state: u32) callconv(.c) u32 {
     return modifiers;
 }
 
-pub export fn noctty_grid_cycle_target(
+pub export fn dintty_grid_cycle_target(
     count: c_int,
     current_index: c_int,
     current_found: c_int,
@@ -887,7 +887,7 @@ pub export fn noctty_grid_cycle_target(
         return if (current_index == 0) count - 1 else current_index - 1;
     return if (current_index == count - 1) 0 else current_index + 1;
 }
-pub export fn noctty_grid_tray_menu_plan(
+pub export fn dintty_grid_tray_menu_plan(
     id: c_int,
     output_optional: ?*TrayMenuItemPlan,
 ) callconv(.c) void {
@@ -943,7 +943,7 @@ pub export fn noctty_grid_tray_menu_plan(
     }
 }
 
-pub export fn noctty_grid_workspace_event_plan(
+pub export fn dintty_grid_workspace_event_plan(
     event_code: c_int,
     workspace_smoke: c_int,
     output_optional: ?*WorkspaceEventPlan,
@@ -987,7 +987,7 @@ pub export fn noctty_grid_workspace_event_plan(
     if (event_code == host_event_code(.workspace_move)) output.action = workspace_event_move;
 }
 
-pub export fn noctty_grid_smart_filter_visibility_plan(
+pub export fn dintty_grid_smart_filter_visibility_plan(
     filter_active: c_int,
     matches: c_int,
     focused: c_int,
@@ -1003,7 +1003,7 @@ pub export fn noctty_grid_smart_filter_visibility_plan(
     };
 }
 
-pub export fn noctty_grid_smart_filter_summary_plan(
+pub export fn dintty_grid_smart_filter_summary_plan(
     filter_active: c_int,
     page_available: c_int,
     first_visible: c_int,
@@ -1021,24 +1021,24 @@ pub export fn noctty_grid_smart_filter_summary_plan(
     };
 }
 
-pub export fn noctty_grid_tray_menu_id_valid(id: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_tray_menu_id_valid(id: c_int) callconv(.c) c_int {
     return @intFromBool(id >= 0 and id <= 4);
 }
 
-pub export fn noctty_grid_window_resize_cursor_name(index: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_window_resize_cursor_name(index: c_int) callconv(.c) [*:0]const u8 {
     return if (index == 3 or index == 4) "ew-resize" else "ns-resize";
 }
 
-pub export fn noctty_grid_tray_menu_label(id: c_int, window_presented: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_tray_menu_label(id: c_int, window_presented: c_int) callconv(.c) [*:0]const u8 {
     return switch (id) {
-        1 => if (window_presented != 0) "Hide NOCTTY" else "Show NOCTTY",
+        1 => if (window_presented != 0) "Hide DINTTY" else "Show DINTTY",
         2 => "Settings…",
-        4 => "Close NOCTTY",
+        4 => "Close DINTTY",
         else => "",
     };
 }
 
-pub export fn noctty_grid_tray_menu_icon_name(id: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_tray_menu_icon_name(id: c_int) callconv(.c) [*:0]const u8 {
     return switch (id) {
         1 => "view-visible",
         2 => "configure",
@@ -1047,26 +1047,26 @@ pub export fn noctty_grid_tray_menu_icon_name(id: c_int) callconv(.c) [*:0]const
     };
 }
 
-pub export fn noctty_grid_resize_edge(index: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_resize_edge(index: c_int) callconv(.c) c_int {
     return if (index >= 0 and index < 8) index else -1;
 }
 
-pub export fn noctty_grid_resize_handle_index(stored_index: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_resize_handle_index(stored_index: c_int) callconv(.c) c_int {
     return if (stored_index >= 1 and stored_index <= 8) stored_index - 1 else -1;
 }
 
 test "resize edge policy preserves all GTK edge ordinals" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_edge(0));
-    try std.testing.expectEqual(@as(c_int, 7), noctty_grid_resize_edge(7));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_edge(-1));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_edge(8));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_resize_edge(0));
+    try std.testing.expectEqual(@as(c_int, 7), dintty_grid_resize_edge(7));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_resize_edge(-1));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_resize_edge(8));
 }
 
 test "resize handle storage indices normalize bounded handles" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_handle_index(1));
-    try std.testing.expectEqual(@as(c_int, 7), noctty_grid_resize_handle_index(8));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_handle_index(0));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_resize_handle_index(9));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_resize_handle_index(1));
+    try std.testing.expectEqual(@as(c_int, 7), dintty_grid_resize_handle_index(8));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_resize_handle_index(0));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_resize_handle_index(9));
 }
 
 fn validRectangle(rectangle: *const Rectangle) bool {
@@ -1077,7 +1077,7 @@ fn validRectangle(rectangle: *const Rectangle) bool {
         rectangle.width >= 0 and rectangle.height >= 0;
 }
 
-pub export fn noctty_grid_directional_focus_begin(
+pub export fn dintty_grid_directional_focus_begin(
     source_optional: ?*const Rectangle,
     dx: c_int,
     dy: c_int,
@@ -1106,7 +1106,7 @@ pub export fn noctty_grid_directional_focus_begin(
     output.active = 1;
 }
 
-pub export fn noctty_grid_directional_focus_consider(
+pub export fn dintty_grid_directional_focus_consider(
     plan_optional: ?*DirectionalFocusPlan,
     candidate_optional: ?*const Rectangle,
     candidate_index: c_int,
@@ -1152,7 +1152,7 @@ pub const route_application_keys: c_int = 9;
 pub const terminal_mode_mouse: c_int = 1 << 0;
 pub const terminal_mode_alternate_screen: c_int = 1 << 1;
 
-pub export fn noctty_grid_input_route(
+pub export fn dintty_grid_input_route(
     input_kind: c_int,
     scrollbar_owned: c_int,
     terminal_mode_flags: c_int,
@@ -1189,7 +1189,7 @@ pub export fn noctty_grid_input_route(
     }
     return route_application_mouse;
 }
-pub export fn noctty_grid_wheel_action_plan(
+pub export fn dintty_grid_wheel_action_plan(
     route: c_int,
     scroll_direction: c_int,
     delta_y: f64,
@@ -1229,7 +1229,7 @@ pub export fn noctty_grid_wheel_action_plan(
     plan.direction = if (signed_steps < 0) -1 else 1;
 }
 
-pub export fn noctty_grid_scroll_route_plan(
+pub export fn dintty_grid_scroll_route_plan(
     scrollbar_owned: c_int,
     terminal_mode_flags: c_int,
     history_available: c_int,
@@ -1243,7 +1243,7 @@ pub export fn noctty_grid_scroll_route_plan(
 ) callconv(.c) void {
     const plan = output orelse return;
     plan.* = .{ .route = route_ignore, .steps = 0, .direction = 0 };
-    const route = noctty_grid_input_route(input_wheel, scrollbar_owned, terminal_mode_flags, history_available, 0, modifier_flags);
+    const route = dintty_grid_input_route(input_wheel, scrollbar_owned, terminal_mode_flags, history_available, 0, modifier_flags);
     plan.route = route;
     const accumulator: ?*f64 = switch (route) {
         route_tab_cycle => tab_accumulator,
@@ -1252,7 +1252,7 @@ pub export fn noctty_grid_scroll_route_plan(
         else => null,
     };
     var wheel_plan = WheelActionPlan{ .steps = 0, .direction = 0 };
-    noctty_grid_wheel_action_plan(route, scroll_direction, delta_y, accumulator, &wheel_plan);
+    dintty_grid_wheel_action_plan(route, scroll_direction, delta_y, accumulator, &wheel_plan);
     plan.steps = wheel_plan.steps;
     plan.direction = wheel_plan.direction;
 }
@@ -1265,10 +1265,10 @@ fn cell_is_background(
 ) bool {
     var text: [64]u8 = undefined;
     const length = reader(userdata, column, row, &text, text.len);
-    return noctty_grid_cell_is_background(&text, length) != 0;
+    return dintty_grid_cell_is_background(&text, length) != 0;
 }
 
-pub export fn noctty_grid_selection_word_plan(
+pub export fn dintty_grid_selection_word_plan(
     userdata: ?*anyopaque,
     column: c_int,
     row: c_int,
@@ -1296,7 +1296,7 @@ pub export fn noctty_grid_selection_word_plan(
     };
 }
 
-pub export fn noctty_grid_read_hyperlink(
+pub export fn dintty_grid_read_hyperlink(
     userdata: ?*anyopaque,
     column: c_int,
     row: c_int,
@@ -1313,13 +1313,13 @@ pub export fn noctty_grid_read_hyperlink(
     const bounded: usize = @min(@as(usize, @intCast(length)), payload_capacity);
     bytes[bounded] = 0;
     if (bounded > std.math.maxInt(u32)) return -1;
-    return if (noctty_grid_hyperlink_valid(bytes, @intCast(bounded)) != 0)
+    return if (dintty_grid_hyperlink_valid(bytes, @intCast(bounded)) != 0)
         @intCast(bounded)
     else
         -1;
 }
 
-pub export fn noctty_grid_wheel_key_sequence(
+pub export fn dintty_grid_wheel_key_sequence(
     application_cursor: c_int,
     steps: c_int,
     output: ?[*]u8,
@@ -1455,7 +1455,7 @@ fn keyCommandPlan(
     };
 }
 
-pub export fn noctty_grid_key_command_plan(
+pub export fn dintty_grid_key_command_plan(
     pressed: c_int,
     alt_key: c_int,
     smart_filter_clear_available: c_int,
@@ -1547,7 +1547,7 @@ fn keyChordPlan(action: c_int, value: c_int) KeyChordPlan {
     };
 }
 
-pub export fn noctty_grid_key_chord_plan(
+pub export fn dintty_grid_key_chord_plan(
     keyval: u32,
     state: u32,
     output_optional: ?*KeyChordPlan,
@@ -1627,7 +1627,7 @@ pub export fn noctty_grid_key_chord_plan(
         }
     }
 }
-pub export fn noctty_grid_keyboard_scroll_action(keyval: u32) callconv(.c) c_int {
+pub export fn dintty_grid_keyboard_scroll_action(keyval: u32) callconv(.c) c_int {
     return switch (keyval) {
         gdk_key_page_up => 1,
         gdk_key_page_down => 2,
@@ -1637,7 +1637,7 @@ pub export fn noctty_grid_keyboard_scroll_action(keyval: u32) callconv(.c) c_int
     };
 }
 
-pub export fn noctty_grid_pointer_event_plan(
+pub export fn dintty_grid_pointer_event_plan(
     event_kind: c_int,
     button: c_int,
     route: c_int,
@@ -1707,7 +1707,7 @@ pub export fn noctty_grid_pointer_event_plan(
     output.* = .{ .action = pointer_action_consume };
 }
 
-pub export fn noctty_grid_resize_event_plan(
+pub export fn dintty_grid_resize_event_plan(
     event_kind: c_int,
     handle: c_int,
     button: c_int,
@@ -1767,7 +1767,7 @@ pub export fn noctty_grid_resize_event_plan(
     }
 }
 
-pub export fn noctty_grid_window_mode_plan(
+pub export fn dintty_grid_window_mode_plan(
     previous_mode: c_int,
     mode: c_int,
     layer_shell_active: c_int,
@@ -1795,7 +1795,7 @@ pub export fn noctty_grid_window_mode_plan(
     };
 }
 
-pub export fn noctty_grid_overlay_stacking_plan(
+pub export fn dintty_grid_overlay_stacking_plan(
     layer_shell_active: c_int,
     layer_shell_library_available: c_int,
     existing_overlay: c_int,
@@ -1821,7 +1821,7 @@ pub export fn noctty_grid_overlay_stacking_plan(
     };
 }
 
-pub export fn noctty_grid_window_visibility_plan(
+pub export fn dintty_grid_window_visibility_plan(
     window_presented: c_int,
     window_visible: c_int,
     output_optional: ?*WindowVisibilityPlan,
@@ -1832,7 +1832,7 @@ pub export fn noctty_grid_window_visibility_plan(
         output.* = .{ .action = visibility_action_hide };
 }
 
-pub export fn noctty_grid_overlay_geometry_plan(
+pub export fn dintty_grid_overlay_geometry_plan(
     workarea_x: c_int,
     workarea_y: c_int,
     workarea_width: c_int,
@@ -1856,7 +1856,7 @@ pub export fn noctty_grid_overlay_geometry_plan(
     };
 }
 
-pub export fn noctty_grid_fullscreen_plan(
+pub export fn dintty_grid_fullscreen_plan(
     gdk_window_present: c_int,
     wayland_display: c_int,
     monitor_index: c_int,
@@ -1872,7 +1872,7 @@ pub export fn noctty_grid_fullscreen_plan(
     }
 }
 
-pub export fn noctty_grid_layout_preset_plan(
+pub export fn dintty_grid_layout_preset_plan(
     event_code: c_int,
     output_optional: ?*LayoutPresetPlan,
 ) callconv(.c) void {
@@ -1916,7 +1916,7 @@ pub export fn noctty_grid_layout_preset_plan(
     };
 }
 
-pub export fn noctty_grid_layer_geometry_plan(
+pub export fn dintty_grid_layer_geometry_plan(
     mode: c_int,
     monitor_width: c_int,
     monitor_height: c_int,
@@ -1936,8 +1936,8 @@ pub export fn noctty_grid_layer_geometry_plan(
         .bottom = 0,
     };
     if (mode == 0) {
-        const width = noctty_grid_dropdown_dimension(dropdown_width_px, dropdown_width_percent, monitor_width, 480);
-        const height = noctty_grid_dropdown_dimension(dropdown_height_px, dropdown_height_percent, monitor_height, 240);
+        const width = dintty_grid_dropdown_dimension(dropdown_width_px, dropdown_width_percent, monitor_width, 480);
+        const height = dintty_grid_dropdown_dimension(dropdown_height_px, dropdown_height_percent, monitor_height, 240);
         const left = @max(0, @divTrunc(monitor_width - width, 2));
         output.* = .{
             .action = layer_geometry_dropdown,
@@ -1968,7 +1968,7 @@ pub export fn noctty_grid_layer_geometry_plan(
     }
 }
 
-pub export fn noctty_grid_monitor_selection_plan(
+pub export fn dintty_grid_monitor_selection_plan(
     window_monitor: c_int,
     primary_monitor: c_int,
     pointer_monitor: c_int,
@@ -1988,11 +1988,11 @@ pub export fn noctty_grid_monitor_selection_plan(
     }
 }
 
-pub export fn noctty_grid_monitor_scale_factor(raw_scale_factor: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_monitor_scale_factor(raw_scale_factor: c_int) callconv(.c) c_int {
     return @max(1, raw_scale_factor);
 }
 
-pub export fn noctty_grid_monitor_metrics_changed(
+pub export fn dintty_grid_monitor_metrics_changed(
     geometry_x: c_int,
     geometry_y: c_int,
     geometry_width: c_int,
@@ -2057,7 +2057,7 @@ fn terminalKey(keyval: u32) ?KeyEncoding.Key {
     };
 }
 
-pub export fn noctty_grid_terminal_key_sequence(
+pub export fn dintty_grid_terminal_key_sequence(
     keyval: u32,
     codepoint: u32,
     modifier_flags: u32,
@@ -2100,7 +2100,7 @@ pub export fn noctty_grid_terminal_key_sequence(
     return @intCast(total_length);
 }
 
-pub export fn noctty_grid_shortcut_label(
+pub export fn dintty_grid_shortcut_label(
     encoded: u32,
     output_optional: ?[*]u8,
     capacity: u32,
@@ -2151,7 +2151,7 @@ pub export fn noctty_grid_shortcut_label(
     return @intCast(label.len);
 }
 
-pub export fn noctty_grid_shortcut_settings_text(
+pub export fn dintty_grid_shortcut_settings_text(
     encoded: u32,
     plasma_transport: c_int,
     label: ?[*]u8,
@@ -2161,7 +2161,7 @@ pub export fn noctty_grid_shortcut_settings_text(
     plan: ?*ShortcutTextPlan,
 ) callconv(.c) c_int {
     var shortcut_storage: [64]u8 = undefined;
-    const shortcut_length = noctty_grid_shortcut_label(encoded, &shortcut_storage, shortcut_storage.len);
+    const shortcut_length = dintty_grid_shortcut_label(encoded, &shortcut_storage, shortcut_storage.len);
     if (shortcut_length <= 0) return 0;
     const shortcut = shortcut_storage[0..@intCast(shortcut_length)];
     var result = ShortcutTextPlan{
@@ -2188,7 +2188,7 @@ pub export fn noctty_grid_shortcut_settings_text(
     return 1;
 }
 
-pub export fn noctty_grid_scroll_direction(direction: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_scroll_direction(direction: c_int) callconv(.c) c_int {
     return switch (direction) {
         0 => -1,
         1 => 1,
@@ -2197,7 +2197,7 @@ pub export fn noctty_grid_scroll_direction(direction: c_int) callconv(.c) c_int 
     };
 }
 
-pub export fn noctty_grid_tab_color_preset_name(preset: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_tab_color_preset_name(preset: c_int) callconv(.c) [*:0]const u8 {
     return switch (preset) {
         0 => "Red",
         1 => "Orange",
@@ -2211,7 +2211,7 @@ pub export fn noctty_grid_tab_color_preset_name(preset: c_int) callconv(.c) [*:0
     };
 }
 
-pub export fn noctty_grid_tab_color_shade_name(shade: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_tab_color_shade_name(shade: c_int) callconv(.c) [*:0]const u8 {
     if (shade <= -3) return "much darker";
     if (shade < 0) return "darker";
     if (shade >= 3) return "much lighter";
@@ -2234,7 +2234,7 @@ fn validatedGridText(
     return text;
 }
 
-pub export fn noctty_grid_text_valid(
+pub export fn dintty_grid_text_valid(
     text_pointer: ?[*]const u8,
     length: usize,
     max_length: usize,
@@ -2246,7 +2246,7 @@ pub export fn noctty_grid_text_valid(
     ) != null);
 }
 
-pub export fn noctty_grid_accessible_offset_plan(
+pub export fn dintty_grid_accessible_offset_plan(
     count: c_int,
     start_offset: c_int,
     end_offset: c_int,
@@ -2289,7 +2289,7 @@ fn accessibleByteOffset(text: []const u8, offset: usize) usize {
     return index;
 }
 
-pub export fn noctty_grid_lifecycle_timing_plan(
+pub export fn dintty_grid_lifecycle_timing_plan(
     output_optional: ?*LifecycleTimingPlan,
 ) callconv(.c) void {
     const output = output_optional orelse return;
@@ -2325,7 +2325,7 @@ pub export fn noctty_grid_lifecycle_timing_plan(
     };
 }
 
-pub export fn noctty_grid_native_host_policy(
+pub export fn dintty_grid_native_host_policy(
     output_optional: ?*NativeHostPolicy,
 ) callconv(.c) void {
     const output = output_optional orelse return;
@@ -2378,7 +2378,7 @@ fn accessibleIsWhitespace(codepoint: u21) bool {
     };
 }
 
-pub export fn noctty_grid_accessible_granularity(
+pub export fn dintty_grid_accessible_granularity(
     granularity: c_int,
 ) callconv(.c) c_int {
     return switch (granularity) {
@@ -2387,7 +2387,7 @@ pub export fn noctty_grid_accessible_granularity(
         else => 0,
     };
 }
-pub export fn noctty_grid_accessible_range_plan(
+pub export fn dintty_grid_accessible_range_plan(
     text_pointer: ?[*]const u8,
     length: usize,
     offset: c_int,
@@ -2434,7 +2434,7 @@ pub export fn noctty_grid_accessible_range_plan(
     };
 }
 
-pub export fn noctty_grid_startup_window_plan(
+pub export fn dintty_grid_startup_window_plan(
     claim_control: c_int,
     enable_shortcut: c_int,
     control_registered: c_int,
@@ -2455,7 +2455,7 @@ pub export fn noctty_grid_startup_window_plan(
         .show_layout_only = @intFromBool(start_hidden or control_conflict != 0),
     };
 }
-pub export fn noctty_grid_control_name_request_plan(
+pub export fn dintty_grid_control_name_request_plan(
     request_result: c_int,
     output_optional: ?*ControlNameRequestPlan,
 ) callconv(.c) void {
@@ -2466,7 +2466,7 @@ pub export fn noctty_grid_control_name_request_plan(
     };
 }
 
-pub export fn noctty_grid_accessible_text_capacity(
+pub export fn dintty_grid_accessible_text_capacity(
     columns: c_int,
     rows: c_int,
     output_optional: ?*AccessibleTextPlan,
@@ -2480,14 +2480,14 @@ pub export fn noctty_grid_accessible_text_capacity(
     return output.initial_capacity;
 }
 
-pub export fn noctty_grid_accessible_cell_length(
+pub export fn dintty_grid_accessible_cell_length(
     length: c_int,
     capacity: c_int,
 ) callconv(.c) c_int {
     return if (length > 0 and length < capacity) length else 0;
 }
 
-pub export fn noctty_grid_accessible_trim_row_length(
+pub export fn dintty_grid_accessible_trim_row_length(
     bytes: [*]const u8,
     length: usize,
 ) callconv(.c) usize {
@@ -2496,7 +2496,7 @@ pub export fn noctty_grid_accessible_trim_row_length(
     return result;
 }
 
-pub export fn noctty_grid_accessible_trim_newline_length(
+pub export fn dintty_grid_accessible_trim_newline_length(
     bytes: [*]const u8,
     length: usize,
 ) callconv(.c) usize {
@@ -2504,7 +2504,7 @@ pub export fn noctty_grid_accessible_trim_newline_length(
     while (result > 0 and bytes[result - 1] == '\n') result -= 1;
     return result;
 }
-pub export fn noctty_grid_output_present_plan(
+pub export fn dintty_grid_output_present_plan(
     session_available: c_int,
     exited: c_int,
     source_active: c_int,
@@ -2519,7 +2519,7 @@ pub export fn noctty_grid_output_present_plan(
         .timeout_ms = 100,
     };
 }
-pub export fn noctty_grid_zoom_plan(
+pub export fn dintty_grid_zoom_plan(
     zoomed_pane_id: u64,
     pane_id: u64,
     output: ?*ZoomPlan,
@@ -2812,7 +2812,7 @@ fn copySmokeSchedule(
     return @intCast(count);
 }
 
-pub export fn noctty_grid_smoke_schedule(
+pub export fn dintty_grid_smoke_schedule(
     workspace_smoke: c_int,
     activation_child_receipt: c_int,
     output_optional: ?*SmokeScheduleStep,
@@ -2862,7 +2862,7 @@ pub export fn noctty_grid_smoke_schedule(
     };
 }
 
-pub export fn noctty_grid_hyperlink_valid(
+pub export fn dintty_grid_hyperlink_valid(
     uri_pointer: ?[*]const u8,
     length: u32,
 ) callconv(.c) c_int {
@@ -2875,7 +2875,7 @@ pub export fn noctty_grid_hyperlink_valid(
     return @intFromBool(allowed);
 }
 
-pub export fn noctty_grid_fuzzy_match_ascii(
+pub export fn dintty_grid_fuzzy_match_ascii(
     haystack_pointer: ?[*]const u8,
     haystack_length: u32,
     needle_pointer: ?[*]const u8,
@@ -2893,7 +2893,7 @@ pub export fn noctty_grid_fuzzy_match_ascii(
     return 0;
 }
 
-pub export fn noctty_grid_dropdown_dimension(
+pub export fn dintty_grid_dropdown_dimension(
     stored_px: c_int,
     percent: c_int,
     available_px: c_int,
@@ -2916,7 +2916,7 @@ pub export fn noctty_grid_dropdown_dimension(
     ));
 }
 
-pub export fn noctty_grid_dialog_dimension(
+pub export fn dintty_grid_dialog_dimension(
     available_px: c_int,
     maximum_px: c_int,
     minimum_px: c_int,
@@ -2928,7 +2928,7 @@ pub export fn noctty_grid_dialog_dimension(
     return @intCast(std.math.clamp(requested, @as(i64, lower), @as(i64, upper)));
 }
 
-pub export fn noctty_grid_compact_tab_metrics(
+pub export fn dintty_grid_compact_tab_metrics(
     tab_height: c_int,
     output_optional: ?*CompactTabMetrics,
 ) callconv(.c) void {
@@ -2948,7 +2948,7 @@ pub export fn noctty_grid_compact_tab_metrics(
     };
 }
 
-pub export fn noctty_grid_compact_tab_geometry(
+pub export fn dintty_grid_compact_tab_geometry(
     measurements_optional: ?*const CompactTabMeasurements,
     geometry_optional: ?*CompactTabGeometry,
 ) callconv(.c) void {
@@ -2969,17 +2969,17 @@ pub export fn noctty_grid_compact_tab_geometry(
         .action_extent = @min(measurements.action_width, measurements.action_height),
     };
 }
-pub export fn noctty_grid_settings_geometry_plan(
+pub export fn dintty_grid_settings_geometry_plan(
     workarea_width: c_int,
     workarea_height: c_int,
     output_optional: ?*SettingsGeometryPlan,
 ) callconv(.c) void {
     const output = output_optional orelse return;
-    const width = noctty_grid_dialog_dimension(workarea_width, 980, 720, 96);
-    const height = noctty_grid_dialog_dimension(workarea_height, 720, 560, 96);
+    const width = dintty_grid_dialog_dimension(workarea_width, 980, 720, 96);
+    const height = dintty_grid_dialog_dimension(workarea_height, 720, 560, 96);
     output.* = .{
-        .width = noctty_grid_dialog_dimension(workarea_width, width, 1, 32),
-        .height = noctty_grid_dialog_dimension(workarea_height, height, 1, 32),
+        .width = dintty_grid_dialog_dimension(workarea_width, width, 1, 32),
+        .height = dintty_grid_dialog_dimension(workarea_height, height, 1, 32),
         .min_width = @min(720, width),
         .min_height = @min(560, height),
         .max_width = @max(1, workarea_width),
@@ -2987,7 +2987,7 @@ pub export fn noctty_grid_settings_geometry_plan(
     };
 }
 
-pub export fn noctty_grid_percent_dimension(
+pub export fn dintty_grid_percent_dimension(
     available_px: c_int,
     percent: c_int,
     minimum_px: c_int,
@@ -3005,19 +3005,19 @@ pub export fn noctty_grid_percent_dimension(
     ));
 }
 
-pub export fn noctty_grid_window_dimensions_plan(
+pub export fn dintty_grid_window_dimensions_plan(
     workarea_width: c_int,
     workarea_height: c_int,
     output_optional: ?*WindowDimensionsPlan,
 ) callconv(.c) void {
     const output = output_optional orelse return;
     output.* = .{
-        .width = noctty_grid_percent_dimension(workarea_width, 80, 480),
-        .height = noctty_grid_percent_dimension(workarea_height, 75, 320),
+        .width = dintty_grid_percent_dimension(workarea_width, 80, 480),
+        .height = dintty_grid_percent_dimension(workarea_height, 75, 320),
     };
 }
 
-pub export fn noctty_grid_scroll_target_delta(
+pub export fn dintty_grid_scroll_target_delta(
     history_lines: u64,
     viewport_offset: u64,
     target_offset: u64,
@@ -3031,11 +3031,11 @@ pub export fn noctty_grid_scroll_target_delta(
     return -(std.math.cast(c_int, viewport - target) orelse std.math.maxInt(c_int));
 }
 
-pub export fn noctty_grid_tab_title_width(title_length: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_tab_title_width(title_length: c_int) callconv(.c) c_int {
     return std.math.clamp(title_length, 4, 24);
 }
 
-pub export fn noctty_grid_search_display_ordinal(
+pub export fn dintty_grid_search_display_ordinal(
     ordinal: u64,
     matches: c_int,
 ) callconv(.c) u64 {
@@ -3043,16 +3043,16 @@ pub export fn noctty_grid_search_display_ordinal(
     return ordinal % count + 1;
 }
 
-pub export fn noctty_grid_selection_end(length: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_selection_end(length: c_int) callconv(.c) c_int {
     return @max(0, length - 1);
 }
 
-pub export fn noctty_grid_partition_size(total: c_int, parts: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_partition_size(total: c_int, parts: c_int) callconv(.c) c_int {
     if (parts <= 0) return 2;
     return @max(2, @divTrunc(total, parts));
 }
 
-pub export fn noctty_grid_dropdown_percent(
+pub export fn dintty_grid_dropdown_percent(
     pixels: c_int,
     available_px: c_int,
     fallback_percent: c_int,
@@ -3075,7 +3075,7 @@ pub const sharing_allow_session: u32 = 1 << 1;
 pub const sharing_clear_host: u32 = 1 << 2;
 pub const sharing_clear_viewer: u32 = 1 << 3;
 
-pub export fn noctty_grid_sharing_status_actions(status: c_int) callconv(.c) u32 {
+pub export fn dintty_grid_sharing_status_actions(status: c_int) callconv(.c) u32 {
     var actions: u32 = 0;
     if (status == 0 or status == 104 or status == 105 or status == 401)
         actions |= sharing_allow_pairing;
@@ -3120,12 +3120,12 @@ pub const sharing_control_request_control: u32 = 1 << 11;
 pub const sharing_control_reconnect: u32 = 1 << 12;
 pub const sharing_control_retry_save: u32 = 1 << 13;
 
-pub export fn noctty_grid_sharing_control_plan(
+pub export fn dintty_grid_sharing_control_plan(
     status: c_int,
     active_peer_count: c_int,
     output: *SharingControlPlan,
 ) callconv(.c) void {
-    const actions = noctty_grid_sharing_status_actions(status);
+    const actions = dintty_grid_sharing_status_actions(status);
     var enabled: u32 = 0;
     if (status == 102) enabled |= sharing_control_confirm;
     if ((actions & sharing_allow_pairing) != 0)
@@ -3178,14 +3178,14 @@ fn copyBoundedText(
 }
 
 fn themeDisplayLabel(name: []const u8) []const u8 {
-    if (std.mem.eql(u8, name, "noctty-dark")) return "NOCTTY Dark";
+    if (std.mem.eql(u8, name, "dintty-dark")) return "DINTTY Dark";
     if (std.mem.eql(u8, name, "paseo-black-zinc")) return "Paseo Black Zinc";
-    if (std.mem.eql(u8, name, "noctty-high-contrast"))
-        return "NOCTTY High Contrast";
+    if (std.mem.eql(u8, name, "dintty-high-contrast"))
+        return "DINTTY High Contrast";
     return name;
 }
 
-pub export fn noctty_grid_theme_display_label(
+pub export fn dintty_grid_theme_display_label(
     name: ?[*]const u8,
     name_length: usize,
     output: ?[*]u8,
@@ -3200,7 +3200,7 @@ pub export fn noctty_grid_theme_display_label(
     );
 }
 
-pub export fn noctty_grid_sharing_status_text(
+pub export fn dintty_grid_sharing_status_text(
     status: c_int,
     sas: u32,
     port: u16,
@@ -3242,7 +3242,7 @@ pub export fn noctty_grid_sharing_status_text(
     else if (status == 206)
         "Sharing failed. Close the sharing session to reset."
     else if (status < 0)
-        "Sharing state synchronization failed. Close and reopen NOCTTY."
+        "Sharing state synchronization failed. Close and reopen DINTTY."
     else if (status == 301)
         "Connecting to paired terminal…"
     else if (status == 302)
@@ -3400,7 +3400,7 @@ fn compactTabFormat(
     return @intCast(formatted.len);
 }
 
-pub export fn noctty_grid_compact_tab_text(
+pub export fn dintty_grid_compact_tab_text(
     input: *const CompactTabTextInput,
     markup: ?[*]u8,
     markup_capacity: usize,
@@ -3473,8 +3473,8 @@ pub export fn noctty_grid_compact_tab_text(
             &tab_color_tooltip_storage,
             " · tab color {s}, {s}",
             .{
-                std.mem.span(noctty_grid_tab_color_preset_name(input.tab_color_preset)),
-                std.mem.span(noctty_grid_tab_color_shade_name(input.tab_color_shade)),
+                std.mem.span(dintty_grid_tab_color_preset_name(input.tab_color_preset)),
+                std.mem.span(dintty_grid_tab_color_shade_name(input.tab_color_shade)),
             },
         ) catch return 0
     else
@@ -3526,7 +3526,7 @@ pub export fn noctty_grid_compact_tab_text(
     return 1;
 }
 
-pub export fn noctty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0]const u8 {
     return switch (kind) {
         1 => "Could not scroll the terminal history.",
         2 => "Could not paste into every target terminal.",
@@ -3549,7 +3549,7 @@ pub export fn noctty_grid_status_feedback_message(kind: c_int) callconv(.c) [*:0
     };
 }
 
-pub export fn noctty_grid_smart_filter_text(
+pub export fn dintty_grid_smart_filter_text(
     active: c_int,
     tag: ?[*]const u8,
     tag_length: usize,
@@ -3599,7 +3599,7 @@ pub export fn noctty_grid_smart_filter_text(
     return 1;
 }
 
-pub export fn noctty_grid_cycle_feedback_text(
+pub export fn dintty_grid_cycle_feedback_text(
     kind: c_int,
     index: c_int,
     count: c_int,
@@ -3618,7 +3618,7 @@ pub export fn noctty_grid_cycle_feedback_text(
     });
 }
 
-pub export fn noctty_grid_attention_notification_text(
+pub export fn dintty_grid_attention_notification_text(
     pane_id: u64,
     attention: c_int,
     exit_code: c_int,
@@ -3641,7 +3641,7 @@ pub export fn noctty_grid_attention_notification_text(
         );
 }
 
-pub export fn noctty_grid_tab_title_text(
+pub export fn dintty_grid_tab_title_text(
     model_title: ?[*]const u8,
     model_length: usize,
     display_title: ?[*]const u8,
@@ -3669,7 +3669,7 @@ pub export fn noctty_grid_tab_title_text(
     );
 }
 
-pub export fn noctty_grid_pane_zoom_feedback_text(
+pub export fn dintty_grid_pane_zoom_feedback_text(
     pane_id: u64,
     title: ?[*]const u8,
     title_length: usize,
@@ -3702,7 +3702,7 @@ pub export fn noctty_grid_pane_zoom_feedback_text(
     );
 }
 
-pub export fn noctty_grid_shortcut_feedback_message(
+pub export fn dintty_grid_shortcut_feedback_message(
     kind: c_int,
 ) callconv(.c) [*:0]const u8 {
     return switch (kind) {
@@ -3712,7 +3712,7 @@ pub export fn noctty_grid_shortcut_feedback_message(
         else => "",
     };
 }
-pub export fn noctty_grid_tab_rename_feedback_message(
+pub export fn dintty_grid_tab_rename_feedback_message(
     kind: c_int,
 ) callconv(.c) [*:0]const u8 {
     return switch (kind) {
@@ -3723,7 +3723,7 @@ pub export fn noctty_grid_tab_rename_feedback_message(
     };
 }
 
-pub export fn noctty_grid_note_overlay_label(
+pub export fn dintty_grid_note_overlay_label(
     text: ?[*]const u8,
     text_length: usize,
     output: ?[*]u8,
@@ -3737,7 +3737,7 @@ pub export fn noctty_grid_note_overlay_label(
     );
 }
 
-pub export fn noctty_grid_window_title_text(
+pub export fn dintty_grid_window_title_text(
     mode: c_int,
     title: ?[*]const u8,
     title_length: usize,
@@ -3747,14 +3747,14 @@ pub export fn noctty_grid_window_title_text(
     const title_text = compactTabInputSlice(title, title_length);
     if (title_text.len == 0) return 0;
     const prefix = switch (mode) {
-        0 => "NOCTTY Dropdown — ",
-        2 => "NOCTTY Zen — ",
+        0 => "DINTTY Dropdown — ",
+        2 => "DINTTY Zen — ",
         else => "",
     };
     return compactTabFormat(output, capacity, "{s}{s}", .{ prefix, title_text });
 }
 
-pub export fn noctty_grid_close_confirmation_text(
+pub export fn dintty_grid_close_confirmation_text(
     scope: ?[*]const u8,
     scope_length: usize,
     busy_count: u32,
@@ -3769,7 +3769,7 @@ pub export fn noctty_grid_close_confirmation_text(
 ) callconv(.c) c_int {
     const scope_text = compactTabInputSlice(scope, scope_length);
     const title_text = if (std.mem.eql(u8, scope_text, "application"))
-        "Close NOCTTY?"
+        "Close DINTTY?"
     else if (std.mem.eql(u8, scope_text, "tab"))
         "Close tab?"
     else
@@ -3780,7 +3780,7 @@ pub export fn noctty_grid_close_confirmation_text(
         compactTabFormat(
             detail,
             detail_capacity,
-            "Closing NOCTTY ends all terminal sessions in this window.",
+            "Closing DINTTY ends all terminal sessions in this window.",
             .{},
         )
     else if (busy_count == 1)
@@ -3814,7 +3814,7 @@ pub export fn noctty_grid_close_confirmation_text(
     return 1;
 }
 
-pub export fn noctty_grid_layout_prompt_text(
+pub export fn dintty_grid_layout_prompt_text(
     extra_count: u32,
     title: ?[*]u8,
     title_capacity: usize,
@@ -3856,7 +3856,7 @@ pub export fn noctty_grid_layout_prompt_text(
     return 1;
 }
 
-pub export fn noctty_grid_find_status_text(
+pub export fn dintty_grid_find_status_text(
     state: c_int,
     ordinal: u64,
     matches: c_int,
@@ -3875,13 +3875,13 @@ pub export fn noctty_grid_find_status_text(
     };
 }
 
-pub export fn noctty_grid_shortcuts_text(
+pub export fn dintty_grid_shortcuts_text(
     encoded: u32,
     output: ?[*]u8,
     capacity: usize,
 ) callconv(.c) c_int {
     var shortcut_storage: [64]u8 = undefined;
-    const shortcut_length = noctty_grid_shortcut_label(encoded, &shortcut_storage, shortcut_storage.len);
+    const shortcut_length = dintty_grid_shortcut_label(encoded, &shortcut_storage, shortcut_storage.len);
     if (shortcut_length <= 0) return 0;
     return compactTabFormat(
         output,
@@ -3917,12 +3917,12 @@ pub export fn noctty_grid_shortcuts_text(
             "Ctrl+Alt+-     Darken active tab color\n" ++
             "Ctrl+Shift+K   This shortcut card\n" ++
             "Double-click   Zoom pane\n" ++
-            "{s:<15} Show / hide NOCTTY",
+            "{s:<15} Show / hide DINTTY",
         .{shortcut_storage[0..@intCast(shortcut_length)]},
     );
 }
 
-pub export fn noctty_grid_sharing_peer_label(
+pub export fn dintty_grid_sharing_peer_label(
     alias: ?[*]const u8,
     alias_length: usize,
     endpoint: ?[*]const u8,
@@ -3943,7 +3943,7 @@ pub export fn noctty_grid_sharing_peer_label(
     );
 }
 
-pub export fn noctty_grid_sharing_tab_label(
+pub export fn dintty_grid_sharing_tab_label(
     title: ?[*]const u8,
     title_length: usize,
     tab_id: u64,
@@ -3964,7 +3964,7 @@ pub export fn noctty_grid_sharing_tab_label(
     });
 }
 
-pub export fn noctty_grid_sharing_pane_label(
+pub export fn dintty_grid_sharing_pane_label(
     title: ?[*]const u8,
     title_length: usize,
     pane_id: u64,
@@ -3980,7 +3980,7 @@ pub export fn noctty_grid_sharing_pane_label(
     });
 }
 
-pub export fn noctty_grid_sharing_revoke_detail(
+pub export fn dintty_grid_sharing_revoke_detail(
     peer: ?[*]const u8,
     peer_length: usize,
     output: ?[*]u8,
@@ -4035,7 +4035,7 @@ fn launchProfilePayloadLength(
     return total;
 }
 
-pub export fn noctty_grid_launch_profile_payload(
+pub export fn dintty_grid_launch_profile_payload(
     action: c_int,
     name: ?[*]const u8,
     name_length: usize,
@@ -4086,7 +4086,7 @@ pub export fn noctty_grid_launch_profile_payload(
     return result;
 }
 
-pub export fn noctty_grid_launch_profile_name_valid(
+pub export fn dintty_grid_launch_profile_name_valid(
     text: ?[*]const u8,
     length: usize,
 ) callconv(.c) c_int {
@@ -4098,7 +4098,7 @@ pub export fn noctty_grid_launch_profile_name_valid(
     );
 }
 
-pub export fn noctty_grid_launch_profile_status_message(
+pub export fn dintty_grid_launch_profile_status_message(
     kind: c_int,
 ) callconv(.c) [*:0]const u8 {
     return switch (kind) {
@@ -4112,7 +4112,7 @@ pub export fn noctty_grid_launch_profile_status_message(
     };
 }
 
-pub export fn noctty_grid_launch_profile_controls_plan(
+pub export fn dintty_grid_launch_profile_controls_plan(
     kind: c_int,
     output_optional: ?*LaunchProfileControlsPlan,
 ) callconv(.c) void {
@@ -4125,7 +4125,7 @@ pub export fn noctty_grid_launch_profile_controls_plan(
     };
 }
 
-pub export fn noctty_grid_theme_apply_status_text(
+pub export fn dintty_grid_theme_apply_status_text(
     persistence_failed: c_int,
     label: ?[*]const u8,
     label_length: usize,
@@ -4150,7 +4150,7 @@ pub export fn noctty_grid_theme_apply_status_text(
         );
 }
 
-pub export fn noctty_grid_decimal_text(
+pub export fn dintty_grid_decimal_text(
     value: i64,
     output: ?[*]u8,
     capacity: usize,
@@ -4158,7 +4158,7 @@ pub export fn noctty_grid_decimal_text(
     return compactTabFormat(output, capacity, "{d}", .{value});
 }
 
-pub export fn noctty_grid_terminal_accessible_name(
+pub export fn dintty_grid_terminal_accessible_name(
     pane_id: u64,
     output: ?[*]u8,
     capacity: usize,
@@ -4171,7 +4171,7 @@ pub export fn noctty_grid_terminal_accessible_name(
     );
 }
 
-pub export fn noctty_grid_pane_tooltip(
+pub export fn dintty_grid_pane_tooltip(
     pane_id: u64,
     status: ?[*]const u8,
     status_length: usize,
@@ -4215,7 +4215,7 @@ fn appendRecoveryText(
     return true;
 }
 
-pub export fn noctty_grid_recovery_notice_text(
+pub export fn dintty_grid_recovery_notice_text(
     flags: u32,
     output: ?[*]u8,
     capacity: usize,
@@ -4245,7 +4245,7 @@ pub export fn noctty_grid_recovery_notice_text(
     return copyBoundedText(output, capacity, message[0..length]);
 }
 
-pub export fn noctty_grid_bracketed_paste_marker(
+pub export fn dintty_grid_bracketed_paste_marker(
     kind: c_int,
     output: ?[*]u8,
     capacity: usize,
@@ -4261,7 +4261,7 @@ pub export fn noctty_grid_bracketed_paste_marker(
     return @intCast(marker.len);
 }
 
-pub export fn noctty_grid_sharing_key_sequence(
+pub export fn dintty_grid_sharing_key_sequence(
     kind: c_int,
     application_cursor: c_int,
     output: ?[*]u8,
@@ -4287,7 +4287,7 @@ pub export fn noctty_grid_sharing_key_sequence(
     ));
 }
 
-pub export fn noctty_grid_sharing_arrow_sequence(
+pub export fn dintty_grid_sharing_arrow_sequence(
     arrow: c_int,
     modifier: c_int,
     application_cursor: c_int,
@@ -4310,7 +4310,7 @@ pub export fn noctty_grid_sharing_arrow_sequence(
     ));
 }
 
-pub export fn noctty_grid_sharing_extended_key_sequence(
+pub export fn dintty_grid_sharing_extended_key_sequence(
     kind: c_int,
     modifier: c_int,
     output: ?[*]u8,
@@ -4345,7 +4345,7 @@ pub export fn noctty_grid_sharing_extended_key_sequence(
         target[0..capacity],
     ));
 }
-pub export fn noctty_grid_sharing_text_sequence(
+pub export fn dintty_grid_sharing_text_sequence(
     alt: c_int,
     input: ?[*]const u8,
     length: usize,
@@ -4363,7 +4363,7 @@ pub export fn noctty_grid_sharing_text_sequence(
     return @intCast(prefix_length + length);
 }
 
-pub export fn noctty_grid_sharing_key_event_sequence(
+pub export fn dintty_grid_sharing_key_event_sequence(
     keyval: u32,
     state: u32,
     application_cursor: c_int,
@@ -4389,7 +4389,7 @@ pub export fn noctty_grid_sharing_key_event_sequence(
         else => null,
     };
     if (special_kind) |kind| {
-        return noctty_grid_sharing_key_sequence(kind, application_cursor, target, capacity);
+        return dintty_grid_sharing_key_sequence(kind, application_cursor, target, capacity);
     }
 
     const arrow: ?c_int = switch (keyval) {
@@ -4400,7 +4400,7 @@ pub export fn noctty_grid_sharing_key_event_sequence(
         else => null,
     };
     if (arrow) |kind| {
-        return noctty_grid_sharing_arrow_sequence(kind, modifier, application_cursor, target, capacity);
+        return dintty_grid_sharing_arrow_sequence(kind, modifier, application_cursor, target, capacity);
     }
 
     const extended_kind: ?c_int = switch (keyval) {
@@ -4414,31 +4414,31 @@ pub export fn noctty_grid_sharing_key_event_sequence(
         else => null,
     };
     if (extended_kind) |kind| {
-        return noctty_grid_sharing_extended_key_sequence(kind, modifier, target, capacity);
+        return dintty_grid_sharing_extended_key_sequence(kind, modifier, target, capacity);
     }
 
-    return noctty_grid_sharing_text_sequence(@intFromBool(alt), input, length, target, capacity);
+    return dintty_grid_sharing_text_sequence(@intFromBool(alt), input, length, target, capacity);
 }
 
-pub export fn noctty_grid_sharing_paste_allowed(length: usize) callconv(.c) c_int {
+pub export fn dintty_grid_sharing_paste_allowed(length: usize) callconv(.c) c_int {
     return @intFromBool(length <= 64 * 1024);
 }
 
-pub export fn noctty_grid_sharing_paste_chunk_size(remaining: usize) usize {
+pub export fn dintty_grid_sharing_paste_chunk_size(remaining: usize) usize {
     return @min(remaining, 16 * 1024);
 }
 
-pub export fn noctty_grid_damage_buffer_capacity(rows: c_int) usize {
+pub export fn dintty_grid_damage_buffer_capacity(rows: c_int) usize {
     return @intCast(@max(rows, 1));
 }
 
-pub export fn noctty_grid_selection_copy_capacity_next(current: usize) usize {
+pub export fn dintty_grid_selection_copy_capacity_next(current: usize) usize {
     const maximum = 4 * 1024 * 1024;
     if (current >= maximum) return maximum;
     return @min(current * 2, maximum);
 }
 
-pub export fn noctty_grid_sharing_preview_scroll_lines(
+pub export fn dintty_grid_sharing_preview_scroll_lines(
     direction: c_int,
     delta_y: f64,
 ) callconv(.c) c_int {
@@ -4450,7 +4450,7 @@ pub export fn noctty_grid_sharing_preview_scroll_lines(
     };
 }
 
-pub export fn noctty_grid_sharing_index(
+pub export fn dintty_grid_sharing_index(
     text: ?[*]const u8,
     length: usize,
 ) callconv(.c) c_int {
@@ -4467,7 +4467,7 @@ pub export fn noctty_grid_sharing_index(
     return @intCast(value);
 }
 
-pub export fn noctty_grid_sharing_index_text(
+pub export fn dintty_grid_sharing_index_text(
     index: c_int,
     output: ?[*]u8,
     capacity: usize,
@@ -4484,7 +4484,7 @@ pub export fn noctty_grid_sharing_index_text(
     return @intCast(text.len);
 }
 
-pub export fn noctty_grid_sharing_pane_hit(
+pub export fn dintty_grid_sharing_pane_hit(
     x: f64,
     y: f64,
     width: f64,
@@ -4504,7 +4504,7 @@ pub export fn noctty_grid_sharing_pane_hit(
     );
 }
 
-pub export fn noctty_grid_theme_color_channel(rgb: u32, channel: c_int) f64 {
+pub export fn dintty_grid_theme_color_channel(rgb: u32, channel: c_int) f64 {
     if (channel < 0 or channel > 2) return 0.0;
     const shift: u5 = switch (channel) {
         0 => 16,
@@ -4515,7 +4515,7 @@ pub export fn noctty_grid_theme_color_channel(rgb: u32, channel: c_int) f64 {
     return @as(f64, @floatFromInt((rgb >> shift) & 0xff)) / 255.0;
 }
 
-pub export fn noctty_grid_theme_color_text(
+pub export fn dintty_grid_theme_color_text(
     red: f64,
     green: f64,
     blue: f64,
@@ -4543,7 +4543,7 @@ pub export fn noctty_grid_theme_color_text(
     target[7] = 0;
     return 7;
 }
-pub export fn noctty_grid_terminal_scroll_setting(
+pub export fn dintty_grid_terminal_scroll_setting(
     event_code: c_int,
     value: c_int,
 ) callconv(.c) c_int {
@@ -4554,7 +4554,7 @@ pub export fn noctty_grid_terminal_scroll_setting(
     };
 }
 
-pub export fn noctty_grid_compact_setting_plan(
+pub export fn dintty_grid_compact_setting_plan(
     field: c_int,
     output_optional: ?*CompactSettingPlan,
 ) callconv(.c) void {
@@ -4586,7 +4586,7 @@ fn readCompactSetting(
     return reader(userdata, field);
 }
 
-pub export fn noctty_grid_settings_plan(
+pub export fn dintty_grid_settings_plan(
     reader: CompactSettingReader,
     userdata: ?*anyopaque,
     available: c_int,
@@ -4602,25 +4602,25 @@ pub export fn noctty_grid_settings_plan(
     const focus_follows_pointer = readCompactSetting(reader, userdata, available, 4, 0);
     const background_translucency =
         readCompactSetting(reader, userdata, available, 16, 1);
-    const background_opacity_percent = noctty_grid_background_opacity_value(
+    const background_opacity_percent = dintty_grid_background_opacity_value(
         readCompactSetting(reader, userdata, available, 17, 92),
     );
     const terminal_smooth_scroll =
         readCompactSetting(reader, userdata, available, 19, 1);
-    const panel_padding_px = noctty_grid_panel_metric_value(46, readCompactSetting(reader, userdata, available, 20, 6));
-    const pane_spacing_px = noctty_grid_panel_metric_value(47, readCompactSetting(reader, userdata, available, 21, 4));
+    const panel_padding_px = dintty_grid_panel_metric_value(46, readCompactSetting(reader, userdata, available, 20, 6));
+    const pane_spacing_px = dintty_grid_panel_metric_value(47, readCompactSetting(reader, userdata, available, 21, 4));
     const pane_gaps_enabled = readCompactSetting(reader, userdata, available, 30, 1);
     const pane_gaps_transparent = readCompactSetting(reader, userdata, available, 31, 1);
     const inactive_pane_dim_enabled = readCompactSetting(reader, userdata, available, 32, 1);
-    const inactive_pane_brightness_percent = noctty_grid_panel_metric_value(130, readCompactSetting(reader, userdata, available, 33, 70));
-    const pane_divider_px = noctty_grid_panel_metric_value(119, readCompactSetting(reader, userdata, available, 22, 1));
-    const pane_border_px = noctty_grid_panel_metric_value(120, readCompactSetting(reader, userdata, available, 23, 1));
-    const pane_border_focused_px = noctty_grid_panel_metric_value(121, readCompactSetting(reader, userdata, available, 24, 1));
-    const pane_border_selected_px = noctty_grid_panel_metric_value(122, readCompactSetting(reader, userdata, available, 25, 2));
-    const status_border_px = noctty_grid_panel_metric_value(123, readCompactSetting(reader, userdata, available, 26, 1));
-    const overlay_border_px = noctty_grid_panel_metric_value(124, readCompactSetting(reader, userdata, available, 27, 1));
-    const window_border_px = noctty_grid_panel_metric_value(125, readCompactSetting(reader, userdata, available, 28, 2));
-    const dragger_px = noctty_grid_panel_metric_value(126, readCompactSetting(reader, userdata, available, 29, 2));
+    const inactive_pane_brightness_percent = dintty_grid_panel_metric_value(130, readCompactSetting(reader, userdata, available, 33, 70));
+    const pane_divider_px = dintty_grid_panel_metric_value(119, readCompactSetting(reader, userdata, available, 22, 1));
+    const pane_border_px = dintty_grid_panel_metric_value(120, readCompactSetting(reader, userdata, available, 23, 1));
+    const pane_border_focused_px = dintty_grid_panel_metric_value(121, readCompactSetting(reader, userdata, available, 24, 1));
+    const pane_border_selected_px = dintty_grid_panel_metric_value(122, readCompactSetting(reader, userdata, available, 25, 2));
+    const status_border_px = dintty_grid_panel_metric_value(123, readCompactSetting(reader, userdata, available, 26, 1));
+    const overlay_border_px = dintty_grid_panel_metric_value(124, readCompactSetting(reader, userdata, available, 27, 1));
+    const window_border_px = dintty_grid_panel_metric_value(125, readCompactSetting(reader, userdata, available, 28, 2));
+    const dragger_px = dintty_grid_panel_metric_value(126, readCompactSetting(reader, userdata, available, 29, 2));
     const show_pane_info = readCompactSetting(reader, userdata, available, 9, 1);
     const compact_tab_height = readCompactSetting(reader, userdata, available, 5, 16);
     const raw_font_size = readCompactSetting(reader, userdata, available, 6, 1300);
@@ -4631,7 +4631,7 @@ pub export fn noctty_grid_settings_plan(
     var font_max_size = @as(f64, @floatFromInt(raw_font_max_size)) / 100.0;
     if (font_min_size <= 0.0) font_min_size = 7.0;
     if (font_max_size < font_min_size) font_max_size = 28.0;
-    const font_size = noctty_grid_font_size_clamp(
+    const font_size = dintty_grid_font_size_clamp(
         @as(f64, @floatFromInt(raw_font_size)) / 100.0,
         font_min_size,
         font_max_size,
@@ -4672,7 +4672,7 @@ pub export fn noctty_grid_settings_plan(
     };
 }
 
-pub export fn noctty_grid_font_rendering_plan(
+pub export fn dintty_grid_font_rendering_plan(
     event_code: c_int,
     value: c_int,
     output_optional: ?*FontRenderingPlan,
@@ -4693,7 +4693,7 @@ pub export fn noctty_grid_font_rendering_plan(
     };
 }
 
-pub export fn noctty_grid_terminal_menu_plan(
+pub export fn dintty_grid_terminal_menu_plan(
     action: c_int,
     columns: c_int,
     rows: c_int,
@@ -4715,7 +4715,7 @@ pub export fn noctty_grid_terminal_menu_plan(
     }
 }
 
-pub export fn noctty_grid_font_size_clamp(
+pub export fn dintty_grid_font_size_clamp(
     requested: f64,
     minimum: f64,
     maximum: f64,
@@ -4723,16 +4723,16 @@ pub export fn noctty_grid_font_size_clamp(
     return std.math.clamp(requested, minimum, maximum);
 }
 
-pub export fn noctty_grid_font_size_event_value(
+pub export fn dintty_grid_font_size_event_value(
     requested: f64,
     minimum: f64,
     maximum: f64,
 ) callconv(.c) c_int {
-    const resolved = noctty_grid_font_size_clamp(requested, minimum, maximum);
+    const resolved = dintty_grid_font_size_clamp(requested, minimum, maximum);
     return @intFromFloat(resolved * 100.0 + 0.5);
 }
 
-pub export fn noctty_grid_panel_metric_value(
+pub export fn dintty_grid_panel_metric_value(
     event_code: c_int,
     value: c_int,
 ) callconv(.c) c_int {
@@ -4749,11 +4749,11 @@ pub export fn noctty_grid_panel_metric_value(
     };
 }
 
-pub export fn noctty_grid_background_opacity_value(value: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_background_opacity_value(value: c_int) callconv(.c) c_int {
     return std.math.clamp(value, 10, 100);
 }
 
-pub export fn noctty_grid_panel_settings_apply(
+pub export fn dintty_grid_panel_settings_apply(
     event_code: c_int,
     value: c_int,
     output_optional: ?*PanelSettings,
@@ -4765,7 +4765,7 @@ pub export fn noctty_grid_panel_settings_apply(
         47 => output.pane_spacing_px = std.math.clamp(value, 0, 64),
         115 => output.background_translucency = @intFromBool(value != 0),
         116 => output.background_opacity_percent =
-            noctty_grid_background_opacity_value(value),
+            dintty_grid_background_opacity_value(value),
         119 => output.pane_divider_px = std.math.clamp(value, 1, 16),
         120 => output.pane_border_px = std.math.clamp(value, 0, 12),
         121 => output.pane_border_focused_px = std.math.clamp(value, 1, 12),
@@ -4785,7 +4785,7 @@ pub export fn noctty_grid_panel_settings_apply(
     return 1;
 }
 
-pub export fn noctty_grid_scrollbar_geometry(
+pub export fn dintty_grid_scrollbar_geometry(
     allocation_width: c_int,
     allocation_height: c_int,
     scrollbar_width: f64,
@@ -4844,7 +4844,7 @@ fn validScrollbarGeometry(geometry: *const ScrollbarGeometry) bool {
         geometry.thumb_y >= geometry.y and geometry.thumb_y <= track_end;
 }
 
-pub export fn noctty_grid_scrollbar_press_plan(
+pub export fn dintty_grid_scrollbar_press_plan(
     geometry_optional: ?*const ScrollbarGeometry,
     pointer_y: f64,
     output_optional: ?*ScrollbarPressPlan,
@@ -4885,7 +4885,7 @@ pub export fn noctty_grid_scrollbar_press_plan(
         viewport_offset -| page;
 }
 
-pub export fn noctty_grid_scrollbar_drag_target(
+pub export fn dintty_grid_scrollbar_drag_target(
     geometry_optional: ?*const ScrollbarGeometry,
     pointer_y: f64,
     drag_offset: f64,
@@ -4924,7 +4924,7 @@ pub export fn noctty_grid_scrollbar_drag_target(
     return 1;
 }
 
-pub export fn noctty_grid_cell_selected(
+pub export fn dintty_grid_cell_selected(
     selecting: c_int,
     start_column: c_int,
     start_row: c_int,
@@ -4977,7 +4977,7 @@ fn renderViewportIndex(value: f64, maximum: c_int, end: bool) c_int {
     return @intFromFloat(rounded);
 }
 
-pub export fn noctty_grid_render_viewport(
+pub export fn dintty_grid_render_viewport(
     clip_x1: f64,
     clip_y1: f64,
     clip_x2: f64,
@@ -5002,7 +5002,7 @@ pub export fn noctty_grid_render_viewport(
     return @intFromBool(viewport.end_row > viewport.first_row and viewport.end_column > viewport.first_column);
 }
 
-pub export fn noctty_grid_render_chrome(
+pub export fn dintty_grid_render_chrome(
     status_kind: c_int,
     focused: c_int,
     selected: c_int,
@@ -5025,7 +5025,7 @@ pub export fn noctty_grid_render_chrome(
         .fallback = 0,
         .muted = 1,
     };
-    noctty_grid_status_color_plan(status_kind, 0, &status_color);
+    dintty_grid_status_color_plan(status_kind, 0, &status_color);
     const width = if (focused != 0)
         focused_width
     else if (selected != 0)
@@ -5067,7 +5067,7 @@ pub const RenderCell = extern struct {
 
 /// Decodes the packed terminal-cell ABI once so renderer paths cannot diverge
 /// on inverse colors, font face, concealment, or dim opacity.
-pub export fn noctty_grid_codepoint_utf8(
+pub export fn dintty_grid_codepoint_utf8(
     codepoint: u32,
     output_raw: ?[*]u8,
     output_size: u32,
@@ -5104,7 +5104,7 @@ pub export fn noctty_grid_codepoint_utf8(
     return 1;
 }
 
-pub export fn noctty_grid_render_cell(
+pub export fn dintty_grid_render_cell(
     packed_cell: u64,
     output: ?*RenderCell,
 ) callconv(.c) void {
@@ -5131,7 +5131,7 @@ pub export fn noctty_grid_render_cell(
     };
 }
 
-pub export fn noctty_grid_render_run_end(
+pub export fn dintty_grid_render_run_end(
     cells_raw: ?[*]const u64,
     start: c_int,
     end: c_int,
@@ -5140,11 +5140,11 @@ pub export fn noctty_grid_render_run_end(
     const cells = cells_raw orelse return start;
     if (start < 0 or end <= start) return start;
     var reference: RenderCell = undefined;
-    noctty_grid_render_cell(cells[@intCast(start)], &reference);
+    dintty_grid_render_cell(cells[@intCast(start)], &reference);
     var index = start + 1;
     while (index < end) : (index += 1) {
         var candidate: RenderCell = undefined;
-        noctty_grid_render_cell(cells[@intCast(index)], &candidate);
+        dintty_grid_render_cell(cells[@intCast(index)], &candidate);
         const matches = switch (kind) {
             1 => candidate.background == reference.background,
             2 => candidate.ascii != 0 and
@@ -5160,7 +5160,7 @@ pub export fn noctty_grid_render_run_end(
     return index;
 }
 
-pub export fn noctty_grid_cell_span(
+pub export fn dintty_grid_cell_span(
     first: c_int,
     end: c_int,
     row: c_int,
@@ -5184,7 +5184,7 @@ pub export fn noctty_grid_cell_span(
     };
 }
 
-pub export fn noctty_grid_row_span(
+pub export fn dintty_grid_row_span(
     first: c_int,
     end: c_int,
     cell_height: f64,
@@ -5200,7 +5200,7 @@ pub export fn noctty_grid_row_span(
         .height = @max(1, bottom - top),
     };
 }
-pub export fn noctty_grid_damage_rect(
+pub export fn dintty_grid_damage_rect(
     x: f64,
     y: f64,
     width: f64,
@@ -5228,7 +5228,7 @@ pub export fn noctty_grid_damage_rect(
     };
 }
 
-pub export fn noctty_grid_cursor_damage(
+pub export fn dintty_grid_cursor_damage(
     column: c_int,
     row: c_int,
     cell_width: f64,
@@ -5248,7 +5248,7 @@ pub export fn noctty_grid_cursor_damage(
     };
 }
 
-pub export fn noctty_grid_cursor_position(
+pub export fn dintty_grid_cursor_position(
     packed_cursor: u32,
     output: ?*CursorPosition,
 ) callconv(.c) void {
@@ -5264,7 +5264,7 @@ pub export fn noctty_grid_cursor_position(
     };
 }
 
-pub export fn noctty_grid_background_alpha(
+pub export fn dintty_grid_background_alpha(
     translucency: c_int,
     alpha_supported: c_int,
     opacity_percent: f64,
@@ -5273,7 +5273,7 @@ pub export fn noctty_grid_background_alpha(
     return opacity_percent / 100.0;
 }
 
-pub export fn noctty_grid_scroll_steps(
+pub export fn dintty_grid_scroll_steps(
     configured_lines: c_int,
     smooth_enabled: c_int,
     direction: c_int,
@@ -5300,7 +5300,7 @@ pub export fn noctty_grid_scroll_steps(
     return steps;
 }
 
-pub export fn noctty_grid_keyboard_scroll_target(
+pub export fn dintty_grid_keyboard_scroll_target(
     history_lines: u64,
     viewport_offset: u64,
     visible_rows: u32,
@@ -5355,7 +5355,7 @@ pub const NotebookChromePlan = extern struct {
     show: c_int,
 };
 
-pub export fn noctty_grid_status_plan(
+pub export fn dintty_grid_status_plan(
     status_kind: c_int,
     attention: c_int,
     output: ?*StatusPlan,
@@ -5368,7 +5368,7 @@ pub export fn noctty_grid_status_plan(
     };
 }
 
-pub export fn noctty_grid_status_color_plan(
+pub export fn dintty_grid_status_color_plan(
     status_kind: c_int,
     attention: c_int,
     output: ?*StatusColorPlan,
@@ -5384,7 +5384,7 @@ pub export fn noctty_grid_status_color_plan(
     };
 }
 
-pub export fn noctty_grid_notebook_chrome_plan(
+pub export fn dintty_grid_notebook_chrome_plan(
     zoomed_pane_id: u64,
     page_count: c_int,
     output: ?*NotebookChromePlan,
@@ -5395,7 +5395,7 @@ pub export fn noctty_grid_notebook_chrome_plan(
     };
 }
 
-pub export fn noctty_grid_panel_spacing_plan(
+pub export fn dintty_grid_panel_spacing_plan(
     enabled: c_int,
     spacing_px: c_int,
     output: ?*PanelSpacingPlan,
@@ -5442,7 +5442,7 @@ fn gridFontMetrics(requested_points: f64) FontMetrics {
     };
 }
 
-pub export fn noctty_grid_font_metrics(
+pub export fn dintty_grid_font_metrics(
     requested_points: f64,
     output_optional: ?*FontMetrics,
 ) callconv(.c) void {
@@ -5450,7 +5450,7 @@ pub export fn noctty_grid_font_metrics(
     output.* = gridFontMetrics(requested_points);
 }
 
-pub export fn noctty_grid_auto_fit(
+pub export fn dintty_grid_auto_fit(
     base_size: f64,
     fit_width: c_int,
     fit_height: c_int,
@@ -5481,7 +5481,7 @@ pub export fn noctty_grid_auto_fit(
     floor_reached.* = @intFromBool(enabled != 0 and fit_min < 3);
 }
 
-pub export fn noctty_grid_auto_fit_bounds(
+pub export fn dintty_grid_auto_fit_bounds(
     allocation_width: c_int,
     allocation_height: c_int,
     candidate_width: c_int,
@@ -5501,7 +5501,7 @@ pub export fn noctty_grid_auto_fit_bounds(
     };
 }
 
-pub export fn noctty_grid_dimensions(
+pub export fn dintty_grid_dimensions(
     allocation_width: c_int,
     allocation_height: c_int,
     scrollbar_width: f64,
@@ -5522,7 +5522,7 @@ pub export fn noctty_grid_dimensions(
     return 1;
 }
 
-pub export fn noctty_grid_resize_plan(
+pub export fn dintty_grid_resize_plan(
     allocation_width: c_int,
     allocation_height: c_int,
     scrollbar_width: f64,
@@ -5533,13 +5533,13 @@ pub export fn noctty_grid_resize_plan(
     output: ?*ResizePlan,
 ) callconv(.c) c_int {
     const plan = output orelse return 0;
-    if (noctty_grid_dimensions(allocation_width, allocation_height, scrollbar_width, cell_width, cell_height, &plan.terminal_width, &plan.columns, &plan.rows) == 0)
+    if (dintty_grid_dimensions(allocation_width, allocation_height, scrollbar_width, cell_width, cell_height, &plan.terminal_width, &plan.columns, &plan.rows) == 0)
         return 0;
     plan.changed = @intFromBool(plan.columns != current_columns or plan.rows != current_rows);
     return 1;
 }
 
-pub export fn noctty_grid_scale_brightness(
+pub export fn dintty_grid_scale_brightness(
     rgb: u32,
     enabled: c_int,
     active: c_int,
@@ -5553,7 +5553,7 @@ pub export fn noctty_grid_scale_brightness(
     return (red << 16) | (green << 8) | blue;
 }
 
-pub export fn noctty_grid_pane_is_active(
+pub export fn dintty_grid_pane_is_active(
     active_pane_id: u64,
     pane_id: u64,
     focused: c_int,
@@ -5561,7 +5561,7 @@ pub export fn noctty_grid_pane_is_active(
     return @intFromBool(if (active_pane_id != 0) active_pane_id == pane_id else focused != 0);
 }
 
-pub export fn noctty_grid_status_name(status_kind: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_status_name(status_kind: c_int) callconv(.c) [*:0]const u8 {
     return switch (status_kind) {
         1 => "running",
         2 => "done",
@@ -5571,7 +5571,7 @@ pub export fn noctty_grid_status_name(status_kind: c_int) callconv(.c) [*:0]cons
     };
 }
 
-pub export fn noctty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]const u8 {
     return switch (preset) {
         0 => "Global default",
         1 => "Compact",
@@ -5582,24 +5582,24 @@ pub export fn noctty_grid_profile_preset_label(preset: c_int) callconv(.c) [*:0]
     };
 }
 
-pub export fn noctty_grid_profile_preset_valid(preset: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_profile_preset_valid(preset: c_int) callconv(.c) c_int {
     return @intFromBool(
         preset >= profile_preset_first and
             preset < profile_preset_first + profile_preset_count,
     );
 }
 
-pub export fn noctty_grid_broadcast_menu_label(enabled: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_broadcast_menu_label(enabled: c_int) callconv(.c) [*:0]const u8 {
     return if (enabled != 0) "Disable Broadcast Input" else "Enable Broadcast Input…";
 }
 
-pub export fn noctty_grid_shortcut_field(field: c_int, smoke: c_int) callconv(.c) [*:0]const u8 {
+pub export fn dintty_grid_shortcut_field(field: c_int, smoke: c_int) callconv(.c) [*:0]const u8 {
     return switch (field) {
-        0 => if (smoke != 0) "noctty-smoke" else "noctty",
+        0 => if (smoke != 0) "dintty-smoke" else "dintty",
         1 => if (smoke != 0) "toggle-window-smoke" else "toggle-window",
-        2 => if (smoke != 0) "NOCTTY Smoke" else "NOCTTY",
-        3 => if (smoke != 0) "Show/hide NOCTTY smoke" else "Show/hide NOCTTY",
-        4 => if (smoke != 0) "/component/noctty_smoke" else "/component/noctty",
+        2 => if (smoke != 0) "DINTTY Smoke" else "DINTTY",
+        3 => if (smoke != 0) "Show/hide DINTTY smoke" else "Show/hide DINTTY",
+        4 => if (smoke != 0) "/component/dintty_smoke" else "/component/dintty",
         else => "",
     };
 }
@@ -5611,7 +5611,7 @@ pub const ResizeHandleLayout = extern struct {
     height: c_int,
 };
 
-pub export fn noctty_grid_resize_handle_layout(
+pub export fn dintty_grid_resize_handle_layout(
     index: c_int,
     border_px: c_int,
     dragger_px: c_int,
@@ -5635,7 +5635,7 @@ pub export fn noctty_grid_resize_handle_layout(
     return 1;
 }
 
-pub export fn noctty_grid_snap_pane_position(
+pub export fn dintty_grid_snap_pane_position(
     max_position: c_int,
     position: c_int,
 ) callconv(.c) c_int {
@@ -5664,7 +5664,7 @@ pub const PaletteAction = extern struct {
     hint: [*:0]const u8,
 };
 
-pub export fn noctty_grid_palette_actions(
+pub export fn dintty_grid_palette_actions(
     output: ?[*]PaletteAction,
     capacity: c_uint,
 ) callconv(.c) c_uint {
@@ -5684,7 +5684,7 @@ pub export fn noctty_grid_palette_actions(
         .{ .id = 18, .label = "Open NoctEd here", .hint = "launch NoctEd at the terminal directory" },
         .{ .id = 12, .label = "Save terminal scrollback", .hint = "plain UTF-8 text" },
         .{ .id = 13, .label = "Show keyboard shortcuts", .hint = "Ctrl+Shift+K" },
-        .{ .id = 14, .label = "Show or hide NOCTTY", .hint = "F10" },
+        .{ .id = 14, .label = "Show or hide DINTTY", .hint = "F10" },
         .{ .id = 15, .label = "Cycle terminal theme", .hint = "dark / high contrast" },
         .{ .id = 16, .label = "Cycle tab position", .hint = "top / bottom / left / right" },
         .{ .id = 17, .label = "Rename active tab", .hint = "Ctrl+Shift+R" },
@@ -5737,7 +5737,7 @@ fn paletteDispatch(action: c_int, event_code: c_int, value: c_int) PaletteDispat
     return .{ .action = action, .event_code = event_code, .value = value, .valid = 1 };
 }
 
-pub export fn noctty_grid_palette_action_plan(
+pub export fn dintty_grid_palette_action_plan(
     id: c_int,
     high_contrast: c_int,
     tab_position: c_int,
@@ -5800,7 +5800,7 @@ pub const SplitRenderPlan = extern struct {
 pub const split_orientation_horizontal: c_int = 0;
 pub const split_orientation_vertical: c_int = 1;
 
-pub export fn noctty_grid_split_render_plan(
+pub export fn dintty_grid_split_render_plan(
     event_code: c_int,
     output_optional: ?*SplitRenderPlan,
 ) callconv(.c) void {
@@ -5853,7 +5853,7 @@ fn tabRenameSpace(byte: u8) bool {
     return byte == ' ' or byte == '\t' or byte == '\n' or byte == '\r';
 }
 
-pub export fn noctty_grid_tab_rename_plan(
+pub export fn dintty_grid_tab_rename_plan(
     text_pointer: ?[*]const u8,
     length: usize,
     output_optional: ?*TabRenamePlan,
@@ -5871,7 +5871,7 @@ pub export fn noctty_grid_tab_rename_plan(
     var end = length;
     while (end > start and tabRenameSpace(text[end - 1])) : (end -= 1) {}
     if (start == end) return;
-    if (noctty_grid_text_valid(text + start, end - start, 128) == 0) {
+    if (dintty_grid_text_valid(text + start, end - start, 128) == 0) {
         output.message = "Use a single-line name up to 128 bytes.";
         return;
     }
@@ -5883,7 +5883,7 @@ pub export fn noctty_grid_tab_rename_plan(
     };
 }
 
-pub export fn noctty_grid_session_dimension(value: c_int) callconv(.c) c_int {
+pub export fn dintty_grid_session_dimension(value: c_int) callconv(.c) c_int {
     return @max(value, 2);
 }
 
@@ -5892,7 +5892,7 @@ pub const WorkspaceColor = extern struct {
     role: c_uint,
 };
 
-pub export fn noctty_grid_workspace_color(
+pub export fn dintty_grid_workspace_color(
     index: c_int,
     output: ?*WorkspaceColor,
 ) callconv(.c) c_int {
@@ -5931,7 +5931,7 @@ pub const AdaptiveWindowGeometry = extern struct {
     height: c_int,
 };
 
-pub export fn noctty_grid_adapt_window_geometry(
+pub export fn dintty_grid_adapt_window_geometry(
     mode: c_int,
     current_x: c_int,
     current_y: c_int,
@@ -5984,7 +5984,7 @@ pub export fn noctty_grid_adapt_window_geometry(
     return 1;
 }
 
-pub export fn noctty_grid_resize_delta(
+pub export fn dintty_grid_resize_delta(
     handle: c_int,
     start_x: f64,
     start_y: f64,
@@ -6007,7 +6007,7 @@ pub export fn noctty_grid_resize_delta(
     };
 }
 
-pub export fn noctty_grid_clamp_resize(
+pub export fn dintty_grid_clamp_resize(
     start: c_int,
     delta: f64,
     minimum: c_int,
@@ -6018,7 +6018,7 @@ pub export fn noctty_grid_clamp_resize(
     return @intCast(std.math.clamp(candidate, @as(i64, minimum), @as(i64, maximum)));
 }
 
-pub export fn noctty_grid_pointer_cell(
+pub export fn dintty_grid_pointer_cell(
     x: f64,
     y: f64,
     cell_width: f64,
@@ -6047,7 +6047,7 @@ pub export fn noctty_grid_pointer_cell(
     return 1;
 }
 
-pub export fn noctty_grid_cell_is_background(
+pub export fn dintty_grid_cell_is_background(
     text: ?[*]const u8,
     length: c_int,
 ) callconv(.c) c_int {
@@ -6062,7 +6062,7 @@ pub export fn noctty_grid_cell_is_background(
 test "pointer mapping distinguishes bounded hits from clamped drags" {
     var column: c_int = 0;
     var row: c_int = 0;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pointer_cell(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_pointer_cell(
         13.9,
         21.9,
         10,
@@ -6075,7 +6075,7 @@ test "pointer mapping distinguishes bounded hits from clamped drags" {
     ));
     try std.testing.expectEqual(@as(c_int, 0), column);
     try std.testing.expectEqual(@as(c_int, 0), row);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pointer_cell(
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_pointer_cell(
         -10,
         -10,
         10,
@@ -6086,7 +6086,7 @@ test "pointer mapping distinguishes bounded hits from clamped drags" {
         &column,
         &row,
     ));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pointer_cell(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_pointer_cell(
         -10,
         -10,
         10,
@@ -6100,192 +6100,192 @@ test "pointer mapping distinguishes bounded hits from clamped drags" {
 }
 
 test "background cell policy accepts only empty and plain spaces" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_is_background("".ptr, 0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_is_background("   ".ptr, 3));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_is_background("x".ptr, 1));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_is_background("\xc2\xa0".ptr, 2));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_cell_is_background("".ptr, 0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_cell_is_background("   ".ptr, 3));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_cell_is_background("x".ptr, 1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_cell_is_background("\xc2\xa0".ptr, 2));
 }
 
 test "inactive pane brightness scales every channel and preserves active panes" {
     try std.testing.expectEqual(
         @as(u32, 0x703818),
-        noctty_grid_scale_brightness(0xa05023, 1, 0, 70),
+        dintty_grid_scale_brightness(0xa05023, 1, 0, 70),
     );
     try std.testing.expectEqual(
         @as(u32, 0xa05023),
-        noctty_grid_scale_brightness(0xa05023, 1, 1, 70),
+        dintty_grid_scale_brightness(0xa05023, 1, 1, 70),
     );
     try std.testing.expectEqual(
         @as(u32, 0xa05023),
-        noctty_grid_scale_brightness(0xa05023, 0, 0, 70),
+        dintty_grid_scale_brightness(0xa05023, 0, 0, 70),
     );
 }
 
 test "active pane selection prefers mapped identity over GTK focus" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pane_is_active(7, 7, 0));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(7, 8, 1));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_pane_is_active(0, 8, 1));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_pane_is_active(0, 8, 0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_pane_is_active(7, 7, 0));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_pane_is_active(7, 8, 1));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_pane_is_active(0, 8, 1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_pane_is_active(0, 8, 0));
 }
 
 test "status names cover protocol states and idle fallback" {
-    try std.testing.expectEqualStrings("running", std.mem.span(noctty_grid_status_name(1)));
-    try std.testing.expectEqualStrings("done", std.mem.span(noctty_grid_status_name(2)));
-    try std.testing.expectEqualStrings("error", std.mem.span(noctty_grid_status_name(3)));
-    try std.testing.expectEqualStrings("pending input", std.mem.span(noctty_grid_status_name(4)));
-    try std.testing.expectEqualStrings("idle", std.mem.span(noctty_grid_status_name(0)));
+    try std.testing.expectEqualStrings("running", std.mem.span(dintty_grid_status_name(1)));
+    try std.testing.expectEqualStrings("done", std.mem.span(dintty_grid_status_name(2)));
+    try std.testing.expectEqualStrings("error", std.mem.span(dintty_grid_status_name(3)));
+    try std.testing.expectEqualStrings("pending input", std.mem.span(dintty_grid_status_name(4)));
+    try std.testing.expectEqualStrings("idle", std.mem.span(dintty_grid_status_name(0)));
 }
 
 test "status and notebook chrome plans preserve GTK state precedence" {
     var status = StatusPlan{ .active_kind = 0, .changed = 0 };
-    noctty_grid_status_plan(3, 0, &status);
+    dintty_grid_status_plan(3, 0, &status);
     try std.testing.expectEqual(@as(c_int, 1), status.active_kind);
     try std.testing.expectEqual(@as(c_int, 1), status.changed);
-    noctty_grid_status_plan(3, 1, &status);
+    dintty_grid_status_plan(3, 1, &status);
     try std.testing.expectEqual(@as(c_int, 4), status.active_kind);
     try std.testing.expectEqual(@as(c_int, 1), status.changed);
 
     var chrome = NotebookChromePlan{ .show = 0 };
-    noctty_grid_notebook_chrome_plan(0, 2, &chrome);
+    dintty_grid_notebook_chrome_plan(0, 2, &chrome);
     try std.testing.expectEqual(@as(c_int, 1), chrome.show);
-    noctty_grid_notebook_chrome_plan(99, 2, &chrome);
+    dintty_grid_notebook_chrome_plan(99, 2, &chrome);
     try std.testing.expectEqual(@as(c_int, 0), chrome.show);
-    noctty_grid_notebook_chrome_plan(0, 0, &chrome);
+    dintty_grid_notebook_chrome_plan(0, 0, &chrome);
     try std.testing.expectEqual(@as(c_int, 0), chrome.show);
 }
 
 test "status color plan preserves idle, attention, and protocol colors" {
     var color = StatusColorPlan{ .role = 0, .fallback = 0, .muted = 0 };
-    noctty_grid_status_color_plan(0, 0, &color);
+    dintty_grid_status_color_plan(0, 0, &color);
     try std.testing.expectEqual(@as(u32, 0), color.role);
     try std.testing.expectEqual(@as(u32, 0), color.fallback);
     try std.testing.expectEqual(@as(c_int, 1), color.muted);
 
-    noctty_grid_status_color_plan(3, 0, &color);
+    dintty_grid_status_color_plan(3, 0, &color);
     try std.testing.expectEqual(@as(u32, 15), color.role);
     try std.testing.expectEqual(@as(u32, 0xe64040), color.fallback);
     try std.testing.expectEqual(@as(c_int, 0), color.muted);
 
-    noctty_grid_status_color_plan(1, 1, &color);
+    dintty_grid_status_color_plan(1, 1, &color);
     try std.testing.expectEqual(@as(u32, 14), color.role);
     try std.testing.expectEqual(@as(u32, 0xf5b82e), color.fallback);
 }
 
 test "profile labels cover every preset and custom fallback" {
-    try std.testing.expectEqualStrings("Global default", std.mem.span(noctty_grid_profile_preset_label(0)));
-    try std.testing.expectEqualStrings("Compact", std.mem.span(noctty_grid_profile_preset_label(1)));
-    try std.testing.expectEqualStrings("Readable", std.mem.span(noctty_grid_profile_preset_label(2)));
-    try std.testing.expectEqualStrings("High contrast", std.mem.span(noctty_grid_profile_preset_label(3)));
-    try std.testing.expectEqualStrings("Mono no ligatures", std.mem.span(noctty_grid_profile_preset_label(4)));
-    try std.testing.expectEqualStrings("Custom", std.mem.span(noctty_grid_profile_preset_label(5)));
+    try std.testing.expectEqualStrings("Global default", std.mem.span(dintty_grid_profile_preset_label(0)));
+    try std.testing.expectEqualStrings("Compact", std.mem.span(dintty_grid_profile_preset_label(1)));
+    try std.testing.expectEqualStrings("Readable", std.mem.span(dintty_grid_profile_preset_label(2)));
+    try std.testing.expectEqualStrings("High contrast", std.mem.span(dintty_grid_profile_preset_label(3)));
+    try std.testing.expectEqualStrings("Mono no ligatures", std.mem.span(dintty_grid_profile_preset_label(4)));
+    try std.testing.expectEqualStrings("Custom", std.mem.span(dintty_grid_profile_preset_label(5)));
 }
 
 test "broadcast menu labels distinguish enabled state" {
     try std.testing.expectEqualStrings(
         "Disable Broadcast Input",
-        std.mem.span(noctty_grid_broadcast_menu_label(1)),
+        std.mem.span(dintty_grid_broadcast_menu_label(1)),
     );
     try std.testing.expectEqualStrings(
         "Enable Broadcast Input…",
-        std.mem.span(noctty_grid_broadcast_menu_label(0)),
+        std.mem.span(dintty_grid_broadcast_menu_label(0)),
     );
 }
 
 test "shortcut fields preserve normal and smoke identities" {
-    try std.testing.expectEqualStrings("noctty", std.mem.span(noctty_grid_shortcut_field(0, 0)));
-    try std.testing.expectEqualStrings("noctty-smoke", std.mem.span(noctty_grid_shortcut_field(0, 1)));
-    try std.testing.expectEqualStrings("toggle-window", std.mem.span(noctty_grid_shortcut_field(1, 0)));
-    try std.testing.expectEqualStrings("NOCTTY Smoke", std.mem.span(noctty_grid_shortcut_field(2, 1)));
-    try std.testing.expectEqualStrings("Show/hide NOCTTY", std.mem.span(noctty_grid_shortcut_field(3, 0)));
-    try std.testing.expectEqualStrings("/component/noctty_smoke", std.mem.span(noctty_grid_shortcut_field(4, 1)));
-    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_shortcut_field(9, 0)));
+    try std.testing.expectEqualStrings("dintty", std.mem.span(dintty_grid_shortcut_field(0, 0)));
+    try std.testing.expectEqualStrings("dintty-smoke", std.mem.span(dintty_grid_shortcut_field(0, 1)));
+    try std.testing.expectEqualStrings("toggle-window", std.mem.span(dintty_grid_shortcut_field(1, 0)));
+    try std.testing.expectEqualStrings("DINTTY Smoke", std.mem.span(dintty_grid_shortcut_field(2, 1)));
+    try std.testing.expectEqualStrings("Show/hide DINTTY", std.mem.span(dintty_grid_shortcut_field(3, 0)));
+    try std.testing.expectEqualStrings("/component/dintty_smoke", std.mem.span(dintty_grid_shortcut_field(4, 1)));
+    try std.testing.expectEqualStrings("", std.mem.span(dintty_grid_shortcut_field(9, 0)));
 }
 
 test "resize handle layout preserves the complete grid geometry" {
     var layout: ResizeHandleLayout = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_handle_layout(0, 6, 4, &layout));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_resize_handle_layout(0, 6, 4, &layout));
     try std.testing.expectEqual(@as(c_int, 0), layout.column);
     try std.testing.expectEqual(@as(c_int, 0), layout.row);
     try std.testing.expectEqual(@as(c_int, 6), layout.width);
     try std.testing.expectEqual(@as(c_int, 6), layout.height);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_handle_layout(6, 6, 4, &layout));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_resize_handle_layout(6, 6, 4, &layout));
     try std.testing.expectEqual(@as(c_int, 1), layout.column);
     try std.testing.expectEqual(@as(c_int, 2), layout.row);
     try std.testing.expectEqual(@as(c_int, -1), layout.width);
     try std.testing.expectEqual(@as(c_int, 4), layout.height);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_handle_layout(8, 6, 4, &layout));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_resize_handle_layout(8, 6, 4, &layout));
 }
 
 test "resize event planner preserves dragger and native resize precedence" {
     var plan = ResizeEventPlan{ .action = resize_action_none };
-    noctty_grid_resize_event_plan(resize_event_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_arm_click), plan.action);
-    noctty_grid_resize_event_plan(resize_event_press, 6, 1, 0, 0, 1, 0, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_press, 6, 1, 0, 0, 1, 0, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_delay_double_click), plan.action);
-    noctty_grid_resize_event_plan(resize_event_double_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_double_press, 6, 1, 0, 0, 0, 0, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_toggle_height), plan.action);
-    noctty_grid_resize_event_plan(resize_event_motion, 6, 1, 0, 0, 1, 1, 25.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_motion, 6, 1, 0, 0, 1, 1, 25.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_begin_drag), plan.action);
-    noctty_grid_resize_event_plan(resize_event_press, 2, 1, 1, 0, 0, 0, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_press, 2, 1, 1, 0, 0, 0, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_begin_drag), plan.action);
-    noctty_grid_resize_event_plan(resize_event_motion, 2, 1, 1, 1, 0, 1, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_motion, 2, 1, 1, 1, 0, 1, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_update_drag), plan.action);
-    noctty_grid_resize_event_plan(resize_event_motion, 2, 1, 1, 1, 0, 0, 0.0, &plan);
+    dintty_grid_resize_event_plan(resize_event_motion, 2, 1, 1, 1, 0, 0, 0.0, &plan);
     try std.testing.expectEqual(@as(c_int, resize_action_finish_drag), plan.action);
 }
 
 test "window mode planner preserves recreation and surface precedence" {
     var plan = WindowModePlan{ .action = window_mode_action_none };
-    noctty_grid_window_mode_plan(0, 1, 0, &plan);
+    dintty_grid_window_mode_plan(0, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_recreate), plan.action);
-    noctty_grid_window_mode_plan(1, 2, 0, &plan);
+    dintty_grid_window_mode_plan(1, 2, 0, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_apply_fullscreen), plan.action);
-    noctty_grid_window_mode_plan(2, 1, 0, &plan);
+    dintty_grid_window_mode_plan(2, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_apply_window), plan.action);
-    noctty_grid_window_mode_plan(1, 0, 1, &plan);
+    dintty_grid_window_mode_plan(1, 0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_recreate), plan.action);
-    noctty_grid_window_mode_plan(1, 1, 1, &plan);
+    dintty_grid_window_mode_plan(1, 1, 1, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_apply_layer_geometry), plan.action);
-    noctty_grid_window_mode_plan(-1, 1, 0, &plan);
+    dintty_grid_window_mode_plan(-1, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, window_mode_action_none), plan.action);
 }
 
 test "overlay stacking planner preserves layer and existing precedence" {
     var plan = OverlayStackingPlan{ .action = overlay_stacking_none, .lower_parent = 0 };
-    noctty_grid_overlay_stacking_plan(0, 0, 0, 0, &plan);
+    dintty_grid_overlay_stacking_plan(0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, overlay_stacking_basic), plan.action);
     try std.testing.expectEqual(@as(c_int, 0), plan.lower_parent);
-    noctty_grid_overlay_stacking_plan(1, 1, 0, 0, &plan);
+    dintty_grid_overlay_stacking_plan(1, 1, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, overlay_stacking_layer), plan.action);
     try std.testing.expectEqual(@as(c_int, 1), plan.lower_parent);
-    noctty_grid_overlay_stacking_plan(1, 1, 0, 2, &plan);
+    dintty_grid_overlay_stacking_plan(1, 1, 0, 2, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.lower_parent);
-    noctty_grid_overlay_stacking_plan(1, 1, 1, 0, &plan);
+    dintty_grid_overlay_stacking_plan(1, 1, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, overlay_stacking_existing), plan.action);
-    noctty_grid_overlay_stacking_plan(0, 1, 1, 0, &plan);
+    dintty_grid_overlay_stacking_plan(0, 1, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, overlay_stacking_existing), plan.action);
 }
 
 test "window visibility planner preserves hide and show transitions" {
     var plan = WindowVisibilityPlan{ .action = visibility_action_none };
-    noctty_grid_window_visibility_plan(1, 1, &plan);
+    dintty_grid_window_visibility_plan(1, 1, &plan);
     try std.testing.expectEqual(@as(c_int, visibility_action_hide), plan.action);
-    noctty_grid_window_visibility_plan(1, 0, &plan);
+    dintty_grid_window_visibility_plan(1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
-    noctty_grid_window_visibility_plan(0, 1, &plan);
+    dintty_grid_window_visibility_plan(0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
-    noctty_grid_window_visibility_plan(0, 0, &plan);
+    dintty_grid_window_visibility_plan(0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, visibility_action_show), plan.action);
 }
 
 test "overlay geometry planner preserves centered monitor margins" {
     var plan = OverlayGeometryPlan{ .left = -1, .right = -1, .top = -1, .bottom = -1 };
-    noctty_grid_overlay_geometry_plan(100, 50, 800, 600, 0, 0, 1920, 1080, 400, 200, &plan);
+    dintty_grid_overlay_geometry_plan(100, 50, 800, 600, 0, 0, 1920, 1080, 400, 200, &plan);
     try std.testing.expectEqual(@as(c_int, 300), plan.left);
     try std.testing.expectEqual(@as(c_int, 1220), plan.right);
     try std.testing.expectEqual(@as(c_int, 250), plan.top);
     try std.testing.expectEqual(@as(c_int, 630), plan.bottom);
-    noctty_grid_overlay_geometry_plan(0, 0, 100, 100, 0, 0, 100, 100, 140, 140, &plan);
+    dintty_grid_overlay_geometry_plan(0, 0, 100, 100, 0, 0, 100, 100, 140, 140, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.left);
     try std.testing.expectEqual(@as(c_int, 0), plan.right);
     try std.testing.expectEqual(@as(c_int, 0), plan.top);
@@ -6294,13 +6294,13 @@ test "overlay geometry planner preserves centered monitor margins" {
 
 test "fullscreen planner preserves native fallback precedence" {
     var plan = FullscreenPlan{ .action = fullscreen_action_current_monitor };
-    noctty_grid_fullscreen_plan(0, 0, -1, &plan);
+    dintty_grid_fullscreen_plan(0, 0, -1, &plan);
     try std.testing.expectEqual(@as(c_int, fullscreen_action_window), plan.action);
-    noctty_grid_fullscreen_plan(1, 1, 2, &plan);
+    dintty_grid_fullscreen_plan(1, 1, 2, &plan);
     try std.testing.expectEqual(@as(c_int, fullscreen_action_current_monitor), plan.action);
-    noctty_grid_fullscreen_plan(1, 0, -1, &plan);
+    dintty_grid_fullscreen_plan(1, 0, -1, &plan);
     try std.testing.expectEqual(@as(c_int, fullscreen_action_current_monitor), plan.action);
-    noctty_grid_fullscreen_plan(1, 0, 2, &plan);
+    dintty_grid_fullscreen_plan(1, 0, 2, &plan);
     try std.testing.expectEqual(@as(c_int, fullscreen_action_monitor), plan.action);
 }
 
@@ -6324,13 +6324,13 @@ test "layout preset plan preserves every native preset geometry" {
         .{ .event_code = 61, .rows = 2, .columns = 4, .target_count = 8 },
     };
     for (cases) |expected| {
-        noctty_grid_layout_preset_plan(expected.event_code, &plan);
+        dintty_grid_layout_preset_plan(expected.event_code, &plan);
         try std.testing.expectEqual(@as(c_int, 1), plan.valid);
         try std.testing.expectEqual(expected.rows, plan.rows);
         try std.testing.expectEqual(expected.columns, plan.columns);
         try std.testing.expectEqual(expected.target_count, plan.target_count);
     }
-    noctty_grid_layout_preset_plan(53, &plan);
+    dintty_grid_layout_preset_plan(53, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
 
@@ -6338,24 +6338,24 @@ test "panel settings plan clamps fields and classifies layout effects" {
     var settings = std.mem.zeroes(PanelSettings);
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_panel_settings_apply(46, -5, &settings),
+        dintty_grid_panel_settings_apply(46, -5, &settings),
     );
     try std.testing.expectEqual(@as(c_int, 0), settings.panel_padding_px);
     try std.testing.expectEqual(@as(c_int, 1), settings.affects_layout);
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_panel_settings_apply(115, 7, &settings),
+        dintty_grid_panel_settings_apply(115, 7, &settings),
     );
     try std.testing.expectEqual(@as(c_int, 1), settings.background_translucency);
     try std.testing.expectEqual(@as(c_int, 0), settings.affects_layout);
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_panel_settings_apply(130, 101, &settings),
+        dintty_grid_panel_settings_apply(130, 101, &settings),
     );
     try std.testing.expectEqual(@as(c_int, 100), settings.inactive_pane_brightness_percent);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_panel_settings_apply(131, 4, &settings),
+        dintty_grid_panel_settings_apply(131, 4, &settings),
     );
 }
 
@@ -6368,18 +6368,18 @@ test "layer geometry planner preserves dropdown zen and window sizing" {
         .right = 0,
         .bottom = 0,
     };
-    noctty_grid_layer_geometry_plan(0, 1920, 1080, 900, 50, 420, 50, &plan);
+    dintty_grid_layer_geometry_plan(0, 1920, 1080, 900, 50, 420, 50, &plan);
     try std.testing.expectEqual(@as(c_int, layer_geometry_dropdown), plan.action);
     try std.testing.expectEqual(@as(c_int, 900), plan.width);
     try std.testing.expectEqual(@as(c_int, 420), plan.height);
     try std.testing.expectEqual(@as(c_int, 510), plan.left);
     try std.testing.expectEqual(@as(c_int, 510), plan.right);
     try std.testing.expectEqual(@as(c_int, 660), plan.bottom);
-    noctty_grid_layer_geometry_plan(2, 1920, 1080, 0, 0, 0, 0, &plan);
+    dintty_grid_layer_geometry_plan(2, 1920, 1080, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, layer_geometry_zen), plan.action);
     try std.testing.expectEqual(@as(c_int, -1), plan.width);
     try std.testing.expectEqual(@as(c_int, -1), plan.height);
-    noctty_grid_layer_geometry_plan(1, 1200, 800, 0, 0, 0, 0, &plan);
+    dintty_grid_layer_geometry_plan(1, 1200, 800, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, layer_geometry_window), plan.action);
     try std.testing.expectEqual(@as(c_int, 960), plan.width);
     try std.testing.expectEqual(@as(c_int, 600), plan.height);
@@ -6387,25 +6387,25 @@ test "layer geometry planner preserves dropdown zen and window sizing" {
 
 test "monitor selection planner preserves fallback precedence" {
     var plan = MonitorSelectionPlan{ .action = monitor_selection_none };
-    noctty_grid_monitor_selection_plan(1, 1, 1, 3, &plan);
+    dintty_grid_monitor_selection_plan(1, 1, 1, 3, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_window), plan.action);
-    noctty_grid_monitor_selection_plan(0, 1, 1, 3, &plan);
+    dintty_grid_monitor_selection_plan(0, 1, 1, 3, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_primary), plan.action);
-    noctty_grid_monitor_selection_plan(0, 0, 1, 3, &plan);
+    dintty_grid_monitor_selection_plan(0, 0, 1, 3, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_pointer), plan.action);
-    noctty_grid_monitor_selection_plan(0, 0, 0, 2, &plan);
+    dintty_grid_monitor_selection_plan(0, 0, 0, 2, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_first), plan.action);
-    noctty_grid_monitor_selection_plan(0, 0, 0, 0, &plan);
+    dintty_grid_monitor_selection_plan(0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, monitor_selection_none), plan.action);
 }
 
 test "monitor metrics policy clamps scale and detects topology changes" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_monitor_scale_factor(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_monitor_scale_factor(-2));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_monitor_scale_factor(2));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_monitor_scale_factor(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_monitor_scale_factor(-2));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_monitor_scale_factor(2));
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_monitor_metrics_changed(
+        dintty_grid_monitor_metrics_changed(
             0,
             0,
             1920,
@@ -6428,7 +6428,7 @@ test "monitor metrics policy clamps scale and detects topology changes" {
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_monitor_metrics_changed(
+        dintty_grid_monitor_metrics_changed(
             10,
             0,
             1920,
@@ -6452,23 +6452,23 @@ test "monitor metrics policy clamps scale and detects topology changes" {
 }
 
 test "pane snap policy selects nearby thirds and rejects distant positions" {
-    try std.testing.expectEqual(@as(c_int, 25), noctty_grid_snap_pane_position(100, 24));
-    try std.testing.expectEqual(@as(c_int, 50), noctty_grid_snap_pane_position(100, 51));
-    try std.testing.expectEqual(@as(c_int, 66), noctty_grid_snap_pane_position(100, 76));
-    try std.testing.expectEqual(@as(c_int, 75), noctty_grid_snap_pane_position(100, 86));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(100, 12));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_snap_pane_position(0, 12));
+    try std.testing.expectEqual(@as(c_int, 25), dintty_grid_snap_pane_position(100, 24));
+    try std.testing.expectEqual(@as(c_int, 50), dintty_grid_snap_pane_position(100, 51));
+    try std.testing.expectEqual(@as(c_int, 66), dintty_grid_snap_pane_position(100, 76));
+    try std.testing.expectEqual(@as(c_int, 75), dintty_grid_snap_pane_position(100, 86));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_snap_pane_position(100, 12));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_snap_pane_position(0, 12));
 }
 
 test "palette action policy preserves ordered ids and labels" {
     var actions: [27]PaletteAction = undefined;
-    try std.testing.expectEqual(@as(c_uint, 27), noctty_grid_palette_actions(&actions, actions.len));
+    try std.testing.expectEqual(@as(c_uint, 27), dintty_grid_palette_actions(&actions, actions.len));
     try std.testing.expectEqual(@as(c_int, 1), actions[0].id);
     try std.testing.expectEqualStrings("New terminal tab", std.mem.span(actions[0].label));
     try std.testing.expectEqual(@as(c_int, 18), actions[11].id);
     try std.testing.expectEqualStrings("Open NoctEd here", std.mem.span(actions[11].label));
     try std.testing.expectEqual(@as(c_int, 27), actions[26].id);
-    try std.testing.expectEqual(@as(c_uint, 0), noctty_grid_palette_actions(&actions, 26));
+    try std.testing.expectEqual(@as(c_uint, 0), dintty_grid_palette_actions(&actions, 26));
 }
 test "palette dispatch plan keeps command effects in Zig" {
     var plan = PaletteDispatchPlan{
@@ -6477,22 +6477,22 @@ test "palette dispatch plan keeps command effects in Zig" {
         .value = 0,
         .valid = 0,
     };
-    noctty_grid_palette_action_plan(1, 0, 0, &plan);
+    dintty_grid_palette_action_plan(1, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, palette_dispatch_workspace_event), plan.action);
     try std.testing.expectEqual(@as(c_int, 20), plan.event_code);
     try std.testing.expectEqual(@as(c_int, 1), plan.valid);
-    noctty_grid_palette_action_plan(15, 0, 0, &plan);
+    dintty_grid_palette_action_plan(15, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 48), plan.event_code);
     try std.testing.expectEqual(@as(c_int, 1), plan.value);
-    noctty_grid_palette_action_plan(15, 1, 0, &plan);
+    dintty_grid_palette_action_plan(15, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.value);
-    noctty_grid_palette_action_plan(16, 0, 3, &plan);
+    dintty_grid_palette_action_plan(16, 0, 3, &plan);
     try std.testing.expectEqual(@as(c_int, 44), plan.event_code);
     try std.testing.expectEqual(@as(c_int, 0), plan.value);
-    noctty_grid_palette_action_plan(23, 0, 0, &plan);
+    dintty_grid_palette_action_plan(23, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, palette_dispatch_tab_color), plan.action);
     try std.testing.expectEqual(@as(c_int, -1), plan.value);
-    noctty_grid_palette_action_plan(99, 0, 0, &plan);
+    dintty_grid_palette_action_plan(99, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, palette_dispatch_none), plan.action);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
@@ -6504,15 +6504,15 @@ test "split render plan preserves native orientation and event effects" {
         .rendered_event = 0,
         .valid = 0,
     };
-    noctty_grid_split_render_plan(host_event_code(.workspace_split), &plan);
+    dintty_grid_split_render_plan(host_event_code(.workspace_split), &plan);
     try std.testing.expectEqual(@as(c_int, split_orientation_vertical), plan.orientation);
     try std.testing.expectEqual(@as(c_int, 0), plan.reverse);
     try std.testing.expectEqual(@as(c_int, 58), plan.rendered_event);
-    noctty_grid_split_render_plan(host_event_code(.workspace_split_restore), &plan);
+    dintty_grid_split_render_plan(host_event_code(.workspace_split_restore), &plan);
     try std.testing.expectEqual(@as(c_int, split_orientation_vertical), plan.orientation);
     try std.testing.expectEqual(@as(c_int, 1), plan.reverse);
     try std.testing.expectEqual(@as(c_int, 69), plan.rendered_event);
-    noctty_grid_split_render_plan(999, &plan);
+    dintty_grid_split_render_plan(999, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
 
@@ -6524,42 +6524,42 @@ test "tab rename plan trims only boundary whitespace and reports errors" {
         .message = "",
     };
     const padded = " \tNative tab \r";
-    noctty_grid_tab_rename_plan(padded.ptr, padded.len, &plan);
+    dintty_grid_tab_rename_plan(padded.ptr, padded.len, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.valid);
     try std.testing.expectEqual(@as(usize, 2), plan.start);
     try std.testing.expectEqual(@as(usize, 10), plan.length);
     const invalid = "bad\nname";
-    noctty_grid_tab_rename_plan(invalid.ptr, invalid.len, &plan);
+    dintty_grid_tab_rename_plan(invalid.ptr, invalid.len, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
     try std.testing.expectEqualStrings(
         "Use a single-line name up to 128 bytes.",
         std.mem.span(plan.message),
     );
     const blank = " \t";
-    noctty_grid_tab_rename_plan(blank.ptr, blank.len, &plan);
+    dintty_grid_tab_rename_plan(blank.ptr, blank.len, &plan);
     try std.testing.expectEqualStrings("Enter a tab name.", std.mem.span(plan.message));
 }
 
 test "session dimension policy keeps restored PTYs at a usable minimum" {
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_session_dimension(-4));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_session_dimension(2));
-    try std.testing.expectEqual(@as(c_int, 80), noctty_grid_session_dimension(80));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_session_dimension(-4));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_session_dimension(2));
+    try std.testing.expectEqual(@as(c_int, 80), dintty_grid_session_dimension(80));
 }
 
 test "workspace color policy preserves labels and sequential roles" {
     var color: WorkspaceColor = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_workspace_color(0, &color));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_workspace_color(0, &color));
     try std.testing.expectEqualStrings("Focused pane border", std.mem.span(color.label));
     try std.testing.expectEqual(@as(c_uint, 1), color.role);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_workspace_color(16, &color));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_workspace_color(16, &color));
     try std.testing.expectEqualStrings("Pane gap", std.mem.span(color.label));
     try std.testing.expectEqual(@as(c_uint, 17), color.role);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_workspace_color(17, &color));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_workspace_color(17, &color));
 }
 
 test "resolution adaptation preserves window intent within every workarea" {
     var geometry: AdaptiveWindowGeometry = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_adapt_window_geometry(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_adapt_window_geometry(
         0,
         0,
         0,
@@ -6577,7 +6577,7 @@ test "resolution adaptation preserves window intent within every workarea" {
         AdaptiveWindowGeometry{ .x = 200, .y = 40, .width = 1000, .height = 500 },
         geometry,
     );
-    _ = noctty_grid_adapt_window_geometry(
+    _ = dintty_grid_adapt_window_geometry(
         1,
         900,
         700,
@@ -6595,7 +6595,7 @@ test "resolution adaptation preserves window intent within every workarea" {
         AdaptiveWindowGeometry{ .x = 100, .y = 40, .width = 1200, .height = 800 },
         geometry,
     );
-    _ = noctty_grid_adapt_window_geometry(
+    _ = dintty_grid_adapt_window_geometry(
         2,
         900,
         700,
@@ -6618,32 +6618,32 @@ test "resolution adaptation preserves window intent within every workarea" {
 test "resize handles preserve directional deltas and bounds" {
     var horizontal: f64 = 0;
     var vertical: f64 = 0;
-    noctty_grid_resize_delta(0, 100, 100, 90, 80, &horizontal, &vertical);
+    dintty_grid_resize_delta(0, 100, 100, 90, 80, &horizontal, &vertical);
     try std.testing.expectEqual(@as(f64, 10), horizontal);
     try std.testing.expectEqual(@as(f64, 20), vertical);
-    try std.testing.expectEqual(@as(c_int, 320), noctty_grid_clamp_resize(300, -50, 320, 900));
-    try std.testing.expectEqual(@as(c_int, 900), noctty_grid_clamp_resize(850, 100, 320, 900));
+    try std.testing.expectEqual(@as(c_int, 320), dintty_grid_clamp_resize(300, -50, 320, 900));
+    try std.testing.expectEqual(@as(c_int, 900), dintty_grid_clamp_resize(850, 100, 320, 900));
 }
 
 test "font metrics convert points once and preserve finite cell floors" {
     var metrics: FontMetrics = undefined;
-    noctty_grid_font_metrics(12, &metrics);
+    dintty_grid_font_metrics(12, &metrics);
     try std.testing.expectApproxEqAbs(@as(f64, 16), metrics.font_px, 0.0001);
     try std.testing.expectApproxEqAbs(@as(f64, 10.24), metrics.cell_width, 0.0001);
     try std.testing.expectApproxEqAbs(@as(f64, 20.48), metrics.cell_height, 0.0001);
 
-    noctty_grid_font_metrics(1, &metrics);
+    dintty_grid_font_metrics(1, &metrics);
     try std.testing.expectEqual(@as(f64, 3), metrics.cell_width);
     try std.testing.expectEqual(@as(f64, 5), metrics.cell_height);
 
     var fallback: FontMetrics = undefined;
-    noctty_grid_font_metrics(0, &fallback);
+    dintty_grid_font_metrics(0, &fallback);
     for ([_]f64{
         std.math.nan(f64),
         std.math.inf(f64),
         std.math.floatMax(f64),
     }) |invalid| {
-        noctty_grid_font_metrics(invalid, &metrics);
+        dintty_grid_font_metrics(invalid, &metrics);
         try std.testing.expectEqualDeep(fallback, metrics);
     }
 }
@@ -6652,13 +6652,13 @@ test "auto-fit and grid dimensions remain bounded" {
     var size: f64 = 0;
     var zoom: c_int = 0;
     var floor_reached: c_int = 0;
-    noctty_grid_auto_fit(13, 320, 180, 1, &size, &zoom, &floor_reached);
+    dintty_grid_auto_fit(13, 320, 180, 1, &size, &zoom, &floor_reached);
     try std.testing.expect(size >= 3 and size <= 13);
     try std.testing.expect(zoom >= 1 and zoom <= 100);
     var width: c_int = 0;
     var columns: c_int = 0;
     var rows: c_int = 0;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dimensions(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_dimensions(
         800,
         600,
         10,
@@ -6672,26 +6672,26 @@ test "auto-fit and grid dimensions remain bounded" {
     try std.testing.expectEqual(@as(c_int, 79), columns);
     try std.testing.expectEqual(@as(c_int, 30), rows);
     var spacing: PanelSpacingPlan = undefined;
-    noctty_grid_panel_spacing_plan(0, -5, &spacing);
+    dintty_grid_panel_spacing_plan(0, -5, &spacing);
     try std.testing.expectEqual(@as(c_int, 0), spacing.leading);
     try std.testing.expectEqual(@as(c_int, 0), spacing.trailing);
-    noctty_grid_panel_spacing_plan(1, 5, &spacing);
+    dintty_grid_panel_spacing_plan(1, 5, &spacing);
     try std.testing.expectEqual(@as(c_int, 2), spacing.leading);
     try std.testing.expectEqual(@as(c_int, 3), spacing.trailing);
-    noctty_grid_panel_spacing_plan(1, -5, &spacing);
+    dintty_grid_panel_spacing_plan(1, -5, &spacing);
     try std.testing.expectEqual(@as(c_int, -2), spacing.leading);
     try std.testing.expectEqual(@as(c_int, -3), spacing.trailing);
 
     var bounds: AutoFitBounds = undefined;
-    noctty_grid_auto_fit_bounds(800, 600, 1, 1200, &bounds);
+    dintty_grid_auto_fit_bounds(800, 600, 1, 1200, &bounds);
     try std.testing.expectEqual(@as(c_int, 800), bounds.width);
     try std.testing.expectEqual(@as(c_int, 600), bounds.height);
-    noctty_grid_auto_fit_bounds(800, 600, 700, 400, &bounds);
+    dintty_grid_auto_fit_bounds(800, 600, 700, 400, &bounds);
     try std.testing.expectEqual(@as(c_int, 700), bounds.width);
     try std.testing.expectEqual(@as(c_int, 400), bounds.height);
 
     var resize: ResizePlan = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_resize_plan(
         800,
         600,
         10,
@@ -6705,7 +6705,7 @@ test "auto-fit and grid dimensions remain bounded" {
     try std.testing.expectEqual(@as(c_int, 79), resize.columns);
     try std.testing.expectEqual(@as(c_int, 30), resize.rows);
     try std.testing.expectEqual(@as(c_int, 0), resize.changed);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_resize_plan(
         800,
         600,
         10,
@@ -6716,7 +6716,7 @@ test "auto-fit and grid dimensions remain bounded" {
         &resize,
     ));
     try std.testing.expectEqual(@as(c_int, 1), resize.changed);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_resize_plan(
         0,
         600,
         10,
@@ -6730,9 +6730,9 @@ test "auto-fit and grid dimensions remain bounded" {
 
 test "scroll steps preserve discrete and smooth accumulation" {
     var accumulator: f64 = 0;
-    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_scroll_steps(3, 0, -1, 0, &accumulator));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_scroll_steps(3, 1, 0, 0.2, &accumulator));
-    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_scroll_steps(3, 1, 0, 0.8, &accumulator));
+    try std.testing.expectEqual(@as(c_int, 3), dintty_grid_scroll_steps(3, 0, -1, 0, &accumulator));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_scroll_steps(3, 1, 0, 0.2, &accumulator));
+    try std.testing.expectEqual(@as(c_int, -3), dintty_grid_scroll_steps(3, 1, 0, 0.8, &accumulator));
 }
 test "routed wheel actions preserve every discrete direction convention" {
     const cases = [_]struct {
@@ -6744,7 +6744,7 @@ test "routed wheel actions preserve every discrete direction convention" {
         .{ .modifiers = modifier_control, .route = route_font_zoom },
     };
     for (cases) |case| {
-        const route = noctty_grid_input_route(
+        const route = dintty_grid_input_route(
             input_wheel,
             0,
             0,
@@ -6756,7 +6756,7 @@ test "routed wheel actions preserve every discrete direction convention" {
         for ([_]c_int{ -1, 1 }) |scroll_direction| {
             var accumulator: f64 = 0.75;
             var plan: WheelActionPlan = undefined;
-            noctty_grid_wheel_action_plan(
+            dintty_grid_wheel_action_plan(
                 route,
                 scroll_direction,
                 std.math.nan(f64),
@@ -6778,22 +6778,22 @@ test "wheel action plans accumulate fractions and cross both thresholds" {
     var accumulator: f64 = 0;
     var plan: WheelActionPlan = undefined;
 
-    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0.4, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_tab_cycle, 0, 0.4, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.steps);
     try std.testing.expectApproxEqAbs(@as(f64, 0.4), accumulator, 1e-12);
-    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0.6, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_tab_cycle, 0, 0.6, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.steps);
     try std.testing.expectEqual(@as(c_int, 1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, 0), accumulator, 1e-12);
 
-    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -0.25, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_pane_cycle, 0, -0.25, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.steps);
-    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -0.75, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_pane_cycle, 0, -0.75, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.steps);
     try std.testing.expectEqual(@as(c_int, -1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, 0), accumulator, 1e-12);
 
-    noctty_grid_wheel_action_plan(route_font_zoom, 0, 1.25, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_font_zoom, 0, 1.25, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.steps);
     try std.testing.expectEqual(@as(c_int, -1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, -0.25), accumulator, 1e-12);
@@ -6802,17 +6802,17 @@ test "wheel action plans accumulate fractions and cross both thresholds" {
 test "wheel action plans saturate each event while retaining overflow" {
     var accumulator: f64 = 0;
     var plan: WheelActionPlan = undefined;
-    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 12.75, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_tab_cycle, 0, 12.75, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 8), plan.steps);
     try std.testing.expectEqual(@as(c_int, 1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, 4.75), accumulator, 1e-12);
-    noctty_grid_wheel_action_plan(route_tab_cycle, 0, 0, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_tab_cycle, 0, 0, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 4), plan.steps);
     try std.testing.expectEqual(@as(c_int, 1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, 0.75), accumulator, 1e-12);
 
     accumulator = 0;
-    noctty_grid_wheel_action_plan(route_pane_cycle, 0, -12.75, &accumulator, &plan);
+    dintty_grid_wheel_action_plan(route_pane_cycle, 0, -12.75, &accumulator, &plan);
     try std.testing.expectEqual(@as(c_int, 8), plan.steps);
     try std.testing.expectEqual(@as(c_int, -1), plan.direction);
     try std.testing.expectApproxEqAbs(@as(f64, -4.75), accumulator, 1e-12);
@@ -6831,7 +6831,7 @@ test "wheel action plans reject invalid and non-finite smooth inputs" {
     for (routes) |route| {
         var accumulator: f64 = 0.5;
         var plan = WheelActionPlan{ .steps = 7, .direction = -1 };
-        noctty_grid_wheel_action_plan(route, 0, 2, &accumulator, &plan);
+        dintty_grid_wheel_action_plan(route, 0, 2, &accumulator, &plan);
         try std.testing.expectEqual(@as(c_int, 0), plan.steps);
         try std.testing.expectEqual(@as(c_int, 0), plan.direction);
         try std.testing.expectEqual(@as(f64, 0.5), accumulator);
@@ -6840,7 +6840,7 @@ test "wheel action plans reject invalid and non-finite smooth inputs" {
     for ([_]f64{ std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64) }) |delta| {
         var accumulator: f64 = 0.5;
         var plan: WheelActionPlan = undefined;
-        noctty_grid_wheel_action_plan(route_tab_cycle, 0, delta, &accumulator, &plan);
+        dintty_grid_wheel_action_plan(route_tab_cycle, 0, delta, &accumulator, &plan);
         try std.testing.expectEqual(@as(c_int, 0), plan.steps);
         try std.testing.expectEqual(@as(c_int, 0), plan.direction);
         try std.testing.expectEqual(@as(f64, 0.5), accumulator);
@@ -6849,7 +6849,7 @@ test "wheel action plans reject invalid and non-finite smooth inputs" {
     for ([_]c_int{ -2, 2, std.math.maxInt(c_int) }) |direction| {
         var accumulator: f64 = 0.5;
         var plan: WheelActionPlan = undefined;
-        noctty_grid_wheel_action_plan(route_font_zoom, direction, 2, &accumulator, &plan);
+        dintty_grid_wheel_action_plan(route_font_zoom, direction, 2, &accumulator, &plan);
         try std.testing.expectEqual(@as(c_int, 0), plan.steps);
         try std.testing.expectEqual(@as(c_int, 0), plan.direction);
         try std.testing.expectEqual(@as(f64, 0.5), accumulator);
@@ -6857,15 +6857,15 @@ test "wheel action plans reject invalid and non-finite smooth inputs" {
 }
 
 test "keyboard scroll targets saturate at history boundaries" {
-    try std.testing.expectEqual(@as(u64, 100), noctty_grid_keyboard_scroll_target(100, 90, 20, 1));
-    try std.testing.expectEqual(@as(u64, 0), noctty_grid_keyboard_scroll_target(100, 10, 20, 2));
-    try std.testing.expectEqual(@as(u64, 100), noctty_grid_keyboard_scroll_target(100, 10, 20, 3));
-    try std.testing.expectEqual(@as(u64, 0), noctty_grid_keyboard_scroll_target(100, 90, 20, 4));
+    try std.testing.expectEqual(@as(u64, 100), dintty_grid_keyboard_scroll_target(100, 90, 20, 1));
+    try std.testing.expectEqual(@as(u64, 0), dintty_grid_keyboard_scroll_target(100, 10, 20, 2));
+    try std.testing.expectEqual(@as(u64, 100), dintty_grid_keyboard_scroll_target(100, 10, 20, 3));
+    try std.testing.expectEqual(@as(u64, 0), dintty_grid_keyboard_scroll_target(100, 90, 20, 4));
 }
 
 test "scrollbar geometry clamps offset and thumb" {
     var geometry: ScrollbarGeometry = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_scrollbar_geometry(
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_scrollbar_geometry(
         800,
         600,
         10,
@@ -6893,25 +6893,25 @@ test "scrollbar press planning distinguishes thumb drag and saturated pages" {
         .visible_rows = 10,
     };
     var plan: ScrollbarPressPlan = undefined;
-    noctty_grid_scrollbar_press_plan(&geometry, 50, &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, 50, &plan);
     try std.testing.expectEqual(scrollbar_press_drag, plan.action);
     try std.testing.expectEqual(@as(f64, 8), plan.drag_offset);
     try std.testing.expectEqual(@as(u64, 50), plan.target_offset);
 
-    noctty_grid_scrollbar_press_plan(&geometry, 41, &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, 41, &plan);
     try std.testing.expectEqual(scrollbar_press_page, plan.action);
     try std.testing.expectEqual(@as(u64, 59), plan.target_offset);
-    noctty_grid_scrollbar_press_plan(&geometry, 63, &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, 63, &plan);
     try std.testing.expectEqual(@as(u64, 41), plan.target_offset);
 
     geometry.viewport_offset = 98;
-    noctty_grid_scrollbar_press_plan(&geometry, 41, &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, 41, &plan);
     try std.testing.expectEqual(@as(u64, 100), plan.target_offset);
     geometry.viewport_offset = 2;
-    noctty_grid_scrollbar_press_plan(&geometry, 63, &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, 63, &plan);
     try std.testing.expectEqual(@as(u64, 0), plan.target_offset);
 
-    noctty_grid_scrollbar_press_plan(&geometry, std.math.nan(f64), &plan);
+    dintty_grid_scrollbar_press_plan(&geometry, std.math.nan(f64), &plan);
     try std.testing.expectEqual(scrollbar_press_none, plan.action);
 }
 
@@ -6930,16 +6930,16 @@ test "scrollbar drag targets map the complete track to history" {
     var target: u64 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_scrollbar_drag_target(&geometry, 10, 8, &target),
+        dintty_grid_scrollbar_drag_target(&geometry, 10, 8, &target),
     );
     try std.testing.expectEqual(@as(u64, 100), target);
-    _ = noctty_grid_scrollbar_drag_target(&geometry, 50, 8, &target);
+    _ = dintty_grid_scrollbar_drag_target(&geometry, 50, 8, &target);
     try std.testing.expectEqual(@as(u64, 50), target);
-    _ = noctty_grid_scrollbar_drag_target(&geometry, 90, 8, &target);
+    _ = dintty_grid_scrollbar_drag_target(&geometry, 90, 8, &target);
     try std.testing.expectEqual(@as(u64, 0), target);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_scrollbar_drag_target(
+        dintty_grid_scrollbar_drag_target(
             &geometry,
             std.math.inf(f64),
             8,
@@ -6950,20 +6950,20 @@ test "scrollbar drag targets map the complete track to history" {
 }
 
 test "linear selection is direction independent" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_selected(1, 4, 3, 1, 1, 1, 1));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_cell_selected(1, 4, 3, 1, 1, 9, 2));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_cell_selected(1, 4, 3, 1, 1, 0, 1));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_cell_selected(1, 4, 3, 1, 1, 1, 1));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_cell_selected(1, 4, 3, 1, 1, 9, 2));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_cell_selected(1, 4, 3, 1, 1, 0, 1));
 }
 
 test "cell and row spans preserve seamless pixel bounds" {
     var rectangle: Rectangle = undefined;
-    noctty_grid_cell_span(1, 3, 2, 9.5, 18.25, 1, &rectangle);
+    dintty_grid_cell_span(1, 3, 2, 9.5, 18.25, 1, &rectangle);
     try std.testing.expectEqual(@as(f64, 13), rectangle.x);
     try std.testing.expectEqual(@as(f64, 20), rectangle.width);
     try std.testing.expectEqual(@as(f64, 38), rectangle.y);
     try std.testing.expectEqual(@as(f64, 19), rectangle.height);
 
-    noctty_grid_row_span(1, 3, 18.25, &rectangle);
+    dintty_grid_row_span(1, 3, 18.25, &rectangle);
     try std.testing.expectEqual(@as(f64, 0), rectangle.x);
     try std.testing.expectEqual(@as(f64, 20), rectangle.y);
     try std.testing.expectEqual(@as(f64, 0), rectangle.width);
@@ -6986,7 +6986,7 @@ test "pointer routing exhaustively preserves scrollbar selection and mouse prece
             for (0..2) |primary| {
                 const index = scrollbar_owned * 4 + mouse_mode * 2 + primary;
                 for (0..8) |modifiers| {
-                    try std.testing.expectEqual(expected[index], noctty_grid_input_route(
+                    try std.testing.expectEqual(expected[index], dintty_grid_input_route(
                         input_pointer,
                         @intCast(scrollbar_owned),
                         @intCast(mouse_mode),
@@ -7025,11 +7025,11 @@ test "wheel routing exhaustively preserves modifier and mouse mode precedence" {
         const flags: u32 = @intCast(modifiers);
         try std.testing.expectEqual(
             expected_without_mouse[modifiers],
-            noctty_grid_input_route(input_wheel, 0, 0, 0, 0, flags),
+            dintty_grid_input_route(input_wheel, 0, 0, 0, 0, flags),
         );
         try std.testing.expectEqual(
             expected_with_mouse[modifiers],
-            noctty_grid_input_route(input_wheel, 0, 1, 0, 0, flags),
+            dintty_grid_input_route(input_wheel, 0, 1, 0, 0, flags),
         );
     }
 }
@@ -7037,7 +7037,7 @@ test "wheel routing exhaustively preserves modifier and mouse mode precedence" {
 test "alternate-screen wheel falls back to application keys without history" {
     try std.testing.expectEqual(
         route_application_keys,
-        noctty_grid_input_route(
+        dintty_grid_input_route(
             input_wheel,
             0,
             terminal_mode_alternate_screen,
@@ -7048,7 +7048,7 @@ test "alternate-screen wheel falls back to application keys without history" {
     );
     try std.testing.expectEqual(
         route_terminal_scroll,
-        noctty_grid_input_route(
+        dintty_grid_input_route(
             input_wheel,
             0,
             terminal_mode_alternate_screen,
@@ -7059,7 +7059,7 @@ test "alternate-screen wheel falls back to application keys without history" {
     );
     try std.testing.expectEqual(
         route_terminal_scroll,
-        noctty_grid_input_route(
+        dintty_grid_input_route(
             input_wheel,
             0,
             terminal_mode_alternate_screen,
@@ -7070,7 +7070,7 @@ test "alternate-screen wheel falls back to application keys without history" {
     );
     try std.testing.expectEqual(
         route_application_mouse,
-        noctty_grid_input_route(
+        dintty_grid_input_route(
             input_wheel,
             0,
             terminal_mode_alternate_screen | terminal_mode_mouse,
@@ -7083,27 +7083,27 @@ test "alternate-screen wheel falls back to application keys without history" {
 
 test "alternate-screen wheel keys honor direction cursor mode and bounds" {
     var output: [192]u8 = undefined;
-    var length = noctty_grid_wheel_key_sequence(0, 2, &output, output.len);
+    var length = dintty_grid_wheel_key_sequence(0, 2, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 6), length);
     try std.testing.expectEqualStrings("\x1b[A\x1b[A", output[0..@intCast(length)]);
 
-    length = noctty_grid_wheel_key_sequence(1, -2, &output, output.len);
+    length = dintty_grid_wheel_key_sequence(1, -2, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 6), length);
     try std.testing.expectEqualStrings("\x1bOB\x1bOB", output[0..@intCast(length)]);
 
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_wheel_key_sequence(0, 1, &output, 2),
+        dintty_grid_wheel_key_sequence(0, 1, &output, 2),
     );
     try std.testing.expectEqual(
         @as(c_int, 192),
-        noctty_grid_wheel_key_sequence(0, std.math.maxInt(c_int), &output, output.len),
+        dintty_grid_wheel_key_sequence(0, std.math.maxInt(c_int), &output, output.len),
     );
 }
 
 test "terminal key encoding covers Unicode navigation and function keys" {
     var output: [8]u8 = undefined;
-    var length = noctty_grid_terminal_key_sequence(
+    var length = dintty_grid_terminal_key_sequence(
         'x',
         'x',
         modifier_alt,
@@ -7114,7 +7114,7 @@ test "terminal key encoding covers Unicode navigation and function keys" {
     try std.testing.expectEqual(@as(c_int, 2), length);
     try std.testing.expectEqualStrings("\x1bx", output[0..@intCast(length)]);
 
-    length = noctty_grid_terminal_key_sequence(
+    length = dintty_grid_terminal_key_sequence(
         'C',
         'C',
         modifier_control | modifier_alt,
@@ -7125,7 +7125,7 @@ test "terminal key encoding covers Unicode navigation and function keys" {
     try std.testing.expectEqual(@as(c_int, 1), length);
     try std.testing.expectEqualSlices(u8, &.{3}, output[0..@intCast(length)]);
 
-    length = noctty_grid_terminal_key_sequence(
+    length = dintty_grid_terminal_key_sequence(
         0,
         0x1f680,
         0,
@@ -7136,7 +7136,7 @@ test "terminal key encoding covers Unicode navigation and function keys" {
     try std.testing.expectEqual(@as(c_int, 4), length);
     try std.testing.expectEqualStrings("🚀", output[0..@intCast(length)]);
 
-    length = noctty_grid_terminal_key_sequence(
+    length = dintty_grid_terminal_key_sequence(
         gdk_key_up,
         0,
         0,
@@ -7147,7 +7147,7 @@ test "terminal key encoding covers Unicode navigation and function keys" {
     try std.testing.expectEqual(@as(c_int, 3), length);
     try std.testing.expectEqualStrings("\x1bOA", output[0..@intCast(length)]);
 
-    length = noctty_grid_terminal_key_sequence(
+    length = dintty_grid_terminal_key_sequence(
         gdk_key_f12,
         0,
         0,
@@ -7159,37 +7159,37 @@ test "terminal key encoding covers Unicode navigation and function keys" {
     try std.testing.expectEqualStrings("\x1b[24~", output[0..@intCast(length)]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_terminal_key_sequence(0, 0xd800, 0, 0, &output, output.len),
+        dintty_grid_terminal_key_sequence(0, 0xd800, 0, 0, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_terminal_key_sequence(gdk_key_f12, 0, 0, 0, &output, 4),
+        dintty_grid_terminal_key_sequence(gdk_key_f12, 0, 0, 0, &output, 4),
     );
 }
 
 test "shortcut labels are bounded and name supported keys" {
     var output: [64]u8 = undefined;
-    var length = noctty_grid_shortcut_label(0, &output, output.len);
+    var length = dintty_grid_shortcut_label(0, &output, output.len);
     try std.testing.expectEqualStrings("Unassigned", output[0..@intCast(length)]);
-    length = noctty_grid_shortcut_label(
+    length = dintty_grid_shortcut_label(
         0x04000000 | 0x02000000 | 'K',
         &output,
         output.len,
     );
     try std.testing.expectEqualStrings("Ctrl+Shift+K", output[0..@intCast(length)]);
-    length = noctty_grid_shortcut_label(
+    length = dintty_grid_shortcut_label(
         0x08000000 | 0x0100003b,
         &output,
         output.len,
     );
     try std.testing.expectEqualStrings("Alt+F12", output[0..@intCast(length)]);
-    length = noctty_grid_shortcut_label(0x01000016, &output, output.len);
+    length = dintty_grid_shortcut_label(0x01000016, &output, output.len);
     try std.testing.expectEqualStrings("Page Up", output[0..@intCast(length)]);
-    length = noctty_grid_shortcut_label(1, &output, output.len);
+    length = dintty_grid_shortcut_label(1, &output, output.len);
     try std.testing.expectEqualStrings("Unknown", output[0..@intCast(length)]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_shortcut_label(0x04000000 | 'A', &output, 2),
+        dintty_grid_shortcut_label(0x04000000 | 'A', &output, 2),
     );
 }
 
@@ -7199,7 +7199,7 @@ test "shortcut settings text preserves transport-specific guidance" {
     var plan = ShortcutTextPlan{ .label_length = 0, .tooltip_length = 0 };
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_shortcut_settings_text(
+        dintty_grid_shortcut_settings_text(
             0x04000000 | 0x02000000 | 'K',
             1,
             &label,
@@ -7219,7 +7219,7 @@ test "shortcut settings text preserves transport-specific guidance" {
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_shortcut_settings_text(
+        dintty_grid_shortcut_settings_text(
             0,
             0,
             &label,
@@ -7235,7 +7235,7 @@ test "shortcut settings text preserves transport-specific guidance" {
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_shortcut_settings_text(
+        dintty_grid_shortcut_settings_text(
             0,
             0,
             &label,
@@ -7248,49 +7248,49 @@ test "shortcut settings text preserves transport-specific guidance" {
 }
 
 test "GTK modifier masks and Alt key names map to native flags" {
-    try std.testing.expectEqual(@as(u32, modifier_shift | modifier_control | modifier_alt), noctty_grid_input_modifiers(gdk_shift_mask | gdk_control_mask | gdk_mod1_mask));
-    try std.testing.expectEqual(@as(u32, modifier_alt), noctty_grid_input_modifiers(gdk_mod1_mask));
-    try std.testing.expectEqual(@as(u32, 0), noctty_grid_input_modifiers(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_alt_l));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_is_alt_key(gdk_key_meta_r));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_is_alt_key('A'));
+    try std.testing.expectEqual(@as(u32, modifier_shift | modifier_control | modifier_alt), dintty_grid_input_modifiers(gdk_shift_mask | gdk_control_mask | gdk_mod1_mask));
+    try std.testing.expectEqual(@as(u32, modifier_alt), dintty_grid_input_modifiers(gdk_mod1_mask));
+    try std.testing.expectEqual(@as(u32, 0), dintty_grid_input_modifiers(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_is_alt_key(gdk_key_alt_l));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_is_alt_key(gdk_key_meta_r));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_is_alt_key('A'));
 }
 
 test "tray ids and resize cursor policy stay bounded" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_tray_menu_id_valid(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_tray_menu_id_valid(4));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_tray_menu_id_valid(-1));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_tray_menu_id_valid(5));
-    try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(3)));
-    try std.testing.expectEqualStrings("ew-resize", std.mem.span(noctty_grid_window_resize_cursor_name(4)));
-    try std.testing.expectEqualStrings("ns-resize", std.mem.span(noctty_grid_window_resize_cursor_name(0)));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_tray_menu_id_valid(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_tray_menu_id_valid(4));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_tray_menu_id_valid(-1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_tray_menu_id_valid(5));
+    try std.testing.expectEqualStrings("ew-resize", std.mem.span(dintty_grid_window_resize_cursor_name(3)));
+    try std.testing.expectEqualStrings("ew-resize", std.mem.span(dintty_grid_window_resize_cursor_name(4)));
+    try std.testing.expectEqualStrings("ns-resize", std.mem.span(dintty_grid_window_resize_cursor_name(0)));
 }
 
 test "tray labels and icons preserve every menu state" {
-    try std.testing.expectEqualStrings("Show NOCTTY", std.mem.span(noctty_grid_tray_menu_label(1, 0)));
-    try std.testing.expectEqualStrings("Hide NOCTTY", std.mem.span(noctty_grid_tray_menu_label(1, 1)));
-    try std.testing.expectEqualStrings("Settings…", std.mem.span(noctty_grid_tray_menu_label(2, 0)));
-    try std.testing.expectEqualStrings("Close NOCTTY", std.mem.span(noctty_grid_tray_menu_label(4, 0)));
-    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_tray_menu_label(3, 0)));
-    try std.testing.expectEqualStrings("view-visible", std.mem.span(noctty_grid_tray_menu_icon_name(1)));
-    try std.testing.expectEqualStrings("configure", std.mem.span(noctty_grid_tray_menu_icon_name(2)));
-    try std.testing.expectEqualStrings("application-exit", std.mem.span(noctty_grid_tray_menu_icon_name(4)));
-    try std.testing.expectEqualStrings("", std.mem.span(noctty_grid_tray_menu_icon_name(0)));
+    try std.testing.expectEqualStrings("Show DINTTY", std.mem.span(dintty_grid_tray_menu_label(1, 0)));
+    try std.testing.expectEqualStrings("Hide DINTTY", std.mem.span(dintty_grid_tray_menu_label(1, 1)));
+    try std.testing.expectEqualStrings("Settings…", std.mem.span(dintty_grid_tray_menu_label(2, 0)));
+    try std.testing.expectEqualStrings("Close DINTTY", std.mem.span(dintty_grid_tray_menu_label(4, 0)));
+    try std.testing.expectEqualStrings("", std.mem.span(dintty_grid_tray_menu_label(3, 0)));
+    try std.testing.expectEqualStrings("view-visible", std.mem.span(dintty_grid_tray_menu_icon_name(1)));
+    try std.testing.expectEqualStrings("configure", std.mem.span(dintty_grid_tray_menu_icon_name(2)));
+    try std.testing.expectEqualStrings("application-exit", std.mem.span(dintty_grid_tray_menu_icon_name(4)));
+    try std.testing.expectEqualStrings("", std.mem.span(dintty_grid_tray_menu_icon_name(0)));
 }
 
 test "scroll direction and tab color names handle every boundary" {
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_scroll_direction(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_scroll_direction(1));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_scroll_direction(2));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_scroll_direction(3));
-    try std.testing.expectEqualStrings("Red", std.mem.span(noctty_grid_tab_color_preset_name(0)));
-    try std.testing.expectEqualStrings("Pink", std.mem.span(noctty_grid_tab_color_preset_name(7)));
-    try std.testing.expectEqualStrings("Default", std.mem.span(noctty_grid_tab_color_preset_name(-1)));
-    try std.testing.expectEqualStrings("much darker", std.mem.span(noctty_grid_tab_color_shade_name(-3)));
-    try std.testing.expectEqualStrings("darker", std.mem.span(noctty_grid_tab_color_shade_name(-1)));
-    try std.testing.expectEqualStrings("base shade", std.mem.span(noctty_grid_tab_color_shade_name(0)));
-    try std.testing.expectEqualStrings("lighter", std.mem.span(noctty_grid_tab_color_shade_name(1)));
-    try std.testing.expectEqualStrings("much lighter", std.mem.span(noctty_grid_tab_color_shade_name(3)));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_scroll_direction(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_scroll_direction(1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_scroll_direction(2));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_scroll_direction(3));
+    try std.testing.expectEqualStrings("Red", std.mem.span(dintty_grid_tab_color_preset_name(0)));
+    try std.testing.expectEqualStrings("Pink", std.mem.span(dintty_grid_tab_color_preset_name(7)));
+    try std.testing.expectEqualStrings("Default", std.mem.span(dintty_grid_tab_color_preset_name(-1)));
+    try std.testing.expectEqualStrings("much darker", std.mem.span(dintty_grid_tab_color_shade_name(-3)));
+    try std.testing.expectEqualStrings("darker", std.mem.span(dintty_grid_tab_color_shade_name(-1)));
+    try std.testing.expectEqualStrings("base shade", std.mem.span(dintty_grid_tab_color_shade_name(0)));
+    try std.testing.expectEqualStrings("lighter", std.mem.span(dintty_grid_tab_color_shade_name(1)));
+    try std.testing.expectEqualStrings("much lighter", std.mem.span(dintty_grid_tab_color_shade_name(3)));
 }
 
 test "bounded text validation enforces UTF-8 and control-free byte limits" {
@@ -7302,7 +7302,7 @@ test "bounded text validation enforces UTF-8 and control-free byte limits" {
     for (accepted) |text| {
         try std.testing.expectEqual(
             @as(c_int, 1),
-            noctty_grid_text_valid(text.ptr, text.len, text.len),
+            dintty_grid_text_valid(text.ptr, text.len, text.len),
         );
     }
 
@@ -7316,38 +7316,38 @@ test "bounded text validation enforces UTF-8 and control-free byte limits" {
     for (rejected) |text| {
         try std.testing.expectEqual(
             @as(c_int, 0),
-            noctty_grid_text_valid(text.ptr, text.len, 128),
+            dintty_grid_text_valid(text.ptr, text.len, 128),
         );
     }
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_text_valid(null, 1, 128),
+        dintty_grid_text_valid(null, 1, 128),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_text_valid("four".ptr, 4, 3),
+        dintty_grid_text_valid("four".ptr, 4, 3),
     );
 }
 
 test "accessibility offset plans clamp ranges and reject invalid offsets" {
     var plan = AccessibleOffsetPlan{ .start = 0, .end = 0, .valid = 0 };
-    noctty_grid_accessible_offset_plan(5, -2, -1, &plan);
+    dintty_grid_accessible_offset_plan(5, -2, -1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.start);
     try std.testing.expectEqual(@as(c_int, 5), plan.end);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 
-    noctty_grid_accessible_offset_plan(5, 2, 99, &plan);
+    dintty_grid_accessible_offset_plan(5, 2, 99, &plan);
     try std.testing.expectEqual(@as(c_int, 2), plan.start);
     try std.testing.expectEqual(@as(c_int, 5), plan.end);
     try std.testing.expectEqual(@as(c_int, 1), plan.valid);
 
-    noctty_grid_accessible_offset_plan(0, 0, 0, &plan);
+    dintty_grid_accessible_offset_plan(0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
 test "accessible range plans preserve word and line granularity" {
     const text = "one two\n界 word";
     var plan = AccessibleRangePlan{ .start = 0, .end = 0, .valid = 0 };
-    noctty_grid_accessible_range_plan(
+    dintty_grid_accessible_range_plan(
         text.ptr,
         text.len,
         1,
@@ -7356,7 +7356,7 @@ test "accessible range plans preserve word and line granularity" {
     );
     try std.testing.expectEqual(@as(c_int, 0), plan.start);
     try std.testing.expectEqual(@as(c_int, 3), plan.end);
-    noctty_grid_accessible_range_plan(
+    dintty_grid_accessible_range_plan(
         text.ptr,
         text.len,
         10,
@@ -7365,7 +7365,7 @@ test "accessible range plans preserve word and line granularity" {
     );
     try std.testing.expectEqual(@as(c_int, 10), plan.start);
     try std.testing.expectEqual(@as(c_int, 14), plan.end);
-    noctty_grid_accessible_range_plan(
+    dintty_grid_accessible_range_plan(
         text.ptr,
         text.len,
         2,
@@ -7374,7 +7374,7 @@ test "accessible range plans preserve word and line granularity" {
     );
     try std.testing.expectEqual(@as(c_int, 0), plan.start);
     try std.testing.expectEqual(@as(c_int, 7), plan.end);
-    noctty_grid_accessible_range_plan(
+    dintty_grid_accessible_range_plan(
         text.ptr,
         text.len,
         99,
@@ -7389,25 +7389,25 @@ test "output presentation plan prefers mapped ticks and bounded fallback" {
         .use_tick = 0,
         .timeout_ms = 0,
     };
-    noctty_grid_output_present_plan(1, 0, 0, 1, &plan);
+    dintty_grid_output_present_plan(1, 0, 0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.schedule);
     try std.testing.expectEqual(@as(c_int, 1), plan.use_tick);
     try std.testing.expectEqual(@as(c_int, 100), plan.timeout_ms);
 
-    noctty_grid_output_present_plan(1, 0, 0, 0, &plan);
+    dintty_grid_output_present_plan(1, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.schedule);
     try std.testing.expectEqual(@as(c_int, 0), plan.use_tick);
-    noctty_grid_output_present_plan(1, 1, 0, 1, &plan);
+    dintty_grid_output_present_plan(1, 1, 0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.schedule);
-    noctty_grid_output_present_plan(1, 0, 1, 1, &plan);
+    dintty_grid_output_present_plan(1, 0, 1, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.schedule);
 }
 test "zoom plan separates enter and unzoom state" {
     var plan = ZoomPlan{ .unzoom = 0, .enter = 0 };
-    noctty_grid_zoom_plan(0, 7, &plan);
+    dintty_grid_zoom_plan(0, 7, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.unzoom);
     try std.testing.expectEqual(@as(c_int, 1), plan.enter);
-    noctty_grid_zoom_plan(7, 7, &plan);
+    dintty_grid_zoom_plan(7, 7, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.unzoom);
     try std.testing.expectEqual(@as(c_int, 0), plan.enter);
 }
@@ -7418,29 +7418,29 @@ test "startup window plan separates native effects from visibility policy" {
         .apply_activation = 0,
         .show_layout_only = 0,
     };
-    noctty_grid_startup_window_plan(1, 1, 1, 0, 0, 1, &plan);
+    dintty_grid_startup_window_plan(1, 1, 1, 0, 0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.start_hidden);
     try std.testing.expectEqual(@as(c_int, 0), plan.apply_activation);
     try std.testing.expectEqual(@as(c_int, 1), plan.show_layout_only);
 
-    noctty_grid_startup_window_plan(0, 0, 1, 1, 0, 1, &plan);
+    dintty_grid_startup_window_plan(0, 0, 1, 1, 0, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.start_hidden);
     try std.testing.expectEqual(@as(c_int, 1), plan.apply_activation);
     try std.testing.expectEqual(@as(c_int, 0), plan.show_layout_only);
 
-    noctty_grid_startup_window_plan(0, 0, 1, 1, 1, 1, &plan);
+    dintty_grid_startup_window_plan(0, 0, 1, 1, 1, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.apply_activation);
     try std.testing.expectEqual(@as(c_int, 1), plan.show_layout_only);
 }
 test "control name request plan classifies D-Bus ownership results" {
     var plan = ControlNameRequestPlan{ .registered = 0, .conflict = 0 };
-    noctty_grid_control_name_request_plan(1, &plan);
+    dintty_grid_control_name_request_plan(1, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.registered);
     try std.testing.expectEqual(@as(c_int, 0), plan.conflict);
-    noctty_grid_control_name_request_plan(3, &plan);
+    dintty_grid_control_name_request_plan(3, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.registered);
     try std.testing.expectEqual(@as(c_int, 1), plan.conflict);
-    noctty_grid_control_name_request_plan(0, &plan);
+    dintty_grid_control_name_request_plan(0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.registered);
     try std.testing.expectEqual(@as(c_int, 0), plan.conflict);
 }
@@ -7448,46 +7448,46 @@ test "accessible text plan bounds cell data and trims presentation whitespace" {
     var plan = AccessibleTextPlan{ .initial_capacity = 0 };
     try std.testing.expectEqual(
         @as(c_int, 64),
-        noctty_grid_accessible_text_capacity(0, 0, &plan),
+        dintty_grid_accessible_text_capacity(0, 0, &plan),
     );
     try std.testing.expectEqual(@as(c_int, 64), plan.initial_capacity);
     try std.testing.expectEqual(
         @as(c_int, 72),
-        noctty_grid_accessible_text_capacity(9, 8, &plan),
+        dintty_grid_accessible_text_capacity(9, 8, &plan),
     );
     try std.testing.expectEqual(@as(c_int, 72), plan.initial_capacity);
-    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_accessible_cell_length(4, 64));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_cell_length(64, 64));
+    try std.testing.expectEqual(@as(c_int, 4), dintty_grid_accessible_cell_length(4, 64));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_accessible_cell_length(64, 64));
 
     const row = "text   ";
     try std.testing.expectEqual(
         @as(usize, 4),
-        noctty_grid_accessible_trim_row_length(row.ptr, row.len),
+        dintty_grid_accessible_trim_row_length(row.ptr, row.len),
     );
     const lines = "text\n\n";
     try std.testing.expectEqual(
         @as(usize, 4),
-        noctty_grid_accessible_trim_newline_length(lines.ptr, lines.len),
+        dintty_grid_accessible_trim_newline_length(lines.ptr, lines.len),
     );
 }
 
 test "smoke schedule plans preserve scenario timing and targets" {
     var steps: [16]SmokeScheduleStep = undefined;
-    var count = noctty_grid_smoke_schedule(1, 0, &steps[0], steps.len);
+    var count = dintty_grid_smoke_schedule(1, 0, &steps[0], steps.len);
     try std.testing.expectEqual(@as(c_int, 9), count);
     try std.testing.expectEqual(@as(c_int, 250), steps[0].delay_ms);
     try std.testing.expectEqual(@as(c_int, smoke_action.emit_tab), steps[0].action);
     try std.testing.expectEqual(@as(c_int, smoke_target_peer), steps[7].target);
 
-    count = noctty_grid_smoke_schedule(15, 0, &steps[0], steps.len);
+    count = dintty_grid_smoke_schedule(15, 0, &steps[0], steps.len);
     try std.testing.expectEqual(@as(c_int, 13), count);
     try std.testing.expectEqual(@as(c_int, 2500), steps[12].delay_ms);
     try std.testing.expectEqual(
         @as(c_int, smoke_action.finish_compact),
         steps[12].action,
     );
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_smoke_schedule(10, 0, &steps[0], steps.len));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_smoke_schedule(-1, 1, &steps[0], steps.len));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_smoke_schedule(10, 0, &steps[0], steps.len));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_smoke_schedule(-1, 1, &steps[0], steps.len));
 }
 
 test "hyperlink validation accepts safe browser schemes and rejects controls" {
@@ -7499,7 +7499,7 @@ test "hyperlink validation accepts safe browser schemes and rejects controls" {
     for (accepted) |uri| {
         try std.testing.expectEqual(
             @as(c_int, 1),
-            noctty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
+            dintty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
         );
     }
     const rejected = [_][]const u8{
@@ -7512,42 +7512,42 @@ test "hyperlink validation accepts safe browser schemes and rejects controls" {
     for (rejected) |uri| {
         try std.testing.expectEqual(
             @as(c_int, 0),
-            noctty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
+            dintty_grid_hyperlink_valid(uri.ptr, @intCast(uri.len)),
         );
     }
     var oversized: [2049]u8 = @splat('a');
     oversized[4] = ':';
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_hyperlink_valid(&oversized, oversized.len),
+        dintty_grid_hyperlink_valid(&oversized, oversized.len),
     );
 }
 
 test "ASCII fuzzy matching preserves ordered case-insensitive subsequences" {
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "ot".ptr, 2),
+        dintty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "ot".ptr, 2),
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_fuzzy_match_ascii("anything".ptr, 8, null, 0),
+        dintty_grid_fuzzy_match_ascii("anything".ptr, 8, null, 0),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "tmx".ptr, 3),
+        dintty_grid_fuzzy_match_ascii("Open Theme".ptr, 10, "tmx".ptr, 3),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_fuzzy_match_ascii(null, 0, "x".ptr, 1),
+        dintty_grid_fuzzy_match_ascii(null, 0, "x".ptr, 1),
     );
 }
 
 test "dropdown dimensions reject invalid space and clamp every input" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_dropdown_dimension(0, 50, 0, 480));
-    try std.testing.expectEqual(@as(c_int, 480), noctty_grid_dropdown_dimension(0, 50, 900, 480));
-    try std.testing.expectEqual(@as(c_int, 720), noctty_grid_dropdown_dimension(720, 50, 900, 480));
-    try std.testing.expectEqual(@as(c_int, 900), noctty_grid_dropdown_dimension(1200, 50, 900, 480));
-    try std.testing.expectEqual(@as(c_int, 400), noctty_grid_dropdown_dimension(0, 200, 400, 480));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_dropdown_dimension(0, 50, 0, 480));
+    try std.testing.expectEqual(@as(c_int, 480), dintty_grid_dropdown_dimension(0, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 720), dintty_grid_dropdown_dimension(720, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 900), dintty_grid_dropdown_dimension(1200, 50, 900, 480));
+    try std.testing.expectEqual(@as(c_int, 400), dintty_grid_dropdown_dimension(0, 200, 400, 480));
 }
 
 test "compact tab metrics preserve minimum label and action geometry" {
@@ -7556,11 +7556,11 @@ test "compact tab metrics preserve minimum label and action geometry" {
         .action_extent = 0,
         .strip_limit = 0,
     };
-    noctty_grid_compact_tab_metrics(10, &metrics);
+    dintty_grid_compact_tab_metrics(10, &metrics);
     try std.testing.expectEqual(@as(c_int, 12), metrics.label_height);
     try std.testing.expectEqual(@as(c_int, 24), metrics.action_extent);
     try std.testing.expectEqual(@as(c_int, 30), metrics.strip_limit);
-    noctty_grid_compact_tab_metrics(40, &metrics);
+    dintty_grid_compact_tab_metrics(40, &metrics);
     try std.testing.expectEqual(@as(c_int, 40), metrics.label_height);
     try std.testing.expectEqual(@as(c_int, 42), metrics.action_extent);
     try std.testing.expectEqual(@as(c_int, 61), metrics.strip_limit);
@@ -7582,7 +7582,7 @@ test "compact tab geometry preserves orientation and native extents" {
         .action_height = 30,
     };
     var geometry: CompactTabGeometry = undefined;
-    noctty_grid_compact_tab_geometry(&measurements, &geometry);
+    dintty_grid_compact_tab_geometry(&measurements, &geometry);
     try std.testing.expectEqual(@as(c_int, 8), geometry.strip_extent);
     try std.testing.expectEqual(@as(c_int, 8), geometry.widget_extent);
     try std.testing.expectEqual(@as(c_int, 150), geometry.max_width);
@@ -7590,7 +7590,7 @@ test "compact tab geometry preserves orientation and native extents" {
     try std.testing.expectEqual(@as(c_int, 26), geometry.action_extent);
 
     measurements.horizontal = 0;
-    noctty_grid_compact_tab_geometry(&measurements, &geometry);
+    dintty_grid_compact_tab_geometry(&measurements, &geometry);
     try std.testing.expectEqual(@as(c_int, 0), geometry.strip_extent);
     try std.testing.expectEqual(@as(c_int, 140), geometry.widget_extent);
 }
@@ -7604,31 +7604,31 @@ test "settings geometry planner preserves bounded workarea hints" {
         .max_width = 0,
         .max_height = 0,
     };
-    noctty_grid_settings_geometry_plan(1200, 800, &plan);
+    dintty_grid_settings_geometry_plan(1200, 800, &plan);
     try std.testing.expectEqual(@as(c_int, 980), plan.width);
     try std.testing.expectEqual(@as(c_int, 704), plan.height);
     try std.testing.expectEqual(@as(c_int, 720), plan.min_width);
     try std.testing.expectEqual(@as(c_int, 560), plan.min_height);
     try std.testing.expectEqual(@as(c_int, 1200), plan.max_width);
     try std.testing.expectEqual(@as(c_int, 800), plan.max_height);
-    noctty_grid_settings_geometry_plan(640, 480, &plan);
+    dintty_grid_settings_geometry_plan(640, 480, &plan);
     try std.testing.expectEqual(@as(c_int, 608), plan.width);
     try std.testing.expectEqual(@as(c_int, 448), plan.height);
 }
 
 test "render damage bounds clip rows cells and cursor rectangles" {
     var damage: DamageRect = undefined;
-    noctty_grid_damage_rect(-2, 3, 10, 20, 8, 10, &damage);
+    dintty_grid_damage_rect(-2, 3, 10, 20, 8, 10, &damage);
     try std.testing.expectEqual(@as(c_int, 0), damage.x);
     try std.testing.expectEqual(@as(c_int, 3), damage.y);
     try std.testing.expectEqual(@as(c_int, 8), damage.width);
     try std.testing.expectEqual(@as(c_int, 7), damage.height);
 
-    noctty_grid_damage_rect(0, 0, 0, 0, 0, 0, &damage);
+    dintty_grid_damage_rect(0, 0, 0, 0, 0, 0, &damage);
     try std.testing.expectEqual(@as(c_int, 1), damage.width);
     try std.testing.expectEqual(@as(c_int, 1), damage.height);
 
-    noctty_grid_cursor_damage(2, 3, 9.5, 17.2, &damage);
+    dintty_grid_cursor_damage(2, 3, 9.5, 17.2, &damage);
     try std.testing.expectEqual(@as(c_int, 23), damage.x);
     try std.testing.expectEqual(@as(c_int, 53), damage.y);
     try std.testing.expectEqual(@as(c_int, 10), damage.width);
@@ -7637,138 +7637,138 @@ test "render damage bounds clip rows cells and cursor rectangles" {
 
 test "cursor position and background alpha preserve render input policy" {
     var cursor = CursorPosition{ .column = 0, .row = 0, .valid = 0 };
-    noctty_grid_cursor_position(0x00030002, &cursor);
+    dintty_grid_cursor_position(0x00030002, &cursor);
     try std.testing.expectEqual(@as(c_int, 2), cursor.column);
     try std.testing.expectEqual(@as(c_int, 3), cursor.row);
     try std.testing.expectEqual(@as(c_int, 1), cursor.valid);
-    noctty_grid_cursor_position(std.math.maxInt(u32), &cursor);
+    dintty_grid_cursor_position(std.math.maxInt(u32), &cursor);
     try std.testing.expectEqual(@as(c_int, -1), cursor.column);
     try std.testing.expectEqual(@as(c_int, -1), cursor.row);
     try std.testing.expectEqual(@as(c_int, 0), cursor.valid);
 
     try std.testing.expectEqual(
         @as(f64, 0.75),
-        noctty_grid_background_alpha(1, 1, 75),
+        dintty_grid_background_alpha(1, 1, 75),
     );
     try std.testing.expectEqual(
         @as(f64, 1.0),
-        noctty_grid_background_alpha(0, 1, 75),
+        dintty_grid_background_alpha(0, 1, 75),
     );
 }
 
 test "manual dropdown pixels become responsive percentages" {
-    try std.testing.expectEqual(@as(c_int, 80), noctty_grid_dropdown_percent(720, 900, 50));
-    try std.testing.expectEqual(@as(c_int, 53), noctty_grid_dropdown_percent(481, 900, 50));
-    try std.testing.expectEqual(@as(c_int, 96), noctty_grid_dropdown_percent(1200, 900, 96));
-    try std.testing.expectEqual(@as(c_int, 55), noctty_grid_dropdown_percent(0, 900, 55));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_dropdown_percent(0, 0, 0));
+    try std.testing.expectEqual(@as(c_int, 80), dintty_grid_dropdown_percent(720, 900, 50));
+    try std.testing.expectEqual(@as(c_int, 53), dintty_grid_dropdown_percent(481, 900, 50));
+    try std.testing.expectEqual(@as(c_int, 96), dintty_grid_dropdown_percent(1200, 900, 96));
+    try std.testing.expectEqual(@as(c_int, 55), dintty_grid_dropdown_percent(0, 900, 55));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_dropdown_percent(0, 0, 0));
 }
 
 test "bounded host policies preserve scroll and UI ordinal edges" {
     try std.testing.expectEqual(
         @as(c_int, 7),
-        noctty_grid_scroll_target_delta(100, 40, 47),
+        dintty_grid_scroll_target_delta(100, 40, 47),
     );
     try std.testing.expectEqual(
         @as(c_int, -40),
-        noctty_grid_scroll_target_delta(100, 40, 0),
+        dintty_grid_scroll_target_delta(100, 40, 0),
     );
     try std.testing.expectEqual(
         @as(c_int, 60),
-        noctty_grid_scroll_target_delta(100, 40, 120),
+        dintty_grid_scroll_target_delta(100, 40, 120),
     );
     try std.testing.expectEqual(
         @as(c_int, 4),
-        noctty_grid_tab_title_width(0),
+        dintty_grid_tab_title_width(0),
     );
     try std.testing.expectEqual(
         @as(c_int, 24),
-        noctty_grid_tab_title_width(100),
+        dintty_grid_tab_title_width(100),
     );
     try std.testing.expectEqual(
         @as(u64, 1),
-        noctty_grid_search_display_ordinal(2, 0),
+        dintty_grid_search_display_ordinal(2, 0),
     );
     try std.testing.expectEqual(
         @as(u64, 2),
-        noctty_grid_search_display_ordinal(7, 3),
+        dintty_grid_search_display_ordinal(7, 3),
     );
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_selection_end(-1));
-    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_selection_end(5));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_selection_end(-1));
+    try std.testing.expectEqual(@as(c_int, 4), dintty_grid_selection_end(5));
     try std.testing.expectEqual(
         @as(c_int, 2),
-        noctty_grid_partition_size(1, 4),
+        dintty_grid_partition_size(1, 4),
     );
     try std.testing.expectEqual(
         @as(c_int, 5),
-        noctty_grid_partition_size(20, 4),
+        dintty_grid_partition_size(20, 4),
     );
     try std.testing.expectEqual(
         @as(c_int, 2),
-        noctty_grid_partition_size(20, 0),
+        dintty_grid_partition_size(20, 0),
     );
 }
 
 test "dialog and percent dimensions preserve bounded workarea geometry" {
     try std.testing.expectEqual(
         @as(c_int, 660),
-        noctty_grid_dialog_dimension(1000, 660, 1, 32),
+        dintty_grid_dialog_dimension(1000, 660, 1, 32),
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_dialog_dimension(20, 660, 1, 32),
+        dintty_grid_dialog_dimension(20, 660, 1, 32),
     );
     try std.testing.expectEqual(
         @as(c_int, 720),
-        noctty_grid_dialog_dimension(800, 980, 720, 96),
+        dintty_grid_dialog_dimension(800, 980, 720, 96),
     );
     try std.testing.expectEqual(
         @as(c_int, 720),
-        noctty_grid_dialog_dimension(400, 980, 720, 96),
+        dintty_grid_dialog_dimension(400, 980, 720, 96),
     );
     try std.testing.expectEqual(
         @as(c_int, 1536),
-        noctty_grid_percent_dimension(1920, 80, 480),
+        dintty_grid_percent_dimension(1920, 80, 480),
     );
     try std.testing.expectEqual(
         @as(c_int, 400),
-        noctty_grid_percent_dimension(400, 80, 480),
+        dintty_grid_percent_dimension(400, 80, 480),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_percent_dimension(0, 80, 480),
+        dintty_grid_percent_dimension(0, 80, 480),
     );
     try std.testing.expectEqual(
         @as(c_int, 900),
-        noctty_grid_percent_dimension(900, 120, 480),
+        dintty_grid_percent_dimension(900, 120, 480),
     );
 }
 
 test "sharing status actions cover only explicit protocol states" {
     try std.testing.expectEqual(
         sharing_allow_pairing | sharing_allow_session,
-        noctty_grid_sharing_status_actions(0),
+        dintty_grid_sharing_status_actions(0),
     );
     try std.testing.expectEqual(
         sharing_allow_pairing,
-        noctty_grid_sharing_status_actions(104),
+        dintty_grid_sharing_status_actions(104),
     );
     try std.testing.expectEqual(
         sharing_allow_session,
-        noctty_grid_sharing_status_actions(107),
+        dintty_grid_sharing_status_actions(107),
     );
     try std.testing.expectEqual(
         sharing_clear_host,
-        noctty_grid_sharing_status_actions(201),
+        dintty_grid_sharing_status_actions(201),
     );
     try std.testing.expectEqual(
         sharing_clear_viewer,
-        noctty_grid_sharing_status_actions(306),
+        dintty_grid_sharing_status_actions(306),
     );
     for ([_]c_int{ -1, 1, 103, 108, 200, 207, 300, 307, 402 }) |status|
         try std.testing.expectEqual(
             @as(u32, 0),
-            noctty_grid_sharing_status_actions(status),
+            dintty_grid_sharing_status_actions(status),
         );
 }
 test "sharing action tones keep primary and destructive controls distinct" {
@@ -7794,7 +7794,7 @@ test "sharing status text owns messages errors and discovery hints" {
     var plan: SharingStatusTextPlan = undefined;
     const alias = "lab";
     const endpoint = "terminal.local";
-    var length = noctty_grid_sharing_status_text(102, 42, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &output, output.len, &plan);
+    var length = dintty_grid_sharing_status_text(102, 42, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &output, output.len, &plan);
     try std.testing.expectEqual(
         @as(c_int, "Compare on both devices: 000042. Confirm only if identical.".len),
         length,
@@ -7805,14 +7805,14 @@ test "sharing status text owns messages errors and discovery hints" {
     );
     try std.testing.expectEqual(@as(c_int, 0), plan.is_error);
 
-    length = noctty_grid_sharing_status_text(401, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 4567, 1, &output, output.len, &plan);
+    length = dintty_grid_sharing_status_text(401, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 4567, 1, &output, output.len, &plan);
     try std.testing.expectEqual(
         @as(c_int, "Untrusted LAN hint: lab at terminal.local:4567. Review it, connect, and trust only after the six-digit code matches.".len),
         length,
     );
     try std.testing.expectEqual(@as(c_int, 0), plan.is_error);
 
-    _ = noctty_grid_sharing_status_text(306, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &output, output.len, &plan);
+    _ = dintty_grid_sharing_status_text(306, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &output, output.len, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.is_error);
     try std.testing.expectEqualStrings(
         "Remote terminal connection failed. Close this remote session or reconnect.",
@@ -7820,7 +7820,7 @@ test "sharing status text owns messages errors and discovery hints" {
     );
 
     var tiny: [8]u8 = undefined;
-    length = noctty_grid_sharing_status_text(0, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &tiny, tiny.len, &plan);
+    length = dintty_grid_sharing_status_text(0, 0, 0, alias.ptr, alias.len, endpoint.ptr, endpoint.len, 0, 0, &tiny, tiny.len, &plan);
     try std.testing.expectEqual(@as(c_int, 7), length);
     try std.testing.expectEqualStrings("Idle. P", tiny[0..@intCast(length)]);
 }
@@ -7853,7 +7853,7 @@ test "compact tab text owns markup tooltip and close labels" {
     var plan: CompactTabTextPlan = undefined;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_compact_tab_text(
+        dintty_grid_compact_tab_text(
             &input,
             &markup,
             markup.len,
@@ -7885,7 +7885,7 @@ test "compact tab text owns markup tooltip and close labels" {
     input.tab_color_rgb = 0;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_compact_tab_text(
+        dintty_grid_compact_tab_text(
             &input,
             &markup,
             markup.len,
@@ -7908,7 +7908,7 @@ test "pane tooltip text owns status and tag composition" {
     var output: [256]u8 = undefined;
     const status = "focused";
     const tags = "build,ui";
-    var length = noctty_grid_pane_tooltip(
+    var length = dintty_grid_pane_tooltip(
         42,
         status.ptr,
         status.len,
@@ -7922,7 +7922,7 @@ test "pane tooltip text owns status and tag composition" {
         "Pane 42 · focused · build,ui",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_pane_tooltip(
+    length = dintty_grid_pane_tooltip(
         42,
         status.ptr,
         status.len,
@@ -7938,7 +7938,7 @@ test "pane tooltip text owns status and tag composition" {
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_pane_tooltip(
+        dintty_grid_pane_tooltip(
             42,
             status.ptr,
             status.len,
@@ -7962,7 +7962,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
     const tag = "ci";
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_smart_filter_text(
+        dintty_grid_smart_filter_text(
             1,
             tag.ptr,
             tag.len,
@@ -7989,7 +7989,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_smart_filter_text(
+        dintty_grid_smart_filter_text(
             0,
             null,
             0,
@@ -8013,19 +8013,19 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
     );
 
     var output: [256]u8 = undefined;
-    var length = noctty_grid_cycle_feedback_text(0, 2, 4, &output, output.len);
+    var length = dintty_grid_cycle_feedback_text(0, 2, 4, &output, output.len);
     try std.testing.expectEqualStrings("Pane 2 / 4", output[0..@intCast(length)]);
-    length = noctty_grid_cycle_feedback_text(1, 3, 5, &output, output.len);
+    length = dintty_grid_cycle_feedback_text(1, 3, 5, &output, output.len);
     try std.testing.expectEqualStrings("Tab 3 / 5", output[0..@intCast(length)]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_cycle_feedback_text(2, 1, 2, &output, output.len),
+        dintty_grid_cycle_feedback_text(2, 1, 2, &output, output.len),
     );
 
     const model = "Model";
     const display = "Display";
     const directory = "Directory";
-    length = noctty_grid_tab_title_text(
+    length = dintty_grid_tab_title_text(
         model.ptr,
         model.len,
         display.ptr,
@@ -8037,7 +8037,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
         output.len,
     );
     try std.testing.expectEqualStrings("Model", output[0..@intCast(length)]);
-    length = noctty_grid_tab_title_text(
+    length = dintty_grid_tab_title_text(
         null,
         0,
         display.ptr,
@@ -8049,7 +8049,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
         output.len,
     );
     try std.testing.expectEqualStrings("Display", output[0..@intCast(length)]);
-    length = noctty_grid_tab_title_text(
+    length = dintty_grid_tab_title_text(
         null,
         0,
         null,
@@ -8062,19 +8062,19 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
     );
     try std.testing.expectEqualStrings("Tab 1", output[0..@intCast(length)]);
 
-    length = noctty_grid_attention_notification_text(7, 1, 0, &output, output.len);
+    length = dintty_grid_attention_notification_text(7, 1, 0, &output, output.len);
     try std.testing.expectEqualStrings(
         "Pane 7 requested attention",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_attention_notification_text(7, 0, 23, &output, output.len);
+    length = dintty_grid_attention_notification_text(7, 0, 23, &output, output.len);
     try std.testing.expectEqualStrings(
         "Pane 7 exited with code 23",
         output[0..@intCast(length)],
     );
 
     const pane_title = "  Shell  ";
-    length = noctty_grid_pane_zoom_feedback_text(
+    length = dintty_grid_pane_zoom_feedback_text(
         7,
         pane_title.ptr,
         pane_title.len,
@@ -8087,7 +8087,7 @@ test "remaining native text policy owns filter feedback and title fallbacks" {
         "Session Shell is focused. Double click again on pane to go back.",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_pane_zoom_feedback_text(
+    length = dintty_grid_pane_zoom_feedback_text(
         7,
         null,
         0,
@@ -8108,33 +8108,33 @@ test "remaining native UI text composition stays bounded and native-free" {
     var primary: [64]u8 = undefined;
     try std.testing.expectEqualStrings(
         "Shortcut is unavailable. Press another key or Esc.",
-        std.mem.span(noctty_grid_shortcut_feedback_message(0)),
+        std.mem.span(dintty_grid_shortcut_feedback_message(0)),
     );
     try std.testing.expectEqualStrings(
         "Checking shortcut availability…",
-        std.mem.span(noctty_grid_shortcut_feedback_message(2)),
+        std.mem.span(dintty_grid_shortcut_feedback_message(2)),
     );
     try std.testing.expectEqualStrings(
         "Enter to save · Esc or click elsewhere to cancel",
-        std.mem.span(noctty_grid_tab_rename_feedback_message(0)),
+        std.mem.span(dintty_grid_tab_rename_feedback_message(0)),
     );
     try std.testing.expectEqualStrings(
         "This tab is no longer available.",
-        std.mem.span(noctty_grid_tab_rename_feedback_message(1)),
+        std.mem.span(dintty_grid_tab_rename_feedback_message(1)),
     );
     try std.testing.expectEqualStrings(
         "Could not rename this tab.",
-        std.mem.span(noctty_grid_tab_rename_feedback_message(2)),
+        std.mem.span(dintty_grid_tab_rename_feedback_message(2)),
     );
 
-    var length = noctty_grid_note_overlay_label("Remember this", "Remember this".len, &output, output.len);
+    var length = dintty_grid_note_overlay_label("Remember this", "Remember this".len, &output, output.len);
     try std.testing.expectEqualStrings(
         "Note · Remember this",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_window_title_text(2, "Terminal", 8, &output, output.len);
+    length = dintty_grid_window_title_text(2, "Terminal", 8, &output, output.len);
     try std.testing.expectEqualStrings(
-        "NOCTTY Zen — Terminal",
+        "DINTTY Zen — Terminal",
         output[0..@intCast(length)],
     );
 
@@ -8142,7 +8142,7 @@ test "remaining native UI text composition stays bounded and native-free" {
     var detail: [256]u8 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_close_confirmation_text(
+        dintty_grid_close_confirmation_text(
             "application",
             "application".len,
             0,
@@ -8157,18 +8157,18 @@ test "remaining native UI text composition stays bounded and native-free" {
         ),
     );
     try std.testing.expectEqualStrings(
-        "Close NOCTTY?",
-        title[0.."Close NOCTTY?".len],
+        "Close DINTTY?",
+        title[0.."Close DINTTY?".len],
     );
     try std.testing.expectEqualStrings(
-        "Closing NOCTTY ends all terminal sessions in this window.",
-        detail[0.."Closing NOCTTY ends all terminal sessions in this window.".len],
+        "Closing DINTTY ends all terminal sessions in this window.",
+        detail[0.."Closing DINTTY ends all terminal sessions in this window.".len],
     );
     try std.testing.expectEqualStrings("Keep Open", secondary[0.."Keep Open".len]);
     try std.testing.expectEqualStrings("Close Anyway", primary[0.."Close Anyway".len]);
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_close_confirmation_text(
+        dintty_grid_close_confirmation_text(
             "tab",
             "tab".len,
             2,
@@ -8189,7 +8189,7 @@ test "remaining native UI text composition stays bounded and native-free" {
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_layout_prompt_text(
+        dintty_grid_layout_prompt_text(
             1,
             &title,
             title.len,
@@ -8214,7 +8214,7 @@ test "remaining native UI text composition stays bounded and native-free" {
     try std.testing.expectEqualStrings("Move sessions", primary[0.."Move sessions".len]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_layout_prompt_text(
+        dintty_grid_layout_prompt_text(
             2,
             &title,
             1,
@@ -8227,37 +8227,37 @@ test "remaining native UI text composition stays bounded and native-free" {
         ),
     );
 
-    length = noctty_grid_find_status_text(1, 3, 9, &output, output.len);
+    length = dintty_grid_find_status_text(1, 3, 9, &output, output.len);
     try std.testing.expectEqualStrings(
         "3 / 9  ·  Enter for previous",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_find_status_text(2, 0, 0, &output, output.len);
+    length = dintty_grid_find_status_text(2, 0, 0, &output, output.len);
     try std.testing.expectEqualStrings("No matches", output[0..@intCast(length)]);
 
-    length = noctty_grid_shortcuts_text(0, &output, output.len);
+    length = dintty_grid_shortcuts_text(0, &output, output.len);
     try std.testing.expect(std.mem.indexOf(
         u8,
         output[0..@intCast(length)],
-        "Show / hide NOCTTY",
+        "Show / hide DINTTY",
     ) != null);
 
-    length = noctty_grid_sharing_peer_label("Alice", 5, "host.local", 10, 2200, &output, output.len);
+    length = dintty_grid_sharing_peer_label("Alice", 5, "host.local", 10, 2200, &output, output.len);
     try std.testing.expectEqualStrings(
         "Alice — host.local:2200",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_sharing_tab_label(null, 0, 4, 1, &output, output.len);
+    length = dintty_grid_sharing_tab_label(null, 0, 4, 1, &output, output.len);
     try std.testing.expectEqualStrings(
         "Tab 4 (host active)",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_sharing_pane_label("Shell", 5, 9, &output, output.len);
+    length = dintty_grid_sharing_pane_label("Shell", 5, 9, &output, output.len);
     try std.testing.expectEqualStrings(
         "Shell — pane 9",
         output[0..@intCast(length)],
     );
-    length = noctty_grid_sharing_revoke_detail("Alice", 5, &secondary, secondary.len);
+    length = dintty_grid_sharing_revoke_detail("Alice", 5, &secondary, secondary.len);
     try std.testing.expectEqualStrings(
         "Alice will lose sharing access immediately. Pairing it again will require a new matching six-digit confirmation.",
         secondary[0..@intCast(length)],
@@ -8266,7 +8266,7 @@ test "remaining native UI text composition stays bounded and native-free" {
 
 test "launch profile and persistence text policy stays bounded" {
     var payload: [256]u8 = undefined;
-    const required = noctty_grid_launch_profile_payload(
+    const required = dintty_grid_launch_profile_payload(
         15,
         null,
         0,
@@ -8286,7 +8286,7 @@ test "launch profile and persistence text policy stays bounded" {
         @as(c_int, "bash\tprintf hi\t/tmp\tuser@host\t1000".len),
         required,
     );
-    const written = noctty_grid_launch_profile_payload(
+    const written = dintty_grid_launch_profile_payload(
         15,
         null,
         0,
@@ -8309,26 +8309,26 @@ test "launch profile and persistence text policy stays bounded" {
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_launch_profile_name_valid("Profile", 7),
+        dintty_grid_launch_profile_name_valid("Profile", 7),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_launch_profile_name_valid(" Profile", 8),
+        dintty_grid_launch_profile_name_valid(" Profile", 8),
     );
     try std.testing.expectEqualStrings(
         "Named launch profile deleted.",
-        std.mem.span(noctty_grid_launch_profile_status_message(5)),
+        std.mem.span(dintty_grid_launch_profile_status_message(5)),
     );
     var status: [512]u8 = undefined;
-    const status_length = noctty_grid_theme_apply_status_text(1, "Solarized", 9, 0, &status, status.len);
+    const status_length = dintty_grid_theme_apply_status_text(1, "Solarized", 9, 0, &status, status.len);
     try std.testing.expectEqualStrings(
         "Using Solarized — Dark for this session; the selection could not be saved.",
         status[0..@intCast(status_length)],
     );
     var numeric: [64]u8 = undefined;
-    const decimal_length = noctty_grid_decimal_text(-42, &numeric, numeric.len);
+    const decimal_length = dintty_grid_decimal_text(-42, &numeric, numeric.len);
     try std.testing.expectEqualStrings("-42", numeric[0..@intCast(decimal_length)]);
-    const accessible_length = noctty_grid_terminal_accessible_name(7, &numeric, numeric.len);
+    const accessible_length = dintty_grid_terminal_accessible_name(7, &numeric, numeric.len);
     try std.testing.expectEqualStrings("Terminal pane 7", numeric[0..@intCast(accessible_length)]);
 }
 
@@ -8336,7 +8336,7 @@ test "recovery notice text preserves fallback precedence and ordering" {
     var output: [1024]u8 = undefined;
     const all_flags: u32 =
         (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4);
-    const length = noctty_grid_recovery_notice_text(
+    const length = dintty_grid_recovery_notice_text(
         all_flags,
         &output,
         output.len,
@@ -8353,7 +8353,7 @@ test "recovery notice text preserves fallback precedence and ordering" {
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_recovery_notice_text(0, &output, output.len),
+        dintty_grid_recovery_notice_text(0, &output, output.len),
     );
 }
 
@@ -8380,11 +8380,11 @@ test "status feedback labels remain owned by Zig" {
     for (expected, 1..) |message, index|
         try std.testing.expectEqualStrings(
             message,
-            std.mem.span(noctty_grid_status_feedback_message(@intCast(index))),
+            std.mem.span(dintty_grid_status_feedback_message(@intCast(index))),
         );
     try std.testing.expectEqualStrings(
         "",
-        std.mem.span(noctty_grid_status_feedback_message(0)),
+        std.mem.span(dintty_grid_status_feedback_message(0)),
     );
 }
 
@@ -8392,16 +8392,16 @@ test "bracketed paste markers preserve terminal protocol delimiters" {
     var output: [6]u8 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 6),
-        noctty_grid_bracketed_paste_marker(0, &output, output.len),
+        dintty_grid_bracketed_paste_marker(0, &output, output.len),
     );
     try std.testing.expectEqualStrings("\x1b[200~", output[0..]);
     try std.testing.expectEqual(
         @as(c_int, 6),
-        noctty_grid_bracketed_paste_marker(1, &output, output.len),
+        dintty_grid_bracketed_paste_marker(1, &output, output.len),
     );
     try std.testing.expectEqualStrings("\x1b[201~", output[0..]);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(2, &output, output.len));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_bracketed_paste_marker(0, &output, 5));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_bracketed_paste_marker(2, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_bracketed_paste_marker(0, &output, 5));
 }
 
 test "sharing key sequences preserve terminal control bytes" {
@@ -8418,7 +8418,7 @@ test "sharing key sequences preserve terminal control bytes" {
         "\x1bOD",
     };
     for (expected, 0..) |sequence, kind| {
-        const length = noctty_grid_sharing_key_sequence(
+        const length = dintty_grid_sharing_key_sequence(
             @intCast(kind),
             if (kind >= 5) 1 else 0,
             &output,
@@ -8429,11 +8429,11 @@ test "sharing key sequences preserve terminal control bytes" {
     }
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_key_sequence(9, 0, &output, output.len),
+        dintty_grid_sharing_key_sequence(9, 0, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_key_sequence(3, 0, &output, 2),
+        dintty_grid_sharing_key_sequence(3, 0, &output, 2),
     );
 }
 
@@ -8442,7 +8442,7 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
         for (0..8) |modifiers| {
             try std.testing.expectEqual(
                 route_scrollbar,
-                noctty_grid_input_route(
+                dintty_grid_input_route(
                     input_wheel,
                     -1,
                     @intCast(mouse_mode),
@@ -8456,11 +8456,11 @@ test "input routing handles scrollbar overrides and invalid boundaries" {
 
     try std.testing.expectEqual(
         route_application_mouse,
-        noctty_grid_input_route(input_wheel, 0, -1, 0, 0, 1 << 31),
+        dintty_grid_input_route(input_wheel, 0, -1, 0, 0, 1 << 31),
     );
     try std.testing.expectEqual(
         route_ignore,
-        noctty_grid_input_route(
+        dintty_grid_input_route(
             std.math.maxInt(c_int),
             1,
             1,
@@ -8482,7 +8482,7 @@ test "sharing extended key sequences preserve modifier formats" {
         .{ .kind = 17, .modifier = 2, .expected = "\x1b[24;2~" },
     };
     for (cases) |case| {
-        const length = noctty_grid_sharing_extended_key_sequence(
+        const length = dintty_grid_sharing_extended_key_sequence(
             case.kind,
             case.modifier,
             &output,
@@ -8493,25 +8493,25 @@ test "sharing extended key sequences preserve modifier formats" {
     }
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_extended_key_sequence(18, 1, &output, output.len),
+        dintty_grid_sharing_extended_key_sequence(18, 1, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_extended_key_sequence(0, 1, &output, 2),
+        dintty_grid_sharing_extended_key_sequence(0, 1, &output, 2),
     );
 }
 
 test "sharing adapters retain their modifier sequence bounds" {
     var output: [32]u8 = @splat(0xa5);
     const untouched: [32]u8 = @splat(0xa5);
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_arrow_sequence(0, 1000, 1, &output, output.len));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 15));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_arrow_sequence(0, 1000, 1, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 15));
     try std.testing.expectEqualSlices(u8, &untouched, &output);
-    const extended_length = noctty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 16);
+    const extended_length = dintty_grid_sharing_extended_key_sequence(17, std.math.maxInt(c_int), &output, 16);
     try std.testing.expectEqualStrings("\x1b[24;2147483647~", output[0..@intCast(extended_length)]);
     try std.testing.expectEqual(@as(u8, 0xa5), output[16]);
     output = @splat(0xa5);
-    const length = noctty_grid_sharing_arrow_sequence(0, 100, 1, &output, output.len);
+    const length = dintty_grid_sharing_arrow_sequence(0, 100, 1, &output, output.len);
     try std.testing.expectEqualStrings("\x1b[1;100A", output[0..@intCast(length)]);
     try std.testing.expectEqual(@as(u8, 0xa5), output[8]);
 }
@@ -8521,57 +8521,57 @@ test "sharing text sequences add bounded Alt prefixes" {
     var output: [3]u8 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 2),
-        noctty_grid_sharing_text_sequence(0, input, input.len, &output, output.len),
+        dintty_grid_sharing_text_sequence(0, input, input.len, &output, output.len),
     );
     try std.testing.expectEqualStrings(input, output[0..2]);
     try std.testing.expectEqual(
         @as(c_int, 3),
-        noctty_grid_sharing_text_sequence(1, input, input.len, &output, output.len),
+        dintty_grid_sharing_text_sequence(1, input, input.len, &output, output.len),
     );
     try std.testing.expectEqualStrings("\x1bxy", output[0..3]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_text_sequence(1, input, input.len, &output, 2),
+        dintty_grid_sharing_text_sequence(1, input, input.len, &output, 2),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_text_sequence(0, null, input.len, &output, output.len),
+        dintty_grid_sharing_text_sequence(0, null, input.len, &output, output.len),
     );
 }
 
 test "sharing key event sequences classify raw GTK input" {
     var output: [32]u8 = undefined;
-    var length = noctty_grid_sharing_key_event_sequence(gdk_key_return, 0, 0, null, 0, &output, output.len);
+    var length = dintty_grid_sharing_key_event_sequence(gdk_key_return, 0, 0, null, 0, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 1), length);
     try std.testing.expectEqualStrings("\r", output[0..@intCast(length)]);
 
-    length = noctty_grid_sharing_key_event_sequence(gdk_key_tab, gdk_shift_mask, 0, null, 0, &output, output.len);
+    length = dintty_grid_sharing_key_event_sequence(gdk_key_tab, gdk_shift_mask, 0, null, 0, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 3), length);
     try std.testing.expectEqualStrings("\x1b[Z", output[0..@intCast(length)]);
 
-    length = noctty_grid_sharing_key_event_sequence(gdk_key_iso_left_tab, 0, 0, null, 0, &output, output.len);
+    length = dintty_grid_sharing_key_event_sequence(gdk_key_iso_left_tab, 0, 0, null, 0, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 1), length);
     try std.testing.expectEqualStrings("\t", output[0..@intCast(length)]);
 
-    length = noctty_grid_sharing_key_event_sequence(gdk_key_up, 0, 1, null, 0, &output, output.len);
+    length = dintty_grid_sharing_key_event_sequence(gdk_key_up, 0, 1, null, 0, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 3), length);
     try std.testing.expectEqualStrings("\x1bOA", output[0..@intCast(length)]);
 
-    length = noctty_grid_sharing_key_event_sequence(gdk_key_f1, 0, 0, null, 0, &output, output.len);
+    length = dintty_grid_sharing_key_event_sequence(gdk_key_f1, 0, 0, null, 0, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 3), length);
     try std.testing.expectEqualStrings("\x1bOP", output[0..@intCast(length)]);
 
-    length = noctty_grid_sharing_key_event_sequence('x', gdk_mod1_mask, 0, "xy", 2, &output, output.len);
+    length = dintty_grid_sharing_key_event_sequence('x', gdk_mod1_mask, 0, "xy", 2, &output, output.len);
     try std.testing.expectEqual(@as(c_int, 3), length);
     try std.testing.expectEqualStrings("\x1bxy", output[0..@intCast(length)]);
 
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_key_event_sequence('x', 0, 0, null, 0, &output, output.len),
+        dintty_grid_sharing_key_event_sequence('x', 0, 0, null, 0, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_key_event_sequence(gdk_key_return, 0, 0, null, 0, &output, 0),
+        dintty_grid_sharing_key_event_sequence(gdk_key_return, 0, 0, null, 0, &output, 0),
     );
 }
 
@@ -8589,7 +8589,7 @@ test "sharing arrow sequences preserve cursor modes and modifiers" {
         .{ .arrow = 3, .modifier = 2, .application_cursor = 1, .expected = "\x1b[1;2D" },
     };
     for (cases) |case| {
-        const length = noctty_grid_sharing_arrow_sequence(
+        const length = dintty_grid_sharing_arrow_sequence(
             case.arrow,
             case.modifier,
             case.application_cursor,
@@ -8601,156 +8601,156 @@ test "sharing arrow sequences preserve cursor modes and modifiers" {
     }
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_arrow_sequence(-1, 1, 0, &output, output.len),
+        dintty_grid_sharing_arrow_sequence(-1, 1, 0, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_arrow_sequence(0, 1, 0, &output, 2),
+        dintty_grid_sharing_arrow_sequence(0, 1, 0, &output, 2),
     );
 }
 
 test "sharing paste limits and chunks preserve bounded transport" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_sharing_paste_allowed(64 * 1024));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_paste_allowed(64 * 1024 + 1));
-    try std.testing.expectEqual(@as(usize, 16 * 1024), noctty_grid_sharing_paste_chunk_size(64 * 1024));
-    try std.testing.expectEqual(@as(usize, 7), noctty_grid_sharing_paste_chunk_size(7));
-    try std.testing.expectEqual(@as(usize, 0), noctty_grid_sharing_paste_chunk_size(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_sharing_paste_allowed(64 * 1024));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_paste_allowed(64 * 1024 + 1));
+    try std.testing.expectEqual(@as(usize, 16 * 1024), dintty_grid_sharing_paste_chunk_size(64 * 1024));
+    try std.testing.expectEqual(@as(usize, 7), dintty_grid_sharing_paste_chunk_size(7));
+    try std.testing.expectEqual(@as(usize, 0), dintty_grid_sharing_paste_chunk_size(0));
 }
 
 test "native buffer policies preserve minimum rows and bounded growth" {
-    try std.testing.expectEqual(@as(usize, 1), noctty_grid_damage_buffer_capacity(-4));
-    try std.testing.expectEqual(@as(usize, 24), noctty_grid_damage_buffer_capacity(24));
+    try std.testing.expectEqual(@as(usize, 1), dintty_grid_damage_buffer_capacity(-4));
+    try std.testing.expectEqual(@as(usize, 24), dintty_grid_damage_buffer_capacity(24));
     try std.testing.expectEqual(
         @as(usize, 32 * 1024),
-        noctty_grid_selection_copy_capacity_next(16 * 1024),
+        dintty_grid_selection_copy_capacity_next(16 * 1024),
     );
     try std.testing.expectEqual(
         @as(usize, 4 * 1024 * 1024),
-        noctty_grid_selection_copy_capacity_next(3 * 1024 * 1024),
+        dintty_grid_selection_copy_capacity_next(3 * 1024 * 1024),
     );
     try std.testing.expectEqual(
         @as(usize, 4 * 1024 * 1024),
-        noctty_grid_selection_copy_capacity_next(4 * 1024 * 1024),
+        dintty_grid_selection_copy_capacity_next(4 * 1024 * 1024),
     );
 }
 
 test "sharing preview scroll lines preserve GTK directions" {
-    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_sharing_preview_scroll_lines(0, 0));
-    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_sharing_preview_scroll_lines(1, 0));
-    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_sharing_preview_scroll_lines(4, -0.5));
-    try std.testing.expectEqual(@as(c_int, -3), noctty_grid_sharing_preview_scroll_lines(4, 0.5));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(4, 0));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_preview_scroll_lines(2, -1));
+    try std.testing.expectEqual(@as(c_int, 3), dintty_grid_sharing_preview_scroll_lines(0, 0));
+    try std.testing.expectEqual(@as(c_int, -3), dintty_grid_sharing_preview_scroll_lines(1, 0));
+    try std.testing.expectEqual(@as(c_int, 3), dintty_grid_sharing_preview_scroll_lines(4, -0.5));
+    try std.testing.expectEqual(@as(c_int, -3), dintty_grid_sharing_preview_scroll_lines(4, 0.5));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_preview_scroll_lines(4, 0));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_preview_scroll_lines(2, -1));
 }
 
 test "sharing index parsing accepts bounded decimal identifiers" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index("0", 1));
-    try std.testing.expectEqual(@as(c_int, 42), noctty_grid_sharing_index("42", 2));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_index("0", 1));
+    try std.testing.expectEqual(@as(c_int, 42), dintty_grid_sharing_index("42", 2));
     try std.testing.expectEqual(
         std.math.maxInt(c_int),
-        noctty_grid_sharing_index("2147483647", 10),
+        dintty_grid_sharing_index("2147483647", 10),
     );
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index(null, 1));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("", 0));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("4x", 2));
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_sharing_index("2147483648", 10));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_sharing_index(null, 1));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_sharing_index("", 0));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_sharing_index("4x", 2));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_sharing_index("2147483648", 10));
 }
 
 test "sharing index text formatting stays terminated and bounded" {
     var output: [12]u8 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_sharing_index_text(0, &output, output.len),
+        dintty_grid_sharing_index_text(0, &output, output.len),
     );
     try std.testing.expectEqualStrings("0", std.mem.span(@as([*:0]u8, @ptrCast(&output))));
     try std.testing.expectEqual(
         @as(c_int, 10),
-        noctty_grid_sharing_index_text(2_147_483_647, &output, output.len),
+        dintty_grid_sharing_index_text(2_147_483_647, &output, output.len),
     );
     try std.testing.expectEqualStrings(
         "2147483647",
         std.mem.span(@as([*:0]u8, @ptrCast(&output))),
     );
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index_text(-1, &output, output.len));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_sharing_index_text(12, &output, 2));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_index_text(-1, &output, output.len));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_sharing_index_text(12, &output, 2));
 }
 
 test "sharing pane hit testing preserves normalized half-open bounds" {
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_sharing_pane_hit(25, 25, 100, 100, 0, 0, 500_000, 1_000_000),
+        dintty_grid_sharing_pane_hit(25, 25, 100, 100, 0, 0, 500_000, 1_000_000),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_pane_hit(50, 25, 100, 100, 0, 0, 500_000, 1_000_000),
+        dintty_grid_sharing_pane_hit(50, 25, 100, 100, 0, 0, 500_000, 1_000_000),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_sharing_pane_hit(25, 25, 0, 100, 0, 0, 1_000_000, 1_000_000),
+        dintty_grid_sharing_pane_hit(25, 25, 0, 100, 0, 0, 1_000_000, 1_000_000),
     );
 }
 
 test "theme color channels decode RGB model values" {
-    try std.testing.expectEqual(@as(f64, 1.0), noctty_grid_theme_color_channel(0xff0000, 0));
-    try std.testing.expectEqual(@as(f64, 128.0 / 255.0), noctty_grid_theme_color_channel(0x008000, 1));
-    try std.testing.expectEqual(@as(f64, 0.0), noctty_grid_theme_color_channel(0x0000ff, 3));
+    try std.testing.expectEqual(@as(f64, 1.0), dintty_grid_theme_color_channel(0xff0000, 0));
+    try std.testing.expectEqual(@as(f64, 128.0 / 255.0), dintty_grid_theme_color_channel(0x008000, 1));
+    try std.testing.expectEqual(@as(f64, 0.0), dintty_grid_theme_color_channel(0x0000ff, 3));
 }
 
 test "theme color text clamps channels and preserves CSS hex format" {
     var output: [8]u8 = undefined;
     try std.testing.expectEqual(
         @as(c_int, 7),
-        noctty_grid_theme_color_text(1.0, 0.5, 0.0, &output, output.len),
+        dintty_grid_theme_color_text(1.0, 0.5, 0.0, &output, output.len),
     );
     try std.testing.expectEqualStrings("#ff8000", output[0..7]);
     try std.testing.expectEqual(
         @as(c_int, 7),
-        noctty_grid_theme_color_text(-1.0, 2.0, 0.25, &output, output.len),
+        dintty_grid_theme_color_text(-1.0, 2.0, 0.25, &output, output.len),
     );
     try std.testing.expectEqualStrings("#00ff40", output[0..7]);
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_theme_color_text(std.math.nan(f64), 0.0, 0.0, &output, output.len),
+        dintty_grid_theme_color_text(std.math.nan(f64), 0.0, 0.0, &output, output.len),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_theme_color_text(0.0, 0.0, 0.0, &output, 7),
+        dintty_grid_theme_color_text(0.0, 0.0, 0.0, &output, 7),
     );
 }
 
 test "settings policy clamps grouped terminal values at every boundary" {
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_terminal_scroll_setting(117, -5),
+        dintty_grid_terminal_scroll_setting(117, -5),
     );
     try std.testing.expectEqual(
         @as(c_int, 20),
-        noctty_grid_terminal_scroll_setting(117, 99),
+        dintty_grid_terminal_scroll_setting(117, 99),
     );
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_terminal_scroll_setting(118, 7),
+        dintty_grid_terminal_scroll_setting(118, 7),
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_terminal_scroll_setting(118, 0),
+        dintty_grid_terminal_scroll_setting(118, 0),
     );
     try std.testing.expectEqual(
         @as(c_int, -1),
-        noctty_grid_terminal_scroll_setting(116, 7),
+        dintty_grid_terminal_scroll_setting(116, 7),
     );
 
     try std.testing.expectEqual(
         @as(f64, 10.0),
-        noctty_grid_font_size_clamp(4.0, 10.0, 24.0),
+        dintty_grid_font_size_clamp(4.0, 10.0, 24.0),
     );
     try std.testing.expectEqual(
         @as(f64, 24.0),
-        noctty_grid_font_size_clamp(30.0, 10.0, 24.0),
+        dintty_grid_font_size_clamp(30.0, 10.0, 24.0),
     );
     try std.testing.expectEqual(
         @as(c_int, 1575),
-        noctty_grid_font_size_event_value(15.745, 10.0, 24.0),
+        dintty_grid_font_size_event_value(15.745, 10.0, 24.0),
     );
 
     const panel_cases = [_]struct {
@@ -8773,56 +8773,56 @@ test "settings policy clamps grouped terminal values at every boundary" {
     for (panel_cases) |case| {
         try std.testing.expectEqual(
             case.low,
-            noctty_grid_panel_metric_value(case.event_code, case.low - 1),
+            dintty_grid_panel_metric_value(case.event_code, case.low - 1),
         );
         try std.testing.expectEqual(
             case.high,
-            noctty_grid_panel_metric_value(case.event_code, case.high + 1),
+            dintty_grid_panel_metric_value(case.event_code, case.high + 1),
         );
     }
     for ([_]c_int{ 127, 128, 129 }) |event_code| {
         try std.testing.expectEqual(
             @as(c_int, 1),
-            noctty_grid_panel_metric_value(event_code, 9),
+            dintty_grid_panel_metric_value(event_code, 9),
         );
     }
     try std.testing.expectEqual(
         @as(c_int, -1),
-        noctty_grid_panel_metric_value(131, 5),
+        dintty_grid_panel_metric_value(131, 5),
     );
     try std.testing.expectEqual(
         @as(c_int, 10),
-        noctty_grid_background_opacity_value(-1),
+        dintty_grid_background_opacity_value(-1),
     );
     try std.testing.expectEqual(
         @as(c_int, 100),
-        noctty_grid_background_opacity_value(101),
+        dintty_grid_background_opacity_value(101),
     );
 }
 test "sharing control plan preserves state gates and labels" {
     var plan: SharingControlPlan = undefined;
 
-    noctty_grid_sharing_control_plan(0, 0, &plan);
+    dintty_grid_sharing_control_plan(0, 0, &plan);
     try std.testing.expect((plan.enabled & sharing_control_pairing) != 0);
     try std.testing.expect((plan.enabled & sharing_control_session) == 0);
     try std.testing.expect((plan.enabled & sharing_control_discover) != 0);
 
-    noctty_grid_sharing_control_plan(102, 2, &plan);
+    dintty_grid_sharing_control_plan(102, 2, &plan);
     try std.testing.expect((plan.enabled & sharing_control_confirm) != 0);
     try std.testing.expect((plan.enabled & sharing_control_cancel_pairing) != 0);
     try std.testing.expect((plan.enabled & sharing_control_session) == 0);
     try std.testing.expectEqual(@as(c_int, 0), plan.cancel_pairing_label);
 
-    noctty_grid_sharing_control_plan(106, 1, &plan);
+    dintty_grid_sharing_control_plan(106, 1, &plan);
     try std.testing.expect((plan.enabled & sharing_control_session) != 0);
     try std.testing.expect((plan.enabled & sharing_control_retry_save) != 0);
 
-    noctty_grid_sharing_control_plan(203, 1, &plan);
+    dintty_grid_sharing_control_plan(203, 1, &plan);
     try std.testing.expect((plan.enabled & sharing_control_grant) != 0);
     try std.testing.expect((plan.enabled & sharing_control_revoke) != 0);
     try std.testing.expectEqual(@as(c_int, 1), plan.revoke_label);
 
-    noctty_grid_sharing_control_plan(305, 0, &plan);
+    dintty_grid_sharing_control_plan(305, 0, &plan);
     try std.testing.expect((plan.enabled & sharing_control_stop_receive) != 0);
     try std.testing.expect((plan.enabled & sharing_control_reconnect) != 0);
     try std.testing.expectEqual(@as(c_int, 1), plan.stop_receive_label);
@@ -8856,13 +8856,13 @@ test "close requests preserve every first origin and natural-only dwell" {
             schedule,
             origin,
             true,
-            noctty_grid_close_request(&coordinator, origin),
+            dintty_grid_close_request(&coordinator, origin),
         );
         try expectCloseTransition(
             0,
             origin,
             false,
-            noctty_grid_close_request(&coordinator, close_origin_tray),
+            dintty_grid_close_request(&coordinator, close_origin_tray),
         );
         try std.testing.expectEqual(origin, coordinator.origin);
 
@@ -8870,19 +8870,19 @@ test "close requests preserve every first origin and natural-only dwell" {
             close_effect_run_preflight,
             origin,
             true,
-            noctty_grid_close_source_fired(&coordinator, close_source_preflight),
+            dintty_grid_close_source_fired(&coordinator, close_source_preflight),
         );
         try expectCloseTransition(
             0,
             origin,
             false,
-            noctty_grid_close_request(&coordinator, close_origin_window),
+            dintty_grid_close_request(&coordinator, close_origin_window),
         );
         try expectCloseTransition(
             0,
             origin,
             true,
-            noctty_grid_close_preflight_result(&coordinator, 0),
+            dintty_grid_close_preflight_result(&coordinator, 0),
         );
         try std.testing.expectEqual(close_phase_idle, coordinator.phase);
         try std.testing.expectEqual(close_origin_none, coordinator.origin);
@@ -8896,14 +8896,14 @@ test "close requests reject invalid origins and null state" {
             0,
             close_origin_none,
             false,
-            noctty_grid_close_request(&coordinator, origin),
+            dintty_grid_close_request(&coordinator, origin),
         );
     }
     try expectCloseTransition(
         0,
         close_origin_none,
         false,
-        noctty_grid_close_request(null, close_origin_toolbar),
+        dintty_grid_close_request(null, close_origin_toolbar),
     );
     try std.testing.expectEqual(close_phase_idle, coordinator.phase);
 }
@@ -8914,43 +8914,43 @@ test "nested modals defer once at zero depth without underflow" {
         0,
         close_origin_none,
         true,
-        noctty_grid_close_modal_begin(&coordinator),
+        dintty_grid_close_modal_begin(&coordinator),
     );
     try expectCloseTransition(
         0,
         close_origin_none,
         true,
-        noctty_grid_close_modal_begin(&coordinator),
+        dintty_grid_close_modal_begin(&coordinator),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         true,
-        noctty_grid_close_request(&coordinator, close_origin_toolbar),
+        dintty_grid_close_request(&coordinator, close_origin_toolbar),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         false,
-        noctty_grid_close_request(&coordinator, close_origin_tray),
+        dintty_grid_close_request(&coordinator, close_origin_tray),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         true,
-        noctty_grid_close_modal_end(&coordinator),
+        dintty_grid_close_modal_end(&coordinator),
     );
     try expectCloseTransition(
         close_effect_schedule_deferred,
         close_origin_toolbar,
         true,
-        noctty_grid_close_modal_end(&coordinator),
+        dintty_grid_close_modal_end(&coordinator),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         false,
-        noctty_grid_close_modal_end(&coordinator),
+        dintty_grid_close_modal_end(&coordinator),
     );
     try std.testing.expectEqual(@as(u32, 0), coordinator.modal_depth);
 }
@@ -8959,9 +8959,9 @@ test "deferred source restores origin-specific scheduling exactly once" {
     const origins = [_]u32{ close_origin_toolbar, close_origin_natural };
     for (origins) |origin| {
         var coordinator: CloseCoordinator = .{};
-        _ = noctty_grid_close_modal_begin(&coordinator);
-        _ = noctty_grid_close_request(&coordinator, origin);
-        _ = noctty_grid_close_modal_end(&coordinator);
+        _ = dintty_grid_close_modal_begin(&coordinator);
+        _ = dintty_grid_close_request(&coordinator, origin);
+        _ = dintty_grid_close_modal_end(&coordinator);
 
         const expected = if (origin == close_origin_natural)
             close_effect_schedule_dwell
@@ -8971,88 +8971,88 @@ test "deferred source restores origin-specific scheduling exactly once" {
             expected,
             origin,
             true,
-            noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+            dintty_grid_close_source_fired(&coordinator, close_source_deferred),
         );
         try expectCloseTransition(
             0,
             origin,
             false,
-            noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+            dintty_grid_close_source_fired(&coordinator, close_source_deferred),
         );
     }
 }
 
 test "modal interruption cancels every pending source and preserves dwell origin" {
     var natural: CloseCoordinator = .{};
-    _ = noctty_grid_close_request(&natural, close_origin_natural);
+    _ = dintty_grid_close_request(&natural, close_origin_natural);
     try expectCloseTransition(
         close_effect_cancel_preflight,
         close_origin_natural,
         true,
-        noctty_grid_close_modal_begin(&natural),
+        dintty_grid_close_modal_begin(&natural),
     );
     try expectCloseTransition(
         close_effect_schedule_deferred,
         close_origin_natural,
         true,
-        noctty_grid_close_modal_end(&natural),
+        dintty_grid_close_modal_end(&natural),
     );
     try expectCloseTransition(
         close_effect_schedule_dwell,
         close_origin_natural,
         true,
-        noctty_grid_close_source_fired(&natural, close_source_deferred),
+        dintty_grid_close_source_fired(&natural, close_source_deferred),
     );
 
     var deferred: CloseCoordinator = .{};
-    _ = noctty_grid_close_modal_begin(&deferred);
-    _ = noctty_grid_close_request(&deferred, close_origin_tray);
-    _ = noctty_grid_close_modal_end(&deferred);
+    _ = dintty_grid_close_modal_begin(&deferred);
+    _ = dintty_grid_close_request(&deferred, close_origin_tray);
+    _ = dintty_grid_close_modal_end(&deferred);
     try expectCloseTransition(
         close_effect_cancel_deferred,
         close_origin_tray,
         true,
-        noctty_grid_close_modal_begin(&deferred),
+        dintty_grid_close_modal_begin(&deferred),
     );
     try expectCloseTransition(
         close_effect_schedule_deferred,
         close_origin_tray,
         true,
-        noctty_grid_close_modal_end(&deferred),
+        dintty_grid_close_modal_end(&deferred),
     );
 
-    _ = noctty_grid_close_source_fired(&deferred, close_source_deferred);
+    _ = dintty_grid_close_source_fired(&deferred, close_source_deferred);
     try expectCloseTransition(
         close_effect_cancel_preflight,
         close_origin_tray,
         true,
-        noctty_grid_close_modal_begin(&deferred),
+        dintty_grid_close_modal_begin(&deferred),
     );
 }
 
 test "preflight rejection resets while retaining modal nesting" {
     var coordinator: CloseCoordinator = .{};
-    _ = noctty_grid_close_request(&coordinator, close_origin_window);
-    _ = noctty_grid_close_source_fired(&coordinator, close_source_preflight);
-    _ = noctty_grid_close_modal_begin(&coordinator);
+    _ = dintty_grid_close_request(&coordinator, close_origin_window);
+    _ = dintty_grid_close_source_fired(&coordinator, close_source_preflight);
+    _ = dintty_grid_close_modal_begin(&coordinator);
     try expectCloseTransition(
         0,
         close_origin_window,
         true,
-        noctty_grid_close_preflight_result(&coordinator, 0),
+        dintty_grid_close_preflight_result(&coordinator, 0),
     );
     try std.testing.expectEqual(@as(u32, 1), coordinator.modal_depth);
     try expectCloseTransition(
         0,
         close_origin_tray,
         true,
-        noctty_grid_close_request(&coordinator, close_origin_tray),
+        dintty_grid_close_request(&coordinator, close_origin_tray),
     );
     try expectCloseTransition(
         close_effect_schedule_deferred,
         close_origin_tray,
         true,
-        noctty_grid_close_modal_end(&coordinator),
+        dintty_grid_close_modal_end(&coordinator),
     );
 }
 
@@ -9060,7 +9060,7 @@ test "renderer viewport and chrome plans clamp every visible boundary" {
     var viewport: RenderViewport = undefined;
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_render_viewport(4, 2, 84, 42, 8, 20, 80, 24, &viewport),
+        dintty_grid_render_viewport(4, 2, 84, 42, 8, 20, 80, 24, &viewport),
     );
     try std.testing.expectEqual(@as(c_int, 0), viewport.first_row);
     try std.testing.expectEqual(@as(c_int, 3), viewport.end_row);
@@ -9068,7 +9068,7 @@ test "renderer viewport and chrome plans clamp every visible boundary" {
     try std.testing.expectEqual(@as(c_int, 11), viewport.end_column);
     try std.testing.expectEqual(
         @as(c_int, 1),
-        noctty_grid_render_viewport(-1e300, -1e300, 1e300, 1e300, 8, 20, 80, 24, &viewport),
+        dintty_grid_render_viewport(-1e300, -1e300, 1e300, 1e300, 8, 20, 80, 24, &viewport),
     );
     try std.testing.expectEqual(@as(c_int, 0), viewport.first_row);
     try std.testing.expectEqual(@as(c_int, 24), viewport.end_row);
@@ -9076,7 +9076,7 @@ test "renderer viewport and chrome plans clamp every visible boundary" {
     try std.testing.expectEqual(@as(c_int, 80), viewport.end_column);
 
     var chrome: RenderChrome = undefined;
-    noctty_grid_render_chrome(
+    dintty_grid_render_chrome(
         4,
         0,
         1,
@@ -9103,13 +9103,13 @@ test "renderer viewport and chrome plans clamp every visible boundary" {
 
 test "renderer codepoint encoding rejects surrogates and invalid scalars" {
     var output: [4]u8 = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8('A', &output, 4));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_codepoint_utf8('A', &output, 4));
     try std.testing.expectEqualSlices(u8, "A", output[0..1]);
-    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_codepoint_utf8(0x1f642, &output, 4));
+    try std.testing.expectEqual(@as(c_int, 4), dintty_grid_codepoint_utf8(0x1f642, &output, 4));
     try std.testing.expectEqualSlices(u8, "🙂", output[0..4]);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8(0xd800, &output, 4));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_codepoint_utf8(0xd800, &output, 4));
     try std.testing.expectEqual(@as(u8, '?'), output[0]);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_codepoint_utf8(0x110000, &output, 4));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_codepoint_utf8(0x110000, &output, 4));
     try std.testing.expectEqual(@as(u8, '?'), output[0]);
 }
 
@@ -9117,7 +9117,7 @@ test "renderer cell decoding keeps inverse and style policy coherent" {
     var cell: RenderCell = undefined;
     const style: u32 = 1 | 2 | 4 | 8 | 32 | (@as(u32, 7) << 8) |
         (@as(u32, 12) << 20);
-    noctty_grid_render_cell((@as(u64, style) << 32) | 'A', &cell);
+    dintty_grid_render_cell((@as(u64, style) << 32) | 'A', &cell);
     try std.testing.expectEqual(@as(u32, 'A'), cell.codepoint);
     try std.testing.expectEqual(@as(u32, 12), cell.foreground);
     try std.testing.expectEqual(@as(u32, 7), cell.background);
@@ -9135,37 +9135,37 @@ test "renderer runs stop at the first policy change" {
         (@as(u64, plain) << 32) | 'b',
         (@as(u64, dim) << 32) | 'c',
     };
-    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_render_run_end(&cells, 0, 3, 1));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_render_run_end(&cells, 0, 3, 2));
+    try std.testing.expectEqual(@as(c_int, 3), dintty_grid_render_run_end(&cells, 0, 3, 1));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_render_run_end(&cells, 0, 3, 2));
 }
 
 test "accepted preflight commits once and rejects all reentrancy" {
     var coordinator: CloseCoordinator = .{};
-    _ = noctty_grid_close_request(&coordinator, close_origin_toolbar);
-    _ = noctty_grid_close_source_fired(&coordinator, close_source_preflight);
+    _ = dintty_grid_close_request(&coordinator, close_origin_toolbar);
+    _ = dintty_grid_close_source_fired(&coordinator, close_source_preflight);
     try expectCloseTransition(
         close_effect_commit,
         close_origin_toolbar,
         true,
-        noctty_grid_close_preflight_result(&coordinator, 1),
+        dintty_grid_close_preflight_result(&coordinator, 1),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         false,
-        noctty_grid_close_preflight_result(&coordinator, 1),
+        dintty_grid_close_preflight_result(&coordinator, 1),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         false,
-        noctty_grid_close_request(&coordinator, close_origin_natural),
+        dintty_grid_close_request(&coordinator, close_origin_natural),
     );
     try expectCloseTransition(
         0,
         close_origin_toolbar,
         false,
-        noctty_grid_close_source_fired(&coordinator, close_source_preflight),
+        dintty_grid_close_source_fired(&coordinator, close_source_preflight),
     );
 }
 
@@ -9175,20 +9175,20 @@ test "stale and mismatched close sources never advance state" {
         0,
         close_origin_none,
         false,
-        noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+        dintty_grid_close_source_fired(&coordinator, close_source_deferred),
     );
-    _ = noctty_grid_close_request(&coordinator, close_origin_tray);
+    _ = dintty_grid_close_request(&coordinator, close_origin_tray);
     try expectCloseTransition(
         0,
         close_origin_tray,
         false,
-        noctty_grid_close_source_fired(&coordinator, close_source_deferred),
+        dintty_grid_close_source_fired(&coordinator, close_source_deferred),
     );
     try expectCloseTransition(
         0,
         close_origin_tray,
         false,
-        noctty_grid_close_source_fired(&coordinator, std.math.maxInt(u32)),
+        dintty_grid_close_source_fired(&coordinator, std.math.maxInt(u32)),
     );
 }
 
@@ -9201,29 +9201,29 @@ test "cycle targets exhaustively preserve signed wraparound and missing focus" {
                 const expected = if (current == 0) count - 1 else current - 1;
                 try std.testing.expectEqual(
                     expected,
-                    noctty_grid_cycle_target(count, current, 1, direction),
+                    dintty_grid_cycle_target(count, current, 1, direction),
                 );
             }
             for ([_]c_int{ 1, std.math.maxInt(c_int) }) |direction| {
                 const expected = if (current == count - 1) 0 else current + 1;
                 try std.testing.expectEqual(
                     expected,
-                    noctty_grid_cycle_target(count, current, -1, direction),
+                    dintty_grid_cycle_target(count, current, -1, direction),
                 );
             }
         }
         try std.testing.expectEqual(
             count - 1,
-            noctty_grid_cycle_target(count, -1, 0, -1),
+            dintty_grid_cycle_target(count, -1, 0, -1),
         );
         try std.testing.expectEqual(
             @as(c_int, 0),
-            noctty_grid_cycle_target(count, count, 0, 1),
+            dintty_grid_cycle_target(count, count, 0, 1),
         );
     }
     try std.testing.expectEqual(
         std.math.maxInt(c_int) - 1,
-        noctty_grid_cycle_target(
+        dintty_grid_cycle_target(
             std.math.maxInt(c_int),
             0,
             0,
@@ -9232,7 +9232,7 @@ test "cycle targets exhaustively preserve signed wraparound and missing focus" {
     );
     try std.testing.expectEqual(
         @as(c_int, 0),
-        noctty_grid_cycle_target(
+        dintty_grid_cycle_target(
             std.math.maxInt(c_int),
             std.math.maxInt(c_int) - 1,
             1,
@@ -9245,18 +9245,18 @@ test "cycle targets reject every invalid boundary" {
     for ([_]c_int{ std.math.minInt(c_int), -1, 0 }) |count| {
         try std.testing.expectEqual(
             @as(c_int, -1),
-            noctty_grid_cycle_target(count, 0, 1, 1),
+            dintty_grid_cycle_target(count, 0, 1, 1),
         );
     }
     for ([_]c_int{ -1, 3, std.math.maxInt(c_int) }) |current| {
         try std.testing.expectEqual(
             @as(c_int, -1),
-            noctty_grid_cycle_target(3, current, 1, 1),
+            dintty_grid_cycle_target(3, current, 1, 1),
         );
     }
     try std.testing.expectEqual(
         @as(c_int, -1),
-        noctty_grid_cycle_target(3, 1, 1, 0),
+        dintty_grid_cycle_target(3, 1, 1, 0),
     );
 }
 
@@ -9266,23 +9266,23 @@ test "Smart Tab plans preserve visibility focus and empty-state precedence" {
         .first_visible = 0,
         .focused_visible = 0,
     };
-    noctty_grid_smart_filter_visibility_plan(1, 1, 0, 0, &visibility);
+    dintty_grid_smart_filter_visibility_plan(1, 1, 0, 0, &visibility);
     try std.testing.expectEqual(@as(c_int, 1), visibility.visible);
     try std.testing.expectEqual(@as(c_int, 1), visibility.first_visible);
     try std.testing.expectEqual(@as(c_int, 0), visibility.focused_visible);
-    noctty_grid_smart_filter_visibility_plan(1, 0, 1, 1, &visibility);
+    dintty_grid_smart_filter_visibility_plan(1, 0, 1, 1, &visibility);
     try std.testing.expectEqual(@as(c_int, 0), visibility.visible);
     try std.testing.expectEqual(@as(c_int, 0), visibility.first_visible);
     try std.testing.expectEqual(@as(c_int, 0), visibility.focused_visible);
 
     var summary = SmartFilterSummaryPlan{ .focus_first = 0, .show_empty = 0 };
-    noctty_grid_smart_filter_summary_plan(1, 1, 1, 0, &summary);
+    dintty_grid_smart_filter_summary_plan(1, 1, 1, 0, &summary);
     try std.testing.expectEqual(@as(c_int, 1), summary.focus_first);
     try std.testing.expectEqual(@as(c_int, 0), summary.show_empty);
-    noctty_grid_smart_filter_summary_plan(1, 1, 0, 0, &summary);
+    dintty_grid_smart_filter_summary_plan(1, 1, 0, 0, &summary);
     try std.testing.expectEqual(@as(c_int, 0), summary.focus_first);
     try std.testing.expectEqual(@as(c_int, 1), summary.show_empty);
-    noctty_grid_smart_filter_summary_plan(0, 1, 0, 0, &summary);
+    dintty_grid_smart_filter_summary_plan(0, 1, 0, 0, &summary);
     try std.testing.expectEqual(@as(c_int, 0), summary.show_empty);
 }
 
@@ -9296,7 +9296,7 @@ test "directional focus scores every cardinal direction and keeps first ties" {
     };
     for (directions) |direction| {
         var plan: DirectionalFocusPlan = undefined;
-        noctty_grid_directional_focus_begin(
+        dintty_grid_directional_focus_begin(
             &source,
             direction[0],
             direction[1],
@@ -9310,14 +9310,14 @@ test "directional focus scores every cardinal direction and keeps first ties" {
             .width = 0,
             .height = 0,
         };
-        noctty_grid_directional_focus_consider(&plan, &off_direction, 0);
+        dintty_grid_directional_focus_consider(&plan, &off_direction, 0);
         const farther_primary = Rectangle{
             .x = @floatFromInt(3 * direction[0]),
             .y = @floatFromInt(3 * direction[1]),
             .width = 0,
             .height = 0,
         };
-        noctty_grid_directional_focus_consider(&plan, &farther_primary, 1);
+        dintty_grid_directional_focus_consider(&plan, &farther_primary, 1);
         const nearer_primary = Rectangle{
             .x = if (direction[0] != 0)
                 @floatFromInt(2 * direction[0])
@@ -9330,8 +9330,8 @@ test "directional focus scores every cardinal direction and keeps first ties" {
             .width = 0,
             .height = 0,
         };
-        noctty_grid_directional_focus_consider(&plan, &nearer_primary, 2);
-        noctty_grid_directional_focus_consider(&plan, &nearer_primary, 3);
+        dintty_grid_directional_focus_consider(&plan, &nearer_primary, 2);
+        dintty_grid_directional_focus_consider(&plan, &nearer_primary, 3);
         try std.testing.expectEqual(@as(c_int, 2), plan.target_index);
 
         const threshold = Rectangle{
@@ -9340,7 +9340,7 @@ test "directional focus scores every cardinal direction and keeps first ties" {
             .width = 0,
             .height = 0,
         };
-        noctty_grid_directional_focus_consider(&plan, &threshold, 4);
+        dintty_grid_directional_focus_consider(&plan, &threshold, 4);
         try std.testing.expectEqual(@as(c_int, 2), plan.target_index);
     }
 }
@@ -9357,7 +9357,7 @@ test "directional focus rejects invalid directions rectangles and candidates" {
         .{ 1, 1 },
     }) |direction| {
         var plan: DirectionalFocusPlan = undefined;
-        noctty_grid_directional_focus_begin(
+        dintty_grid_directional_focus_begin(
             &source,
             direction[0],
             direction[1],
@@ -9374,27 +9374,27 @@ test "directional focus rejects invalid directions rectangles and candidates" {
         .{ .x = 0, .y = 0, .width = 1, .height = -1 },
     }) |invalid_source| {
         var plan: DirectionalFocusPlan = undefined;
-        noctty_grid_directional_focus_begin(&invalid_source, 1, 0, &plan);
+        dintty_grid_directional_focus_begin(&invalid_source, 1, 0, &plan);
         try std.testing.expectEqual(@as(c_int, 0), plan.active);
     }
 
     var plan: DirectionalFocusPlan = undefined;
-    noctty_grid_directional_focus_begin(&source, 1, 0, &plan);
+    dintty_grid_directional_focus_begin(&source, 1, 0, &plan);
     const valid = Rectangle{ .x = 20, .y = 0, .width = 10, .height = 10 };
-    noctty_grid_directional_focus_consider(&plan, &valid, -1);
+    dintty_grid_directional_focus_consider(&plan, &valid, -1);
     try std.testing.expectEqual(@as(c_int, -1), plan.target_index);
     for ([_]Rectangle{
         .{ .x = std.math.nan(f64), .y = 0, .width = 1, .height = 1 },
         .{ .x = 20, .y = 0, .width = -1, .height = 1 },
     }) |invalid_candidate| {
-        noctty_grid_directional_focus_consider(&plan, &invalid_candidate, 1);
+        dintty_grid_directional_focus_consider(&plan, &invalid_candidate, 1);
         try std.testing.expectEqual(@as(c_int, -1), plan.target_index);
     }
-    noctty_grid_directional_focus_begin(null, 1, 0, &plan);
+    dintty_grid_directional_focus_begin(null, 1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.active);
-    noctty_grid_directional_focus_begin(&source, 1, 0, null);
-    noctty_grid_directional_focus_consider(null, &valid, 0);
-    noctty_grid_directional_focus_consider(&plan, null, 0);
+    dintty_grid_directional_focus_begin(&source, 1, 0, null);
+    dintty_grid_directional_focus_consider(null, &valid, 0);
+    dintty_grid_directional_focus_consider(&plan, null, 0);
 }
 
 fn expectKeyCommandPlan(
@@ -9406,7 +9406,7 @@ fn expectKeyCommandPlan(
     modifiers: u32,
 ) !void {
     var actual: KeyCommandPlan = undefined;
-    noctty_grid_key_command_plan(
+    dintty_grid_key_command_plan(
         pressed,
         alt_key,
         smart_filter_clear_available,
@@ -9550,7 +9550,7 @@ test "key command planner bounds lifecycle filter and invalid inputs" {
         std.math.maxInt(u32),
         std.math.maxInt(u32),
     );
-    noctty_grid_key_command_plan(1, 0, 0, gdk_key_tab, modifier_control, null);
+    dintty_grid_key_command_plan(1, 0, 0, gdk_key_tab, modifier_control, null);
 }
 
 test "keyboard chord planner preserves shortcut precedence" {
@@ -9560,53 +9560,53 @@ test "keyboard chord planner preserves shortcut precedence" {
         .reopen_tab = 0,
         .queue_draw = 0,
     };
-    noctty_grid_key_chord_plan('p', gdk_control_mask | gdk_shift_mask, &plan);
+    dintty_grid_key_chord_plan('p', gdk_control_mask | gdk_shift_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_command_palette), plan.action);
-    noctty_grid_key_chord_plan('c', gdk_control_mask | gdk_shift_mask, &plan);
+    dintty_grid_key_chord_plan('c', gdk_control_mask | gdk_shift_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_copy), plan.action);
-    noctty_grid_key_chord_plan('c', gdk_control_mask, &plan);
+    dintty_grid_key_chord_plan('c', gdk_control_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_ctrl_c), plan.action);
-    noctty_grid_key_chord_plan('1', gdk_control_mask | gdk_mod1_mask, &plan);
+    dintty_grid_key_chord_plan('1', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_emit_event), plan.action);
     try std.testing.expectEqual(@as(c_int, 31), plan.value);
     try std.testing.expectEqual(@as(c_int, 1), plan.queue_draw);
-    noctty_grid_key_chord_plan('t', gdk_control_mask | gdk_shift_mask, &plan);
+    dintty_grid_key_chord_plan('t', gdk_control_mask | gdk_shift_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_emit_event), plan.action);
     try std.testing.expectEqual(@as(c_int, 26), plan.value);
     try std.testing.expectEqual(@as(c_int, 1), plan.reopen_tab);
     try std.testing.expectEqual(@as(c_int, 0), plan.queue_draw);
-    noctty_grid_key_chord_plan(gdk_key_page_up, gdk_shift_mask, &plan);
+    dintty_grid_key_chord_plan(gdk_key_page_up, gdk_shift_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_scroll_keyboard), plan.action);
-    noctty_grid_key_chord_plan('b', gdk_control_mask | gdk_mod1_mask, &plan);
+    dintty_grid_key_chord_plan('b', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_broadcast), plan.action);
 }
 test "keyboard scroll action policy covers GTK navigation keys" {
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_keyboard_scroll_action(gdk_key_page_up));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_keyboard_scroll_action(gdk_key_page_down));
-    try std.testing.expectEqual(@as(c_int, 3), noctty_grid_keyboard_scroll_action(gdk_key_home));
-    try std.testing.expectEqual(@as(c_int, 4), noctty_grid_keyboard_scroll_action(gdk_key_end));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_keyboard_scroll_action(gdk_key_tab));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_keyboard_scroll_action(gdk_key_page_up));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_keyboard_scroll_action(gdk_key_page_down));
+    try std.testing.expectEqual(@as(c_int, 3), dintty_grid_keyboard_scroll_action(gdk_key_home));
+    try std.testing.expectEqual(@as(c_int, 4), dintty_grid_keyboard_scroll_action(gdk_key_end));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_keyboard_scroll_action(gdk_key_tab));
 }
 
 test "accessible granularity policy normalizes ATK boundaries" {
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_granularity(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_accessible_granularity(1));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_accessible_granularity(2));
-    try std.testing.expectEqual(@as(c_int, 2), noctty_grid_accessible_granularity(4));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_accessible_granularity(5));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_accessible_granularity(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_accessible_granularity(1));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_accessible_granularity(2));
+    try std.testing.expectEqual(@as(c_int, 2), dintty_grid_accessible_granularity(4));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_accessible_granularity(5));
 }
 
 test "pointer planner preserves double-click and routing precedence" {
     var plan = PointerEventPlan{ .action = pointer_action_none };
-    noctty_grid_pointer_event_plan(pointer_event_double_press, 1, route_local_pointer, 0, 0, 1, 1, 0, 0, &plan);
+    dintty_grid_pointer_event_plan(pointer_event_double_press, 1, route_local_pointer, 0, 0, 1, 1, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, pointer_action_zoom), plan.action);
-    noctty_grid_pointer_event_plan(pointer_event_double_press, 1, route_local_pointer, 0, 0, 0, 1, 0, 0, &plan);
+    dintty_grid_pointer_event_plan(pointer_event_double_press, 1, route_local_pointer, 0, 0, 0, 1, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, pointer_action_select_word), plan.action);
-    noctty_grid_pointer_event_plan(pointer_event_press, 3, route_local_pointer, 1, 0, 0, 0, 0, 0, &plan);
+    dintty_grid_pointer_event_plan(pointer_event_press, 3, route_local_pointer, 1, 0, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, pointer_action_show_hyperlink_menu), plan.action);
-    noctty_grid_pointer_event_plan(pointer_event_release, 1, route_selection, 0, 0, 0, 0, 0, 0, &plan);
+    dintty_grid_pointer_event_plan(pointer_event_release, 1, route_selection, 0, 0, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, pointer_action_update_selection), plan.action);
-    noctty_grid_pointer_event_plan(pointer_event_press, 1, route_application_mouse, 0, 0, 0, 0, 0, 0, &plan);
+    dintty_grid_pointer_event_plan(pointer_event_press, 1, route_application_mouse, 0, 0, 0, 0, 0, 0, &plan);
     try std.testing.expectEqual(@as(c_int, pointer_action_deliver_mouse), plan.action);
 }
 
@@ -9623,12 +9623,12 @@ test "compact setting plans map every persisted field and reject unknowns" {
     };
     for (cases) |case| {
         var plan = CompactSettingPlan{ .target = -1, .valid = 0 };
-        noctty_grid_compact_setting_plan(case.field, &plan);
+        dintty_grid_compact_setting_plan(case.field, &plan);
         try std.testing.expectEqual(@as(c_int, 1), plan.valid);
         try std.testing.expectEqual(case.target, plan.target);
     }
     var invalid = CompactSettingPlan{ .target = 0, .valid = 1 };
-    noctty_grid_compact_setting_plan(13, &invalid);
+    dintty_grid_compact_setting_plan(13, &invalid);
     try std.testing.expectEqual(@as(c_int, 0), invalid.valid);
     try std.testing.expectEqual(@as(c_int, -1), invalid.target);
 }
@@ -9672,7 +9672,7 @@ fn settingsPlanTestReader(userdata: ?*anyopaque, field: c_int) callconv(.c) c_in
 
 test "grid settings plan normalizes persisted values and defaults" {
     var plan: GridSettingsPlan = undefined;
-    noctty_grid_settings_plan(settingsPlanTestReader, null, 1, &plan);
+    dintty_grid_settings_plan(settingsPlanTestReader, null, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 88), plan.width_percent);
     try std.testing.expectEqual(@as(c_int, 44), plan.height_percent);
     try std.testing.expectEqual(@as(c_int, 720), plan.width_pixels);
@@ -9689,7 +9689,7 @@ test "grid settings plan normalizes persisted values and defaults" {
     try std.testing.expectEqual(@as(c_int, 1), plan.font_antialias);
     try std.testing.expectEqual(@as(c_int, 3), plan.font_hinting);
 
-    noctty_grid_settings_plan(settingsPlanTestReader, null, 0, &plan);
+    dintty_grid_settings_plan(settingsPlanTestReader, null, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 96), plan.width_percent);
     try std.testing.expectEqual(@as(c_int, 55), plan.height_percent);
     try std.testing.expectEqual(@as(c_int, 7), plan.font_min_size);
@@ -9698,14 +9698,14 @@ test "grid settings plan normalizes persisted values and defaults" {
 
 test "font rendering plans clamp combo values and reject unknown events" {
     var plan = FontRenderingPlan{ .target = -1, .value = -1, .valid = 0 };
-    noctty_grid_font_rendering_plan(110, -4, &plan);
+    dintty_grid_font_rendering_plan(110, -4, &plan);
     try std.testing.expectEqual(@as(c_int, font_rendering_target_antialias), plan.target);
     try std.testing.expectEqual(@as(c_int, 0), plan.value);
     try std.testing.expectEqual(@as(c_int, 1), plan.valid);
-    noctty_grid_font_rendering_plan(111, 9, &plan);
+    dintty_grid_font_rendering_plan(111, 9, &plan);
     try std.testing.expectEqual(@as(c_int, font_rendering_target_hinting), plan.target);
     try std.testing.expectEqual(@as(c_int, 2), plan.value);
-    noctty_grid_font_rendering_plan(112, 1, &plan);
+    dintty_grid_font_rendering_plan(112, 1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
 }
 
@@ -9715,39 +9715,39 @@ test "terminal menu plans bound actions and select-all geometry" {
         .selection_end_column = 0,
         .selection_end_row = 0,
     };
-    noctty_grid_terminal_menu_plan(terminal_menu_action_select_all, 6, 4, &plan);
+    dintty_grid_terminal_menu_plan(terminal_menu_action_select_all, 6, 4, &plan);
 
     try std.testing.expectEqual(@as(c_int, terminal_menu_action_select_all), plan.action);
     try std.testing.expectEqual(@as(c_int, 5), plan.selection_end_column);
     try std.testing.expectEqual(@as(c_int, 3), plan.selection_end_row);
-    noctty_grid_terminal_menu_plan(terminal_menu_action_select_all, -1, 0, &plan);
+    dintty_grid_terminal_menu_plan(terminal_menu_action_select_all, -1, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.selection_end_column);
     try std.testing.expectEqual(@as(c_int, 0), plan.selection_end_row);
-    noctty_grid_terminal_menu_plan(99, 6, 4, &plan);
+    dintty_grid_terminal_menu_plan(99, 6, 4, &plan);
     try std.testing.expectEqual(@as(c_int, terminal_menu_action_none), plan.action);
 }
 
 test "theme display labels and profile validity preserve native boundaries" {
     var output: [64]u8 = undefined;
-    var length = noctty_grid_theme_display_label("noctty-dark".ptr, "noctty-dark".len, &output, output.len);
-    try std.testing.expectEqualStrings("NOCTTY Dark", output[0..@intCast(length)]);
-    length = noctty_grid_theme_display_label("custom".ptr, "custom".len, &output, output.len);
+    var length = dintty_grid_theme_display_label("dintty-dark".ptr, "dintty-dark".len, &output, output.len);
+    try std.testing.expectEqualStrings("DINTTY Dark", output[0..@intCast(length)]);
+    length = dintty_grid_theme_display_label("custom".ptr, "custom".len, &output, output.len);
     try std.testing.expectEqualStrings("custom", output[0..@intCast(length)]);
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_profile_preset_valid(0));
-    try std.testing.expectEqual(@as(c_int, 1), noctty_grid_profile_preset_valid(4));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(-1));
-    try std.testing.expectEqual(@as(c_int, 0), noctty_grid_profile_preset_valid(5));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_profile_preset_valid(0));
+    try std.testing.expectEqual(@as(c_int, 1), dintty_grid_profile_preset_valid(4));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_profile_preset_valid(-1));
+    try std.testing.expectEqual(@as(c_int, 0), dintty_grid_profile_preset_valid(5));
 }
 
 test "window dimensions plan preserves percentage floors and available bounds" {
     var plan = WindowDimensionsPlan{ .width = 0, .height = 0 };
-    noctty_grid_window_dimensions_plan(1920, 1080, &plan);
+    dintty_grid_window_dimensions_plan(1920, 1080, &plan);
     try std.testing.expectEqual(@as(c_int, 1536), plan.width);
     try std.testing.expectEqual(@as(c_int, 810), plan.height);
-    noctty_grid_window_dimensions_plan(400, 200, &plan);
+    dintty_grid_window_dimensions_plan(400, 200, &plan);
     try std.testing.expectEqual(@as(c_int, 400), plan.width);
     try std.testing.expectEqual(@as(c_int, 200), plan.height);
-    noctty_grid_window_dimensions_plan(0, -1, &plan);
+    dintty_grid_window_dimensions_plan(0, -1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.width);
     try std.testing.expectEqual(@as(c_int, 0), plan.height);
 }
@@ -9758,20 +9758,20 @@ test "launch profile controls plan normalizes kinds and sensitivity gates" {
         .command_sensitive = 0,
         .ssh_target_sensitive = 0,
     };
-    noctty_grid_launch_profile_controls_plan(0, &plan);
+    dintty_grid_launch_profile_controls_plan(0, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.kind);
     try std.testing.expectEqual(@as(c_int, 0), plan.command_sensitive);
     try std.testing.expectEqual(@as(c_int, 0), plan.ssh_target_sensitive);
-    noctty_grid_launch_profile_controls_plan(1, &plan);
+    dintty_grid_launch_profile_controls_plan(1, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.command_sensitive);
     try std.testing.expectEqual(@as(c_int, 0), plan.ssh_target_sensitive);
-    noctty_grid_launch_profile_controls_plan(2, &plan);
+    dintty_grid_launch_profile_controls_plan(2, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.command_sensitive);
     try std.testing.expectEqual(@as(c_int, 1), plan.ssh_target_sensitive);
-    noctty_grid_launch_profile_controls_plan(99, &plan);
+    dintty_grid_launch_profile_controls_plan(99, &plan);
     try std.testing.expectEqual(@as(c_int, 4), plan.kind);
     try std.testing.expectEqual(@as(c_int, 1), plan.ssh_target_sensitive);
-    noctty_grid_launch_profile_controls_plan(-1, &plan);
+    dintty_grid_launch_profile_controls_plan(-1, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.kind);
 }
 
@@ -9781,20 +9781,20 @@ test "workspace event plans classify routing actions and restoration" {
         .bind_layout = 0,
         .restore_missing = 0,
     };
-    noctty_grid_workspace_event_plan(20, 0, &plan);
+    dintty_grid_workspace_event_plan(20, 0, &plan);
     try std.testing.expectEqual(@as(c_int, workspace_event_create_tab), plan.action);
     try std.testing.expectEqual(@as(c_int, 0), plan.bind_layout);
-    noctty_grid_workspace_event_plan(21, 0, &plan);
+    dintty_grid_workspace_event_plan(21, 0, &plan);
     try std.testing.expectEqual(@as(c_int, workspace_event_split), plan.action);
     try std.testing.expectEqual(@as(c_int, 1), plan.bind_layout);
-    noctty_grid_workspace_event_plan(50, 21, &plan);
+    dintty_grid_workspace_event_plan(50, 21, &plan);
     try std.testing.expectEqual(@as(c_int, workspace_event_layout_preset), plan.action);
     try std.testing.expectEqual(@as(c_int, 0), plan.restore_missing);
-    noctty_grid_workspace_event_plan(61, 0, &plan);
+    dintty_grid_workspace_event_plan(61, 0, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.restore_missing);
-    noctty_grid_workspace_event_plan(56, 0, &plan);
+    dintty_grid_workspace_event_plan(56, 0, &plan);
     try std.testing.expectEqual(@as(c_int, workspace_event_move), plan.action);
-    noctty_grid_workspace_event_plan(999, 0, &plan);
+    dintty_grid_workspace_event_plan(999, 0, &plan);
     try std.testing.expectEqual(@as(c_int, workspace_event_emit), plan.action);
 }
 
@@ -9805,19 +9805,19 @@ test "tray menu plans preserve item kinds and actions" {
         .has_children = 0,
         .action = tray_menu_action_none,
     };
-    noctty_grid_tray_menu_plan(0, &plan);
+    dintty_grid_tray_menu_plan(0, &plan);
     try std.testing.expectEqual(@as(c_int, 1), plan.valid);
     try std.testing.expectEqual(@as(c_int, tray_menu_kind_root), plan.kind);
     try std.testing.expectEqual(@as(c_int, 1), plan.has_children);
-    noctty_grid_tray_menu_plan(1, &plan);
+    dintty_grid_tray_menu_plan(1, &plan);
     try std.testing.expectEqual(@as(c_int, tray_menu_action_toggle), plan.action);
-    noctty_grid_tray_menu_plan(2, &plan);
+    dintty_grid_tray_menu_plan(2, &plan);
     try std.testing.expectEqual(@as(c_int, tray_menu_action_settings), plan.action);
-    noctty_grid_tray_menu_plan(3, &plan);
+    dintty_grid_tray_menu_plan(3, &plan);
     try std.testing.expectEqual(@as(c_int, tray_menu_kind_separator), plan.kind);
-    noctty_grid_tray_menu_plan(4, &plan);
+    dintty_grid_tray_menu_plan(4, &plan);
     try std.testing.expectEqual(@as(c_int, tray_menu_action_close), plan.action);
-    noctty_grid_tray_menu_plan(9, &plan);
+    dintty_grid_tray_menu_plan(9, &plan);
     try std.testing.expectEqual(@as(c_int, 0), plan.valid);
     try std.testing.expectEqual(@as(c_int, tray_menu_action_none), plan.action);
 }
@@ -9830,12 +9830,12 @@ test "settings event policy preserves every native control code" {
         122, 123, 124, 125, 126, 109, 115, 130,
     };
     for (expected, 0..) |code, index| {
-        try std.testing.expectEqual(code, noctty_grid_settings_event_code(@intCast(index)));
+        try std.testing.expectEqual(code, dintty_grid_settings_event_code(@intCast(index)));
     }
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_settings_event_code(-1));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_settings_event_code(-1));
     try std.testing.expectEqual(
         @as(c_int, -1),
-        noctty_grid_settings_event_code(settings_event_kind_count),
+        dintty_grid_settings_event_code(settings_event_kind_count),
     );
 }
 test "host event policy preserves native protocol identities" {
@@ -9847,18 +9847,18 @@ test "host event policy preserves native protocol identities" {
         101, 102, 103, 104, 105, 106, 108, 26, 14, 15,
     };
     for (expected, 0..) |code, index| {
-        try std.testing.expectEqual(code, noctty_grid_host_event_code(@intCast(index)));
+        try std.testing.expectEqual(code, dintty_grid_host_event_code(@intCast(index)));
     }
-    try std.testing.expectEqual(@as(c_int, -1), noctty_grid_host_event_code(-1));
+    try std.testing.expectEqual(@as(c_int, -1), dintty_grid_host_event_code(-1));
     try std.testing.expectEqual(
         @as(c_int, -1),
-        noctty_grid_host_event_code(host_event_kind_count),
+        dintty_grid_host_event_code(host_event_kind_count),
     );
 }
 
 test "lifecycle timing plans keep bounded native scheduling constants" {
     var timing: LifecycleTimingPlan = undefined;
-    noctty_grid_lifecycle_timing_plan(&timing);
+    dintty_grid_lifecycle_timing_plan(&timing);
     try std.testing.expectEqual(@as(c_int, 200), timing.output_deadman_ms);
     try std.testing.expectEqual(@as(c_int, 4), timing.write_flush_ms);
     try std.testing.expectEqual(@as(i64, 250_000), timing.exit_poll_us);
@@ -9891,7 +9891,7 @@ test "lifecycle timing plans keep bounded native scheduling constants" {
 
 test "native host policy owns geometry event and color ordinals" {
     var policy: NativeHostPolicy = undefined;
-    noctty_grid_native_host_policy(&policy);
+    dintty_grid_native_host_policy(&policy);
     try std.testing.expectEqual(@as(c_int, 480), policy.dropdown_min_width_px);
     try std.testing.expectEqual(@as(c_int, 240), policy.dropdown_min_height_px);
     try std.testing.expectEqual(@as(c_int, 2), policy.window_resize_border_px);

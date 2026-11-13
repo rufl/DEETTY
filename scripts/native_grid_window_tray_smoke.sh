@@ -1,20 +1,20 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
 
-output=/tmp/noctty-native-grid-window-tray.txt
-errors=/tmp/noctty-native-grid-window-tray.stderr
-ready=/tmp/noctty-native-grid-window-tray-ready
+output=/tmp/dintty-native-grid-window-tray.txt
+errors=/tmp/dintty-native-grid-window-tray.stderr
+ready=/tmp/dintty-native-grid-window-tray-ready
 ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 rm -f "$output" "$errors" "$ready"
 
-./zig-out/bin/noctty-smoke --native-grid-window-tray-smoke >"$output" 2>"$errors" &
+./zig-out/bin/dintty-smoke --native-grid-window-tray-smoke >"$output" 2>"$errors" &
 pid=$!
 cleanup() {
     kill -TERM "$pid" 2>/dev/null || true
@@ -47,22 +47,22 @@ items=$(gdbus call --session --dest org.kde.StatusNotifierWatcher \
     --object-path /StatusNotifierWatcher \
     --method org.freedesktop.DBus.Properties.Get \
     org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems)
-printf '%s\n' "$icon" | grep -F 'com.noctty.NOCTTY' >/dev/null
+printf '%s\n' "$icon" | grep -F 'com.dintty.DINTTY' >/dev/null
 printf '%s\n' "$menu" | grep -F '/MenuBar' >/dev/null
 printf '%s\n' "$items" | grep -F "$service/StatusNotifierItem" >/dev/null
 
 layout=$(gdbus call --session --dest "$service" --object-path /MenuBar \
     --method com.canonical.dbusmenu.GetLayout 0 1 '[]')
-printf '%s\n' "$layout" | grep -F 'Hide NOCTTY' >/dev/null
+printf '%s\n' "$layout" | grep -F 'Hide DINTTY' >/dev/null
 printf '%s\n' "$layout" | grep -F 'Settings' >/dev/null
-printf '%s\n' "$layout" | grep -F 'Close NOCTTY' >/dev/null
+printf '%s\n' "$layout" | grep -F 'Close DINTTY' >/dev/null
 
 gdbus call --session --dest "$service" --object-path /StatusNotifierItem \
     --method org.kde.StatusNotifierItem.Activate 0 0 >/dev/null
 sleep 0.15
 hidden_layout=$(gdbus call --session --dest "$service" --object-path /MenuBar \
     --method com.canonical.dbusmenu.GetLayout 0 1 '[]')
-printf '%s\n' "$hidden_layout" | grep -F 'Show NOCTTY' >/dev/null
+printf '%s\n' "$hidden_layout" | grep -F 'Show DINTTY' >/dev/null
 gdbus call --session --dest "$service" --object-path /StatusNotifierItem \
     --method org.kde.StatusNotifierItem.Activate 0 0 >/dev/null
 gdbus call --session --dest "$service" --object-path /StatusNotifierItem \
@@ -95,7 +95,7 @@ while [ "$attempt" -lt 40 ]; do
     sleep 0.05
 done
 if printf '%s\n' "$items_after" | grep -F "$service/StatusNotifierItem" >/dev/null; then
-    echo "NOCTTY tray item remained registered after exit" >&2
+    echo "DINTTY tray item remained registered after exit" >&2
     exit 1
 fi
 cat "$output"

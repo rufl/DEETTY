@@ -2,7 +2,7 @@
 set -eu
 
 command -v flock >/dev/null
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-dogfood-logging.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-dogfood-logging.XXXXXX")
 locker_pid=
 cleanup() {
   if [ -n "$locker_pid" ]; then
@@ -13,16 +13,16 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 runtime="$scratch/runtime"
 state="$scratch/state"
-mkdir -p "$runtime/lib" "$state/noctty/logs"
+mkdir -p "$runtime/lib" "$state/dintty/logs"
 install -m 0755 scripts/dogfood_launch.sh "$runtime/launch"
-ln -s launch "$runtime/noctty"
+ln -s launch "$runtime/dintty"
 ln -s launch "$runtime/nocted"
 
-cat >"$runtime/noctty-bin" <<'EOF'
+cat >"$runtime/dintty-bin" <<'EOF'
 #!/usr/bin/env sh
-printf 'stub_noctty_output\n'
+printf 'stub_dintty_output\n'
 printf 'dogfood_event session=%s event=omp_detected pane=1 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111\n' \
-  "$NOCTTY_DOGFOOD_SESSION_ID"
+  "$DINTTY_DOGFOOD_SESSION_ID"
 exit 0
 EOF
 cat >"$runtime/nocted-bin" <<'EOF'
@@ -42,23 +42,23 @@ printf '%s\n' 'thread 7 panic: fixture' >&2
 printf '%s\n' 'Gdk-WARNING **: Tried to map a popup with a non-top most parent' >&2
 exit 7
 EOF
-chmod +x "$runtime/noctty-bin" "$runtime/nocted-bin"
+chmod +x "$runtime/dintty-bin" "$runtime/nocted-bin"
 
-fast_status=$(XDG_STATE_HOME="$state" "$runtime/noctty" --status)
-printf '%s\n' "$fast_status" | grep -F 'stub_noctty_output' >/dev/null
-[ ! -d "$state/noctty/dogfood-sessions" ]
+fast_status=$(XDG_STATE_HOME="$state" "$runtime/dintty" --status)
+printf '%s\n' "$fast_status" | grep -F 'stub_dintty_output' >/dev/null
+[ ! -d "$state/dintty/dogfood-sessions" ]
 fast_version=$(XDG_STATE_HOME="$state" "$runtime/nocted" --version)
 printf '%s\n' "$fast_version" | grep -F 'stub_nocted_version' >/dev/null
-[ ! -d "$state/noctty/dogfood-sessions" ]
-for app in noctty nocted; do
+[ ! -d "$state/dintty/dogfood-sessions" ]
+for app in dintty nocted; do
   for option in --help -h; do
     XDG_STATE_HOME="$state" "$runtime/$app" "$option" >/dev/null
-    [ ! -d "$state/noctty/dogfood-sessions" ]
+    [ ! -d "$state/dintty/dogfood-sessions" ]
   done
 done
 
 home="$scratch/home"
-instance_lock="$home/.local/state/noctty/instance.lock"
+instance_lock="$home/.local/state/dintty/instance.lock"
 mkdir -p "$(dirname "$instance_lock")"
 setsid sh -c '
   exec 9>"$1"
@@ -68,9 +68,9 @@ setsid sh -c '
 ' sh "$instance_lock" "$scratch/lock-ready" "$scratch/lock-stop" &
 locker_pid=$!
 while [ ! -e "$scratch/lock-ready" ]; do sleep 0.01; done
-fast_show=$(HOME="$home" XDG_STATE_HOME="$state" "$runtime/noctty" --show)
-printf '%s\n' "$fast_show" | grep -F 'stub_noctty_output' >/dev/null
-[ ! -d "$state/noctty/dogfood-sessions" ]
+fast_show=$(HOME="$home" XDG_STATE_HOME="$state" "$runtime/dintty" --show)
+printf '%s\n' "$fast_show" | grep -F 'stub_dintty_output' >/dev/null
+[ ! -d "$state/dintty/dogfood-sessions" ]
 : >"$scratch/lock-stop"
 wait "$locker_pid"
 locker_pid=
@@ -78,7 +78,7 @@ locker_pid=
 fixture_argument=$(printf '%s\n%s' '--fixture' 'forged_log_line=true')
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE \
   WAYLAND_DISPLAY=wayland-fixture GDK_BACKEND=wayland \
-  "$runtime/noctty" "$fixture_argument"
+  "$runtime/dintty" "$fixture_argument"
 set +e
 XDG_STATE_HOME="$state" XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 \
   "$runtime/nocted" --fixture
@@ -86,21 +86,21 @@ nocted_status=$?
 set -e
 [ "$nocted_status" -eq 7 ]
 
-noctty_receipt=$(printf '%s\n' "$state"/noctty/dogfood-sessions/noctty-*.receipt)
-nocted_receipt=$(printf '%s\n' "$state"/noctty/dogfood-sessions/nocted-*.receipt)
-[ -f "$noctty_receipt" ]
+dintty_receipt=$(printf '%s\n' "$state"/dintty/dogfood-sessions/dintty-*.receipt)
+nocted_receipt=$(printf '%s\n' "$state"/dintty/dogfood-sessions/nocted-*.receipt)
+[ -f "$dintty_receipt" ]
 [ -f "$nocted_receipt" ]
-[ "$(stat -c '%a' "$noctty_receipt")" = 600 ]
+[ "$(stat -c '%a' "$dintty_receipt")" = 600 ]
 [ "$(stat -c '%a' "$nocted_receipt")" = 600 ]
-grep -Fx 'receipt_version=3' "$noctty_receipt" >/dev/null
-grep -Fx 'state=finished' "$noctty_receipt" >/dev/null
-grep -Fx 'exit_status=0' "$noctty_receipt" >/dev/null
-grep -Fx 'runtime_warning_markers=0' "$noctty_receipt" >/dev/null
-grep -Fx 'desktop_session=wayland' "$noctty_receipt" >/dev/null
-grep -Fx 'desktop_name=KDE' "$noctty_receipt" >/dev/null
-grep -Fx 'wayland_display=wayland-fixture' "$noctty_receipt" >/dev/null
-grep -E '^binary_sha256=([0-9a-f]{64}|unknown)$' "$noctty_receipt" >/dev/null
-grep -Fx 'backend=wayland' "$noctty_receipt" >/dev/null
+grep -Fx 'receipt_version=3' "$dintty_receipt" >/dev/null
+grep -Fx 'state=finished' "$dintty_receipt" >/dev/null
+grep -Fx 'exit_status=0' "$dintty_receipt" >/dev/null
+grep -Fx 'runtime_warning_markers=0' "$dintty_receipt" >/dev/null
+grep -Fx 'desktop_session=wayland' "$dintty_receipt" >/dev/null
+grep -Fx 'desktop_name=KDE' "$dintty_receipt" >/dev/null
+grep -Fx 'wayland_display=wayland-fixture' "$dintty_receipt" >/dev/null
+grep -E '^binary_sha256=([0-9a-f]{64}|unknown)$' "$dintty_receipt" >/dev/null
+grep -Fx 'backend=wayland' "$dintty_receipt" >/dev/null
 grep -Fx 'state=finished' "$nocted_receipt" >/dev/null
 grep -Fx 'exit_status=7' "$nocted_receipt" >/dev/null
 grep -Fx 'runtime_warning_markers=7' "$nocted_receipt" >/dev/null
@@ -112,45 +112,45 @@ grep -Fx 'native_grid_failure_markers=1' "$nocted_receipt" >/dev/null
 grep -Fx 'panic_markers=1' "$nocted_receipt" >/dev/null
 grep -Fx 'desktop_session=x11' "$nocted_receipt" >/dev/null
 
-noctty_log=$(printf '%s\n' "$state"/noctty/logs/noctty-*.log)
-nocted_log=$(printf '%s\n' "$state"/noctty/logs/nocted-*.log)
-grep -F 'dogfood_launch app=noctty session_id=' "$noctty_log" >/dev/null
-grep -F 'args= --fixture?forged_log_line=true' "$noctty_log" >/dev/null
-! grep -Fx 'forged_log_line=true' "$noctty_log" >/dev/null
-grep -F ' omp_version=deferred ' "$noctty_log" >/dev/null
-grep -F 'dogfood_exit app=noctty session_id=' "$noctty_log" >/dev/null
-grep -F 'duration_seconds=' "$noctty_log" >/dev/null
-grep -F 'runtime_warning_markers=0' "$noctty_log" >/dev/null
+dintty_log=$(printf '%s\n' "$state"/dintty/logs/dintty-*.log)
+nocted_log=$(printf '%s\n' "$state"/dintty/logs/nocted-*.log)
+grep -F 'dogfood_launch app=dintty session_id=' "$dintty_log" >/dev/null
+grep -F 'args= --fixture?forged_log_line=true' "$dintty_log" >/dev/null
+! grep -Fx 'forged_log_line=true' "$dintty_log" >/dev/null
+grep -F ' omp_version=deferred ' "$dintty_log" >/dev/null
+grep -F 'dogfood_exit app=dintty session_id=' "$dintty_log" >/dev/null
+grep -F 'duration_seconds=' "$dintty_log" >/dev/null
+grep -F 'runtime_warning_markers=0' "$dintty_log" >/dev/null
 grep -F 'native_grid_fixture_failed' "$nocted_log" >/dev/null
-grep -F 'event=omp_log_review pane=0 value=1 detail=clean' "$noctty_log" >/dev/null
-grep -F 'event=omp_version pane=0 value=1 detail=' "$noctty_log" >/dev/null
+grep -F 'event=omp_log_review pane=0 value=1 detail=clean' "$dintty_log" >/dev/null
+grep -F 'event=omp_version pane=0 value=1 detail=' "$dintty_log" >/dev/null
 
-cat >"$runtime/noctty-bin" <<'EOF'
+cat >"$runtime/dintty-bin" <<'EOF'
 #!/usr/bin/env sh
 kill -9 "$PPID"
 exit 0
 EOF
-chmod +x "$runtime/noctty-bin"
+chmod +x "$runtime/dintty-bin"
 set +e
-XDG_STATE_HOME="$state" "$runtime/noctty" --killed-fixture 2>/dev/null
+XDG_STATE_HOME="$state" "$runtime/dintty" --killed-fixture 2>/dev/null
 killed_status=$?
 set -e
 [ "$killed_status" -ne 0 ]
 running_count=$(grep -lFx 'state=running' \
-  "$state"/noctty/dogfood-sessions/noctty-*.receipt | wc -l)
+  "$state"/dintty/dogfood-sessions/dintty-*.receipt | wc -l)
 [ "$running_count" -eq 1 ]
 
-noctty_hash=$(awk -F= '$1 == "binary_sha256" { print $2; exit }' "$noctty_receipt")
+dintty_hash=$(awk -F= '$1 == "binary_sha256" { print $2; exit }' "$dintty_receipt")
 nocted_hash=$(awk -F= '$1 == "binary_sha256" { print $2; exit }' "$nocted_receipt")
 {
   printf 'build_receipt_version=1\n'
   printf 'install_epoch=4102444800\n'
-  printf 'noctty_sha256=%s\n' "$noctty_hash"
+  printf 'dintty_sha256=%s\n' "$dintty_hash"
   printf 'nocted_sha256=%s\n' "$nocted_hash"
-} >"$state/noctty/dogfood-build.receipt"
-chmod 0600 "$state/noctty/dogfood-build.receipt"
-mkdir -p "$state/noctty/interaction-qualifications"
-cat >"$state/noctty/interaction-qualifications/interaction-fixture.receipt" <<'EOF'
+} >"$state/dintty/dogfood-build.receipt"
+chmod 0600 "$state/dintty/dogfood-build.receipt"
+mkdir -p "$state/dintty/interaction-qualifications"
+cat >"$state/dintty/interaction-qualifications/interaction-fixture.receipt" <<'EOF'
 interaction_receipt_version=1
 run_id=interaction-fixture
 epoch=4102444800
@@ -161,18 +161,18 @@ scenario_split_open_peak_tree_rss_kib=131072
 scenario_split_open_latency_spike=false
 scenario_split_open_memory_spike=false
 EOF
-chmod 0600 "$state/noctty/interaction-qualifications/interaction-fixture.receipt"
-malformed_receipt="$state/noctty/dogfood-sessions/noctty-malformed.receipt"
+chmod 0600 "$state/dintty/interaction-qualifications/interaction-fixture.receipt"
+malformed_receipt="$state/dintty/dogfood-sessions/dintty-malformed.receipt"
 sed \
-  -e 's/^session_id=.*/session_id=noctty-malformed/' \
+  -e 's/^session_id=.*/session_id=dintty-malformed/' \
   -e 's/^exit_status=.*/exit_status=0invalid/' \
-  "$noctty_receipt" >"$malformed_receipt"
+  "$dintty_receipt" >"$malformed_receipt"
 chmod 0600 "$malformed_receipt"
 
-cat >"$state/noctty/logs/noctty-legacy-two-hour.log" <<'EOF'
-dogfood_launch app=noctty timestamp=2026-08-01T10:00:00+00:00 epoch=1785578400
+cat >"$state/dintty/logs/dintty-legacy-two-hour.log" <<'EOF'
+dogfood_launch app=dintty timestamp=2026-08-01T10:00:00+00:00 epoch=1785578400
 legacy fixture
-dogfood_exit app=noctty timestamp=2026-08-01T12:00:00+00:00 epoch=1785585600 duration_seconds=7200 status=1
+dogfood_exit app=dintty timestamp=2026-08-01T12:00:00+00:00 epoch=1785585600 duration_seconds=7200 status=1
 EOF
 
 mkdir -p "$scratch/tools"
@@ -185,13 +185,13 @@ chmod +x "$scratch/tools/coredumpctl"
 diagnostic_report=$(PATH="$scratch/tools:$PATH" \
   ./scripts/local_diagnostic_report.sh "$state")
 printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_report version=4 no_network=true terminal_content=false' >/dev/null
-printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_crashes inventory=true install_baseline=true retained_noctty=0 retained_nocted=0 retained_noctty_smoke=0 retained_nocted_smoke=0 since_install_noctty=0 since_install_nocted=0 since_install_noctty_smoke=0 since_install_nocted_smoke=0' >/dev/null
-printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_summary app=noctty sessions=2 finished=1 failed=0 incomplete=1 runtime_warning_sessions=0' >/dev/null
-printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_build app=noctty sessions=1 finished=1 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_crashes inventory=true install_baseline=true retained_dintty=0 retained_nocted=0 retained_dintty_smoke=0 retained_nocted_smoke=0 since_install_dintty=0 since_install_nocted=0 since_install_dintty_smoke=0 since_install_nocted_smoke=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_summary app=dintty sessions=2 finished=1 failed=0 incomplete=1 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_build app=dintty sessions=1 finished=1 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
 printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_build app=nocted sessions=1 finished=1 failed=1 incomplete=0 runtime_warning_sessions=1' >/dev/null
 printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_errors app=nocted gtk_critical=1 gdk_critical=1 glib_critical=1 gobject_critical=1 native_grid_failed=1 panic=1' >/dev/null
-printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install app=noctty sessions=0 finished=0 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
-printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install_errors app=noctty gtk_critical=0 gdk_critical=0 glib_critical=0 gobject_critical=0 native_grid_failed=0 panic=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install app=dintty sessions=0 finished=0 failed=0 incomplete=0 runtime_warning_sessions=0' >/dev/null
+printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_current_install_errors app=dintty gtk_critical=0 gdk_critical=0 glib_critical=0 gobject_critical=0 native_grid_failed=0 panic=0' >/dev/null
 printf '%s\n' "$diagnostic_report" | grep -E 'local_diagnostic_cohort app=nocted binary_sha256=[0-9a-f]{64} .* sessions=1 finished=1 failed=1 incomplete=0 runtime_warning_sessions=1' >/dev/null
 printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_receipt session_id=' >/dev/null
 printf '%s\n' "$diagnostic_report" | grep -F 'local_diagnostic_interaction receipt_id=interaction-fixture mode=quick epoch=4102444800 scenario=split_open elapsed_ms=1200 peak_tree_rss_kib=131072 latency_spike=false memory_spike=false run_spike=false' >/dev/null
@@ -209,10 +209,10 @@ rm -f "$malformed_receipt"
 status=$(./scripts/dogfood_runtime_status.sh "$state")
 printf '%s\n' "$status" | grep -F 'receipt_sessions=3' >/dev/null
 printf '%s\n' "$status" | grep -F 'legacy_sessions=1' >/dev/null
-printf '%s\n' "$status" | grep -F 'noctty_sessions=3' >/dev/null
-printf '%s\n' "$status" | grep -F 'noctty_finished=2' >/dev/null
-printf '%s\n' "$status" | grep -F 'noctty_incomplete=1' >/dev/null
-printf '%s\n' "$status" | grep -F 'noctty_two_hour_candidates=1' >/dev/null
+printf '%s\n' "$status" | grep -F 'dintty_sessions=3' >/dev/null
+printf '%s\n' "$status" | grep -F 'dintty_finished=2' >/dev/null
+printf '%s\n' "$status" | grep -F 'dintty_incomplete=1' >/dev/null
+printf '%s\n' "$status" | grep -F 'dintty_two_hour_candidates=1' >/dev/null
 printf '%s\n' "$status" | grep -F 'nocted_finished=1' >/dev/null
 printf '%s\n' "$status" | grep -F 'nocted_failed=1' >/dev/null
 
@@ -222,7 +222,7 @@ cat >"$scratch/DOGFOOD_LOG.md" <<'EOF'
 ## 2026-08-01 — counted fixture
 
 - Duration: derived from receipt
-- Dogfood receipt: `noctty-legacy-two-hour`
+- Dogfood receipt: `dintty-legacy-two-hour`
 - Work performed: operator-confirmed daily terminal work
 - Panes/tabs used: 4
 - Agent/TUI apps used: OMP 17.3.3
@@ -232,14 +232,14 @@ cat >"$scratch/DOGFOOD_LOG.md" <<'EOF'
 ## 2026-08-02 — duplicate fixture
 
 - Duration: derived from receipt
-- Dogfood receipt: `noctty-legacy-two-hour`
+- Dogfood receipt: `dintty-legacy-two-hour`
 - Panes/tabs used: 4
 EOF
-cat >"$state/noctty/logs/noctty-omp-preflight-a.log" <<'EOF'
-dogfood_launch app=noctty session_id=omp-preflight-a omp_version=deferred args=
+cat >"$state/dintty/logs/dintty-omp-preflight-a.log" <<'EOF'
+dogfood_launch app=dintty session_id=omp-preflight-a omp_version=deferred args=
 dogfood_event session=omp-preflight-a event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-preflight-a event=omp_detected pane=1 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
-noctty_dogfood_event session_id=omp-preflight-a event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=1
+dintty_dogfood_event session_id=omp-preflight-a event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=1
 dogfood_event session=omp-preflight-a event=omp_detected pane=3 value=1 detail=3333333333333333333333333333333333333333333333333333333333333333
 dogfood_event session=omp-preflight-a event=omp_detected pane=4 value=1 detail=4444444444444444444444444444444444444444444444444444444444444444
 dogfood_event session=omp-preflight-a event=omp_concurrency pane=0 value=4 detail=active
@@ -256,11 +256,11 @@ dogfood_event session=omp-preflight-a event=omp_hide pane=0 value=4 detail=activ
 dogfood_event session=omp-preflight-a event=omp_show_after_hide pane=0 value=4 detail=active
 dogfood_event session=omp-preflight-a event=omp_log_review pane=0 value=1 detail=clean
 EOF
-cat >"$state/noctty/logs/noctty-omp-preflight-b.log" <<'EOF'
-dogfood_launch app=noctty session_id=omp-preflight-b omp_version=deferred args=
+cat >"$state/dintty/logs/dintty-omp-preflight-b.log" <<'EOF'
+dogfood_launch app=dintty session_id=omp-preflight-b omp_version=deferred args=
 dogfood_event session=omp-preflight-b event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-preflight-b event=omp_detected pane=1 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
-noctty_dogfood_event session_id=omp-preflight-b event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=2
+dintty_dogfood_event session_id=omp-preflight-b event=omp_detected pane=2 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222 monotonic_ms=2
 dogfood_event session=omp-preflight-b event=omp_detected pane=3 value=1 detail=3333333333333333333333333333333333333333333333333333333333333333
 dogfood_event session=omp-preflight-b event=omp_detected pane=4 value=1 detail=4444444444444444444444444444444444444444444444444444444444444444
 dogfood_event session=omp-preflight-b event=omp_workspace pane=0 value=4 detail=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -297,21 +297,21 @@ printf '%s\n' "$qualified" | grep -F 'output_integrity=true' >/dev/null
 printf '%s\n' "$qualified" | grep -F 'logs_clean=true compatible=true' >/dev/null
 
 negative_state="$scratch/negative-state"
-mkdir -p "$negative_state/noctty/logs"
-cat >"$negative_state/noctty/logs/noctty-negative-two-hour.log" <<'EOF'
-dogfood_launch app=noctty timestamp=2026-08-03T10:00:00+00:00 epoch=1785751200
-dogfood_exit app=noctty timestamp=2026-08-03T12:00:00+00:00 epoch=1785758400 duration_seconds=7200 status=0
+mkdir -p "$negative_state/dintty/logs"
+cat >"$negative_state/dintty/logs/dintty-negative-two-hour.log" <<'EOF'
+dogfood_launch app=dintty timestamp=2026-08-03T10:00:00+00:00 epoch=1785751200
+dogfood_exit app=dintty timestamp=2026-08-03T12:00:00+00:00 epoch=1785758400 duration_seconds=7200 status=0
 EOF
-cat >"$negative_state/noctty/logs/noctty-missing-context.log" <<'EOF'
-dogfood_launch app=noctty timestamp=2026-08-04T10:00:00+00:00 epoch=1785837600
-dogfood_exit app=noctty timestamp=2026-08-04T12:00:00+00:00 epoch=1785844800 duration_seconds=7200 status=0
+cat >"$negative_state/dintty/logs/dintty-missing-context.log" <<'EOF'
+dogfood_launch app=dintty timestamp=2026-08-04T10:00:00+00:00 epoch=1785837600
+dogfood_exit app=dintty timestamp=2026-08-04T12:00:00+00:00 epoch=1785844800 duration_seconds=7200 status=0
 EOF
 cat >"$scratch/DOGFOOD_LOG_NEGATIVE.md" <<'EOF'
 # Negative evidence fixture
 
 ## 2026-08-03 — counted session with unavailable feature evidence
 
-- Dogfood receipt: `noctty-negative-two-hour`
+- Dogfood receipt: `dintty-negative-two-hour`
 - Work performed: operator-confirmed daily terminal work
 - Panes/tabs used: not recorded
 - Agent/TUI apps used: not recorded
@@ -320,7 +320,7 @@ cat >"$scratch/DOGFOOD_LOG_NEGATIVE.md" <<'EOF'
 
 ## 2026-08-04 — session missing work context
 
-- Dogfood receipt: `noctty-missing-context`
+- Dogfood receipt: `dintty-missing-context`
 - Agent/TUI apps used: OMP
 EOF
 negative=$(./scripts/dogfood_status.sh "$scratch/DOGFOOD_LOG_NEGATIVE.md" "$negative_state")
@@ -333,7 +333,7 @@ printf '%s\n' "$negative" | grep -F 'nocted_real_edit=false' >/dev/null
 printf '%s\n' "$negative" | grep -F 'foreground_close_confirmation=false' >/dev/null
 
 partial_state="$scratch/partial-state"
-mkdir -p "$partial_state/noctty/logs"
+mkdir -p "$partial_state/dintty/logs"
 cat >"$scratch/DOGFOOD_LOG_PARTIAL.md" <<'EOF'
 # Partial fixture
 
@@ -341,8 +341,8 @@ cat >"$scratch/DOGFOOD_LOG_PARTIAL.md" <<'EOF'
 
 ## 2026-08-04 — independently incomplete OMP preflight (not counted)
 EOF
-cat >"$partial_state/noctty/logs/noctty-omp-partial-a.log" <<'EOF'
-dogfood_launch app=noctty session_id=omp-partial-a omp_version=deferred args=
+cat >"$partial_state/dintty/logs/dintty-omp-partial-a.log" <<'EOF'
+dogfood_launch app=dintty session_id=omp-partial-a omp_version=deferred args=
 dogfood_event session=omp-partial-a event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-partial-a event=omp_detected pane=11 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
 dogfood_event session=omp-partial-a event=omp_detected pane=12 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222
@@ -363,8 +363,8 @@ dogfood_event session=omp-partial-a event=omp_hot_restore pane=0 value=4 detail=
 dogfood_event session=omp-partial-a event=omp_output_integrity pane=13 value=1024 detail=pty_bytes_fed_once
 dogfood_event session=omp-partial-a event=omp_log_review pane=0 value=1 detail=clean
 EOF
-cat >"$partial_state/noctty/logs/noctty-omp-partial-b.log" <<'EOF'
-dogfood_launch app=noctty session_id=omp-partial-b omp_version=deferred args=
+cat >"$partial_state/dintty/logs/dintty-omp-partial-b.log" <<'EOF'
+dogfood_launch app=dintty session_id=omp-partial-b omp_version=deferred args=
 dogfood_event session=omp-partial-b event=omp_version pane=0 value=1 detail=omp/17.3.3
 dogfood_event session=omp-partial-b event=omp_detected pane=21 value=1 detail=1111111111111111111111111111111111111111111111111111111111111111
 dogfood_event session=omp-partial-b event=omp_detected pane=22 value=1 detail=2222222222222222222222222222222222222222222222222222222222222222

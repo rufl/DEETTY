@@ -209,7 +209,7 @@ test "session lifecycle routes through ghostty symbols" {
     fake = .{};
 
     var session = try Session.create(allocator, fakeSymbols(), .{
-        .working_directory = "/tmp/noctty",
+        .working_directory = "/tmp/dintty",
         .command = "/bin/bash",
         .initial_input = "echo ready",
         .width_px = 900,

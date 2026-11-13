@@ -128,9 +128,9 @@ fn runQualification(
         recordPeak(&outcome, accounting);
         try session.write(
             "i=0; while [ \"$i\" -lt 32 ]; do " ++
-                "printf 'NOCTTY_NORMAL_LINE_%03d\\r\\n' \"$i\"; " ++
+                "printf 'DINTTY_NORMAL_LINE_%03d\\r\\n' \"$i\"; " ++
                 "i=$((i + 1)); done; " ++
-                "printf '\\033]2;noctty-normal-ready\\007'; exit 0\n",
+                "printf '\\033]2;dintty-normal-ready\\007'; exit 0\n",
         );
 
         var saw_marker = false;
@@ -141,7 +141,7 @@ fn runQualification(
                 .would_block, .eof => Pty.sleepBrief(1),
             }
             saw_marker = saw_marker or
-                std.mem.eql(u8, session.grid.titleSlice(), "noctty-normal-ready");
+                std.mem.eql(u8, session.grid.titleSlice(), "dintty-normal-ready");
             if (try session.pollExit()) |code| {
                 if (code != 0) return error.NormalChildExitFailed;
                 saw_exit = true;
@@ -178,7 +178,7 @@ fn runQualification(
         recordPeak(&outcome, accounting);
         try session.write(
             "sh -c 'trap \"\" HUP TERM; " ++
-                "printf \"\\033]2;noctty-forced-ready\\007\"; " ++
+                "printf \"\\033]2;dintty-forced-ready\\007\"; " ++
                 "while :; do sleep 60; done'\n",
         );
 
@@ -191,7 +191,7 @@ fn runQualification(
                 .would_block => Pty.sleepBrief(1),
                 .eof => return error.ForcedChildExitedBeforeShutdown,
             }
-            if (std.mem.eql(u8, session.grid.titleSlice(), "noctty-forced-ready") and
+            if (std.mem.eql(u8, session.grid.titleSlice(), "dintty-forced-ready") and
                 session.hasForegroundProcess())
             {
                 if (session.processInfo(&cwd_buffer, &name_buffer)) |info| {

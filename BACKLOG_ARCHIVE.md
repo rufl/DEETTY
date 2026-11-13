@@ -1,4 +1,4 @@
-# NOCTTY Backlog Archive
+# DINTTY Backlog Archive
 
 Last refreshed: 2026-08-22.
 
@@ -52,7 +52,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Added one native keyboard-accessible startup recovery notice with Open Settings and Dismiss actions.
 - Added a per-user primary lock before mutable state, sharing identity, PTYs, or GTK; D-Bus name conflict remains the fallback. Twelve simultaneous cold callers and a hidden/show race resolve to one visible owner without duplicate hot-session writes.
 - Added one-use bounded XDG activation-token handling for cold launches plus control and StatusNotifier paths, applied with GTK immediately before presentation and excluded from PTY child environments. Retained live X11 and Plasma Wayland presentation receipts.
-- Added explicit separate `--new-window`, bounded `--working-directory`, desktop New Workspace, and Dolphin Open NOCTTY Here paths without claiming the primary control service or hot-session file.
+- Added explicit separate `--new-window`, bounded `--working-directory`, desktop New Workspace, and Dolphin Open DINTTY Here paths without claiming the primary control service or hot-session file.
 - Removed first-toggle jank from the dogfood route: existing-owner controls bypass logging/fingerprint setup, install receipts cache Plasma/KWin versions, GTK debug chatter is opt-in, and protocol-v4+ layer surfaces use on-demand keyboard focus plus a keyboard-`NONE` commit before unmap.
 - Acceptance met: `native_grid_single_instance_smoke cold_callers=12 owner=1 duplicate_window=false lock_fallback=true hidden_show_race=true visible=true activation_token=true tray_activation_token=true stale_token_cleared=true separate_window=true open_here_cwd=true process_group_cleanup=true`; `native_grid_state_recovery_smoke config_defaults=true theme_defaults=true workspace_defaults=true notice=true malformed_retained=true retention_failure_preserves_original=true usable_terminal=true process_group_cleanup=true`; `native_grid_wayland_activation_smoke gtk_startup_id=true xdg_activation_token=true cold_start=true forwarded_show=true token_not_in_pty=true backend=wayland visible=true process_group_cleanup=true`.
 - Honest boundary: this closes local launch/state/activation plumbing, not NCT-112 multi-day stability, physical HID-to-photon focus proof, arbitrary process resurrection, or broad compositor acceptance.
@@ -62,18 +62,18 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-110 authenticated mapped Codex compatibility: done
 
 - Added `scripts/native_grid_authenticated_agent_qualification.sh` and a smoke-only production command-profile path for one exact authenticated Codex request in Debug/`ReleaseSafe` on live Plasma Wayland/X11.
-- Every request was ephemeral, read-only, rooted at `/tmp`, and prohibited from running commands or inspecting files. Codex returned the exact 29-byte `NOCTTY_AUTHENTICATED_CODEX_OK` response in all four lanes.
+- Every request was ephemeral, read-only, rooted at `/tmp`, and prohibited from running commands or inspecting files. Codex returned the exact 29-byte `DINTTY_AUTHENTICATED_CODEX_OK` response in all four lanes.
 - Retained response files, mapped compositor screenshots, root/process-tree memory, controlled zero exits, and checksums under `benchmarks/authenticated-agent-2026-08-04/`.
 - Acceptance met: `native_grid_authenticated_agent_matrix provider=codex version=0.144.6 authenticated=true model_requests=4 debug=true release_safe=true wayland=true x11=true production_pty=true production_vt=true production_gtk=true production_cairo=true response_exact=true compositor_pixels=true root_memory=true process_tree_memory=true controlled_exit=true ephemeral=true sandbox=read-only hid=false checksums=true scratch_clean=true`.
 - Honest boundary: this closes the accepted one-host authenticated Codex boundary, not Claude Code, Antigravity, universal agent compatibility, HID, or multi-day stability.
 
 ### NCT-111 installed tmux/Zellij detach and reattach: done
 
-- Installed tmux 3.7b and Zellij 0.44.3 into the user prefix from signature-verified Arch packages; neither tool became a NOCTTY runtime dependency.
+- Installed tmux 3.7b and Zellij 0.44.3 into the user prefix from signature-verified Arch packages; neither tool became a DINTTY runtime dependency.
 - Added `scripts/native_grid_installed_continuity_qualification.sh`, which runs the product's Persistent tmux and Persistent Zellij profiles in Debug/`ReleaseSafe` on live Plasma Wayland/X11.
-- Each lane retained first-attach and reattach screenshots, routed the native detach chord through NOCTTY's PTY write path, exited the first NOCTTY process while preserving the session, launched a second process, and required the prior marker to remain visible.
+- Each lane retained first-attach and reattach screenshots, routed the native detach chord through DINTTY's PTY write path, exited the first DINTTY process while preserving the session, launched a second process, and required the prior marker to remain visible.
 - Retained 16 compositor screenshots, 16 controlled process logs, summary data, and checksums under `benchmarks/installed-continuity-2026-08-04/`.
-- Acceptance met: `native_grid_installed_continuity_matrix tmux_version=3.7b zellij_version=0.44.3 debug=true release_safe=true wayland=true x11=true first_attach=true detached=true noctty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true scratch_clean=true`.
+- Acceptance met: `native_grid_installed_continuity_matrix tmux_version=3.7b zellij_version=0.44.3 debug=true release_safe=true wayland=true x11=true first_attach=true detached=true dintty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true scratch_clean=true`.
 - Honest boundary: this closes installed one-host continuity, not remote multiplexer transport, HID, cross-host portability, or multi-day survival.
 
 ### NCT-106/NCT-121/NCT-122 sustained native NoctEd endurance: done
@@ -91,7 +91,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### Fail-closed dependency-bundle redistribution payload — done
 
 - Added `scripts/package_bundle_licenses.sh` to map every copied shared library to exactly one installed Arch/pacman or Debian/dpkg package, or the pinned vendored GTK Layer Shell payload. Missing ownership, empty expressions, absent texts, conflicting targets, and basename collisions fail the bundle.
-- Embedded package-specific installed notices plus canonical SPDX license/exception texts under `share/licenses/noctty/dependencies`, with a SHA-256 inventory and package/version/expression/source records in the manifest sidecar.
+- Embedded package-specific installed notices plus canonical SPDX license/exception texts under `share/licenses/dintty/dependencies`, with a SHA-256 inventory and package/version/expression/source records in the manifest sidecar.
 - Normalized loader aliases before copying, isolated bundle Zig/XDG/tmp state below one self-cleaning scratch root, and promoted `redistribution_ready=true` only after all copied host libraries are accounted for and the license payload is complete.
 - Routed the terminal-history qualification through the verifier-owned Zig caches, or through scratch-local caches when run alone, so the maintained full verifier no longer recreates a 321 MiB workspace `.zig-cache` after reporting cleanup.
 - Tightened release receipt intake and status so `dependency_bundle_redistribution=true` additionally requires `bundle_manifest_redistribution_ready=true` and `bundle_license_payload_complete=true`; old two-field receipts are rejected.
@@ -134,7 +134,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 - Added GUI-configurable terminal history from 0 through 100000 lines with a 1000-line default. New and live sessions receive the selected limit, shrinking immediately releases excess slabs, growth remains lazy from at most 32 rows, and column resize preserves retained logical history instead of discarding it.
 - Moved display damage ownership into the Zig VT grid. Mutations mark terminal rows dirty, the host consumes and clears those bits once per presentation, and the obsolete full-row FNV hash pass plus callback were removed (`render_abi=packed_rows`, `render_abi_version=1`, `damage_tracking=dirty_rows`).
-- Replaced the positional native-grid call surface with a size/version-checked `NocttyGridCallbacks` plus `NocttyGridLaunchOptions` ABI boundary. The Cairo host coalesces adjacent equal-background fills and batches eligible fixed-position ASCII runs through `cairo_scaled_font_text_to_glyphs`, while unsupported glyphs and style changes retain the bounded fallback (`glyph_batching=true`).
+- Replaced the positional native-grid call surface with a size/version-checked `DinttyGridCallbacks` plus `DinttyGridLaunchOptions` ABI boundary. The Cairo host coalesces adjacent equal-background fills and batches eligible fixed-position ASCII runs through `cairo_scaled_font_text_to_glyphs`, while unsupported glyphs and style changes retain the bounded fallback (`glyph_batching=true`).
 - Added one exclusive GLib filesystem worker for NoctEd project scan/search, document load/save, and Save As path resolution. The application caps outstanding jobs at 64, checks generation cancellation between bounded core steps, transfers only completed state to GTK's main thread, joins the worker before widget teardown, and drains completion ownership before releasing documents (`nocted_worker=bounded`).
 - Removed linear document identity scans and repeated tree strings. Canonical paths map directly to documents, notebook pages carry their document pointer, project/search/quick-open models store compact entry IDs, project-search results borrow indexed paths, and per-document search contexts plus minimaps are created lazily.
 - Strengthened terminal qualification with eight 1x1-to-2x2-to-1x1 rounds plus final 3x3 teardown, proving 32 dynamic session creates and closes. A deterministic malformed control/UTF-8 corpus is fed one byte at a time through resize and history-limit churn with grid/dirty-row invariants checked.
@@ -146,9 +146,9 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 - Replaced NoctEd's blocking project walk with a cancellation-owned incremental scanner and transactional staging `GtkTreeStore`. Filesystem visits and model population each yield in bounded 128-item slices; the old project/index remains live until the new model commits.
 - Replaced blocking Find in Files with an incremental cursor over the retained project index. One indexed entry is processed per idle callback, results publish incrementally, and every replacement/hide/shutdown path removes its GLib source before releasing cursor-owned root/query/result memory. Quick Open now coalesces search changes behind one 30 ms source.
-- Removed the native grid's shallow `NocttyGridContext` copies. Dynamic and initial panes receive only explicit borrowed callbacks/configuration plus an explicit root pointer; split attachment now owns assignment of the borrowed page/tab relationship, while every context retains independent GTK widgets, buffers, hashes, sources, and teardown state (`pane_context_init=explicit`, `shallow_context_copy=false`).
+- Removed the native grid's shallow `DinttyGridContext` copies. Dynamic and initial panes receive only explicit borrowed callbacks/configuration plus an explicit root pointer; split attachment now owns assignment of the borrowed page/tab relationship, while every context retains independent GTK widgets, buffers, hashes, sources, and teardown state (`pane_context_init=explicit`, `shallow_context_copy=false`).
 - Added packed-row and row-hash callbacks at the existing host ABI boundary. Cairo fetches each visible row once, output presentation queues contiguous changed-row ranges, cursor movement/blink invalidates only cursor cells, and newly mapped panes force one full initial damage pass (`render_abi=packed_rows`, `damage_tracking=row_hash`).
-- Split build products by responsibility. Default installs contain `noctty` and `nocted`; production `noctty` has no VTE, Tree-sitter, smoke scheduler, or legacy-editor command surface. `noctty-vte` is optional, while `noctty-smoke` and `nocted-smoke` are explicit non-default test artifacts. Debian/RPM/Arch runtime manifests no longer require VTE (`production_vte=false`, `production_noctty_tree_sitter=false production_nocted_tree_sitter=true`, `production_smoke_surface=false`).
+- Split build products by responsibility. Default installs contain `dintty` and `nocted`; production `dintty` has no VTE, Tree-sitter, smoke scheduler, or legacy-editor command surface. `dintty-vte` is optional, while `dintty-smoke` and `nocted-smoke` are explicit non-default test artifacts. Debian/RPM/Arch runtime manifests no longer require VTE (`production_vte=false`, `production_dintty_tree_sitter=false production_nocted_tree_sitter=true`, `production_smoke_surface=false`).
 - Hardened native proof while integrating the split: smoke scripts use dedicated run targets, failed NoctEd diagnostics survive `set -e`, mapped split panes receive initial damage, pointer tab drag uses PID-owned screen coordinates with bounded KDE activation, and compatibility-editor completion is event-driven rather than tied to a fixed shell sleep.
 - Acceptance met: `zig build check`, the production release contract, package-manifest parsers, warning-fatal NoctEd X11/Wayland matrix, packed-row/damage native smoke, and one continuous `native_release_smoke` pass all succeed. The renderer receipt reported nonzero row batches and damage rows.
 - Honest boundary: NCT-106 still owns long editor soaks/leak qualification; NCT-110 still owns modern VT/agent-TUI protocol coverage; NCT-112 still owns allocator-accounted churn, multi-day runs, and latency/resource qualification.
@@ -160,7 +160,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Decoupled layout-preset visual mapping proof from I/O readiness. Descriptor-backed panes must be mapped with a registered descriptor source and no pane timer; registration-fallback panes must carry the 16 ms timer.
 - The eight-pane static periodic schedule falls from the NCT-109 intermediate 11 callbacks per second to 3: root maintenance at 1 Hz plus root cursor blink at 2 Hz. This is a scheduling calculation, not a CPU benchmark.
 - Acceptance met: maintenance, balanced eight-pane, 1×1/2×2/3×3 preset churn, pane close, and two-tab late-callback gates pass. Receipts include `descriptor_fallback=root_coalesced pane_exit_timers=0 periodic_callbacks_per_second=3` and `source_cleanup=centralized`.
-- Full-matrix validation exposed that PID/visibility checks alone did not guarantee a real pointer drag reached the tab strip under concurrent desktop load. The tab-reorder harness now raises and synchronously activates only its spawned, PID-verified NOCTTY window, verifies active-window identity, and synchronizes each pointer move before pressing.
+- Full-matrix validation exposed that PID/visibility checks alone did not guarantee a real pointer drag reached the tab strip under concurrent desktop load. The tab-reorder harness now raises and synchronously activates only its spawned, PID-verified DINTTY window, verifies active-window identity, and synchronizes each pointer move before pressing.
 - Honest boundary: NCT-112 remains partial for repeated allocator-accounted churn, long hidden/visible soaks, sustained agent-TUI output, and cross-backend latency/resource qualification.
 
 ### NCT-115 Yakuake-style active-pane information and metadata boundary — done
@@ -188,7 +188,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-113 Native pointer-driven tab reorder hardening — done
 
-- Kept GTK's native insertion indicator, scrollable overflow behavior, and reorderable-but-nondetachable pages for initial, dynamic, and hot-restored tabs. A drag changes order within the current NOCTTY notebook and cannot detach a terminal into an unmanaged window.
+- Kept GTK's native insertion indicator, scrollable overflow behavior, and reorderable-but-nondetachable pages for initial, dynamic, and hot-restored tabs. A drag changes order within the current DINTTY notebook and cannot detach a terminal into an unmanaged window.
 - Captured the active page before a background-tab pointer drag. Every accepted `page-reordered` event restores that stable page identity after Zig reorders by tab ID, while forward, backward, clamped, and no-op model moves are unit-covered.
 - Added model-index lookup and GTK rollback when Zig rejects a reorder, preventing native/model divergence. Startup reconstruction suppresses reorder writeback, and successful drag motion shares the existing 120 ms hot-session flush coalescer instead of writing a snapshot at every intermediate position.
 - Replaced the old direct `gtk_notebook_reorder_child` smoke with a PID-verified `xdotool` press/move/drop across three real live tabs. The lane proves UI/model order `2,3,1`, background active-tab preservation, snapshot/reload order plus active identity, owned-process cleanup, and is now part of `native_release_smoke.sh`.
@@ -226,7 +226,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-103 Standalone NoctEd foundation — done
 
-- Replaced the normal product-facing embedded editor route with a sibling `nocted --project <pane-cwd>` launch. GLib starts and automatically reaps the separate child; NOCTTY does not own NoctEd's window, documents, or lifetime. The old embedded editor was temporarily retained for compatibility smokes and was later removed with that duplicate state surface.
+- Replaced the normal product-facing embedded editor route with a sibling `nocted --project <pane-cwd>` launch. GLib starts and automatically reaps the separate child; DINTTY does not own NoctEd's window, documents, or lifetime. The old embedded editor was temporarily retained for compatibility smokes and was later removed with that duplicate state surface.
 - Added a fully Zig NoctEd executable with a declaration-only GTK 3/GtkSourceView 4 ABI boundary, compact Sublime Text 2-style menu/tabs/status chrome, left project tree, line-numbered source view, right minimap, native find, undo/redo, dirty tabs, and Save/Discard/Cancel close protection.
 - Added bounded UTF-8 loading, 1 MiB editable and 8 MiB preview limits, canonical path identity for symlink-safe saves, permission-preserving atomic writeback, a 4096-entry/depth-12 pruned project index, explicit GTK model/document cleanup, XDG settings, and per-document bounded undo.
 - Reused installed GtkSourceView 4 `.lang` definitions, bundled Zig syntax, detected additional GtkSourceView 3 definitions, prompted before importing them, and added a GUI directory importer. The rendered host exposed 170 syntax definitions.
@@ -241,7 +241,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Made descriptor, presentation, tick, blink, maintenance, note, hide, resize, and navigation sources teardown-owned across pane close, tab close, retirement, natural exit, application close, and final shutdown. The two-pane and pane-close native smokes now fail unless every exercised pane registered the event source.
 - Pane-context `Close Terminal` now pops down its owning menu before destroying the pane hierarchy; the native close smoke records that transition and runs with GLib/GDK warnings fatal (`pane_close_menu_popdown=true`).
 - Hardened the six-terminal harness with one-second post-teardown isolation, deterministic snake-order rotation, and per-pane WezTerm workload readiness. The final guarded matrix left Yakuake PID `507138` unchanged.
-- NOCTTY's final four-pane writer median moved from the retained 80 ms pre-event-source result to 66 ms (100.569 MiB/s). It had the fastest startup median and lowest PSS at every pane count, tied Ghostty on writer completion, and trailed Kitty by 2 ms. The writer metric is still not final-frame latency.
+- DINTTY's final four-pane writer median moved from the retained 80 ms pre-event-source result to 66 ms (100.569 MiB/s). It had the fastest startup median and lowest PSS at every pane count, tied Ghostty on writer completion, and trailed Kitty by 2 ms. The writer metric is still not final-frame latency.
 - Acceptance met: `pty_event_source=true timer_read_polling=false output_present_coalesced=true event_source_cleanup=true pane_close_menu_popdown=true benchmark_order_isolated=true wezterm_split_ready=true writer_median_ms=66`.
 
 ### NCT-101 Native output throughput hardening — done
@@ -250,16 +250,16 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Corrected mixed scrollback/current viewport reads and kept alternate-screen scrolling out of primary history; regressions cover physical wrap, partial margins across the wrap point, line insert/delete, viewport blending, and rotated primary restoration through alternate resize.
 - Added a printable-ASCII run path that is regression-checked against byte feeding under mixed SGR, wrapping, CRLF, UTF-8, title, and scrollback input. A temporary release probe measured 200,000 ANSI lines at 0.03 seconds versus 0.06 seconds through the byte path.
 - Reused a 16 KiB per-session read buffer while retaining the 128 KiB pump slice. Productive ticks arm one high-idle continuation per pane; every dispatch yields after one bounded pump, coalesces presentation onto the normal tick, tolerates only three transient empty polls, and is removed on every pane/tab/application/natural-exit teardown path.
-- Re-ran the six-terminal matrix without touching Yakuake. NOCTTY's four-pane writer median moved from 318 ms to 80 ms (82.970 MiB/s), while idle PSS remained the lowest at every pane count in the current matrix.
+- Re-ran the six-terminal matrix without touching Yakuake. DINTTY's four-pane writer median moved from 318 ms to 80 ms (82.970 MiB/s), while idle PSS remained the lowest at every pane count in the current matrix.
 - Acceptance met: `native_output_throughput=true visible_grid_ring=true vt_ascii_run=true pty_active_continuation=true continuation_cleanup=true read_buffer=16384 writer_median_ms=80`.
 
 ### NCT-100 Reproducible split-terminal benchmark and bounded PTY drain — done
 
-- Added an isolated native benchmark entrypoint that materializes balanced 1/2/4/8-pane NOCTTY layouts with one controlled workload per independent PTY.
+- Added an isolated native benchmark entrypoint that materializes balanced 1/2/4/8-pane DINTTY layouts with one controlled workload per independent PTY.
 - Added fresh-process adapters for Konsole, Kitty, WezTerm, Terminator, and Ghostty; fixed 1200x800 XWayland geometry; three-run startup, process-tree PSS/RSS, idle CPU, and four-pane ANSI writer metrics; and raw/summary/environment artifacts.
 - Excluded Yakuake from launch, focus, control, and cleanup. The final matrix retained the same PID before and after, and Konsole D-Bus calls were scoped to `org.kde.konsole-$launch_pid`.
 - Fixed the benchmark-exposed one-4-KiB-read-per-16-ms-tick bottleneck by draining PTY bytes until `EAGAIN`, EOF, or a 128 KiB per-pane budget. A deterministic fake-reader test guards the bound.
-- The final machine-local matrix reduced NOCTTY's four-pane writer median from 7129 ms to 318 ms, kept median PSS between 30.679 and 31.337 MiB across 1-8 panes, and preserved the remaining writer-throughput gap as an explicit report boundary.
+- The final machine-local matrix reduced DINTTY's four-pane writer median from 7129 ms to 318 ms, kept median PSS between 30.679 and 31.337 MiB across 1-8 panes, and preserved the remaining writer-throughput gap as an explicit report boundary.
 - Acceptance met: `split_terminal_benchmark=true yakuake_excluded=true process_tree_pss=true pty_pump_bounded_drain=true output_metric=writer_completion`.
 
 ## 2026-07-14
@@ -418,7 +418,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-078 Release-operations evidence guard — done
 
 - Added `scripts/release_operations_status.sh` as a local receipt for the remaining release operations. It checks retained tagged x86_64/aarch64 artifacts and checksums, artifact signatures, publication receipt, dependency-bundle redistribution notices, six compositor acceptance receipts, and explicitly consented Wayland HID evidence.
-- Added `docs/RELEASE_OPERATIONS.md` with the expected evidence directory layout and the `NOCTTY_RELEASE_EVIDENCE_DIR` override for validating retained receipts outside the checkout.
+- Added `docs/RELEASE_OPERATIONS.md` with the expected evidence directory layout and the `DINTTY_RELEASE_EVIDENCE_DIR` override for validating retained receipts outside the checkout.
 - Promoted the status receipt into `./scripts/verify.sh` without requiring external completion, so local source verification stays green while reporting `complete=false` until credentials, runners, unavailable compositor sessions, or consented input evidence exist.
 - Acceptance met with the current conservative receipt `release_operations_status version=0.1.0 tagged_artifacts=false signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=6`.
 
@@ -439,9 +439,9 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-075 Dual-build reproducibility, version/date coherence, and scratch cleanup — done
 
 - Replaced the tarball lane with two isolated `ReleaseSafe` install-tree builds using separate stages plus local/global Zig caches, normalized both archives, required byte-identical output, and required matching SHA-256 values before publishing the requested archive and sidecar.
-- Added the guarded 0.1.0 release contract across `build.zig.zon`, `noctty --version`, AppStream, Debian, RPM, Arch, and release-facing documentation.
+- Added the guarded 0.1.0 release contract across `build.zig.zon`, `dintty --version`, AppStream, Debian, RPM, Arch, and release-facing documentation.
 - Verification scratch roots, build caches, temporary archives, and sidecar staging paths are self-cleaning; explicitly requested output artifacts are preserved.
-- Acceptance met: `scripts/package_reproducibility_smoke.sh` emits `package_reproducibility version=0.1.0 release_date=2026-07-14 builds=2 isolated=true byte_identical=true checksums_match=true archive_valid=true cli_version=true scratch_clean=true`, `release_contract_smoke.sh` emits `release_contract version=0.1.0 release_date=2026-07-14 revision=1 build_zon=true runtime=true appstream=true debian=true rpm=true arch=true docs=true`, and the post-run local cleanup removed NOCTTY cache/temp residue.
+- Acceptance met: `scripts/package_reproducibility_smoke.sh` emits `package_reproducibility version=0.1.0 release_date=2026-07-14 builds=2 isolated=true byte_identical=true checksums_match=true archive_valid=true cli_version=true scratch_clean=true`, `release_contract_smoke.sh` emits `release_contract version=0.1.0 release_date=2026-07-14 revision=1 build_zon=true runtime=true appstream=true debian=true rpm=true arch=true docs=true`, and the post-run local cleanup removed DINTTY cache/temp residue.
 
 ### NCT-072 Exact-pane native profile selection — done
 
@@ -470,7 +470,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-070 Graceful editor-aware shutdown routing — done
 
-- Routed the tab-row `Close NOCTTY` button, the StatusNotifier tray close item, the main-window manager delete event, and natural last-PTY exit through the shared editor-aware transaction.
+- Routed the tab-row `Close DINTTY` button, the StatusNotifier tray close item, the main-window manager delete event, and natural last-PTY exit through the shared editor-aware transaction.
 - Clean, read-only, and editor-free closes retain their direct clean-shutdown behavior. Accepted dirty-editor closes enter the existing idempotent all-session cleanup only after the editor decision succeeds.
 - Natural last-PTY close waits a bounded 80 ms before preflight so already-delivered terminal exits settle without bypassing dirty editor confirmation; Cancel preserves both exited contexts, their distinct nonzero exit codes 7 and 9, active validation state, the mapped editors/window, and retryability.
 - Acceptance met at the bounded route boundary: the dirty-editor lane drives window-manager Cancel, toolbar save-failure retry, natural last-PTY Cancel/retry, and final toolbar Save/Discard teardown. The existing live clean tray-close receipt confirms tray convergence on the transaction; dirty Cancel is not separately driven from the tray entry.
@@ -498,7 +498,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-068 Unsaved editor transition guards — done
 
 - Opening another file or directly closing the editor now presents a native Save/Discard/Cancel decision. Same-file activation is a no-op, Cancel preserves the exact path/text/dirty state, Save must succeed before the transition, and Discard authorizes only that transition rather than prematurely marking the old buffer clean.
-- Both the dialog Close response and the GTK window-manager delete event share the guarded lifecycle. Owned prompts and the editor stay above a mapped NOCTTY parent without weakening explicit whole-application shutdown.
+- Both the dialog Close response and the GTK window-manager delete event share the guarded lifecycle. Owned prompts and the editor stay above a mapped DINTTY parent without weakening explicit whole-application shutdown.
 - Extended `scripts/native_grid_project_editor_smoke.sh` with five rendered prompts covering file-switch Cancel/Save/Discard and close Cancel/Discard, including atomic bytes, unchanged discarded-file bytes, parent survival, and final editor destruction. The receipt now reports `dirty_state=true save_state=true ctrl_s=true file_switch_cancel=true file_switch_save=true file_switch_discard=true close_cancel=true close_discard=true parent_mapped=true`.
 - Acceptance met: focused Zig checks/tests and the compositor-backed project/editor smoke pass.
 
@@ -610,8 +610,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-050 System-tray context menu and clean close — done
 
-- The Plasma StatusNotifier item now exports a standard native D-Bus menu with dynamic `Show NOCTTY`/`Hide NOCTTY`, `Settings…`, and `Close NOCTTY` actions.
-- `Close NOCTTY` stops every active pane timer and PTY through the existing session lifecycle before leaving the GTK loop; tray and menu objects are then unregistered without stale watcher entries.
+- The Plasma StatusNotifier item now exports a standard native D-Bus menu with dynamic `Show DINTTY`/`Hide DINTTY`, `Settings…`, and `Close DINTTY` actions.
+- `Close DINTTY` stops every active pane timer and PTY through the existing session lifecycle before leaving the GTK loop; tray and menu objects are then unregistered without stale watcher entries.
 - Extended the live window/tray gate to inspect the menu layout, verify visibility-label updates, activate the real close item, require PTY shutdown, and confirm watcher cleanup.
 - Acceptance met: Zig checks and the compositor-backed Plasma tray smoke pass.
 
@@ -637,12 +637,12 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Added one shared GTK affordance path for persistent and transient native action buttons, including tab, window, Smart Tab, Settings, theme, editor, project, and dialog controls.
 - Hovering an action requests the portable named `default` cursor, with an X11 arrow fallback, and restores the inherited cursor on leave so terminal, text-entry, and resize cursors retain their own semantics.
 - Existing tooltip copy is preserved; labeled native buttons receive a concise fallback when needed, while compact or ambiguous actions keep explicit descriptive tooltips.
-- Extended the rendered Settings gate to prove the standard pointer and nonempty tooltip contracts on New Tab, Settings, Close NOCTTY, and per-tab Close without regressing inline rename or exact-tab close.
+- Extended the rendered Settings gate to prove the standard pointer and nonempty tooltip contracts on New Tab, Settings, Close DINTTY, and per-tab Close without regressing inline rename or exact-tab close.
 - Acceptance met: Zig checks plus rendered Settings, tab-rename, and two-tab interaction gates pass on the compositor-capable host.
 
 ### NCT-054 Yakuake-density compact tabs — done
 
-- Matched the installed Yakuake Breeze skin's 22-pixel tab geometry with a theme-safe NOCTTY target of 22–24 logical pixels instead of allowing Plasma GTK defaults to inflate the strip to roughly 39 pixels.
+- Matched the installed Yakuake Breeze skin's 22-pixel tab geometry with a theme-safe DINTTY target of 22–24 logical pixels instead of allowing Plasma GTK defaults to inflate the strip to roughly 39 pixels.
 - Added a scoped native GTK notebook style for zero-margin tab/header layout, compact horizontal padding, 22-pixel row actions, and an 18-pixel per-tab close control without changing terminal, dialog, or Settings sizing.
 - Reduced title overflow from 24 to 18 characters, replaced the longer `· multi` suffix with an exact compact `×N` pane count, and retained the complete title and pane state in tooltips.
 - Fixed dynamically created tabs showing only their label while leaving the close child unmapped, then extended the real two-tab gate with a `compact_tabs=true` contract that bounds strip height, tab width, a visible 18-pixel close control, and row-action size; inline rename and scale-2/high-contrast regressions remain green.
@@ -667,8 +667,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-057 Settings window stacking — done
 
-- Settings now has an explicit transient parent, destroy-with-parent lifecycle, dialog type hint, and always-above request relative to the owning NOCTTY window.
-- Plasma Wayland dropdown mode gives Settings its own `noctty-settings` overlay-layer surface and temporarily lowers the main dropdown to the top layer, guaranteeing the dialog remains visible above it; closing Settings restores the dropdown's overlay layer.
+- Settings now has an explicit transient parent, destroy-with-parent lifecycle, dialog type hint, and always-above request relative to the owning DINTTY window.
+- Plasma Wayland dropdown mode gives Settings its own `dintty-settings` overlay-layer surface and temporarily lowers the main dropdown to the top layer, guaranteeing the dialog remains visible above it; closing Settings restores the dropdown's overlay layer.
 - X11 and ordinary Wayland window modes retain native window-manager stacking through the transient and keep-above relationship.
 - Added `native_grid_settings_stacking_smoke`, which renders the real dialog on Wayland and X11 and requires both windows visible, parent ownership, compositor stacking, and parent-layer restoration.
 - Acceptance met: Zig checks/tests and the rendered cross-backend Settings stacking matrix pass.
@@ -688,7 +688,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Normal startup loads the hot session before creating terminal surfaces, then reconstructs every saved native tab, pane, recursive split, divider ratio, active tab/pane, manual title, tab color, tag/selection, Smart Tab filter, pane profile, quick note, broadcast state, and working directory.
 - Divider movement now updates the Zig-owned split ratio and coalesces atomic writes, so custom matrix widths and heights survive a crash instead of reverting to preset proportions.
 - Snapshot version 6 adds the Smart Tab tag while retaining imports from versions 1–5. Structural validation rejects duplicate IDs, cycles, orphan nodes, invalid leaves, and malformed roots before any live UI is replaced.
-- A missing or corrupt hot session falls back to a clean one-tab workspace without preventing NOCTTY from opening. Shell processes are restarted in their saved directories; impossible process-memory resurrection is not claimed.
+- A missing or corrupt hot session falls back to a clean one-tab workspace without preventing DINTTY from opening. Shell processes are restarted in their saved directories; impossible process-memory resurrection is not claimed.
 - Added `native_grid_hot_session_smoke`, which restores two customized tabs and five live panes through the real recursive GTK host on Wayland and X11, checks ratios/titles/colors/tags/filter/profile/settings/cwd, and proves corrupt-snapshot fallback.
 - Acceptance met: Zig checks/tests and the rendered cross-backend hot-session matrix pass.
 
@@ -767,7 +767,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Tree-sitter parser-first dispatch now sits behind the Zig editor boundary; the bounded highlighter remains the fallback for plain text, unsupported languages, parser failures, and large-file policy paths.
 - Start with bundled Zig, JSON, Markdown, C, and Shell grammars. Audit each grammar license independently; only MIT, CC0, or otherwise explicitly approved permissive assets may ship.
 - Convert Tree-sitter highlight captures into the established hierarchical TextMate/Sublime scope vocabulary (`keyword`, `string`, `comment`, `constant.numeric`, `entity.name.function`, `entity.name.type`, `variable`, `invalid`, and related scopes).
-- Add a compact native NOCTTY theme model for editor globals and scope rules, with VS Code/TextMate `tokenColors` import compatibility first and optional Sublime `.sublime-color-scheme` import later.
+- Add a compact native DINTTY theme model for editor globals and scope rules, with VS Code/TextMate `tokenColors` import compatibility first and optional Sublime `.sublime-color-scheme` import later.
 - Preserve the native Zig plus C ABI architecture: no Node.js, Electron, browser runtime, Rust runtime, or proprietary Sublime syntax engine dependency.
 - Acceptance met: incremental edits update spans, themes apply across the initial language set, unsupported files remain readable/editable, and native/editor smoke covers highlighting, theme reload, fallback behavior, and the license manifest.
 
@@ -822,8 +822,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-021 Free Window Resize And Native Tray — done
 
-- Preserved NOCTTY's borderless chrome while adding eight six-pixel compositor resize zones around normal windows. Dropdowns expose the compatible side, bottom, and bottom-corner zones; their manual layer-shell drag path updates the existing persisted width/height settings and live terminal grid dimensions.
-- Added a dependency-free native `org.kde.StatusNotifierItem` implementation. Plasma's watcher receives the stable icon name plus a real PNG-derived ARGB fallback, the item remains Active while hidden, primary activation toggles NOCTTY, secondary activation opens Settings, tooltip state follows visibility, and watcher restarts trigger re-registration. The current item also exports a standard `com.canonical.dbusmenu` right-click surface with Show/Hide, Settings, and clean Close actions.
+- Preserved DINTTY's borderless chrome while adding eight six-pixel compositor resize zones around normal windows. Dropdowns expose the compatible side, bottom, and bottom-corner zones; their manual layer-shell drag path updates the existing persisted width/height settings and live terminal grid dimensions.
+- Added a dependency-free native `org.kde.StatusNotifierItem` implementation. Plasma's watcher receives the stable icon name plus a real PNG-derived ARGB fallback, the item remains Active while hidden, primary activation toggles DINTTY, secondary activation opens Settings, tooltip state follows visibility, and watcher restarts trigger re-registration. The current item also exports a standard `com.canonical.dbusmenu` right-click surface with Show/Hide, Settings, and clean Close actions.
 - Added `--native-grid-window-tray-smoke` and `scripts/native_grid_window_tray_smoke.sh`. The live Plasma/Wayland gate requires all eight resize routes, an accepted outer geometry change, watcher enumeration, icon delivery, hide/show and Settings activation, exact menu layout, Close-driven PTY shutdown, and clean tray/menu teardown.
 
 ### NCT-020 Yakuake-style Settings Window — done
@@ -855,8 +855,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-016 Noctalia Shell Support — done
 
 - Added a first-class `noctalia_wayland` backend with exact Niri, Hyprland, Sway, Scroll, Labwc, and MangoWC detection while keeping Plasma, generic Wayland, X11, and headless capability boundaries distinct.
-- Added the native `com.noctty.NOCTTY` D-Bus control endpoint and `noctty --status`, `--show`, `--hide`, `--toggle`, and `--hidden` commands. Compositor autostart hides only after activation is ready; ordinary launch stays visible and duplicate launcher activation targets the running instance.
-- Promoted the default Zig-grid dropdown to GTK layer-shell with the `noctty-dropdown` namespace, overlay placement, configured symmetric width margins, no exclusive zone, and keyboard focus while mapped. Desktop notification modeling now names the shared freedesktop transport rather than a KDE-only service.
+- Added the native `com.dintty.DINTTY` D-Bus control endpoint and `dintty --status`, `--show`, `--hide`, `--toggle`, and `--hidden` commands. Compositor autostart hides only after activation is ready; ordinary launch stays visible and duplicate launcher activation targets the running instance.
+- Promoted the default Zig-grid dropdown to GTK layer-shell with the `dintty-dropdown` namespace, overlay placement, configured symmetric width margins, no exclusive zone, and keyboard focus while mapped. Desktop notification modeling now names the shared freedesktop transport rather than a KDE-only service.
 - Extended the rendered Settings dialog with the same supported key recorder. Plasma re-registers before persistence; Noctalia-compatible sessions persist the key and `--noctalia-plan` serializes its current value into compositor-owned bindings.
 - Installed documented F10/autostart fragments for all six Noctalia compositors plus an optional v5 compact `custom_button`; Debian/RPM/Arch manifests and dependency bundles now require or copy `gtk-layer-shell` explicitly.
 - Deterministic proof: `scripts/noctalia_integration_smoke.sh` covers v4-compatible/v5 plans, all six serializers, backend/transport selection, and installed artifacts. Live Wayland proof: `scripts/native_grid_noctalia_ipc_smoke.sh` covers layer-shell, hidden readiness, status/show/hide/toggle, single-instance routing, and clean exit. The rendered Settings smoke captures/persists/reloads F11.
@@ -881,7 +881,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 - Confirmed from the installed public package and pinned upstream `53bd14f` build that Ghostty exposes VT utilities but no supported Linux GUI platform-surface ABI; upstream surface creation remains `platform=invalid` on Linux.
 - Rejected the private package-owned `libghostty.so` as an unsafe ABI dependency and retained the isolated probe/adapter for future upstream availability.
-- Completed the intended user-visible lifecycle through NOCTTY's Zig PTY/VT grid and native GTK surface instead. No Ghostty-rendering claim is made and no fork is maintained.
+- Completed the intended user-visible lifecycle through DINTTY's Zig PTY/VT grid and native GTK surface instead. No Ghostty-rendering claim is made and no fork is maintained.
 
 ### NCT-011 Zig-Native PTY — done
 
@@ -971,7 +971,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 - Added live borderless windowed and native zen-fullscreen mode selection to the GTK host alongside dropdown/layer-shell mode.
 - Removed the local F10 hardcode from native key handling; the configured encoded shortcut now controls local activation consistently with Plasma GlobalAccel registration.
 - Added windowed and zen-fullscreen native smoke commands and kept conflict/failure recorder feedback visible while successful captures re-register and persist.
-- Proof: `zig fmt src/main.zig`, isolated-cache `zig build test`, isolated-cache `zig build check`, `./scripts/check_native_layout.sh`, and elevated `NOCTTY_RUN_NATIVE_SMOKE=1 ./scripts/ci_verify.sh`.
+- Proof: `zig fmt src/main.zig`, isolated-cache `zig build test`, isolated-cache `zig build check`, `./scripts/check_native_layout.sh`, and elevated `DINTTY_RUN_NATIVE_SMOKE=1 ./scripts/ci_verify.sh`.
 - Live evidence: Wayland dropdown `placement=wayland_layer_shell`, X11 dropdown `placement=x11_top`, X11 windowed `placement=windowed`, and X11 zen `placement=fullscreen`; all report terminal input/output/resize/exit, shortcut registration, and maintenance-tick success.
 
 ### NCT-008 native maintenance timer delivery slice
@@ -995,7 +995,7 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 ### NCT-005 Wayland input capability-boundary slice
 
 - Added `scripts/wayland_input_probe.sh`, a read-only probe for `libei` and the XDG RemoteDesktop portal keyboard transport.
-- Current environment exposes `ConnectToEIS` and keyboard notification methods, but using them requires explicit compositor/user consent. NOCTTY does not silently request that permission or claim unattended Wayland HID proof.
+- Current environment exposes `ConnectToEIS` and keyboard notification methods, but using them requires explicit compositor/user consent. DINTTY does not silently request that permission or claim unattended Wayland HID proof.
 - Proof: the probe reports `wayland_input=available requires_user_consent=true transport=xdg_remote_desktop_eis` when run in the current Plasma session.
 - An explicit `CreateSession` request returned a portal request path but produced no response signal or consent UI before the request disappeared; `SelectDevices`, `Start`, and `ConnectToEIS` remain unproven.
 - A monitored retry confirmed no `org.freedesktop.portal.Request.Response` signal at all; the environment blocks before the consent/device-selection stages.
@@ -1046,10 +1046,10 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-001 Plasma GlobalAccel F10 slice
 
-- Registered `noctty/toggle-window` with Plasma GlobalAccel using F10, subscribed to the component activation signal, and toggled the live GTK window from that signal while hidden.
+- Registered `dintty/toggle-window` with Plasma GlobalAccel using F10, subscribed to the component activation signal, and toggled the live GTK window from that signal while hidden.
 - Normal startup now hides only after successful registration and remains visible on failure; showing restores terminal focus.
 - Synchronized successful registration into the existing Zig shortcut request/receipt model, then unsubscribed, unregistered, and reset model state on shutdown.
-- Expanded the graphical smoke to hide the window, invoke the registered action through Plasma, require activation signal receipt and restored focus, and require cleanup. Wayland and X11 lanes both reported `shortcut_registered=true global_shortcut=true shortcut_unregistered=true` with all previous assertions green; read-only before/after checks showed no stale NOCTTY actions.
+- Expanded the graphical smoke to hide the window, invoke the registered action through Plasma, require activation signal receipt and restored focus, and require cleanup. Wayland and X11 lanes both reported `shortcut_registered=true global_shortcut=true shortcut_unregistered=true` with all previous assertions green; read-only before/after checks showed no stale DINTTY actions.
 - Still open: physical F10 injection, conflict/denial UI, configurable shortcut re-registration, protocol-specific top-edge placement, tabs/splits, packaging, and supported Ghostty rendering.
 
 ### NCT-001 live dropdown visibility and focus slice
@@ -1283,8 +1283,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-006 durable theme library persistence slice
 
-- Added versioned native binary installed-theme library snapshots using the `NOCTTYTHM` format.
-- Added file-backed theme-library save/load helpers and the default XDG-style theme path `~/.config/noctty/themes.nocttythemes`.
+- Added versioned native binary installed-theme library snapshots using the `DINTTYTHM` format.
+- Added file-backed theme-library save/load helpers and the default XDG-style theme path `~/.config/dintty/themes.dinttythemes`.
 - Preserved full foreground/background/cursor colors plus all 16 palette colors for installed themes.
 - Added app wrappers for saving and loading installed themes; loading replaces the app theme library and falls back to the first loaded theme when the current default theme is absent.
 - Covered export/import, malformed snapshot rejection, duplicate theme-name rejection, default path generation, atomic file save/load, and app-level durable library restore behavior.
@@ -1302,8 +1302,8 @@ NCT-100 reproducible split-terminal benchmarking and bounded PTY drain hardening
 
 ### NCT-005 GUI settings persistence slice
 
-- Added versioned native binary GUI settings snapshots using the `NOCTTYCFG` format.
-- Added file-backed settings save/load helpers and the default XDG-style config path `~/.config/noctty/settings.nocttycfg`.
+- Added versioned native binary GUI settings snapshots using the `DINTTYCFG` format.
+- Added file-backed settings save/load helpers and the default XDG-style config path `~/.config/dintty/settings.dinttycfg`.
 - Loaded font-family and default-theme strings into owned app memory and synchronized `app.config` with `host.config`.
 - Covered roundtrip export/import, invalid snapshot rejection, default path generation, atomic file save/load, and app-level save/load restore behavior.
 - Proof: `zig fmt src/config/Storage.zig src/root.zig src/app/App.zig`, `./scripts/verify.sh`, `zig build run -- --host-plan`, `zig build run -- --self-check`, `zig build run -- --dump-default-config`, and `zig build run -- --ghostty-probe`.

@@ -5,7 +5,7 @@ export LC_ALL=C
 # Each backend must own a private display/session namespace. Selecting Wayland
 # through GDK inside an X11-only wrapper can print an X11 pass before failing,
 # which used to make this matrix's receipt misleading.
-if [ -z "${NOCTTY_ISOLATED_DISPLAY:-}" ]; then
+if [ -z "${DINTTY_ISOLATED_DISPLAY:-}" ]; then
   ./scripts/run_isolated_x11.sh "$0" x11
   ./scripts/run_isolated_wayland.sh "$0" wayland
   echo 'native_grid_renderer_matrix x11=true wayland=true abi=7 dirty_spans=true frame_clock=true glyph_cache=true resize_coalesced=true synchronized_output=true deadman=true warning_fatal=true'
@@ -13,11 +13,11 @@ if [ -z "${NOCTTY_ISOLATED_DISPLAY:-}" ]; then
 fi
 
 ./scripts/require_isolated_display.sh
-backend=${1:-${NOCTTY_ISOLATED_DISPLAY}}
-case "$backend:${NOCTTY_ISOLATED_DISPLAY}" in
+backend=${1:-${DINTTY_ISOLATED_DISPLAY}}
+case "$backend:${DINTTY_ISOLATED_DISPLAY}" in
   x11:x11|wayland:wayland) ;;
   *)
-    echo "native_grid_smoke error=backend_isolation_mismatch backend=$backend isolation=${NOCTTY_ISOLATED_DISPLAY}" >&2
+    echo "native_grid_smoke error=backend_isolation_mismatch backend=$backend isolation=${DINTTY_ISOLATED_DISPLAY}" >&2
     exit 2
     ;;
 esac

@@ -298,7 +298,7 @@ extern fn pango_layout_set_spacing(*PangoLayout, c_int) void;
 extern fn pango_layout_set_alignment(*PangoLayout, c_int) void;
 extern fn pango_layout_get_pixel_size(*PangoLayout, *c_int, *c_int) void;
 extern fn g_object_unref(?*anyopaque) void;
-extern fn noctty_grid_share_view_stream(
+extern fn dintty_grid_share_view_stream(
     ?*anyopaque,
     c_int,
     ?[*]u8,
@@ -307,7 +307,7 @@ extern fn noctty_grid_share_view_stream(
     ?*u64,
     ?*c_int,
 ) c_int;
-extern fn noctty_grid_share_view_pane_layout(
+extern fn dintty_grid_share_view_pane_layout(
     ?*anyopaque,
     c_int,
     *u32,
@@ -317,9 +317,9 @@ extern fn noctty_grid_share_view_pane_layout(
     *c_int,
     *c_int,
 ) c_int;
-extern fn noctty_grid_share_view_pane_dimensions(?*anyopaque, c_int, *u16, *u16) c_int;
-extern fn noctty_grid_share_view_pane_cell(?*anyopaque, c_int, c_int, c_int) u64;
-extern fn noctty_grid_share_view_pane_cell_text(
+extern fn dintty_grid_share_view_pane_dimensions(?*anyopaque, c_int, *u16, *u16) c_int;
+extern fn dintty_grid_share_view_pane_cell(?*anyopaque, c_int, c_int, c_int) u64;
+extern fn dintty_grid_share_view_pane_cell_text(
     ?*anyopaque,
     c_int,
     c_int,
@@ -327,8 +327,8 @@ extern fn noctty_grid_share_view_pane_cell_text(
     [*]u8,
     usize,
 ) c_int;
-extern fn noctty_grid_share_view_pane_color(?*anyopaque, c_int, u32) u32;
-extern fn noctty_grid_share_view_pane_cursor(?*anyopaque, c_int) u32;
+extern fn dintty_grid_share_view_pane_color(?*anyopaque, c_int, u32) u32;
+extern fn dintty_grid_share_view_pane_cursor(?*anyopaque, c_int) u32;
 
 fn resolvedRGB(palette: Palette, role: u32, fallback: u32) u32 {
     const resolver = palette.resolve orelse return fallback;
@@ -445,7 +445,7 @@ fn ensureAsciiGlyphCache(cache: GlyphCache, cr: *Cairo, face: usize) bool {
     return true;
 }
 
-pub export fn noctty_grid_render_ascii_run(
+pub export fn dintty_grid_render_ascii_run(
     cr_raw: ?*Cairo,
     options_raw: ?*const AsciiRun,
 ) callconv(.c) c_int {
@@ -573,7 +573,7 @@ fn drawSpan(
     snap_horizontal: bool,
 ) void {
     var rectangle: GridLogic.Rectangle = undefined;
-    GridLogic.noctty_grid_cell_span(
+    GridLogic.dintty_grid_cell_span(
         first,
         end,
         row,
@@ -624,7 +624,7 @@ fn drawDecoration(
         .cell_height = options.cell_height,
         .baseline = gridBaseline(options, row),
     };
-    const decoration_result = noctty_grid_render_text_decoration(cr, &decoration);
+    const decoration_result = dintty_grid_render_text_decoration(cr, &decoration);
     if (decoration_result & 1 == 0) return;
     if (options.rich_style_cells) |count| count.* +%= @intCast(end - first);
     if (decoration_result & 2 != 0) result.* |= 2;
@@ -640,7 +640,7 @@ fn drawSingleCell(
     result: *c_int,
 ) void {
     var cell: GridLogic.RenderCell = undefined;
-    GridLogic.noctty_grid_render_cell(packed_cell, &cell);
+    GridLogic.dintty_grid_render_cell(packed_cell, &cell);
     if (cell.background != 0xfff) {
         setTerminalColor(cr, options.terminal_palette, cell.background, 1);
         drawSpan(cr, column, column + 1, row, options, true);
@@ -683,7 +683,7 @@ fn drawSingleCell(
     );
 }
 
-pub export fn noctty_grid_render_cells(
+pub export fn dintty_grid_render_cells(
     cr_raw: ?*Cairo,
     options_raw: ?*const GridCells,
 ) callconv(.c) c_int {
@@ -738,7 +738,7 @@ pub export fn noctty_grid_render_cells(
         font_slant_normal,
         font_weight_normal,
     );
-    noctty_grid_render_apply_font_options(cr, options.antialias, options.hinting);
+    dintty_grid_render_apply_font_options(cr, options.antialias, options.hinting);
     cairo_set_font_size(cr, options.font_px);
 
     var clip_x1: f64 = 0;
@@ -747,7 +747,7 @@ pub export fn noctty_grid_render_cells(
     var clip_y2: f64 = @floatFromInt(options.allocation_height);
     cairo_clip_extents(cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
     var viewport: GridLogic.RenderViewport = undefined;
-    if (GridLogic.noctty_grid_render_viewport(
+    if (GridLogic.dintty_grid_render_viewport(
         clip_x1,
         clip_y1,
         clip_x2,
@@ -785,12 +785,12 @@ pub export fn noctty_grid_render_cells(
         var column = viewport.first_column;
         while (column < viewport.end_column) {
             var cell: GridLogic.RenderCell = undefined;
-            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            GridLogic.dintty_grid_render_cell(row_cells[@intCast(column)], &cell);
             if (cell.background == 0xfff) {
                 column += 1;
                 continue;
             }
-            const run_end = GridLogic.noctty_grid_render_run_end(
+            const run_end = GridLogic.dintty_grid_render_run_end(
                 row_cells,
                 column,
                 viewport.end_column,
@@ -819,9 +819,9 @@ pub export fn noctty_grid_render_cells(
         column = viewport.first_column;
         while (column < viewport.end_column) {
             var cell: GridLogic.RenderCell = undefined;
-            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            GridLogic.dintty_grid_render_cell(row_cells[@intCast(column)], &cell);
             if (cell.ascii != 0) {
-                const run_end = GridLogic.noctty_grid_render_run_end(
+                const run_end = GridLogic.dintty_grid_render_run_end(
                     row_cells,
                     column,
                     viewport.end_column,
@@ -841,7 +841,7 @@ pub export fn noctty_grid_render_cells(
                     .fallback_context = options.draw_context,
                     .draw_codepoint = options.draw_codepoint,
                 };
-                const batched = noctty_grid_render_ascii_run(cr, &run);
+                const batched = dintty_grid_render_ascii_run(cr, &run);
                 if (batched > 0) {
                     if (options.glyph_batches) |count| count.* +%= 1;
                     if (options.glyph_cells) |count| count.* +%= @intCast(batched);
@@ -875,12 +875,12 @@ pub export fn noctty_grid_render_cells(
         column = viewport.first_column;
         while (column < viewport.end_column) {
             var cell: GridLogic.RenderCell = undefined;
-            GridLogic.noctty_grid_render_cell(row_cells[@intCast(column)], &cell);
+            GridLogic.dintty_grid_render_cell(row_cells[@intCast(column)], &cell);
             if (cell.decorated == 0) {
                 column += 1;
                 continue;
             }
-            const run_end = GridLogic.noctty_grid_render_run_end(
+            const run_end = GridLogic.dintty_grid_render_run_end(
                 row_cells,
                 column,
                 viewport.end_column,
@@ -928,7 +928,7 @@ pub export fn noctty_grid_render_cells(
     return result;
 }
 
-pub export fn noctty_grid_render_apply_font_options(
+pub export fn dintty_grid_render_apply_font_options(
     cr_raw: ?*Cairo,
     antialias: c_int,
     hinting: c_int,
@@ -955,7 +955,7 @@ pub export fn noctty_grid_render_apply_font_options(
     cairo_set_font_options(cr, options);
 }
 
-pub export fn noctty_grid_render_terminal_text(
+pub export fn dintty_grid_render_terminal_text(
     cr_raw: ?*Cairo,
     font_raw: ?*const TerminalFont,
     text_raw: ?[*]const u8,
@@ -1002,7 +1002,7 @@ pub export fn noctty_grid_render_terminal_text(
     return 1;
 }
 
-pub export fn noctty_grid_render_resize_overlay(
+pub export fn dintty_grid_render_resize_overlay(
     cr_raw: ?*Cairo,
     options_raw: ?*const ResizeOverlay,
 ) callconv(.c) c_int {
@@ -1055,7 +1055,7 @@ pub export fn noctty_grid_render_resize_overlay(
     return 1;
 }
 
-pub export fn noctty_grid_render_cycle_overlay(
+pub export fn dintty_grid_render_cycle_overlay(
     cr_raw: ?*Cairo,
     options_raw: ?*const CycleOverlay,
 ) callconv(.c) c_int {
@@ -1098,7 +1098,7 @@ pub export fn noctty_grid_render_cycle_overlay(
     return 1;
 }
 
-pub export fn noctty_grid_render_quick_note(
+pub export fn dintty_grid_render_quick_note(
     cr_raw: ?*Cairo,
     options_raw: ?*const TextOverlay,
     compact_out: ?*c_int,
@@ -1158,7 +1158,7 @@ pub export fn noctty_grid_render_quick_note(
     return 1;
 }
 
-pub export fn noctty_grid_render_status_feedback(
+pub export fn dintty_grid_render_status_feedback(
     cr_raw: ?*Cairo,
     options_raw: ?*const TextOverlay,
 ) callconv(.c) c_int {
@@ -1201,7 +1201,7 @@ pub export fn noctty_grid_render_status_feedback(
     return 1;
 }
 
-pub export fn noctty_grid_render_text_decoration(
+pub export fn dintty_grid_render_text_decoration(
     cr_raw: ?*Cairo,
     options_raw: ?*const TextDecoration,
 ) callconv(.c) c_int {
@@ -1272,7 +1272,7 @@ fn drawSharingPane(
     var columns: u16 = 0;
     var rows: u16 = 0;
     const inset: f64 = 3;
-    if (noctty_grid_share_view_pane_dimensions(
+    if (dintty_grid_share_view_pane_dimensions(
         event_data,
         pane_index,
         &columns,
@@ -1300,19 +1300,19 @@ fn drawSharingPane(
 
     for (0..rows) |row| {
         for (0..columns) |column| {
-            const raw = noctty_grid_share_view_pane_cell(
+            const raw = dintty_grid_share_view_pane_cell(
                 event_data,
                 pane_index,
                 @intCast(column),
                 @intCast(row),
             );
             const style: u32 = @truncate(raw >> 32);
-            var foreground = noctty_grid_share_view_pane_color(
+            var foreground = dintty_grid_share_view_pane_color(
                 event_data,
                 pane_index,
                 (style >> 8) & 0xfff,
             );
-            var background = noctty_grid_share_view_pane_color(
+            var background = dintty_grid_share_view_pane_color(
                 event_data,
                 pane_index,
                 (style >> 20) & 0xfff,
@@ -1324,7 +1324,7 @@ fn drawSharingPane(
             cairo_rectangle(cr, x, y, cell_width + 0.5, cell_height + 0.5);
             cairo_fill(cr);
             var text: [65]u8 = @splat(0);
-            const count = noctty_grid_share_view_pane_cell_text(
+            const count = dintty_grid_share_view_pane_cell_text(
                 event_data,
                 pane_index,
                 @intCast(column),
@@ -1340,7 +1340,7 @@ fn drawSharingPane(
         }
     }
     if (host_active != 0) {
-        const cursor = noctty_grid_share_view_pane_cursor(event_data, pane_index);
+        const cursor = dintty_grid_share_view_pane_cursor(event_data, pane_index);
         if (cursor != std.math.maxInt(u32)) {
             const column: u16 = @truncate(cursor);
             const row: u16 = @truncate(cursor >> 16);
@@ -1368,7 +1368,7 @@ fn drawSharingPane(
     }
 }
 
-pub export fn noctty_grid_render_sharing_preview(
+pub export fn dintty_grid_render_sharing_preview(
     cr_raw: ?*Cairo,
     event_data: ?*anyopaque,
     width: c_int,
@@ -1382,7 +1382,7 @@ pub export fn noctty_grid_render_sharing_preview(
     var pane_id: u64 = 0;
     var tab_id: u64 = 0;
     var ignored: c_int = 0;
-    const count = noctty_grid_share_view_stream(
+    const count = dintty_grid_share_view_stream(
         event_data,
         -1,
         null,
@@ -1401,7 +1401,7 @@ pub export fn noctty_grid_render_sharing_preview(
         var pane_height: u32 = 0;
         var selected: c_int = 0;
         var host_active: c_int = 0;
-        if (noctty_grid_share_view_pane_layout(
+        if (dintty_grid_share_view_pane_layout(
             event_data,
             pane_index,
             &x,
@@ -1427,7 +1427,7 @@ pub export fn noctty_grid_render_sharing_preview(
     return 1;
 }
 
-pub export fn noctty_grid_render_scrollbar(
+pub export fn dintty_grid_render_scrollbar(
     cr_raw: ?*Cairo,
     options_raw: ?*const Scrollbar,
 ) callconv(.c) c_int {

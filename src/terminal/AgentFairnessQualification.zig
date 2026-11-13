@@ -140,7 +140,7 @@ fn runFairness(allocator: std.mem.Allocator) !FairnessResult {
         if (slot.kind == .marker) {
             const marker = try std.fmt.bufPrint(
                 &slot.marker,
-                "noctty-marker-{d:0>2}",
+                "dintty-marker-{d:0>2}",
                 .{index},
             );
             slot.marker_len = marker.len;
@@ -161,7 +161,7 @@ fn runFairness(allocator: std.mem.Allocator) !FairnessResult {
         iterateMainContext();
     }
 
-    try slots[0].session.write("yes 'NOCTTY_FAIRNESS_FLOOD_0123456789'\n");
+    try slots[0].session.write("yes 'DINTTY_FAIRNESS_FLOOD_0123456789'\n");
     const warm_deadline_us = g_get_monotonic_time() + deadline_us;
     while (slots[0].output_bytes < flood_warm_bytes) {
         iterateMainContext();
@@ -176,7 +176,7 @@ fn runFairness(allocator: std.mem.Allocator) !FairnessResult {
         var command_buffer: [96]u8 = undefined;
         const command = try std.fmt.bufPrint(
             &command_buffer,
-            "printf '\\033]2;noctty-marker-{d:0>2}\\007'; exit 0\n",
+            "printf '\\033]2;dintty-marker-{d:0>2}\\007'; exit 0\n",
             .{index},
         );
         slot.started_us = g_get_monotonic_time();
@@ -243,17 +243,17 @@ fn runLargePaste(allocator: std.mem.Allocator) !PasteResult {
     const process_id = session.processId();
     try session.write(
         "stty raw -echo; " ++
-            "printf '\\033]2;noctty-paste-ready\\007'; " ++
+            "printf '\\033]2;dintty-paste-ready\\007'; " ++
             "head -c 8388608 >/dev/null; " ++
-            "printf '\\033]2;noctty-paste-drained\\007'; exit 0\n",
+            "printf '\\033]2;dintty-paste-drained\\007'; exit 0\n",
     );
-    try waitForTitle(&session, "noctty-paste-ready");
+    try waitForTitle(&session, "dintty-paste-ready");
 
     const enqueue_started_us = g_get_monotonic_time();
     try session.write(input);
     const enqueue_us = g_get_monotonic_time() - enqueue_started_us;
     if (!session.hasPendingWrites()) return error.PasteQueueNotExercised;
-    try waitForTitle(&session, "noctty-paste-drained");
+    try waitForTitle(&session, "dintty-paste-drained");
     const drain_us = g_get_monotonic_time() - enqueue_started_us;
     if (session.hasPendingWrites()) return error.PasteQueueDidNotDrain;
     try waitForExit(&session);

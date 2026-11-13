@@ -29,7 +29,7 @@ pub const StatusEvent = union(enum) {
 };
 
 pub const TerminalProfile = struct {
-    theme_name: []const u8 = "noctty-dark",
+    theme_name: []const u8 = "dintty-dark",
     font_family: []const u8 = "Monospace",
     font_size_pt: f32 = 13.0,
     ligatures: bool = true,
@@ -69,7 +69,7 @@ pub const ProfilePreset = enum {
                 .ligatures = config.font.ligatures,
             },
             .high_contrast => .{
-                .theme_name = "noctty-high-contrast",
+                .theme_name = "dintty-high-contrast",
                 .font_family = config.font.family,
                 .font_size_pt = config.font.clampSize(12.0),
                 .ligatures = config.font.ligatures,
@@ -404,7 +404,7 @@ test "profile presets derive validated per-terminal settings from config" {
 
     const high_contrast = ProfilePreset.high_contrast.profile(cfg);
     try high_contrast.validate(cfg.font);
-    try std.testing.expectEqualStrings("noctty-high-contrast", high_contrast.theme_name);
+    try std.testing.expectEqualStrings("dintty-high-contrast", high_contrast.theme_name);
 
     const no_ligatures = ProfilePreset.mono_no_ligatures.profile(cfg);
     try std.testing.expect(!no_ligatures.ligatures);
@@ -439,7 +439,7 @@ test "split panes own copied profile strings" {
     defer split.deinit();
 
     try std.testing.expectEqualStrings("/tmp/worktree", split.worktree_root.?);
-    try std.testing.expectEqualStrings("noctty-high-contrast", split.profile.theme_name);
+    try std.testing.expectEqualStrings("dintty-high-contrast", split.profile.theme_name);
     try std.testing.expect(split.profile.theme_name.ptr != pane.profile.theme_name.ptr);
     try std.testing.expect(split.profile.font_family.ptr != pane.profile.font_family.ptr);
 }

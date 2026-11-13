@@ -1,7 +1,7 @@
 //! Native, bounded launch-profile editor. The dialog manager owns every child HWND.
 const std = @import("std");
 const Abi = @import("WindowsHostAbi.zig");
-const Launch = @import("noctty_share").launch_profile;
+const Launch = @import("dintty_share").launch_profile;
 const Profiles = @import("WindowsLaunchProfiles.zig");
 const Dpapi = @import("Dpapi.zig");
 const c = Abi.c;

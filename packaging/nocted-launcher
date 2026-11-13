@@ -2,5 +2,5 @@
 set -eu
 
 prefix=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-export LD_LIBRARY_PATH="$prefix/libexec/noctty/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-exec "$prefix/libexec/noctty/nocted" "$@"
+export LD_LIBRARY_PATH="$prefix/libexec/dintty/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$prefix/libexec/dintty/nocted" "$@"

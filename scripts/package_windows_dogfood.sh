@@ -4,7 +4,7 @@ set -eu
 export LC_ALL=C
 export TZ=UTC
 
-out=${1:-dist/noctty-windows-x86_64-dogfood.zip}
+out=${1:-dist/dintty-windows-x86_64-dogfood.zip}
 case "$out" in
   *.zip) ;;
   *) echo 'package_windows_dogfood error=output_must_end_in_zip' >&2; exit 1 ;;
@@ -17,7 +17,7 @@ out_dir=$(dirname "$out_path")
 out_name=$(basename "$out_path")
 mkdir -p "$out_dir"
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-windows-dogfood.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-windows-dogfood.XXXXXX")
 archive_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")
 checksum_tmp=$(mktemp "$out_dir/.${out_name}.sha256.tmp.XXXXXX")
 manifest_tmp=$(mktemp "$out_dir/.${out_name}.manifest.tmp.XXXXXX")
@@ -30,30 +30,30 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-portable="$scratch/noctty-windows-x86_64-alpha.zip"
-installer_name=noctty-windows-x86_64-dogfood-setup.exe
+portable="$scratch/dintty-windows-x86_64-alpha.zip"
+installer_name=dintty-windows-x86_64-dogfood-setup.exe
 installer="$scratch/$installer_name"
-bundle="$scratch/noctty-windows-x86_64-dogfood"
+bundle="$scratch/dintty-windows-x86_64-dogfood"
 mkdir -p "$bundle"
 
 ./scripts/package_windows.sh "$portable"
 ./scripts/package_windows_installer.sh "$installer" "$portable"
 cp "$installer" "$installer.sha256" "$installer.manifest" "$bundle/"
-cp scripts/install_windows_dogfood.ps1 "$bundle/Install-NOCTTY-Dogfood.ps1"
+cp scripts/install_windows_dogfood.ps1 "$bundle/Install-DINTTY-Dogfood.ps1"
 cat >"$bundle/INSTALL.txt" <<'EOF'
-NOCTTY Windows dogfood installation
+DINTTY Windows dogfood installation
 
 1. Review this bundle on the Windows machine. It is an unsigned dogfood build.
-2. Fully close NOCTTY and NoctEd.
+2. Fully close DINTTY and NoctEd.
 3. Open PowerShell in this directory.
 4. Verify and run the per-user installer:
 
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-NOCTTY-Dogfood.ps1
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-DINTTY-Dogfood.ps1
 
    Add -Silent for an unattended current-user install.
 
 The script verifies the adjacent SHA-256 sidecar, runs both installed self-tests,
-and writes %LOCALAPPDATA%\NOCTTY\dogfood-install.receipt. It never uploads logs,
+and writes %LOCALAPPDATA%\DINTTY\dogfood-install.receipt. It never uploads logs,
 crash dumps, or receipts. A successful self-test is not physical UI qualification.
 EOF
 
@@ -86,7 +86,7 @@ working_tree_dirty=$(sed -n 's/^working_tree_dirty=//p' "$portable.manifest")
 printf '%s  %s\n' "$digest" "$out_name" >"$checksum_tmp"
 {
   printf 'windows_dogfood_bundle_manifest_version=1\n'
-  printf 'package=noctty\n'
+  printf 'package=dintty\n'
   printf 'version=%s\n' "$version"
   printf 'package_revision=%s\n' "$package_revision"
   printf 'source_revision=%s\n' "$source_revision"

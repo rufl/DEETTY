@@ -51,5 +51,5 @@ pub fn pasteIsSafe(bytes: []const u8) bool {
 }
 
 test "missing Ghostty VT library is rejected" {
-    try std.testing.expect(Runtime.open(&.{"libnoctty-missing-ghostty-vt.so"}) == null);
+    try std.testing.expect(Runtime.open(&.{"libdintty-missing-ghostty-vt.so"}) == null);
 }

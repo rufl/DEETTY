@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
+if [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
   exec ./scripts/run_isolated_wayland.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
 
-binary=${1:-./zig-out/bin/noctty}
+binary=${1:-./zig-out/bin/dintty}
 case "$binary" in
   /*) ;;
   *) binary="$PWD/${binary#./}" ;;
@@ -21,7 +21,7 @@ if "$binary" --status | grep -F 'running=true' >/dev/null; then
   exit 1
 fi
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-wayland-activation.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-wayland-activation.XXXXXX")
 pid=
 cleanup() {
   if [ -n "$pid" ]; then
@@ -36,8 +36,8 @@ export HOME="$scratch/home"
 export XDG_CONFIG_HOME="$scratch/config"
 export XDG_STATE_HOME="$scratch/state"
 mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
-XDG_ACTIVATION_TOKEN=noctty-wayland-cold-token \
-  NOCTTY_DEBUG_ACTIVATION=1 GDK_BACKEND=wayland \
+XDG_ACTIVATION_TOKEN=dintty-wayland-cold-token \
+  DINTTY_DEBUG_ACTIVATION=1 GDK_BACKEND=wayland \
   setsid "$binary" --show >"$scratch/cold.log" 2>&1 &
 pid=$!
 
@@ -46,7 +46,7 @@ state=
 while [ "$attempt" -lt 120 ]; do
   state=$("$binary" --status 2>/dev/null || true)
   if printf '%s\n' "$state" | grep -F 'running=true' >/dev/null &&
-    grep -F 'noctty_xdg_activation applied=true backend=wayland' \
+    grep -F 'dintty_xdg_activation applied=true backend=wayland' \
       "$scratch/cold.log" >/dev/null 2>&1; then
     break
   fi
@@ -56,7 +56,7 @@ while [ "$attempt" -lt 120 ]; do
 done
 printf '%s\n' "$state" | grep -F 'running=true' >/dev/null
 printf '%s\n' "$state" | grep -F 'visible=true' >/dev/null
-grep -F 'noctty_xdg_activation applied=true backend=wayland' \
+grep -F 'dintty_xdg_activation applied=true backend=wayland' \
   "$scratch/cold.log" >/dev/null
 child_pid=$(pgrep -P "$pid" | head -n 1 || true)
 test -n "$child_pid"
@@ -67,7 +67,7 @@ kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 pid=
 
-NOCTTY_DEBUG_ACTIVATION=1 GDK_BACKEND=wayland \
+DINTTY_DEBUG_ACTIVATION=1 GDK_BACKEND=wayland \
   setsid "$binary" --hidden >"$scratch/output.log" 2>&1 &
 pid=$!
 attempt=0
@@ -80,15 +80,15 @@ while [ "$attempt" -lt 120 ]; do
 done
 printf '%s\n' "$state" | grep -F 'running=true' >/dev/null
 
-XDG_ACTIVATION_TOKEN=noctty-wayland-forwarded-token "$binary" --show >/dev/null
+XDG_ACTIVATION_TOKEN=dintty-wayland-forwarded-token "$binary" --show >/dev/null
 attempt=0
 while [ "$attempt" -lt 80 ]; do
-  grep -F 'noctty_xdg_activation applied=true backend=wayland' \
+  grep -F 'dintty_xdg_activation applied=true backend=wayland' \
     "$scratch/output.log" >/dev/null 2>&1 && break
   attempt=$((attempt + 1))
   sleep 0.05
 done
-grep -F 'noctty_xdg_activation applied=true backend=wayland' \
+grep -F 'dintty_xdg_activation applied=true backend=wayland' \
   "$scratch/output.log" >/dev/null
 state=$("$binary" --status)
 printf '%s\n' "$state" | grep -F 'running=true' >/dev/null

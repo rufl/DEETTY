@@ -5,7 +5,7 @@ const Appearance = @import("WindowsAppearance.zig");
 
 const c = @import("c");
 
-pub export fn noctty_windows_fonts_update(
+pub export fn dintty_windows_fonts_update(
     window: c.HWND,
     font_size_pt: c_int,
     dpi: c.UINT,
@@ -84,7 +84,7 @@ pub export fn noctty_windows_fonts_update(
     return 1;
 }
 
-pub export fn noctty_windows_fonts_deinit(
+pub export fn dintty_windows_fonts_deinit(
     normal_output: ?*c.HFONT,
     bold_output: ?*c.HFONT,
 ) void {

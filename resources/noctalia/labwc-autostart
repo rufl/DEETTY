@@ -1,2 +1,2 @@
-# NOCTTY integration for Noctalia on Labwc.
-noctty --hidden
+# DINTTY integration for Noctalia on Labwc.
+dintty --hidden

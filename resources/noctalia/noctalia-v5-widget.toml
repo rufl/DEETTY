@@ -1,9 +1,9 @@
-# Optional Noctalia v5 custom_button settings for a compact NOCTTY bar button.
-[widget.noctty]
+# Optional Noctalia v5 custom_button settings for a compact DINTTY bar button.
+[widget.dintty]
 type = "custom_button"
 glyph = "terminal-2"
-tooltip = "Show or hide NOCTTY"
+tooltip = "Show or hide DINTTY"
 
-[widget.noctty.actions]
-left = "exec noctty --toggle"
-right = "exec noctty --show"
+[widget.dintty.actions]
+left = "exec dintty --toggle"
+right = "exec dintty --show"

@@ -2,7 +2,7 @@
 
 Last verified: 2026-10-12.
 
-NoctEd is NOCTTY's standalone native project editor. It is built as the separate `nocted` executable, runs in its own process, and does not share NOCTTY's terminal lifetime. The implementation is Zig; `src/nocted/gtk.zig` is a narrow declaration-only GTK 3 and GtkSourceView 4 ABI boundary.
+NoctEd is DINTTY's standalone native project editor. It is built as the separate `nocted` executable, runs in its own process, and does not share DINTTY's terminal lifetime. The implementation is Zig; `src/nocted/gtk.zig` is a narrow declaration-only GTK 3 and GtkSourceView 4 ABI boundary.
 
 ## Current Surface
 
@@ -37,7 +37,7 @@ label. Live status publication compares the current text, role, and description
 before emitting, avoiding duplicate announcements when the visible state did
 not change.
 
-NOCTTY's `Open NoctEd Here` action starts the sibling NoctEd process with the selected terminal directory as its process cwd. NoctEd does not scan that directory or open a project implicitly; create or open an explicit `.npr` project when a file tree is needed. Packaged installs and dependency bundles ship both binaries. NOCTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when NOCTTY exits.
+DINTTY's `Open NoctEd Here` action starts the sibling NoctEd process with the selected terminal directory as its process cwd. NoctEd does not scan that directory or open a project implicitly; create or open an explicit `.npr` project when a file tree is needed. Packaged installs and dependency bundles ship both binaries. DINTTY does not reap, close, or retain NoctEd document state; NoctEd owns its own dirty-document prompts and remains open when DINTTY exits.
 
 ## File Safety
 
@@ -128,7 +128,7 @@ zig build run-nocted -- --open src/nocted/main.zig
 nocted_native_gate rendered=true folding=true minimap_overlay_translucent=true editor_zoom=true find_in_files=true project_search_activation=true multi_file_tabs=true tab_navigation=true close_other=true close_all=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true warning_fatal=true backend=x11 scratch_clean=true
 ```
 
-`scripts/nocted_native_matrix.sh` requires `NOCTTY_DEDICATED_DISPLAY=1` in a disposable compositor session, repeats that gate through native X11 and Wayland backends, then runs the retained real-project/monitor lifecycle tranche on the same production path. It reports `nocted_native_matrix x11=true wayland=true folding=true editor_zoom=true find_in_files=true multi_file=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true real_project=true lifecycle_cycles=8 gtk_tree_draw=true model_latency=true draw_latency=true monitor_burst=true burst_cycles=8 files_per_burst=12 publication_latency=true overflow_recovery=true late_callback_guard=true worker_drained=true warning_fatal=true scratch_clean=true`.
+`scripts/nocted_native_matrix.sh` requires `DINTTY_DEDICATED_DISPLAY=1` in a disposable compositor session, repeats that gate through native X11 and Wayland backends, then runs the retained real-project/monitor lifecycle tranche on the same production path. It reports `nocted_native_matrix x11=true wayland=true folding=true editor_zoom=true find_in_files=true multi_file=true untitled=true save_as=true quick_open=true quick_open_capture=true multi_selection=true multi_selection_undo=true multi_selection_rendered=true session_persist=true session_restore=true session_dirty_restore=true hot_exit=true recent_project=true textmate_import=true textmate_language=true textmate_precedence=true malformed_rejected=true real_project=true lifecycle_cycles=8 gtk_tree_draw=true model_latency=true draw_latency=true monitor_burst=true burst_cycles=8 files_per_burst=12 publication_latency=true overflow_recovery=true late_callback_guard=true worker_drained=true warning_fatal=true scratch_clean=true`.
 
 The NCT-105 closure driver preinstalls a stale duplicate grammar, imports a bounded replacement through the application path, opens a matching document, checks language identity/name and generated-path precedence, rejects malformed JSON, and retains this receipt:
 
@@ -156,7 +156,7 @@ The dated [search/load receipt](NOCTED_SEARCH_LOAD_QUALIFICATION.md) retains the
 
 For visual QA, `NOCTED_SMOKE_PREVIEW=fold|search|quick-open` holds the validated state, and `NOCTED_SMOKE_SCREENSHOT=/tmp/name.png` renders NoctEd's mapped widget tree into a Cairo image surface before warning-fatal teardown. The smoke samples RGB content before accepting the image, preventing Wayland's former nonempty all-black GDK window copy from satisfying proof. Setting `NOCTED_CAPTURE_OUTPUT=/tmp/name.png` retains a copy while its disposable project/config tree is still removed. `scripts/check_native_layout.sh` also requires the accessible window, 28-pixel tab-close target, 28-pixel transient controls, and actionable no-file recovery copy. This path does not capture or drive another terminal window.
 
-The NOCTTY handoff gate separately requires `editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true`.
+The DINTTY handoff gate separately requires `editor_binary=nocted editor_handoff=true directory_resolved=true editor_process_separate=true`.
 
 ## Maturity Boundary
 

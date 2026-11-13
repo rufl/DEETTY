@@ -1,13 +1,13 @@
-# Contributing to NOCTTY
+# Contributing to DINTTY
 
-Thank you for considering a contribution. NOCTTY is an early source alpha, so
+Thank you for considering a contribution. DINTTY is an early source alpha, so
 small, focused improvements are much more valuable than broad feature pushes.
 Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); support
 expectations are documented in [SUPPORT.md](SUPPORT.md).
 
 ## Project shape
 
-NOCTTY is a native Zig terminal workspace. NoctEd is its small standalone editor.
+DINTTY is a native Zig terminal workspace. NoctEd is its small standalone editor.
 The project intentionally avoids Electron, browser-runtime UI, Node.js, Bun,
 telemetry, update pings, and remote feature flags.
 
@@ -81,7 +81,7 @@ failure in the pull request.
   flags.
 - Do not require users to hand-edit config files for normal behavior.
 - Keep Ghostty/libghostty behind the adapter boundary.
-- Keep WIZP's WebView/Bun/VS Code-parity stack out of NOCTTY.
+- Keep WIZP's WebView/Bun/VS Code-parity stack out of DINTTY.
 
 ## Contribution license
 
@@ -116,11 +116,11 @@ not in public issues.
 
 Please include:
 
-- NOCTTY commit/version if known
+- DINTTY commit/version if known
 - Linux distribution
 - desktop session/compositor: Plasma Wayland, Plasma X11, Niri, etc.
 - GPU/driver if rendering-related
-- command used to launch NOCTTY/NoctEd
+- command used to launch DINTTY/NoctEd
 - terminal app involved if relevant
 - exact reproduction steps
 - logs/screenshots when possible

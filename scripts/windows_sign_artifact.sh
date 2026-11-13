@@ -13,10 +13,10 @@ unsigned_input=$2
 signed_output=$3
 verification_receipt=$4
 case "$kind" in
-  noctty-exe|nocted-exe|installer) ;;
+  dintty-exe|nocted-exe|installer) ;;
   *) echo "windows_sign_artifact error=unsupported_kind kind=$kind" >&2; exit 2 ;;
 esac
-hook=${NOCTTY_WINDOWS_SIGN_HOOK:-}
+hook=${DINTTY_WINDOWS_SIGN_HOOK:-}
 case "$hook" in
   /*) ;;
   *) echo 'windows_sign_artifact error=sign_hook_must_be_absolute' >&2; exit 1 ;;

@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: NOCTTY
+Upstream-Name: DINTTY
 Source: https://github.com/lichforge/noctty
 
 Files: *
@@ -32,7 +32,7 @@ Copyright: 1991-2019 Unicode, Inc.
 License: Unicode-DFS-2016 and ICU
 Comment: The complete upstream ICU notice, including its third-party notices,
  is retained in vendor/tree-sitter/lib/src/unicode/LICENSE and installed at
- /usr/share/licenses/noctty/vendor/tree-sitter/lib/src/unicode/LICENSE.
+ /usr/share/licenses/dintty/vendor/tree-sitter/lib/src/unicode/LICENSE.
 
 Files: src/terminal/UnicodeData.zig
  src/terminal/fixtures/GraphemeBreakTest-17.0.0.txt

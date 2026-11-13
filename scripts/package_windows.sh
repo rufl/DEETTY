@@ -4,7 +4,7 @@ set -eu
 export LC_ALL=C
 export TZ=UTC
 
-out=${1:-dist/noctty-windows-x86_64-alpha.zip}
+out=${1:-dist/dintty-windows-x86_64-alpha.zip}
 case "$out" in
   /*) out_path=$out ;;
   *) out_path="$(pwd -P)/$out" ;;
@@ -13,7 +13,7 @@ out_dir=$(dirname "$out_path")
 out_name=$(basename "$out_path")
 test -d "$out_dir"
 
-optimize=${NOCTTY_WINDOWS_OPTIMIZE:-ReleaseFast}
+optimize=${DINTTY_WINDOWS_OPTIMIZE:-ReleaseFast}
 version=$(sed -n 's/^pub const version = "\([^"]*\)";$/\1/p' src/release.zig)
 release_date=$(sed -n 's/^pub const release_date = "\([^"]*\)";$/\1/p' src/release.zig)
 package_revision=$(sed -n 's/^pub const package_revision = "\([^"]*\)";$/\1/p' src/release.zig)
@@ -26,7 +26,7 @@ test -n "$version"
 test -n "$release_date"
 test -n "$package_revision"
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-windows.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-windows.XXXXXX")
 archive_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")
 checksum_tmp=$(mktemp "$out_dir/.${out_name}.sha256.tmp.XXXXXX")
 manifest_tmp=$(mktemp "$out_dir/.${out_name}.manifest.tmp.XXXXXX")
@@ -40,7 +40,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 stage="$scratch/stage"
-package="$scratch/noctty-windows-x86_64"
+package="$scratch/dintty-windows-x86_64"
 mkdir -p "$stage" "$package" "$scratch/local-cache" "$scratch/global-cache"
 
 ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build \
@@ -51,9 +51,9 @@ ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build \
   --prefix "$stage" \
   --cache-dir "$scratch/local-cache"
 
-test -s "$stage/bin/noctty.exe"
+test -s "$stage/bin/dintty.exe"
 test -s "$stage/bin/nocted.exe"
-for executable in noctty.exe nocted.exe; do
+for executable in dintty.exe nocted.exe; do
   file "$stage/bin/$executable" | grep -F 'PE32+ executable' >/dev/null
   if command -v llvm-objdump >/dev/null 2>&1; then
     imports=$(llvm-objdump -p "$stage/bin/$executable")
@@ -65,18 +65,18 @@ for executable in noctty.exe nocted.exe; do
   fi
 done
 if command -v llvm-objdump >/dev/null 2>&1; then
-  printf '%s\n' "$(llvm-objdump -p "$stage/bin/noctty.exe")" |
+  printf '%s\n' "$(llvm-objdump -p "$stage/bin/dintty.exe")" |
     grep -F 'CreatePseudoConsole' >/dev/null
 fi
 
-cp "$stage/bin/noctty.exe" "$stage/bin/nocted.exe" "$package/"
-cp "$stage/share/licenses/noctty/LICENSE" \
-  "$stage/share/licenses/noctty/THIRD_PARTY_NOTICES.md" \
-  "$stage/share/licenses/noctty/UNICODE-LICENSE.txt" "$package/"
+cp "$stage/bin/dintty.exe" "$stage/bin/nocted.exe" "$package/"
+cp "$stage/share/licenses/dintty/LICENSE" \
+  "$stage/share/licenses/dintty/THIRD_PARTY_NOTICES.md" \
+  "$stage/share/licenses/dintty/UNICODE-LICENSE.txt" "$package/"
 cp docs/WINDOWS.md "$package/"
 cp scripts/windows_smoke.ps1 "$package/WINDOWS-SMOKE.ps1"
 cat > "$package/BUILD-INFO.txt" <<EOF
-package=noctty
+package=dintty
 version=$version
 package_revision=$package_revision
 release_date=$release_date
@@ -88,7 +88,7 @@ optimization=$optimize
 symbols=unstripped
 host=Win32/GDI
 terminal_transport=ConPTY
-terminal_model=NOCTTY Zig VT
+terminal_model=DINTTY Zig VT
 minimum_runtime=Windows 10 version 1809
 telemetry=false
 network_uploads=false
@@ -98,9 +98,9 @@ physical_windows_validation=false
 nocted_included=true
 EOF
 
-if [ "${NOCTTY_WINDOWS_WINE_SMOKE:-0}" = 1 ]; then
+if [ "${DINTTY_WINDOWS_WINE_SMOKE:-0}" = 1 ]; then
   test -n "$(command -v wine)"
-  wine "$package/noctty.exe" --self-test
+  wine "$package/dintty.exe" --self-test
 fi
 
 find "$package" -exec touch -h -d '1980-01-01 00:00:00 UTC' {} +
@@ -116,7 +116,7 @@ find "$package" -type f -printf '%P\n' |
 rm -f "$archive_tmp"
 (
   cd "$scratch"
-  find noctty-windows-x86_64 -print |
+  find dintty-windows-x86_64 -print |
     LC_ALL=C sort |
     zip -X -q "$archive_tmp" -@
 )
@@ -127,7 +127,7 @@ bytes=$(wc -c < "$archive_tmp" | tr -d ' ')
 printf '%s  %s\n' "$digest" "$out_name" > "$checksum_tmp"
 {
   printf 'windows_bundle_manifest_version=2\n'
-  printf 'package=noctty\n'
+  printf 'package=dintty\n'
   printf 'version=%s\n' "$version"
   printf 'package_revision=%s\n' "$package_revision"
   printf 'release_date=%s\n' "$release_date"

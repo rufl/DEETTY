@@ -2,46 +2,46 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch_parent=${NOCTTY_CONTINUITY_QUALIFICATION_PARENT:-$repo_root}
+scratch_parent=${DINTTY_CONTINUITY_QUALIFICATION_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.noctty-continuity.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.dintty-continuity.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$scratch/bin"
-tool_shim="$scratch/bin/noctty-continuity-tool"
+tool_shim="$scratch/bin/dintty-continuity-tool"
 cat >"$tool_shim" <<'SHIM'
 #!/usr/bin/env sh
 set -eu
 tool=${0##*/}
 test "$PWD" = /tmp
-test "${NOCTTY_CONTINUITY:-}" = ready
+test "${DINTTY_CONTINUITY:-}" = ready
 case "$tool" in
     tmux)
         test "$#" -eq 4
         test "$1" = new-session
         test "$2" = -A
         test "$3" = -s
-        test "$4" = noctty-tmux
+        test "$4" = dintty-tmux
         ;;
     zellij)
         test "$#" -eq 3
         test "$1" = attach
         test "$2" = --create
-        test "$3" = noctty-zellij
+        test "$3" = dintty-zellij
         ;;
     *) exit 64 ;;
 esac
-printf 'NOCTTY_CONTINUITY_OK:%s\n' "$tool"
+printf 'DINTTY_CONTINUITY_OK:%s\n' "$tool"
 SHIM
 chmod +x "$tool_shim"
-ln -s noctty-continuity-tool "$scratch/bin/tmux"
-ln -s noctty-continuity-tool "$scratch/bin/zellij"
+ln -s dintty-continuity-tool "$scratch/bin/tmux"
+ln -s dintty-continuity-tool "$scratch/bin/zellij"
 
 run_mode() {
     mode=$1
@@ -58,7 +58,7 @@ run_mode() {
         --cache-dir "$local_cache"
 
     PATH="$scratch/bin:$PATH" \
-        "$prefix/bin/noctty-launch-continuity-qualification" \
+        "$prefix/bin/dintty-launch-continuity-qualification" \
         >"$scratch/output-$mode"
 }
 

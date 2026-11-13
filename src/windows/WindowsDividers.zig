@@ -1,6 +1,6 @@
 //! Callback-owned split geometry shared by native hit testing and GDI painting.
 const Abi = @import("WindowsHostAbi.zig");
-const Ratio = @import("noctty_share").split_ratio;
+const Ratio = @import("dintty_share").split_ratio;
 const c = Abi.c;
 
 pub const Divider = struct {

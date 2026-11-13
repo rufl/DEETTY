@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
-# Static alpha guard: production NOCTTY/NoctEd must not grow telemetry,
+# Static alpha guard: production DINTTY/NoctEd must not grow telemetry,
 # update pings, crash uploaders, remote flags, or hidden network clients.
 # Session sharing is the sole explicit network boundary: src/share/Net.zig.
 # This is not a firewall or legal audit; it is a cheap source/build scan.
 
 roots="build.zig build.zig.zon src resources"
-hit_file=$(mktemp "${TMPDIR:-/tmp}/noctty-network-guard.XXXXXX")
+hit_file=$(mktemp "${TMPDIR:-/tmp}/dintty-network-guard.XXXXXX")
 trap 'rm -f "$hit_file"' EXIT HUP INT TERM
 
 for pattern in \

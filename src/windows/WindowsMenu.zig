@@ -83,7 +83,7 @@ pub const Menu = struct {
     terminal: c.HMENU,
 };
 
-pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
+pub export fn dintty_windows_menu_create(window: c.HWND) ?*Menu {
     if (window == null) return null;
     const root = c.CreateMenu() orelse return null;
     var root_owned = true;
@@ -221,7 +221,7 @@ pub export fn noctty_windows_menu_create(window: c.HWND) ?*Menu {
     return menu;
 }
 
-pub export fn noctty_windows_menu_update(
+pub export fn dintty_windows_menu_update(
     optional_menu: ?*Menu,
     theme_value: c_int,
     font_size_pt: c_int,
@@ -466,7 +466,7 @@ pub fn isMnemonic(optional_menu: ?*Menu, character: u16) bool {
     return false;
 }
 
-pub export fn noctty_windows_menu_deinit(optional_menu: ?*Menu) void {
+pub export fn dintty_windows_menu_deinit(optional_menu: ?*Menu) void {
     const menu = optional_menu orelse return;
     const heap = c.GetProcessHeap() orelse return;
     _ = c.HeapFree(heap, 0, menu);

@@ -43,7 +43,7 @@ pub fn main(init: std.process.Init) !void {
     var watch_command_buffer: [1024]u8 = undefined;
     const watch_command = try std.fmt.bufPrint(
         &watch_command_buffer,
-        "exec \"{s}\" -n 60 -t \"printf 'NOCTTY_SYSTEM_WATCH\\nreal procps watch fixture\\n'\"",
+        "exec \"{s}\" -n 60 -t \"printf 'DINTTY_SYSTEM_WATCH\\nreal procps watch fixture\\n'\"",
         .{watch_path},
     );
     var info_command_buffer: [1024]u8 = undefined;
@@ -55,14 +55,14 @@ pub fn main(init: std.process.Init) !void {
     var whiptail_command_buffer: [1024]u8 = undefined;
     const whiptail_command = try std.fmt.bufPrint(
         &whiptail_command_buffer,
-        "exec \"{s}\" --title NOCTTY_SYSTEM_WHIPTAIL " ++
+        "exec \"{s}\" --title DINTTY_SYSTEM_WHIPTAIL " ++
             "--msgbox 'real newt widget fixture' 8 50",
         .{whiptail_path},
     );
     var fzf_command_buffer: [1024]u8 = undefined;
     const fzf_command = try std.fmt.bufPrint(
         &fzf_command_buffer,
-        "exec \"{s}\" --border --prompt='NOCTTY_FZF> ' " ++
+        "exec \"{s}\" --border --prompt='DINTTY_FZF> ' " ++
             "< \"{s}/fzf-input.txt\"",
         .{ fzf_path, scratch },
     );
@@ -70,7 +70,7 @@ pub fn main(init: std.process.Init) !void {
     const sqlite_command = try std.fmt.bufPrint(
         &sqlite_command_buffer,
         "exec \"{s}\" -interactive ':memory:' " ++
-            "-cmd \"select 'NOCTTY_SQLITE_READY';\"",
+            "-cmd \"select 'DINTTY_SQLITE_READY';\"",
         .{sqlite_path},
     );
     var glances_command_buffer: [1024]u8 = undefined;
@@ -90,7 +90,7 @@ pub fn main(init: std.process.Init) !void {
     const man_command = try std.fmt.bufPrint(
         &man_command_buffer,
         "LESS=R; export LESS; exec \"{s}\" --pager=\"{s}\" --local-file " ++
-            "\"{s}/noctty-system.1\"",
+            "\"{s}/dintty-system.1\"",
         .{ man_path, less_path, scratch },
     );
     var sftp_command_buffer: [1024]u8 = undefined;
@@ -162,17 +162,17 @@ pub fn main(init: std.process.Init) !void {
     );
 
     const top_markers = [_][]const u8{ "Tasks:", "MiB Mem" };
-    const watch_markers = [_][]const u8{"NOCTTY_SYSTEM_WATCH"};
+    const watch_markers = [_][]const u8{"DINTTY_SYSTEM_WATCH"};
     const info_markers = [_][]const u8{ "File: dir", "Top" };
     const whiptail_markers = [_][]const u8{
-        "NOCTTY_SYSTEM_WHIPTAIL",
+        "DINTTY_SYSTEM_WHIPTAIL",
         "real newt widget fixture",
     };
-    const fzf_markers = [_][]const u8{ "NOCTTY_FZF", "NOCTTY_FZF_TARGET" };
-    const sqlite_markers = [_][]const u8{ "NOCTTY_SQLITE_READY", "sqlite>" };
+    const fzf_markers = [_][]const u8{ "DINTTY_FZF", "DINTTY_FZF_TARGET" };
+    const sqlite_markers = [_][]const u8{ "DINTTY_SQLITE_READY", "sqlite>" };
     const glances_markers = [_][]const u8{ "CPU", "MEM", "LOAD" };
-    const bash_markers = [_][]const u8{ "NOCTTY_BASH_READY", "NOCTTY_BASH>" };
-    const man_markers = [_][]const u8{ "NOCTTY-SYSTEM", "NOCTTY_SYSTEM_MAN" };
+    const bash_markers = [_][]const u8{ "DINTTY_BASH_READY", "DINTTY_BASH>" };
+    const man_markers = [_][]const u8{ "DINTTY-SYSTEM", "DINTTY_SYSTEM_MAN" };
     const sftp_markers = [_][]const u8{ "Attached to", "sftp>" };
     const top_process_names = [_][]const u8{"top"};
     const watch_process_names = [_][]const u8{"watch"};
@@ -259,7 +259,7 @@ pub fn main(init: std.process.Init) !void {
             .app = .bash,
             .command = bash_command,
             .environment = bash_environment,
-            .input = "printf 'NOCTTY_BASH_COMMAND_OK\\n'\rexit\r",
+            .input = "printf 'DINTTY_BASH_COMMAND_OK\\n'\rexit\r",
             .expected_exit = 0,
             .process_names = &bash_process_names,
             .markers = &bash_markers,

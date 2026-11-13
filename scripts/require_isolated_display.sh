@@ -4,7 +4,7 @@ set -eu
 case "${1:-any}" in
   any) ;;
   --dedicated)
-    if [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+    if [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
       echo 'require_isolated_display error=dedicated_session_required' >&2
       exit 2
     fi
@@ -15,7 +15,7 @@ case "${1:-any}" in
     ;;
 esac
 
-case "${NOCTTY_ISOLATED_DISPLAY:-}" in
+case "${DINTTY_ISOLATED_DISPLAY:-}" in
   x11)
     if [ -z "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
       echo 'require_isolated_display error=invalid_x11_boundary' >&2
@@ -30,7 +30,7 @@ case "${NOCTTY_ISOLATED_DISPLAY:-}" in
     fi
     ;;
   '')
-    if [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+    if [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
       echo 'require_isolated_display error=dedicated_session_required' >&2
       exit 2
     fi

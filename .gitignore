@@ -1,7 +1,7 @@
 .zig-cache/
 zig-out/
 /dist/
-.noctty-*/
+.dintty-*/
 .pi/
 
 # Local configuration, credentials, editor state, and crash artifacts.

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch_parent=${NOCTTY_RENDERER_QUALIFICATION_PARENT:-$repo_root}
-scratch=$(mktemp -d "$scratch_parent/.noctty-grid-renderer.XXXXXX")
+scratch_parent=${DINTTY_RENDERER_QUALIFICATION_PARENT:-$repo_root}
+scratch=$(mktemp -d "$scratch_parent/.dintty-grid-renderer.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
@@ -19,7 +19,7 @@ run_mode() {
     mode_xdg_cache="$scratch/xdg-cache-$mode"
     mkdir -p "$artifact_dir" "$mode_tmp" "$mode_xdg_cache"
     if ! TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
-        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build noctty-smoke-binary \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build dintty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$local_cache"; then
@@ -27,7 +27,7 @@ run_mode() {
     fi
 
     output_file="$scratch/output-$mode"
-    "$prefix/bin/noctty-smoke" \
+    "$prefix/bin/dintty-smoke" \
         --native-grid-renderer-qualification "$artifact_dir" "$mode" \
         >"$output_file" &
     runner_pid=$!

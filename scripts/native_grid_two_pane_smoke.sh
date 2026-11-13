@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh

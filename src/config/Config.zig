@@ -445,8 +445,8 @@ pub const Config = struct {
     background: BackgroundConfig = .{},
     renderer_backend: RendererBackend = .cairo,
     recent_workspaces: WorkspaceActivation.RecentWorkspaces = .{},
-    default_theme: []const u8 = "noctty-dark",
-    syntax_theme: []const u8 = "noctty-syntax-default",
+    default_theme: []const u8 = "dintty-dark",
+    syntax_theme: []const u8 = "dintty-syntax-default",
 
     pub fn defaults() Config {
         return .{};

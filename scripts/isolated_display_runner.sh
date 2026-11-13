@@ -2,13 +2,13 @@
 # Repository-owned X11 test boundary for clean CI and contributor checkouts.
 set -euo pipefail
 
-readonly program_name='noctty-isolated-display'
-readonly io_full_limit="${NOCTTY_DISPLAY_IO_FULL_LIMIT:-8}"
-readonly blocked_limit="${NOCTTY_DISPLAY_BLOCKED_LIMIT:-8}"
-readonly lock_wait_seconds="${NOCTTY_DISPLAY_LOCK_WAIT_SECONDS:-60}"
+readonly program_name='dintty-isolated-display'
+readonly io_full_limit="${DINTTY_DISPLAY_IO_FULL_LIMIT:-8}"
+readonly blocked_limit="${DINTTY_DISPLAY_BLOCKED_LIMIT:-8}"
+readonly lock_wait_seconds="${DINTTY_DISPLAY_LOCK_WAIT_SECONDS:-60}"
 
-timeout_seconds="${NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}"
-screen="${NOCTTY_ISOLATED_DISPLAY_SCREEN:-1440x900x24}"
+timeout_seconds="${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}"
+screen="${DINTTY_ISOLATED_DISPLAY_SCREEN:-1440x900x24}"
 window_manager=none
 command_args=()
 
@@ -68,7 +68,7 @@ run_inner() {
   shift
 
   export LICHFORGE_ISOLATED_DISPLAY=1
-  export NOCTTY_ISOLATED_WINDOW_MANAGER="$wm"
+  export DINTTY_ISOLATED_WINDOW_MANAGER="$wm"
   export LIBGL_ALWAYS_SOFTWARE=1
   export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
   export XDG_SESSION_TYPE=x11
@@ -195,7 +195,7 @@ case "$pressure_status" in
   *) exit 1 ;;
 esac
 
-lock_root="${XDG_RUNTIME_DIR:-/tmp}/noctty-isolated-display-${UID}"
+lock_root="${XDG_RUNTIME_DIR:-/tmp}/dintty-isolated-display-${UID}"
 if ! mkdir -m 0700 "$lock_root" 2>/dev/null; then
   if [[ ! -d "$lock_root" || -L "$lock_root" ]] ||
     [[ $(stat -c %u "$lock_root") != "$UID" ]] ||
@@ -250,20 +250,20 @@ setsid timeout --signal=TERM --kill-after=10 "$timeout_seconds" \
     --tmpfs /run/dbus \
     --tmpfs /tmp \
     --tmpfs "$private_runtime" \
-    --dir /tmp/noctty-home \
-    --dir /tmp/noctty-config \
-    --dir /tmp/noctty-state \
-    --dir /tmp/noctty-cache \
-    --dir /tmp/noctty-data \
+    --dir /tmp/dintty-home \
+    --dir /tmp/dintty-config \
+    --dir /tmp/dintty-state \
+    --dir /tmp/dintty-cache \
+    --dir /tmp/dintty-data \
     --proc /proc \
     --dev /dev \
     --tmpfs /dev/shm \
     --setenv XDG_RUNTIME_DIR "$private_runtime" \
-    --setenv HOME /tmp/noctty-home \
-    --setenv XDG_CONFIG_HOME /tmp/noctty-config \
-    --setenv XDG_STATE_HOME /tmp/noctty-state \
-    --setenv XDG_CACHE_HOME /tmp/noctty-cache \
-    --setenv XDG_DATA_HOME /tmp/noctty-data \
+    --setenv HOME /tmp/dintty-home \
+    --setenv XDG_CONFIG_HOME /tmp/dintty-config \
+    --setenv XDG_STATE_HOME /tmp/dintty-state \
+    --setenv XDG_CACHE_HOME /tmp/dintty-cache \
+    --setenv XDG_DATA_HOME /tmp/dintty-data \
     --setenv TMPDIR /tmp \
     --setenv LIBGL_ALWAYS_SOFTWARE 1 \
     --setenv MESA_LOADER_DRIVER_OVERRIDE llvmpipe \

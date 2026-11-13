@@ -10,7 +10,7 @@ announcement. Those stronger decisions remain governed by
 
 Recommended GitHub values:
 
-- Owner/repository: `lichforge/noctty`
+- Owner/repository: `lichforge/dintty`
 - Description: `Native Zig terminal workspace and companion editor for Linux, Wayland, and X11.`
 - Website: leave empty until a maintained project page exists
 - Topics: `zig`, `terminal-emulator`, `gtk3`, `wayland`, `x11`, `kde-plasma`, `terminal`, `linux`
@@ -43,7 +43,7 @@ Create an empty GitHub repository without generated README, license, or
 `.gitignore`, then connect this existing history:
 
 ```sh
-git remote add origin git@github.com:lichforge/noctty.git
+git remote add origin git@github.com:lichforge/dintty.git
 git push -u origin main
 ```
 

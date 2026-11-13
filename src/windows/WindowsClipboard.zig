@@ -22,7 +22,7 @@ const Copy = *const fn (
     c_int,
 ) callconv(.c) c_int;
 
-pub export fn noctty_windows_clipboard_paste(
+pub export fn dintty_windows_clipboard_paste(
     owner: c.HWND,
     userdata: ?*anyopaque,
     write: ?Write,
@@ -75,7 +75,7 @@ pub export fn noctty_windows_clipboard_paste(
     return @intFromBool(sink(userdata, utf8, @intCast(utf8_bytes)) == utf8_bytes);
 }
 
-pub export fn noctty_windows_clipboard_copy(
+pub export fn dintty_windows_clipboard_copy(
     owner: c.HWND,
     userdata: ?*anyopaque,
     pane_index: c_int,

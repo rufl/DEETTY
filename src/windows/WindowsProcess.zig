@@ -6,7 +6,7 @@ const c = @import("c");
 
 const path_capacity: usize = c.MAX_PATH * 2;
 
-pub export fn noctty_windows_launch_nocted() c_int {
+pub export fn dintty_windows_launch_nocted() c_int {
     var executable: [path_capacity]u16 = undefined;
     const length = c.GetModuleFileNameW(null, &executable, executable.len);
     if (length == 0 or length >= executable.len) return 0;

@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-windows-installer-timeout.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-windows-installer-timeout.XXXXXX")
 cleanup() { rm -rf "$scratch"; }
 trap cleanup EXIT HUP INT TERM
 fake_bin="$scratch/bin"
 mkdir -p "$fake_bin"
-installer="$scratch/noctty-setup.exe"
+installer="$scratch/dintty-setup.exe"
 printf 'installer fixture\n' >"$installer"
 (
   cd "$scratch"
@@ -35,12 +35,12 @@ chmod +x "$fake_bin/wineboot"
 start=$(date +%s)
 set +e
 output=$(PATH="$fake_bin:$PATH" \
-  NOCTTY_WINE="$fake_bin/wine" \
-  NOCTTY_WINEBOOT="$fake_bin/wineboot" \
-  NOCTTY_WINEPATH="$fake_bin/winepath" \
-  NOCTTY_WINESERVER="$fake_bin/wineserver" \
-  NOCTTY_WINE_STEP_TIMEOUT_SECONDS=1 \
-  NOCTTY_WINE_CLEANUP_TIMEOUT_SECONDS=1 \
+  DINTTY_WINE="$fake_bin/wine" \
+  DINTTY_WINEBOOT="$fake_bin/wineboot" \
+  DINTTY_WINEPATH="$fake_bin/winepath" \
+  DINTTY_WINESERVER="$fake_bin/wineserver" \
+  DINTTY_WINE_STEP_TIMEOUT_SECONDS=1 \
+  DINTTY_WINE_CLEANUP_TIMEOUT_SECONDS=1 \
   ./scripts/windows_installer_smoke.sh "$installer" 2>&1)
 status=$?
 set -e

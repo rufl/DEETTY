@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
-verify_parent="${NOCTTY_VERIFY_PARENT:-.}"
+verify_parent="${DINTTY_VERIFY_PARENT:-.}"
 case "$verify_parent" in
   /*) ;;
   *) verify_parent="$(pwd -P)/$verify_parent" ;;
 esac
-verify_root=$(mktemp -d "$verify_parent/.noctty-verify.XXXXXX")
+verify_root=$(mktemp -d "$verify_parent/.dintty-verify.XXXXXX")
 visible_root=
 
 cleanup() {
@@ -17,22 +17,22 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-visible_root=$(mktemp -d "$PWD/.noctty-verify-visible.XXXXXX")
+visible_root=$(mktemp -d "$PWD/.dintty-verify-visible.XXXXXX")
 
 mkdir -p "$verify_root/tmp" "$verify_root/xdg-cache" "$verify_root/zig-local" "$verify_root/zig-global" "$verify_root/install"
 export TMPDIR="$verify_root/tmp"
 export XDG_CACHE_HOME="$verify_root/xdg-cache"
-export NOCTTY_ZIG_CACHE_DIR="$verify_root/zig-local"
-export NOCTTY_ZIG_GLOBAL_CACHE_DIR="$verify_root/zig-global"
-export NOCTTY_INSTALL_PREFIX="$verify_root/install"
-export ZIG_GLOBAL_CACHE_DIR="$NOCTTY_ZIG_GLOBAL_CACHE_DIR"
-export NOCTTY_HISTORY_PARENT="$verify_root/tmp"
-export NOCTTY_FAIRNESS_PARENT="$verify_root/tmp"
-export NOCTTY_NCURSES_QUALIFICATION_PARENT="$verify_root/tmp"
-export NOCTTY_SYSTEM_TUI_QUALIFICATION_PARENT="$verify_root/tmp"
+export DINTTY_ZIG_CACHE_DIR="$verify_root/zig-local"
+export DINTTY_ZIG_GLOBAL_CACHE_DIR="$verify_root/zig-global"
+export DINTTY_INSTALL_PREFIX="$verify_root/install"
+export ZIG_GLOBAL_CACHE_DIR="$DINTTY_ZIG_GLOBAL_CACHE_DIR"
+export DINTTY_HISTORY_PARENT="$verify_root/tmp"
+export DINTTY_FAIRNESS_PARENT="$verify_root/tmp"
+export DINTTY_NCURSES_QUALIFICATION_PARENT="$verify_root/tmp"
+export DINTTY_SYSTEM_TUI_QUALIFICATION_PARENT="$verify_root/tmp"
 
 run_zig_build() {
-  if [ "${NOCTTY_ZIG_SINGLE_JOB:-0}" = 1 ]; then
+  if [ "${DINTTY_ZIG_SINGLE_JOB:-0}" = 1 ]; then
     zig build -j1 "$@"
   else
     zig build "$@"
@@ -58,24 +58,24 @@ run_pressure_gated_display() {
 ./scripts/check_display_isolation.sh
 run_pressure_gated_display ./scripts/isolated_display_smoke.sh
 run_pressure_gated_display ./scripts/native_grid_pane_close_smoke.sh
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" test
-run_zig_build --cache-dir "$NOCTTY_ZIG_CACHE_DIR" check
-run_zig_build --prefix "$visible_root" --cache-dir "$NOCTTY_ZIG_CACHE_DIR"
-./scripts/cli_smoke.sh "$visible_root/bin/noctty" "$visible_root/bin/nocted"
+run_zig_build --cache-dir "$DINTTY_ZIG_CACHE_DIR" test
+run_zig_build --cache-dir "$DINTTY_ZIG_CACHE_DIR" check
+run_zig_build --prefix "$visible_root" --cache-dir "$DINTTY_ZIG_CACHE_DIR"
+./scripts/cli_smoke.sh "$visible_root/bin/dintty" "$visible_root/bin/nocted"
 run_pressure_gated_display ./scripts/nocted_single_instance_smoke.sh \
   "$visible_root/bin/nocted"
 run_pressure_gated_display ./scripts/native_grid_single_instance_smoke.sh \
-  "$visible_root/bin/noctty"
+  "$visible_root/bin/dintty"
 run_pressure_gated_display ./scripts/native_grid_state_recovery_smoke.sh \
-  "$visible_root/bin/noctty"
+  "$visible_root/bin/dintty"
 ./scripts/package_smoke.sh
 # The shared bubble deliberately masks /dev/shm. Exercise the package installed
 # below the scoped verify root through the reviewed private-socket fallback.
-NOCTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_single_instance_smoke.sh \
-  "$NOCTTY_INSTALL_PREFIX/bin/noctty"
-NOCTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_state_recovery_smoke.sh \
-  "$NOCTTY_INSTALL_PREFIX/bin/noctty"
-./scripts/native_grid_wayland_activation_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+DINTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_single_instance_smoke.sh \
+  "$DINTTY_INSTALL_PREFIX/bin/dintty"
+DINTTY_LEGACY_DISPLAY_RUNNER=1 ./scripts/native_grid_state_recovery_smoke.sh \
+  "$DINTTY_INSTALL_PREFIX/bin/dintty"
+./scripts/native_grid_wayland_activation_smoke.sh "$DINTTY_INSTALL_PREFIX/bin/dintty"
 
 ./scripts/terminal_compatibility_qualification.sh
 # Keep the latency-sensitive fairness lane ahead of the 144-process lifecycle
@@ -108,7 +108,7 @@ sh -n ./scripts/plasma_wayland_health.sh
 bash -n ./scripts/plasma_wayland_post_upgrade.sh
 bash -n ./scripts/terminal_benchmark.sh
 sh -n ./scripts/terminal_benchmark_workload.sh
-./scripts/release_contract_smoke.sh "$NOCTTY_INSTALL_PREFIX/bin/noctty"
+./scripts/release_contract_smoke.sh "$DINTTY_INSTALL_PREFIX/bin/dintty"
 ./scripts/package_manifests_smoke.sh
 ./scripts/release_workflow_contract_smoke.sh
 ./scripts/package_bundle_licenses_backend_smoke.sh

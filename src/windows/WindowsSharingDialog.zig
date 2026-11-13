@@ -1,7 +1,7 @@
 //! Native paired-device manager backed by the existing encrypted sharing store.
 const std = @import("std");
 const Abi = @import("WindowsHostAbi.zig");
-const Share = @import("noctty_share");
+const Share = @import("dintty_share");
 const c = Abi.c;
 const pointer = @import("WindowsTabStrip.zig").pointer;
 
@@ -263,7 +263,7 @@ fn dialogProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
         _ = c.SendDlgItemMessageW(window, host_id, c.EM_SETLIMITTEXT, Share.identity.max_endpoint_bytes, 0);
         _ = c.SendDlgItemMessageW(window, alias_id, c.EM_SETLIMITTEXT, Share.protocol.max_alias_bytes, 0);
         _ = c.SendDlgItemMessageW(window, port_id, c.EM_SETLIMITTEXT, 5, 0);
-        if (!setText(window, alias_id, "NOCTTY Windows", Share.protocol.max_alias_bytes) or
+        if (!setText(window, alias_id, "DINTTY Windows", Share.protocol.max_alias_bytes) or
             !setText(window, port_id, "49152", 5) or !refresh(window, state))
         {
             state.failed = true;

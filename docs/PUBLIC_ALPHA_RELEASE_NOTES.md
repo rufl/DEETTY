@@ -1,6 +1,6 @@
-# NOCTTY 0.1 Public Source Alpha Draft Notes
+# DINTTY 0.1 Public Source Alpha Draft Notes
 
-NOCTTY 0.1 alpha is a source-first Linux preview for people who want to try a
+DINTTY 0.1 alpha is a source-first Linux preview for people who want to try a
 native terminal workspace with a compact companion editor, NoctEd.
 
 ## What this alpha is
@@ -42,7 +42,7 @@ Current result:
 ```
 
 A fresh 2026-08-03 source copy without `.git`, `.zig-cache`, `zig-out`, or
-`.noctty-*` state passed the same 19/19 steps and 343/343 tests in Debug and
+`.dintty-*` state passed the same 19/19 steps and 343/343 tests in Debug and
 `ReleaseSafe`; focused state-recovery and X11/Wayland native checks also cover
 dirty untitled restoration and hot exit.
 
@@ -89,9 +89,9 @@ dogfood_status counted_sessions=7 documented_sessions=7 unverified_sessions=0 no
 dogfood_omp_status observed_sessions=1 qualified_sessions=0 qualified_version=none max_concurrent=5 separate_worktrees=true concurrent_streaming=true independent_input=true independent_paste=true resize_during_output=true focus_isolation=true hide_show=true close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=true output_integrity=false logs_clean=false compatible=false
 ```
 
-Retained installed-launcher logs contain 188.293 total NOCTTY process-hours and
+Retained installed-launcher logs contain 188.293 total DINTTY process-hours and
 14.568 NoctEd process-hours on this host. The values can overlap. Seven unique
-operator-confirmed NOCTTY receipts contribute 167.107 counted hours, satisfying
+operator-confirmed DINTTY receipts contribute 167.107 counted hours, satisfying
 the minimum five-session baseline without inventing unrecorded interaction
 coverage.
 
@@ -103,7 +103,7 @@ coverage.
 ## Suggested tag wording
 
 ```text
-NOCTTY 0.1 public source alpha: native Linux terminal workspace + compact NoctEd
+DINTTY 0.1 public source alpha: native Linux terminal workspace + compact NoctEd
 editor. Source builds locally, fast gate is green, limitations are explicit, and
 release/signing/daily-driver proof remains alpha work.
 ```

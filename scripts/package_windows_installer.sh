@@ -4,8 +4,8 @@ set -eu
 export LC_ALL=C
 export TZ=UTC
 
-out=${1:-dist/noctty-windows-x86_64-setup-unsigned.exe}
-portable=${2:-${NOCTTY_WINDOWS_PORTABLE_ZIP:-dist/noctty-windows-x86_64-alpha.zip}}
+out=${1:-dist/dintty-windows-x86_64-setup-unsigned.exe}
+portable=${2:-${DINTTY_WINDOWS_PORTABLE_ZIP:-dist/dintty-windows-x86_64-alpha.zip}}
 case "$out" in
   /*) out_path=$out ;;
   *) out_path="$(pwd -P)/$out" ;;
@@ -42,7 +42,7 @@ portable_contract_valid() {
       "$portable_path.manifest" >/dev/null &&
     grep -Fx 'signed=false' "$portable_path.manifest" >/dev/null &&
     grep -Fx 'nocted_included=true' "$portable_path.manifest" >/dev/null &&
-    grep -E '^[0-9a-f]{64}  noctty-windows-x86_64/UNICODE-LICENSE[.]txt$' \
+    grep -E '^[0-9a-f]{64}  dintty-windows-x86_64/UNICODE-LICENSE[.]txt$' \
       "$portable_path.manifest" >/dev/null &&
     grep -Fx "version=$version" "$portable_path.manifest" >/dev/null &&
     grep -Fx "package_revision=$package_revision" \
@@ -73,7 +73,7 @@ numeric_version=$(
   exit 1
 }
 
-makensis=${NOCTTY_MAKENSIS:-makensis}
+makensis=${DINTTY_MAKENSIS:-makensis}
 case "$makensis" in
   */*) ;;
   *) makensis=$(command -v "$makensis") ;;
@@ -82,7 +82,7 @@ test -x "$makensis"
 nsis_version=$($makensis -VERSION 2>&1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g; s/[[:space:]]$//')
 test -n "$nsis_version"
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-windows-installer.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-windows-installer.XXXXXX")
 installer_tmp=$(mktemp "$out_dir/.${out_name}.tmp.XXXXXX")
 checksum_tmp=$(mktemp "$out_dir/.${out_name}.sha256.tmp.XXXXXX")
 manifest_tmp=$(mktemp "$out_dir/.${out_name}.manifest.tmp.XXXXXX")
@@ -100,7 +100,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 unzip -q "$portable_path" -d "$scratch/unpacked"
-payload="$scratch/unpacked/noctty-windows-x86_64"
+payload="$scratch/unpacked/dintty-windows-x86_64"
 test -d "$payload"
 expected="$scratch/expected-files"
 actual="$scratch/actual-files"
@@ -112,11 +112,11 @@ UNICODE-LICENSE.txt
 WINDOWS-SMOKE.ps1
 WINDOWS.md
 nocted.exe
-noctty.exe
+dintty.exe
 EOF
 find "$payload" -type f -printf '%P\n' | LC_ALL=C sort > "$actual"
 cmp "$expected" "$actual" >/dev/null
-test -s "$payload/noctty.exe"
+test -s "$payload/dintty.exe"
 test -s "$payload/nocted.exe"
 
 payload_inventory="$scratch/payload.inventory"
@@ -126,7 +126,7 @@ done < "$expected" > "$payload_inventory"
 
 portable_inventory="$scratch/portable.inventory"
 sed -n '/^payload_inventory_begin$/,/^payload_inventory_end$/p' "$portable_path.manifest" |
-  sed '1d;$d;s#  noctty-windows-x86_64/#  #' > "$portable_inventory"
+  sed '1d;$d;s#  dintty-windows-x86_64/#  #' > "$portable_inventory"
 cmp "$payload_inventory" "$portable_inventory" >/dev/null
 find "$payload" -exec touch -h -d '1980-01-01 00:00:00 UTC' {} +
 estimated_size_kib=$(
@@ -142,18 +142,18 @@ build_installer() {
   destination=$2
   rm -f "$destination"
   "$makensis" -V2 -NOCD \
-    "-DNOCTTY_PAYLOAD=$source_payload" \
-    "-DNOCTTY_OUTPUT=$destination" \
+    "-DDINTTY_PAYLOAD=$source_payload" \
+    "-DDINTTY_OUTPUT=$destination" \
     "-DPRODUCT_VERSION=$version" \
     "-DPRODUCT_VERSION_NUMERIC=$numeric_version" \
     "-DPACKAGE_REVISION=$package_revision" \
     "-DESTIMATED_SIZE_KIB=$estimated_size_kib" \
-    resources/windows/noctty-installer.nsi
+    resources/windows/dintty-installer.nsi
   test -s "$destination"
 }
 
 build_installer "$payload" "$installer_tmp"
-reproducibility_copy="$scratch/reproducibility/noctty-setup-unsigned.exe"
+reproducibility_copy="$scratch/reproducibility/dintty-setup-unsigned.exe"
 mkdir -p "$(dirname "$reproducibility_copy")"
 build_installer "$payload" "$reproducibility_copy"
 cmp "$installer_tmp" "$reproducibility_copy" >/dev/null
@@ -164,13 +164,13 @@ portable_manifest_digest=$(sha256sum "$portable_path.manifest" | awk '{print $1}
 printf '%s  %s\n' "$installer_digest" "$out_name" > "$checksum_tmp"
 {
   printf 'windows_installer_manifest_version=2\n'
-  printf 'package=noctty\n'
+  printf 'package=dintty\n'
   printf 'version=%s\n' "$version"
   printf 'package_revision=%s\n' "$package_revision"
   printf 'release_date=%s\n' "$release_date"
   printf 'architecture=x86_64\n'
   printf 'scope=per-user\n'
-  printf 'default_install_dir=%%LOCALAPPDATA%%\\Programs\\NOCTTY\n'
+  printf 'default_install_dir=%%LOCALAPPDATA%%\\Programs\\DINTTY\n'
   printf 'installer_format=NSIS\n'
   printf 'installer_compiler=%s\n' "$nsis_version"
   printf 'source_date_epoch=%s\n' "$source_epoch"
@@ -200,7 +200,7 @@ checksum_tmp=
 mv -f "$manifest_tmp" "$out_path.manifest"
 manifest_tmp=
 
-hook=${NOCTTY_WINDOWS_SIGN_HOOK:-}
+hook=${DINTTY_WINDOWS_SIGN_HOOK:-}
 if [ -n "$hook" ]; then
   case "$hook" in
     /*) ;;
@@ -211,15 +211,15 @@ if [ -n "$hook" ]; then
   unsigned_digest_before=$(sha256sum "$out_path" | awk '{print $1}')
   signed_payload="$scratch/signed-payload"
   cp -R "$payload" "$signed_payload"
-  for kind in noctty-exe nocted-exe; do
+  for kind in dintty-exe nocted-exe; do
     case "$kind" in
-      noctty-exe) executable=noctty.exe ;;
+      dintty-exe) executable=dintty.exe ;;
       nocted-exe) executable=nocted.exe ;;
     esac
     unsigned_executable="$payload/$executable"
     signed_executable_tmp="$scratch/$executable.signed"
     verify_receipt="$scratch/$kind.verify"
-    NOCTTY_WINDOWS_SIGN_HOOK=$hook \
+    DINTTY_WINDOWS_SIGN_HOOK=$hook \
       ./scripts/windows_sign_artifact.sh \
       "$kind" \
       "$unsigned_executable" \
@@ -239,7 +239,7 @@ if [ -n "$hook" ]; then
   signed_tmp=$(mktemp "$out_dir/.${signed_name}.tmp.XXXXXX")
   rm -f "$signed_tmp"
   installer_verify_receipt="$scratch/installer.verify"
-  NOCTTY_WINDOWS_SIGN_HOOK=$hook \
+  DINTTY_WINDOWS_SIGN_HOOK=$hook \
     ./scripts/windows_sign_artifact.sh \
     installer \
     "$signed_container" \
@@ -260,9 +260,9 @@ if [ -n "$hook" ]; then
     printf 'signed_payload_installer_sha256=%s\n' "$signed_container_digest"
     printf 'signed_installer=%s\n' "$signed_name"
     printf 'signed_installer_sha256=%s\n' "$signed_digest"
-    for kind in noctty-exe nocted-exe; do
+    for kind in dintty-exe nocted-exe; do
       case "$kind" in
-        noctty-exe) executable=noctty.exe ;;
+        dintty-exe) executable=dintty.exe ;;
         nocted-exe) executable=nocted.exe ;;
       esac
       printf '%s_unsigned_sha256=%s\n' "$kind" "$(sha256sum "$payload/$executable" | awk '{print $1}')"

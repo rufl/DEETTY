@@ -3,7 +3,7 @@
 const std = @import("std");
 const Abi = @import("WindowsHostAbi.zig");
 const c = Abi.c;
-const Protocol = @import("noctty_share").protocol;
+const Protocol = @import("dintty_share").protocol;
 
 pub const control_id = 40301;
 const edit_id = 40302;
@@ -287,7 +287,7 @@ pub const Strip = struct {
         if (result > 0) {
             _ = c.SendMessageW(c.GetParent(self.window), reordered_message, 0, 0);
         } else if (result < 0) {
-            _ = c.MessageBoxW(c.GetParent(self.window), wide("NOCTTY could not move this tab."), wide("NOCTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+            _ = c.MessageBoxW(c.GetParent(self.window), wide("DINTTY could not move this tab."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         }
     }
 };

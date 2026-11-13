@@ -13,10 +13,10 @@ esac
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
 state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
-receipt_dir="$state_home/noctty/interaction-qualifications"
+receipt_dir="$state_home/dintty/interaction-qualifications"
 mkdir -p "$receipt_dir"
 chmod 0700 "$receipt_dir"
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-interaction-spikes.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-interaction-spikes.XXXXXX")
 receipt_new=
 cleanup() {
     [[ -z "$receipt_new" ]] || rm -f "$receipt_new"
@@ -48,7 +48,7 @@ latest_matching_receipt() {
 }
 
 previous_receipt=$(latest_matching_receipt)
-ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build noctty-smoke-binary nocted-smoke-binary \
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build dintty-smoke-binary nocted-smoke-binary \
     -Doptimize=ReleaseSafe
 
 scenario_names=()
@@ -136,17 +136,17 @@ measure_scenario() {
 
 measure_scenario split_open \
     'native_grid_recursive_split_smoke panes=4 sessions=4' \
-    ./zig-out/bin/noctty-smoke --native-grid-recursive-split-smoke
+    ./zig-out/bin/dintty-smoke --native-grid-recursive-split-smoke
 measure_scenario pane_close \
     'native_grid_pane_close_smoke initial_panes=2' \
-    ./zig-out/bin/noctty-smoke --native-grid-pane-close-smoke
+    ./zig-out/bin/dintty-smoke --native-grid-pane-close-smoke
 measure_scenario tab_open_close \
     'native_grid_two_tab_smoke initial_tabs=1' \
-    ./zig-out/bin/noctty-smoke --native-grid-two-tab-smoke
+    ./zig-out/bin/dintty-smoke --native-grid-two-tab-smoke
 if [[ "$mode" == --full ]]; then
     measure_scenario layout_churn \
         'native_grid_layout_preset_smoke context_menu=true' \
-        ./zig-out/bin/noctty-smoke --native-grid-layout-preset-smoke
+        ./zig-out/bin/dintty-smoke --native-grid-layout-preset-smoke
 fi
 measure_scenario editor_workflow \
     'nocted_search_load_native_gate search_load=true cycles=8' \
@@ -166,7 +166,7 @@ receipt_new="$receipt.new"
     printf 'kernel_release=%s\n' "$(safe_token "$(uname -r)")"
     printf 'plasma_version=%s\n' "$(safe_token "$(plasmashell --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || printf unknown)")"
     printf 'kwin_version=%s\n' "$(safe_token "$(kwin_wayland --version 2>/dev/null | awk 'NR == 1 { print $NF; exit }' || printf unknown)")"
-    printf 'noctty_smoke_sha256=%s\n' "$(sha256sum ./zig-out/bin/noctty-smoke | awk '{ print $1 }')"
+    printf 'dintty_smoke_sha256=%s\n' "$(sha256sum ./zig-out/bin/dintty-smoke | awk '{ print $1 }')"
     printf 'nocted_smoke_sha256=%s\n' "$(sha256sum ./zig-out/bin/nocted-smoke | awk '{ print $1 }')"
     printf 'spike_detected=%s\n' "$spike_detected"
     for ((index = 0; index < ${#scenario_names[@]}; index++)); do

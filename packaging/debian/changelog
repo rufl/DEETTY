@@ -1,4 +1,4 @@
-noctty (0.1.0-1) unstable; urgency=medium
+dintty (0.1.0-1) unstable; urgency=medium
 
   * Initial native Linux release.
 

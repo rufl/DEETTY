@@ -3068,7 +3068,7 @@ pub const Grid = struct {
                 'J' => if (csi.private_marker == '?') self.eraseDisplay(first),
                 'K' => if (csi.private_marker == '?') self.eraseLine(first),
                 'u' => if (csi.private_marker == '?') {
-                    // NOCTTY emits legacy key sequences, so advertise no Kitty flags.
+                    // DINTTY emits legacy key sequences, so advertise no Kitty flags.
                     self.appendReply("\x1b[?0u");
                 },
                 else => {},
@@ -3981,7 +3981,7 @@ test "terminal parser is deterministic across malformed corpus chunk boundaries"
 test "zig terminal grid consumes shell output and public VT paste utility" {
     var grid = try Grid.init(std.testing.allocator, 8, 2);
     defer grid.deinit();
-    try grid.feed("hello\x1b[2;1H\x1b[1;31mworld\x1b]2;NOCTTY\x07");
+    try grid.feed("hello\x1b[2;1H\x1b[1;31mworld\x1b]2;DINTTY\x07");
     try std.testing.expectEqual(@as(u21, 'w'), grid.cell(0, 1).codepoint);
     try std.testing.expectEqual(@as(u32, 1), grid.styleBits(0, 1) & 1);
     const packed_value = grid.packedCell(0, 1);
@@ -3995,7 +3995,7 @@ test "zig terminal grid consumes shell output and public VT paste utility" {
     try std.testing.expectEqual(@as(usize, 8), grid.packedRow(1, &packed_row));
     try std.testing.expect(packed_before != packed_row[0]);
     try std.testing.expectEqual(@as(u16, 1), grid.cell(0, 1).foreground);
-    try std.testing.expectEqualStrings("NOCTTY", grid.titleSlice());
+    try std.testing.expectEqualStrings("DINTTY", grid.titleSlice());
     try std.testing.expect(publicVtAvailable());
     try std.testing.expect(publicPasteIsSafe("plain text"));
 }

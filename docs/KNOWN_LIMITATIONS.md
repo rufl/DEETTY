@@ -1,6 +1,6 @@
 # Known Limitations
 
-NOCTTY is in pre-public Linux alpha. This document keeps public expectations
+DINTTY is in pre-public Linux alpha. This document keeps public expectations
 small and clear.
 
 ## Platform support
@@ -57,7 +57,7 @@ release-operation items are closed.
 
 ## Terminal compatibility
 
-NOCTTY has substantial bounded terminal/PTY/VT evidence, including deterministic
+DINTTY has substantial bounded terminal/PTY/VT evidence, including deterministic
 protocol fixtures and several installed TUI applications. This does not mean
 universal terminal compatibility.
 
@@ -71,7 +71,7 @@ Not complete yet:
 
 ## Session continuity
 
-NOCTTY restores workspace layout and restarts fresh shells in saved directories.
+DINTTY restores workspace layout and restarts fresh shells in saved directories.
 It does **not** resurrect arbitrary in-memory shell processes after a crash or
 forced exit.
 
@@ -125,7 +125,7 @@ guarantee the latest keystroke; users still need to save important files.
 
 ## Accessibility
 
-Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. NOCTTY and NoctEd tab/action controls retain 28-logical-pixel width and 18-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
+Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. DINTTY and NoctEd tab/action controls retain 28-logical-pixel width and 18-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
 
 Not complete or claimed yet:
 
@@ -135,7 +135,7 @@ Not complete or claimed yet:
 
 ## Performance claims
 
-NOCTTY includes local benchmarks and resource receipts. Treat them as one-host
+DINTTY includes local benchmarks and resource receipts. Treat them as one-host
 engineering evidence unless explicitly described otherwise.
 
 Do not claim:
@@ -147,12 +147,12 @@ Do not claim:
 
 Useful public language:
 
-> NOCTTY is designed and measured for low overhead on the author's Linux/KDE
+> DINTTY is designed and measured for low overhead on the author's Linux/KDE
 > development host, with scripts available for others to reproduce locally.
 
 ## Ghostty/VTE boundaries
 
-Production `noctty` uses NOCTTY's own Zig PTY/VT/grid path and does not depend
+Production `dintty` uses DINTTY's own Zig PTY/VT/grid path and does not depend
 on Ghostty's private GUI ABI. Ghostty-related experiments must stay isolated
 behind the adapter boundary.
 
@@ -160,7 +160,7 @@ The older GTK/VTE path is optional/legacy and not the default product surface.
 
 ## Network and telemetry
 
-NOCTTY should not add telemetry, analytics, update pings, crash uploaders, or
+DINTTY should not add telemetry, analytics, update pings, crash uploaders, or
 remote feature flags. Any future network behavior must be explicit, user-owned,
 and documented.
 

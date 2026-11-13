@@ -1,7 +1,7 @@
 /* Test-only activation child receipt helper. */
 static gboolean write_activation_child_receipt_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    const gchar *receipt_path = g_getenv("NOCTTY_ACTIVATION_CHILD_RECEIPT");
+    DinttyGridContext *root = root_grid_context(user_data);
+    const gchar *receipt_path = g_getenv("DINTTY_ACTIVATION_CHILD_RECEIPT");
     if (receipt_path == NULL || receipt_path[0] != '/') {
         finish_title_smoke(root);
         return G_SOURCE_REMOVE;
@@ -18,7 +18,7 @@ static gboolean write_activation_child_receipt_smoke(gpointer user_data) {
         return G_SOURCE_REMOVE;
     }
     if (rendered && tab_count == 2) {
-        const gchar *source = g_getenv("NOCTTY_ACTIVATION_SOURCE");
+        const gchar *source = g_getenv("DINTTY_ACTIVATION_SOURCE");
         const gchar *backend = g_getenv("GDK_BACKEND");
         gchar *receipt = g_strdup_printf(
             "native_grid_activation_child source=%s backend=%s mapped=true rendered=true tabs=2 controlled_exit=true\n",
@@ -42,7 +42,7 @@ static gboolean write_activation_child_receipt_smoke(gpointer user_data) {
 }
 
 static gboolean request_recent_workspace_child_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     gboolean surface_ready = root->window != NULL && root->area != NULL &&
         root->window_presented && gtk_widget_get_mapped(root->window) &&
         gtk_widget_get_mapped(root->area);

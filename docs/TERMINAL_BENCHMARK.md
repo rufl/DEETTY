@@ -9,13 +9,13 @@ of truth for methodology and artifact requirements.
 The compositor-backed matrix must run in an acknowledged disposable session:
 
 ```sh
-NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
+DINTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
 For an automatically isolated, display-independent X11 lane:
 
 ```sh
-NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
+DINTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
 ```
 
 Offscreen mode uses the repository's `isolated_display_runner.sh` boundary by
@@ -35,7 +35,7 @@ overwritten. Verify a run with:
 ```
 ## Renderer A/B
 
-The NOCTTY benchmark fixture accepts `NOCTTY_BENCH_RENDERER=cairo|opengl`;
+The DINTTY benchmark fixture accepts `DINTTY_BENCH_RENDERER=cairo|opengl`;
 `cairo` is the default. Both modes use the same authoritative Cairo rasterizer.
 `opengl` measures the optional GPU presentation path: the Cairo image is
 uploaded as a texture and presented through `GtkGLArea`; it is not GPU glyph
@@ -44,27 +44,27 @@ rasterization.
 Use a disposable real X11/XWayland display when qualifying GPU presentation:
 
 ```sh
-NOCTTY_DEDICATED_DISPLAY=1 \
-NOCTTY_BENCH_RENDERER=cairo \
-NOCTTY_BENCH_TERMINALS=noctty \
-NOCTTY_BENCH_PANES='1' \
-NOCTTY_BENCH_OUTPUT_PANES='1' \
+DINTTY_DEDICATED_DISPLAY=1 \
+DINTTY_BENCH_RENDERER=cairo \
+DINTTY_BENCH_TERMINALS=dintty \
+DINTTY_BENCH_PANES='1' \
+DINTTY_BENCH_OUTPUT_PANES='1' \
 ./scripts/terminal_benchmark.sh
 ```
 
-For a native Wayland run, set `NOCTTY_BENCH_DISPLAY_BACKEND=wayland`,
+For a native Wayland run, set `DINTTY_BENCH_DISPLAY_BACKEND=wayland`,
 preserve `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR`, and use the same command.
 The Wayland lane intentionally leaves `visual_ms` and `visual_tail_ms`
 unavailable because the retained pixel observer is X11-only.
 
-Repeat with `NOCTTY_BENCH_RENDERER=opengl` and a different
-`NOCTTY_BENCH_STAMP`. The app log must contain
+Repeat with `DINTTY_BENCH_RENDERER=opengl` and a different
+`DINTTY_BENCH_STAMP`. The app log must contain
 `native_grid_gpu_context`, and the renderer receipt must report
 `renderer_requested=opengl renderer_effective=opengl`,
 `gpu_render_frames>0`, and `gpu_fallbacks=0`. A receipt with
 `renderer_effective=cairo` is a fallback and is not a GPU result.
 
-The harness retains renderer lines in the metadata receipt and fails a NOCTTY
+The harness retains renderer lines in the metadata receipt and fails a DINTTY
 trial when the requested renderer is not observed. An offscreen Xvfb run may
 use llvmpipe; it validates the benchmark pipeline but is not a hardware-GPU
 result.
@@ -82,13 +82,13 @@ different hosts, versions, or protocol revisions are not a single ranking.
 
 The harness compares fresh 1/2/4/8-pane terminal process trees with rotated
 order and seven recorded trials by default. Power-of-two 16/32-pane runs are
-available through `NOCTTY_BENCH_PANES` and `NOCTTY_BENCH_OUTPUT_PANES` for
+available through `DINTTY_BENCH_PANES` and `DINTTY_BENCH_OUTPUT_PANES` for
 agent-scale work; they are not part of the default peer matrix.
-`NOCTTY_BENCH_SKIP_BUILD=1` plus `NOCTTY_BENCH_NOCTTY_BIN=/path/to/noctty`
+`DINTTY_BENCH_SKIP_BUILD=1` plus `DINTTY_BENCH_DINTTY_BIN=/path/to/dintty`
 selects an exact detached-worktree binary for A/B evidence.
-`NOCTTY_BENCH_POST_OUTPUT_SETTLE_MS` delays the resource sample after the final
+`DINTTY_BENCH_POST_OUTPUT_SETTLE_MS` delays the resource sample after the final
 pixel for idle-release measurements; the default is 250 ms.
-`NOCTTY_BENCH_EXPECT_IDLE_COMPACTION=1` makes NOCTTY benchmark mode fail unless
+`DINTTY_BENCH_EXPECT_IDLE_COMPACTION=1` makes DINTTY benchmark mode fail unless
 a native session reports completed idle-history compaction. Alacritty is
 one-pane only; Yakuake uses a harness-owned isolated instance and is stopped
 before and after the run. Startup, PSS, RSS, USS, idle CPU, writer completion,
@@ -98,10 +98,10 @@ and private huge pages from `/proc/<pid>/smaps_rollup`.
 Receipt: `split_terminal_benchmark=true yakuake_exclusive=true
 process_tree_pss=true process_tree_uss=true pty_pump_bounded_drain=true`.
 
-The retained 2026-10-14 offscreen X11 receipt compares NOCTTY and Kitty v0.49.2
+The retained 2026-10-14 offscreen X11 receipt compares DINTTY and Kitty v0.49.2
 under the same 1200×800, 5000-line, three-trial workload. Its median process
-tree PSS is 45.421–46.994 MiB for NOCTTY versus 172.170–176.704 MiB for Kitty;
-startup favors NOCTTY, while Kitty has lower visual completion in the retained
+tree PSS is 45.421–46.994 MiB for DINTTY versus 172.170–176.704 MiB for Kitty;
+startup favors DINTTY, while Kitty has lower visual completion in the retained
 matrix. The full table and source-pinned architecture comparison are in
 [`PERFORMANCE_ALGORITHM_RESEARCH.md`](PERFORMANCE_ALGORITHM_RESEARCH.md).
 

@@ -1,16 +1,16 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${NOCTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${NOCTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
 
-cache_local="${TMPDIR:-/tmp}/noctty-compact-ux-local"
-cache_global="${TMPDIR:-/tmp}/noctty-compact-ux-global"
-output_file="${TMPDIR:-/tmp}/noctty-compact-ux-output.$$"
+cache_local="${TMPDIR:-/tmp}/dintty-compact-ux-local"
+cache_global="${TMPDIR:-/tmp}/dintty-compact-ux-global"
+output_file="${TMPDIR:-/tmp}/dintty-compact-ux-output.$$"
 rm -rf "$cache_local" "$cache_global"
 trap 'rm -rf "$cache_local" "$cache_global"; rm -f "$output_file"' EXIT HUP INT TERM
 

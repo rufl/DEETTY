@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-cache_dir="${NOCTTY_ZIG_CACHE_DIR:-.zig-cache}"
-global_cache_dir="${NOCTTY_ZIG_GLOBAL_CACHE_DIR:-.zig-cache/global}"
-prefix="${NOCTTY_INSTALL_PREFIX:-zig-out}"
+cache_dir="${DINTTY_ZIG_CACHE_DIR:-.zig-cache}"
+global_cache_dir="${DINTTY_ZIG_GLOBAL_CACHE_DIR:-.zig-cache/global}"
+prefix="${DINTTY_INSTALL_PREFIX:-zig-out}"
 
 if output="$(ZIG_GLOBAL_CACHE_DIR="$global_cache_dir" zig build --prefix "$prefix" --cache-dir "$cache_dir" run -- --ghostty-probe 2>&1)"; then
   :

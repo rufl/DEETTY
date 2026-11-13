@@ -122,6 +122,13 @@ pub const GdkEventScroll = extern struct {
     delta_y: f64,
     is_stop: c_uint,
 };
+pub const GdkEventWindowState = extern struct {
+    type: c_int,
+    window: ?*GdkWindow,
+    send_event: i8,
+    changed_mask: c_int,
+    new_window_state: c_int,
+};
 pub const G_APPLICATION_HANDLES_OPEN: c_uint = 1 << 2;
 pub const GTK_WINDOW_TOPLEVEL: c_int = 0;
 pub const GTK_ORIENTATION_HORIZONTAL: c_int = 0;
@@ -175,11 +182,13 @@ pub const GDK_SMOOTH_SCROLL_MASK: c_int = 1 << 23;
 pub const GDK_SCROLL_UP: c_int = 0;
 pub const GDK_SCROLL_DOWN: c_int = 1;
 pub const GDK_SCROLL_SMOOTH: c_int = 4;
+pub const GDK_WINDOW_STATE_FULLSCREEN: c_int = 1 << 4;
 pub const GDK_KEY_Escape: c_uint = 0xff1b;
 pub const GDK_KEY_BackSpace: c_uint = 0xff08;
 pub const GDK_KEY_Delete: c_uint = 0xffff;
 pub const GDK_KEY_Down: c_uint = 0xff54;
 pub const GDK_KEY_F3: c_uint = 0xffc0;
+pub const GDK_KEY_F11: c_uint = 0xffc8;
 pub const GDK_KEY_Page_Up: c_uint = 0xff55;
 pub const GDK_KEY_Page_Down: c_uint = 0xff56;
 pub const GDK_KEY_0: c_uint = '0';
@@ -214,6 +223,8 @@ pub extern fn gtk_window_set_default_size(window: *GtkWindow, width: c_int, heig
 pub extern fn gtk_window_set_icon_name(window: *GtkWindow, name: [*:0]const u8) void;
 pub extern fn gtk_window_set_transient_for(window: *GtkWindow, parent: *GtkWindow) void;
 pub extern fn gtk_window_set_resizable(window: *GtkWindow, resizable: gboolean) void;
+pub extern fn gtk_window_fullscreen(window: *GtkWindow) void;
+pub extern fn gtk_window_unfullscreen(window: *GtkWindow) void;
 pub extern fn gtk_widget_set_name(widget: *GtkWidget, name: [*:0]const u8) void;
 pub extern fn gtk_widget_add_events(widget: *GtkWidget, events: c_int) void;
 pub extern fn gtk_widget_get_style_context(widget: *GtkWidget) *GtkStyleContext;
@@ -250,6 +261,8 @@ pub extern fn gtk_paned_set_position(paned: *GtkPaned, position: c_int) void;
 pub extern fn gtk_notebook_new() ?*GtkWidget;
 pub extern fn gtk_notebook_set_scrollable(notebook: *GtkNotebook, scrollable: gboolean) void;
 pub extern fn gtk_notebook_set_show_border(notebook: *GtkNotebook, show_border: gboolean) void;
+pub extern fn gtk_notebook_set_show_tabs(notebook: *GtkNotebook, show_tabs: gboolean) void;
+pub extern fn gtk_notebook_get_show_tabs(notebook: *GtkNotebook) gboolean;
 pub extern fn gtk_notebook_append_page(notebook: *GtkNotebook, child: *GtkWidget, tab_label: *GtkWidget) c_int;
 pub extern fn gtk_notebook_set_tab_reorderable(notebook: *GtkNotebook, child: *GtkWidget, reorderable: gboolean) void;
 pub extern fn gtk_notebook_set_current_page(notebook: *GtkNotebook, page_num: c_int) void;

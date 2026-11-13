@@ -1,11 +1,11 @@
-# NOCTTY Roadmap
+# DINTTY Roadmap
 
 This roadmap is the public-readable plan. The detailed engineering backlog and
 proof boundaries remain in `BACKLOG.md`.
 
 ## North star
 
-Make NOCTTY a dependable native Linux terminal workspace, with NoctEd as a small
+Make DINTTY a dependable native Linux terminal workspace, with NoctEd as a small
 companion editor, so terminal-heavy developers can work with fewer heavy editor
 windows.
 
@@ -16,7 +16,7 @@ Public alpha means:
 - source is publishable under Lichforge on GitHub
 - README/build/run instructions are understandable
 - known limitations are honest
-- NOCTTY can be dogfooded for real work on the author's Linux desktop
+- DINTTY can be dogfooded for real work on the author's Linux desktop
 - NoctEd can safely handle quick project edits
 - no telemetry or surprise network behavior exists
 
@@ -65,15 +65,15 @@ Required:
   private copy of the provenance-checked system GTK Layer Shell runtime for undecorated Wayland dropdowns
 - [x] Screenshots referenced from README
 
-## Phase 1 — Dogfood NOCTTY as daily terminal
+## Phase 1 — Dogfood DINTTY as daily terminal
 
-Goal: use NOCTTY for real Lichforge work instead of merely testing fixtures.
+Goal: use DINTTY for real Lichforge work instead of merely testing fixtures.
 
 Acceptance:
 
 - [x] Five sessions of at least two hours each
 - [ ] One session with four or more panes/tabs
-- [x] One Pi or coding-agent session inside NOCTTY
+- [x] One Pi or coding-agent session inside DINTTY
 - [ ] Hide/show and restore tested during real work
 - [ ] close confirmation tested with a foreground job
 - [ ] copy/paste/search/scrollback used during real work
@@ -90,15 +90,15 @@ collapsed 32 px window recovery, centered percentage-driven dropdown geometry,
 bounded windowed startup sizing, decorated Wayland fallback caused by a
 missing host GTK Layer Shell runtime, damaged local-state startup failure,
 concurrent primary-owner races, activation-token handoff, and isolated New
-Workspace/Open NOCTTY Here launches.
+Workspace/Open DINTTY Here launches.
 
 ## Phase 2 — NoctEd useful-enough alpha
 
-Goal: NoctEd is safe and useful for quick edits while working from NOCTTY.
+Goal: NoctEd is safe and useful for quick edits while working from DINTTY.
 
 Acceptance:
 
-- [ ] open current project from NOCTTY
+- [ ] open current project from DINTTY
 - [ ] project tree navigation feels understandable
 - [ ] edit/save/Save As used on real files
 - [ ] dirty close protection checked
@@ -156,7 +156,7 @@ Post-alpha work:
 - signed release artifacts
 - retained architecture artifacts/signatures
 - independent dependency-bundle redistribution review
-- [x] installed tmux 3.7b/Zellij 0.44.3 detach, NOCTTY relaunch, reattach, preserved-content, and mapped Wayland/X11 receipts
+- [x] installed tmux 3.7b/Zellij 0.44.3 detach, DINTTY relaunch, reattach, preserved-content, and mapped Wayland/X11 receipts
 - [x] sustained native GUI and project-lifecycle qualification: 32 complete workflows per Debug/`ReleaseSafe` Wayland/X11 lane with rendered captures and process-tree memory
 - [x] authenticated Codex 0.144.6 model-request receipts through production PTY/VT/GTK/Cairo on mapped Wayland/X11
 - [x] fail-closed Debug/`ReleaseSafe` Wayland/X11 hidden/visible stability shakedown with phase resource receipts and compositor pixels
@@ -200,5 +200,5 @@ remaining boundaries have receipts. Linux KDE/Wayland/X11 support remains first-
 ## WIZP relationship
 
 WIZP remains a separate experimental rich-editor/WebView project. Do not import
-its WebView/Bun/VS Code-parity stack into NOCTTY. Transfer only small ideas that
-fit NOCTTY's native terminal workspace goal.
+its WebView/Bun/VS Code-parity stack into DINTTY. Transfer only small ideas that
+fit DINTTY's native terminal workspace goal.

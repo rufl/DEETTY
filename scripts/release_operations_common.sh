@@ -9,7 +9,7 @@ retain_from_stdin() {
   target_file=$1
   target_dir=$(dirname "$target_file")
   mkdir -p "$target_dir"
-  retain_tmp=$(mktemp "$target_dir/.noctty-retain.XXXXXX")
+  retain_tmp=$(mktemp "$target_dir/.dintty-retain.XXXXXX")
   cat >"$retain_tmp"
   chmod 0644 "$retain_tmp"
   mv -f "$retain_tmp" "$target_file"

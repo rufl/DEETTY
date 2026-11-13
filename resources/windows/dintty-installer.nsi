@@ -2,11 +2,11 @@ Unicode true
 ManifestDPIAware true
 RequestExecutionLevel user
 
-!ifndef NOCTTY_PAYLOAD
-  !error "NOCTTY_PAYLOAD must name the portable payload directory"
+!ifndef DINTTY_PAYLOAD
+  !error "DINTTY_PAYLOAD must name the portable payload directory"
 !endif
-!ifndef NOCTTY_OUTPUT
-  !error "NOCTTY_OUTPUT must name the installer output"
+!ifndef DINTTY_OUTPUT
+  !error "DINTTY_OUTPUT must name the installer output"
 !endif
 !ifndef PRODUCT_VERSION
   !error "PRODUCT_VERSION must be defined"
@@ -23,15 +23,15 @@ RequestExecutionLevel user
 
 !include "MUI2.nsh"
 
-!define PRODUCT_NAME "NOCTTY"
-!define PRODUCT_PUBLISHER "NOCTTY contributors"
-!define PRODUCT_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\NOCTTY"
+!define PRODUCT_NAME "DINTTY"
+!define PRODUCT_PUBLISHER "DINTTY contributors"
+!define PRODUCT_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DINTTY"
 !define NOCTED_APP_KEY "Software\Classes\Applications\nocted.exe"
 !define NOCTED_PROGID_KEY "Software\Classes\NoctEd.Text"
 
 Name "${PRODUCT_NAME}"
-OutFile "${NOCTTY_OUTPUT}"
-InstallDir "$LOCALAPPDATA\Programs\NOCTTY"
+OutFile "${DINTTY_OUTPUT}"
+InstallDir "$LOCALAPPDATA\Programs\DINTTY"
 SetCompressor /SOLID lzma
 SetDatablockOptimize on
 CRCCheck on
@@ -43,13 +43,13 @@ VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=1033 "FileVersion" "${PRODUCT_VERSION}.${PACKAGE_REVISION}"
 VIAddVersionKey /LANG=1033 "CompanyName" "${PRODUCT_PUBLISHER}"
-VIAddVersionKey /LANG=1033 "FileDescription" "NOCTTY per-user installer"
-VIAddVersionKey /LANG=1033 "LegalCopyright" "NOCTTY contributors"
+VIAddVersionKey /LANG=1033 "FileDescription" "DINTTY per-user installer"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "DINTTY contributors"
 
 !define MUI_ABORTWARNING
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "${NOCTTY_PAYLOAD}/LICENSE"
+!insertmacro MUI_PAGE_LICENSE "${DINTTY_PAYLOAD}/LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -65,31 +65,31 @@ Function un.onInit
   SetShellVarContext current
 FunctionEnd
 
-Section "NOCTTY and NoctEd (required)" SEC_CORE
+Section "DINTTY and NoctEd (required)" SEC_CORE
   SectionIn RO
   SetShellVarContext current
   SetOverwrite on
   SetOutPath "$INSTDIR"
-  File /oname=noctty.exe "${NOCTTY_PAYLOAD}/noctty.exe"
-  File /oname=nocted.exe "${NOCTTY_PAYLOAD}/nocted.exe"
-  File /oname=LICENSE "${NOCTTY_PAYLOAD}/LICENSE"
-  File /oname=THIRD_PARTY_NOTICES.md "${NOCTTY_PAYLOAD}/THIRD_PARTY_NOTICES.md"
-  File /oname=UNICODE-LICENSE.txt "${NOCTTY_PAYLOAD}/UNICODE-LICENSE.txt"
-  File /oname=WINDOWS.md "${NOCTTY_PAYLOAD}/WINDOWS.md"
-  File /oname=WINDOWS-SMOKE.ps1 "${NOCTTY_PAYLOAD}/WINDOWS-SMOKE.ps1"
-  File /oname=BUILD-INFO.txt "${NOCTTY_PAYLOAD}/BUILD-INFO.txt"
+  File /oname=dintty.exe "${DINTTY_PAYLOAD}/dintty.exe"
+  File /oname=nocted.exe "${DINTTY_PAYLOAD}/nocted.exe"
+  File /oname=LICENSE "${DINTTY_PAYLOAD}/LICENSE"
+  File /oname=THIRD_PARTY_NOTICES.md "${DINTTY_PAYLOAD}/THIRD_PARTY_NOTICES.md"
+  File /oname=UNICODE-LICENSE.txt "${DINTTY_PAYLOAD}/UNICODE-LICENSE.txt"
+  File /oname=WINDOWS.md "${DINTTY_PAYLOAD}/WINDOWS.md"
+  File /oname=WINDOWS-SMOKE.ps1 "${DINTTY_PAYLOAD}/WINDOWS-SMOKE.ps1"
+  File /oname=BUILD-INFO.txt "${DINTTY_PAYLOAD}/BUILD-INFO.txt"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  CreateDirectory "$SMPROGRAMS\NOCTTY"
-  CreateShortcut "$SMPROGRAMS\NOCTTY\NOCTTY.lnk" "$INSTDIR\noctty.exe" "" "$INSTDIR\noctty.exe" 0
-  CreateShortcut "$SMPROGRAMS\NOCTTY\NoctEd.lnk" "$INSTDIR\nocted.exe" "" "$INSTDIR\nocted.exe" 0
-  CreateShortcut "$SMPROGRAMS\NOCTTY\Uninstall NOCTTY.lnk" "$INSTDIR\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\DINTTY"
+  CreateShortcut "$SMPROGRAMS\DINTTY\DINTTY.lnk" "$INSTDIR\dintty.exe" "" "$INSTDIR\dintty.exe" 0
+  CreateShortcut "$SMPROGRAMS\DINTTY\NoctEd.lnk" "$INSTDIR\nocted.exe" "" "$INSTDIR\nocted.exe" 0
+  CreateShortcut "$SMPROGRAMS\DINTTY\Uninstall DINTTY.lnk" "$INSTDIR\Uninstall.exe"
 
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayVersion" "${PRODUCT_VERSION}.${PACKAGE_REVISION}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayIcon" "$INSTDIR\noctty.exe"
+  WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayIcon" "$INSTDIR\dintty.exe"
   WriteRegStr HKCU "${PRODUCT_KEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
   WriteRegStr HKCU "${PRODUCT_KEY}" "QuietUninstallString" '$\"$INSTDIR\Uninstall.exe$\" /S'
   WriteRegDWORD HKCU "${PRODUCT_KEY}" "EstimatedSize" ${ESTIMATED_SIZE_KIB}
@@ -124,9 +124,9 @@ Section "NOCTTY and NoctEd (required)" SEC_CORE
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
 
-Section /o "Desktop shortcut for NOCTTY" SEC_DESKTOP_NOCTTY
+Section /o "Desktop shortcut for DINTTY" SEC_DESKTOP_DINTTY
   SetShellVarContext current
-  CreateShortcut "$DESKTOP\NOCTTY.lnk" "$INSTDIR\noctty.exe" "" "$INSTDIR\noctty.exe" 0
+  CreateShortcut "$DESKTOP\DINTTY.lnk" "$INSTDIR\dintty.exe" "" "$INSTDIR\dintty.exe" 0
 SectionEnd
 
 Section /o "Desktop shortcut for NoctEd" SEC_DESKTOP_NOCTED
@@ -134,23 +134,23 @@ Section /o "Desktop shortcut for NoctEd" SEC_DESKTOP_NOCTED
   CreateShortcut "$DESKTOP\NoctEd.lnk" "$INSTDIR\nocted.exe" "" "$INSTDIR\nocted.exe" 0
 SectionEnd
 
-LangString DESC_SEC_CORE ${LANG_ENGLISH} "Native NOCTTY terminal, NoctEd editor, Start Menu shortcuts, and reversible Open-With registration."
-LangString DESC_SEC_DESKTOP_NOCTTY ${LANG_ENGLISH} "Create an optional NOCTTY shortcut on this user's desktop."
+LangString DESC_SEC_CORE ${LANG_ENGLISH} "Native DINTTY terminal, NoctEd editor, Start Menu shortcuts, and reversible Open-With registration."
+LangString DESC_SEC_DESKTOP_DINTTY ${LANG_ENGLISH} "Create an optional DINTTY shortcut on this user's desktop."
 LangString DESC_SEC_DESKTOP_NOCTED ${LANG_ENGLISH} "Create an optional NoctEd shortcut on this user's desktop."
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_CORE} $(DESC_SEC_CORE)
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_DESKTOP_NOCTTY} $(DESC_SEC_DESKTOP_NOCTTY)
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_DESKTOP_DINTTY} $(DESC_SEC_DESKTOP_DINTTY)
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_DESKTOP_NOCTED} $(DESC_SEC_DESKTOP_NOCTED)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Section "Uninstall"
   SetShellVarContext current
-  Delete "$DESKTOP\NOCTTY.lnk"
+  Delete "$DESKTOP\DINTTY.lnk"
   Delete "$DESKTOP\NoctEd.lnk"
-  Delete "$SMPROGRAMS\NOCTTY\NOCTTY.lnk"
-  Delete "$SMPROGRAMS\NOCTTY\NoctEd.lnk"
-  Delete "$SMPROGRAMS\NOCTTY\Uninstall NOCTTY.lnk"
-  RMDir "$SMPROGRAMS\NOCTTY"
+  Delete "$SMPROGRAMS\DINTTY\DINTTY.lnk"
+  Delete "$SMPROGRAMS\DINTTY\NoctEd.lnk"
+  Delete "$SMPROGRAMS\DINTTY\Uninstall DINTTY.lnk"
+  RMDir "$SMPROGRAMS\DINTTY"
 
   DeleteRegValue HKCU "Software\Classes\.txt\OpenWithProgids" "NoctEd.Text"
   DeleteRegValue HKCU "Software\Classes\.c\OpenWithProgids" "NoctEd.Text"
@@ -176,7 +176,7 @@ Section "Uninstall"
   DeleteRegKey HKCU "${NOCTED_PROGID_KEY}"
   DeleteRegKey HKCU "${PRODUCT_KEY}"
 
-  Delete "$INSTDIR\noctty.exe"
+  Delete "$INSTDIR\dintty.exe"
   Delete "$INSTDIR\nocted.exe"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\THIRD_PARTY_NOTICES.md"

@@ -2,7 +2,7 @@
 
 ## Our standard
 
-NOCTTY welcomes contributors and users regardless of experience, identity, or
+DINTTY welcomes contributors and users regardless of experience, identity, or
 background. Be respectful, discuss the work rather than the person, assume good
 faith, accept correction, and keep criticism specific and actionable.
 

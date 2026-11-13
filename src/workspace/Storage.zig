@@ -181,7 +181,7 @@ pub fn defaultWorkspacePathAlloc(
 
     const slug = try sanitizeProjectNameAlloc(allocator, project_name);
     defer allocator.free(slug);
-    const file_name = try std.fmt.allocPrint(allocator, "{s}.nocttyws", .{slug});
+    const file_name = try std.fmt.allocPrint(allocator, "{s}.dinttyws", .{slug});
     defer allocator.free(file_name);
 
     return switch (role) {
@@ -189,7 +189,7 @@ pub fn defaultWorkspacePathAlloc(
             home_dir,
             ".local",
             "share",
-            "noctty",
+            "dintty",
             "workspaces",
             file_name,
         }),
@@ -197,7 +197,7 @@ pub fn defaultWorkspacePathAlloc(
             home_dir,
             ".local",
             "state",
-            "noctty",
+            "dintty",
             "autosave",
             file_name,
         }),
@@ -205,7 +205,7 @@ pub fn defaultWorkspacePathAlloc(
             home_dir,
             ".local",
             "state",
-            "noctty",
+            "dintty",
             "recovery",
             file_name,
         }),
@@ -357,17 +357,17 @@ fn isSafeFileChar(char: u8) bool {
 test "default workspace paths use native data and state locations" {
     const allocator = std.testing.allocator;
 
-    const manual = try defaultWorkspacePathAlloc(allocator, "/home/alice", "NOCTTY repo", .manual);
+    const manual = try defaultWorkspacePathAlloc(allocator, "/home/alice", "DINTTY repo", .manual);
     defer allocator.free(manual);
-    try std.testing.expectEqualStrings("/home/alice/.local/share/noctty/workspaces/NOCTTY-repo.nocttyws", manual);
+    try std.testing.expectEqualStrings("/home/alice/.local/share/dintty/workspaces/DINTTY-repo.dinttyws", manual);
 
-    const autosave = try defaultWorkspacePathAlloc(allocator, "/home/alice", "NOCTTY repo", .autosave);
+    const autosave = try defaultWorkspacePathAlloc(allocator, "/home/alice", "DINTTY repo", .autosave);
     defer allocator.free(autosave);
-    try std.testing.expectEqualStrings("/home/alice/.local/state/noctty/autosave/NOCTTY-repo.nocttyws", autosave);
+    try std.testing.expectEqualStrings("/home/alice/.local/state/dintty/autosave/DINTTY-repo.dinttyws", autosave);
 
     const recovery = try defaultWorkspacePathAlloc(allocator, "/home/alice", "   ", .recovery);
     defer allocator.free(recovery);
-    try std.testing.expectEqualStrings("/home/alice/.local/state/noctty/recovery/workspace.nocttyws", recovery);
+    try std.testing.expectEqualStrings("/home/alice/.local/state/dintty/recovery/workspace.dinttyws", recovery);
 }
 
 test "recovery state tracks dirty autosave and clean manual saves" {
@@ -382,14 +382,14 @@ test "recovery state tracks dirty autosave and clean manual saves" {
     try std.testing.expect(!state.shouldAutosave(0));
     try std.testing.expect(state.shouldAutosave(1));
 
-    try state.markSaved(allocator, "autosave/project.nocttyws", .autosave);
+    try state.markSaved(allocator, "autosave/project.dinttyws", .autosave);
     try std.testing.expect(!state.dirty);
-    try std.testing.expectEqualStrings("autosave/project.nocttyws", state.recovery_path.?);
+    try std.testing.expectEqualStrings("autosave/project.dinttyws", state.recovery_path.?);
     try std.testing.expect(state.hasPendingRecovery());
 
     state.markDirty();
     try std.testing.expect(state.hasPendingRecovery());
-    try state.markSaved(allocator, "manual/project.nocttyws", .manual);
+    try state.markSaved(allocator, "manual/project.dinttyws", .manual);
     try std.testing.expect(state.recovery_path == null);
 }
 
@@ -397,22 +397,22 @@ fn exerciseRecoverySaveAllocationFailures(allocator: std.mem.Allocator) !void {
     var state = RecoveryState{};
     defer state.deinit(allocator);
     state.markDirty();
-    try state.markSaved(allocator, "previous.nocttyws", .autosave);
+    try state.markSaved(allocator, "previous.dinttyws", .autosave);
     state.markDirty();
     const generation = state.generation;
     const saved_generation = state.saved_generation;
-    state.markSaved(allocator, "next.nocttyws", .autosave) catch |err| {
+    state.markSaved(allocator, "next.dinttyws", .autosave) catch |err| {
         try std.testing.expect(state.dirty);
         try std.testing.expectEqual(generation, state.generation);
         try std.testing.expectEqual(saved_generation, state.saved_generation);
-        try std.testing.expectEqualStrings("previous.nocttyws", state.last_path.?);
-        try std.testing.expectEqualStrings("previous.nocttyws", state.recovery_path.?);
+        try std.testing.expectEqualStrings("previous.dinttyws", state.last_path.?);
+        try std.testing.expectEqualStrings("previous.dinttyws", state.recovery_path.?);
         return err;
     };
     try std.testing.expect(!state.dirty);
     try std.testing.expectEqual(generation, state.saved_generation);
-    try std.testing.expectEqualStrings("next.nocttyws", state.last_path.?);
-    try std.testing.expectEqualStrings("next.nocttyws", state.recovery_path.?);
+    try std.testing.expectEqualStrings("next.dinttyws", state.last_path.?);
+    try std.testing.expectEqualStrings("next.dinttyws", state.recovery_path.?);
 }
 
 test "recovery save allocation failures preserve dirty state and previous paths" {
@@ -429,7 +429,7 @@ test "damaged workspace snapshots can be retained before safe replacement" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    var damaged = try tmp.dir.createFileAtomic(io, "autosave/default.nocttyws", .{
+    var damaged = try tmp.dir.createFileAtomic(io, "autosave/default.dinttyws", .{
         .make_path = true,
         .replace = true,
     });
@@ -441,11 +441,11 @@ test "damaged workspace snapshots can be retained before safe replacement" {
         allocator,
         io,
         tmp.dir,
-        "autosave/default.nocttyws",
+        "autosave/default.dinttyws",
     );
     defer allocator.free(rejected_path);
     try std.testing.expectEqualStrings(
-        "autosave/default.nocttyws.rejected",
+        "autosave/default.dinttyws.rejected",
         rejected_path,
     );
     const rejected = try tmp.dir.readFileAlloc(
@@ -475,11 +475,11 @@ test "workspace snapshots save and load through atomic storage" {
 
     var snapshot = try ws.captureSnapshot();
     defer snapshot.deinit(allocator);
-    const saved = try saveSnapshotFile(allocator, io, tmp.dir, "nested/project.nocttyws", snapshot, .manual, false);
+    const saved = try saveSnapshotFile(allocator, io, tmp.dir, "nested/project.dinttyws", snapshot, .manual, false);
     defer saved.deinit(allocator);
     try std.testing.expect(saved.bytes > 16);
 
-    var loaded = try loadSnapshotFile(allocator, io, tmp.dir, "nested/project.nocttyws", .manual);
+    var loaded = try loadSnapshotFile(allocator, io, tmp.dir, "nested/project.dinttyws", .manual);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 1), loaded.snapshot.tabs.len);
     try std.testing.expectEqual(@as(usize, 2), loaded.snapshot.tabs[0].panes.len);
@@ -491,18 +491,18 @@ test "recovery cleanup plan retains newest autosaves and ignores manual files" {
     const allocator = std.testing.allocator;
 
     var plan = try planRecoveryCleanupAlloc(allocator, .{ .max_recovery_snapshots = 2 }, &.{
-        .{ .path = "manual/project.nocttyws", .role = .manual, .saved_generation = 9, .saved_at_ms = 9000 },
-        .{ .path = "recovery/old.nocttyws", .role = .recovery, .saved_generation = 1, .saved_at_ms = 1000 },
-        .{ .path = "autosave/newer.nocttyws", .role = .autosave, .saved_generation = 3, .saved_at_ms = 3000 },
-        .{ .path = "recovery/newest.nocttyws", .role = .recovery, .saved_generation = 4, .saved_at_ms = 4000 },
-        .{ .path = "autosave/middle.nocttyws", .role = .autosave, .saved_generation = 2, .saved_at_ms = 2000 },
+        .{ .path = "manual/project.dinttyws", .role = .manual, .saved_generation = 9, .saved_at_ms = 9000 },
+        .{ .path = "recovery/old.dinttyws", .role = .recovery, .saved_generation = 1, .saved_at_ms = 1000 },
+        .{ .path = "autosave/newer.dinttyws", .role = .autosave, .saved_generation = 3, .saved_at_ms = 3000 },
+        .{ .path = "recovery/newest.dinttyws", .role = .recovery, .saved_generation = 4, .saved_at_ms = 4000 },
+        .{ .path = "autosave/middle.dinttyws", .role = .autosave, .saved_generation = 2, .saved_at_ms = 2000 },
     });
     defer plan.deinit(allocator);
 
     try std.testing.expectEqual(@as(usize, 2), plan.retained_count);
     try std.testing.expectEqual(@as(usize, 2), plan.delete_entries.len);
-    try std.testing.expectEqualStrings("autosave/middle.nocttyws", plan.delete_entries[0].path);
-    try std.testing.expectEqualStrings("recovery/old.nocttyws", plan.delete_entries[1].path);
+    try std.testing.expectEqualStrings("autosave/middle.dinttyws", plan.delete_entries[0].path);
+    try std.testing.expectEqualStrings("recovery/old.dinttyws", plan.delete_entries[1].path);
 }
 
 test "recovery cleanup applies planned file deletion" {
@@ -511,15 +511,15 @@ test "recovery cleanup applies planned file deletion" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.writeFile(io, .{ .sub_path = "newest.nocttyws", .data = "keep" });
-    try tmp.dir.writeFile(io, .{ .sub_path = "middle.nocttyws", .data = "delete" });
-    try tmp.dir.writeFile(io, .{ .sub_path = "old.nocttyws", .data = "delete" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "newest.dinttyws", .data = "keep" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "middle.dinttyws", .data = "delete" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "old.dinttyws", .data = "delete" });
 
     var plan = try planRecoveryCleanupAlloc(allocator, .{ .max_recovery_snapshots = 1 }, &.{
-        .{ .path = "old.nocttyws", .role = .recovery, .saved_generation = 1, .saved_at_ms = 1000 },
-        .{ .path = "middle.nocttyws", .role = .autosave, .saved_generation = 2, .saved_at_ms = 2000 },
-        .{ .path = "newest.nocttyws", .role = .recovery, .saved_generation = 3, .saved_at_ms = 3000 },
-        .{ .path = "already-missing.nocttyws", .role = .recovery, .saved_generation = 0, .saved_at_ms = 0 },
+        .{ .path = "old.dinttyws", .role = .recovery, .saved_generation = 1, .saved_at_ms = 1000 },
+        .{ .path = "middle.dinttyws", .role = .autosave, .saved_generation = 2, .saved_at_ms = 2000 },
+        .{ .path = "newest.dinttyws", .role = .recovery, .saved_generation = 3, .saved_at_ms = 3000 },
+        .{ .path = "already-missing.dinttyws", .role = .recovery, .saved_generation = 0, .saved_at_ms = 0 },
     });
     defer plan.deinit(allocator);
 
@@ -528,9 +528,9 @@ test "recovery cleanup applies planned file deletion" {
     try std.testing.expectEqual(@as(usize, 2), receipt.deleted_count);
     try std.testing.expectEqual(@as(usize, 1), receipt.missing_count);
 
-    const kept = try tmp.dir.readFileAlloc(io, "newest.nocttyws", allocator, .limited(16));
+    const kept = try tmp.dir.readFileAlloc(io, "newest.dinttyws", allocator, .limited(16));
     defer allocator.free(kept);
     try std.testing.expectEqualStrings("keep", kept);
-    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "middle.nocttyws", allocator, .limited(16)));
-    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "old.nocttyws", allocator, .limited(16)));
+    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "middle.dinttyws", allocator, .limited(16)));
+    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "old.dinttyws", allocator, .limited(16)));
 }

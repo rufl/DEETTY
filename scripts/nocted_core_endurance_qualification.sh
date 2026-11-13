@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd -P)
-scratch=$(mktemp -d "$repo_root/.noctty-core-endurance.XXXXXX")
+scratch=$(mktemp -d "$repo_root/.dintty-core-endurance.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }

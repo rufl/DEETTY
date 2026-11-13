@@ -27,7 +27,7 @@ For deterministic diagnostics:
 An empty evidence directory emits issue rows such as:
 
 ```text
-release_operations_issue category=tagged_artifacts path=noctty-linux-x86_64.tar.gz reason=missing
+release_operations_issue category=tagged_artifacts path=dintty-linux-x86_64.tar.gz reason=missing
 release_operations_issue category=compositor_acceptance path=compositors/niri.txt reason=missing
 release_operations_issues total=21
 ```
@@ -45,8 +45,8 @@ The scaffold creates publication, redistribution, compositor, and Wayland HID re
 To retain architecture artifacts after a tagged workflow run:
 
 ```sh
-./scripts/release_operations_artifact_intake.sh x86_64 /path/to/noctty-linux-x86_64.tar.gz release/evidence/0.1.0
-./scripts/release_operations_artifact_intake.sh aarch64 /path/to/noctty-linux-aarch64.tar.gz release/evidence/0.1.0
+./scripts/release_operations_artifact_intake.sh x86_64 /path/to/dintty-linux-x86_64.tar.gz release/evidence/0.1.0
+./scripts/release_operations_artifact_intake.sh aarch64 /path/to/dintty-linux-aarch64.tar.gz release/evidence/0.1.0
 ```
 
 Each archive must have adjacent `.sha256` and `.manifest` sidecars. The intake guard runs `sha256sum -c`, requires `architecture=<arch>`, requires `archive_sha256=<sidecar digest>`, and rewrites the retained checksum sidecar to the canonical evidence filename. Its smoke receipt is `release_operations_artifact_intake_smoke x86_64=true aarch64=true sidecars_verified=true retained_status=true mismatch_blocked=true scratch_clean=true`. After both lanes are retained, status can report `tagged_artifacts=true signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=5`; this proves retained architecture artifacts only, not signatures or publication.
@@ -54,12 +54,12 @@ Each archive must have adjacent `.sha256` and `.manifest` sidecars. The intake g
 To retain signatures after the matching targets exist:
 
 ```sh
-./scripts/release_operations_signature_intake.sh x86_64 archive /path/to/noctty-linux-x86_64.tar.gz.sig release/evidence/0.1.0
-./scripts/release_operations_signature_intake.sh x86_64 checksum /path/to/noctty-linux-x86_64.tar.gz.sha256.sig release/evidence/0.1.0
-./scripts/release_operations_signature_intake.sh x86_64 manifest /path/to/noctty-linux-x86_64.tar.gz.manifest.sig release/evidence/0.1.0
-./scripts/release_operations_signature_intake.sh aarch64 archive /path/to/noctty-linux-aarch64.tar.gz.sig release/evidence/0.1.0
-./scripts/release_operations_signature_intake.sh aarch64 checksum /path/to/noctty-linux-aarch64.tar.gz.sha256.sig release/evidence/0.1.0
-./scripts/release_operations_signature_intake.sh aarch64 manifest /path/to/noctty-linux-aarch64.tar.gz.manifest.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh x86_64 archive /path/to/dintty-linux-x86_64.tar.gz.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh x86_64 checksum /path/to/dintty-linux-x86_64.tar.gz.sha256.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh x86_64 manifest /path/to/dintty-linux-x86_64.tar.gz.manifest.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh aarch64 archive /path/to/dintty-linux-aarch64.tar.gz.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh aarch64 checksum /path/to/dintty-linux-aarch64.tar.gz.sha256.sig release/evidence/0.1.0
+./scripts/release_operations_signature_intake.sh aarch64 manifest /path/to/dintty-linux-aarch64.tar.gz.manifest.sig release/evidence/0.1.0
 ```
 
 The signature intake guard requires the canonical retained artifact, checksum, or manifest target to already exist, rejects empty or placeholder signature files, and copies the signature into the canonical evidence filename. It does not perform cryptographic verification; that remains a release-key operation outside local source verification. Its smoke receipt is `release_operations_signature_intake_smoke archive=true checksum=true manifest=true x86_64=true aarch64=true placeholder_blocked=true target_required=true retained_status=true scratch_clean=true`. After all six signatures are retained, status can report `tagged_artifacts=true signatures=true publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=4`; this proves retained signature files only, not publication or key trust.
@@ -89,16 +89,16 @@ The acceptance intake guard rejects placeholder text, requires each compositor r
 
 ## Evidence Directory
 
-By default the checker reads `release/evidence/0.1.0`. Override it with `NOCTTY_RELEASE_EVIDENCE_DIR` when validating retained evidence outside the checkout.
+By default the checker reads `release/evidence/0.1.0`. Override it with `DINTTY_RELEASE_EVIDENCE_DIR` when validating retained evidence outside the checkout.
 
 Required files for `tagged_artifacts=true`:
 
-- `noctty-linux-x86_64.tar.gz`
-- `noctty-linux-x86_64.tar.gz.sha256`
-- `noctty-linux-x86_64.tar.gz.manifest`
-- `noctty-linux-aarch64.tar.gz`
-- `noctty-linux-aarch64.tar.gz.sha256`
-- `noctty-linux-aarch64.tar.gz.manifest`
+- `dintty-linux-x86_64.tar.gz`
+- `dintty-linux-x86_64.tar.gz.sha256`
+- `dintty-linux-x86_64.tar.gz.manifest`
+- `dintty-linux-aarch64.tar.gz`
+- `dintty-linux-aarch64.tar.gz.sha256`
+- `dintty-linux-aarch64.tar.gz.manifest`
 
 The checker runs `sha256sum -c` for both retained architecture artifacts before marking the row true.
 
@@ -114,12 +114,12 @@ If the sidecar and manifest disagree, the checker emits `manifest_digest_mismatc
 
 Required files for `signatures=true`:
 
-- `noctty-linux-x86_64.tar.gz.sig`
-- `noctty-linux-aarch64.tar.gz.sig`
-- `noctty-linux-x86_64.tar.gz.sha256.sig`
-- `noctty-linux-aarch64.tar.gz.sha256.sig`
-- `noctty-linux-x86_64.tar.gz.manifest.sig`
-- `noctty-linux-aarch64.tar.gz.manifest.sig`
+- `dintty-linux-x86_64.tar.gz.sig`
+- `dintty-linux-aarch64.tar.gz.sig`
+- `dintty-linux-x86_64.tar.gz.sha256.sig`
+- `dintty-linux-aarch64.tar.gz.sha256.sig`
+- `dintty-linux-x86_64.tar.gz.manifest.sig`
+- `dintty-linux-aarch64.tar.gz.manifest.sig`
 
 Use `./scripts/release_operations_signature_intake.sh` for these files so each signature is tied to an already retained canonical target. The local checker rejects placeholder signature text but intentionally does not claim cryptographic key verification.
 
@@ -158,7 +158,7 @@ Required file for `wayland_hid_consent=true`:
 
 - `wayland-hid-consent-receipt.txt`
 
-The Wayland HID receipt must come from an explicitly consented RemoteDesktop/EIS portal session. NOCTTY must never bypass compositor consent or treat a read-only capability probe as physical-input proof.
+The Wayland HID receipt must come from an explicitly consented RemoteDesktop/EIS portal session. DINTTY must never bypass compositor consent or treat a read-only capability probe as physical-input proof.
 
 The HID receipt must include `version=0.1.0`, `portal=RemoteDesktop/EIS`, `explicit_user_consent=true`, and `physical_input_receipt=true`.
 

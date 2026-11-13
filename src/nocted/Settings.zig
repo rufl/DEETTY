@@ -6,6 +6,10 @@ pub const max_state_bytes: usize = 64 * 1024;
 pub const ui_font_size_pt_default: u8 = 11;
 pub const ui_font_size_pt_min: u8 = 8;
 pub const ui_font_size_pt_max: u8 = 32;
+pub const WindowMode = enum {
+    windowed,
+    zen_fullscreen,
+};
 
 pub const Settings = struct {
     syntax_prompt_done: bool = false,
@@ -13,6 +17,7 @@ pub const Settings = struct {
     minimap_visible: bool = true,
     code_folding_enabled: bool = true,
     word_wrap_enabled: bool = false,
+    window_mode: WindowMode = .windowed,
     ui_font_size_pt: u8 = ui_font_size_pt_default,
     import_paths: std.array_list.Managed([]u8),
 
@@ -97,6 +102,7 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Settings {
     var folding_seen = false;
     var word_wrap_seen = false;
     var ui_font_size_seen = false;
+    var window_mode_seen = false;
     var lines = std.mem.splitScalar(u8, bytes, '\n');
     while (lines.next()) |line_raw| {
         const line = std.mem.trim(u8, line_raw, " \t\r");
@@ -113,6 +119,8 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Settings {
                 2
             else if (std.mem.eql(u8, value, "3"))
                 3
+            else if (std.mem.eql(u8, value, "4"))
+                4
             else
                 return error.UnsupportedSettingsVersion;
         } else if (std.mem.eql(u8, key, "syntax_prompt_done")) {
@@ -141,10 +149,16 @@ fn parseAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Settings {
             ui_font_size_seen = true;
             try settings.setUiFontSize(try std.fmt.parseUnsigned(u8, value, 10));
         } else if (std.mem.eql(u8, key, "ui_font_size_pt")) {
-            if (version != 3 or ui_font_size_seen)
+            if ((version != 3 and version != 4) or ui_font_size_seen)
                 return error.InvalidSettingsState;
             ui_font_size_seen = true;
             try settings.setUiFontSize(try std.fmt.parseUnsigned(u8, value, 10));
+        } else if (std.mem.eql(u8, key, "window_mode")) {
+            if (version != 4 or window_mode_seen)
+                return error.InvalidSettingsState;
+            window_mode_seen = true;
+            settings.window_mode = std.meta.stringToEnum(WindowMode, value) orelse
+                return error.InvalidSettingsState;
         } else if (std.mem.eql(u8, key, "syntax_path")) {
             if (!try settings.addImportPath(allocator, value))
                 return error.DuplicateSyntaxPath;
@@ -166,7 +180,7 @@ pub fn save(io: std.Io, path: []const u8, settings: *const Settings) !void {
     var output: std.Io.Writer.Allocating = .init(std.heap.page_allocator);
     defer output.deinit();
     try output.writer.print(
-        "version=3\nsyntax_prompt_done={}\nsidebar_visible={}\nminimap_visible={}\ncode_folding_enabled={}\nword_wrap_enabled={}\nui_font_size_pt={d}\n",
+        "version=4\nsyntax_prompt_done={}\nsidebar_visible={}\nminimap_visible={}\ncode_folding_enabled={}\nword_wrap_enabled={}\nui_font_size_pt={d}\nwindow_mode={s}\n",
         .{
             settings.syntax_prompt_done,
             settings.sidebar_visible,
@@ -174,6 +188,7 @@ pub fn save(io: std.Io, path: []const u8, settings: *const Settings) !void {
             settings.code_folding_enabled,
             settings.word_wrap_enabled,
             settings.ui_font_size_pt,
+            @tagName(settings.window_mode),
         },
     );
     for (settings.import_paths.items) |import_path|
@@ -231,6 +246,7 @@ test "settings round trip GUI-owned syntax paths" {
     expected.sidebar_visible = false;
     expected.code_folding_enabled = false;
     expected.word_wrap_enabled = true;
+    expected.window_mode = .zen_fullscreen;
     try expected.setUiFontSize(18);
     _ = try expected.addImportPath(allocator, "/opt/syntax/language-specs");
     try save(io, path, &expected);
@@ -242,6 +258,7 @@ test "settings round trip GUI-owned syntax paths" {
     try std.testing.expect(actual.minimap_visible);
     try std.testing.expect(!actual.code_folding_enabled);
     try std.testing.expect(actual.word_wrap_enabled);
+    try std.testing.expectEqual(WindowMode.zen_fullscreen, actual.window_mode);
     try std.testing.expectEqual(@as(u8, 18), actual.ui_font_size_pt);
     try std.testing.expectEqual(@as(usize, 1), actual.import_paths.items.len);
     try std.testing.expectEqualStrings(
@@ -273,6 +290,13 @@ test "settings round trip GUI-owned syntax paths" {
     var prior = try loadAlloc(allocator, io, path);
     defer prior.deinit(allocator);
     try std.testing.expectEqual(@as(u8, 18), prior.ui_font_size_pt);
+    try std.Io.Dir.cwd().writeFile(io, .{
+        .sub_path = path,
+        .data = "version=3\nui_font_size_pt=18\n",
+    });
+    var v3 = try loadAlloc(allocator, io, path);
+    defer v3.deinit(allocator);
+    try std.testing.expectEqual(WindowMode.windowed, v3.window_mode);
 }
 
 test "malformed and oversized settings fall back to defaults" {
@@ -302,6 +326,9 @@ test "malformed and oversized settings fall back to defaults" {
         "version=3\nui_font_size_pt=7\n",
         "version=3\nui_font_size_pt=33\n",
         "version=3\nui_font_size_pt=12\nui_font_size_pt=13\n",
+        "version=3\nwindow_mode=zen_fullscreen\n",
+        "version=4\nwindow_mode=maybe\n",
+        "version=4\nwindow_mode=windowed\nwindow_mode=zen_fullscreen\n",
     };
     for (malformed) |contents| {
         try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = contents });
@@ -312,6 +339,7 @@ test "malformed and oversized settings fall back to defaults" {
         try std.testing.expect(settings.minimap_visible);
         try std.testing.expect(settings.code_folding_enabled);
         try std.testing.expect(!settings.word_wrap_enabled);
+        try std.testing.expectEqual(WindowMode.windowed, settings.window_mode);
         try std.testing.expectEqual(
             ui_font_size_pt_default,
             settings.ui_font_size_pt,

@@ -2,12 +2,12 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch_parent=${NOCTTY_PIPELINE_QUALIFICATION_PARENT:-$repo_root}
+scratch_parent=${DINTTY_PIPELINE_QUALIFICATION_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.noctty-grid-pipeline.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.dintty-grid-pipeline.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }
@@ -47,14 +47,14 @@ run_mode() {
     mode_xdg_cache="$scratch/xdg-cache-$mode"
     mkdir -p "$mode_tmp" "$mode_xdg_cache"
     TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
-        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build noctty-smoke-binary \
+        ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build dintty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$local_cache"
 
     output_file="$scratch/output-$mode"
     artifact="$scratch/pipeline-$mode.png"
-    "$prefix/bin/noctty-smoke" \
+    "$prefix/bin/dintty-smoke" \
         --native-grid-pipeline-qualification "$artifact" "$mode" \
         >"$output_file" &
     runner_pid=$!
@@ -87,7 +87,7 @@ run_mode() {
         "$peak_tree_pss_kib" "$peak_tree_rss_kib" "$samples" \
         >"$scratch/resource-$mode"
 
-    "$prefix/bin/noctty-smoke" \
+    "$prefix/bin/dintty-smoke" \
         --native-grid-pipeline-qualification \
         "$scratch/pipeline-$mode-repeat.png" "$mode" \
         >"$scratch/output-$mode-repeat"

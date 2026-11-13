@@ -301,7 +301,7 @@ pub fn probe(path: ?[]const u8) Probe {
     const symbols_complete = runtime.symbols.complete();
     // The current public C ABI exposes only invalid/macos/ios platform tags.
     // Until a supported Linux platform-surface contract exists, symbol presence
-    // alone must never promote a library to a safe NOCTTY GUI backend.
+    // alone must never promote a library to a safe DINTTY GUI backend.
     const platform_surface_supported = false;
     return .{
         .available = true,

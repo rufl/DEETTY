@@ -84,13 +84,13 @@ pub const LaunchOptions = extern struct {
     startup_activation_token_length: usize = 0,
 };
 
-extern fn noctty_native_grid_host_run_v2(
+extern fn dintty_native_grid_host_run_v2(
     callbacks: *const Callbacks,
     options: *const LaunchOptions,
 ) c_int;
 
 pub fn run(callbacks: *const Callbacks, options: *const LaunchOptions) c_int {
-    return noctty_native_grid_host_run_v2(callbacks, options);
+    return dintty_native_grid_host_run_v2(callbacks, options);
 }
 
 fn countPasteBytes(_: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(.c) c_int {

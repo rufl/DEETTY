@@ -72,7 +72,7 @@ pub fn validateWorkspacePath(path: []const u8) !void {
     if (!std.fs.path.isAbsolute(path)) return error.WorkspacePathMustBeAbsolute;
     if (path.len > 1 and path[1] == '/') return error.WorkspaceNetworkPathForbidden;
     if (!std.unicode.utf8ValidateSlice(path)) return error.InvalidWorkspacePathEncoding;
-    if (!std.mem.endsWith(u8, path, ".nocttyws")) return error.InvalidWorkspacePathExtension;
+    if (!std.mem.endsWith(u8, path, ".dinttyws")) return error.InvalidWorkspacePathExtension;
     for (path) |byte| {
         if (byte == 0 or byte < 0x20 or byte == 0x7f)
             return error.InvalidWorkspacePathControl;
@@ -80,8 +80,8 @@ pub fn validateWorkspacePath(path: []const u8) !void {
 }
 
 pub fn parseWorkspaceUri(uri: []const u8) !WorkspacePath {
-    const encoded = if (std.mem.startsWith(u8, uri, "noctty://"))
-        uri["noctty://".len..]
+    const encoded = if (std.mem.startsWith(u8, uri, "dintty://"))
+        uri["dintty://".len..]
     else if (std.mem.startsWith(u8, uri, "file://"))
         uri["file://".len..]
     else
@@ -122,35 +122,35 @@ fn hexNibble(byte: u8) !u8 {
 }
 
 test "workspace URI activation accepts only bounded local snapshot paths" {
-    const noctty = try parseWorkspaceUri("noctty:///tmp/Release%20Ops.nocttyws");
-    try std.testing.expectEqualStrings("/tmp/Release Ops.nocttyws", noctty.slice());
-    const file = try parseWorkspaceUri("file:///home/alice/project.nocttyws");
-    try std.testing.expectEqualStrings("/home/alice/project.nocttyws", file.slice());
+    const dintty = try parseWorkspaceUri("dintty:///tmp/Release%20Ops.dinttyws");
+    try std.testing.expectEqualStrings("/tmp/Release Ops.dinttyws", dintty.slice());
+    const file = try parseWorkspaceUri("file:///home/alice/project.dinttyws");
+    try std.testing.expectEqualStrings("/home/alice/project.dinttyws", file.slice());
 
-    try std.testing.expectError(error.UnsupportedWorkspaceUriScheme, parseWorkspaceUri("https:///tmp/project.nocttyws"));
-    try std.testing.expectError(error.WorkspaceUriAuthorityForbidden, parseWorkspaceUri("file://host/tmp/project.nocttyws"));
-    try std.testing.expectError(error.WorkspaceNetworkPathForbidden, parseWorkspaceUri("file:////host/project.nocttyws"));
-    try std.testing.expectError(error.WorkspaceUriSuffixForbidden, parseWorkspaceUri("noctty:///tmp/project.nocttyws?mode=replace"));
-    try std.testing.expectError(error.WorkspaceUriSuffixForbidden, parseWorkspaceUri("noctty:///tmp/project.nocttyws#tab-1"));
-    try std.testing.expectError(error.InvalidWorkspaceUriEscape, parseWorkspaceUri("noctty:///tmp/%zz.nocttyws"));
-    try std.testing.expectError(error.InvalidWorkspacePathControl, parseWorkspaceUri("noctty:///tmp/a%00.nocttyws"));
-    try std.testing.expectError(error.UnescapedWorkspaceUriSpace, parseWorkspaceUri("noctty:///tmp/a b.nocttyws"));
-    try std.testing.expectError(error.InvalidWorkspacePathExtension, parseWorkspaceUri("noctty:///tmp/project.json"));
+    try std.testing.expectError(error.UnsupportedWorkspaceUriScheme, parseWorkspaceUri("https:///tmp/project.dinttyws"));
+    try std.testing.expectError(error.WorkspaceUriAuthorityForbidden, parseWorkspaceUri("file://host/tmp/project.dinttyws"));
+    try std.testing.expectError(error.WorkspaceNetworkPathForbidden, parseWorkspaceUri("file:////host/project.dinttyws"));
+    try std.testing.expectError(error.WorkspaceUriSuffixForbidden, parseWorkspaceUri("dintty:///tmp/project.dinttyws?mode=replace"));
+    try std.testing.expectError(error.WorkspaceUriSuffixForbidden, parseWorkspaceUri("dintty:///tmp/project.dinttyws#tab-1"));
+    try std.testing.expectError(error.InvalidWorkspaceUriEscape, parseWorkspaceUri("dintty:///tmp/%zz.dinttyws"));
+    try std.testing.expectError(error.InvalidWorkspacePathControl, parseWorkspaceUri("dintty:///tmp/a%00.dinttyws"));
+    try std.testing.expectError(error.UnescapedWorkspaceUriSpace, parseWorkspaceUri("dintty:///tmp/a b.dinttyws"));
+    try std.testing.expectError(error.InvalidWorkspacePathExtension, parseWorkspaceUri("dintty:///tmp/project.json"));
 }
 
 test "recent workspaces are a fixed deduplicating most-recent-first library" {
     var recent = RecentWorkspaces{};
     for (0..max_recent_workspaces + 2) |index| {
         var buffer: [96]u8 = undefined;
-        const path = try std.fmt.bufPrint(&buffer, "/tmp/workspace-{d}.nocttyws", .{index});
+        const path = try std.fmt.bufPrint(&buffer, "/tmp/workspace-{d}.dinttyws", .{index});
         try recent.record(path);
     }
     try std.testing.expectEqual(@as(u8, max_recent_workspaces), recent.count);
-    try std.testing.expectEqualStrings("/tmp/workspace-9.nocttyws", recent.at(0).?);
-    try std.testing.expectEqualStrings("/tmp/workspace-2.nocttyws", recent.at(7).?);
+    try std.testing.expectEqualStrings("/tmp/workspace-9.dinttyws", recent.at(0).?);
+    try std.testing.expectEqualStrings("/tmp/workspace-2.dinttyws", recent.at(7).?);
 
-    try recent.record("/tmp/workspace-5.nocttyws");
+    try recent.record("/tmp/workspace-5.dinttyws");
     try std.testing.expectEqual(@as(u8, max_recent_workspaces), recent.count);
-    try std.testing.expectEqualStrings("/tmp/workspace-5.nocttyws", recent.at(0).?);
+    try std.testing.expectEqualStrings("/tmp/workspace-5.dinttyws", recent.at(0).?);
     try recent.validate();
 }

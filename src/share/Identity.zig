@@ -129,7 +129,7 @@ pub const Store = struct {
 
 pub fn defaultPathAlloc(allocator: std.mem.Allocator, base_dir: []const u8) ![]u8 {
     if (base_dir.len == 0) return error.InvalidPairedDevicePath;
-    return std.fs.path.join(allocator, &.{ base_dir, "noctty", "paired-devices.nocttypair" });
+    return std.fs.path.join(allocator, &.{ base_dir, "dintty", "paired-devices.dinttypair" });
 }
 
 pub fn exportAlloc(allocator: std.mem.Allocator, store: *const Store) ![]u8 {

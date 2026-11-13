@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-release-acceptance-intake.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-release-acceptance-intake.XXXXXX")
 
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
@@ -27,7 +27,7 @@ make_artifact() {
     printf 'architecture=%s\n' "$arch"
     printf 'archive_sha256=%s\n' "$digest"
     printf 'installed_files_begin\n'
-    printf 'bin/noctty\n'
+    printf 'bin/dintty\n'
     printf 'installed_files_end\n'
     printf 'library_inventory_begin\n'
     printf 'libexample.so|sha256=example\n'
@@ -77,7 +77,7 @@ publication_receipt="$src/publication-receipt.txt"
   printf 'checksums_published=true\n'
   printf 'signatures_published=true\n'
   printf 'release_notes_published=true\n'
-  printf 'publication_url=https://example.invalid/noctty/0.1.0\n'
+  printf 'publication_url=https://example.invalid/dintty/0.1.0\n'
   printf 'published_at_utc=2026-07-14T00:00:00Z\n'
   printf 'operator=release-operator\n'
 } >"$publication_receipt"
@@ -95,7 +95,7 @@ redistribution_receipt="$src/dependency-bundle-redistribution-notices.md"
 ./scripts/release_operations_receipt_intake.sh publication "$publication_receipt" "$evidence" >/dev/null
 ./scripts/release_operations_receipt_intake.sh dependency-bundle-redistribution "$redistribution_receipt" "$evidence" >/dev/null
 
-pre_acceptance_status=$(NOCTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
+pre_acceptance_status=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
 printf '%s\n' "$pre_acceptance_status" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=true dependency_bundle_redistribution=true compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=2' >/dev/null
 
 for compositor in niri hyprland sway scroll labwc mango; do
@@ -114,7 +114,7 @@ hid_receipt="$src/wayland-hid-consent-receipt.txt"
 hid_output=$(./scripts/release_operations_acceptance_intake.sh wayland-hid "$hid_receipt" "$evidence")
 printf '%s\n' "$hid_output" | grep -F "release_operations_acceptance_intake version=0.1.0 receipt=wayland-hid semantic=true placeholder_blocking=true retained=true path=$evidence" >/dev/null
 
-status_output=$(NOCTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --require-complete --list-missing)
+status_output=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --require-complete --list-missing)
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=true dependency_bundle_redistribution=true compositor_acceptance=true wayland_hid_consent=true complete=true external_blockers=0' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issues total=0' >/dev/null
 

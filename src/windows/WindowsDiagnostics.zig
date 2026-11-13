@@ -1,6 +1,6 @@
 //! Local-only Windows launch logging and minidump ownership.
 //!
-//! Files remain under `%LOCALAPPDATA%\NOCTTY\logs` (or `%TEMP%` fallback).
+//! Files remain under `%LOCALAPPDATA%\DINTTY\logs` (or `%TEMP%` fallback).
 //! No diagnostic data leaves the workstation.
 
 const std = @import("std");
@@ -11,7 +11,7 @@ const path_capacity: usize = c.MAX_PATH * 2;
 var log_file: c.HANDLE = c.INVALID_HANDLE_VALUE;
 var dump_path: [path_capacity:0]u16 = @splat(0);
 
-pub export fn noctty_windows_diagnostics_init() callconv(.c) c_int {
+pub export fn dintty_windows_diagnostics_init() callconv(.c) c_int {
     var base: [c.MAX_PATH:0]u16 = undefined;
     const local_app_data = std.unicode.utf8ToUtf16LeStringLiteral("LOCALAPPDATA");
     var length: usize = c.GetEnvironmentVariableW(local_app_data, &base, base.len);
@@ -24,7 +24,7 @@ pub export fn noctty_windows_diagnostics_init() callconv(.c) c_int {
 
     var directory: [path_capacity:0]u16 = @splat(0);
     @memcpy(directory[0..length], base[0..length]);
-    appendWide(&directory, &length, std.unicode.utf8ToUtf16LeStringLiteral("\\NOCTTY")) catch
+    appendWide(&directory, &length, std.unicode.utf8ToUtf16LeStringLiteral("\\DINTTY")) catch
         return 0;
     _ = c.CreateDirectoryW(&directory, null);
     appendWide(&directory, &length, std.unicode.utf8ToUtf16LeStringLiteral("\\logs")) catch
@@ -36,7 +36,7 @@ pub export fn noctty_windows_diagnostics_init() callconv(.c) c_int {
     var suffix_utf8: [128]u8 = undefined;
     const suffix = std.fmt.bufPrint(
         &suffix_utf8,
-        "\\noctty-{d:0>4}{d:0>2}{d:0>2}-{d:0>2}{d:0>2}{d:0>2}-{d}",
+        "\\dintty-{d:0>4}{d:0>2}{d:0>2}-{d:0>2}{d:0>2}{d:0>2}-{d}",
         .{
             time.wYear,
             time.wMonth,
@@ -93,7 +93,7 @@ fn unhandledException(exception: [*c]c.EXCEPTION_POINTERS) callconv(.winapi) c.L
         "crash exception_code=0x{x:0>8} address=0x{x}\r\n",
         .{ record.ExceptionCode, @intFromPtr(record.ExceptionAddress) },
     ) catch "crash exception=unknown\r\n";
-    noctty_windows_diagnostics_write(rendered.ptr, rendered.len);
+    dintty_windows_diagnostics_write(rendered.ptr, rendered.len);
 
     const dump = c.CreateFileW(
         &dump_path,
@@ -124,7 +124,7 @@ fn unhandledException(exception: [*c]c.EXCEPTION_POINTERS) callconv(.winapi) c.L
     return c.EXCEPTION_EXECUTE_HANDLER;
 }
 
-pub export fn noctty_windows_diagnostics_write(
+pub export fn dintty_windows_diagnostics_write(
     bytes: [*]const u8,
     length: usize,
 ) callconv(.c) void {
@@ -139,7 +139,7 @@ pub export fn noctty_windows_diagnostics_write(
     }
 }
 
-pub export fn noctty_windows_diagnostics_deinit() callconv(.c) void {
+pub export fn dintty_windows_diagnostics_deinit() callconv(.c) void {
     if (log_file != c.INVALID_HANDLE_VALUE) {
         _ = c.CloseHandle(log_file);
         log_file = c.INVALID_HANDLE_VALUE;

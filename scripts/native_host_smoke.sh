@@ -6,7 +6,7 @@ set -eu
 for backend in wayland x11; do
     echo "native-host smoke backend=$backend"
     if [ "$backend" = x11 ]; then
-        output_file="/tmp/noctty-native-host-$backend.txt"
+        output_file="/tmp/dintty-native-host-$backend.txt"
         GDK_BACKEND="$backend" zig build smoke-run -- --native-host-smoke | tee "$output_file"
         grep -q 'secondary_started=true secondary_output=true secondary_exited=true' "$output_file"
     else
@@ -15,12 +15,12 @@ for backend in wayland x11; do
 done
 
 echo "native-host smoke mode=windowed backend=x11"
-windowed_output="/tmp/noctty-native-host-windowed.txt"
+windowed_output="/tmp/dintty-native-host-windowed.txt"
 GDK_BACKEND=x11 zig build smoke-run -- --native-host-windowed-smoke | tee "$windowed_output"
 grep -q 'mode=windowed .*placement=windowed' "$windowed_output"
 
 echo "native-host smoke mode=zen_fullscreen backend=x11"
-zen_output="/tmp/noctty-native-host-zen.txt"
+zen_output="/tmp/dintty-native-host-zen.txt"
 GDK_BACKEND=x11 zig build smoke-run -- --native-host-zen-smoke | tee "$zen_output"
 grep -q 'mode=zen_fullscreen .*placement=fullscreen' "$zen_output"
 
@@ -31,16 +31,16 @@ echo "native-host smoke shortcut-recorder backend=wayland"
 GDK_BACKEND=wayland zig build smoke-run -- --native-host-shortcut-recorder-smoke
 
 echo "native-host smoke shortcut-hid backend=x11"
-hid_output="/tmp/noctty-shortcut-hid-output.txt"
-hid_image="/tmp/noctty-shortcut-recorder.png"
-hid_crop="/tmp/noctty-shortcut-recorder-crop.png"
+hid_output="/tmp/dintty-shortcut-hid-output.txt"
+hid_image="/tmp/dintty-shortcut-recorder.png"
+hid_crop="/tmp/dintty-shortcut-recorder-crop.png"
 rm -f "$hid_output" "$hid_image" "$hid_crop"
 GDK_BACKEND=x11 zig build smoke-run -- --native-host-shortcut-hid-smoke >"$hid_output" 2>&1 &
 hid_pid=$!
 window=""
 attempt=0
 while [ "$attempt" -lt 100 ]; do
-    window=$(xdotool search --name '^NOCTTY Dropdown Shortcut$' 2>/dev/null | head -1 || true)
+    window=$(xdotool search --name '^DINTTY Dropdown Shortcut$' 2>/dev/null | head -1 || true)
     [ -n "$window" ] && break
     attempt=$((attempt + 1))
     sleep 0.05

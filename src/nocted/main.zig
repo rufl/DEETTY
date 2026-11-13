@@ -14,7 +14,7 @@ const c = @import("gtk.zig");
 const worker = @import("Worker.zig");
 const tree_sitter = @import("TreeSitter.zig");
 
-const version = @import("noctty_release").version;
+const version = @import("dintty_release").version;
 const log = std.log.scoped(.nocted);
 
 const project_root_entry = std.math.maxInt(u64);
@@ -876,6 +876,11 @@ const App = struct {
     tree_store: *c.GtkTreeStore = undefined,
     tree_store_owned: bool = false,
     notebook: *c.GtkWidget = undefined,
+    top_bar: *c.GtkWidget = undefined,
+    status_bar: *c.GtkWidget = undefined,
+    windowed_mode_item: *c.GtkWidget = undefined,
+    zen_mode_item: *c.GtkWidget = undefined,
+    window_mode: core.settings.WindowMode = .windowed,
     search_box: *c.GtkWidget = undefined,
     search_entry: *c.GtkWidget = undefined,
     search_status: *c.GtkWidget = undefined,
@@ -918,6 +923,7 @@ const App = struct {
     word_wrap_item: *c.GtkWidget = undefined,
     smoke: bool = false,
     startup_smoke: bool = false,
+    window_mode_smoke: bool = false,
     session_restore_smoke: bool = false,
     resource_smoke: bool = false,
     smoke_passed: bool = false,
@@ -1546,16 +1552,18 @@ const App = struct {
             return error.WindowCreationFailed;
         c.gtk_window_set_title(asWindow(self.window), "NoctEd");
         c.gtk_window_set_default_size(asWindow(self.window), 1220, 760);
-        c.gtk_window_set_icon_name(asWindow(self.window), "com.noctty.NoctEd");
+        c.gtk_window_set_icon_name(asWindow(self.window), "com.dintty.NoctEd");
         c.gtk_widget_set_name(self.window, "nocted-window");
         setAccessibleName(self.window, "NoctEd editor window");
         connect(self.window, "delete-event", @ptrCast(&onWindowDelete), self);
         connect(self.window, "destroy", @ptrCast(&onWindowDestroy), self);
         connect(self.window, "key-press-event", @ptrCast(&onWindowKeyPress), self);
+        connect(self.window, "window-state-event", @ptrCast(&onWindowStateChanged), self);
 
         const root_box = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 0) orelse unreachable;
         const top_bar = c.gtk_box_new(c.GTK_ORIENTATION_HORIZONTAL, 0) orelse unreachable;
         c.gtk_widget_set_name(top_bar, "nocted-topbar");
+        self.top_bar = top_bar;
         self.sidebar_toggle_button = iconButton(
             "view-list-symbolic",
             "Toggle file tree sidebar (Ctrl+B)",
@@ -1588,6 +1596,7 @@ const App = struct {
         self.project_search_box = try self.buildProjectSearchPanel();
         self.quick_open_box = try self.buildQuickOpenPanel();
         const status = self.buildStatusBar();
+        self.status_bar = status;
         c.gtk_box_pack_start(asBox(root_box), top_bar, 0, 0, 0);
         c.gtk_box_pack_start(asBox(root_box), self.main_paned, 1, 1, 0);
         c.gtk_box_pack_start(asBox(root_box), self.quick_open_box, 0, 0, 0);
@@ -1602,6 +1611,8 @@ const App = struct {
         c.gtk_widget_hide(self.quick_open_box);
         c.gtk_widget_hide(self.project_search_box);
         c.gtk_widget_hide(self.search_box);
+        self.window_mode = self.settings.window_mode;
+        self.applyWindowMode(self.window_mode, false);
         self.updateStatus("Ready");
     }
 
@@ -1705,6 +1716,21 @@ const App = struct {
         appendMenuAction(view_menu, "Unfold Current Region", &onUnfoldCurrent, self);
         appendMenuAction(view_menu, "Fold All", &onFoldAll, self);
         appendMenuAction(view_menu, "Unfold All", &onUnfoldAll, self);
+        appendMenuSeparator(view_menu);
+        self.windowed_mode_item = appendCheckMenuAction(
+            view_menu,
+            "Windowed",
+            self.settings.window_mode == .windowed,
+            &onWindowModeWindowed,
+            self,
+        );
+        self.zen_mode_item = appendCheckMenuAction(
+            view_menu,
+            "Zen Fullscreen (F11)",
+            self.settings.window_mode == .zen_fullscreen,
+            &onWindowModeZen,
+            self,
+        );
         appendMenuRoot(bar, "View", view_menu);
 
         const settings_menu = c.gtk_menu_new() orelse unreachable;
@@ -2272,10 +2298,7 @@ const App = struct {
         if (self.project_file_path) |previous| self.allocator.free(previous);
         self.project_file_path = project_file_path;
         self.project_surface_open = true;
-        c.gtk_widget_set_visible(
-            self.sidebar,
-            @intFromBool(self.settings.sidebar_visible),
-        );
+        c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.sidebarShouldShow()));
         self.rememberProject(resolved);
     }
 
@@ -2295,10 +2318,7 @@ const App = struct {
     fn openProject(self: *App, requested_path: []const u8) !void {
         if (self.smoke or self.project_lifecycle_smoke) {
             self.project_surface_open = true;
-            c.gtk_widget_set_visible(
-                self.sidebar,
-                @intFromBool(self.settings.sidebar_visible),
-            );
+            c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.sidebarShouldShow()));
         }
         const resolved = try self.resolveExistingPath(requested_path);
         var resolved_owned = true;
@@ -4127,7 +4147,7 @@ const App = struct {
             return;
         }
         self.settings.sidebar_visible = !self.settings.sidebar_visible;
-        c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.settings.sidebar_visible));
+        c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.sidebarShouldShow()));
         self.persistSettings();
     }
 
@@ -4167,6 +4187,51 @@ const App = struct {
             @intFromBool(enabled),
         );
         self.setWordWrapEnabled(enabled);
+    }
+    fn sidebarShouldShow(self: *App) bool {
+        return self.settings.sidebar_visible and self.project_surface_open and
+            self.window_mode != .zen_fullscreen;
+    }
+
+    fn setWindowMode(self: *App, mode: core.settings.WindowMode) void {
+        if (self.window_mode == mode) return;
+        self.window_mode = mode;
+        self.settings.window_mode = mode;
+        self.applyWindowMode(mode, true);
+    }
+
+    fn applyWindowMode(self: *App, mode: core.settings.WindowMode, persist: bool) void {
+        const zen = mode == .zen_fullscreen;
+        // Wayland (Aqueous/Pearl) fullscreens through xdg-shell with
+        // server-side decorations; X11 uses the EWMH request. No CSD
+        // assumptions, so GTK_CSD=0 sessions behave the same.
+        if (zen)
+            c.gtk_window_fullscreen(asWindow(self.window))
+        else
+            c.gtk_window_unfullscreen(asWindow(self.window));
+        self.syncWindowChrome(mode);
+        self.syncWindowModeMenu();
+        if (persist) self.persistSettings();
+        self.updateStatus(if (zen) "Zen fullscreen" else "Windowed");
+    }
+
+    fn syncWindowChrome(self: *App, mode: core.settings.WindowMode) void {
+        const zen = mode == .zen_fullscreen;
+        c.gtk_widget_set_visible(self.top_bar, @intFromBool(!zen));
+        c.gtk_widget_set_visible(self.status_bar, @intFromBool(!zen));
+        c.gtk_notebook_set_show_tabs(asNotebook(self.notebook), @intFromBool(!zen));
+        c.gtk_widget_set_visible(self.sidebar, @intFromBool(self.sidebarShouldShow()));
+    }
+
+    fn syncWindowModeMenu(self: *App) void {
+        c.gtk_check_menu_item_set_active(
+            @ptrCast(self.windowed_mode_item),
+            @intFromBool(self.window_mode == .windowed),
+        );
+        c.gtk_check_menu_item_set_active(
+            @ptrCast(self.zen_mode_item),
+            @intFromBool(self.window_mode == .zen_fullscreen),
+        );
     }
 
     fn setCodeFoldingEnabled(self: *App, enabled: bool) void {
@@ -6495,7 +6560,8 @@ fn validateApplicationArguments(args: []const []const u8) !void {
         } else if (std.mem.eql(u8, arg, "--smoke") or
             std.mem.eql(u8, arg, "--startup-smoke") or
             std.mem.eql(u8, arg, "--session-restore-smoke") or
-            std.mem.eql(u8, arg, "--project-lifecycle-smoke"))
+            std.mem.eql(u8, arg, "--project-lifecycle-smoke") or
+            std.mem.eql(u8, arg, "--window-mode-smoke"))
         {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
         } else if (std.mem.startsWith(u8, arg, "-")) {
@@ -6579,7 +6645,7 @@ fn applicationIdForDirectory(directory: []const u8, buffer: *[64:0]u8) [*:0]cons
     }
     const formatted = Compat.bufPrintZ(
         buffer,
-        "com.noctty.NoctEd.n{x}",
+        "com.dintty.NoctEd.n{x}",
         .{hash},
     ) catch unreachable;
     return formatted.ptr;
@@ -6801,6 +6867,9 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--startup-smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.startup_smoke = true;
+        } else if (std.mem.eql(u8, arg, "--window-mode-smoke")) {
+            if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
+            app.window_mode_smoke = true;
         } else if (std.mem.eql(u8, arg, "--session-restore-smoke")) {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
             app.session_restore_smoke = true;
@@ -6820,7 +6889,7 @@ pub fn main(init: std.process.Init) !void {
         }
     }
     const restore_requested = !app.smoke and !app.startup_smoke and
-        !app.project_lifecycle_smoke;
+        !app.project_lifecycle_smoke and !app.window_mode_smoke;
     _ = restore_requested and app.restoreSession();
     if (project) |project_path| {
         app.openProjectFile(project_path) catch |err| {
@@ -6860,6 +6929,9 @@ pub fn main(init: std.process.Init) !void {
     if (build_options.enable_smoke and app.startup_smoke) {
         if (c.g_idle_add(onStartupSmoke, &app) == 0)
             return error.StartupSmokeSourceUnavailable;
+    } else if (build_options.enable_smoke and app.window_mode_smoke) {
+        if (c.g_idle_add(onWindowModeSmoke, &app) == 0)
+            return error.WindowModeSmokeSourceUnavailable;
     } else if (build_options.enable_smoke and app.session_restore_smoke) {
         if (c.g_idle_add(onSessionRestoreSmoke, &app) == 0)
             return error.SessionRestoreSmokeSourceUnavailable;
@@ -7290,9 +7362,17 @@ fn onWindowKeyPress(_: ?*c.GtkWidget, event: ?*c.GdkEventKey, data: ?*anyopaque)
                 return 1;
             }
         }
+        if (app.window_mode == .zen_fullscreen) {
+            app.setWindowMode(.windowed);
+            return 1;
+        }
     }
     if (key.keyval == c.GDK_KEY_F3) {
         app.find((modifiers & c.GDK_SHIFT_MASK) == 0);
+        return 1;
+    }
+    if (key.keyval == c.GDK_KEY_F11) {
+        app.setWindowMode(if (app.window_mode == .zen_fullscreen) .windowed else .zen_fullscreen);
         return 1;
     }
     if ((modifiers == c.GDK_CONTROL_MASK or
@@ -8054,6 +8134,35 @@ fn onToggleSidebar(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     app.toggleSidebar();
 }
+fn onWindowModeWindowed(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const active = c.gtk_check_menu_item_get_active(@ptrCast(widget.?)) != 0;
+    app.setWindowMode(if (active) .windowed else .zen_fullscreen);
+}
+
+fn onWindowModeZen(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const active = c.gtk_check_menu_item_get_active(@ptrCast(widget.?)) != 0;
+    app.setWindowMode(if (active) .zen_fullscreen else .windowed);
+}
+
+fn onWindowStateChanged(_: ?*c.GtkWidget, event: ?*c.GdkEventWindowState, data: ?*anyopaque) callconv(.c) c.gboolean {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    const state = event orelse return 0;
+    if ((state.changed_mask & c.GDK_WINDOW_STATE_FULLSCREEN) == 0) return 0;
+    const mode: core.settings.WindowMode =
+        if ((state.new_window_state & c.GDK_WINDOW_STATE_FULLSCREEN) != 0)
+            .zen_fullscreen
+        else
+            .windowed;
+    if (app.window_mode == mode) return 0;
+    app.window_mode = mode;
+    app.settings.window_mode = mode;
+    app.syncWindowChrome(mode);
+    app.syncWindowModeMenu();
+    app.persistSettings();
+    return 0;
+}
 fn onToggleWordWrap(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     const enabled = c.gtk_check_menu_item_get_active(@ptrCast(widget.?)) != 0;
@@ -8267,6 +8376,45 @@ fn onStartupSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
         @as(c_int, @intFromBool(visible)),
         @as(c_int, @intFromBool(tree_closed)),
         @as(c_int, @intFromBool(!no_project)),
+    );
+    app.shutting_down = true;
+    c.gtk_widget_destroy(app.window);
+    return c.G_SOURCE_REMOVE;
+}
+fn onWindowModeSmoke(data: ?*anyopaque) callconv(.c) c.gboolean {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.setWindowMode(.zen_fullscreen);
+    const zen_ok = app.window_mode == .zen_fullscreen and
+        c.gtk_widget_get_visible(app.top_bar) == 0 and
+        c.gtk_widget_get_visible(app.status_bar) == 0 and
+        c.gtk_notebook_get_show_tabs(asNotebook(app.notebook)) == 0 and
+        c.gtk_check_menu_item_get_active(@ptrCast(app.zen_mode_item)) != 0 and
+        c.gtk_check_menu_item_get_active(@ptrCast(app.windowed_mode_item)) == 0;
+    var zen_persisted = false;
+    var zen_settings = core.settings.loadAlloc(app.allocator, app.io, app.settings_path) catch null;
+    if (zen_settings) |*settings| {
+        zen_persisted = settings.window_mode == .zen_fullscreen;
+        settings.deinit(app.allocator);
+    }
+    app.setWindowMode(.windowed);
+    const windowed_ok = app.window_mode == .windowed and
+        c.gtk_widget_get_visible(app.top_bar) != 0 and
+        c.gtk_widget_get_visible(app.status_bar) != 0 and
+        c.gtk_notebook_get_show_tabs(asNotebook(app.notebook)) != 0 and
+        c.gtk_check_menu_item_get_active(@ptrCast(app.windowed_mode_item)) != 0 and
+        c.gtk_check_menu_item_get_active(@ptrCast(app.zen_mode_item)) == 0;
+    var persisted = false;
+    var windowed_settings = core.settings.loadAlloc(app.allocator, app.io, app.settings_path) catch null;
+    if (windowed_settings) |*settings| {
+        persisted = settings.window_mode == .windowed;
+        settings.deinit(app.allocator);
+    }
+    c.g_print(
+        "nocted_window_mode_smoke zen=%d windowed=%d zen_persisted=%d persisted=%d\n",
+        @as(c_int, @intFromBool(zen_ok)),
+        @as(c_int, @intFromBool(windowed_ok)),
+        @as(c_int, @intFromBool(zen_persisted)),
+        @as(c_int, @intFromBool(persisted)),
     );
     app.shutting_down = true;
     c.gtk_widget_destroy(app.window);

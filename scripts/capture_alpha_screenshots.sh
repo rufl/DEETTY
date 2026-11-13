@@ -3,13 +3,13 @@ set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd "$script_dir/.." && pwd)
-if [[ -z "${NOCTTY_ISOLATED_DISPLAY:-}" &&
-      "${NOCTTY_DEDICATED_DISPLAY:-0}" != 1 ]]; then
+if [[ -z "${DINTTY_ISOLATED_DISPLAY:-}" &&
+      "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]]; then
   exec "$script_dir/isolated_display_runner.sh" \
-    --timeout "${NOCTTY_SCREENSHOT_TIMEOUT_SECONDS:-180}" \
-    --screen "${NOCTTY_ISOLATED_DISPLAY_SCREEN:-1280x900x24}" \
-    --wm "${NOCTTY_ISOLATED_X11_WM:-auto}" -- \
-    env NOCTTY_DEDICATED_DISPLAY=1 NOCTTY_ISOLATED_DISPLAY=x11 "$0"
+    --timeout "${DINTTY_SCREENSHOT_TIMEOUT_SECONDS:-180}" \
+    --screen "${DINTTY_ISOLATED_DISPLAY_SCREEN:-1280x900x24}" \
+    --wm "${DINTTY_ISOLATED_X11_WM:-auto}" -- \
+    env DINTTY_DEDICATED_DISPLAY=1 DINTTY_ISOLATED_DISPLAY=x11 "$0"
 fi
 "$script_dir/require_isolated_display.sh" --dedicated
 cd "$repo_root"
@@ -18,16 +18,16 @@ command -v xdotool >/dev/null 2>&1 || {
   exit 1
 }
 
-out_dir=${NOCTTY_SCREENSHOT_DIR:-docs/assets}
+out_dir=${DINTTY_SCREENSHOT_DIR:-docs/assets}
 mkdir -p "$out_dir"
 
-noctty_out="$out_dir/noctty-alpha.png"
+dintty_out="$out_dir/dintty-alpha.png"
 nocted_out="$out_dir/nocted-alpha.png"
-noctty_workspace_out="$out_dir/noctty-alpha-tabs-splits.png"
-noctty_settings_out="$out_dir/noctty-alpha-settings.png"
+dintty_workspace_out="$out_dir/dintty-alpha-tabs-splits.png"
+dintty_settings_out="$out_dir/dintty-alpha-settings.png"
 nocted_search_out="$out_dir/nocted-alpha-project-search.png"
-wait_ms=${NOCTTY_SCREENSHOT_DELAY_MS:-3500}
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-alpha-screenshots.XXXXXX")
+wait_ms=${DINTTY_SCREENSHOT_DELAY_MS:-3500}
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-alpha-screenshots.XXXXXX")
 active_pid=
 
 stop_active() {
@@ -171,11 +171,11 @@ launch_and_capture() {
   test -s "$output"
 }
 
-demo_shell="$scratch/noctty-demo-shell"
+demo_shell="$scratch/dintty-demo-shell"
 cat >"$demo_shell" <<'EOF'
 #!/bin/sh
-printf '\033]2;NOCTTY showcase\007\033[2J\033[H'
-printf '\033[1;38;2;103;232;249mNOCTTY\033[0m  native Zig terminal workspace\n'
+printf '\033]2;DINTTY showcase\007\033[2J\033[H'
+printf '\033[1;38;2;103;232;249mDINTTY\033[0m  native Zig terminal workspace\n'
 printf 'PTY · VT grid · tabs · recursive splits · local-first\n\n'
 printf '\033[38;2;148;163;184m$ printf '\''Unicode: Á 你好 👩‍🚀 │ ANSI 24-bit\\n'\''\033[0m\n'
 printf 'Unicode: Á 你好 👩‍🚀 │ ANSI 24-bit\n'
@@ -186,17 +186,17 @@ printf '\033[38;2;96;165;250mANSI 24-bit color\033[0m\n\n$ '
 IFS= read -r _
 EOF
 chmod 700 "$demo_shell"
-compact_demo_shell="$scratch/noctty-compact-demo-shell"
+compact_demo_shell="$scratch/dintty-compact-demo-shell"
 cat >"$compact_demo_shell" <<'EOF'
 #!/bin/sh
-printf '\033]2;NOCTTY workspace\007\033[2J\033[H'
-printf '\033[1;38;2;103;232;249mNOCTTY pane\033[0m\n'
+printf '\033]2;DINTTY workspace\007\033[2J\033[H'
+printf '\033[1;38;2;103;232;249mDINTTY pane\033[0m\n'
 printf 'independent PTY · ready\n\n$ '
 IFS= read -r _
 EOF
 chmod 700 "$compact_demo_shell"
 
-showcase_root="$scratch/noctty-showcase"
+showcase_root="$scratch/dintty-showcase"
 mkdir -p "$showcase_root/src"
 cat >"$showcase_root/src/main.zig" <<'EOF'
 const std = @import("std");
@@ -219,16 +219,16 @@ pub const Terminal = struct {
     pub fn deinit(_: *Terminal) void {}
 
     pub fn run(_: *Terminal) !void {
-        std.debug.print("NOCTTY workspace ready\n", .{});
+        std.debug.print("DINTTY workspace ready\n", .{});
     }
 };
 EOF
 cat >"$showcase_root/README.md" <<'EOF'
-# NOCTTY workspace
+# DINTTY workspace
 
 Native terminal and editor workspace.
 EOF
-project_file="$scratch/noctty-project.npr"
+project_file="$scratch/dintty-project.npr"
 printf 'version=1\nroot=%s\n' "$showcase_root" >"$project_file"
 for label in nocted nocted-search; do
   mkdir -p "$scratch/config-$label/nocted"
@@ -245,14 +245,14 @@ done
 
 zig build -j1 -Doptimize=ReleaseSafe >"$scratch/build.log" 2>&1
 
-launch_and_capture noctty "$scratch/noctty-alpha.png" "NOCTTY" none \
-  env SHELL="$demo_shell" "$repo_root/zig-out/bin/noctty" --native-grid-windowed
+launch_and_capture dintty "$scratch/dintty-alpha.png" "DINTTY" none \
+  env SHELL="$demo_shell" "$repo_root/zig-out/bin/dintty" --native-grid-windowed
 
-launch_and_capture noctty-workspace "$scratch/noctty-alpha-tabs-splits.png" "NOCTTY" workspace \
-  env SHELL="$compact_demo_shell" "$repo_root/zig-out/bin/noctty" --native-grid-windowed
+launch_and_capture dintty-workspace "$scratch/dintty-alpha-tabs-splits.png" "DINTTY" workspace \
+  env SHELL="$compact_demo_shell" "$repo_root/zig-out/bin/dintty" --native-grid-windowed
 
-launch_and_capture noctty-settings "$scratch/noctty-alpha-settings.png" "NOCTTY" settings \
-  env SHELL="$demo_shell" "$repo_root/zig-out/bin/noctty" --native-grid-windowed
+launch_and_capture dintty-settings "$scratch/dintty-alpha-settings.png" "DINTTY" settings \
+  env SHELL="$demo_shell" "$repo_root/zig-out/bin/dintty" --native-grid-windowed
 
 launch_and_capture nocted "$scratch/nocted-alpha.png" '[Nn][Oo][Cc][Tt][Ee][Dd]' none \
   "$repo_root/zig-out/bin/nocted" --project "$project_file" --open "$showcase_root/src/main.zig"
@@ -260,9 +260,9 @@ launch_and_capture nocted "$scratch/nocted-alpha.png" '[Nn][Oo][Cc][Tt][Ee][Dd]'
 launch_and_capture nocted-search "$scratch/nocted-alpha-project-search.png" '[Nn][Oo][Cc][Tt][Ee][Dd]' nocted-search \
   "$repo_root/zig-out/bin/nocted" --project "$project_file" --open "$showcase_root/src/main.zig"
 
-install -m 0644 "$scratch/noctty-alpha.png" "$noctty_out"
-install -m 0644 "$scratch/noctty-alpha-tabs-splits.png" "$noctty_workspace_out"
-install -m 0644 "$scratch/noctty-alpha-settings.png" "$noctty_settings_out"
+install -m 0644 "$scratch/dintty-alpha.png" "$dintty_out"
+install -m 0644 "$scratch/dintty-alpha-tabs-splits.png" "$dintty_workspace_out"
+install -m 0644 "$scratch/dintty-alpha-settings.png" "$dintty_settings_out"
 install -m 0644 "$scratch/nocted-alpha.png" "$nocted_out"
 install -m 0644 "$scratch/nocted-alpha-project-search.png" "$nocted_search_out"
 

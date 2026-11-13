@@ -3,8 +3,8 @@ set -u
 
 app=$(basename "$0")
 case "$app" in
-  noctty|nocted) ;;
-  *) echo "unknown NOCTTY dogfood launcher: $app" >&2; exit 64 ;;
+  dintty|nocted) ;;
+  *) echo "unknown DINTTY dogfood launcher: $app" >&2; exit 64 ;;
 esac
 
 launcher=$(readlink -f "$0")
@@ -21,13 +21,13 @@ fi
 # Existing-instance controls are latency-sensitive and do not represent a new
 # dogfood session. Bypass receipt/log setup, but retain it when Show or Toggle
 # must cold-start the GUI.
-if [ "$app" = noctty ] && [ "$#" -eq 1 ]; then
+if [ "$app" = dintty ] && [ "$#" -eq 1 ]; then
   case "$1" in
     --status|--hide)
-      exec "$runtime_dir/noctty-bin" "$@"
+      exec "$runtime_dir/dintty-bin" "$@"
       ;;
     --show|--toggle)
-      instance_lock="$HOME/.local/state/noctty/instance.lock"
+      instance_lock="$HOME/.local/state/dintty/instance.lock"
       lock_held=0
       if command -v flock >/dev/null 2>&1 && [ -f "$instance_lock" ]; then
         flock -n -E 75 "$instance_lock" true 2>/dev/null
@@ -35,17 +35,17 @@ if [ "$app" = noctty ] && [ "$#" -eq 1 ]; then
         if [ "$lock_status" -eq 75 ]; then lock_held=1; fi
       fi
       if [ "$lock_held" -eq 1 ] ||
-         "$runtime_dir/noctty-bin" --status 2>/dev/null |
+         "$runtime_dir/dintty-bin" --status 2>/dev/null |
            grep -F 'running=true' >/dev/null; then
-        exec "$runtime_dir/noctty-bin" "$@"
+        exec "$runtime_dir/dintty-bin" "$@"
       fi
       ;;
   esac
 fi
 
 state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
-log_dir="$state_home/noctty/logs"
-receipt_dir="$state_home/noctty/dogfood-sessions"
+log_dir="$state_home/dintty/logs"
+receipt_dir="$state_home/dintty/dogfood-sessions"
 mkdir -p "$log_dir" "$receipt_dir"
 
 start_timestamp=$(date --iso-8601=seconds)
@@ -64,7 +64,7 @@ backend=${GDK_BACKEND:-auto}
 kernel_release=$(uname -r 2>/dev/null || printf 'unknown')
 os_id=$(awk -F= '$1 == "ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || printf 'unknown')
 os_build=$(awk -F= '$1 == "BUILD_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || printf 'unknown')
-build_receipt="$state_home/noctty/dogfood-build.receipt"
+build_receipt="$state_home/dintty/dogfood-build.receipt"
 plasma_version=$(awk -F= '$1 == "plasma_version" { print $2; exit }' \
   "$build_receipt" 2>/dev/null || true)
 kwin_version=$(awk -F= '$1 == "kwin_version" { print $2; exit }' \
@@ -169,7 +169,7 @@ ls -1t "$log_dir/$app"-*.log 2>/dev/null | awk 'NR > 100' | xargs -r rm -f
 ls -1t "$receipt_dir/$app"-*.receipt 2>/dev/null |
   awk 'NR > 500' | xargs -r rm -f
 
-if [ "${NOCTTY_DOGFOOD_VERBOSE:-0}" = 1 ]; then
+if [ "${DINTTY_DOGFOOD_VERBOSE:-0}" = 1 ]; then
   export G_MESSAGES_DEBUG=all
 fi
 ulimit -c unlimited 2>/dev/null || true
@@ -184,8 +184,8 @@ ulimit -c unlimited 2>/dev/null || true
   printf '\n'
 } >>"$log"
 
-export NOCTTY_DOGFOOD_SESSION_ID="$session_id"
-export NOCTTY_DOGFOOD_LOG="$log"
+export DINTTY_DOGFOOD_SESSION_ID="$session_id"
+export DINTTY_DOGFOOD_LOG="$log"
 set +e
 "$runtime_dir/$app-bin" "$@" >>"$log" 2>&1
 status=$?

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-install-dogfood-smoke.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-install-dogfood-smoke.XXXXXX")
 cleanup() { rm -rf "$scratch"; }
 trap cleanup EXIT HUP INT TERM
 fake_bin="$scratch/bin"
@@ -21,25 +21,25 @@ done
 test -n "$prefix"
 mkdir -p "$prefix/bin" "$prefix/share/applications" \
   "$prefix/share/kio/servicemenus" "$prefix/share/icons/hicolor"
-cat >"$prefix/bin/noctty" <<'BIN'
+cat >"$prefix/bin/dintty" <<'BIN'
 #!/usr/bin/env sh
-printf 'noctty 0.1.0\n'
+printf 'dintty 0.1.0\n'
 BIN
 cat >"$prefix/bin/nocted" <<'BIN'
 #!/usr/bin/env sh
 printf 'nocted 0.1.0\n'
 BIN
-chmod +x "$prefix/bin/noctty" "$prefix/bin/nocted"
-cat >"$prefix/share/applications/com.noctty.NOCTTY.desktop" <<'DESKTOP'
-TryExec=noctty
-Exec=noctty --open-uri %u
+chmod +x "$prefix/bin/dintty" "$prefix/bin/nocted"
+cat >"$prefix/share/applications/com.dintty.DINTTY.desktop" <<'DESKTOP'
+TryExec=dintty
+Exec=dintty --open-uri %u
 DESKTOP
-cat >"$prefix/share/applications/com.noctty.NoctEd.desktop" <<'DESKTOP'
+cat >"$prefix/share/applications/com.dintty.NoctEd.desktop" <<'DESKTOP'
 Exec=nocted --open %f
 DESKTOP
-cat >"$prefix/share/kio/servicemenus/nocttyhere.desktop" <<'DESKTOP'
-TryExec=noctty
-Exec=noctty --new-window --working-directory %f
+cat >"$prefix/share/kio/servicemenus/dinttyhere.desktop" <<'DESKTOP'
+TryExec=dintty
+Exec=dintty --new-window --working-directory %f
 DESKTOP
 EOF
 cat >"$fake_bin/ldconfig" <<'EOF'
@@ -58,37 +58,37 @@ chmod +x "$fake_bin/zig" "$fake_bin/ldconfig"
 valid_home="$scratch/valid-home"
 valid_state="$scratch/valid-state"
 valid_prefix="$scratch/valid-prefix"
-valid_runtime="$valid_prefix/libexec/noctty-dogfood"
-mkdir -p "$valid_home" "$valid_state/noctty" "$valid_runtime/lib"
+valid_runtime="$valid_prefix/libexec/dintty-dogfood"
+mkdir -p "$valid_home" "$valid_state/dintty" "$valid_runtime/lib"
 printf 'retained layer shell fixture\n' >"$valid_runtime/lib/libgtk-layer-shell.so.0"
 valid_digest=$(sha256sum "$valid_runtime/lib/libgtk-layer-shell.so.0" | awk '{print $1}')
 printf 'build_receipt_version=1\nlayer_shell_sha256=%s\n' "$valid_digest" \
-  >"$valid_state/noctty/dogfood-build.receipt"
+  >"$valid_state/dintty/dogfood-build.receipt"
 valid_output=$(PATH="$fake_bin:$PATH" HOME="$valid_home" XDG_STATE_HOME="$valid_state" \
   ./scripts/install_dogfood.sh "$valid_prefix")
 printf '%s\n' "$valid_output" | grep -F 'dogfood_install ' >/dev/null
 grep -Fx "layer_shell_sha256=$valid_digest" \
-  "$valid_state/noctty/dogfood-build.receipt" >/dev/null
-test -x "$valid_runtime/noctty-bin"
+  "$valid_state/dintty/dogfood-build.receipt" >/dev/null
+test -x "$valid_runtime/dintty-bin"
 test -x "$valid_runtime/nocted-bin"
 test -x "$valid_runtime/launch"
-test "$(readlink "$valid_prefix/bin/noctty")" = ../libexec/noctty-dogfood/launch
+test "$(readlink "$valid_prefix/bin/dintty")" = ../libexec/dintty-dogfood/launch
 
 invalid_home="$scratch/invalid-home"
 invalid_state="$scratch/invalid-state"
 invalid_prefix="$scratch/invalid-prefix"
-invalid_runtime="$invalid_prefix/libexec/noctty-dogfood"
-mkdir -p "$invalid_home" "$invalid_state/noctty" "$invalid_runtime/lib"
-printf 'existing binary must survive\n' >"$invalid_runtime/noctty-bin"
+invalid_runtime="$invalid_prefix/libexec/dintty-dogfood"
+mkdir -p "$invalid_home" "$invalid_state/dintty" "$invalid_runtime/lib"
+printf 'existing binary must survive\n' >"$invalid_runtime/dintty-bin"
 printf 'modified retained library\n' >"$invalid_runtime/lib/libgtk-layer-shell.so.0"
 printf 'build_receipt_version=1\nlayer_shell_sha256=%064d\n' 0 \
-  >"$invalid_state/noctty/dogfood-build.receipt"
+  >"$invalid_state/dintty/dogfood-build.receipt"
 if PATH="$fake_bin:$PATH" HOME="$invalid_home" XDG_STATE_HOME="$invalid_state" \
     ./scripts/install_dogfood.sh "$invalid_prefix" >/dev/null 2>&1; then
   echo 'install_dogfood_smoke error=mismatched_runtime_accepted' >&2
   exit 1
 fi
-grep -Fx 'existing binary must survive' "$invalid_runtime/noctty-bin" >/dev/null
+grep -Fx 'existing binary must survive' "$invalid_runtime/dintty-bin" >/dev/null
 test ! -e "$invalid_prefix/share"
 
 echo 'install_dogfood_smoke retained_runtime=true checksum_required=true preflight_before_mutation=true binaries=true launchers=true receipt=true'

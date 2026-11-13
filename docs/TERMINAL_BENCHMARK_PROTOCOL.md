@@ -2,7 +2,7 @@
 
 This suite is a machine-local comparison, not a universal terminal ranking.
 Its purpose is to produce evidence that another person can rerun, inspect, and
-reject without trusting NOCTTY.
+reject without trusting DINTTY.
 
 ## Rules
 
@@ -39,9 +39,9 @@ reject without trusting NOCTTY.
 | Idle CPU | 1, 2, 4, 8 | process-tree jiffies over fixed interval | Cross-terminal; coarse near zero |
 | Output ingestion | 1, 2, 4, 8 | release writers → last writer marker timestamp | Cross-terminal PTY ingestion |
 | External pixel completion | 1, 2, 4, 8 | release writers → fixed RGB marker observed in captured X11 window | Cross-terminal; includes screenshot-observer cost, not compositor presentation |
-| Production startup | 1 | normal `noctty --native-grid-windowed` path with isolated state and external workload shell | NOCTTY parity/control row, reported separately as `noctty-production` |
-| Renderer/pipeline | internal | real PTY/VT → exact Cairo draw → optional GL presentation | NOCTTY qualification only; never used for peer ranking |
-| Compatibility/TUI | internal | deterministic VT and installed TUI qualifications | NOCTTY qualification only |
+| Production startup | 1 | normal `dintty --native-grid-windowed` path with isolated state and external workload shell | DINTTY parity/control row, reported separately as `dintty-production` |
+| Renderer/pipeline | internal | real PTY/VT → exact Cairo draw → optional GL presentation | DINTTY qualification only; never used for peer ranking |
+| Compatibility/TUI | internal | deterministic VT and installed TUI qualifications | DINTTY qualification only |
 
 The suite deliberately does **not** call the screenshot lane compositor
 presentation or key-to-photon latency. It also does not rank GPU energy, native
@@ -50,8 +50,8 @@ pixel metric is useful only with its retained X11/XWayland and observer boundary
 
 ## Known asymmetries
 
-- The multi-pane `noctty` row uses NOCTTY's benchmark fixture to construct a
-  balanced tree from startup data. The separate one-pane `noctty-production`
+- The multi-pane `dintty` row uses DINTTY's benchmark fixture to construct a
+  balanced tree from startup data. The separate one-pane `dintty-production`
   row enters through the normal windowed product path with isolated XDG state;
   it prevents benchmark-fixture startup from being presented as product startup.
   Terminator can construct a balanced tree from startup data; Konsole, Kitty,
@@ -75,14 +75,14 @@ Full matrix (long-running, visible X11/XWayland in a disposable dedicated
 session):
 
 ```sh
-NOCTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
+DINTTY_DEDICATED_DISPLAY=1 ./scripts/terminal_benchmark.sh
 ```
 
 Offscreen matrix (uses the reviewed shared display-isolation runner; the live
 status bar remains visible on standard error):
 
 ```sh
-NOCTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
+DINTTY_BENCH_OFFSCREEN=1 ./scripts/terminal_benchmark.sh
 ```
 
 The offscreen mode runs in private mount/PID/IPC/network and runtime
@@ -94,16 +94,16 @@ explicitly acknowledged disposable real-display lane.
 Focused, still auditable example:
 
 ```sh
-NOCTTY_BENCH_TERMINALS='noctty kitty ghostty' \
-NOCTTY_BENCH_PANES='1 4' \
-NOCTTY_BENCH_OUTPUT_PANES='1 4' \
-NOCTTY_BENCH_RUNS=15 \
-NOCTTY_BENCH_OFFSCREEN=1 \
+DINTTY_BENCH_TERMINALS='dintty kitty ghostty' \
+DINTTY_BENCH_PANES='1 4' \
+DINTTY_BENCH_OUTPUT_PANES='1 4' \
+DINTTY_BENCH_RUNS=15 \
+DINTTY_BENCH_OFFSCREEN=1 \
 ./scripts/terminal_benchmark.sh
 ```
 ## Renderer A/B lane
 
-Set `NOCTTY_BENCH_RENDERER=cairo` or `opengl` for the NOCTTY fixture; the
+Set `DINTTY_BENCH_RENDERER=cairo` or `opengl` for the DINTTY fixture; the
 default is `cairo`. The OpenGL mode keeps Cairo as the authoritative
 rasterizer and benchmarks texture upload plus `GtkGLArea` presentation, not
 GPU glyph rasterization. Compare only matched runs. The benchmark metadata retains
@@ -112,14 +112,14 @@ receipt contains `native_grid_gpu_context` and reports
 `renderer_requested=opengl renderer_effective=opengl`, `gpu_render_frames>0`,
 and `gpu_fallbacks=0`.
 
-Set `NOCTTY_BENCH_DISPLAY_BACKEND=wayland` for a native Wayland run. It requires
+Set `DINTTY_BENCH_DISPLAY_BACKEND=wayland` for a native Wayland run. It requires
 a live `WAYLAND_DISPLAY` socket under `XDG_RUNTIME_DIR`; `visual_ms` and
 `visual_tail_ms` are unavailable in this lane because the retained pixel observer
 is X11-only.
 
 
 Slow renderers get 30 seconds to expose the visual marker. Override that only
-when needed with `NOCTTY_BENCH_VISUAL_TIMEOUT_MS`.
+when needed with `DINTTY_BENCH_VISUAL_TIMEOUT_MS`.
 
 Verify the retained bundle:
 

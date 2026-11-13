@@ -55,7 +55,7 @@ run_smoke ./scripts/native_grid_pane_scrollbar_smoke.sh
 run_smoke ./scripts/native_grid_compact_ux_smoke.sh
 run_smoke ./scripts/native_grid_note_overlay_smoke.sh
 run_smoke ./scripts/native_grid_shortcut_live_smoke.sh
-if ./zig-out/bin/noctty --status 2>/dev/null | grep -F 'running=true' >/dev/null; then
+if ./zig-out/bin/dintty --status 2>/dev/null | grep -F 'running=true' >/dev/null; then
   dbus-run-session -- sh ./scripts/native_grid_noctalia_ipc_smoke.sh
 else
   sh ./scripts/native_grid_noctalia_ipc_smoke.sh

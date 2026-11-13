@@ -1,7 +1,7 @@
 /* Test-only recursive pane zoom geometry assertions. */
 
 static guint recursive_zoom_branch_state(
-    NocttyGridContext *target, guint *hidden_siblings) {
+    DinttyGridContext *target, guint *hidden_siblings) {
     GtkWidget *child = target->area;
     GtkWidget *parent = gtk_widget_get_parent(child);
     guint ancestors = 0;
@@ -23,12 +23,12 @@ static guint recursive_zoom_branch_state(
 }
 
 static gboolean verify_recursive_zoom_restored(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     guint active = 0;
     guint visible = 0;
     for (guint index = 0; root->contexts != NULL &&
          index < root->contexts->len; index++) {
-        NocttyGridContext *candidate = g_ptr_array_index(
+        DinttyGridContext *candidate = g_ptr_array_index(
             root->contexts, index);
         if (!candidate->active || candidate->exited ||
             candidate->page == NULL)
@@ -43,8 +43,8 @@ static gboolean verify_recursive_zoom_restored(gpointer user_data) {
 }
 
 static gboolean verify_recursive_zoom_full_page(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
-    NocttyGridContext *target = grid_context_for_pane(
+    DinttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *target = grid_context_for_pane(
         root, root->zoomed_pane_id);
     if (target == NULL || target->page == NULL) return G_SOURCE_REMOVE;
     GtkWidget *content = grid_page_content_root(target, target->page);
@@ -68,10 +68,10 @@ static gboolean verify_recursive_zoom_full_page(gpointer user_data) {
 }
 
 static gboolean request_recursive_zoom_smoke(gpointer user_data) {
-    NocttyGridContext *root = root_grid_context(user_data);
+    DinttyGridContext *root = root_grid_context(user_data);
     if (root->contexts == NULL || root->contexts->len != 4)
         return G_SOURCE_REMOVE;
-    NocttyGridContext *target = g_ptr_array_index(
+    DinttyGridContext *target = g_ptr_array_index(
         root->contexts, root->contexts->len - 1);
     toggle_grid_zoom(target);
     g_timeout_add(100, verify_recursive_zoom_full_page, root);

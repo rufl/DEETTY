@@ -52,7 +52,7 @@ pub const Theme = struct {
 
     pub fn builtinDark() Theme {
         return .{
-            .name = "noctty-dark",
+            .name = "dintty-dark",
             .foreground = Color.fromHex(0xd7dde8),
             .background = Color.fromHex(0x0b0d12),
             .cursor = Color.fromHex(0x8fb8ff),
@@ -146,7 +146,7 @@ pub const Theme = struct {
 
     pub fn builtinHighContrast() Theme {
         var theme = builtinDark();
-        theme.name = "noctty-high-contrast";
+        theme.name = "dintty-high-contrast";
         theme.foreground = Color.fromHex(0xffffff);
         theme.background = Color.fromHex(0x000000);
         theme.cursor = Color.fromHex(0xffffff);
@@ -619,7 +619,7 @@ test "theme preview formats gui-facing summary" {
     var buf: [128]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     try preview.formatSummary(&writer);
-    try std.testing.expectEqualStrings("noctty-dark fg=#d7dde8 bg=#0b0d12 cursor=#8fb8ff palette=16", writer.buffered());
+    try std.testing.expectEqualStrings("dintty-dark fg=#d7dde8 bg=#0b0d12 cursor=#8fb8ff palette=16", writer.buffered());
 }
 
 test "theme import rejects invalid display names" {

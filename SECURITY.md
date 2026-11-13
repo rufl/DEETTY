@@ -1,6 +1,6 @@
 # Security Policy
 
-NOCTTY is an early source alpha. Security reports use GitHub private
+DINTTY is an early source alpha. Security reports use GitHub private
 vulnerability reporting so sensitive details do not enter public issues.
 
 ## Supported versions
@@ -34,7 +34,7 @@ no response-time SLA exists during alpha.
 
 ## Security boundaries
 
-NOCTTY should maintain these boundaries:
+DINTTY should maintain these boundaries:
 
 - no telemetry, analytics, update pings, crash uploaders, or remote feature flags
 - no surprise network activity
@@ -47,7 +47,7 @@ NOCTTY should maintain these boundaries:
 - runtime shared libraries must not load from current-directory or caller-selected override paths; dependency-bundle and dogfood launchers may expose only their own trusted private runtime directory
 - release temporary files and retained evidence must use private staging plus atomic replacement
 - settings/session files must recover safely from malformed or oversized data;
-  NoctEd dirty-buffer snapshots and encrypted `.nocttyhs` history exports use
+  NoctEd dirty-buffer snapshots and encrypted `.dinttyhs` history exports use
   atomic private (`0600`) storage
 - agent resume references are opaque, bounded, and never inferred from
   terminal output; the only supported launchers are Pi, OMP, and local-only
@@ -87,7 +87,7 @@ The alpha source tree does not yet claim:
 - provider-owned agent session discovery or authentication outside the Pi,
   OMP, and ZIPI launcher boundary
 
-Treat NOCTTY as a local developer tool and run untrusted commands with the same
+Treat DINTTY as a local developer tool and run untrusted commands with the same
 care you would use in any terminal emulator.
 
 The retained repository-owned static network/privacy gate is:

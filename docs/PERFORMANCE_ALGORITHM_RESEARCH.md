@@ -9,7 +9,7 @@ proof and does not supersede `TERMINAL_BENCHMARK.md` or `DAILY_DRIVER.md`.
 
 ## Executive Decision
 
-NOCTTY should keep its current native Zig plus GTK/Cairo architecture. The
+DINTTY should keep its current native Zig plus GTK/Cairo architecture. The
 retained benchmark already shows competitive ingestion and low process memory;
 the next gains are in presentation latency, draw-time allocation, terminal
 correctness, resize behavior, and scrollback representation. A GPU rewrite or a
@@ -32,13 +32,13 @@ revisions rather than copying architecture by reputation:
 - [`handterm` optimization record](https://github.com/1jehuang/handterm/blob/6dbda57f6e62e2942165e855010ccbedca9f577d/OPTIMIZATION.md): benchmark each pipeline boundary, reuse hot buffers, coalesce PTY-driven presentation, share expensive process/runtime state, and delete an architecture when profiling shows a simpler host path wins;
 - [`agentgrep` benchmarks](https://github.com/1jehuang/agentgrep/blob/66b1148bae243e74e4501bb84068d7d049fa4275/docs/BENCHMARKS.md): reject candidates before expensive structure work and normalize repeated text once rather than once per candidate;
 - [`ffp`](https://github.com/1jehuang/ffp/blob/138e145fd8cc178c83461b3ec3b19bcaf2559a17/README.md): cap large pools, keep expensive discovery off the interaction path, cache genuinely expensive previews, and only fan work across cores when scale measurements justify it;
-- [`jofi` search](https://github.com/1jehuang/jofi/blob/0c0db7cc10697e4f858670dba878031175188b13/src/search.rs): keep edit-distance work explicitly bounded and use it only after cheaper exact/substring candidates; its runtime telemetry was deliberately not copied because NOCTTY forbids telemetry;
+- [`jofi` search](https://github.com/1jehuang/jofi/blob/0c0db7cc10697e4f858670dba878031175188b13/src/search.rs): keep edit-distance work explicitly bounded and use it only after cheaper exact/substring candidates; its runtime telemetry was deliberately not copied because DINTTY forbids telemetry;
 - [`jtop` Linux collector](https://github.com/1jehuang/jtop/blob/4006903ed91d65c12946ee9cd832a72a904cb342/src/linux/jtop_collect.cpp): retain current process state, skip collection when no update is requested, and reserve/reuse containers before recurring `/proc` scans;
 - [`jengine` targets](https://github.com/1jehuang/jengine/blob/005f09845b0a525ff7d33a46411606695913cd58/docs/PERFORMANCE_TARGETS.md): attribute host, setup, upload, compute, and download costs separately; record cache warmth; reduce dispatch and orchestration before chasing a faster inner kernel;
 - [`mermaid-rs-renderer` benchmark design](https://github.com/1jehuang/mermaid-rs-renderer/blob/7ff1196ed297c32a65a6b3cdc28f3ca3787fb65e/docs/benchmark-suite-design.md): separate correctness, quality, stability, and performance; retain cold/warm, tail-latency, memory, and scaling evidence;
 - [`niri-workspaces-rs`](https://github.com/1jehuang/niri-workspaces-rs/blob/43061415a7707d32757e02c76c9a662aee488c94/src/main.rs): subscribe once to incremental events and maintain local state instead of reopening IPC and recomputing full state for every update.
 
-NOCTTY already follows most of those macro lessons: native/no-browser startup,
+DINTTY already follows most of those macro lessons: native/no-browser startup,
 one process for many panes, frame-clock and resize coalescing, terminal dirty
 spans, reusable renderer scratch, one guarded PTY pump scratch shared by the
 serial GTK session set, bounded caches, immutable project snapshots,
@@ -104,7 +104,7 @@ Kitty, foot, Rio, cmux, Herdr, Agent Deck, Claude Squad, WaveTerm, Zellij,
 tmux, and Better Agent Terminal revisions. It retained three changes instead
 of importing a peer stack:
 
-- WezTerm's blank-tail resize guard exposed a NOCTTY reflow bug: a combined
+- WezTerm's blank-tail resize guard exposed a DINTTY reflow bug: a combined
   width/height shrink could move all meaningful rows into history and leave a
   blank viewport. Primary reflow now drops only provably default rows below the
   cursor before rebuilding.
@@ -113,7 +113,7 @@ of importing a peer stack:
   requests now drive native pending-input attention without storing payload
   text or scanning rendered output heuristically.
 - Kitty, Zellij, and tmux reinforced that PTY backpressure must be explicit.
-  NOCTTY no longer calls sleeping `writeAll` from GTK input/paste callbacks; a
+  DINTTY no longer calls sleeping `writeAll` from GTK input/paste callbacks; a
   capped ordered queue and temporary 4 ms flush source reduced an 8 MiB
   sleeping-child caller probe from 921.618 to 1.450 ms.
 
@@ -126,15 +126,15 @@ The 2026-10-14 offscreen X11 matrix is a retained engineering baseline, not a
 universal ranking. It used the same 1200×800 window, monospace 11 pt workload,
 5000 output lines, three trials, rotated order, and process-tree accounting
 that excludes workload children. Values below are medians from
-`benchmarks/terminal-comparison-current-xvfb-noctty-kitty-20261014-summary.csv`.
+`benchmarks/terminal-comparison-current-xvfb-dintty-kitty-20261014-summary.csv`.
 
-| Panes | NOCTTY startup / PSS / USS / ingest / visual | Kitty startup / PSS / USS / ingest / visual |
+| Panes | DINTTY startup / PSS / USS / ingest / visual | Kitty startup / PSS / USS / ingest / visual |
 | ---: | ---: | ---: |
 | 1 | 299 ms / 45.421 MiB / 37.027 MiB / 55.468 ms / 153.485 ms | 482 ms / 172.170 MiB / 140.668 MiB / 50.006 ms / 153.302 ms |
 | 2 | 312 ms / 45.545 MiB / 37.172 MiB / 97.829 ms / 195.259 ms | 559 ms / 173.097 MiB / 142.371 MiB / 72.995 ms / 161.067 ms |
 | 4 | 302 ms / 46.994 MiB / 39.594 MiB / 170.921 ms / 283.126 ms | 740 ms / 176.704 MiB / 145.902 MiB / 88.713 ms / 185.162 ms |
 
-The post-change NOCTTY-only receipt
+The post-change DINTTY-only receipt
 (`benchmarks/terminal-comparison-post-simd-ascii-20261015-084301-*`) repeats
 the same 1/2/4-pane workload and passes checksum audit. Its medians are
 52.313/54.053/55.948 MiB PSS, 52.292/81.265/204.130 ms ingest, and
@@ -147,7 +147,7 @@ Kitty's official performance notes identify three relevant mechanisms:
 [the child-monitor I/O thread and delayed wakeups](https://github.com/kovidgoyal/kitty/blob/v0.48.2/kitty/child-monitor.c),
 [SIMD-oriented parsing and GPU glyph caching](https://github.com/kovidgoyal/kitty/blob/master/docs/performance.rst),
 and [segmented history storage](https://github.com/kovidgoyal/kitty/blob/v0.48.2/kitty/history.c).
-NOCTTY keeps the transferable parts at smaller boundaries: one bounded 2 MiB
+DINTTY keeps the transferable parts at smaller boundaries: one bounded 2 MiB
 GLib pump budget, one guarded shared PTY scratch, coalesced frame-clock
 presentation, contiguous ASCII writes, a Cairo glyph cache, and compact hot/cold
 history. The new `findAsciiRunEnd` scanner uses Zig SIMD comparisons only to
@@ -155,7 +155,7 @@ locate the next non-printable byte; all state mutation still runs through the
 existing `putAscii` or parser paths.
 
 The retained measurements do not justify importing Kitty's I/O thread, GPU
-renderer, or mmap history: NOCTTY already has lower process memory and
+renderer, or mmap history: DINTTY already has lower process memory and
 competitive 2/4-pane ingestion, while those rewrites would add synchronization,
 driver, and restoration failure modes. The remaining evidence gate is parser
 throughput and mapped physical-input-to-presentation latency, not architecture
@@ -168,8 +168,8 @@ Use the existing exact renderer and real PTY pipeline directly:
 ```sh
 ./scripts/native_grid_renderer_qualification.sh
 ./scripts/native_grid_pipeline_qualification.sh
-NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_presentation_qualification.sh
-NOCTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_full_stack_qualification.sh
+DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_presentation_qualification.sh
+DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_full_stack_qualification.sh
 ```
 
 They retain Debug/ReleaseSafe timing, allocation, memory, and pixel evidence
@@ -202,7 +202,7 @@ performance_algorithm_research=true terminal_frame_clock=implemented terminal_gl
 The recommendations were checked against the current implementation rather than
 derived from peer architecture alone.
 
-### NOCTTY implementation baseline
+### DINTTY implementation baseline
 
 - `src/terminal/Vt.zig` has a visible-grid ring, hot direct cells, compact cold
   logical lines, monotonic IDs, grapheme anchors, true primary-screen reflow,
@@ -261,7 +261,7 @@ monitor refresh rate. The
 [`GdkFrameClock` documentation](https://docs.gtk.org/gdk3/class.FrameClock.html)
 explains that this also lets GTK combine painting into fewer frames.
 
-**Implemented in NOCTTY.** The mapped one-shot 16 ms timeout is replaced by a
+**Implemented in DINTTY.** The mapped one-shot 16 ms timeout is replaced by a
 one-shot tick callback that queues accumulated dirty spans and then returns
 `G_SOURCE_REMOVE`. Keep the 100 ms hidden timeout because an unmapped widget may
 not receive frame ticks. Retain one pending source/token per pane and cancel it
@@ -286,7 +286,7 @@ Cairo explicitly supports caller-provided stack arrays for small
 [`cairo_scaled_font_text_to_glyphs`](https://www.cairographics.org/manual/cairo-cairo-scaled-font-t.html)
 calls.
 
-**Implemented in NOCTTY.** A pane-owned guarded glyph cache avoids repeated
+**Implemented in DINTTY.** A pane-owned guarded glyph cache avoids repeated
 normal-row Cairo conversions. On font family, size, scale, or face changes it
 rebuilds the eligible printable glyph map while keeping
 the existing per-codepoint fallback for shaping, fallback fonts, grapheme
@@ -326,7 +326,7 @@ Its
 [`DamageTracker`](https://github.com/alacritty/alacritty/blob/master/alacritty/src/display/damage.rs)
 also keeps adjacent frame damage and previous cursor/selection state.
 
-**Implemented in NOCTTY.** Each visible row retains a bounded dirty span with a
+**Implemented in DINTTY.** Each visible row retains a bounded dirty span with a
 clean sentinel. Every VT mutation records its affected range. ABI v7 returns
 row spans and one borrowed packed frame snapshot for the visible rows; the old
 complete-row and per-cell callbacks are no longer part of the Linux native
@@ -344,7 +344,7 @@ dragging and delays full reflow/client resize until a short idle period; its
 documented default is 100 ms in
 [`foot.ini(5)`](https://manpages.debian.org/testing/foot/foot.ini.5.en.html).
 
-**Implemented in NOCTTY.** GTK size allocations are latest-value updates. The
+**Implemented in DINTTY.** GTK size allocations are latest-value updates. The
 PTY/grid resize commits once after a bounded quiet period and at final geometry.
 The existing dimensions overlay shows the pending target. NCT-120 reflow now
 runs only for the final coalesced geometry instead of every drag allocation.
@@ -366,14 +366,14 @@ not the first step.
 
 Kitty 0.48.2 uses one child-monitor I/O thread to drain all PTYs into bounded
 parser buffers, coalesces main-loop wakeups with `input_delay`, and routes
-contiguous text through SIMD helpers before screen mutation. NOCTTY already has
+contiguous text through SIMD helpers before screen mutation. DINTTY already has
 contiguous ASCII runs and coalesced presentation. Its new `findAsciiRunEnd`
 uses a vector comparison to find the first byte outside `0x20..0x7e`, then
 preserves the existing scalar tail and `putAscii`/parser state transitions.
 Add a shared I/O reader only if PTY-read-to-draw profiling proves GTK-thread
 parsing remains the bottleneck; per-pane thread sets remain deferred.
 
-**Implemented in NOCTTY.** NCT-110 introduces:
+**Implemented in DINTTY.** NCT-110 introduces:
 
 - a table-driven state machine for Ground, Escape, CSI entry/parameter/
   intermediate/ignore, OSC, DCS, and string termination;
@@ -401,7 +401,7 @@ defines begin/end and feature detection. Ghostty specifically lists Claude Code
 as software affected by unsynchronized large redraws in its
 [`synchronized-output guidance`](https://ghostty.org/docs/help/synchronized-output).
 
-NOCTTY continues parsing and mutating state while mode 2026 is set, but
+DINTTY continues parsing and mutating state while mode 2026 is set, but
 suppress mapped presentation until reset. A bounded deadman timer must release
 a stuck frame; the exact timeout should be selected from slow-stream tests
 rather than copied blindly. Nested begin requests should not grow unbounded.
@@ -416,7 +416,7 @@ Alacritty's
 [`Storage`](https://github.com/alacritty/alacritty/blob/master/alacritty_terminal/src/grid/storage.rs)
 uses a logical ring origin and dynamically active scrollback length.
 
-**Implemented in NOCTTY.** NCT-120 makes logical identity independent from
+**Implemented in DINTTY.** NCT-120 makes logical identity independent from
 physical wrapping:
 
 - each logical line has a monotonic ID, wrap metadata, and change generation;
@@ -440,7 +440,7 @@ an optional separate UTF-8 pager history in its
 [`scrollback options`](https://raw.githubusercontent.com/kovidgoyal/kitty/master/kitty/options/definition.py).
 Its `HistoryBuf` is a preallocated circular row store: overwriting a full ring
 advances `start_of_data` and copies directly into that slot rather than
-releasing and searching for storage. NOCTTY now applies that bounded-ring
+releasing and searching for storage. DINTTY now applies that bounded-ring
 property to already-hot rows while retaining compact cold history for larger
 configured limits. Ghostty 1.3 also reports that allocating alternate-screen memory on demand saves
 multiple MiB per terminal.
@@ -475,10 +475,10 @@ and conformance fixtures, not runtime downloads.
 
 Ghostty's dedicated read/write/render threads and GPU renderer are credible for
 its architecture. foot also exposes render worker counts but warns they cannot
-usefully exceed visible rows. Those designs do not imply that NOCTTY should
+usefully exceed visible rows. Those designs do not imply that DINTTY should
 copy them now.
 
-NOCTTY's current descriptor-driven GLib pump is idle when panes are idle, and
+DINTTY's current descriptor-driven GLib pump is idle when panes are idle, and
 the retained benchmark is already competitive on ingestion and memory. A GPU
 backend adds context/device loss, atlas lifetime, shader, driver, and packaging
 work. Three dedicated threads per pane add stacks, scheduling, locks, and more

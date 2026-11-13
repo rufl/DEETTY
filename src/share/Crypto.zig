@@ -6,7 +6,7 @@ const Blake2s = std.crypto.hash.blake2.Blake2s256;
 const HmacBlake2s = std.crypto.auth.hmac.Hmac(Blake2s);
 
 pub const protocol_name = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
-pub const prologue = "NOCTTY-PAIR-v1";
+pub const prologue = "DINTTY-PAIR-v1";
 pub const public_key_length = X25519.public_length;
 pub const secret_key_length = X25519.secret_length;
 pub const message1_length = 32;

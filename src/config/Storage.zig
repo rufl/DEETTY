@@ -6,7 +6,7 @@ const WorkspaceActivation = @import("../workspace/Activation.zig");
 const Io = std.Io;
 const Dir = std.Io.Dir;
 
-const config_magic = "NOCTTYCFG";
+const config_magic = "DINTTYCFG";
 const config_version: u8 = 17;
 const default_launch_profile_tail_bytes: usize = 1 + (5 * 8) + 4;
 const default_launch_library_tail_bytes: usize = 2;
@@ -72,8 +72,8 @@ pub fn defaultConfigPathAlloc(allocator: std.mem.Allocator, home_dir: []const u8
     return std.fs.path.join(allocator, &.{
         home_dir,
         ".config",
-        "noctty",
-        "settings.nocttycfg",
+        "dintty",
+        "settings.dinttycfg",
     });
 }
 
@@ -200,7 +200,7 @@ pub fn importConfigAlloc(allocator: std.mem.Allocator, bytes: []const u8) !Loade
     const syntax_theme = if (version >= 3 or !reader.finished())
         try reader.readStringAlloc()
     else
-        try allocator.dupe(u8, "noctty-syntax-default");
+        try allocator.dupe(u8, "dintty-syntax-default");
     errdefer allocator.free(syntax_theme);
     config.syntax_theme = syntax_theme;
 
@@ -643,11 +643,11 @@ test "config snapshots export and import owned gui settings" {
     try launch_profile.shell.set("/bin/sh");
     try launch_profile.command.set("printf ready");
     try launch_profile.working_directory.set("/tmp");
-    try launch_profile.environment.set("NOCTTY_PROFILE=ready;LANG=C.UTF-8");
+    try launch_profile.environment.set("DINTTY_PROFILE=ready;LANG=C.UTF-8");
     launch_profile.scrollback_lines = 8192;
     _ = try config.terminal.saveAndSelectLaunchProfile("Local build", launch_profile);
-    try config.recent_workspaces.record("/tmp/Release Ops.nocttyws");
-    try config.recent_workspaces.record("/home/alice/project.nocttyws");
+    try config.recent_workspaces.record("/tmp/Release Ops.dinttyws");
+    try config.recent_workspaces.record("/home/alice/project.dinttyws");
     config.panels.padding_px = 8;
     config.font.family = "Commit Mono";
     config.font.size_pt = 13.5;
@@ -694,15 +694,15 @@ test "config snapshots export and import owned gui settings" {
     try std.testing.expectEqualStrings("/bin/sh", loaded.config.terminal.launch_profile.shell.slice());
     try std.testing.expectEqualStrings("printf ready", loaded.config.terminal.launch_profile.command.slice());
     try std.testing.expectEqualStrings("/tmp", loaded.config.terminal.launch_profile.working_directory.slice());
-    try std.testing.expectEqualStrings("NOCTTY_PROFILE=ready;LANG=C.UTF-8", loaded.config.terminal.launch_profile.environment.slice());
+    try std.testing.expectEqualStrings("DINTTY_PROFILE=ready;LANG=C.UTF-8", loaded.config.terminal.launch_profile.environment.slice());
     try std.testing.expectEqual(@as(u32, 8192), loaded.config.terminal.launch_profile.scrollback_lines);
     try std.testing.expectEqual(@as(u8, 1), loaded.config.terminal.launch_profiles.count);
     try std.testing.expectEqual(@as(u8, 0), loaded.config.terminal.launch_profiles.selected_index);
     try std.testing.expectEqualStrings("Local build", loaded.config.terminal.launch_profiles.entries[0].name.slice());
     try std.testing.expect(loaded.config.terminal.launch_profiles.entries[0].profile.eql(&loaded.config.terminal.launch_profile));
     try std.testing.expectEqual(@as(u8, 2), loaded.config.recent_workspaces.count);
-    try std.testing.expectEqualStrings("/home/alice/project.nocttyws", loaded.config.recent_workspaces.at(0).?);
-    try std.testing.expectEqualStrings("/tmp/Release Ops.nocttyws", loaded.config.recent_workspaces.at(1).?);
+    try std.testing.expectEqualStrings("/home/alice/project.dinttyws", loaded.config.recent_workspaces.at(0).?);
+    try std.testing.expectEqualStrings("/tmp/Release Ops.dinttyws", loaded.config.recent_workspaces.at(1).?);
     try std.testing.expectEqual(@as(u16, 8), loaded.config.panels.padding_px);
     try std.testing.expectEqualStrings("Commit Mono", loaded.config.font.family);
     try std.testing.expectEqual(@as(f32, 13.5), loaded.config.font.size_pt);
@@ -845,11 +845,11 @@ test "version nine config snapshots retain continuity profiles" {
     const allocator = std.testing.allocator;
     var config = ConfigMod.Config.defaults();
     var tmux = LaunchProfile.Profile{ .kind = .tmux };
-    try tmux.ssh_target.set("noctty-work");
+    try tmux.ssh_target.set("dintty-work");
     try tmux.working_directory.set("/tmp");
     _ = try config.terminal.saveAndSelectLaunchProfile("Persistent tmux", tmux);
     var zellij = LaunchProfile.Profile{ .kind = .zellij };
-    try zellij.ssh_target.set("noctty-pair");
+    try zellij.ssh_target.set("dintty-pair");
     _ = try config.terminal.saveAndSelectLaunchProfile("Persistent Zellij", zellij);
 
     const current = try exportConfigAlloc(allocator, config);
@@ -861,10 +861,10 @@ test "version nine config snapshots retain continuity profiles" {
     var loaded = try importConfigAlloc(allocator, bytes);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(LaunchProfile.Kind.zellij, loaded.config.terminal.launch_profile.kind);
-    try std.testing.expectEqualStrings("noctty-pair", loaded.config.terminal.launch_profile.argument());
+    try std.testing.expectEqualStrings("dintty-pair", loaded.config.terminal.launch_profile.argument());
     try std.testing.expectEqual(@as(u8, 2), loaded.config.terminal.launch_profiles.count);
     try std.testing.expectEqual(LaunchProfile.Kind.tmux, loaded.config.terminal.launch_profiles.entries[0].profile.kind);
-    try std.testing.expectEqualStrings("noctty-work", loaded.config.terminal.launch_profiles.entries[0].profile.argument());
+    try std.testing.expectEqualStrings("dintty-work", loaded.config.terminal.launch_profiles.entries[0].profile.argument());
 
     const mislabeled_legacy = try allocator.dupe(u8, bytes);
     defer allocator.free(mislabeled_legacy);
@@ -878,7 +878,7 @@ test "version nine config snapshots retain continuity profiles" {
 test "version eight config snapshots retain recent workspaces" {
     const allocator = std.testing.allocator;
     var config = ConfigMod.Config.defaults();
-    try config.recent_workspaces.record("/tmp/legacy-eight.nocttyws");
+    try config.recent_workspaces.record("/tmp/legacy-eight.dinttyws");
     const current = try exportConfigAlloc(allocator, config);
     defer allocator.free(current);
     const legacy = try allocator.dupe(u8, current[0 .. current.len - 1 - (default_font_rendering_tail_bytes + default_dropdown_pixel_tail_bytes)]);
@@ -889,7 +889,7 @@ test "version eight config snapshots retain recent workspaces" {
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(@as(u8, 1), loaded.config.recent_workspaces.count);
     try std.testing.expectEqualStrings(
-        "/tmp/legacy-eight.nocttyws",
+        "/tmp/legacy-eight.dinttyws",
         loaded.config.recent_workspaces.at(0).?,
     );
 }
@@ -1013,7 +1013,7 @@ test "version fifteen config snapshots use safe pane visual defaults" {
 
 test "config snapshots reject invalid bytes" {
     const allocator = std.testing.allocator;
-    try std.testing.expectError(error.InvalidConfigSnapshot, importConfigAlloc(allocator, "not-noctty-config"));
+    try std.testing.expectError(error.InvalidConfigSnapshot, importConfigAlloc(allocator, "not-dintty-config"));
 
     const config = ConfigMod.Config.defaults();
     const bytes = try exportConfigAlloc(allocator, config);
@@ -1028,7 +1028,7 @@ test "default config path uses native config location" {
     const allocator = std.testing.allocator;
     const path = try defaultConfigPathAlloc(allocator, "/home/alice");
     defer allocator.free(path);
-    try std.testing.expectEqualStrings("/home/alice/.config/noctty/settings.nocttycfg", path);
+    try std.testing.expectEqualStrings("/home/alice/.config/dintty/settings.dinttycfg", path);
 }
 
 test "config snapshots save and load through atomic storage" {
@@ -1042,11 +1042,11 @@ test "config snapshots save and load through atomic storage" {
     config.default_theme = "workspace-night";
     config.tabs.position = .bottom;
 
-    const saved = try saveConfigFile(allocator, io, tmp.dir, "settings/noctty.nocttycfg", config, .settings);
+    const saved = try saveConfigFile(allocator, io, tmp.dir, "settings/dintty.dinttycfg", config, .settings);
     defer saved.deinit(allocator);
     try std.testing.expect(saved.bytes > config_magic.len);
 
-    var loaded = try loadConfigFile(allocator, io, tmp.dir, "settings/noctty.nocttycfg", .settings);
+    var loaded = try loadConfigFile(allocator, io, tmp.dir, "settings/dintty.dinttycfg", .settings);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(ConfigFileRole.settings, loaded.receipt.role);
     try std.testing.expectEqualStrings("Commit Mono", loaded.loaded.config.font.family);
@@ -1060,7 +1060,7 @@ test "settings writes retain only a validated last-known-good backup" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = "settings/settings.nocttycfg";
+    const path = "settings/settings.dinttycfg";
     var original = ConfigMod.Config.defaults();
     original.font.size_pt = 12;
     const first = try saveConfigFile(allocator, io, tmp.dir, path, original, .settings);
@@ -1075,7 +1075,7 @@ test "settings writes retain only a validated last-known-good backup" {
         allocator,
         io,
         tmp.dir,
-        "settings/settings.nocttycfg.bak",
+        "settings/settings.dinttycfg.bak",
         .backup,
     );
     defer backup.deinit(allocator);
@@ -1090,14 +1090,14 @@ test "settings writes retain only a validated last-known-good backup" {
         allocator,
         io,
         tmp.dir,
-        "settings/settings.nocttycfg.bak",
+        "settings/settings.dinttycfg.bak",
         .backup,
     );
     defer retained.deinit(allocator);
     try std.testing.expectEqual(@as(f32, 12), retained.loaded.config.font.size_pt);
     const rejected = try tmp.dir.readFileAlloc(
         io,
-        "settings/settings.nocttycfg.rejected",
+        "settings/settings.dinttycfg.rejected",
         allocator,
         .limited(64),
     );
@@ -1111,7 +1111,7 @@ test "oversized settings remain recoverable before a valid replacement" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = "settings/settings.nocttycfg";
+    const path = "settings/settings.dinttycfg";
     const oversized = try allocator.alloc(u8, max_config_file_bytes + 1);
     defer allocator.free(oversized);
     @memset(oversized, 0xa5);
@@ -1129,7 +1129,7 @@ test "oversized settings remain recoverable before a valid replacement" {
 
     const rejected = try tmp.dir.readFileAlloc(
         io,
-        "settings/settings.nocttycfg.rejected",
+        "settings/settings.dinttycfg.rejected",
         allocator,
         .limited(max_config_file_bytes + 2),
     );

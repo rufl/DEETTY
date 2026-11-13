@@ -1,8 +1,8 @@
 //! Bounded native Windows workspace and versioned persistence; no Win32 dependencies.
 
 const std = @import("std");
-const Vt = @import("noctty_share").vt;
-const SplitRatio = @import("noctty_share").split_ratio;
+const Vt = @import("dintty_share").vt;
+const SplitRatio = @import("dintty_share").split_ratio;
 const WindowsAppearance = @import("WindowsAppearance.zig");
 
 const max_tabs: usize = 16;

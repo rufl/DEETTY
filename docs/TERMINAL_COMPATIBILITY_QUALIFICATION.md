@@ -4,7 +4,7 @@ Status: deterministic NCT-110 protocol/state, malformed-input, and Unicode tranc
 
 ## Qualified Boundary
 
-`scripts/terminal_compatibility_qualification.sh` builds the native Zig-only `noctty-terminal-compatibility` runner in both Debug and `ReleaseSafe`. The runner uses the production `Vt.Grid`, `VtParser`, and Unicode streaming implementation directly; it does not launch a browser runtime, substitute VTE, or cross the optional Ghostty adapter.
+`scripts/terminal_compatibility_qualification.sh` builds the native Zig-only `dintty-terminal-compatibility` runner in both Debug and `ReleaseSafe`. The runner uses the production `Vt.Grid`, `VtParser`, and Unicode streaming implementation directly; it does not launch a browser runtime, substitute VTE, or cross the optional Ghostty adapter.
 
 The retained matrix covers:
 
@@ -51,11 +51,11 @@ The shared VT fixes were deliberately generic:
 - alternate-screen cursor saves cannot overwrite primary cursor, delayed-wrap, origin, or scroll-margin state; and
 - ED 3 clears retained scrollback.
 
-An ephemeral VTE 0.84.1 differential compared 32 curated operation streams: 31 matched exactly and one differed only in the equivalent delayed-wrap cursor representation. A second deterministic 50-stream, 4,000-operation corpus without tab characters produced 48 exact matches and two equivalent delayed-wrap cursor representations (VTE reports column 20 while NOCTTY stores column 19 plus `wrap_pending`); material mismatches were zero. Tabs were excluded from that text comparison because VTE's extraction API serializes tab gaps as control bytes rather than visible cells. A direct production PTY/grid Pi run retained typed editing, a legacy left-arrow edit, 100×30 to 88×26 resize, zero history, cursor row 9, and no duplicate rows. One-sample ReleaseFast guards retained 111.649 MiB/s at eight output panes and 134.808 MiB/s at 32 panes after stale-row recycling was removed.
+An ephemeral VTE 0.84.1 differential compared 32 curated operation streams: 31 matched exactly and one differed only in the equivalent delayed-wrap cursor representation. A second deterministic 50-stream, 4,000-operation corpus without tab characters produced 48 exact matches and two equivalent delayed-wrap cursor representations (VTE reports column 20 while DINTTY stores column 19 plus `wrap_pending`); material mismatches were zero. Tabs were excluded from that text comparison because VTE's extraction API serializes tab gaps as control bytes rather than visible cells. A direct production PTY/grid Pi run retained typed editing, a legacy left-arrow edit, 100×30 to 88×26 resize, zero history, cursor row 9, and no duplicate rows. One-sample ReleaseFast guards retained 111.649 MiB/s at eight output panes and 134.808 MiB/s at 32 panes after stale-row recycling was removed.
 
 ## Proof Boundary
 
-This is bounded deterministic parser/state and Unicode conformance evidence. By itself it does not prove that Codex, Claude Code, Antigravity, ncurses applications, tmux, or zellij render and exit correctly in a live NOCTTY window. It is also not retained fuzz-duration, throughput, pixel-comparison, multi-day stability, or Plasma Wayland/X11 interaction evidence.
+This is bounded deterministic parser/state and Unicode conformance evidence. By itself it does not prove that Codex, Claude Code, Antigravity, ncurses applications, tmux, or zellij render and exit correctly in a live DINTTY window. It is also not retained fuzz-duration, throughput, pixel-comparison, multi-day stability, or Plasma Wayland/X11 interaction evidence.
 
 The complementary [real TUI qualification](TERMINAL_REAL_TUI_QUALIFICATION.md) now proves that installed Codex 0.144.5's unauthenticated welcome/login surface, Vim 9.2, and btop 1.4.7 generate compatible state and accept controlled exit input through the production PTY/VT model in both build modes: `terminal_real_tui_matrix debug=true release_safe=true applications=codex,vim,btop codex_login_surface=true codex_sync_output=true vim_alternate_screen=true vim_bracketed_paste=true btop_alternate_screen=true btop_mouse=true btop_truecolor=true unicode=true rich_style=true input_routed=true foreground_identity=true controlled_exit=true allocator_leak_free=true root_memory_separate=true process_tree_memory=true scratch_clean=true`. It remains headless and never authenticates Codex or submits a model request.
 

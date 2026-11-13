@@ -30,7 +30,7 @@ pub fn main(init: std.process.Init) !void {
     var dialog_command_buffer: [1024]u8 = undefined;
     const dialog_command = try std.fmt.bufPrint(
         &dialog_command_buffer,
-        "exec \"{s}\" --clear --title NOCTTY_NCURSES_DIALOG " ++
+        "exec \"{s}\" --clear --title DINTTY_NCURSES_DIALOG " ++
             "--msgbox 'real ncurses dialog fixture' 8 50",
         .{dialog_path},
     );
@@ -54,10 +54,10 @@ pub fn main(init: std.process.Init) !void {
         "dialog",
     );
 
-    const nano_markers = [_][]const u8{ "NOCTTY_NCURSES_NANO", "Write Out" };
-    const less_markers = [_][]const u8{"NOCTTY_NCURSES_LESS"};
+    const nano_markers = [_][]const u8{ "DINTTY_NCURSES_NANO", "Write Out" };
+    const less_markers = [_][]const u8{"DINTTY_NCURSES_LESS"};
     const dialog_markers = [_][]const u8{
-        "NOCTTY_NCURSES_DIALOG",
+        "DINTTY_NCURSES_DIALOG",
         "real ncurses dialog fixture",
     };
     const nano_process_names = [_][]const u8{"nano"};

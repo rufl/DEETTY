@@ -333,7 +333,7 @@ fn emit(ctx: *Context, event: Event, value: c_int) void {
 fn markerSeen(terminal: *VteTerminal) bool {
     const raw = vte_terminal_get_text_format(terminal, VTE_FORMAT_TEXT) orelse return false;
     defer g_free(raw);
-    return std.mem.indexOf(u8, std.mem.span(raw), "NOCTTY_NATIVE_INPUT_OK") != null;
+    return std.mem.indexOf(u8, std.mem.span(raw), "DINTTY_NATIVE_INPUT_OK") != null;
 }
 
 fn onSecondarySpawned(_: *VteTerminal, _: c_int, error_value: ?*GError, raw: ?*anyopaque) callconv(.c) void {
@@ -473,7 +473,7 @@ fn onContentsChanged(terminal: *VteTerminal, raw: ?*anyopaque) callconv(.c) void
 fn onSpawned(terminal: *VteTerminal, _: c_int, error_value: ?*GError, raw: ?*anyopaque) callconv(.c) void {
     const ctx = context(raw);
     if (error_value) |err| {
-        std.debug.print("NOCTTY could not start the shell: {s}\n", .{std.mem.span(err.message)});
+        std.debug.print("DINTTY could not start the shell: {s}\n", .{std.mem.span(err.message)});
         emit(ctx, .exited, 255);
         g_error_free(err);
         gtk_widget_destroy(ctx.window);
@@ -482,9 +482,9 @@ fn onSpawned(terminal: *VteTerminal, _: c_int, error_value: ?*GError, raw: ?*any
     emit(ctx, .started, 0);
     if (ctx.smoke != 0) {
         const command =
-            "printf 'NOCTTY_NATIVE_INPUT_OK pane=$NOCTTY_SMOKE_PANE\\n'; " ++
-            ": > \"$NOCTTY_SMOKE_MARKER\"; " ++
-            "sleep \"$NOCTTY_SMOKE_DELAY\"; exit 0\n";
+            "printf 'DINTTY_NATIVE_INPUT_OK pane=$DINTTY_SMOKE_PANE\\n'; " ++
+            ": > \"$DINTTY_SMOKE_MARKER\"; " ++
+            "sleep \"$DINTTY_SMOKE_DELAY\"; exit 0\n";
         vte_terminal_feed_child(terminal, command, -1);
         emit(ctx, .input_sent, 0);
     }
@@ -614,7 +614,7 @@ pub fn controlCallWithTokenTimeout(
         return 0;
     };
     defer g_object_unref(bus);
-    const reply = g_dbus_connection_call_sync(bus, "com.noctty.NOCTTY", "/com/noctty/NOCTTY", "com.noctty.NOCTTY.Control", method, parameters, variantType("(b)"), 0, timeout_ms, null, &error_value) orelse {
+    const reply = g_dbus_connection_call_sync(bus, "com.dintty.DINTTY", "/com/dintty/DINTTY", "com.dintty.DINTTY.Control", method, parameters, variantType("(b)"), 0, timeout_ms, null, &error_value) orelse {
         if (error_value) |err| g_error_free(err);
         return 0;
     };
@@ -634,7 +634,7 @@ fn onKeyPress(_: *GtkWidget, event: *GdkEventKey, raw: ?*anyopaque) callconv(.c)
 
 fn shortcutFailed(ctx: *Context, error_value: *?*GError) c_int {
     if (error_value.*) |err| {
-        std.debug.print("NOCTTY could not register Plasma F10 shortcut: {s}\n", .{std.mem.span(err.message)});
+        std.debug.print("DINTTY could not register Plasma F10 shortcut: {s}\n", .{std.mem.span(err.message)});
         g_error_free(err);
         error_value.* = null;
     }
@@ -650,7 +650,7 @@ fn onGlobalShortcut(_: *GDBusConnection, _: ?[*:0]const u8, _: [*:0]const u8, _:
 
 fn registerGlobalShortcut(ctx: *Context) c_int {
     var error_value: ?*GError = null;
-    const action_id = [_:null]?[*:0]const u8{ "noctty", "toggle-window", "NOCTTY", "Show/hide NOCTTY" };
+    const action_id = [_:null]?[*:0]const u8{ "dintty", "toggle-window", "DINTTY", "Show/hide DINTTY" };
     const requested_key: i32 = ctx.requested_shortcut_key;
     ctx.session_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, null, &error_value);
     const bus = ctx.session_bus orelse return shortcutFailed(ctx, &error_value);
@@ -659,7 +659,7 @@ fn registerGlobalShortcut(ctx: *Context) c_int {
     g_variant_unref(reply);
     ctx.global_shortcut_action_registered = true;
 
-    reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel", "isGlobalShortcutAvailable", g_variant_new("(is)", requested_key, "noctty"), variantType("(b)"), 0, -1, null, &error_value) orelse return shortcutFailed(ctx, &error_value);
+    reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel", "isGlobalShortcutAvailable", g_variant_new("(is)", requested_key, "dintty"), variantType("(b)"), 0, -1, null, &error_value) orelse return shortcutFailed(ctx, &error_value);
     var available: gboolean = 0;
     g_variant_get(reply, "(b)", &available);
     g_variant_unref(reply);
@@ -685,7 +685,7 @@ fn registerGlobalShortcut(ctx: *Context) c_int {
         return 0;
     }
 
-    ctx.shortcut_subscription = g_dbus_connection_signal_subscribe(bus, "org.kde.kglobalaccel", "org.kde.kglobalaccel.Component", "globalShortcutPressed", "/component/noctty", null, 0, onGlobalShortcut, ctx, null);
+    ctx.shortcut_subscription = g_dbus_connection_signal_subscribe(bus, "org.kde.kglobalaccel", "org.kde.kglobalaccel.Component", "globalShortcutPressed", "/component/dintty", null, 0, onGlobalShortcut, ctx, null);
     ctx.global_shortcut_registered = true;
     emit(ctx, .shortcut_registered, 0);
     return 1;
@@ -696,7 +696,7 @@ fn unregisterGlobalShortcut(ctx: *Context) void {
     if (ctx.shortcut_subscription != 0)
         g_dbus_connection_signal_unsubscribe(bus, ctx.shortcut_subscription);
     if (ctx.global_shortcut_action_registered) {
-        const reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel", "unregister", g_variant_new("(ss)", "noctty", "toggle-window"), variantType("(b)"), 0, -1, null, null);
+        const reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel", "unregister", g_variant_new("(ss)", "dintty", "toggle-window"), variantType("(b)"), 0, -1, null, null);
         if (reply) |value| g_variant_unref(value);
         emit(ctx, .shortcut_unregistered, 0);
     }
@@ -754,7 +754,7 @@ fn openShortcutRecorder(ctx: *Context) void {
         gtk_window_present(asWindow(dialog));
         return;
     }
-    const dialog = gtk_dialog_new_with_buttons("NOCTTY Dropdown Shortcut", asWindow(ctx.window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, null) orelse return;
+    const dialog = gtk_dialog_new_with_buttons("DINTTY Dropdown Shortcut", asWindow(ctx.window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, null) orelse return;
     const content = gtk_dialog_get_content_area(dialog) orelse return;
     const label = gtk_label_new("Press a letter, digit, navigation/editing key, or F1-F12.\nModifiers are supported.\nEsc cancels without changing the shortcut.") orelse return;
     const settings = gtk_label_new("Current settings\nShortcut: F10\nMode: Dropdown\nFont: JetBrains Mono 12 pt\nProfile: Global default\nPresets: Global default, Focus, Review, Logs, Custom\nTabs: Top\nStatus indicator: Border") orelse return;
@@ -852,7 +852,7 @@ fn requestSmokeGlobalShortcut(raw: ?*anyopaque) callconv(.c) gboolean {
     ctx.smoke_shortcut_source = 0;
     const bus = ctx.session_bus orelse return G_SOURCE_REMOVE;
     if (!ctx.global_shortcut_registered) return G_SOURCE_REMOVE;
-    const reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/component/noctty", "org.kde.kglobalaccel.Component", "invokeShortcut", g_variant_new("(s)", "toggle-window"), null, 0, -1, null, null);
+    const reply = g_dbus_connection_call_sync(bus, "org.kde.kglobalaccel", "/component/dintty", "org.kde.kglobalaccel.Component", "invokeShortcut", g_variant_new("(s)", "toggle-window"), null, 0, -1, null, null);
     if (reply) |value| g_variant_unref(value);
     return G_SOURCE_REMOVE;
 }
@@ -870,7 +870,7 @@ fn onWindowDestroy(_: *GtkWidget, _: ?*anyopaque) callconv(.c) void {
 
 pub fn run(pane_id: u64, shortcut_key: c_int, callback: Callback, callback_data: ?*anyopaque, mode: c_int, smoke: c_int) c_int {
     if (gtk_init_check(null, null) == 0) {
-        std.debug.print("NOCTTY could not connect to a Wayland or X11 display.\n", .{});
+        std.debug.print("DINTTY could not connect to a Wayland or X11 display.\n", .{});
         return 2;
     }
     const window = gtk_window_new(GTK_WINDOW_TOPLEVEL) orelse return 2;
@@ -894,14 +894,14 @@ pub fn run(pane_id: u64, shortcut_key: c_int, callback: Callback, callback_data:
     var pane_buffer: [32]u8 = undefined;
     if (smoke != 0) {
         const pane_text = Compat.bufPrintZ(&pane_buffer, "{d}", .{pane_id}) catch return 2;
-        _ = g_setenv("NOCTTY_SMOKE_PANE", pane_text.ptr, 1);
-        const marker = Compat.bufPrintZ(&ctx.smoke_marker_path, "/tmp/noctty-native-input-{d}-{d}", .{ std.c.getpid(), pane_id }) catch return 2;
+        _ = g_setenv("DINTTY_SMOKE_PANE", pane_text.ptr, 1);
+        const marker = Compat.bufPrintZ(&ctx.smoke_marker_path, "/tmp/dintty-native-input-{d}-{d}", .{ std.c.getpid(), pane_id }) catch return 2;
         _ = std.c.unlink(marker.ptr);
-        _ = g_setenv("NOCTTY_SMOKE_MARKER", marker.ptr, 1);
-        _ = g_setenv("NOCTTY_SMOKE_DELAY", if (smoke == 3) "5" else if (smoke == 4) "12" else "1.5", 1);
+        _ = g_setenv("DINTTY_SMOKE_MARKER", marker.ptr, 1);
+        _ = g_setenv("DINTTY_SMOKE_DELAY", if (smoke == 3) "5" else if (smoke == 4) "12" else "1.5", 1);
     }
 
-    gtk_window_set_title(asWindow(window), "NOCTTY");
+    gtk_window_set_title(asWindow(window), "DINTTY");
     gtk_window_set_default_size(asWindow(window), 1000, 640);
     gtk_window_set_decorated(asWindow(window), 0);
     gtk_window_set_keep_above(asWindow(window), @intFromBool(mode == 0));

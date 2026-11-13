@@ -1887,7 +1887,7 @@ test "profile preset menu rejects stale and invalid receipts" {
 
 test "workspace file dialog chooses native transport and tracks receipts" {
     var host = NativeHost.init(Config.Config.defaults(), Backend.Descriptor.preferredForLinux(), .default());
-    const request = try host.beginWorkspaceFileDialog(.save, "/home/alice/project.nocttyws");
+    const request = try host.beginWorkspaceFileDialog(.save, "/home/alice/project.dinttyws");
     try std.testing.expect(request.canShow());
     try std.testing.expectEqual(WorkspaceFileDialogOperation.save, request.operation);
     try std.testing.expectEqual(WorkspaceFileDialogTransport.gtk_native_dialog, request.transport);
@@ -1904,7 +1904,7 @@ test "workspace file dialog chooses native transport and tracks receipts" {
         .operation = request.operation,
         .transport = request.transport,
         .status = .selected,
-        .selected_path = "/home/alice/project.nocttyws",
+        .selected_path = "/home/alice/project.dinttyws",
     });
     try std.testing.expectEqual(WorkspaceFileDialogStatus.selected, selected);
     try std.testing.expect(host.workspace_file_dialog_operation == null);
@@ -1914,20 +1914,20 @@ test "workspace file dialog chooses native transport and tracks receipts" {
         .current_desktop = "KDE",
         .xdg_session_type = "x11",
     }, .default());
-    const x11_request = try x11.beginWorkspaceFileDialog(.open, "/home/alice/project.nocttyws");
+    const x11_request = try x11.beginWorkspaceFileDialog(.open, "/home/alice/project.dinttyws");
     try std.testing.expectEqual(WorkspaceFileDialogTransport.gtk_native_dialog, x11_request.transport);
 }
 
 test "workspace file dialog reports unavailable and rejects invalid receipts" {
     var headless = NativeHost.fromEnvironment(Config.Config.defaults(), .{}, .default());
-    const unavailable = try headless.beginWorkspaceFileDialog(.open, "/home/alice/project.nocttyws");
+    const unavailable = try headless.beginWorkspaceFileDialog(.open, "/home/alice/project.dinttyws");
     try std.testing.expect(!unavailable.canShow());
     try std.testing.expectEqual(WorkspaceFileDialogTransport.unavailable, unavailable.transport);
     try std.testing.expectEqual(WorkspaceFileDialogStatus.unavailable, unavailable.status);
     try std.testing.expectError(error.InvalidWorkspaceFileDialogPath, headless.beginWorkspaceFileDialog(.save, ""));
 
     var host = NativeHost.init(Config.Config.defaults(), Backend.Descriptor.preferredForLinux(), .default());
-    const request = try host.beginWorkspaceFileDialog(.open, "/home/alice/project.nocttyws");
+    const request = try host.beginWorkspaceFileDialog(.open, "/home/alice/project.dinttyws");
     try std.testing.expectError(error.InvalidWorkspaceFileDialogReceipt, host.applyWorkspaceFileDialogReceipt(.{
         .operation = request.operation,
         .transport = request.transport,
@@ -1952,7 +1952,7 @@ test "workspace file dialog reports unavailable and rejects invalid receipts" {
         .operation = request.operation,
         .transport = request.transport,
         .status = .canceled,
-        .selected_path = "/home/alice/project.nocttyws",
+        .selected_path = "/home/alice/project.dinttyws",
     }));
 }
 

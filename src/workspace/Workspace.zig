@@ -1190,7 +1190,7 @@ pub const WorkspaceExport = struct {
     }
 };
 
-const workspace_export_magic = "NOCTTYWS";
+const workspace_export_magic = "DINTTYWS";
 const workspace_export_version: u8 = 8;
 
 pub fn exportSnapshotAlloc(allocator: std.mem.Allocator, snapshot: ProjectSnapshot) ![]u8 {
@@ -3452,7 +3452,7 @@ test "workspace applies one owned theme to every pane in one tab" {
         try std.testing.expect(pane.owned_profile_theme_name != null);
     }
     try std.testing.expectEqualStrings(
-        "noctty-dark",
+        "dintty-dark",
         ws.findPane(ws.findTab(second_tab_id).?.active_pane_id).?.profile.theme_name,
     );
     try std.testing.expectError(
@@ -3473,9 +3473,9 @@ test "workspace applies per-pane profile presets by stable pane id" {
 
     const change = try ws.applyProfilePreset(2, .high_contrast, cfg);
     try std.testing.expectEqual(@as(Terminal.PaneId, 2), change.pane_id);
-    try std.testing.expectEqualStrings("noctty-high-contrast", change.profile.theme_name);
+    try std.testing.expectEqualStrings("dintty-high-contrast", change.profile.theme_name);
     try std.testing.expectEqualStrings("Commit Mono", ws.findPane(2).?.profile.font_family);
-    try std.testing.expectEqualStrings("noctty-dark", ws.findPane(1).?.profile.theme_name);
+    try std.testing.expectEqualStrings("dintty-dark", ws.findPane(1).?.profile.theme_name);
 }
 
 test "workspace owns project panel git graph status and file lists" {

@@ -9,13 +9,13 @@ launcher-neutral.
 `scripts/native_grid_authenticated_agent_qualification.sh` builds isolated
 Debug and `ReleaseSafe` smoke binaries and runs one Pi, OMP, or ZIPI launcher
 request in each live Plasma Wayland/X11 lane. Select the launcher with
-`NOCTTY_AGENT_QUALIFICATION_LAUNCHER`; the default is `pi`. The command uses
+`DINTTY_AGENT_QUALIFICATION_LAUNCHER`; the default is `pi`. The command uses
 the production command launch profile, PTY, `TerminalSession`, VT grid, GTK
 host, and Cairo renderer.
 
 Each request is ephemeral, read-only, rooted at `/tmp`, disables agent tools,
-and requests the exact response `NOCTTY_AGENT_QUALIFICATION_OK`. Pi and OMP
-own any external-provider authentication; ZIPI is local-only. NOCTTY stores no
+and requests the exact response `DINTTY_AGENT_QUALIFICATION_OK`. Pi and OMP
+own any external-provider authentication; ZIPI is local-only. DINTTY stores no
 credentials or bearer tokens.
 
 ## Current output
@@ -33,7 +33,7 @@ configuration.
 
 ## Boundary
 
-This lane proves only NOCTTY's launcher-to-PTY/VT/GTK/Cairo boundary and exact
+This lane proves only DINTTY's launcher-to-PTY/VT/GTK/Cairo boundary and exact
 response handling. It does not prove external-provider behavior, ZIPI model
 quality, physical input, universal terminal compatibility, or multi-day
 stability. KWin activation and Spectacle capture are compositor automation,

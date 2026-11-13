@@ -11,16 +11,16 @@ const path_capacity: usize = c.MAX_PATH * 2;
 const identity_blob_bytes_max: usize = 4_096;
 const peers_blob_bytes_max: usize = 65_536;
 const local_app_data = std.unicode.utf8ToUtf16LeStringLiteral("LOCALAPPDATA");
-const directory = std.unicode.utf8ToUtf16LeStringLiteral("\\NOCTTY");
+const directory = std.unicode.utf8ToUtf16LeStringLiteral("\\DINTTY");
 const identity_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-identity.dpapi");
 const peers_file = std.unicode.utf8ToUtf16LeStringLiteral("\\sharing-peers.dpapi");
 const state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-state-v1.bin");
 const theme_state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-themes-v1.bin");
 const profile_state_file = std.unicode.utf8ToUtf16LeStringLiteral("\\windows-launch-profiles-v1.bin");
 const identity_description = std.unicode.utf8ToUtf16LeStringLiteral(
-    "NOCTTY session sharing identity",
+    "DINTTY session sharing identity",
 );
-const peers_description = std.unicode.utf8ToUtf16LeStringLiteral("NOCTTY paired devices");
+const peers_description = std.unicode.utf8ToUtf16LeStringLiteral("DINTTY paired devices");
 
 pub const PeerStoreVersion = struct {
     volume: u32,

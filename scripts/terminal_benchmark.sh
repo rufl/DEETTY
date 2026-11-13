@@ -3,31 +3,31 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 workload="$repo_root/scripts/terminal_benchmark_workload.sh"
-noctty_bin=${NOCTTY_BENCH_NOCTTY_BIN:-"$repo_root/zig-out/bin/noctty"}
+dintty_bin=${DINTTY_BENCH_DINTTY_BIN:-"$repo_root/zig-out/bin/dintty"}
 benchmark_dir="$repo_root/benchmarks"
-runs=${NOCTTY_BENCH_RUNS:-7}
-pane_counts=${NOCTTY_BENCH_PANES:-"1 2 4 8"}
-output_pane_counts=${NOCTTY_BENCH_OUTPUT_PANES:-"1 2 4 8"}
-output_lines=${NOCTTY_BENCH_OUTPUT_LINES:-20000}
-cpu_sample_ms=${NOCTTY_BENCH_CPU_SAMPLE_MS:-1000}
-visual_timeout_ms=${NOCTTY_BENCH_VISUAL_TIMEOUT_MS:-30000}
-inter_trial_settle_ms=${NOCTTY_BENCH_INTER_TRIAL_SETTLE_MS:-1000}
-post_output_settle_ms=${NOCTTY_BENCH_POST_OUTPUT_SETTLE_MS:-250}
-expect_idle_compaction=${NOCTTY_BENCH_EXPECT_IDLE_COMPACTION:-0}
-warmup=${NOCTTY_BENCH_WARMUP:-1}
-skip_build=${NOCTTY_BENCH_SKIP_BUILD:-0}
-terminals=${NOCTTY_BENCH_TERMINALS:-"noctty noctty-production konsole kitty wezterm terminator ghostty alacritty yakuake"}
+runs=${DINTTY_BENCH_RUNS:-7}
+pane_counts=${DINTTY_BENCH_PANES:-"1 2 4 8"}
+output_pane_counts=${DINTTY_BENCH_OUTPUT_PANES:-"1 2 4 8"}
+output_lines=${DINTTY_BENCH_OUTPUT_LINES:-20000}
+cpu_sample_ms=${DINTTY_BENCH_CPU_SAMPLE_MS:-1000}
+visual_timeout_ms=${DINTTY_BENCH_VISUAL_TIMEOUT_MS:-30000}
+inter_trial_settle_ms=${DINTTY_BENCH_INTER_TRIAL_SETTLE_MS:-1000}
+post_output_settle_ms=${DINTTY_BENCH_POST_OUTPUT_SETTLE_MS:-250}
+expect_idle_compaction=${DINTTY_BENCH_EXPECT_IDLE_COMPACTION:-0}
+warmup=${DINTTY_BENCH_WARMUP:-1}
+skip_build=${DINTTY_BENCH_SKIP_BUILD:-0}
+terminals=${DINTTY_BENCH_TERMINALS:-"dintty dintty-production konsole kitty wezterm terminator ghostty alacritty yakuake"}
 read -r -a terminal_list <<<"$terminals"
 terminal_count=${#terminal_list[@]}
 inter_trial_settle_seconds=$(awk -v ms="$inter_trial_settle_ms" 'BEGIN { printf "%.3f", ms / 1000 }')
 post_output_settle_seconds=$(awk -v ms="$post_output_settle_ms" 'BEGIN { printf "%.3f", ms / 1000 }')
-window_width=${NOCTTY_BENCH_WINDOW_WIDTH:-1200}
-window_height=${NOCTTY_BENCH_WINDOW_HEIGHT:-800}
-font_size=${NOCTTY_BENCH_FONT_SIZE:-11}
-offscreen=${NOCTTY_BENCH_OFFSCREEN:-0}
-display_backend=${NOCTTY_BENCH_DISPLAY_BACKEND:-x11}
-renderer=${NOCTTY_BENCH_RENDERER:-cairo}
-export NOCTTY_BENCH_RENDERER="$renderer"
+window_width=${DINTTY_BENCH_WINDOW_WIDTH:-1200}
+window_height=${DINTTY_BENCH_WINDOW_HEIGHT:-800}
+font_size=${DINTTY_BENCH_FONT_SIZE:-11}
+offscreen=${DINTTY_BENCH_OFFSCREEN:-0}
+display_backend=${DINTTY_BENCH_DISPLAY_BACKEND:-x11}
+renderer=${DINTTY_BENCH_RENDERER:-cairo}
+export DINTTY_BENCH_RENDERER="$renderer"
 if [[ "$display_backend" == wayland ]]; then
     backend_label=native_wayland
     visual_metric=unavailable_native_wayland
@@ -37,14 +37,14 @@ else
     visual_metric=release_to_external_pixel_marker
     visual_tail_metric=writer_completion_to_external_pixel_marker
 fi
-run_stamp=${NOCTTY_BENCH_STAMP:-$(date +%Y-%m-%d-%H%M%S)}
+run_stamp=${DINTTY_BENCH_STAMP:-$(date +%Y-%m-%d-%H%M%S)}
 raw_csv="$benchmark_dir/terminal-comparison-$run_stamp-raw.csv"
 summary_csv="$benchmark_dir/terminal-comparison-$run_stamp-summary.csv"
 metadata_file="$benchmark_dir/terminal-comparison-$run_stamp-metadata.txt"
 process_tsv="$benchmark_dir/terminal-comparison-$run_stamp-processes.tsv"
 checksums_file="$benchmark_dir/terminal-comparison-$run_stamp-SHA256SUMS"
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-terminal-benchmark.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-terminal-benchmark.XXXXXX")
 payload="$scratch/payload.ansi"
 declare -a active_roots=()
 launch_pid=0
@@ -278,12 +278,12 @@ wait_for_yakuake_service() {
 supports_panes() {
     local terminal=$1
     local panes=$2
-    [[ "$panes" == 1 || ( "$terminal" != alacritty && "$terminal" != noctty-production ) ]]
+    [[ "$panes" == 1 || ( "$terminal" != alacritty && "$terminal" != dintty-production ) ]]
 }
 
 version_for() {
     local terminal=$1 executable=$1 output
-    [[ "$terminal" != noctty && "$terminal" != noctty-production ]] || executable=$noctty_bin
+    [[ "$terminal" != dintty && "$terminal" != dintty-production ]] || executable=$dintty_bin
     if [[ "$terminal" == terminator ]]; then
         output=$("$executable" --version 2>&1 | grep -m1 '^terminator ' || true)
     else
@@ -425,7 +425,7 @@ ColorScheme=Breeze
 Font=Monospace,$font_size,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
 
 [General]
-Name=NOCTTY Benchmark
+Name=DINTTY Benchmark
 Parent=FALLBACK/
 TerminalColumns=120
 TerminalRows=40
@@ -436,10 +436,10 @@ write_yakuake_command() {
     local path=$1
     cat >"$path" <<EOF
 #!/usr/bin/env bash
-export NOCTTY_BENCH_RUN_DIR=$(printf '%q' "$NOCTTY_BENCH_RUN_DIR")
-export NOCTTY_BENCH_TITLE=$(printf '%q' "$NOCTTY_BENCH_TITLE")
-export NOCTTY_BENCH_MODE=$(printf '%q' "$NOCTTY_BENCH_MODE")
-export NOCTTY_BENCH_PAYLOAD=$(printf '%q' "$NOCTTY_BENCH_PAYLOAD")
+export DINTTY_BENCH_RUN_DIR=$(printf '%q' "$DINTTY_BENCH_RUN_DIR")
+export DINTTY_BENCH_TITLE=$(printf '%q' "$DINTTY_BENCH_TITLE")
+export DINTTY_BENCH_MODE=$(printf '%q' "$DINTTY_BENCH_MODE")
+export DINTTY_BENCH_PAYLOAD=$(printf '%q' "$DINTTY_BENCH_PAYLOAD")
 exec $(printf '%q' "$workload")
 EOF
     chmod +x "$path"
@@ -453,28 +453,28 @@ launch_terminal() {
     local config class
     launch_pid=0
     case "$terminal" in
-        noctty)
+        dintty)
             if [[ "$display_backend" == wayland ]]; then
-                NO_AT_BRIDGE=1 GDK_BACKEND=wayland DISPLAY= "$noctty_bin" --native-grid-benchmark "$panes" \
+                NO_AT_BRIDGE=1 GDK_BACKEND=wayland DISPLAY= "$dintty_bin" --native-grid-benchmark "$panes" \
                     >"$run_dir/app.log" 2>&1 &
             else
-                NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$noctty_bin" --native-grid-benchmark "$panes" \
+                NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$dintty_bin" --native-grid-benchmark "$panes" \
                     >"$run_dir/app.log" 2>&1 &
             fi
             launch_pid=$!
             ;;
-        noctty-production)
+        dintty-production)
             mkdir -p "$run_dir/home" "$run_dir/config" "$run_dir/state"
             if [[ "$display_backend" == wayland ]]; then
                 HOME="$run_dir/home" XDG_CONFIG_HOME="$run_dir/config" \
                     XDG_STATE_HOME="$run_dir/state" SHELL="$workload" \
                     NO_AT_BRIDGE=1 GDK_BACKEND=wayland DISPLAY= \
-                    "$noctty_bin" --native-grid-windowed \
+                    "$dintty_bin" --native-grid-windowed \
                     >"$run_dir/app.log" 2>&1 &
             else
                 HOME="$run_dir/home" XDG_CONFIG_HOME="$run_dir/config" \
                     XDG_STATE_HOME="$run_dir/state" SHELL="$workload" \
-                    NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$noctty_bin" --native-grid-windowed \
+                    NO_AT_BRIDGE=1 GDK_BACKEND=x11 "$dintty_bin" --native-grid-windowed \
                     >"$run_dir/app.log" 2>&1 &
             fi
             launch_pid=$!
@@ -488,7 +488,7 @@ launch_terminal() {
             ;;
         kitty)
             kitty_socket="$run_dir/kitty.sock"
-            KITTY_DISABLE_WAYLAND=1 NOCTTY_BENCH_SLOT=0 kitty --config NONE \
+            KITTY_DISABLE_WAYLAND=1 DINTTY_BENCH_SLOT=0 kitty --config NONE \
                 --listen-on "unix:$kitty_socket" \
                 -o allow_remote_control=socket-only \
                 -o enabled_layouts=splits \
@@ -504,8 +504,8 @@ launch_terminal() {
         wezterm)
             config="$run_dir/wezterm.lua"
             write_wezterm_config "$config"
-            wezterm_class="NocttyBenchWezterm$trial_serial"
-            wezterm_workspace="noctty-bench-$trial_serial"
+            wezterm_class="DinttyBenchWezterm$trial_serial"
+            wezterm_workspace="dintty-bench-$trial_serial"
             wezterm --config-file "$config" start --always-new-process \
                 --class "$wezterm_class" --workspace "$wezterm_workspace" \
                 -- "$workload" >"$run_dir/app.log" 2>&1 &
@@ -524,7 +524,7 @@ launch_terminal() {
             ;;
         ghostty)
             config="$run_dir/ghostty.conf"
-            class="com.lichforge.NocttyBench$trial_serial"
+            class="com.lichforge.DinttyBench$trial_serial"
             write_ghostty_config "$config" "$class" "$title"
             GDK_BACKEND=x11 ghostty --config-file="$config" \
                 >"$run_dir/app.log" 2>&1 &
@@ -534,15 +534,15 @@ launch_terminal() {
             config="$run_dir/alacritty.toml"
             write_alacritty_config "$config"
             env -u WAYLAND_DISPLAY alacritty --config-file "$config" \
-                --title "$title" --class "NocttyBenchAlacritty$trial_serial" \
+                --title "$title" --class "DinttyBenchAlacritty$trial_serial" \
                 -e "$workload" >"$run_dir/app.log" 2>&1 &
             launch_pid=$!
             ;;
         yakuake)
             write_yakuake_profile \
-                "$run_dir/yakuake-data/konsole/NOCTTY Benchmark.profile"
+                "$run_dir/yakuake-data/konsole/DINTTY Benchmark.profile"
             mkdir -p "$run_dir/yakuake-config"
-            printf '[Desktop Entry]\nDefaultProfile=NOCTTY Benchmark.profile\n[Dialogs]\nFirstRun=false\n[Window]\nHeight=100\nWidth=100\n' \
+            printf '[Desktop Entry]\nDefaultProfile=DINTTY Benchmark.profile\n[Dialogs]\nFirstRun=false\n[Window]\nHeight=100\nWidth=100\n' \
                 >"$run_dir/yakuake-config/yakuakerc"
             QT_QPA_PLATFORM=xcb XDG_CONFIG_HOME="$run_dir/yakuake-config" \
                 XDG_DATA_HOME="$run_dir/yakuake-data" yakuake \
@@ -604,13 +604,13 @@ create_kitty_splits() {
         for ((slot = 0; slot < current; slot++)); do
             kitty @ --to "unix:$kitty_socket" launch \
                 --type=window --keep-focus --location="$location" \
-                --next-to "env:NOCTTY_BENCH_SLOT=$slot" \
-                --title "$NOCTTY_BENCH_TITLE" \
-                --env "NOCTTY_BENCH_SLOT=$next_slot" \
-                --env "NOCTTY_BENCH_RUN_DIR=$NOCTTY_BENCH_RUN_DIR" \
-                --env "NOCTTY_BENCH_TITLE=$NOCTTY_BENCH_TITLE" \
-                --env "NOCTTY_BENCH_MODE=$NOCTTY_BENCH_MODE" \
-                --env "NOCTTY_BENCH_PAYLOAD=$NOCTTY_BENCH_PAYLOAD" \
+                --next-to "env:DINTTY_BENCH_SLOT=$slot" \
+                --title "$DINTTY_BENCH_TITLE" \
+                --env "DINTTY_BENCH_SLOT=$next_slot" \
+                --env "DINTTY_BENCH_RUN_DIR=$DINTTY_BENCH_RUN_DIR" \
+                --env "DINTTY_BENCH_TITLE=$DINTTY_BENCH_TITLE" \
+                --env "DINTTY_BENCH_MODE=$DINTTY_BENCH_MODE" \
+                --env "DINTTY_BENCH_PAYLOAD=$DINTTY_BENCH_PAYLOAD" \
                 "$workload" >/dev/null
             next_slot=$((next_slot + 1))
         done
@@ -628,7 +628,7 @@ create_wezterm_splits() {
     wait_for_socket "$wezterm_socket" || return 1
     while (( $(now_ms) < deadline )); do
         initial=$(WEZTERM_UNIX_SOCKET="$wezterm_socket" wezterm cli --no-auto-start \
-            list 2>>"$NOCTTY_BENCH_RUN_DIR/app.log" | \
+            list 2>>"$DINTTY_BENCH_RUN_DIR/app.log" | \
             awk -v workspace="$wezterm_workspace" \
                 'NR > 1 && index($0, workspace) { print $3; exit }')
         [[ -z "$initial" ]] || break
@@ -636,7 +636,7 @@ create_wezterm_splits() {
     done
     if [[ -z "$initial" ]]; then
         WEZTERM_UNIX_SOCKET="$wezterm_socket" wezterm cli --no-auto-start list \
-            >>"$NOCTTY_BENCH_RUN_DIR/app.log" 2>&1 || true
+            >>"$DINTTY_BENCH_RUN_DIR/app.log" 2>&1 || true
         return 1
     fi
     pane_ids=("$initial")
@@ -651,7 +651,7 @@ create_wezterm_splits() {
             [[ "$new_pane" =~ ^[0-9]+$ ]] || return 1
             pane_ids+=("$new_pane")
             expected=${#pane_ids[@]}
-            wait_for_count "$NOCTTY_BENCH_RUN_DIR" spawned "$expected" 5000 ||
+            wait_for_count "$DINTTY_BENCH_RUN_DIR" spawned "$expected" 5000 ||
                 return 1
         done
         current=$((current * 2))
@@ -670,7 +670,7 @@ create_ghostty_splits() {
             [[ "$active_window" == "$window_id" ]] || return 1
             xdotool key --clearmodifiers F8
             expected=$((current + index + 1))
-            wait_for_count "$NOCTTY_BENCH_RUN_DIR" spawned "$expected" 5000
+            wait_for_count "$DINTTY_BENCH_RUN_DIR" spawned "$expected" 5000
             xdotool windowactivate --sync "$window_id"
             active_window=$(xdotool getactivewindow)
             [[ "$active_window" == "$window_id" ]] || return 1
@@ -703,9 +703,9 @@ create_yakuake_splits() {
                 org.kde.konsole.Session.setHistorySize 1000 >/dev/null || return 1
             qdbus org.kde.yakuake /yakuake/sessions \
                 org.kde.yakuake.runCommandInTerminal "$new_terminal" \
-                "$NOCTTY_BENCH_RUN_DIR/yakuake-workload.sh" || return 1
+                "$DINTTY_BENCH_RUN_DIR/yakuake-workload.sh" || return 1
             expected=${#terminal_ids[@]}
-            wait_for_count "$NOCTTY_BENCH_RUN_DIR" spawned "$expected" 5000 ||
+            wait_for_count "$DINTTY_BENCH_RUN_DIR" spawned "$expected" 5000 ||
                 return 1
         done
         current=$((current * 2))
@@ -720,7 +720,7 @@ create_splits() {
     local terminal=$1
     local panes=$2
     case "$terminal" in
-        noctty|noctty-production|terminator|alacritty) ;;
+        dintty|dintty-production|terminator|alacritty) ;;
         konsole) create_konsole_splits "$panes" ;;
         kitty) create_kitty_splits "$panes" ;;
         wezterm) create_wezterm_splits "$panes" ;;
@@ -839,15 +839,15 @@ run_trial() {
 
     trial_serial=$((trial_serial + 1))
     run_dir="$scratch/run-$trial_serial-$terminal-$panes-$scenario"
-    title="NOCTTY-BENCH-$terminal-$trial_serial"
+    title="DINTTY-BENCH-$terminal-$trial_serial"
     mkdir -p "$run_dir"
-    export NOCTTY_BENCH_RUN_DIR="$run_dir"
-    export NOCTTY_BENCH_TITLE="$title"
-    export NOCTTY_BENCH_MODE="$scenario"
-    export NOCTTY_BENCH_PAYLOAD="$payload"
-    export NOCTTY_BENCH_WORKLOAD="$workload"
-    export NOCTTY_BENCH_FONT_SIZE="$font_size"
-    export NOCTTY_BENCH_SLOT=0
+    export DINTTY_BENCH_RUN_DIR="$run_dir"
+    export DINTTY_BENCH_TITLE="$title"
+    export DINTTY_BENCH_MODE="$scenario"
+    export DINTTY_BENCH_PAYLOAD="$payload"
+    export DINTTY_BENCH_WORKLOAD="$workload"
+    export DINTTY_BENCH_FONT_SIZE="$font_size"
+    export DINTTY_BENCH_SLOT=0
 
     start_ms=$(now_ms)
     start_ns=$(now_ns)
@@ -871,7 +871,7 @@ run_trial() {
         die "split_creation:$terminal"
     }
     wait_for_count "$run_dir" spawned "$panes" 20000
-    if [[ "$terminal" == noctty ]]; then
+    if [[ "$terminal" == dintty ]]; then
         if [[ "$renderer" == opengl ]]; then
             wait_for_log "$run_dir/app.log" \
                 'native_grid_(renderer_receipt|renderer_fallback)' 15000 ||
@@ -952,7 +952,7 @@ run_trial() {
     fi
     wait_for_exit "$root_candidate"
     wait "$launch_pid" 2>/dev/null || true
-    if [[ "$record" == 1 && "$terminal" == noctty ]]; then
+    if [[ "$record" == 1 && "$terminal" == dintty ]]; then
         renderer_receipt=$(grep -E '^native_grid_(benchmark renderer|gpu_context|renderer_receipt|renderer_smoke|renderer_fallback)' \
             "$run_dir/app.log" | tr '\n' ';' || true)
         printf 'renderer_receipt run_serial=%d terminal=%s scenario=%s panes=%d trial=%d lines=%s\n' \
@@ -979,7 +979,7 @@ run_trial() {
         fi
     fi
     if [[ "$expect_idle_compaction" == 1 && "$scenario" == output &&
-          "$terminal" == noctty* ]]; then
+          "$terminal" == dintty* ]]; then
         grep -E 'native_grid_benchmark idle_history_compactions=[1-9][0-9]*' \
             "$run_dir/app.log" >/dev/null || {
             tail -80 "$run_dir/app.log" >&2 || true
@@ -1058,7 +1058,7 @@ for command in zig xdotool ps awk find sort date getconf sha256sum flock; do
 done
 
 for terminal in "${terminal_list[@]}"; do
-    [[ "$terminal" == noctty || "$terminal" == noctty-production ]] || command -v "$terminal" >/dev/null ||
+    [[ "$terminal" == dintty || "$terminal" == dintty-production ]] || command -v "$terminal" >/dev/null ||
         die "missing_command:$terminal"
     [[ "$terminal" != konsole && "$terminal" != yakuake ]] ||
         command -v qdbus >/dev/null || die "missing_command:qdbus"
@@ -1100,10 +1100,10 @@ if [[ "$display_backend" == x11 ]]; then
 fi
 
 if (( offscreen == 1 )); then
-    if [[ "${NOCTTY_BENCH_XVFB:-}" != 1 ]]; then
-        exec env NOCTTY_BENCH_XVFB=1 \
-            NOCTTY_ISOLATED_DISPLAY_SCREEN="${window_width}x${window_height}x24" \
-            NOCTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=1800 \
+    if [[ "${DINTTY_BENCH_XVFB:-}" != 1 ]]; then
+        exec env DINTTY_BENCH_XVFB=1 \
+            DINTTY_ISOLATED_DISPLAY_SCREEN="${window_width}x${window_height}x24" \
+            DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=1800 \
             "$repo_root/scripts/run_isolated_x11.sh" "$0" "$@"
     fi
     "$repo_root/scripts/require_isolated_display.sh"
@@ -1111,7 +1111,7 @@ else
     "$repo_root/scripts/require_isolated_display.sh" --dedicated
 fi
 
-benchmark_lock="${XDG_RUNTIME_DIR:-/tmp}/noctty-terminal-benchmark-$(id -u).lock"
+benchmark_lock="${XDG_RUNTIME_DIR:-/tmp}/dintty-terminal-benchmark-$(id -u).lock"
 exec 9>"$benchmark_lock"
 flock -n 9 || die "benchmark_busy:$benchmark_lock"
 for artifact in "$raw_csv" "$summary_csv" "$metadata_file" "$process_tsv" "$checksums_file"; do
@@ -1122,7 +1122,7 @@ mkdir -p "$benchmark_dir"
 if (( skip_build == 0 )); then
     zig build -Doptimize=ReleaseFast
 fi
-[[ -x "$noctty_bin" ]] || die "missing_noctty_binary:$noctty_bin"
+[[ -x "$dintty_bin" ]] || die "missing_dintty_binary:$dintty_bin"
 
 awk -v lines="$output_lines" 'BEGIN {
     for (line = 0; line < lines; line++) {
@@ -1156,11 +1156,11 @@ fi
         "$visual_timeout_ms" "$inter_trial_settle_ms" "$post_output_settle_ms" \
         "$expect_idle_compaction" "$skip_build"
     printf 'yakuake_exclusive=true yakuake_pids_stopped_before=%s\n' "${yakuake_before:-none}"
-    printf 'payload_sha256=%s workload_sha256=%s harness_sha256=%s noctty_binary_sha256=%s\n' \
+    printf 'payload_sha256=%s workload_sha256=%s harness_sha256=%s dintty_binary_sha256=%s\n' \
         "$(sha256sum "$payload" | awk '{print $1}')" \
         "$(sha256sum "$workload" | awk '{print $1}')" \
         "$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')" \
-        "$(sha256sum "$noctty_bin" | awk '{print $1}')"
+        "$(sha256sum "$dintty_bin" | awk '{print $1}')"
     printf 'git_commit=%s git_dirty=%s git_diff_sha256=%s\n' \
         "$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf unknown)" \
         "$([[ -n "$(git -C "$repo_root" status --porcelain 2>/dev/null)" ]] && printf true || printf false)" \
@@ -1174,12 +1174,12 @@ fi
         "$visual_metric" "$visual_tail_metric"
     printf 'parity_font=monospace:%s parity_geometry=%sx%s parity_scrollback_lines=1000 ghostty_scrollback_bytes=87000 yakuake_profile=isolated\n' \
         "$font_size" "$window_width" "$window_height"
-    printf 'adapter_noctty=benchmark_mode_prebuilt_balanced_tree adapter_noctty_production=normal_windowed_single_pane adapter_terminator=prebuilt_config_tree adapter_konsole=dbus_splits adapter_kitty=remote_control_splits adapter_wezterm=cli_splits adapter_ghostty=keyboard_splits adapter_alacritty=single_pane adapter_yakuake=dbus_balanced_splits\n'
-    { env | grep '^NOCTTY_BENCH_' || true; } | sort | sed 's/^/environment_/'
+    printf 'adapter_dintty=benchmark_mode_prebuilt_balanced_tree adapter_dintty_production=normal_windowed_single_pane adapter_terminator=prebuilt_config_tree adapter_konsole=dbus_splits adapter_kitty=remote_control_splits adapter_wezterm=cli_splits adapter_ghostty=keyboard_splits adapter_alacritty=single_pane adapter_yakuake=dbus_balanced_splits\n'
+    { env | grep '^DINTTY_BENCH_' || true; } | sort | sed 's/^/environment_/'
     for terminal in $terminals; do
         printf '%s_version=%s\n' "$terminal" "$(version_for "$terminal")"
-        if [[ "$terminal" == noctty || "$terminal" == noctty-production ]]; then
-            printf '%s_executable=%s\n' "$terminal" "$noctty_bin"
+        if [[ "$terminal" == dintty || "$terminal" == dintty-production ]]; then
+            printf '%s_executable=%s\n' "$terminal" "$dintty_bin"
         else
             printf '%s_executable=%s\n' "$terminal" "$(command -v "$terminal")"
         fi

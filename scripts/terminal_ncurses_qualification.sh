@@ -2,20 +2,20 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd -P)
-scratch_parent=${NOCTTY_NCURSES_QUALIFICATION_PARENT:-$repo_root}
+scratch_parent=${DINTTY_NCURSES_QUALIFICATION_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.noctty-ncurses.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.dintty-ncurses.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }
 trap cleanup EXIT HUP INT TERM
 
-nano_path=${NOCTTY_NCURSES_NANO:-$(command -v nano || true)}
-less_path=${NOCTTY_NCURSES_LESS:-$(command -v less || true)}
-dialog_path=${NOCTTY_NCURSES_DIALOG:-$(command -v dialog || true)}
+nano_path=${DINTTY_NCURSES_NANO:-$(command -v nano || true)}
+less_path=${DINTTY_NCURSES_LESS:-$(command -v less || true)}
+dialog_path=${DINTTY_NCURSES_DIALOG:-$(command -v dialog || true)}
 for path in "$nano_path" "$less_path" "$dialog_path"; do
     [[ -n "$path" && -x "$path" && "$path" = /* ]]
 done
@@ -43,10 +43,10 @@ run_mode() {
             "$state/$app-state" \
             "$state/$app-cache"
     done
-    printf 'NOCTTY_NCURSES_NANO\nread-only editor fixture\n' \
+    printf 'DINTTY_NCURSES_NANO\nread-only editor fixture\n' \
         >"$state/nano-fixture.txt"
     {
-        printf 'NOCTTY_NCURSES_LESS\n'
+        printf 'DINTTY_NCURSES_LESS\n'
         for index in $(seq 1 200); do
             printf 'pager line %03d real ncurses fixture\n' "$index"
         done
@@ -59,7 +59,7 @@ run_mode() {
         --cache-dir "$local_cache"
 
     output_file="$scratch/output-$mode"
-    "$prefix/bin/noctty-terminal-ncurses-qualification" \
+    "$prefix/bin/dintty-terminal-ncurses-qualification" \
         "$state" "$nano_path" "$less_path" "$dialog_path" \
         >"$output_file" &
     runner_pid=$!

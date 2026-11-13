@@ -4,7 +4,7 @@ Audit refreshed: 2026-08-29.
 
 ## Verdict
 
-NOCTTY already covers the core multi-tab, multi-pane drop-down workflow and its
+DINTTY already covers the core multi-tab, multi-pane drop-down workflow and its
 measured terminal-only footprint is small. It is suitable for ordinary shell
 work and supervised agent sessions, but it is not yet an unconditional Yakuake
 replacement for all-day Codex, Claude Code, and Antigravity CLI use.
@@ -60,7 +60,7 @@ fallback:
   hide or destruction; the hot-session Wayland/X11 gate treats GLib/GDK
   warnings as fatal (`popup_teardown=true`).
 - the active tab exposes the focused pane's short cwd and foreground process,
-  plus NOCTTY-wide and selected-terminal-tree CPU/RSS; hover adds full pane/PID/
+  plus DINTTY-wide and selected-terminal-tree CPU/RSS; hover adds full pane/PID/
   path/process-count detail. It reuses root maintenance and suppresses unchanged
   GTK updates instead of adding one timer per pane.
 - the launch-profile flow adds one GUI-owned active profile plus up to eight
@@ -69,7 +69,7 @@ fallback:
   a real local command PTY with the selected cwd, environment, and history
   (`launch_profile=true`, `launch_library=true`, `launch_runtime=true`); version 9
   persists the two continuity kinds.
-- local `noctty:` and `file:` workspace activation validates a bounded absolute
+- local `dintty:` and `file:` workspace activation validates a bounded absolute
   snapshot path before PTY creation. Settings version 9 retains the version-8
   eight-entry recent-path library, and Project Workspace exposes it without manual config editing.
   Activation uses a separate native process. The maintained installed lane validates the real desktop/MIME contract in a disposable tree, dispatches `gio`, and clicks the real Recent Workspaces control. Live Plasma Wayland/X11 mapped two-tab child receipts now pass with controlled zero exit. Project Workspace keeps its summary scroll-accessible within the monitor work area and exposes assistive names.
@@ -79,9 +79,9 @@ fallback:
   alternate-screen/focus/mouse modes, truecolor/Unicode, routed exit input,
   foreground identity, allocator/process teardown, and separate root/tree
   memory. This headless case does not authenticate Codex or submit a model request; the separate mapped companion does so with an exact ephemeral read-only response in every Debug/`ReleaseSafe` Wayland/X11 lane.
-- installed tmux 3.7b and Zellij 0.44.3 now pass first attach, native detach, NOCTTY process exit/relaunch, reattach, preserved rendered content, and controlled cleanup across both modes and desktop backends.
+- installed tmux 3.7b and Zellij 0.44.3 now pass first attach, native detach, DINTTY process exit/relaunch, reattach, preserved rendered content, and controlled cleanup across both modes and desktop backends.
 
-Production `noctty` also excludes VTE, Tree-sitter, and smoke commands. The
+Production `dintty` also excludes VTE, Tree-sitter, and smoke commands. The
 optional fallback and smoke hosts are separate non-default binaries, reducing
 production code and dependency surface without weakening the verification matrix.
 
@@ -142,7 +142,7 @@ These are short one-host engineering probes, not the multi-day agent-TUI soak, p
 | Link handling | OSC 8 state reaches native rich cells; Ctrl-click opens allowed links even while a TUI owns mouse reporting, and pixel-aligned underlines remain below the baseline | Retain hover/copy interaction evidence |
 | Scrollback | GUI-configurable 0-to-100000-line ring, 1000 default, live global application plus independent per-profile choices in an eight-entry named library | Retain |
 | Shell profiles | One atomic active profile plus up to eight GUI names cover interactive shell, one-line command, SSH, Persistent tmux, Persistent Zellij, absolute/inherited cwd, 16 bounded environment overrides, validated targets, persistence, save/select/delete, real selected local command launch, and disposable Ed25519 OpenSSH authentication (`credentialed_ssh=true`) | Retain remote-network and any password/agent/hardware-key expansion only if those claims are needed; the current bounded credential case is complete |
-| Workspace activation | Bounded local `noctty:`/`file:` admission, pre-PTY snapshot restore, settings-version-9 retention of the version-8 eight-entry MRU, adaptive accessible Project Workspace dialog, and live installed `gio` plus rendered Recent Workspaces child activation on Plasma Wayland/X11 (`native_grid_installed_activation_matrix backends=wayland,x11 installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true`) | Retain |
+| Workspace activation | Bounded local `dintty:`/`file:` admission, pre-PTY snapshot restore, settings-version-9 retention of the version-8 eight-entry MRU, adaptive accessible Project Workspace dialog, and live installed `gio` plus rendered Recent Workspaces child activation on Plasma Wayland/X11 (`native_grid_installed_activation_matrix backends=wayland,x11 installed_desktop=true desktop_dispatch=true recent_child=true rendered=true controlled_exit=true scratch_clean=true`) | Retain |
 | Process continuity | Layout/cwd hot restore plus first-class tmux/Zellij create-or-attach profile dispatch and installed tmux 3.7b/Zellij 0.44.3 mapped detach/relaunch/reattach with preserved content | Multi-day and remote/cross-host continuity remain outside the current receipt |
 | Paired session sharing | Native direct encrypted pairing, pane/tab/session presentation, view-only default, per-pane grants, bounded history/paste, reconnect, revocation, explicit terminal-state recovery, and fail-closed dialog teardown compile on Linux and experimental Windows; focused peer-store tests pass | Retain current mapped interaction/accessibility evidence and physical Linux/Windows plus routed-VPN qualification before daily-driver sharing claims |
 | Qualification | Debug/`ReleaseSafe` 32-session native-grid churn, repeated production PTY lifecycles, installed TUI tranches, authenticated Codex, installed tmux/Zellij relaunch/reattach, 100000-line reflow/grow-shrink, exact-Cairo frames, mapped key-to-frame runs, and archived Wayland/X11 pixels plus memory/wakeups | Multi-day pane churn, broader agent-product parity, final compositor acceptance, and physical-input latency |
@@ -154,13 +154,13 @@ multi-day evidence; the minimum elapsed-session baseline is complete. Broader
 application traces are needed only before making broader product-compatibility
 claims.
 
-For process continuity, select the matching persistent tmux or Zellij launch type with a session name. Installed server survival and later reattachment are retained on this host; NOCTTY still does not own a persistent terminal daemon or claim arbitrary-process resurrection.
+For process continuity, select the matching persistent tmux or Zellij launch type with a session name. Installed server survival and later reattachment are retained on this host; DINTTY still does not own a persistent terminal daemon or claim arbitrary-process resurrection.
 
 ## Memory accounting
 
 The maintained split benchmark excludes shell/workload subtrees so it measures
 the emulator rather than the application running inside it. Its eight-pane
-NOCTTY median is 33.884 MiB PSS. Codex, Claude Code, Antigravity, their MCP
+DINTTY median is 33.884 MiB PSS. Codex, Claude Code, Antigravity, their MCP
 servers, subagents, language servers, and commands belong to child process
 trees and can be much larger than the host terminal.
 
@@ -177,7 +177,7 @@ baseline after startup, after a representative long task, after compaction, and
 after returning idle. Growth that remains after task completion is more useful
 than a one-off peak when hunting a leak.
 
-NOCTTY cannot safely impose an internal allocation policy on an unrelated CLI.
+DINTTY cannot safely impose an internal allocation policy on an unrelated CLI.
 On systemd Linux, an optional per-session pressure boundary can be applied at
 launch:
 
@@ -269,7 +269,7 @@ bounded:
   wanted.
 
 Antigravity's inline rendering mode (`altScreenMode: "never"`) shifts visible
-history to NOCTTY's bounded scrollback instead of its integrated alternate
+history to DINTTY's bounded scrollback instead of its integrated alternate
 screen. Measure both modes before calling either one lower-memory. See the
 official [CLI settings](https://antigravity.google/docs/cli-settings),
 [MCP configuration](https://antigravity.google/docs/mcp),

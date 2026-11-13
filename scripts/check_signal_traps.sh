@@ -26,7 +26,7 @@ for file in $files; do
   ! grep -F 'trap cleanup EXIT HUP INT TERM' "$file" >/dev/null
 done
 
-test_root=$(mktemp -d "${TMPDIR:-/tmp}/noctty-signal-trap.XXXXXX")
+test_root=$(mktemp -d "${TMPDIR:-/tmp}/dintty-signal-trap.XXXXXX")
 cleanup() { rm -rf "$test_root"; }
 trap cleanup EXIT
 trap 'exit 129' HUP

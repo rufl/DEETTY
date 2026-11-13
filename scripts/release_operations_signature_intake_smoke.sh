@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-release-signature-intake.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-release-signature-intake.XXXXXX")
 
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
@@ -27,7 +27,7 @@ make_artifact() {
     printf 'architecture=%s\n' "$arch"
     printf 'archive_sha256=%s\n' "$digest"
     printf 'installed_files_begin\n'
-    printf 'bin/noctty\n'
+    printf 'bin/dintty\n'
     printf 'installed_files_end\n'
     printf 'library_inventory_begin\n'
     printf 'libexample.so|sha256=example\n'
@@ -49,7 +49,7 @@ make_artifact aarch64
 ./scripts/release_operations_artifact_intake.sh x86_64 "$src/input-x86_64.tar.gz" "$evidence" >/dev/null
 ./scripts/release_operations_artifact_intake.sh aarch64 "$src/input-aarch64.tar.gz" "$evidence" >/dev/null
 
-initial_status=$(NOCTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
+initial_status=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
 printf '%s\n' "$initial_status" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=5' >/dev/null
 
 make_signature x86_64 archive
@@ -59,7 +59,7 @@ make_signature aarch64 archive
 make_signature aarch64 checksum
 make_signature aarch64 manifest
 
-status_output=$(NOCTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
+status_output=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=4' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=missing' >/dev/null
 
@@ -79,7 +79,7 @@ fi
 
 victim="$scratch/signature-victim"
 printf 'victim-safe\n' >"$victim"
-retained_signature="$evidence/noctty-linux-x86_64.tar.gz.sig"
+retained_signature="$evidence/dintty-linux-x86_64.tar.gz.sig"
 rm -f "$retained_signature"
 ln -s "$victim" "$retained_signature"
 ./scripts/release_operations_signature_intake.sh x86_64 archive \

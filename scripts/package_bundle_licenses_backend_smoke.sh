@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/noctty-bundle-license-backend.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-bundle-license-backend.XXXXXX")
 cleanup() {
   if [ -n "${scratch:-}" ] && [ -d "$scratch" ]; then
     find "$scratch" -depth -delete 2>/dev/null || true
@@ -27,22 +27,22 @@ printf '%s\n' \
   'set -eu' \
   'case "$1" in' \
   '  -S)' \
-  '    test "$2" = "$NOCTTY_FIXTURE_LIBRARY"' \
-  '    printf "libfixture1:amd64: %s\\n" "$NOCTTY_FIXTURE_LIBRARY"' \
+  '    test "$2" = "$DINTTY_FIXTURE_LIBRARY"' \
+  '    printf "libfixture1:amd64: %s\\n" "$DINTTY_FIXTURE_LIBRARY"' \
   '    ;;' \
   '  -W)' \
   '    printf "1.2.3-1\\n"' \
   '    ;;' \
   '  -L)' \
-  '    printf "%s\\n" "$NOCTTY_FIXTURE_COPYRIGHT"' \
+  '    printf "%s\\n" "$DINTTY_FIXTURE_COPYRIGHT"' \
   '    ;;' \
   '  *) exit 2 ;;' \
   'esac' >"$fakebin/dpkg-query"
 chmod +x "$fakebin/dpkg-query"
 
-output=$(NOCTTY_PACKAGE_BACKEND=debian \
-  NOCTTY_FIXTURE_LIBRARY="$library" \
-  NOCTTY_FIXTURE_COPYRIGHT="$copyright" \
+output=$(DINTTY_PACKAGE_BACKEND=debian \
+  DINTTY_FIXTURE_LIBRARY="$library" \
+  DINTTY_FIXTURE_COPYRIGHT="$copyright" \
   PATH="$fakebin:$PATH" \
   ./scripts/package_bundle_licenses.sh "$sources" "$stage" \
     "$library_inventory" "$package_inventory" "$license_files")
@@ -53,15 +53,15 @@ grep -F 'package=libfixture1:amd64' "$library_inventory" >/dev/null
 grep -F 'license="SEE-DEBIAN-COPYRIGHT"' "$library_inventory" >/dev/null
 grep -F 'version=1.2.3-1' "$package_inventory" >/dev/null
 grep -F 'license_source=debian_installed_copyright' "$package_inventory" >/dev/null
-test "$(find "$stage/share/licenses/noctty/dependencies/packages" -type f | wc -l)" -eq 1
+test "$(find "$stage/share/licenses/dintty/dependencies/packages" -type f | wc -l)" -eq 1
 
 unowned="$scratch/unowned.so"
 printf 'unowned\n' >"$unowned"
 printf '%s\n' "$unowned" >"$sources"
 mkdir -p "$scratch/unowned-stage"
-if NOCTTY_PACKAGE_BACKEND=debian \
-  NOCTTY_FIXTURE_LIBRARY="$library" \
-  NOCTTY_FIXTURE_COPYRIGHT="$copyright" \
+if DINTTY_PACKAGE_BACKEND=debian \
+  DINTTY_FIXTURE_LIBRARY="$library" \
+  DINTTY_FIXTURE_COPYRIGHT="$copyright" \
   PATH="$fakebin:$PATH" \
   ./scripts/package_bundle_licenses.sh "$sources" "$scratch/unowned-stage" \
     "$scratch/unowned-library-inventory.txt" \

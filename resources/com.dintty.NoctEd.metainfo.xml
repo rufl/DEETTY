@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.noctty.NoctEd</id>
+  <id>com.dintty.NoctEd</id>
   <name>NoctEd</name>
   <summary>Native project editor with a project tree and minimap</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <launchable type="desktop-id">com.noctty.NoctEd.desktop</launchable>
+  <launchable type="desktop-id">com.dintty.NoctEd.desktop</launchable>
   <description>
-    <p>NoctEd is the standalone native editor companion for NOCTTY.</p>
+    <p>NoctEd is the standalone native editor companion for DINTTY.</p>
   </description>
   <provides>
     <binary>nocted</binary>

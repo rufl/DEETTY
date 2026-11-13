@@ -25,8 +25,8 @@ pub fn main(init: std.process.Init) !void {
     if (args.len != 1) return error.InvalidArguments;
 
     const cases = [_]Case{
-        .{ .kind = .tmux, .session_name = "noctty-tmux", .marker = "NOCTTY_CONTINUITY_OK:tmux" },
-        .{ .kind = .zellij, .session_name = "noctty-zellij", .marker = "NOCTTY_CONTINUITY_OK:zellij" },
+        .{ .kind = .tmux, .session_name = "dintty-tmux", .marker = "DINTTY_CONTINUITY_OK:tmux" },
+        .{ .kind = .zellij, .session_name = "dintty-zellij", .marker = "DINTTY_CONTINUITY_OK:zellij" },
     };
 
     var debug_allocator: AccountedAllocator = .init;
@@ -67,7 +67,7 @@ fn runCase(allocator: std.mem.Allocator, case: Case) !Outcome {
     var profile = LaunchProfile.Profile{ .kind = case.kind };
     try profile.shell.set("/bin/false");
     try profile.working_directory.set("/tmp");
-    try profile.environment.set("NOCTTY_CONTINUITY=ready");
+    try profile.environment.set("DINTTY_CONTINUITY=ready");
     try profile.ssh_target.set(case.session_name);
     profile.scrollback_lines = 64;
     try profile.validate();

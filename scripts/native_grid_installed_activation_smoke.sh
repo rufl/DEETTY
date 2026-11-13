@@ -19,12 +19,12 @@ if [[ $mode == full ]]; then
 fi
 
 repo_root=$(pwd -P)
-scratch_parent=${NOCTTY_INSTALLED_ACTIVATION_PARENT:-$repo_root}
+scratch_parent=${DINTTY_INSTALLED_ACTIVATION_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.noctty-installed-activation.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.dintty-installed-activation.XXXXXX")
 cache="$scratch/zig-local"
 global_cache="$scratch/zig-global"
 mkdir -p "$scratch/tmp" "$scratch/xdg-cache" "$cache" "$global_cache"
@@ -40,17 +40,17 @@ data_home="$scratch/data"
 config_home="$scratch/config"
 smoke_home="$scratch/smoke-home"
 shim="$scratch/shim"
-workspace="$scratch/activation.nocttyws"
-desktop_id=com.noctty.NOCTTY.desktop
+workspace="$scratch/activation.dinttyws"
+desktop_id=com.dintty.DINTTY.desktop
 
 mkdir -p "$data_home/applications" "$config_home" "$smoke_home" "$shim"
 ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build -j1 install smoke-binaries \
     --prefix "$prefix" \
     --cache-dir "$cache"
 
-ln -s "$prefix/bin/noctty-smoke" "$shim/noctty"
-env NOCTTY_SMOKE_HOME="$smoke_home" \
-    "$prefix/bin/noctty-smoke" \
+ln -s "$prefix/bin/dintty-smoke" "$shim/dintty"
+env DINTTY_SMOKE_HOME="$smoke_home" \
+    "$prefix/bin/dintty-smoke" \
     --native-grid-installed-activation-fixture "$workspace"
 
 desktop-file-validate "$prefix/share/applications/$desktop_id"
@@ -61,19 +61,19 @@ update-desktop-database "$data_home/applications"
 env XDG_DATA_HOME="$data_home" \
     XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
     XDG_CONFIG_HOME="$config_home" \
-    xdg-mime default "$desktop_id" x-scheme-handler/noctty
+    xdg-mime default "$desktop_id" x-scheme-handler/dintty
 
 registered=$(env XDG_DATA_HOME="$data_home" \
     XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
     XDG_CONFIG_HOME="$config_home" \
-    xdg-mime query default x-scheme-handler/noctty)
+    xdg-mime query default x-scheme-handler/dintty)
 [[ $registered == "$desktop_id" ]]
-grep -F 'Exec=noctty --open-uri %u' "$data_home/applications/$desktop_id" >/dev/null
-grep -F 'MimeType=x-scheme-handler/noctty;' "$data_home/applications/$desktop_id" >/dev/null
+grep -F 'Exec=dintty --open-uri %u' "$data_home/applications/$desktop_id" >/dev/null
+grep -F 'MimeType=x-scheme-handler/dintty;' "$data_home/applications/$desktop_id" >/dev/null
 grep -F 'StartupNotify=true' "$data_home/applications/$desktop_id" >/dev/null
 grep -F 'X-KDE-StartupNotify=true' "$data_home/applications/$desktop_id" >/dev/null
-[[ -x $prefix/bin/noctty ]]
-[[ -x $prefix/bin/noctty-smoke ]]
+[[ -x $prefix/bin/dintty ]]
+[[ -x $prefix/bin/dintty-smoke ]]
 
 printf '%s\n' 'native_grid_installed_activation_contract installed_desktop=true mime_registered=true exec_open_uri=true startup_notify=true fixture_tabs=2 production_binary=true smoke_isolated=true scratch_scoped=true'
 if [[ $mode == contract ]]; then
@@ -96,7 +96,7 @@ wait_for_receipt() {
     cat "$receipt_path"
 }
 
-activation_uri="noctty://$workspace"
+activation_uri="dintty://$workspace"
 for backend in "${backends[@]}"; do
     desktop_receipt="$scratch/desktop-$backend.receipt"
     desktop_expected="native_grid_activation_child source=desktop backend=$backend mapped=true rendered=true tabs=2 controlled_exit=true"
@@ -105,9 +105,9 @@ for backend in "${backends[@]}"; do
         XDG_DATA_HOME="$data_home" \
         XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
         XDG_CONFIG_HOME="$config_home" \
-        NOCTTY_SMOKE_HOME="$smoke_home" \
-        NOCTTY_ACTIVATION_SOURCE=desktop \
-        NOCTTY_ACTIVATION_CHILD_RECEIPT="$desktop_receipt" \
+        DINTTY_SMOKE_HOME="$smoke_home" \
+        DINTTY_ACTIVATION_SOURCE=desktop \
+        DINTTY_ACTIVATION_CHILD_RECEIPT="$desktop_receipt" \
         GDK_BACKEND="$backend" \
         GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
         gio open "$activation_uri"
@@ -120,13 +120,13 @@ for backend in "${backends[@]}"; do
         XDG_DATA_HOME="$data_home" \
         XDG_DATA_DIRS="$prefix/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" \
         XDG_CONFIG_HOME="$config_home" \
-        NOCTTY_SMOKE_HOME="$smoke_home" \
-        NOCTTY_ACTIVATION_SOURCE=recent \
-        NOCTTY_ACTIVATION_CHILD_RECEIPT="$recent_receipt" \
-        NOCTTY_ACTIVATION_WORKSPACE="$workspace" \
+        DINTTY_SMOKE_HOME="$smoke_home" \
+        DINTTY_ACTIVATION_SOURCE=recent \
+        DINTTY_ACTIVATION_CHILD_RECEIPT="$recent_receipt" \
+        DINTTY_ACTIVATION_WORKSPACE="$workspace" \
         GDK_BACKEND="$backend" \
         GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
-        "$prefix/bin/noctty-smoke" --native-grid-recent-activation-smoke)
+        "$prefix/bin/dintty-smoke" --native-grid-recent-activation-smoke)
     printf '%s\n' "$recent_output"
     grep -Fx 'native_grid_recent_workspace_activation_smoke parent_rendered=true recent_control=true click=true separate_process=true child_launch=true controlled_exit=true' <<<"$recent_output" >/dev/null
     wait_for_receipt "$recent_receipt" "$recent_expected"

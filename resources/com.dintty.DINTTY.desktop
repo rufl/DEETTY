@@ -1,29 +1,29 @@
 [Desktop Entry]
 Type=Application
-Name=NOCTTY
+Name=DINTTY
 GenericName=Terminal Workspace
 Comment=Native terminal workspace for Plasma and Noctalia Wayland
-TryExec=noctty
-Exec=noctty --open-uri %u
-Icon=com.noctty.NOCTTY
+TryExec=dintty
+Exec=dintty --open-uri %u
+Icon=com.dintty.DINTTY
 Terminal=false
 Categories=System;TerminalEmulator;
-MimeType=x-scheme-handler/noctty;
+MimeType=x-scheme-handler/dintty;
 Keywords=terminal;console;shell;command;command-line;tty;pty;workspace;split;tabs;agent;
 StartupNotify=true
 X-KDE-StartupNotify=true
-StartupWMClass=com.noctty.NOCTTY
+StartupWMClass=com.dintty.DINTTY
 Actions=Show;NewWorkspace;Toggle;
 
 [Desktop Action Show]
-Name=Show NOCTTY
-Exec=noctty --show
+Name=Show DINTTY
+Exec=dintty --show
 
 [Desktop Action NewWorkspace]
 Name=Open New Workspace Window
 Icon=window-new
-Exec=noctty --new-window
+Exec=dintty --new-window
 
 [Desktop Action Toggle]
-Name=Show or Hide NOCTTY
-Exec=noctty --toggle
+Name=Show or Hide DINTTY
+Exec=dintty --toggle
