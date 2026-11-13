@@ -1,16 +1,16 @@
 #!/bin/sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
-  export DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-180}
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ]; then
+  export DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS=${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-180}
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
 
-cache_local="${TMPDIR:-/tmp}/dintty-pane-scrollbar-local"
-cache_global="${TMPDIR:-/tmp}/dintty-pane-scrollbar-global"
-output_file="${TMPDIR:-/tmp}/dintty-pane-scrollbar-output.$$"
+cache_local="${TMPDIR:-/tmp}/deetty-pane-scrollbar-local"
+cache_global="${TMPDIR:-/tmp}/deetty-pane-scrollbar-global"
+output_file="${TMPDIR:-/tmp}/deetty-pane-scrollbar-output.$$"
 trap 'rm -f "$output_file"' EXIT HUP INT TERM
 
 if ZIG_GLOBAL_CACHE_DIR="$cache_global" zig build --cache-dir "$cache_local" smoke-run -- --native-grid-pane-scrollbar-smoke >"$output_file" 2>&1; then

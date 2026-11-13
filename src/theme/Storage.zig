@@ -4,7 +4,7 @@ const ThemeMod = @import("Theme.zig");
 const Io = std.Io;
 const Dir = std.Io.Dir;
 
-const theme_magic = "DINTTYTHM";
+const theme_magic = "DEETTYTHM";
 const theme_version: u8 = 4;
 const max_theme_count: usize = 1024;
 
@@ -67,8 +67,8 @@ pub fn defaultThemeLibraryPathAlloc(allocator: std.mem.Allocator, home_dir: []co
     return std.fs.path.join(allocator, &.{
         home_dir,
         ".config",
-        "dintty",
-        "themes.dinttythemes",
+        "deetty",
+        "themes.deettythemes",
     });
 }
 
@@ -399,7 +399,7 @@ test "theme libraries export and import owned themes" {
     var loaded = try importThemeLibraryAlloc(allocator, bytes);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 2), loaded.entries.len);
-    try std.testing.expectEqualStrings("dintty-dark", loaded.entries[0].theme.name);
+    try std.testing.expectEqualStrings("deetty-dark", loaded.entries[0].theme.name);
     try std.testing.expectEqualStrings("Workspace Night", loaded.entries[1].theme.name);
     try std.testing.expectEqual(ThemeMod.Color.fromHex(0x000011), loaded.entries[1].theme.background);
     try std.testing.expectEqual(ThemeMod.Color.fromHex(0x123456), loaded.entries[1].theme.palette[3]);
@@ -480,7 +480,7 @@ test "version three themes use their background for pane gaps" {
 
 test "theme libraries reject malformed or duplicate snapshots" {
     const allocator = std.testing.allocator;
-    try std.testing.expectError(error.InvalidThemeLibrarySnapshot, importThemeLibraryAlloc(allocator, "not-dintty-theme-library"));
+    try std.testing.expectError(error.InvalidThemeLibrarySnapshot, importThemeLibraryAlloc(allocator, "not-deetty-theme-library"));
 
     const duplicate = [_]ThemeMod.Theme{ ThemeMod.Theme.builtinDark(), ThemeMod.Theme.builtinDark() };
     try std.testing.expectError(error.DuplicateThemeName, exportThemeLibraryAlloc(allocator, &duplicate));
@@ -508,7 +508,7 @@ test "theme import releases duplicate records on rejection" {
 }
 
 test "theme import rejects overflowing name length" {
-    const bytes = "DINTTYTHM\x04\x01\x00\x00\x00\x00\x00\x00\x00" ++ "\xff\xff\xff\xff\xff\xff\xff\xff";
+    const bytes = "DEETTYTHM\x04\x01\x00\x00\x00\x00\x00\x00\x00" ++ "\xff\xff\xff\xff\xff\xff\xff\xff";
     try std.testing.expectError(error.InvalidThemeLibrarySnapshot, importThemeLibraryAlloc(std.testing.allocator, bytes));
 }
 
@@ -516,7 +516,7 @@ test "default theme library path uses native config location" {
     const allocator = std.testing.allocator;
     const path = try defaultThemeLibraryPathAlloc(allocator, "/home/alice");
     defer allocator.free(path);
-    try std.testing.expectEqualStrings("/home/alice/.config/dintty/themes.dinttythemes", path);
+    try std.testing.expectEqualStrings("/home/alice/.config/deetty/themes.deettythemes", path);
 }
 
 test "theme libraries save and load through atomic storage" {
@@ -531,12 +531,12 @@ test "theme libraries save and load through atomic storage" {
     );
     const themes = [_]ThemeMod.Theme{ ThemeMod.Theme.builtinDark(), workspace };
 
-    const saved = try saveThemeLibraryFile(allocator, io, tmp.dir, "themes/library.dinttythemes", &themes, .library);
+    const saved = try saveThemeLibraryFile(allocator, io, tmp.dir, "themes/library.deettythemes", &themes, .library);
     defer saved.deinit(allocator);
     try std.testing.expect(saved.bytes > theme_magic.len);
     try std.testing.expectEqual(@as(usize, 2), saved.theme_count);
 
-    var loaded = try loadThemeLibraryFile(allocator, io, tmp.dir, "themes/library.dinttythemes", .library);
+    var loaded = try loadThemeLibraryFile(allocator, io, tmp.dir, "themes/library.deettythemes", .library);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(ThemeFileRole.library, loaded.receipt.role);
     try std.testing.expectEqual(@as(usize, 2), loaded.receipt.theme_count);
@@ -550,7 +550,7 @@ test "theme writes retain only a validated last-known-good backup" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = "themes/themes.dinttythemes";
+    const path = "themes/themes.deettythemes";
     const original = [_]ThemeMod.Theme{ThemeMod.Theme.builtinDark()};
     const first = try saveThemeLibraryFile(
         allocator,
@@ -581,11 +581,11 @@ test "theme writes retain only a validated last-known-good backup" {
         allocator,
         io,
         tmp.dir,
-        "themes/themes.dinttythemes.bak",
+        "themes/themes.deettythemes.bak",
         .backup,
     );
     defer backup.deinit(allocator);
-    try std.testing.expectEqualStrings("dintty-dark", backup.loaded.entries[0].theme.name);
+    try std.testing.expectEqualStrings("deetty-dark", backup.loaded.entries[0].theme.name);
 
     try replaceFileAtomic(io, tmp.dir, path, "damaged themes");
     const third = try saveThemeLibraryFile(
@@ -602,14 +602,14 @@ test "theme writes retain only a validated last-known-good backup" {
         allocator,
         io,
         tmp.dir,
-        "themes/themes.dinttythemes.bak",
+        "themes/themes.deettythemes.bak",
         .backup,
     );
     defer retained.deinit(allocator);
-    try std.testing.expectEqualStrings("dintty-dark", retained.loaded.entries[0].theme.name);
+    try std.testing.expectEqualStrings("deetty-dark", retained.loaded.entries[0].theme.name);
     const rejected = try tmp.dir.readFileAlloc(
         io,
-        "themes/themes.dinttythemes.rejected",
+        "themes/themes.deettythemes.rejected",
         allocator,
         .limited(64),
     );
@@ -623,7 +623,7 @@ test "oversized theme libraries remain recoverable before a valid replacement" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = "themes/themes.dinttythemes";
+    const path = "themes/themes.deettythemes";
     const oversized = try allocator.alloc(u8, max_theme_file_bytes + 1);
     defer allocator.free(oversized);
     @memset(oversized, 0x5a);
@@ -642,7 +642,7 @@ test "oversized theme libraries remain recoverable before a valid replacement" {
 
     const rejected = try tmp.dir.readFileAlloc(
         io,
-        "themes/themes.dinttythemes.rejected",
+        "themes/themes.deettythemes.rejected",
         allocator,
         .limited(max_theme_file_bytes + 2),
     );

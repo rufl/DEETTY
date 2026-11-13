@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DEETTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
@@ -21,7 +21,7 @@ for field in \
   page_switch=true \
   font_family=Monospace \
   font_size=16 \
-  theme=dintty-high-contrast \
+  theme=deetty-high-contrast \
   translucency_surface=true \
   persisted=true \
   reloaded=true \

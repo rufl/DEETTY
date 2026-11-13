@@ -2,7 +2,7 @@
 
 ## Our standard
 
-DINTTY welcomes contributors and users regardless of experience, identity, or
+DEETTY welcomes contributors and users regardless of experience, identity, or
 background. Be respectful, discuss the work rather than the person, assume good
 faith, accept correction, and keep criticism specific and actionable.
 
@@ -20,7 +20,7 @@ discussions, and project-representative communication.
 Do not litigate sensitive conduct reports in a public issue. Use GitHub's
 private reporting form:
 
-<https://github.com/lichforge/noctty/security/advisories/new>
+<https://github.com/rufl/DEETTY/security/advisories/new>
 
 Maintainers will limit report access, gather relevant context, avoid conflicts
 of interest, and respond proportionally. Actions may include a private warning,

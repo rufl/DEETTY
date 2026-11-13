@@ -8,7 +8,7 @@ pub const max_plaintext_bytes: usize = 16 * 1024 * 1024;
 const salt_length = 16;
 const key_length = 32;
 const iterations: u32 = 200_000;
-const magic = "DINTTYHS";
+const magic = "DEETTYHS";
 const version: u8 = 1;
 const header_length = magic.len + 1 + salt_length + Cipher.nonce_length + 8;
 

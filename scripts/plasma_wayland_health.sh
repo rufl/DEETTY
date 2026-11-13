@@ -70,27 +70,27 @@ elif [ -S "$runtime_dir/at-spi/bus_0" ]; then
 fi
 
 private_layer_shell=false
-layer_shell_path="$HOME/.local/libexec/dintty-dogfood/lib/libgtk-layer-shell.so.0"
+layer_shell_path="$HOME/.local/libexec/deetty-dogfood/lib/libgtk-layer-shell.so.0"
 if [ -r "$layer_shell_path" ]; then private_layer_shell=true; fi
 
-dintty_binary=false
+deetty_binary=false
 nocted_binary=false
-dintty_path="$HOME/.local/libexec/dintty-dogfood/dintty-bin"
-nocted_path="$HOME/.local/libexec/dintty-dogfood/nocted-bin"
-[ -x "$dintty_path" ] && dintty_binary=true
+deetty_path="$HOME/.local/libexec/deetty-dogfood/deetty-bin"
+nocted_path="$HOME/.local/libexec/deetty-dogfood/nocted-bin"
+[ -x "$deetty_path" ] && deetty_binary=true
 [ -x "$nocted_path" ] && nocted_binary=true
 
 build_receipt_valid=false
-build_receipt="${XDG_STATE_HOME:-$HOME/.local/state}/dintty/dogfood-build.receipt"
-if [ -r "$build_receipt" ] && [ "$dintty_binary" = true ] &&
+build_receipt="${XDG_STATE_HOME:-$HOME/.local/state}/deetty/dogfood-build.receipt"
+if [ -r "$build_receipt" ] && [ "$deetty_binary" = true ] &&
    [ "$nocted_binary" = true ] && [ "$private_layer_shell" = true ]; then
-  expected_dintty=$(receipt_field dintty_sha256 "$build_receipt")
+  expected_deetty=$(receipt_field deetty_sha256 "$build_receipt")
   expected_nocted=$(receipt_field nocted_sha256 "$build_receipt")
   expected_layer_shell=$(receipt_field layer_shell_sha256 "$build_receipt")
-  actual_dintty=$(sha256sum "$dintty_path" | awk '{ print $1 }')
+  actual_deetty=$(sha256sum "$deetty_path" | awk '{ print $1 }')
   actual_nocted=$(sha256sum "$nocted_path" | awk '{ print $1 }')
   actual_layer_shell=$(sha256sum "$layer_shell_path" | awk '{ print $1 }')
-  if [ "$expected_dintty" = "$actual_dintty" ] &&
+  if [ "$expected_deetty" = "$actual_deetty" ] &&
      [ "$expected_nocted" = "$actual_nocted" ] &&
      [ "$expected_layer_shell" = "$actual_layer_shell" ]; then
     build_receipt_valid=true
@@ -111,16 +111,16 @@ if [ "$session_type" = wayland ] && [ "$wayland_socket" = true ] &&
    [ "$kwin_active" = true ] && [ "$plasmashell_active" = true ] &&
    [ "$portal_active" = true ] && [ "$portal_kde_available" = true ] &&
    [ "$at_spi_active" = true ] && [ "$at_spi_socket" = true ] &&
-   [ "$private_layer_shell" = true ] && [ "$dintty_binary" = true ] &&
+   [ "$private_layer_shell" = true ] && [ "$deetty_binary" = true ] &&
    [ "$nocted_binary" = true ] && [ "$build_receipt_valid" = true ]; then
   healthy=true
 fi
 
-printf 'plasma_wayland_health version=2 healthy=%s no_network=true session_type=%s wayland_socket=%s kwin_active=%s plasmashell_active=%s portal_active=%s portal_kde_available=%s at_spi_active=%s at_spi_socket=%s private_layer_shell=%s dintty_binary=%s nocted_binary=%s build_receipt_valid=%s pending_desktop_upgrades_local_db=%s\n' \
+printf 'plasma_wayland_health version=2 healthy=%s no_network=true session_type=%s wayland_socket=%s kwin_active=%s plasmashell_active=%s portal_active=%s portal_kde_available=%s at_spi_active=%s at_spi_socket=%s private_layer_shell=%s deetty_binary=%s nocted_binary=%s build_receipt_valid=%s pending_desktop_upgrades_local_db=%s\n' \
   "$healthy" "$session_type" "$wayland_socket" "$kwin_active" \
   "$plasmashell_active" "$portal_active" "$portal_kde_available" \
   "$at_spi_active" "$at_spi_socket" "$private_layer_shell" \
-  "$dintty_binary" "$nocted_binary" "$build_receipt_valid" \
+  "$deetty_binary" "$nocted_binary" "$build_receipt_valid" \
   "$pending_desktop_upgrades"
 printf 'plasma_wayland_versions plasma=%s kwin=%s portal=%s portal_kde=%s at_spi=%s\n' \
   "$plasma_version" "$kwin_version" "$portal_version" \

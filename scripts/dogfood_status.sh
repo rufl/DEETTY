@@ -6,11 +6,11 @@ state_home=${2:-${XDG_STATE_HOME:-"$HOME/.local/state"}}
 
 test -s "$log"
 
-session_records=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-sessions.XXXXXX")
-candidates=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-candidates.XXXXXX")
-used=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-used.XXXXXX")
-omp_events=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-omp-events.XXXXXX")
-omp_records=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-omp.XXXXXX")
+session_records=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-sessions.XXXXXX")
+candidates=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-candidates.XXXXXX")
+used=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-used.XXXXXX")
+omp_events=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-omp-events.XXXXXX")
+omp_records=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-omp.XXXXXX")
 trap 'rm -f "$session_records" "$candidates" "$used" "$omp_events" "$omp_records"' EXIT HUP INT TERM
 
 awk '
@@ -66,7 +66,7 @@ awk '
 ' "$log" >"$session_records"
 
 : >"$omp_events"
-for omp_log in "$state_home"/dintty/logs/dintty-*.log; do
+for omp_log in "$state_home"/deetty/logs/deetty-*.log; do
   [ -f "$omp_log" ] || continue
   awk '
     BEGIN { OFS = "\t"; session = version = "" }
@@ -84,7 +84,7 @@ for omp_log in "$state_home"/dintty/logs/dintty-*.log; do
       }
       next
     }
-    /^(dogfood_event|dintty_dogfood_event) / {
+    /^(dogfood_event|deetty_dogfood_event) / {
       event_session = event = pane = number = detail = ""
       for (i = 1; i <= NF; i++) {
         value = $i
@@ -228,7 +228,7 @@ printf '%s\n' "$runtime_status" | awk '
         sub(/^duration_seconds=/, "", seconds)
       }
     }
-    if (app == "dintty" && id != "" && seconds ~ /^[0-9]+$/)
+    if (app == "deetty" && id != "" && seconds ~ /^[0-9]+$/)
       print id "\t" seconds
   }
 ' >"$candidates"

@@ -23,17 +23,17 @@ The outer script samples root and process-tree PSS/RSS, process CPU ticks, volun
 Fast harness check:
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_stability_qualification.sh --smoke
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_stability_qualification.sh --smoke
 ```
 
 This runs two two-second visible/hidden cycles in Debug and `ReleaseSafe` inside dedicated Plasma Wayland and X11 sessions. Retained shakedown evidence lives under `benchmarks/native-grid-stability-shakedown-2026-08-05/`.
 
-The authenticated path was also checked with one two-second visible/hidden cycle per `ReleaseSafe` backend. Both exact ephemeral read-only responses were `DINTTY_STABILITY_CODEX_OK`; root PSS changed by +28 KiB in each short lane. Those receipts live under `benchmarks/native-grid-stability-auth-shakedown-2026-08-05/` and still report `multi_day=false`.
+The authenticated path was also checked with one two-second visible/hidden cycle per `ReleaseSafe` backend. Both exact ephemeral read-only responses were `DEETTY_STABILITY_CODEX_OK`; root PSS changed by +28 KiB in each short lane. Those receipts live under `benchmarks/native-grid-stability-auth-shakedown-2026-08-05/` and still report `multi_day=false`.
 
 Elapsed acceptance run:
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_stability_qualification.sh --run
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_stability_qualification.sh --run
 ```
 
 The default run performs 24 cycles per backend with 1,800 seconds visible and 1,800 seconds hidden per cycle. It therefore retains 24 hours on Wayland plus 24 hours on X11, 48 hours total, in `ReleaseSafe`. Each backend begins with one exact authenticated Codex ephemeral read-only request, then continues a deterministic heartbeat without retaining credentials. The run samples every phase and captures the first and final visible compositor surfaces.
@@ -41,9 +41,9 @@ The default run performs 24 cycles per backend with 1,800 seconds visible and 1,
 The duration can be widened, but shortening it produces bounded stability evidence rather than the `multi_day=true` receipt:
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 \
-DINTTY_STABILITY_CYCLES=48 \
-DINTTY_STABILITY_PHASE_SECONDS=1800 \
+DEETTY_DEDICATED_DISPLAY=1 \
+DEETTY_STABILITY_CYCLES=48 \
+DEETTY_STABILITY_PHASE_SECONDS=1800 \
 ./scripts/native_grid_stability_qualification.sh --run
 ```
 

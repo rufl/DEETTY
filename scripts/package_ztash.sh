@@ -3,7 +3,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-release_dir="${DINTTY_ZTASH_RELEASE_DIR:-$root/dist/ztash}"
+release_dir="${DEETTY_ZTASH_RELEASE_DIR:-$root/dist/ztash}"
 
 for command_name in git zig tar zip unzip sha256sum timeout python3 mktemp stat; do
   command -v "$command_name" >/dev/null || {
@@ -42,10 +42,10 @@ cache_dir="$stage_root/zig-cache"
 global_cache_dir="$stage_root/zig-global-cache"
 linux_install="$stage_root/linux-install"
 windows_install="$stage_root/windows-install"
-linux_root="$stage_root/dintty-$version-linux-x86_64"
-windows_root="$stage_root/dintty-$version-windows-x86_64"
-linux_archive="dintty-$version-linux-x86_64.tar.gz"
-windows_archive="dintty-$version-windows-x86_64.zip"
+linux_root="$stage_root/deetty-$version-linux-x86_64"
+windows_root="$stage_root/deetty-$version-windows-x86_64"
+linux_archive="deetty-$version-linux-x86_64.tar.gz"
+windows_archive="deetty-$version-windows-x86_64.zip"
 
 cleanup() {
   rm -rf -- "$root/.zig-cache" "$root/zig-out" "$stage_root"
@@ -64,7 +64,7 @@ build_target "$linux_install"
 build_target "$windows_install" -Dtarget=x86_64-windows-gnu
 
 copy_linux_payload() {
-  cp -p "$linux_install/bin/dintty" "$linux_root/dintty"
+  cp -p "$linux_install/bin/deetty" "$linux_root/deetty"
   cp -p "$linux_install/bin/nocted" "$linux_root/nocted"
   cp -p "$root/README.md" "$linux_root/README.md"
   cp -p "$root/LICENSE" "$linux_root/LICENSE"
@@ -74,22 +74,22 @@ copy_linux_payload() {
   cp -a "$linux_install/share" "$linux_root/share"
   mkdir -p "$linux_root/resources"
   cp -a "$linux_install/share/nocted" "$linux_root/resources/nocted"
-  chmod 0755 "$linux_root/dintty" "$linux_root/nocted"
+  chmod 0755 "$linux_root/deetty" "$linux_root/nocted"
   cat > "$linux_root/BUILD-INFO.txt" <<EOF
-package=dintty
-application=dintty
+package=deetty
+application=deetty
 version=$version
 package_revision=$package_revision
 target=linux-x86_64
 build_id=$build_id
 release_date=$release_date
 qualification=build-only
-smoke=dintty --package-smoke
+smoke=deetty --package-smoke
 EOF
 }
 
 copy_windows_payload() {
-  cp -p "$windows_install/bin/dintty.exe" "$windows_root/dintty.exe"
+  cp -p "$windows_install/bin/deetty.exe" "$windows_root/deetty.exe"
   cp -p "$windows_install/bin/nocted.exe" "$windows_root/nocted.exe"
   cp -p "$root/README.md" "$windows_root/README.txt"
   cp -p "$root/LICENSE" "$windows_root/LICENSE"
@@ -98,15 +98,15 @@ copy_windows_payload() {
   cp -p "$root/docs/WINDOWS.md" "$windows_root/WINDOWS.md"
   cp -p "$root/scripts/windows_smoke.ps1" "$windows_root/WINDOWS-SMOKE.ps1"
   cat > "$windows_root/BUILD-INFO.txt" <<EOF
-package=dintty
-application=dintty
+package=deetty
+application=deetty
 version=$version
 package_revision=$package_revision
 target=windows-x86_64
 build_id=$build_id
 release_date=$release_date
 qualification=build-only
-smoke=dintty.exe --package-smoke
+smoke=deetty.exe --package-smoke
 EOF
 }
 
@@ -122,13 +122,13 @@ XDG_STATE_HOME="$linux_smoke_home/state" \
 XDG_RUNTIME_DIR="$linux_smoke_home/runtime" \
 XDG_CACHE_HOME="$linux_smoke_home/cache" \
 XDG_DATA_HOME="$linux_smoke_home/data" \
-DINTTY_RENDERER=grid NOCTED_DISABLE_SINGLE_INSTANCE=1 \
-timeout --kill-after=2 30 "$linux_root/dintty" --package-smoke > "$linux_smoke_output"
-grep -F 'package_smoke dintty=true headless=true' "$linux_smoke_output" >/dev/null
+DEETTY_RENDERER=grid NOCTED_DISABLE_SINGLE_INSTANCE=1 \
+timeout --kill-after=2 30 "$linux_root/deetty" --package-smoke > "$linux_smoke_output"
+grep -F 'package_smoke deetty=true headless=true' "$linux_smoke_output" >/dev/null
 
-if [ "${DINTTY_ZTASH_WINE_SMOKE:-0}" = 1 ] && command -v wine >/dev/null; then
+if [ "${DEETTY_ZTASH_WINE_SMOKE:-0}" = 1 ] && command -v wine >/dev/null; then
   wine_prefix="$stage_root/wine-prefix"
-  WINEPREFIX="$wine_prefix" timeout --kill-after=2 60 wine "$windows_root/dintty.exe" --package-smoke >/dev/null
+  WINEPREFIX="$wine_prefix" timeout --kill-after=2 60 wine "$windows_root/deetty.exe" --package-smoke >/dev/null
   windows_smoke=passed
 else
   windows_smoke=deferred_to_receiver
@@ -157,7 +157,7 @@ created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat > "$stage_root/ztash-release.json" <<EOF
 {
   "schema": "ztash-release-v1",
-  "application": "dintty",
+  "application": "deetty",
   "version": "$version",
   "build_id": "$build_id",
   "commit": "$build_id",
@@ -189,5 +189,5 @@ cp -p "$stage_root/$linux_archive" "$stage_root/$windows_archive" \
   "$stage_root/SHA256SUMS" "$stage_root/ztash-release.json" "$release_dir/"
 chmod 0644 "$release_dir"/*
 
-printf 'package_ztash release=%s application=dintty version=%s build_id=%s linux=%s windows=%s linux_smoke=passed windows_smoke=%s stale_release_clean=true caches_cleaned=true\n' \
+printf 'package_ztash release=%s application=deetty version=%s build_id=%s linux=%s windows=%s linux_smoke=passed windows_smoke=%s stale_release_clean=true caches_cleaned=true\n' \
   "$release_dir" "$version" "$build_id" "$linux_archive" "$windows_archive" "$windows_smoke"

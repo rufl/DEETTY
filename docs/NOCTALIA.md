@@ -4,9 +4,9 @@ Last verified: 2026-07-31.
 
 ## Scope
 
-DINTTY supports Noctalia Shell as a first-class Wayland target alongside KDE Plasma. Noctalia describes itself as a desktop shell rather than a compositor or full desktop environment, so the integration follows its ownership boundary: Noctalia supplies bars, panels, notifications, launchers, and theming, while Niri, Hyprland, Sway, Scroll, Labwc, or MangoWC owns global keybindings and window policy.
+DEETTY supports Noctalia Shell as a first-class Wayland target alongside KDE Plasma. Noctalia describes itself as a desktop shell rather than a compositor or full desktop environment, so the integration follows its ownership boundary: Noctalia supplies bars, panels, notifications, launchers, and theming, while Niri, Hyprland, Sway, Scroll, Labwc, or MangoWC owns global keybindings and window policy.
 
-Both Noctalia generations are usable. The current v5 native shell and the Quickshell-based v4 shell share the same application-side contract because the compositor launches `dintty --toggle`; DINTTY does not depend on either shell's private or changing plugin ABI.
+Both Noctalia generations are usable. The current v5 native shell and the Quickshell-based v4 shell share the same application-side contract because the compositor launches `deetty --toggle`; DEETTY does not depend on either shell's private or changing plugin ABI.
 
 Official references:
 
@@ -17,41 +17,41 @@ Official references:
 
 ## Runtime Contract
 
-The primary native grid host takes a per-user lock before loading mutable state, owns the session-bus name `com.dintty.DINTTY`, and exports `Toggle`, `Show`, `Hide`, `GetState`, plus bounded one-use activation-token variants at `/com/dintty/DINTTY`. The matching native commands are:
+The primary native grid host takes a per-user lock before loading mutable state, owns the session-bus name `com.deetty.DEETTY`, and exports `Toggle`, `Show`, `Hide`, `GetState`, plus bounded one-use activation-token variants at `/com/deetty/DEETTY`. The matching native commands are:
 
 ```sh
-dintty --status
-dintty --show
-dintty --hide
-dintty --toggle
+deetty --status
+deetty --show
+deetty --hide
+deetty --toggle
 ```
 
-`dintty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `dintty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
+`deetty --toggle` shows a running instance or starts a visible instance when none exists. Compositor autostart uses `deetty --hidden`, which hides only after the D-Bus endpoint is ready. A normal launcher invocation remains visible, preventing an unconfigured first run from becoming unreachable.
 
-In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel. DINTTY exposes the stable `com.dintty.DINTTY` app ID and a `DINTTY Dropdown — …` title prefix so compositor rules can distinguish dropdown surfaces from windowed and zen modes. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, bounded dimensions, and native mode transitions. The managed Niri window rule sets `draw-border-with-background false`; otherwise Niri's focused-window ring uses an opaque backing rectangle that masks terminal translucency until a dialog takes focus. Plasma retains the layer-shell path for exact client-owned top-edge placement.
+In Noctalia sessions, dropdown mode uses a dependency-free GTK Wayland toplevel. DEETTY exposes the stable `com.deetty.DEETTY` app ID and a `DEETTY Dropdown — …` title prefix so compositor rules can distinguish dropdown surfaces from windowed and zen modes. It deliberately does not load GTK Layer Shell. This avoids requiring `libgtk-layer-shell.so.0` while retaining D-Bus activation, compositor-owned shortcuts, focus-loss hiding, bounded dimensions, and native mode transitions. The managed Niri window rule sets `draw-border-with-background false`; otherwise Niri's focused-window ring uses an opaque backing rectangle that masks terminal translucency until a dialog takes focus. Plasma retains the layer-shell path for exact client-owned top-edge placement.
 
-Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive DINTTY completion notifications through `org.freedesktop.Notifications`.
+Clipboard, drag/drop, file dialogs, HiDPI, IME, and desktop notifications use GTK and freedesktop protocols rather than KDE-only APIs. Noctalia's notification daemon can therefore receive DEETTY completion notifications through `org.freedesktop.Notifications`.
 
 ## Shortcut Setup
 
 Noctalia's documentation intentionally keeps global shortcuts in the compositor configuration. The default binding is F10 and always executes:
 
 ```sh
-dintty --toggle
+deetty --toggle
 ```
 
 The native Settings dialog records the supported shortcut model. Plasma re-registers a successful capture immediately; on a Noctalia-compatible session, the same recorder persists the key and updates the generated compositor plan. Print the current persisted binding and autostart command with:
 
 ```sh
-dintty --noctalia-plan niri
-dintty --noctalia-plan hyprland
-dintty --noctalia-plan sway
-dintty --noctalia-plan scroll
-dintty --noctalia-plan labwc
-dintty --noctalia-plan mango
+deetty --noctalia-plan niri
+deetty --noctalia-plan hyprland
+deetty --noctalia-plan sway
+deetty --noctalia-plan scroll
+deetty --noctalia-plan labwc
+deetty --noctalia-plan mango
 ```
 
-Ready-to-merge F10 fragments are installed under `share/dintty/noctalia/`:
+Ready-to-merge F10 fragments are installed under `share/deetty/noctalia/`:
 
 - `niri.kdl`, including F10/autostart plus the required floating top-edge window rule for dependency-free dropdowns
 - `hyprland.lua` for current v5 guidance and `hyprland.conf` for v4/traditional configurations
@@ -60,11 +60,11 @@ Ready-to-merge F10 fragments are installed under `share/dintty/noctalia/`:
 - `labwc-rc.xml` and `labwc-autostart`
 - `mango.conf`
 
-An optional compact Noctalia v5 `custom_button` fragment is provided as `noctalia-v5-widget.toml`. It uses Noctalia's `[widget.dintty.actions]` table with `exec dintty --toggle` for left-click and `exec dintty --show` for right-click. It does not require a DINTTY plugin or background service.
+An optional compact Noctalia v5 `custom_button` fragment is provided as `noctalia-v5-widget.toml`. It uses Noctalia's `[widget.deetty.actions]` table with `exec deetty --toggle` for left-click and `exec deetty --show` for right-click. It does not require a DEETTY plugin or background service.
 
 ## Detection
 
-The Zig backend detects the supported compositor family from standard session names and native IPC markers such as `NIRI_SOCKET`, `HYPRLAND_INSTANCE_SIGNATURE`, and `SWAYSOCK`. Explicit `DINTTY_DESKTOP_SHELL=noctalia` and `DINTTY_COMPOSITOR=<name>` overrides support unusual launch environments without changing persistence files.
+The Zig backend detects the supported compositor family from standard session names and native IPC markers such as `NIRI_SOCKET`, `HYPRLAND_INSTANCE_SIGNATURE`, and `SWAYSOCK`. Explicit `DEETTY_DESKTOP_SHELL=noctalia` and `DEETTY_COMPOSITOR=<name>` overrides support unusual launch environments without changing persistence files.
 
 Detected Noctalia sessions receive:
 

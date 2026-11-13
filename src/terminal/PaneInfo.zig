@@ -93,7 +93,7 @@ pub fn format(input: Input, display: []u8, tooltip: []u8) !Output {
     );
     const tooltip_text = try std.fmt.bufPrint(
         tooltip,
-        "Pane {d}\nProcess: {s} (PID {d})\nDirectory: {s}\nContinuity: {s}\nDINTTY tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes\nSelected terminal tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes",
+        "Pane {d}\nProcess: {s} (PID {d})\nDirectory: {s}\nContinuity: {s}\nDEETTY tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes\nSelected terminal tree: {d}.{d}% CPU, {d}.{d} MiB, {d} processes",
         .{
             input.pane_id,
             process_name,
@@ -158,7 +158,7 @@ test "pane info matches the local Yakuake title shape" {
         display[0..output.display_length],
     );
     try std.testing.expectEqualStrings(
-        "Pane 7\nProcess: zig (PID 420)\nDirectory: /home/alice/project\nContinuity: restartable shell\nDINTTY tree: 0.0% CPU, 0.0 MiB, 0 processes\nSelected terminal tree: 0.0% CPU, 0.0 MiB, 0 processes",
+        "Pane 7\nProcess: zig (PID 420)\nDirectory: /home/alice/project\nContinuity: restartable shell\nDEETTY tree: 0.0% CPU, 0.0 MiB, 0 processes\nSelected terminal tree: 0.0% CPU, 0.0 MiB, 0 processes",
         tooltip[0..output.tooltip_length],
     );
 }

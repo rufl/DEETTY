@@ -121,8 +121,8 @@ grep -F 'full_verify=false' scripts/public_alpha_verify.sh \
   docs/PUBLIC_ALPHA_GO_NO_GO.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 grep -F 'proof_boundary=static_source_scan' scripts/check_no_surprise_network.sh \
   docs/NO_SURPRISE_NETWORK.md docs/KNOWN_LIMITATIONS.md >/dev/null
-grep -F 'DINTTY_DOGFOOD_OPTIMIZE:-ReleaseFast' scripts/install_dogfood.sh >/dev/null
-grep -F 'DINTTY_ZIG_SINGLE_JOB' scripts/verify.sh >/dev/null
+grep -F 'DEETTY_DOGFOOD_OPTIMIZE:-ReleaseFast' scripts/install_dogfood.sh >/dev/null
+grep -F 'DEETTY_ZIG_SINGLE_JOB' scripts/verify.sh >/dev/null
 grep -F 'verify_cleanup scratch=true cache=true install=true artifacts=true' \
   README.md MEMORY.md docs/PUBLIC_ALPHA_PLAN.md docs/PUBLIC_ALPHA_RELEASE_NOTES.md >/dev/null
 
@@ -130,7 +130,7 @@ test ! -e src/editor
 test ! -e scripts/native_grid_editor_shutdown_smoke.sh
 ! grep -R -n -E 'Installed Debug dogfood|unstripped Debug binaries|keeps the Debug binaries|repository-owned local SAST check' \
   README.md MEMORY.md ROADMAP.md SECURITY.md docs >/dev/null
-! grep -R -n -E 'enable_legacy_editor|dintty_build_options|production_legacy_editor=true' \
+! grep -R -n -E 'enable_legacy_editor|deetty_build_options|production_legacy_editor=true' \
   README.md MEMORY.md ROADMAP.md SECURITY.md docs src build.zig scripts >/dev/null
 
 current_abi_docs='docs/ARCHITECTURE.md docs/DAILY_DRIVER.md docs/NATIVE_HOST.md docs/TECHNICAL_STATUS.md'

@@ -645,7 +645,7 @@ test "zig-owned pty spawns shell, routes bytes, resizes, and observes exit" {
     try std.testing.expect(descriptor_flags & std.c.FD_CLOEXEC != 0);
 
     try session.resize(24, 80, 800, 480);
-    try session.writeAll("printf 'DINTTY_ZIG_PTY_OK\n'; exit 0\n");
+    try session.writeAll("printf 'DEETTY_ZIG_PTY_OK\n'; exit 0\n");
 
     var output: [4096]u8 = undefined;
     var used: usize = 0;
@@ -656,7 +656,7 @@ test "zig-owned pty spawns shell, routes bytes, resizes, and observes exit" {
         switch (try session.read(output[used..])) {
             .bytes => |count| {
                 used += count;
-                if (std.mem.indexOf(u8, output[0..used], "DINTTY_ZIG_PTY_OK") != null) saw_marker = true;
+                if (std.mem.indexOf(u8, output[0..used], "DEETTY_ZIG_PTY_OK") != null) saw_marker = true;
             },
             .would_block => sleepBrief(2),
             .eof => saw_exit = true,
@@ -692,7 +692,7 @@ test "zig-owned pty closes inherited descriptors before exec" {
     var command_buffer: [160]u8 = undefined;
     const command = try std.fmt.bufPrint(
         &command_buffer,
-        "if [ -e /proc/self/fd/{d} ]; then printf 'DINTTY_FD_%s' LEAK; else printf 'DINTTY_FD_%s' CLEAN; fi; exit 0\n",
+        "if [ -e /proc/self/fd/{d} ]; then printf 'DEETTY_FD_%s' LEAK; else printf 'DEETTY_FD_%s' CLEAN; fi; exit 0\n",
         .{inherited_fd},
     );
     try session.writeAll(command);
@@ -706,7 +706,7 @@ test "zig-owned pty closes inherited descriptors before exec" {
         switch (try session.read(output[used..])) {
             .bytes => |count| {
                 used += count;
-                saw_clean = std.mem.indexOf(u8, output[0..used], "DINTTY_FD_CLEAN") != null;
+                saw_clean = std.mem.indexOf(u8, output[0..used], "DEETTY_FD_CLEAN") != null;
             },
             .would_block => sleepBrief(2),
             // EOF may arrive before waitpid reports the child under host contention.
@@ -719,13 +719,13 @@ test "zig-owned pty closes inherited descriptors before exec" {
     }
     try std.testing.expect(saw_clean);
     try std.testing.expect(saw_exit);
-    try std.testing.expect(std.mem.indexOf(u8, output[0..used], "DINTTY_FD_LEAK") == null);
+    try std.testing.expect(std.mem.indexOf(u8, output[0..used], "DEETTY_FD_LEAK") == null);
 }
 
 test "PTY child environment excludes one-use startup activation state" {
     var child_environment: ChildEnvironment = undefined;
     try child_environment.init(
-        "XDG_ACTIVATION_TOKEN=profile-token;DESKTOP_STARTUP_ID=profile-id;DINTTY_KEEP=ready",
+        "XDG_ACTIVATION_TOKEN=profile-token;DESKTOP_STARTUP_ID=profile-id;DEETTY_KEEP=ready",
     );
 
     var saw_keep = false;
@@ -733,7 +733,7 @@ test "PTY child environment excludes one-use startup activation state" {
         const text = std.mem.span(entry.?);
         try std.testing.expect(!std.mem.startsWith(u8, text, "XDG_ACTIVATION_TOKEN="));
         try std.testing.expect(!std.mem.startsWith(u8, text, "DESKTOP_STARTUP_ID="));
-        if (std.mem.eql(u8, text, "DINTTY_KEEP=ready")) saw_keep = true;
+        if (std.mem.eql(u8, text, "DEETTY_KEEP=ready")) saw_keep = true;
     }
     try std.testing.expect(saw_keep);
 }
@@ -744,10 +744,10 @@ test "zig-owned pty advertises the tested terminal capability environment" {
         .program = "/bin/sh",
         .kind = .shell,
         .argument = "",
-        .environment = "DINTTY_PROFILE_ENV=ready;TERM=wrong;COLORTERM=wrong",
+        .environment = "DEETTY_PROFILE_ENV=ready;TERM=wrong;COLORTERM=wrong",
     });
     defer session.deinit();
-    try session.writeAll("printf 'DINTTY_TERM=%s COLORTERM=%s PROFILE=%s\\n' \"$TERM\" \"$COLORTERM\" \"$DINTTY_PROFILE_ENV\"; exit 0\n");
+    try session.writeAll("printf 'DEETTY_TERM=%s COLORTERM=%s PROFILE=%s\\n' \"$TERM\" \"$COLORTERM\" \"$DEETTY_PROFILE_ENV\"; exit 0\n");
 
     var output: [4096]u8 = undefined;
     var used: usize = 0;
@@ -761,7 +761,7 @@ test "zig-owned pty advertises the tested terminal capability environment" {
                 saw_environment = std.mem.indexOf(
                     u8,
                     output[0..used],
-                    "DINTTY_TERM=xterm-256color COLORTERM=truecolor PROFILE=ready",
+                    "DEETTY_TERM=xterm-256color COLORTERM=truecolor PROFILE=ready",
                 ) != null;
             },
             .would_block => sleepBrief(2),

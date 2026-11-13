@@ -9,7 +9,7 @@ universal terminal rankings or authenticated-agent proof.
 
 ## Question
 
-How should DINTTY minimize terminal-root memory and preserve output throughput
+How should DEETTY minimize terminal-root memory and preserve output throughput
 when one process owns roughly 20 to 30 concurrent agent shells?
 
 ## Method
@@ -17,7 +17,7 @@ when one process owns roughly 20 to 30 concurrent agent shells?
 The existing `scripts/terminal_benchmark.sh` production path was extended from
 1/2/4/8 panes to 1/2/4/8/16/32 panes. The stress case used:
 
-- one ReleaseFast DINTTY process;
+- one ReleaseFast DEETTY process;
 - 32 real PTYs and terminal grids;
 - a 1200x800 X11/Xvfb window at 11 pt;
 - 1000 lines of scrollback per pane;
@@ -213,16 +213,16 @@ X11/XWayland session:
 
 ```sh
 LC_ALL=C LANG=C \
-DINTTY_DEDICATED_DISPLAY=1 \
-DINTTY_BENCH_TERMINALS=dintty \
-DINTTY_BENCH_PANES=32 \
-DINTTY_BENCH_OUTPUT_PANES=32 \
-DINTTY_BENCH_RUNS=5 \
+DEETTY_DEDICATED_DISPLAY=1 \
+DEETTY_BENCH_TERMINALS=deetty \
+DEETTY_BENCH_PANES=32 \
+DEETTY_BENCH_OUTPUT_PANES=32 \
+DEETTY_BENCH_RUNS=5 \
 ./scripts/terminal_benchmark.sh
 ```
 
 Do not compare timings collected while unrelated compilers, games, VMs, or
 rendering tests are active. Retain raw, summary, process, metadata, and checksum
 artifacts before making a market-ranking claim. For exact detached-worktree
-A/B runs, set `DINTTY_BENCH_SKIP_BUILD=1` and point
-`DINTTY_BENCH_DINTTY_BIN` at the binary under test.
+A/B runs, set `DEETTY_BENCH_SKIP_BUILD=1` and point
+`DEETTY_BENCH_DEETTY_BIN` at the binary under test.

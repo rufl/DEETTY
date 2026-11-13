@@ -1,9 +1,9 @@
-pkgname=dintty
+pkgname=deetty
 pkgver=0.1.0
 pkgrel=1
 pkgdesc='Zig-native terminal workspace for Plasma and Noctalia'
 arch=('x86_64' 'aarch64')
-url='https://github.com/lichforge/noctty'
+url='https://github.com/rufl/DEETTY'
 license=('MIT' 'Unicode-3.0' 'Unicode-DFS-2016' 'ICU')
 depends=('gtk3' 'libepoxy' 'gtk-layer-shell' 'gtksourceview4')
 makedepends=('zig' 'pkgconf')

@@ -14,7 +14,7 @@ const c = @import("gtk.zig");
 const worker = @import("Worker.zig");
 const tree_sitter = @import("TreeSitter.zig");
 
-const version = @import("dintty_release").version;
+const version = @import("deetty_release").version;
 const log = std.log.scoped(.nocted);
 
 const project_root_entry = std.math.maxInt(u64);
@@ -1559,7 +1559,7 @@ const App = struct {
             return error.WindowCreationFailed;
         c.gtk_window_set_title(asWindow(self.window), "NoctEd");
         c.gtk_window_set_default_size(asWindow(self.window), 1220, 760);
-        c.gtk_window_set_icon_name(asWindow(self.window), "com.dintty.NoctEd");
+        c.gtk_window_set_icon_name(asWindow(self.window), "com.deetty.NoctEd");
         c.gtk_widget_set_name(self.window, "nocted-window");
         setAccessibleName(self.window, "NoctEd editor window");
         connect(self.window, "delete-event", @ptrCast(&onWindowDelete), self);
@@ -6697,7 +6697,7 @@ fn applicationIdForDirectory(directory: []const u8, buffer: *[64:0]u8) [*:0]cons
     }
     const formatted = Compat.bufPrintZ(
         buffer,
-        "com.dintty.NoctEd.n{x}",
+        "com.deetty.NoctEd.n{x}",
         .{hash},
     ) catch unreachable;
     return formatted.ptr;

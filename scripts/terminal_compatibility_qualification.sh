@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-terminal-compatibility.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-terminal-compatibility.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
@@ -27,7 +27,7 @@ run_mode() {
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$local_cache"
-    "$prefix/bin/dintty-terminal-compatibility" >"$scratch/output-$mode"
+    "$prefix/bin/deetty-terminal-compatibility" >"$scratch/output-$mode"
 }
 
 run_mode Debug &

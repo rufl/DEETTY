@@ -1,6 +1,6 @@
 # Public Alpha Code Review
 
-Review date: 2026-09-06. Scope: DINTTY and NoctEd source behavior, native
+Review date: 2026-09-06. Scope: DEETTY and NoctEd source behavior, native
 usability, contributor setup, and MIT source distribution. This supersedes the
 2026-08-31 assessment; it is not a formal security audit or release approval.
 
@@ -33,7 +33,7 @@ Language percentages and accumulated test counts are not quality certificates.
 | P2 | Windows shell selection dropped the final character of command candidates such as `cmd.exe`. | `WindowsPtyLogic.zig`, `WindowsPty.zig`, and `WindowsProcess.zig` preserve full sentinel-terminated commands, including arguments and fallback order. |
 | P2 | Painting the continuation-cell background erased the right half of a wide glyph. | Both Windows local-grid and pane rendering paint continuation backgrounds before the leading glyph. An offscreen GDI pixel regression covers the overlap. |
 | P2 | Linux help/unknown options silently launched a GUI or forwarded to an existing editor; help could create dogfood receipts. | Entrypoints validate options before GUI/IPC activation. `scripts/cli_smoke.sh` exercises help/version/errors without a reachable display or mutable user state. Launchers bypass receipts for help/version. |
-| P2 | First-party source packaging omitted required build inputs; binary installs omitted compiled third-party license texts. | `build.zig.zon` includes required source/resource/package inputs. Linux installs include vendored parser and Unicode notices; Windows ZIP/NSIS payload contracts include Unicode licensing. Arch/RPM packaging preserves the installed license tree. DINTTY remains MIT; third-party works retain their own licenses. |
+| P2 | First-party source packaging omitted required build inputs; binary installs omitted compiled third-party license texts. | `build.zig.zon` includes required source/resource/package inputs. Linux installs include vendored parser and Unicode notices; Windows ZIP/NSIS payload contracts include Unicode licensing. Arch/RPM packaging preserves the installed license tree. DEETTY remains MIT; third-party works retain their own licenses. |
 | P2 | Contributor quick starts implied maintainer infrastructure was required; failed Git inventory could pass source hygiene. | README, contributing/install instructions, and code map now distinguish normal builds from qualification. The hygiene gate fails closed on Git inventory failure. Windows documentation describes its actual `.npr` project contract. |
 
 ## Verification performed
@@ -145,7 +145,7 @@ Follow [CONTRIBUTING.md](../CONTRIBUTING.md) and
 
 ```sh
 zig build -j1
-./zig-out/bin/dintty --native-grid-windowed
+./zig-out/bin/deetty --native-grid-windowed
 ./zig-out/bin/nocted --open README.md
 ```
 

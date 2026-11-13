@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 pub fn build(b: *std.Build) void {
     if (builtin.zig_version.major != 0 or builtin.zig_version.minor != 17) {
         std.debug.panic(
-            "DINTTY requires Zig 0.17.x (found {d}.{d}.{d}).",
+            "DEETTY requires Zig 0.17.x (found {d}.{d}.{d}).",
             .{ builtin.zig_version.major, builtin.zig_version.minor, builtin.zig_version.patch },
         );
     }
@@ -39,7 +39,7 @@ pub fn build(b: *std.Build) void {
         return;
     }
     if (target.result.os.tag != .linux) {
-        std.debug.panic("DINTTY currently supports Linux and experimental Windows targets.", .{});
+        std.debug.panic("DEETTY currently supports Linux and experimental Windows targets.", .{});
     }
     const compat_mod = b.createModule(.{
         .root_source_file = b.path("src/Compat.zig"),
@@ -142,26 +142,26 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    windows_workspace_mod.addImport("dintty_share", windows_workspace_share_mod);
-    windows_host_logic_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_workspace_mod.addImport("deetty_share", windows_workspace_share_mod);
+    windows_host_logic_mod.addImport("deetty_share", windows_workspace_share_mod);
     const windows_appearance_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsAppearance.zig"),
         .target = target,
         .optimize = optimize,
     });
-    windows_appearance_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_appearance_mod.addImport("deetty_share", windows_workspace_share_mod);
     const windows_theme_library_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsThemeLibrary.zig"),
         .target = target,
         .optimize = optimize,
     });
-    windows_theme_library_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_theme_library_mod.addImport("deetty_share", windows_workspace_share_mod);
     const windows_theme_source_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsThemeSource.zig"),
         .target = target,
         .optimize = optimize,
     });
-    windows_theme_source_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_theme_source_mod.addImport("deetty_share", windows_workspace_share_mod);
     const theme_storage_mod = b.createModule(.{
         .root_source_file = b.path("src/theme/Storage.zig"),
         .target = target,
@@ -172,13 +172,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    windows_launch_profiles_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_launch_profiles_mod.addImport("deetty_share", windows_workspace_share_mod);
     const windows_launch_plan_mod = b.createModule(.{
         .root_source_file = b.path("src/windows/WindowsLaunchPlan.zig"),
         .target = target,
         .optimize = optimize,
     });
-    windows_launch_plan_mod.addImport("dintty_share", windows_workspace_share_mod);
+    windows_launch_plan_mod.addImport("deetty_share", windows_workspace_share_mod);
     const launch_profile_mod = b.createModule(.{
         .root_source_file = b.path("src/terminal/LaunchProfile.zig"),
         .target = target,
@@ -198,7 +198,7 @@ pub fn build(b: *std.Build) void {
     runtime_options.addOption(bool, "enable_smoke", false);
     runtime_options.addOption(bool, "enable_vte", false);
     exe_mod.addOptions("build_options", runtime_options);
-    exe_mod.addImport("dintty", root_mod);
+    exe_mod.addImport("deetty", root_mod);
     exe_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     exe_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, exe_mod, false);
@@ -206,7 +206,7 @@ pub fn build(b: *std.Build) void {
     exe_mod.linkSystemLibrary("dl", .{});
 
     const exe = b.addExecutable(.{
-        .name = "dintty",
+        .name = "deetty",
         .root_module = exe_mod,
         .use_llvm = true,
     });
@@ -223,7 +223,7 @@ pub fn build(b: *std.Build) void {
     nocted_runtime_options.addOption(bool, "enable_smoke", false);
     nocted_mod.addOptions("build_options", nocted_runtime_options);
     nocted_mod.addImport("nocted_core", nocted_core_mod);
-    nocted_mod.addImport("dintty_release", release_mod);
+    nocted_mod.addImport("deetty_release", release_mod);
     nocted_mod.addImport("tree_sitter", tree_sitter_mod);
     nocted_mod.addImport("compat", compat_mod);
     nocted_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
@@ -247,7 +247,7 @@ pub fn build(b: *std.Build) void {
     vte_options.addOption(bool, "enable_smoke", false);
     vte_options.addOption(bool, "enable_vte", true);
     vte_mod.addOptions("build_options", vte_options);
-    vte_mod.addImport("dintty", root_mod);
+    vte_mod.addImport("deetty", root_mod);
     vte_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     vte_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, vte_mod, false);
@@ -255,14 +255,14 @@ pub fn build(b: *std.Build) void {
     vte_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
     vte_mod.linkSystemLibrary("dl", .{});
     const vte_exe = b.addExecutable(.{
-        .name = "dintty-vte",
+        .name = "deetty-vte",
         .root_module = vte_mod,
         .use_llvm = true,
     });
     const install_vte = b.addInstallArtifact(vte_exe, .{});
     const vte_step = b.step("vte-fallback", "Build the optional VTE fallback binary");
     vte_step.dependOn(&install_vte.step);
-    if (b.option(bool, "with-vte", "Install the optional dintty-vte fallback") orelse false)
+    if (b.option(bool, "with-vte", "Install the optional deetty-vte fallback") orelse false)
         b.getInstallStep().dependOn(&install_vte.step);
 
     const smoke_mod = b.createModule(.{
@@ -277,7 +277,7 @@ pub fn build(b: *std.Build) void {
     smoke_options.addOption(bool, "enable_smoke", true);
     smoke_options.addOption(bool, "enable_vte", true);
     smoke_mod.addOptions("build_options", smoke_options);
-    smoke_mod.addImport("dintty", root_mod);
+    smoke_mod.addImport("deetty", root_mod);
     smoke_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     smoke_mod.addImport("split_ratio", split_ratio_mod);
     addNativeGridSources(b, smoke_mod, true);
@@ -285,7 +285,7 @@ pub fn build(b: *std.Build) void {
     smoke_mod.linkSystemLibrary("vte-2.91", .{ .use_pkg_config = .force });
     smoke_mod.linkSystemLibrary("dl", .{});
     const smoke_exe = b.addExecutable(.{
-        .name = "dintty-smoke",
+        .name = "deetty-smoke",
         .root_module = smoke_mod,
         .use_llvm = true,
     });
@@ -301,7 +301,7 @@ pub fn build(b: *std.Build) void {
     nocted_smoke_options.addOption(bool, "enable_smoke", true);
     nocted_smoke_mod.addOptions("build_options", nocted_smoke_options);
     nocted_smoke_mod.addImport("nocted_core", nocted_core_mod);
-    nocted_smoke_mod.addImport("dintty_release", release_mod);
+    nocted_smoke_mod.addImport("deetty_release", release_mod);
     nocted_smoke_mod.addImport("tree_sitter", tree_sitter_mod);
     nocted_smoke_mod.addImport("compat", compat_mod);
     nocted_smoke_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
@@ -317,11 +317,11 @@ pub fn build(b: *std.Build) void {
     const smoke_step = b.step("smoke-binaries", "Build native smoke-only binaries");
     smoke_step.dependOn(&install_smoke.step);
     smoke_step.dependOn(&install_nocted_smoke.step);
-    const dintty_smoke_step = b.step(
-        "dintty-smoke-binary",
-        "Build only the DINTTY smoke binary",
+    const deetty_smoke_step = b.step(
+        "deetty-smoke-binary",
+        "Build only the DEETTY smoke binary",
     );
-    dintty_smoke_step.dependOn(&install_smoke.step);
+    deetty_smoke_step.dependOn(&install_smoke.step);
     const nocted_smoke_step = b.step(
         "nocted-smoke-binary",
         "Build only the standalone NoctEd smoke binary",
@@ -405,7 +405,7 @@ pub fn build(b: *std.Build) void {
     });
     terminal_compatibility_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_compatibility_exe = b.addExecutable(.{
-        .name = "dintty-terminal-compatibility",
+        .name = "deetty-terminal-compatibility",
         .root_module = terminal_compatibility_mod,
         .use_llvm = true,
     });
@@ -428,7 +428,7 @@ pub fn build(b: *std.Build) void {
     });
     terminal_session_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_session_qualification_exe = b.addExecutable(.{
-        .name = "dintty-terminal-session-qualification",
+        .name = "deetty-terminal-session-qualification",
         .root_module = terminal_session_qualification_mod,
         .use_llvm = true,
     });
@@ -456,7 +456,7 @@ pub fn build(b: *std.Build) void {
         .use_pkg_config = .force,
     });
     const terminal_agent_fairness_exe = b.addExecutable(.{
-        .name = "dintty-terminal-agent-fairness",
+        .name = "deetty-terminal-agent-fairness",
         .root_module = terminal_agent_fairness_mod,
         .use_llvm = true,
     });
@@ -481,7 +481,7 @@ pub fn build(b: *std.Build) void {
     });
     launch_continuity_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const launch_continuity_qualification_exe = b.addExecutable(.{
-        .name = "dintty-launch-continuity-qualification",
+        .name = "deetty-launch-continuity-qualification",
         .root_module = launch_continuity_qualification_mod,
         .use_llvm = true,
     });
@@ -506,7 +506,7 @@ pub fn build(b: *std.Build) void {
     });
     terminal_real_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_real_tui_qualification_exe = b.addExecutable(.{
-        .name = "dintty-terminal-real-tui-qualification",
+        .name = "deetty-terminal-real-tui-qualification",
         .root_module = terminal_real_tui_qualification_mod,
         .use_llvm = true,
     });
@@ -531,7 +531,7 @@ pub fn build(b: *std.Build) void {
     });
     terminal_ncurses_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_ncurses_qualification_exe = b.addExecutable(.{
-        .name = "dintty-terminal-ncurses-qualification",
+        .name = "deetty-terminal-ncurses-qualification",
         .root_module = terminal_ncurses_qualification_mod,
         .use_llvm = true,
     });
@@ -556,7 +556,7 @@ pub fn build(b: *std.Build) void {
     });
     terminal_system_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
     const terminal_system_tui_qualification_exe = b.addExecutable(.{
-        .name = "dintty-terminal-system-tui-qualification",
+        .name = "deetty-terminal-system-tui-qualification",
         .root_module = terminal_system_tui_qualification_mod,
         .use_llvm = true,
     });
@@ -571,35 +571,35 @@ pub fn build(b: *std.Build) void {
     terminal_system_tui_qualification_binary_step.dependOn(
         &install_terminal_system_tui_qualification.step,
     );
-    b.installFile("resources/com.dintty.DINTTY.desktop", "share/applications/com.dintty.DINTTY.desktop");
-    b.installFile("resources/dinttyhere.desktop", "share/kio/servicemenus/dinttyhere.desktop");
-    b.installFile("resources/com.dintty.DINTTY.metainfo.xml", "share/metainfo/com.dintty.DINTTY.metainfo.xml");
-    b.installFile("resources/com.dintty.DINTTY.svg", "share/icons/hicolor/scalable/apps/com.dintty.DINTTY.svg");
-    b.installFile("resources/com.dintty.NoctEd.desktop", "share/applications/com.dintty.NoctEd.desktop");
-    b.installFile("resources/com.dintty.NoctEd.metainfo.xml", "share/metainfo/com.dintty.NoctEd.metainfo.xml");
-    b.installFile("resources/com.dintty.NoctEd.svg", "share/icons/hicolor/scalable/apps/com.dintty.NoctEd.svg");
+    b.installFile("resources/com.deetty.DEETTY.desktop", "share/applications/com.deetty.DEETTY.desktop");
+    b.installFile("resources/deettyhere.desktop", "share/kio/servicemenus/deettyhere.desktop");
+    b.installFile("resources/com.deetty.DEETTY.metainfo.xml", "share/metainfo/com.deetty.DEETTY.metainfo.xml");
+    b.installFile("resources/com.deetty.DEETTY.svg", "share/icons/hicolor/scalable/apps/com.deetty.DEETTY.svg");
+    b.installFile("resources/com.deetty.NoctEd.desktop", "share/applications/com.deetty.NoctEd.desktop");
+    b.installFile("resources/com.deetty.NoctEd.metainfo.xml", "share/metainfo/com.deetty.NoctEd.metainfo.xml");
+    b.installFile("resources/com.deetty.NoctEd.svg", "share/icons/hicolor/scalable/apps/com.deetty.NoctEd.svg");
     b.installFile("resources/nocted/language-specs/zig.lang", "share/nocted/language-specs/zig.lang");
     b.installFile("resources/nocted/language-specs/svelte.lang", "share/nocted/language-specs/svelte.lang");
     b.installFile("resources/nocted/language-specs/kof.lang", "share/nocted/language-specs/kof.lang");
     b.installFile("resources/nocted/language-specs/kof.tmLanguage.json", "share/nocted/language-specs/kof.tmLanguage.json");
     b.installFile("resources/nocted/styles/nocted-dark.xml", "share/nocted/styles/nocted-dark.xml");
-    b.installFile("resources/icons/48x48/com.dintty.DINTTY.png", "share/icons/hicolor/48x48/apps/com.dintty.DINTTY.png");
-    b.installFile("resources/icons/128x128/com.dintty.DINTTY.png", "share/icons/hicolor/128x128/apps/com.dintty.DINTTY.png");
-    b.installFile("resources/noctalia/niri.kdl", "share/dintty/noctalia/niri.kdl");
-    b.installFile("resources/noctalia/hyprland.lua", "share/dintty/noctalia/hyprland.lua");
-    b.installFile("resources/noctalia/hyprland.conf", "share/dintty/noctalia/hyprland.conf");
-    b.installFile("resources/noctalia/sway.conf", "share/dintty/noctalia/sway.conf");
-    b.installFile("resources/noctalia/scroll.conf", "share/dintty/noctalia/scroll.conf");
-    b.installFile("resources/noctalia/labwc-rc.xml", "share/dintty/noctalia/labwc-rc.xml");
-    b.installFile("resources/noctalia/labwc-autostart", "share/dintty/noctalia/labwc-autostart");
-    b.installFile("resources/noctalia/mango.conf", "share/dintty/noctalia/mango.conf");
-    b.installFile("resources/noctalia/noctalia-v5-widget.toml", "share/dintty/noctalia/noctalia-v5-widget.toml");
-    b.installFile("LICENSE", "share/licenses/dintty/LICENSE");
+    b.installFile("resources/icons/48x48/com.deetty.DEETTY.png", "share/icons/hicolor/48x48/apps/com.deetty.DEETTY.png");
+    b.installFile("resources/icons/128x128/com.deetty.DEETTY.png", "share/icons/hicolor/128x128/apps/com.deetty.DEETTY.png");
+    b.installFile("resources/noctalia/niri.kdl", "share/deetty/noctalia/niri.kdl");
+    b.installFile("resources/noctalia/hyprland.lua", "share/deetty/noctalia/hyprland.lua");
+    b.installFile("resources/noctalia/hyprland.conf", "share/deetty/noctalia/hyprland.conf");
+    b.installFile("resources/noctalia/sway.conf", "share/deetty/noctalia/sway.conf");
+    b.installFile("resources/noctalia/scroll.conf", "share/deetty/noctalia/scroll.conf");
+    b.installFile("resources/noctalia/labwc-rc.xml", "share/deetty/noctalia/labwc-rc.xml");
+    b.installFile("resources/noctalia/labwc-autostart", "share/deetty/noctalia/labwc-autostart");
+    b.installFile("resources/noctalia/mango.conf", "share/deetty/noctalia/mango.conf");
+    b.installFile("resources/noctalia/noctalia-v5-widget.toml", "share/deetty/noctalia/noctalia-v5-widget.toml");
+    b.installFile("LICENSE", "share/licenses/deetty/LICENSE");
     b.installFile(
         "THIRD_PARTY_NOTICES.md",
-        "share/licenses/dintty/THIRD_PARTY_NOTICES.md",
+        "share/licenses/deetty/THIRD_PARTY_NOTICES.md",
     );
-    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/dintty/UNICODE-LICENSE.txt");
+    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/deetty/UNICODE-LICENSE.txt");
     for ([_][]const u8{
         "tree-sitter",
         "tree-sitter-json",
@@ -610,24 +610,24 @@ pub fn build(b: *std.Build) void {
     }) |component| {
         b.installFile(
             b.fmt("vendor/{s}/LICENSE", .{component}),
-            b.fmt("share/licenses/dintty/vendor/{s}/LICENSE", .{component}),
+            b.fmt("share/licenses/deetty/vendor/{s}/LICENSE", .{component}),
         );
     }
     b.installFile(
         "vendor/tree-sitter/lib/src/unicode/LICENSE",
-        "share/licenses/dintty/vendor/tree-sitter/lib/src/unicode/LICENSE",
+        "share/licenses/deetty/vendor/tree-sitter/lib/src/unicode/LICENSE",
     );
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     run_cmd.addPassthruArgs();
 
-    const run_step = b.step("run", "Run the DINTTY development launcher");
+    const run_step = b.step("run", "Run the DEETTY development launcher");
     run_step.dependOn(&run_cmd.step);
 
     const run_smoke_cmd = b.addRunArtifact(smoke_exe);
     run_smoke_cmd.addPassthruArgs();
-    const run_smoke_step = b.step("smoke-run", "Run the smoke-only DINTTY binary");
+    const run_smoke_step = b.step("smoke-run", "Run the smoke-only DEETTY binary");
     run_smoke_step.dependOn(&run_smoke_cmd.step);
 
     const run_nocted_cmd = b.addRunArtifact(nocted_exe);
@@ -667,7 +667,7 @@ pub fn build(b: *std.Build) void {
     });
     const run_unicode_generator_tests = b.addRunArtifact(unicode_generator_tests);
     const unicode_generator_exe = b.addExecutable(.{
-        .name = "dintty-unicode-generator",
+        .name = "deetty-unicode-generator",
         .root_module = unicode_generator_mod,
         .use_llvm = true,
     });
@@ -751,7 +751,7 @@ pub fn build(b: *std.Build) void {
     windows_policy_step.dependOn(&run_windows_launch_plan_tests.step);
     windows_policy_step.dependOn(&run_launch_profile_tests.step);
 
-    const test_step = b.step("test", "Run DINTTY unit tests");
+    const test_step = b.step("test", "Run DEETTY unit tests");
     test_step.dependOn(&run_tests.step);
     test_step.dependOn(&run_nocted_tests.step);
     test_step.dependOn(&run_ghostty_vt_public_tests.step);
@@ -768,7 +768,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_windows_launch_profiles_tests.step);
     test_step.dependOn(&run_windows_launch_plan_tests.step);
 
-    const check_step = b.step("check", "Build and test DINTTY");
+    const check_step = b.step("check", "Build and test DEETTY");
     check_step.dependOn(&exe.step);
     check_step.dependOn(&nocted_exe.step);
     check_step.dependOn(&vte_exe.step);
@@ -811,7 +811,7 @@ fn addWindowsBuild(
     });
     const net_c_mod = net_translate.createModule();
     const windows_c_translate = b.addTranslateC(.{
-        .root_source_file = b.path("src/windows/dintty_windows.h"),
+        .root_source_file = b.path("src/windows/deetty_windows.h"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
@@ -873,8 +873,8 @@ fn addWindowsBuild(
     });
     share_mod.addImport("c", net_c_mod);
     share_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
-    windows_mod.addImport("dintty_share", share_mod);
-    windows_mod.addImport("dintty_release", release_mod);
+    windows_mod.addImport("deetty_share", share_mod);
+    windows_mod.addImport("deetty_release", release_mod);
     windows_mod.addImport("terminal_key_encoding", terminal_key_encoding_mod);
     windows_mod.addIncludePath(b.path("src/windows"));
     const windows_theme_source_mod = b.createModule(.{
@@ -883,7 +883,7 @@ fn addWindowsBuild(
         .optimize = optimize,
         .strip = strip,
     });
-    windows_theme_source_mod.addImport("dintty_share", share_mod);
+    windows_theme_source_mod.addImport("deetty_share", share_mod);
     windows_mod.addImport("windows_theme_source", windows_theme_source_mod);
     windows_mod.linkSystemLibrary("kernel32", .{});
     windows_mod.linkSystemLibrary("user32", .{});
@@ -896,7 +896,7 @@ fn addWindowsBuild(
     windows_mod.linkSystemLibrary("bcrypt", .{});
 
     const executable = b.addExecutable(.{
-        .name = "dintty",
+        .name = "deetty",
         .root_module = windows_mod,
     });
     executable.subsystem = .windows;
@@ -935,16 +935,16 @@ fn addWindowsBuild(
         nocted_host_qualification_executable,
         .{},
     );
-    b.installFile("LICENSE", "share/licenses/dintty/LICENSE");
+    b.installFile("LICENSE", "share/licenses/deetty/LICENSE");
     b.installFile(
         "THIRD_PARTY_NOTICES.md",
-        "share/licenses/dintty/THIRD_PARTY_NOTICES.md",
+        "share/licenses/deetty/THIRD_PARTY_NOTICES.md",
     );
-    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/dintty/UNICODE-LICENSE.txt");
+    b.installFile("dependencies/UNICODE-LICENSE.txt", "share/licenses/deetty/UNICODE-LICENSE.txt");
 
     const check_step = b.step(
         "check",
-        "Compile the native Windows DINTTY and NoctEd hosts",
+        "Compile the native Windows DEETTY and NoctEd hosts",
     );
     check_step.dependOn(&executable.step);
     check_step.dependOn(&nocted_executable.step);
@@ -952,7 +952,7 @@ fn addWindowsBuild(
 
     const windows_step = b.step(
         "windows",
-        "Build the experimental native Windows DINTTY host",
+        "Build the experimental native Windows DEETTY host",
     );
     windows_step.dependOn(b.getInstallStep());
 
@@ -992,7 +992,7 @@ fn addNativeGridSources(
     const flags: []const []const u8 = if (enable_smoke)
         &.{
             "-std=c11",
-            "-DDINTTY_ENABLE_SMOKE=1",
+            "-DDEETTY_ENABLE_SMOKE=1",
             "-Wall",
             "-Wextra",
             "-Wconversion",
@@ -1005,7 +1005,7 @@ fn addNativeGridSources(
     else
         &.{
             "-std=c11",
-            "-DDINTTY_ENABLE_SMOKE=0",
+            "-DDEETTY_ENABLE_SMOKE=0",
             "-Wall",
             "-Wextra",
             "-Wconversion",

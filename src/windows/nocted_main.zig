@@ -597,7 +597,7 @@ fn setEditorFontSizeCallback(raw: ?*anyopaque, value: c_int) callconv(.c) c_int 
 fn windowsSessionPathAlloc() ![]u8 {
     var path: [windows_path_capacity:0]u16 = undefined;
     const local_app_data = std.unicode.utf8ToUtf16LeStringLiteral("LOCALAPPDATA");
-    const directory_name = std.unicode.utf8ToUtf16LeStringLiteral("\\DINTTY");
+    const directory_name = std.unicode.utf8ToUtf16LeStringLiteral("\\DEETTY");
     const editor_name = std.unicode.utf8ToUtf16LeStringLiteral("\\NoctEd");
     const session_name = std.unicode.utf8ToUtf16LeStringLiteral("\\session.conf");
     const base_length = GetEnvironmentVariableW(local_app_data, &path, path.len);

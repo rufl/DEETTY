@@ -80,29 +80,29 @@ pub fn writeBinding(writer: anytype, compositor: Backend.WaylandCompositor, shor
     switch (compositor) {
         .niri => {
             try writeHotkey(writer, shortcut, .standard);
-            try writer.writeAll(" { spawn \"dintty\" \"--toggle\"; }");
+            try writer.writeAll(" { spawn \"deetty\" \"--toggle\"; }");
         },
         .hyprland => {
             try writer.writeAll("hl.bind(\"");
             try writeHotkey(writer, shortcut, .standard);
-            try writer.writeAll("\", hl.dsp.exec_cmd(\"dintty --toggle\"))");
+            try writer.writeAll("\", hl.dsp.exec_cmd(\"deetty --toggle\"))");
         },
         .sway, .scroll => {
             try writer.writeAll("bindsym ");
             try writeHotkey(writer, shortcut, .standard);
-            try writer.writeAll(" exec dintty --toggle");
+            try writer.writeAll(" exec deetty --toggle");
         },
         .labwc => {
             try writer.writeAll("<keybind key=\"");
             try writeHotkey(writer, shortcut, .labwc);
-            try writer.writeAll("\"><action name=\"Execute\"><command>dintty --toggle</command></action></keybind>");
+            try writer.writeAll("\"><action name=\"Execute\"><command>deetty --toggle</command></action></keybind>");
         },
         .mango => {
             try writer.writeAll("bind=");
             try writeMangoModifiers(writer, shortcut);
             try writer.writeAll(",");
             try writer.writeAll(xkbKeyName(shortcut.key));
-            try writer.writeAll(",spawn,dintty --toggle");
+            try writer.writeAll(",spawn,deetty --toggle");
         },
         .none, .other => return error.UnsupportedNoctaliaCompositor,
     }
@@ -116,23 +116,23 @@ pub fn writeBindingForVersion(writer: anytype, compositor: Backend.WaylandCompos
     try writeHyprlandConfModifiers(writer, shortcut);
     try writer.writeAll(", ");
     try writer.writeAll(xkbKeyName(shortcut.key));
-    try writer.writeAll(", exec, dintty --toggle");
+    try writer.writeAll(", exec, deetty --toggle");
 }
 
 pub fn writeAutostart(writer: anytype, compositor: Backend.WaylandCompositor) !void {
     switch (compositor) {
-        .niri => try writer.writeAll("spawn-at-startup \"dintty\" \"--hidden\""),
-        .hyprland => try writer.writeAll("hl.on(\"hyprland.start\", function() hl.exec_cmd(\"dintty --hidden\") end)"),
-        .sway, .scroll => try writer.writeAll("exec dintty --hidden"),
-        .labwc => try writer.writeAll("dintty --hidden"),
-        .mango => try writer.writeAll("exec-once=dintty --hidden"),
+        .niri => try writer.writeAll("spawn-at-startup \"deetty\" \"--hidden\""),
+        .hyprland => try writer.writeAll("hl.on(\"hyprland.start\", function() hl.exec_cmd(\"deetty --hidden\") end)"),
+        .sway, .scroll => try writer.writeAll("exec deetty --hidden"),
+        .labwc => try writer.writeAll("deetty --hidden"),
+        .mango => try writer.writeAll("exec-once=deetty --hidden"),
         .none, .other => return error.UnsupportedNoctaliaCompositor,
     }
 }
 
 pub fn writeAutostartForVersion(writer: anytype, compositor: Backend.WaylandCompositor, version: ShellVersion) !void {
     if (compositor == .hyprland and version == .v4) {
-        try writer.writeAll("exec-once = dintty --hidden");
+        try writer.writeAll("exec-once = deetty --hidden");
         return;
     }
     try writeAutostart(writer, compositor);
@@ -177,7 +177,7 @@ pub fn rewriteManagedBindingAlloc(
     compositor: Backend.WaylandCompositor,
     shortcut: Config.Shortcut,
 ) !?[]u8 {
-    if (std.mem.indexOf(u8, source, "DINTTY integration for Noctalia") == null)
+    if (std.mem.indexOf(u8, source, "DEETTY integration for Noctalia") == null)
         return null;
 
     var binding_buffer: [512]u8 = undefined;
@@ -193,7 +193,7 @@ pub fn rewriteManagedBindingAlloc(
             '\n',
         ) orelse source.len - line_start);
         const line = source[line_start..line_end];
-        if (std.mem.indexOf(u8, line, "dintty") != null and
+        if (std.mem.indexOf(u8, line, "deetty") != null and
             std.mem.indexOf(u8, line, "toggle") != null)
         {
             var indent_len: usize = 0;
@@ -229,8 +229,8 @@ pub fn writePlan(writer: anytype, detection: Detection, shortcut: Config.Shortcu
         @tagName(detection.version),
         @tagName(detection.compositor),
     });
-    try writer.writeAll("activation=dbus command=dintty --toggle service=com.dintty.DINTTY\n");
-    try writer.writeAll("surface=toplevel app_id=com.dintty.DINTTY title_prefix=DINTTY_Dropdown notifications=org.freedesktop.Notifications\n");
+    try writer.writeAll("activation=dbus command=deetty --toggle service=com.deetty.DEETTY\n");
+    try writer.writeAll("surface=toplevel app_id=com.deetty.DEETTY title_prefix=DEETTY_Dropdown notifications=org.freedesktop.Notifications\n");
     if (!detection.compositor.isNoctaliaSupported()) {
         try writer.writeAll("binding=unavailable\nautostart=unavailable\n");
         return;
@@ -382,12 +382,12 @@ test "detects every compositor family supported by Noctalia" {
 
 test "renders compositor-owned F10 bindings and hidden autostart" {
     const expected = .{
-        .{ Backend.WaylandCompositor.niri, "F10 { spawn \"dintty\" \"--toggle\"; }", "spawn-at-startup \"dintty\" \"--hidden\"" },
-        .{ Backend.WaylandCompositor.hyprland, "hl.bind(\"F10\", hl.dsp.exec_cmd(\"dintty --toggle\"))", "hl.on(\"hyprland.start\", function() hl.exec_cmd(\"dintty --hidden\") end)" },
-        .{ Backend.WaylandCompositor.sway, "bindsym F10 exec dintty --toggle", "exec dintty --hidden" },
-        .{ Backend.WaylandCompositor.scroll, "bindsym F10 exec dintty --toggle", "exec dintty --hidden" },
-        .{ Backend.WaylandCompositor.labwc, "<keybind key=\"F10\"><action name=\"Execute\"><command>dintty --toggle</command></action></keybind>", "dintty --hidden" },
-        .{ Backend.WaylandCompositor.mango, "bind=NONE,F10,spawn,dintty --toggle", "exec-once=dintty --hidden" },
+        .{ Backend.WaylandCompositor.niri, "F10 { spawn \"deetty\" \"--toggle\"; }", "spawn-at-startup \"deetty\" \"--hidden\"" },
+        .{ Backend.WaylandCompositor.hyprland, "hl.bind(\"F10\", hl.dsp.exec_cmd(\"deetty --toggle\"))", "hl.on(\"hyprland.start\", function() hl.exec_cmd(\"deetty --hidden\") end)" },
+        .{ Backend.WaylandCompositor.sway, "bindsym F10 exec deetty --toggle", "exec deetty --hidden" },
+        .{ Backend.WaylandCompositor.scroll, "bindsym F10 exec deetty --toggle", "exec deetty --hidden" },
+        .{ Backend.WaylandCompositor.labwc, "<keybind key=\"F10\"><action name=\"Execute\"><command>deetty --toggle</command></action></keybind>", "deetty --hidden" },
+        .{ Backend.WaylandCompositor.mango, "bind=NONE,F10,spawn,deetty --toggle", "exec-once=deetty --hidden" },
     };
     inline for (expected) |row| {
         var binding_buf: [256]u8 = undefined;
@@ -406,16 +406,16 @@ test "binding format follows a recorded modifier chord" {
     var buf: [256]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     try writeBinding(&writer, .mango, .{ .key = .home, .ctrl = true, .shift = true });
-    try std.testing.expectEqualStrings("bind=CTRL+SHIFT,Home,spawn,dintty --toggle", writer.buffered());
+    try std.testing.expectEqualStrings("bind=CTRL+SHIFT,Home,spawn,deetty --toggle", writer.buffered());
 }
 
 test "rewrites only a managed Noctalia binding" {
     const source =
-        \\// DINTTY integration for Noctalia on Niri.
-        \\spawn-at-startup "dintty" "--hidden"
+        \\// DEETTY integration for Noctalia on Niri.
+        \\spawn-at-startup "deetty" "--hidden"
         \\
         \\binds {
-        \\    F10 { spawn "dintty" "--toggle"; }
+        \\    F10 { spawn "deetty" "--toggle"; }
         \\}
     ;
     const rewritten = (try rewriteManagedBindingAlloc(
@@ -426,11 +426,11 @@ test "rewrites only a managed Noctalia binding" {
     )).?;
     defer std.testing.allocator.free(rewritten);
     try std.testing.expectEqualStrings(
-        \\// DINTTY integration for Noctalia on Niri.
-        \\spawn-at-startup "dintty" "--hidden"
+        \\// DEETTY integration for Noctalia on Niri.
+        \\spawn-at-startup "deetty" "--hidden"
         \\
         \\binds {
-        \\    Ctrl+Home { spawn "dintty" "--toggle"; }
+        \\    Ctrl+Home { spawn "deetty" "--toggle"; }
         \\}
     , rewritten);
     try std.testing.expect((try rewriteManagedBindingAlloc(
@@ -443,12 +443,12 @@ test "rewrites only a managed Noctalia binding" {
 
 test "managed Niri integration disables opaque focus-ring backing" {
     const source =
-        \\// DINTTY integration for Noctalia on Niri.
+        \\// DEETTY integration for Noctalia on Niri.
         \\binds {
-        \\    F10 { spawn "dintty" "--toggle"; }
+        \\    F10 { spawn "deetty" "--toggle"; }
         \\}
         \\window-rule {
-        \\    match app-id=r#"^com\\.dintty\\.DINTTY$"# title=r#"^DINTTY Dropdown(?: —|$)"#
+        \\    match app-id=r#"^com\\.deetty\\.DEETTY$"# title=r#"^DEETTY Dropdown(?: —|$)"#
         \\    open-floating true
         \\    default-floating-position x=0 y=0 relative-to="top"
         \\}
@@ -489,10 +489,10 @@ test "Noctalia v4 plan keeps Hyprland conf syntax" {
     var buf: [256]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     try writeBindingForVersion(&writer, .hyprland, .{}, .v4);
-    try std.testing.expectEqualStrings("bind = , F10, exec, dintty --toggle", writer.buffered());
+    try std.testing.expectEqualStrings("bind = , F10, exec, deetty --toggle", writer.buffered());
 
     var autostart_buf: [128]u8 = undefined;
     var autostart_writer = std.Io.Writer.fixed(&autostart_buf);
     try writeAutostartForVersion(&autostart_writer, .hyprland, .v4);
-    try std.testing.expectEqualStrings("exec-once = dintty --hidden", autostart_writer.buffered());
+    try std.testing.expectEqualStrings("exec-once = deetty --hidden", autostart_writer.buffered());
 }

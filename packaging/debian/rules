@@ -3,7 +3,7 @@
 	dh $@
 
 override_dh_auto_build:
-	zig build -Doptimize=ReleaseSafe --prefix debian/dintty/usr
+	zig build -Doptimize=ReleaseSafe --prefix debian/deetty/usr
 
 override_dh_auto_install:
 	:

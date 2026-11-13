@@ -12,7 +12,7 @@ nocted_native_matrix x11=true wayland=true folding=true editor_zoom=true find_in
 
 ## Method
 
-- Real-project lane: open the current DINTTY checkout eight times per backend. Each sample starts before worker admission, records the immutable-model GTK commit, and finishes at the first subsequent `GtkTreeView` draw callback. Entry count, monitor ownership, and worker/project drain state must remain stable.
+- Real-project lane: open the current DEETTY checkout eight times per backend. Each sample starts before worker admission, records the immutable-model GTK commit, and finishes at the first subsequent `GtkTreeView` draw callback. Entry count, monitor ownership, and worker/project drain state must remain stable.
 - Monitor lane: create twelve files per burst for eight cycles through real filesystem writes while the production `GFileMonitor` objects are live. Each sample runs from the first write through the coalescing delay, delta worker, immutable-index publication, GTK model commit, and first subsequent tree draw. The final path must exist in the committed index.
 - Overflow lane: after an actual GIO burst series, write a sentinel file and inject 257 paths through the production capped admission method. The 257th event must select exactly one conservative full-scan fallback; the sentinel must appear after worker and GTK publication. Injection makes the cap boundary deterministic because compositor/GLib event coalescing cannot guarantee 257 distinct callbacks.
 - Teardown lane: destroy the window, invoke the exact production monitor callback as a late callback, and require it to return at the shutdown guard without queuing a path, source, or worker job.
@@ -48,7 +48,7 @@ scratch.
 
 ## 2026-08-02 Live Wayland Resource Run
 
-The matching live Plasma Wayland resource run retained both modes, process-tree memory, the current 571-entry DINTTY checkout, 41 monitors, eight model/tree-draw cycles, eight actual 12-file GIO bursts, and one overflow recovery.
+The matching live Plasma Wayland resource run retained both modes, process-tree memory, the current 571-entry DEETTY checkout, 41 monitors, eight model/tree-draw cycles, eight actual 12-file GIO bursts, and one overflow recovery.
 
 | Mode | Model p50 / p95 | Tree draw p50 / p95 | GIO burst-to-draw p50 / p95 | Overflow recovery | Peak tree PSS / RSS |
 |---|---:|---:|---:|---:|---:|

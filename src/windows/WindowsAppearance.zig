@@ -1,7 +1,7 @@
 //! Shared built-in theme and point-size policy for native Windows consumers.
 
 const std = @import("std");
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 const Theme = Share.theme;
 
 pub const min_font_size = 8;

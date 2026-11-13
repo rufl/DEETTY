@@ -1,4 +1,4 @@
-//! Generates DINTTY's pinned Unicode terminal lookup tables.
+//! Generates DEETTY's pinned Unicode terminal lookup tables.
 
 const std = @import("std");
 

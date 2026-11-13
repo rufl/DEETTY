@@ -1,4 +1,4 @@
-# DINTTY Code Map
+# DEETTY Code Map
 
 This map is for contributors and reviewers who want to understand the public
 alpha source tree without reading the backlog first. The largest runtime files
@@ -7,7 +7,7 @@ non-obvious lifetime rules rather than restating each function.
 
 ## Product entry points
 
-- `src/main.zig` — DINTTY executable entry point, command-line dispatch,
+- `src/main.zig` — DEETTY executable entry point, command-line dispatch,
   development/smoke command routing, native-grid launch paths, and many receipt
   writers used by qualification scripts.
 - `src/nocted/main.zig` — standalone NoctEd GTK editor executable, including
@@ -24,7 +24,7 @@ zig build run -- --native-grid-windowed
 zig build run-nocted -- --open README.md
 ```
 
-## Main DINTTY runtime areas
+## Main DEETTY runtime areas
 
 - `src/app/App.zig` — product-level application model. Owns config loading,
   theme/workspace persistence, host launch plans, and high-level command results.
@@ -56,12 +56,12 @@ zig build run-nocted -- --open README.md
   pointer-to-cell mapping, linear selection hit testing, pixel-snapped render
   and dirty row/cell damage spans, packed-cell/run decoding, UTF-8 encoding,
   clipping, pane chrome, and caret policy consumed through
-  `include/dintty/native_grid_logic.h`.
+  `include/deetty/native_grid_logic.h`.
 - `src/gui/NativeGridRender.zig` — Cairo/Pango-owned grid cell pipeline,
   row buffering, glyph-cache and ASCII-run batching, terminal font setup and
   text, text decorations, resize/cycle/note/status overlays, and terminal
   scrollbar rendering behind the narrow
-  `include/dintty/native_grid_render.h` ABI.
+  `include/deetty/native_grid_render.h` ABI.
 - `tests/native_grid_qualification.inc` and `tests/native_grid_*_smoke.inc` —
   test-only renderer, compact UX, presentation, full-stack, and stability
   qualification included only in smoke builds; production host source contains
@@ -72,8 +72,8 @@ zig build run-nocted -- --open README.md
   and construction, new-tab and window-toolbar controls, tab-child lookup,
   color styling, settings surfaces, context menus, compact dialogs, theme
   library, project tools, and sharing controls behind the narrow
-  `include/dintty/native_gtk.h` ABI.
-- `include/dintty/` — published narrow C ABI declarations; these remain counted
+  `include/deetty/native_gtk.h` ABI.
+- `include/deetty/` — published narrow C ABI declarations; these remain counted
   by the Zig ownership gate.
 - `src/gui/VteHost.zig`: older/optional VTE-backed native host path used for
   fallback and compatibility experiments, not the main public product surface.
@@ -113,7 +113,7 @@ zig build run-nocted -- --open README.md
   structures.
 - `src/config/Config.zig` — user-facing configuration model and defaults.
 - `src/theme/*` — theme library/import/export/application logic, including the
-  built-in DINTTY Dark, High Contrast, and Paseo Black Zinc palettes.
+  built-in DEETTY Dark, High Contrast, and Paseo Black Zinc palettes.
 - `src/share/Net.zig` — bounded cross-platform TCP, multicast-discovery, and
   socket-lifetime boundary for explicitly enabled LAN session sharing.
 
@@ -182,7 +182,7 @@ read this as engineering evidence, not as extra product surface.
   switch proof for proportional dropdown reflow and current-monitor fullscreen.
 - `scripts/native_grid_stability_qualification.sh`: NCT-112 hidden/visible phase runner. `--smoke` checks Debug/`ReleaseSafe` Wayland/X11 quickly; `--run` retains the default 48-hour authenticated `ReleaseSafe` matrix.
 - `scripts/native_grid_authenticated_agent_qualification.sh`: opt-in launcher-selected Pi/OMP/ZIPI exact-response matrix through production PTY/VT/GTK/Cairo in dedicated Wayland/X11 sessions; Pi and OMP own external-provider access, while ZIPI is local-only.
-- `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, DINTTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
+- `scripts/native_grid_installed_continuity_qualification.sh`: opt-in installed tmux/Zellij detach, DEETTY relaunch, reattach, preserved-content, and compositor-pixel matrix.
 - `scripts/nocted_native_smoke.sh` — NoctEd GUI/editor smoke path, including
   `--window-mode-smoke` zen/windowed chrome and persistence assertions.
 - `scripts/nocted_native_endurance_qualification.sh`: opt-in 32-workflow-per-lane Debug/`ReleaseSafe` Wayland/X11 search/resource/monitor/lifecycle endurance matrix with rendered-content, memory, duration, and checksum evidence.

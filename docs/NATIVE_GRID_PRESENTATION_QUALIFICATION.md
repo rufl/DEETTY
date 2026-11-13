@@ -49,7 +49,7 @@ The start event is synthetic and calls the production handler directly. It does 
 Run from a live Plasma session with both Wayland and Xwayland access:
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_presentation_qualification.sh
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/native_grid_presentation_qualification.sh
 ```
 
 The script owns and removes its prefixes, Zig caches, and temporary outputs.

@@ -359,7 +359,7 @@ test "opt-in LAN discovery receives a bounded announcement" {
         .instance_id = @splat(9),
         .tcp_port = 49331,
         .accepts_sessions = true,
-        .alias = "DINTTY discovery smoke",
+        .alias = "DEETTY discovery smoke",
     };
     try discovery.announce(expected);
     for (0..50) |_| {

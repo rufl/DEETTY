@@ -2,19 +2,19 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-history_parent=${DINTTY_HISTORY_PARENT:-"$repo_root"}
+history_parent=${DEETTY_HISTORY_PARENT:-"$repo_root"}
 case "$history_parent" in
     /*) ;;
     *) history_parent="$repo_root/$history_parent" ;;
 esac
-scratch=$(mktemp -d "$history_parent/.dintty-history-qualification.XXXXXX")
+scratch=$(mktemp -d "$history_parent/.deetty-history-qualification.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
 trap cleanup EXIT HUP INT TERM
 
-local_cache=${DINTTY_ZIG_CACHE_DIR:-"$scratch/zig-local"}
-global_cache=${DINTTY_ZIG_GLOBAL_CACHE_DIR:-"$scratch/zig-global"}
+local_cache=${DEETTY_ZIG_CACHE_DIR:-"$scratch/zig-local"}
+global_cache=${DEETTY_ZIG_GLOBAL_CACHE_DIR:-"$scratch/zig-global"}
 export XDG_CACHE_HOME=${XDG_CACHE_HOME:-"$scratch/xdg-cache"}
 export TMPDIR="$scratch/tmp"
 mkdir -p "$local_cache" "$global_cache" "$XDG_CACHE_HOME" "$TMPDIR"
@@ -27,7 +27,7 @@ for mode in Debug ReleaseSafe; do
         --prefix "$prefix" \
         --cache-dir "$local_cache"
     output=$(
-        "$prefix/bin/dintty-smoke" --terminal-history-qualification
+        "$prefix/bin/deetty-smoke" --terminal-history-qualification
     )
     printf '%s\n' "$output"
     printf '%s\n' "$output" | grep -E \

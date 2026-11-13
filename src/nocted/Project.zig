@@ -92,10 +92,10 @@ test "project files atomically retain one absolute root" {
     const path = try tmp.dir.realPathFileAlloc(io, "project.npr", allocator);
     defer allocator.free(path);
 
-    try save(io, path, "/work/dintty");
+    try save(io, path, "/work/deetty");
     var project = try loadAlloc(allocator, io, path);
     defer project.deinit(allocator);
-    try std.testing.expectEqualStrings("/work/dintty", project.root);
+    try std.testing.expectEqualStrings("/work/deetty", project.root);
 
     const stat = try std.Io.Dir.cwd().statFile(io, path, .{});
     try std.testing.expectEqual(@as(std.posix.mode_t, 0), stat.permissions.toMode() & 0o077);

@@ -1,6 +1,6 @@
 //! Portable shared themes with atomic Windows-only selection persistence.
 const std = @import("std");
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 const Theme = Share.theme.Theme;
 const Storage = Share.theme_storage;
 

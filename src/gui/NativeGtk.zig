@@ -699,79 +699,79 @@ extern fn gdk_screen_is_composited(*GdkScreen) c_int;
 extern fn gdk_wayland_display_get_type() GType;
 extern fn gdk_display_get_default() ?*GdkDisplay;
 
-const label_key = "dintty-pane-info-label";
-const text_key = "dintty-pane-info-text";
-const tooltip_key = "dintty-pane-info-tooltip";
-const revision_key = "dintty-pane-info-revision";
-const tab_label_key = "dintty-tab-label-widget";
-const tab_close_key = "dintty-tab-close-widget";
+const label_key = "deetty-pane-info-label";
+const text_key = "deetty-pane-info-text";
+const tooltip_key = "deetty-pane-info-tooltip";
+const revision_key = "deetty-pane-info-revision";
+const tab_label_key = "deetty-tab-label-widget";
+const tab_close_key = "deetty-tab-close-widget";
 const compact_tab_css =
-    "window.dintty-terminal-window, " ++
-    "window.dintty-terminal-window > overlay, " ++
-    "window.dintty-terminal-window box, " ++
-    "window.dintty-terminal-window grid, " ++
-    "window.dintty-terminal-window revealer, " ++
-    "window.dintty-terminal-window paned, " ++
-    "window.dintty-terminal-window notebook, " ++
-    "window.dintty-terminal-window notebook > stack { " ++
+    "window.deetty-terminal-window, " ++
+    "window.deetty-terminal-window > overlay, " ++
+    "window.deetty-terminal-window box, " ++
+    "window.deetty-terminal-window grid, " ++
+    "window.deetty-terminal-window revealer, " ++
+    "window.deetty-terminal-window paned, " ++
+    "window.deetty-terminal-window notebook, " ++
+    "window.deetty-terminal-window notebook > stack { " ++
     "background-color: transparent; background-image: none; box-shadow: none; }" ++
-    "notebook.dintty-tab-notebook, notebook.dintty-tab-notebook > stack { background-color: transparent; background-image: none; }" ++
-    "notebook.dintty-tab-notebook > header { margin: 0; padding: 0 5px; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; background: @theme_bg_color; }" ++
-    "notebook.dintty-tab-notebook > header > tabs { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; }" ++
-    "notebook.dintty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0; border-width: 0; border-radius: 7px 7px 0 0; box-shadow: none; min-width: 0; min-height: 0; font-size: 0.9em; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
-    "notebook.dintty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
-    "notebook.dintty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
-    "notebook.dintty-tab-notebook > header > tabs > tab:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
-    "list.sidebar > row.dintty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
-    "list.sidebar > row.dintty-settings-category:hover { background: alpha(@theme_fg_color, 0.08); }" ++
-    "list.sidebar > row.dintty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; border-left: 3px solid @theme_selected_bg_color; }" ++
-    "list.sidebar > row.dintty-settings-category:selected label { font-weight: 600; }" ++
-    "list.sidebar > row.dintty-settings-category:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
-    ".dintty-tab-content, .dintty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
-    "button.dintty-tab-close, button.dintty-tab-action { margin: 0; padding: 0; border-width: 0; border-radius: 7px; box-shadow: none; min-width: 28px; min-height: 24px; color: alpha(@theme_fg_color, 0.72); background: transparent; }" ++
-    "button.dintty-tab-close:hover, button.dintty-tab-action:hover { color: @theme_fg_color; background: alpha(@theme_fg_color, 0.10); }" ++
-    "button.dintty-tab-close:active, button.dintty-tab-action:active { background: alpha(@theme_selected_bg_color, 0.24); }" ++
-    "list.sidebar > row.dintty-settings-category:active { background: alpha(@theme_selected_bg_color, 0.28); }" ++
-    "button.dintty-tab-close:disabled, button.dintty-tab-action:disabled { color: alpha(@theme_fg_color, 0.34); background: transparent; }" ++
-    "button.dintty-tab-close:focus, button.dintty-tab-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
-    "entry.dintty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
-    ".dintty-grid-area, .dintty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }" ++
-    "notebook.dintty-tab-notebook > header > tabs > tab:checked .dintty-tab-label { font-weight: 600; }" ++
-    "window.dintty-settings-dialog, window.dintty-sharing-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
-    ".dintty-settings-page { padding: 2px; }" ++
-    ".dintty-settings-heading { margin-bottom: 4px; }" ++
-    ".dintty-settings-detail, label.dintty-settings-label { color: alpha(@theme_fg_color, 0.72); }" ++
-    "frame.dintty-settings-group, frame.dintty-sharing-group { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; padding: 4px; }" ++
-    "frame.dintty-settings-group > label, frame.dintty-sharing-group > label { color: @theme_text_color; }" ++
-    "button.dintty-sharing-action { min-height: 30px; padding: 3px 10px; border-radius: 6px; }" ++
-    "button.dintty-sharing-action-primary { color: @theme_selected_bg_color; font-weight: 600; }" ++
-    "button.dintty-sharing-action-primary:hover { background: alpha(@theme_selected_bg_color, 0.18); }" ++
-    "button.dintty-sharing-action-primary:active { background: alpha(@theme_selected_bg_color, 0.32); }" ++
-    "button.dintty-sharing-action-danger { color: @error_color; }" ++
-    "button.dintty-sharing-action-danger:hover { background: alpha(@error_color, 0.16); }" ++
-    "button.dintty-sharing-action-danger:active { background: alpha(@error_color, 0.28); }" ++
-    "button.dintty-sharing-action:hover { background: alpha(@theme_fg_color, 0.12); }" ++
-    "button.dintty-sharing-action:active { background: alpha(@theme_selected_bg_color, 0.26); }" ++
-    "button.dintty-sharing-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: 1px; }" ++
-    "button.dintty-sharing-action:disabled { color: alpha(@theme_fg_color, 0.38); }" ++
-    ".dintty-sharing-status { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.12); }" ++
-    ".dintty-sharing-security { color: alpha(@theme_fg_color, 0.68); }" ++
-    "drawingarea.dintty-sharing-preview { border: 1px solid alpha(@theme_fg_color, 0.22); border-radius: 8px; background: @theme_base_color; }" ++
-    "scrolledwindow.dintty-sharing-scroll { background: transparent; }" ++
-    "window.dintty-utility-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
-    ".dintty-utility-body { padding: 2px; }" ++
-    "entry.dintty-utility-search { min-height: 32px; padding: 4px 8px; border-radius: 7px; }" ++
-    "label.dintty-utility-status { padding: 5px 8px; border-radius: 6px; color: alpha(@theme_fg_color, 0.72); }" ++
-    "list.dintty-palette-list { background-color: transparent; }" ++
-    "list.dintty-palette-list > row.dintty-palette-row { margin: 2px 0; padding: 2px; min-height: 36px; border-radius: 7px; }" ++
-    "list.dintty-palette-list > row.dintty-palette-row:hover { background: alpha(@theme_fg_color, 0.10); }" ++
-    "list.dintty-palette-list > row.dintty-palette-row:selected { background: alpha(@theme_selected_bg_color, 0.24); color: @theme_text_color; }" ++
-    "list.dintty-palette-list > row.dintty-palette-row:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
-    "label.dintty-palette-hint { color: alpha(@theme_fg_color, 0.65); }" ++
-    "scrolledwindow.dintty-utility-scroll { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; background: alpha(@theme_fg_color, 0.03); }" ++
-    "textview.dintty-note-editor, textview.dintty-project-summary { padding: 10px; }" ++
-    "label.dintty-theme-preview { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.10); }" ++
-    ".dintty-recovery-notice { margin: 6px; border-radius: 8px; }";
+    "notebook.deetty-tab-notebook, notebook.deetty-tab-notebook > stack { background-color: transparent; background-image: none; }" ++
+    "notebook.deetty-tab-notebook > header { margin: 0; padding: 0 5px; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; background: @theme_bg_color; }" ++
+    "notebook.deetty-tab-notebook > header > tabs { margin: 0; padding: 0; border-width: 0; box-shadow: none; min-width: 0; min-height: 0; }" ++
+    "notebook.deetty-tab-notebook > header > tabs > tab { margin: 0 4px 0 0; padding: 0; border-width: 0; border-radius: 7px 7px 0 0; box-shadow: none; min-width: 0; min-height: 0; font-size: 0.9em; background: alpha(@theme_fg_color, 0.06); color: alpha(@theme_fg_color, 0.72); }" ++
+    "notebook.deetty-tab-notebook > header > tabs > tab:checked { background: @theme_base_color; color: @theme_text_color; box-shadow: inset 0 2px @theme_selected_bg_color; }" ++
+    "notebook.deetty-tab-notebook > header > tabs > tab:hover { background: alpha(@theme_fg_color, 0.12); color: @theme_fg_color; }" ++
+    "notebook.deetty-tab-notebook > header > tabs > tab:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
+    "list.sidebar > row.deetty-settings-category { margin: 2px 4px; padding: 0; min-height: 48px; border-radius: 8px; }" ++
+    "list.sidebar > row.deetty-settings-category:hover { background: alpha(@theme_fg_color, 0.08); }" ++
+    "list.sidebar > row.deetty-settings-category:selected { background: alpha(@theme_selected_bg_color, 0.18); color: @theme_text_color; border-left: 3px solid @theme_selected_bg_color; }" ++
+    "list.sidebar > row.deetty-settings-category:selected label { font-weight: 600; }" ++
+    "list.sidebar > row.deetty-settings-category:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
+    ".deetty-tab-content, .deetty-tab-label { margin: 0; padding: 0; border-radius: 9px 9px 0 0; }" ++
+    "button.deetty-tab-close, button.deetty-tab-action { margin: 0; padding: 0; border-width: 0; border-radius: 7px; box-shadow: none; min-width: 28px; min-height: 24px; color: alpha(@theme_fg_color, 0.72); background: transparent; }" ++
+    "button.deetty-tab-close:hover, button.deetty-tab-action:hover { color: @theme_fg_color; background: alpha(@theme_fg_color, 0.10); }" ++
+    "button.deetty-tab-close:active, button.deetty-tab-action:active { background: alpha(@theme_selected_bg_color, 0.24); }" ++
+    "list.sidebar > row.deetty-settings-category:active { background: alpha(@theme_selected_bg_color, 0.28); }" ++
+    "button.deetty-tab-close:disabled, button.deetty-tab-action:disabled { color: alpha(@theme_fg_color, 0.34); background: transparent; }" ++
+    "button.deetty-tab-close:focus, button.deetty-tab-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
+    "entry.deetty-tab-rename { margin: 0; padding: 0 2px; min-height: 18px; }" ++
+    ".deetty-grid-area, .deetty-grid-area:focus { outline-style: none; outline-width: 0; border-width: 0; border-color: transparent; box-shadow: none; }" ++
+    "notebook.deetty-tab-notebook > header > tabs > tab:checked .deetty-tab-label { font-weight: 600; }" ++
+    "window.deetty-settings-dialog, window.deetty-sharing-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
+    ".deetty-settings-page { padding: 2px; }" ++
+    ".deetty-settings-heading { margin-bottom: 4px; }" ++
+    ".deetty-settings-detail, label.deetty-settings-label { color: alpha(@theme_fg_color, 0.72); }" ++
+    "frame.deetty-settings-group, frame.deetty-sharing-group { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; padding: 4px; }" ++
+    "frame.deetty-settings-group > label, frame.deetty-sharing-group > label { color: @theme_text_color; }" ++
+    "button.deetty-sharing-action { min-height: 30px; padding: 3px 10px; border-radius: 6px; }" ++
+    "button.deetty-sharing-action-primary { color: @theme_selected_bg_color; font-weight: 600; }" ++
+    "button.deetty-sharing-action-primary:hover { background: alpha(@theme_selected_bg_color, 0.18); }" ++
+    "button.deetty-sharing-action-primary:active { background: alpha(@theme_selected_bg_color, 0.32); }" ++
+    "button.deetty-sharing-action-danger { color: @error_color; }" ++
+    "button.deetty-sharing-action-danger:hover { background: alpha(@error_color, 0.16); }" ++
+    "button.deetty-sharing-action-danger:active { background: alpha(@error_color, 0.28); }" ++
+    "button.deetty-sharing-action:hover { background: alpha(@theme_fg_color, 0.12); }" ++
+    "button.deetty-sharing-action:active { background: alpha(@theme_selected_bg_color, 0.26); }" ++
+    "button.deetty-sharing-action:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: 1px; }" ++
+    "button.deetty-sharing-action:disabled { color: alpha(@theme_fg_color, 0.38); }" ++
+    ".deetty-sharing-status { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.12); }" ++
+    ".deetty-sharing-security { color: alpha(@theme_fg_color, 0.68); }" ++
+    "drawingarea.deetty-sharing-preview { border: 1px solid alpha(@theme_fg_color, 0.22); border-radius: 8px; background: @theme_base_color; }" ++
+    "scrolledwindow.deetty-sharing-scroll { background: transparent; }" ++
+    "window.deetty-utility-dialog { background: @theme_bg_color; color: @theme_fg_color; }" ++
+    ".deetty-utility-body { padding: 2px; }" ++
+    "entry.deetty-utility-search { min-height: 32px; padding: 4px 8px; border-radius: 7px; }" ++
+    "label.deetty-utility-status { padding: 5px 8px; border-radius: 6px; color: alpha(@theme_fg_color, 0.72); }" ++
+    "list.deetty-palette-list { background-color: transparent; }" ++
+    "list.deetty-palette-list > row.deetty-palette-row { margin: 2px 0; padding: 2px; min-height: 36px; border-radius: 7px; }" ++
+    "list.deetty-palette-list > row.deetty-palette-row:hover { background: alpha(@theme_fg_color, 0.10); }" ++
+    "list.deetty-palette-list > row.deetty-palette-row:selected { background: alpha(@theme_selected_bg_color, 0.24); color: @theme_text_color; }" ++
+    "list.deetty-palette-list > row.deetty-palette-row:focus { outline: 2px solid @theme_selected_bg_color; outline-offset: -2px; }" ++
+    "label.deetty-palette-hint { color: alpha(@theme_fg_color, 0.65); }" ++
+    "scrolledwindow.deetty-utility-scroll { border: 1px solid alpha(@theme_fg_color, 0.14); border-radius: 8px; background: alpha(@theme_fg_color, 0.03); }" ++
+    "textview.deetty-note-editor, textview.deetty-project-summary { padding: 10px; }" ++
+    "label.deetty-theme-preview { padding: 8px; border-radius: 6px; background: alpha(@theme_selected_bg_color, 0.10); }" ++
+    ".deetty-recovery-notice { margin: 6px; border-radius: 8px; }";
 
 var compact_tab_provider: ?*GtkCssProvider = null;
 
@@ -800,7 +800,7 @@ fn branchHasVisiblePane(
     return false;
 }
 
-pub export fn dintty_grid_sync_split_visibility(
+pub export fn deetty_grid_sync_split_visibility(
     content_optional: ?*GtkWidget,
     panes_optional: ?[*]const ?*GtkWidget,
     pane_count: u32,
@@ -882,26 +882,26 @@ fn onActionButtonEnter(widget: *GtkWidget, _: ?*anyopaque, _: ?*anyopaque) callc
         gdk_cursor_new_for_display(display, GDK_ARROW) orelse return FALSE;
     defer g_object_unref(cursor);
     gdk_window_set_cursor(window, cursor);
-    g_object_set_data(object(widget), "dintty-action-pointer-active", @ptrFromInt(1));
-    g_object_set_data(object(widget), "dintty-action-pointer-name", @ptrCast(@constCast("default")));
+    g_object_set_data(object(widget), "deetty-action-pointer-active", @ptrFromInt(1));
+    g_object_set_data(object(widget), "deetty-action-pointer-name", @ptrCast(@constCast("default")));
     return FALSE;
 }
 
 fn onActionButtonLeave(widget: *GtkWidget, _: ?*anyopaque, _: ?*anyopaque) callconv(.c) c_int {
     if (actionButtonWindow(widget)) |window| gdk_window_set_cursor(window, null);
-    g_object_set_data(object(widget), "dintty-action-pointer-active", null);
+    g_object_set_data(object(widget), "deetty-action-pointer-active", null);
     return FALSE;
 }
 
-pub export fn dintty_action_button_event_window(widget: ?*GtkWidget) ?*GdkWindow {
+pub export fn deetty_action_button_event_window(widget: ?*GtkWidget) ?*GdkWindow {
     return actionButtonWindow(widget orelse return null);
 }
 
-pub export fn dintty_action_button_enter(widget: ?*GtkWidget) c_int {
+pub export fn deetty_action_button_enter(widget: ?*GtkWidget) c_int {
     return onActionButtonEnter(widget orelse return FALSE, null, null);
 }
 
-pub export fn dintty_action_button_leave(widget: ?*GtkWidget) c_int {
+pub export fn deetty_action_button_leave(widget: ?*GtkWidget) c_int {
     return onActionButtonLeave(widget orelse return FALSE, null, null);
 }
 
@@ -936,34 +936,34 @@ fn setFallbackTooltip(button: *GtkWidget) void {
     gtk_widget_set_tooltip_text(button, @ptrCast(trimmed.ptr));
 }
 
-pub export fn dintty_configure_action_button(button: ?*GtkWidget, tooltip: ?[*:0]const u8) void {
+pub export fn deetty_configure_action_button(button: ?*GtkWidget, tooltip: ?[*:0]const u8) void {
     const widget = button orelse return;
     if (!isA(widget, gtk_button_get_type)) return;
     gtk_widget_set_can_focus(widget, TRUE);
     if (tooltip) |text| {
         if (text[0] != 0) gtk_widget_set_tooltip_text(widget, text) else setFallbackTooltip(widget);
     } else setFallbackTooltip(widget);
-    if (g_object_get_data(object(widget), "dintty-action-affordance") != null) return;
+    if (g_object_get_data(object(widget), "deetty-action-affordance") != null) return;
     gtk_widget_add_events(widget, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
     _ = g_signal_connect_data(widget, "enter-notify-event", @ptrCast(&onActionButtonEnter), null, null, 0);
     _ = g_signal_connect_data(widget, "leave-notify-event", @ptrCast(&onActionButtonLeave), null, null, 0);
-    g_object_set_data(object(widget), "dintty-action-affordance", @ptrFromInt(1));
+    g_object_set_data(object(widget), "deetty-action-affordance", @ptrFromInt(1));
 }
 
-pub export fn dintty_prepare_action_button_tree(widget: ?*GtkWidget) void {
+pub export fn deetty_prepare_action_button_tree(widget: ?*GtkWidget) void {
     const current = widget orelse return;
-    if (isA(current, gtk_button_get_type)) dintty_configure_action_button(current, null);
+    if (isA(current, gtk_button_get_type)) deetty_configure_action_button(current, null);
     if (!isA(current, gtk_container_get_type)) return;
     const children = gtk_container_get_children(@ptrCast(current));
     defer g_list_free(children);
     var item = children;
     while (item) |child| : (item = child.next)
-        dintty_prepare_action_button_tree(if (child.data) |data| @ptrCast(data) else null);
+        deetty_prepare_action_button_tree(if (child.data) |data| @ptrCast(data) else null);
 }
 
-pub export fn dintty_show_all_with_action_affordances(widget: ?*GtkWidget) void {
+pub export fn deetty_show_all_with_action_affordances(widget: ?*GtkWidget) void {
     const current = widget orelse return;
-    dintty_prepare_action_button_tree(current);
+    deetty_prepare_action_button_tree(current);
     gtk_widget_show_all(current);
 }
 
@@ -984,7 +984,7 @@ fn widgetCssProvider(
 
 fn applyPaneDividerStyle(widget: *GtkWidget, width_px: c_int) void {
     if (isA(widget, gtk_paned_get_type)) {
-        const provider = widgetCssProvider(widget, "dintty-divider-provider") orelse return;
+        const provider = widgetCssProvider(widget, "deetty-divider-provider") orelse return;
         var css_buffer: [96]u8 = undefined;
         const width = std.math.clamp(width_px, 1, 64);
         const css = Compat.bufPrintZ(
@@ -1004,14 +1004,14 @@ fn applyPaneDividerStyle(widget: *GtkWidget, width_px: c_int) void {
     }
 }
 
-pub export fn dintty_apply_pane_divider_style(
+pub export fn deetty_apply_pane_divider_style(
     widget: ?*GtkWidget,
     width_px: c_int,
 ) void {
     applyPaneDividerStyle(widget orelse return, width_px);
 }
 
-pub export fn dintty_paned_new(
+pub export fn deetty_paned_new(
     orientation: c_int,
     divider_px: c_int,
 ) ?*GtkWidget {
@@ -1019,7 +1019,7 @@ pub export fn dintty_paned_new(
     if (divider_px > 0) applyPaneDividerStyle(paned, divider_px);
     return paned;
 }
-pub export fn dintty_paned_pack1(
+pub export fn deetty_paned_pack1(
     paned_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
     resize: c_int,
@@ -1030,7 +1030,7 @@ pub export fn dintty_paned_pack1(
     gtk_paned_pack1(@ptrCast(paned), child, resize, shrink);
 }
 
-pub export fn dintty_paned_pack2(
+pub export fn deetty_paned_pack2(
     paned_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
     resize: c_int,
@@ -1041,14 +1041,14 @@ pub export fn dintty_paned_pack2(
     gtk_paned_pack2(@ptrCast(paned), child, resize, shrink);
 }
 
-pub export fn dintty_paned_set_position(
+pub export fn deetty_paned_set_position(
     paned_optional: ?*GtkWidget,
     position: c_int,
 ) void {
     const paned = paned_optional orelse return;
     gtk_paned_set_position(@ptrCast(paned), position);
 }
-pub export fn dintty_container_add(
+pub export fn deetty_container_add(
     container_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
 ) void {
@@ -1057,7 +1057,7 @@ pub export fn dintty_container_add(
     gtk_container_add(@ptrCast(container), child);
 }
 
-pub export fn dintty_container_remove(
+pub export fn deetty_container_remove(
     container_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
 ) void {
@@ -1066,7 +1066,7 @@ pub export fn dintty_container_remove(
     gtk_container_remove(@ptrCast(container), child);
 }
 
-pub export fn dintty_container_set_border_width(
+pub export fn deetty_container_set_border_width(
     container_optional: ?*GtkWidget,
     width: c_uint,
 ) void {
@@ -1074,7 +1074,7 @@ pub export fn dintty_container_set_border_width(
     gtk_container_set_border_width(@ptrCast(container), width);
 }
 
-pub export fn dintty_box_pack_start(
+pub export fn deetty_box_pack_start(
     box_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
     expand: c_int,
@@ -1086,7 +1086,7 @@ pub export fn dintty_box_pack_start(
     gtk_box_pack_start(@ptrCast(box), child, expand, fill, padding);
 }
 
-pub export fn dintty_box_pack_end(
+pub export fn deetty_box_pack_end(
     box_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
     expand: c_int,
@@ -1098,7 +1098,7 @@ pub export fn dintty_box_pack_end(
     gtk_box_pack_end(@ptrCast(box), child, expand, fill, padding);
 }
 
-pub export fn dintty_box_reorder_child(
+pub export fn deetty_box_reorder_child(
     box_optional: ?*GtkWidget,
     child_optional: ?*GtkWidget,
     position: c_int,
@@ -1153,7 +1153,7 @@ fn applyEvenPanePositions(widget_optional: ?*GtkWidget) bool {
     );
     g_object_set_data(
         object(widget),
-        "dintty-preset-ratio",
+        "deetty-preset-ratio",
         @ptrFromInt(ratio_permille),
     );
     gtk_paned_set_position(paned, position);
@@ -1162,27 +1162,27 @@ fn applyEvenPanePositions(widget_optional: ?*GtkWidget) bool {
     return true;
 }
 
-pub export fn dintty_apply_even_pane_positions(widget: ?*GtkWidget) c_int {
+pub export fn deetty_apply_even_pane_positions(widget: ?*GtkWidget) c_int {
     return @intFromBool(applyEvenPanePositions(widget));
 }
 
 fn setPaneGapStyle(widget: *GtkWidget, rgb: u32, is_opaque: bool) void {
-    const provider = widgetCssProvider(widget, "dintty-pane-gap-provider") orelse return;
+    const provider = widgetCssProvider(widget, "deetty-pane-gap-provider") orelse return;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(widget),
-        "dintty-pane-gap-surface",
+        "deetty-pane-gap-surface",
     );
     var css_buffer: [160]u8 = undefined;
     const css = if (is_opaque)
         Compat.bufPrintZ(
             &css_buffer,
-            ".dintty-pane-gap-surface {{ background-color: rgb({d},{d},{d}); }}",
+            ".deetty-pane-gap-surface {{ background-color: rgb({d},{d},{d}); }}",
             .{ (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff },
         ) catch return
     else
         Compat.bufPrintZ(
             &css_buffer,
-            ".dintty-pane-gap-surface {{ background-color: rgba(0,0,0,0); }}",
+            ".deetty-pane-gap-surface {{ background-color: rgba(0,0,0,0); }}",
             .{},
         ) catch return;
     _ = gtk_css_provider_load_from_data(provider, css, -1, null);
@@ -1201,7 +1201,7 @@ fn applyPaneGapStyle(widget: *GtkWidget, rgb: u32, is_opaque: bool, root: bool) 
     }
 }
 
-pub export fn dintty_apply_pane_gap_style(
+pub export fn deetty_apply_pane_gap_style(
     widget: ?*GtkWidget,
     rgb: u32,
     is_opaque: c_int,
@@ -1209,14 +1209,14 @@ pub export fn dintty_apply_pane_gap_style(
     applyPaneGapStyle(widget orelse return, rgb, is_opaque != 0, true);
 }
 
-pub export fn dintty_install_compact_tab_styles(target: ?*GtkWidget) void {
+pub export fn deetty_install_compact_tab_styles(target: ?*GtkWidget) void {
     const widget = target orelse return;
     const provider = compactTabProvider() orelse return;
     const screen = gtk_widget_get_screen(widget) orelse gdk_screen_get_default();
     if (screen) |value| gtk_style_context_add_provider_for_screen(value, @ptrCast(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_object_set_data(object(widget), "dintty-style-provider-installed", @ptrFromInt(1));
+    g_object_set_data(object(widget), "deetty-style-provider-installed", @ptrFromInt(1));
     if (isA(widget, gtk_notebook_get_type))
-        gtk_style_context_add_class(gtk_widget_get_style_context(widget), "dintty-tab-notebook");
+        gtk_style_context_add_class(gtk_widget_get_style_context(widget), "deetty-tab-notebook");
 }
 
 const CompactTabOptions = extern struct {
@@ -1241,7 +1241,7 @@ const CompactTabContents = extern struct {
 
 /// The returned tab keeps its GTK floating reference until C inserts it into a
 /// container. Descendant handles are borrowed and callback data remains C-owned.
-pub export fn dintty_compact_tab_new(
+pub export fn deetty_compact_tab_new(
     options_raw: ?*const CompactTabOptions,
     callbacks_raw: ?*const CompactTabCallbacks,
     contents_out: ?*CompactTabContents,
@@ -1279,17 +1279,17 @@ pub export fn dintty_compact_tab_new(
     gtk_button_set_relief(@ptrCast(close), GTK_RELIEF_NONE);
     gtk_widget_set_focus_on_click(close, FALSE);
     gtk_widget_set_size_request(close, 28, 24);
-    dintty_configure_action_button(close, "Close Tab");
+    deetty_configure_action_button(close, "Close Tab");
     setAccessibleName(close, "Close Tab");
-    gtk_style_context_add_class(gtk_widget_get_style_context(content), "dintty-tab-content");
-    gtk_style_context_add_class(gtk_widget_get_style_context(label), "dintty-tab-label");
-    gtk_style_context_add_class(gtk_widget_get_style_context(close), "dintty-tab-close");
+    gtk_style_context_add_class(gtk_widget_get_style_context(content), "deetty-tab-content");
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "deetty-tab-label");
+    gtk_style_context_add_class(gtk_widget_get_style_context(close), "deetty-tab-close");
     gtk_style_context_add_class(gtk_widget_get_style_context(close), "flat");
     gtk_box_pack_start(@ptrCast(content), label, TRUE, TRUE, 0);
     gtk_box_pack_start(@ptrCast(content), close, FALSE, FALSE, 0);
     gtk_container_add(@ptrCast(tab), content);
-    g_object_set_data(object(tab), "dintty-tab-page", page);
-    g_object_set_data(object(close), "dintty-tab-page", page);
+    g_object_set_data(object(tab), "deetty-tab-page", page);
+    g_object_set_data(object(close), "deetty-tab-page", page);
     g_object_set_data(object(tab), tab_label_key, label);
     g_object_set_data(object(tab), tab_close_key, close);
     connectSignal(tab, "button-press-event", callbacks.button_press, options.callback_data);
@@ -1303,7 +1303,7 @@ pub export fn dintty_compact_tab_new(
 
 /// The returned button keeps its GTK floating reference until C inserts it into
 /// the notebook. Callback data remains C-owned for the button's lifetime.
-pub export fn dintty_new_tab_button_new(
+pub export fn deetty_new_tab_button_new(
     extent_px: c_int,
     callback_data: ?*anyopaque,
     clicked: ?GCallback,
@@ -1315,9 +1315,9 @@ pub export fn dintty_new_tab_button_new(
     gtk_button_set_relief(@ptrCast(button), GTK_RELIEF_NONE);
     gtk_widget_set_can_focus(button, TRUE);
     gtk_widget_set_size_request(button, extent_px, extent_px);
-    dintty_configure_action_button(button, "New Tab (Ctrl+Shift+T)");
+    deetty_configure_action_button(button, "New Tab (Ctrl+Shift+T)");
     setAccessibleName(button, "New Tab, Ctrl+Shift+T");
-    gtk_style_context_add_class(gtk_widget_get_style_context(button), "dintty-tab-action");
+    gtk_style_context_add_class(gtk_widget_get_style_context(button), "deetty-tab-action");
     gtk_style_context_add_class(gtk_widget_get_style_context(button), "flat");
     connectSignal(button, "clicked", clicked, callback_data);
     return button;
@@ -1336,7 +1336,7 @@ const WindowToolbarContents = extern struct {
 
 /// The returned controls box keeps its GTK floating reference until C inserts
 /// it into the notebook. Descendants are borrowed; callback data remains C-owned.
-pub export fn dintty_window_toolbar_new(
+pub export fn deetty_window_toolbar_new(
     extent_px: c_int,
     callback_data: ?*anyopaque,
     callbacks_raw: ?*const WindowToolbarCallbacks,
@@ -1364,18 +1364,18 @@ pub export fn dintty_window_toolbar_new(
 
     for (
         [_]*GtkWidget{ settings, close },
-        [_][*:0]const u8{ "Settings", "Close DINTTY" },
+        [_][*:0]const u8{ "Settings", "Close DEETTY" },
     ) |button, text| {
         gtk_button_set_relief(@ptrCast(button), GTK_RELIEF_NONE);
         gtk_widget_set_focus_on_click(button, FALSE);
         gtk_widget_set_size_request(button, extent_px, extent_px);
-        dintty_configure_action_button(button, text);
+        deetty_configure_action_button(button, text);
         setAccessibleName(button, text);
         gtk_style_context_add_class(gtk_widget_get_style_context(button), "flat");
-        gtk_style_context_add_class(gtk_widget_get_style_context(button), "dintty-tab-action");
+        gtk_style_context_add_class(gtk_widget_get_style_context(button), "deetty-tab-action");
         gtk_box_pack_start(@ptrCast(controls), button, FALSE, FALSE, 0);
     }
-    gtk_style_context_add_class(gtk_widget_get_style_context(controls), "dintty-window-controls");
+    gtk_style_context_add_class(gtk_widget_get_style_context(controls), "deetty-window-controls");
     connectSignal(settings, "clicked", callbacks.settings_clicked, callback_data);
     connectSignal(close, "clicked", callbacks.close_clicked, callback_data);
     output.* = .{
@@ -1386,7 +1386,7 @@ pub export fn dintty_window_toolbar_new(
     return TRUE;
 }
 
-pub export fn dintty_window_toolbar_set_close_visible(
+pub export fn deetty_window_toolbar_set_close_visible(
     close_button: ?*GtkWidget,
     visible: c_int,
 ) void {
@@ -1410,7 +1410,7 @@ fn tabChildOfType(tab_widget: *GtkWidget, get_type: *const fn () callconv(.c) GT
     return null;
 }
 
-pub export fn dintty_tab_label_from_widget(tab_widget: ?*GtkWidget) ?*GtkWidget {
+pub export fn deetty_tab_label_from_widget(tab_widget: ?*GtkWidget) ?*GtkWidget {
     const tab = tab_widget orelse return null;
     if (g_object_get_data(object(tab), tab_label_key)) |value| return @ptrCast(value);
     const label = tabChildOfType(tab, gtk_label_get_type) orelse return null;
@@ -1418,7 +1418,7 @@ pub export fn dintty_tab_label_from_widget(tab_widget: ?*GtkWidget) ?*GtkWidget 
     return label;
 }
 
-pub export fn dintty_tab_close_button_from_widget(tab_widget: ?*GtkWidget) ?*GtkWidget {
+pub export fn deetty_tab_close_button_from_widget(tab_widget: ?*GtkWidget) ?*GtkWidget {
     const tab = tab_widget orelse return null;
     if (g_object_get_data(object(tab), tab_close_key)) |value| return @ptrCast(value);
     const close = tabChildOfType(tab, gtk_button_get_type) orelse return null;
@@ -1426,7 +1426,7 @@ pub export fn dintty_tab_close_button_from_widget(tab_widget: ?*GtkWidget) ?*Gtk
     return close;
 }
 
-pub export fn dintty_tab_color_uses_dark_text(rgb: u32) c_int {
+pub export fn deetty_tab_color_uses_dark_text(rgb: u32) c_int {
     const red: u64 = (rgb >> 16) & 0xff;
     const green: u64 = (rgb >> 8) & 0xff;
     const blue: u64 = rgb & 0xff;
@@ -1434,36 +1434,36 @@ pub export fn dintty_tab_color_uses_dark_text(rgb: u32) c_int {
 }
 
 fn removeTabColorProvider(tab_widget: *GtkWidget, widgets: [3]?*GtkWidget) void {
-    const raw_provider = g_object_get_data(object(tab_widget), "dintty-tab-color-provider") orelse return;
+    const raw_provider = g_object_get_data(object(tab_widget), "deetty-tab-color-provider") orelse return;
     const provider: *GtkStyleProvider = @ptrCast(raw_provider);
     for (widgets) |widget|
         if (widget) |value| gtk_style_context_remove_provider(gtk_widget_get_style_context(value), provider);
-    g_object_set_data(object(tab_widget), "dintty-tab-color-provider", null);
+    g_object_set_data(object(tab_widget), "deetty-tab-color-provider", null);
 }
 
-pub export fn dintty_apply_tab_color_style(tab_widget: ?*GtkWidget, rgb: u32, is_active: c_int) void {
+pub export fn deetty_apply_tab_color_style(tab_widget: ?*GtkWidget, rgb: u32, is_active: c_int) void {
     const tab = tab_widget orelse return;
     if (!isA(tab, gtk_bin_get_type)) return;
-    const cached_rgb: u32 = if (g_object_get_data(object(tab), "dintty-tab-color-rgb")) |value| @intCast(@intFromPtr(value)) else 0;
-    const cached_active = g_object_get_data(object(tab), "dintty-tab-color-active") != null;
+    const cached_rgb: u32 = if (g_object_get_data(object(tab), "deetty-tab-color-rgb")) |value| @intCast(@intFromPtr(value)) else 0;
+    const cached_active = g_object_get_data(object(tab), "deetty-tab-color-active") != null;
     const active = is_active != 0;
     if (cached_rgb == rgb and (rgb == 0 or cached_active == active)) return;
 
     const content = gtk_bin_get_child(@ptrCast(tab));
-    const label = dintty_tab_label_from_widget(tab);
-    const close = dintty_tab_close_button_from_widget(tab);
+    const label = deetty_tab_label_from_widget(tab);
+    const close = deetty_tab_close_button_from_widget(tab);
     removeTabColorProvider(tab, .{ content, label, close });
-    g_object_set_data(object(tab), "dintty-tab-color-rgb", if (rgb == 0) null else @ptrFromInt(rgb));
-    g_object_set_data(object(tab), "dintty-tab-color-active", if (active) @ptrFromInt(1) else null);
+    g_object_set_data(object(tab), "deetty-tab-color-rgb", if (rgb == 0) null else @ptrFromInt(rgb));
+    g_object_set_data(object(tab), "deetty-tab-color-active", if (active) @ptrFromInt(1) else null);
     if (rgb == 0 or content == null) return;
 
-    const foreground = if (dintty_tab_color_uses_dark_text(rgb) != 0) "#11151b" else "#ffffff";
+    const foreground = if (deetty_tab_color_uses_dark_text(rgb) != 0) "#11151b" else "#ffffff";
     var css_buffer: [768]u8 = undefined;
     const css = Compat.bufPrintZ(
         &css_buffer,
-        ".dintty-tab-content {{ background-color: #{x:0>6}; color: {s}; border-radius: 9px 9px 0 0; box-shadow: inset 0 {s} 0 rgba(255,255,255,{s}); }}" ++
-            ".dintty-tab-label {{ color: {s}; }}" ++
-            "button.dintty-tab-close {{ color: {s}; background: transparent; border-radius: 8px; }}",
+        ".deetty-tab-content {{ background-color: #{x:0>6}; color: {s}; border-radius: 9px 9px 0 0; box-shadow: inset 0 {s} 0 rgba(255,255,255,{s}); }}" ++
+            ".deetty-tab-label {{ color: {s}; }}" ++
+            "button.deetty-tab-close {{ color: {s}; background: transparent; border-radius: 8px; }}",
         .{ rgb & 0xffffff, foreground, if (active) "-2px" else "-1px", if (active) "0.42" else "0.20", foreground, foreground },
     ) catch return;
     const provider = gtk_css_provider_new() orelse return;
@@ -1477,7 +1477,7 @@ pub export fn dintty_apply_tab_color_style(tab_widget: ?*GtkWidget, rgb: u32, is
     }
     for ([3]?*GtkWidget{ content, label, close }) |widget|
         if (widget) |value| gtk_style_context_add_provider(gtk_widget_get_style_context(value), @ptrCast(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 2);
-    g_object_set_data_full(object(tab), "dintty-tab-color-provider", provider, g_object_unref);
+    g_object_set_data_full(object(tab), "deetty-tab-color-provider", provider, g_object_unref);
 }
 
 fn settingsHeadingNew(
@@ -1487,7 +1487,7 @@ fn settingsHeadingNew(
     const title_text = title orelse return null;
     const detail_text = description orelse return null;
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4) orelse return null;
-    gtk_style_context_add_class(gtk_widget_get_style_context(box), "dintty-settings-heading");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "deetty-settings-heading");
     const heading = gtk_label_new(null) orelse return null;
     const markup = g_markup_printf_escaped(
         "<span size=\"x-large\" weight=\"bold\">%s</span>",
@@ -1496,22 +1496,22 @@ fn settingsHeadingNew(
     defer g_free(markup);
     gtk_label_set_markup(@ptrCast(heading), markup);
     gtk_label_set_xalign(@ptrCast(heading), 0.0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "dintty-settings-heading-title");
+    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "deetty-settings-heading-title");
 
     const detail = gtk_label_new(detail_text) orelse return null;
     gtk_label_set_xalign(@ptrCast(detail), 0.0);
     gtk_label_set_line_wrap(@ptrCast(detail), TRUE);
     gtk_label_set_max_width_chars(@ptrCast(detail), 58);
     gtk_style_context_add_class(gtk_widget_get_style_context(detail), "dim-label");
-    gtk_style_context_add_class(gtk_widget_get_style_context(detail), "dintty-settings-detail");
+    gtk_style_context_add_class(gtk_widget_get_style_context(detail), "deetty-settings-detail");
     gtk_box_pack_start(@ptrCast(box), heading, FALSE, FALSE, 0);
     gtk_box_pack_start(@ptrCast(box), detail, FALSE, FALSE, 0);
     return box;
 }
 
-pub export fn dintty_settings_grid_new() ?*GtkWidget {
+pub export fn deetty_settings_grid_new() ?*GtkWidget {
     const grid = gtk_grid_new() orelse return null;
-    gtk_style_context_add_class(gtk_widget_get_style_context(grid), "dintty-settings-grid");
+    gtk_style_context_add_class(gtk_widget_get_style_context(grid), "deetty-settings-grid");
     gtk_grid_set_row_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_homogeneous(@ptrCast(grid), FALSE);
@@ -1520,7 +1520,7 @@ pub export fn dintty_settings_grid_new() ?*GtkWidget {
     return grid;
 }
 
-pub export fn dintty_settings_grid_attach_control(
+pub export fn deetty_settings_grid_attach_control(
     grid: ?*GtkWidget,
     text: ?[*:0]const u8,
     control: ?*GtkWidget,
@@ -1536,26 +1536,26 @@ pub export fn dintty_settings_grid_attach_control(
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
     gtk_widget_set_size_request(label, 136, -1);
-    gtk_style_context_add_class(gtk_widget_get_style_context(label), "dintty-settings-label");
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "deetty-settings-label");
     gtk_widget_set_hexpand(control_widget, TRUE);
     gtk_widget_set_halign(control_widget, GTK_ALIGN_FILL);
     gtk_grid_attach(@ptrCast(grid_widget), label, 0, row, 1, 1);
     gtk_grid_attach(@ptrCast(grid_widget), control_widget, 1, row, 1, 1);
 }
 
-pub export fn dintty_settings_group_new(
+pub export fn deetty_settings_group_new(
     title: ?[*:0]const u8,
     child: ?*GtkWidget,
 ) ?*GtkWidget {
     const child_widget = child orelse return null;
     const frame = gtk_frame_new(null) orelse return null;
-    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "dintty-settings-group");
+    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "deetty-settings-group");
     const label = gtk_label_new(null) orelse return null;
     const markup = g_markup_printf_escaped("<b>%s</b>", title orelse return null) orelse
         return null;
     defer g_free(markup);
     gtk_label_set_markup(@ptrCast(label), markup);
-    gtk_style_context_add_class(gtk_widget_get_style_context(label), "dintty-settings-group-title");
+    gtk_style_context_add_class(gtk_widget_get_style_context(label), "deetty-settings-group-title");
     gtk_frame_set_label_widget(@ptrCast(frame), label);
     gtk_container_set_border_width(@ptrCast(child_widget), 12);
     gtk_widget_set_hexpand(child_widget, TRUE);
@@ -1566,14 +1566,14 @@ pub export fn dintty_settings_group_new(
     return frame;
 }
 
-pub export fn dintty_settings_page_new(
+pub export fn deetty_settings_page_new(
     title: ?[*:0]const u8,
     description: ?[*:0]const u8,
     body_out: ?**GtkWidget,
 ) ?*GtkWidget {
     const output = body_out orelse return null;
     const scrolled = gtk_scrolled_window_new(null, null) orelse return null;
-    gtk_style_context_add_class(gtk_widget_get_style_context(scrolled), "dintty-settings-page");
+    gtk_style_context_add_class(gtk_widget_get_style_context(scrolled), "deetty-settings-page");
     gtk_scrolled_window_set_policy(
         @ptrCast(scrolled),
         GTK_POLICY_NEVER,
@@ -1582,7 +1582,7 @@ pub export fn dintty_settings_page_new(
     gtk_scrolled_window_set_shadow_type(@ptrCast(scrolled), GTK_SHADOW_NONE);
     gtk_widget_set_hexpand(scrolled, TRUE);
     const body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20) orelse return null;
-    gtk_style_context_add_class(gtk_widget_get_style_context(body), "dintty-settings-page-body");
+    gtk_style_context_add_class(gtk_widget_get_style_context(body), "deetty-settings-page-body");
     gtk_container_set_border_width(@ptrCast(body), 20);
     gtk_widget_set_hexpand(body, TRUE);
     gtk_widget_set_halign(body, GTK_ALIGN_FILL);
@@ -1593,14 +1593,14 @@ pub export fn dintty_settings_page_new(
     return scrolled;
 }
 
-pub export fn dintty_settings_category_row_new(
+pub export fn deetty_settings_category_row_new(
     icon_name: ?[*:0]const u8,
     label_text: ?[*:0]const u8,
     page_name: ?[*:0]const u8,
 ) ?*GtkWidget {
     const label_value = label_text orelse return null;
     const row = gtk_list_box_row_new() orelse return null;
-    gtk_widget_set_name(row, "dintty-settings-category");
+    gtk_widget_set_name(row, "deetty-settings-category");
     gtk_widget_set_can_focus(row, TRUE);
     gtk_widget_set_focus_on_click(row, TRUE);
     gtk_widget_set_size_request(row, -1, 52);
@@ -1611,7 +1611,7 @@ pub export fn dintty_settings_category_row_new(
         .{std.mem.span(label_value)},
     ) catch "Open settings category";
     gtk_widget_set_tooltip_text(row, tooltip.ptr);
-    gtk_style_context_add_class(gtk_widget_get_style_context(row), "dintty-settings-category");
+    gtk_style_context_add_class(gtk_widget_get_style_context(row), "deetty-settings-category");
     const accessible = gtk_widget_get_accessible(row);
     atk_object_set_name(accessible, label_value);
     const box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 14) orelse return null;
@@ -1629,14 +1629,14 @@ pub export fn dintty_settings_category_row_new(
     gtk_container_add(@ptrCast(row), box);
     g_object_set_data_full(
         object(row),
-        "dintty-settings-page",
+        "deetty-settings-page",
         g_strdup(page_name orelse return null),
         g_free,
     );
     return row;
 }
 
-pub export fn dintty_settings_category_selected(
+pub export fn deetty_settings_category_selected(
     _: ?*GtkListBox,
     row: ?*GtkListBoxRow,
     user_data: ?*anyopaque,
@@ -1645,7 +1645,7 @@ pub export fn dintty_settings_category_selected(
     const stack: *GtkStack = @ptrCast(user_data orelse return);
     const raw_name = g_object_get_data(
         @ptrCast(selected),
-        "dintty-settings-page",
+        "deetty-settings-page",
     ) orelse return;
     gtk_stack_set_visible_child_name(stack, @ptrCast(raw_name));
     const visible = gtk_stack_get_visible_child(stack) orelse return;
@@ -1654,7 +1654,7 @@ pub export fn dintty_settings_category_selected(
     ) orelse return;
     gtk_adjustment_set_value(adjustment, 0.0);
 }
-pub export fn dintty_settings_response(
+pub export fn deetty_settings_response(
     dialog: ?*GtkDialog,
     _: c_int,
     _: ?*anyopaque,
@@ -1703,7 +1703,7 @@ fn connectSignal(
     const handler = callback orelse return;
     _ = g_signal_connect_data(widget, signal, handler, data, null, 0);
 }
-pub export fn dintty_grid_signal_connect(
+pub export fn deetty_grid_signal_connect(
     instance: ?*anyopaque,
     signal: [*:0]const u8,
     callback_optional: ?GCallback,
@@ -1713,7 +1713,7 @@ pub export fn dintty_grid_signal_connect(
     const callback = callback_optional orelse return 0;
     return g_signal_connect_data(target, signal, callback, data, null, 0);
 }
-pub export fn dintty_grid_signal_connect_swapped(
+pub export fn deetty_grid_signal_connect_swapped(
     instance: ?*anyopaque,
     signal: [*:0]const u8,
     callback_optional: ?GCallback,
@@ -1724,7 +1724,7 @@ pub export fn dintty_grid_signal_connect_swapped(
     return g_signal_connect_data(target, signal, callback, data, null, 1);
 }
 
-pub export fn dintty_grid_signal_connect_object(
+pub export fn deetty_grid_signal_connect_object(
     instance: ?*anyopaque,
     signal: [*:0]const u8,
     callback_optional: ?GCallback,
@@ -1805,7 +1805,7 @@ fn appendCallback(
     appendAction(.{
         .menu = menu,
         .label = label,
-        .key = "dintty-callback-action",
+        .key = "deetty-callback-action",
         .action = 0,
         .callback = callback,
         .data = data,
@@ -1814,7 +1814,7 @@ fn appendCallback(
 
 /// GTK owns the returned menu and all descendants. Callback data remains C-owned
 /// because menu activation never outlives the surrounding native-grid context.
-pub export fn dintty_workspace_menu_new(
+pub export fn deetty_workspace_menu_new(
     options_raw: ?*const WorkspaceMenuOptions,
     callbacks_raw: ?*const WorkspaceMenuCallbacks,
 ) ?*GtkWidget {
@@ -1827,7 +1827,7 @@ pub export fn dintty_workspace_menu_new(
     appendAction(.{
         .menu = menu,
         .label = "Copy",
-        .key = "dintty-terminal-action",
+        .key = "deetty-terminal-action",
         .action = 1,
         .sensitive = options.selection_active != 0,
         .callback = callbacks.terminal,
@@ -1836,7 +1836,7 @@ pub export fn dintty_workspace_menu_new(
     appendAction(.{
         .menu = menu,
         .label = "Paste",
-        .key = "dintty-terminal-action",
+        .key = "deetty-terminal-action",
         .action = 2,
         .callback = callbacks.terminal,
         .data = context,
@@ -1845,7 +1845,7 @@ pub export fn dintty_workspace_menu_new(
     appendAction(.{
         .menu = menu,
         .label = "New Tab",
-        .key = "dintty-workspace-event",
+        .key = "deetty-workspace-event",
         .action = 20,
         .callback = callbacks.workspace,
         .data = context,
@@ -1860,7 +1860,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "Split Up", .action = 28 },
                 .{ .label = "Split Left", .action = 22 },
             },
-            .key = "dintty-workspace-event",
+            .key = "deetty-workspace-event",
             .callback = callbacks.workspace,
             .data = context,
         });
@@ -1874,7 +1874,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "New 3×3", .action = 52 },
                 .{ .label = "New 4×4", .action = 60 },
             },
-            .key = "dintty-workspace-event",
+            .key = "deetty-workspace-event",
             .callback = callbacks.workspace,
             .data = context,
         });
@@ -1884,7 +1884,7 @@ pub export fn dintty_workspace_menu_new(
         appendAction(.{
             .menu = submenu,
             .label = "Select All",
-            .key = "dintty-terminal-action",
+            .key = "deetty-terminal-action",
             .action = 3,
             .callback = callbacks.terminal,
             .data = context,
@@ -1892,7 +1892,7 @@ pub export fn dintty_workspace_menu_new(
         appendAction(.{
             .menu = submenu,
             .label = "Clear Selection",
-            .key = "dintty-terminal-action",
+            .key = "deetty-terminal-action",
             .action = 4,
             .sensitive = options.selection_active != 0,
             .callback = callbacks.terminal,
@@ -1904,7 +1904,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "Add Pane to Selection", .action = 53 },
                 .{ .label = "Toggle Pane Selection", .action = 54 },
             },
-            .key = "dintty-workspace-event",
+            .key = "deetty-workspace-event",
             .callback = callbacks.workspace,
             .data = context,
         });
@@ -1917,7 +1917,7 @@ pub export fn dintty_workspace_menu_new(
         appendAction(.{
             .menu = submenu,
             .label = "Zoom / Restore Pane",
-            .key = "dintty-compact-action",
+            .key = "deetty-compact-action",
             .action = 4,
             .callback = callbacks.compact,
             .data = context,
@@ -1937,13 +1937,13 @@ pub export fn dintty_workspace_menu_new(
         appendAction(.{
             .menu = submenu,
             .label = "Move Pane to Other Tab",
-            .key = "dintty-workspace-event",
+            .key = "deetty-workspace-event",
             .action = 56,
             .callback = callbacks.workspace,
             .data = context,
         });
     }
-    g_object_set_data(object(menu), "dintty-profile-context", context);
+    g_object_set_data(object(menu), "deetty-profile-context", context);
 
     if (appendSubmenu(menu, "Clear Terminal")) |submenu| {
         appendActions(.{
@@ -1953,7 +1953,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "Clear Scrollback", .action = 6 },
                 .{ .label = "Clear Scrollback and Reset", .action = 7 },
             },
-            .key = "dintty-terminal-action",
+            .key = "deetty-terminal-action",
             .callback = callbacks.terminal,
             .data = context,
         });
@@ -1966,7 +1966,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "Quick Note…", .action = 6 },
                 .{ .label = "Save Scrollback…", .action = 12 },
             },
-            .key = "dintty-compact-action",
+            .key = "deetty-compact-action",
             .callback = callbacks.compact,
             .data = context,
         });
@@ -1981,7 +1981,7 @@ pub export fn dintty_workspace_menu_new(
                 .{ .label = "Keyboard Shortcuts…", .action = 13 },
                 .{ .label = "Open NoctEd Here", .action = 18 },
             },
-            .key = "dintty-compact-action",
+            .key = "deetty-compact-action",
             .callback = callbacks.compact,
             .data = context,
         });
@@ -1992,7 +1992,7 @@ pub export fn dintty_workspace_menu_new(
     appendAction(.{
         .menu = menu,
         .label = "Close Terminal",
-        .key = "dintty-callback-action",
+        .key = "deetty-callback-action",
         .action = 0,
         .sensitive = options.pane_close_sensitive != 0,
         .callback = callbacks.pane_close,
@@ -2014,7 +2014,7 @@ fn menuIntegerData(value: c_int) ?*anyopaque {
     return @ptrFromInt(@as(usize, @bitCast(@as(isize, value))));
 }
 
-pub export fn dintty_hyperlink_menu_new(
+pub export fn deetty_hyperlink_menu_new(
     contents_out: ?*HyperlinkMenuContents,
 ) c_int {
     const output = contents_out orelse return FALSE;
@@ -2036,7 +2036,7 @@ pub export fn dintty_hyperlink_menu_new(
     return TRUE;
 }
 
-pub export fn dintty_profile_preset_menu_new(
+pub export fn deetty_profile_preset_menu_new(
     labels: ?[*]const [*:0]const u8,
     label_count: c_uint,
     active: c_int,
@@ -2053,7 +2053,7 @@ pub export fn dintty_profile_preset_menu_new(
             return null;
         };
         group = gtk_radio_menu_item_get_group(item);
-        g_object_set_data(object(item), "dintty-profile-preset", menuIntegerData(@intCast(index)));
+        g_object_set_data(object(item), "deetty-profile-preset", menuIntegerData(@intCast(index)));
         gtk_check_menu_item_set_active(item, @intFromBool(@as(c_int, @intCast(index)) == active));
         connectSignal(item, "toggled", toggled, context);
         gtk_menu_shell_append(@ptrCast(menu), item);
@@ -2061,7 +2061,7 @@ pub export fn dintty_profile_preset_menu_new(
     return menu;
 }
 
-pub export fn dintty_tab_color_menu_new(
+pub export fn deetty_tab_color_menu_new(
     labels: ?[*]const [*:0]const u8,
     label_count: c_uint,
     active: c_int,
@@ -2084,8 +2084,8 @@ pub export fn dintty_tab_color_menu_new(
             return null;
         };
         group = gtk_radio_menu_item_get_group(item);
-        g_object_set_data(object(item), "dintty-tab-page", target_page);
-        g_object_set_data(object(item), "dintty-tab-color-preset", menuIntegerData(preset));
+        g_object_set_data(object(item), "deetty-tab-page", target_page);
+        g_object_set_data(object(item), "deetty-tab-color-preset", menuIntegerData(preset));
         gtk_check_menu_item_set_active(item, @intFromBool(preset == active));
         connectSignal(item, "toggled", preset_toggled, context);
         gtk_menu_shell_append(@ptrCast(menu), item);
@@ -2105,15 +2105,15 @@ pub export fn dintty_tab_color_menu_new(
         .{ .item = lighter, .delta = 1 },
         .{ .item = darker, .delta = -1 },
     }) |adjustment| {
-        g_object_set_data(object(adjustment.item), "dintty-tab-page", target_page);
-        g_object_set_data(object(adjustment.item), "dintty-tab-color-delta", menuIntegerData(adjustment.delta));
+        g_object_set_data(object(adjustment.item), "deetty-tab-page", target_page);
+        g_object_set_data(object(adjustment.item), "deetty-tab-color-delta", menuIntegerData(adjustment.delta));
         connectSignal(adjustment.item, "activate", adjust_activate, context);
         gtk_menu_shell_append(@ptrCast(menu), adjustment.item);
     }
     return menu;
 }
 
-pub export fn dintty_tab_context_menu_new(
+pub export fn deetty_tab_context_menu_new(
     page: ?*GtkWidget,
     tab_color_menu: ?*GtkWidget,
     close_sensitive: c_int,
@@ -2135,7 +2135,7 @@ pub export fn dintty_tab_context_menu_new(
     gtk_menu_item_set_submenu(@ptrCast(color), color_menu);
     gtk_menu_shell_append(@ptrCast(menu), color);
     appendSeparator(menu);
-    g_object_set_data(object(close), "dintty-tab-page", target_page);
+    g_object_set_data(object(close), "deetty-tab-page", target_page);
     gtk_widget_set_sensitive(close, close_sensitive);
     connectSignal(close, "activate", close_activate, context);
     gtk_menu_shell_append(@ptrCast(menu), close);
@@ -2177,11 +2177,11 @@ fn setAccessibleName(widget: *GtkWidget, name: [*:0]const u8) void {
     atk_object_set_name(gtk_widget_get_accessible(widget), name);
 }
 
-pub export fn dintty_theme_combo_new() ?*GtkWidget {
+pub export fn deetty_theme_combo_new() ?*GtkWidget {
     return gtk_combo_box_text_new();
 }
 
-pub export fn dintty_color_button_new(
+pub export fn deetty_color_button_new(
     accessible_name: ?[*:0]const u8,
 ) ?*GtkWidget {
     const button = gtk_color_button_new() orelse return null;
@@ -2190,7 +2190,7 @@ pub export fn dintty_color_button_new(
     return button;
 }
 
-pub export fn dintty_tag_combo_new() ?*GtkWidget {
+pub export fn deetty_tag_combo_new() ?*GtkWidget {
     const combo = gtk_combo_box_text_new_with_entry() orelse return null;
     const entry = gtk_bin_get_child(@ptrCast(combo)) orelse return null;
     gtk_entry_set_placeholder_text(
@@ -2201,21 +2201,21 @@ pub export fn dintty_tag_combo_new() ?*GtkWidget {
     return combo;
 }
 
-pub export fn dintty_tag_hint_new() ?*GtkWidget {
+pub export fn deetty_tag_hint_new() ?*GtkWidget {
     const hint = gtk_label_new("Choose an existing tag or type a new one") orelse return null;
     gtk_widget_set_halign(hint, GTK_ALIGN_START);
     gtk_widget_set_opacity(hint, 0.72);
     return hint;
 }
 
-pub export fn dintty_shortcut_recorder_label_new(
+pub export fn deetty_shortcut_recorder_label_new(
     plasma: c_int,
 ) ?*GtkWidget {
     const label = gtk_label_new(
         if (plasma != 0)
             "Press the Plasma shortcut to register. Esc cancels."
         else
-            "Press a shortcut. DINTTY will update the Noctalia compositor binding plan. Esc cancels.",
+            "Press a shortcut. DEETTY will update the Noctalia compositor binding plan. Esc cancels.",
     ) orelse return null;
     gtk_label_set_line_wrap(@ptrCast(label), TRUE);
     gtk_widget_set_margin_start(label, 16);
@@ -2225,7 +2225,7 @@ pub export fn dintty_shortcut_recorder_label_new(
     return label;
 }
 
-pub export fn dintty_settings_notifications_box_new(
+pub export fn deetty_settings_notifications_box_new(
     notifications: ?*GtkWidget,
 ) ?*GtkWidget {
     const child = notifications orelse return null;
@@ -2239,7 +2239,7 @@ const GridShellContents = extern struct {
     content_box: ?*GtkWidget,
 };
 
-pub export fn dintty_grid_shell_contents_new(
+pub export fn deetty_grid_shell_contents_new(
     contents_out: *GridShellContents,
 ) c_int {
     const revealer = gtk_revealer_new() orelse return FALSE;
@@ -2258,7 +2258,7 @@ const WindowResizeLayout = extern struct {
     height: c_int,
 };
 
-pub export fn dintty_window_resize_layout_new(
+pub export fn deetty_window_resize_layout_new(
     content: ?*GtkWidget,
     handles: [*]const ?*GtkWidget,
     layouts: [*]const WindowResizeLayout,
@@ -2297,7 +2297,7 @@ pub export fn dintty_window_resize_layout_new(
     return overlay;
 }
 
-pub export fn dintty_resize_handle_new(
+pub export fn deetty_resize_handle_new(
     index: c_int,
     width: c_int,
     height: c_int,
@@ -2314,7 +2314,7 @@ pub export fn dintty_resize_handle_new(
         if (index == 6)
             "Drag to resize; double-click to maximize / minimize height"
         else
-            "Drag to resize DINTTY",
+            "Drag to resize DEETTY",
     );
     gtk_widget_set_no_show_all(handle, TRUE);
     gtk_widget_add_events(
@@ -2325,13 +2325,13 @@ pub export fn dintty_resize_handle_new(
     );
     g_object_set_data(
         object(handle),
-        "dintty-resize-index",
+        "deetty-resize-index",
         @ptrFromInt(@as(usize, @intCast(index + 1))),
     );
     if (cursor_name) |name| {
         g_object_set_data(
             object(handle),
-            "dintty-resize-cursor-name",
+            "deetty-resize-cursor-name",
             @ptrCast(@constCast(name)),
         );
     }
@@ -2344,21 +2344,21 @@ const SmartFilterEmptyContents = extern struct {
     clear_button: ?*GtkWidget,
 };
 
-pub export fn dintty_grid_window_new() ?*GtkWidget {
+pub export fn deetty_grid_window_new() ?*GtkWidget {
     return gtk_window_new(0);
 }
 
-pub export fn dintty_grid_notebook_new() ?*GtkWidget {
+pub export fn deetty_grid_notebook_new() ?*GtkWidget {
     const notebook = gtk_notebook_new() orelse return null;
     gtk_notebook_set_scrollable(@ptrCast(notebook), TRUE);
-    dintty_install_compact_tab_styles(notebook);
+    deetty_install_compact_tab_styles(notebook);
     return notebook;
 }
 
-pub export fn dintty_grid_input_context_new() ?*GtkIMContext {
+pub export fn deetty_grid_input_context_new() ?*GtkIMContext {
     return gtk_im_multicontext_new();
 }
-pub export fn dintty_grid_widget_class_set_accessible_type(
+pub export fn deetty_grid_widget_class_set_accessible_type(
     class_optional: ?*anyopaque,
     accessible_type: GType,
 ) void {
@@ -2366,7 +2366,7 @@ pub export fn dintty_grid_widget_class_set_accessible_type(
     gtk_widget_class_set_accessible_type(@ptrCast(class), accessible_type);
 }
 
-pub export fn dintty_grid_window_configure(
+pub export fn deetty_grid_window_configure(
     window_optional: ?*GtkWidget,
     default_width: c_int,
     default_height: c_int,
@@ -2376,10 +2376,10 @@ pub export fn dintty_grid_window_configure(
     const window = window_optional orelse return;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(window),
-        "dintty-terminal-window",
+        "deetty-terminal-window",
     );
-    dintty_install_compact_tab_styles(window);
-    gtk_window_set_icon_name(@ptrCast(window), "com.dintty.DINTTY");
+    deetty_install_compact_tab_styles(window);
+    gtk_window_set_icon_name(@ptrCast(window), "com.deetty.DEETTY");
     gtk_window_set_default_size(
         @ptrCast(window),
         @max(1, default_width),
@@ -2389,7 +2389,7 @@ pub export fn dintty_grid_window_configure(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
-pub export fn dintty_grid_window_apply_mode(
+pub export fn deetty_grid_window_apply_mode(
     window_optional: ?*GtkWidget,
     decorated: c_int,
     keep_above: c_int,
@@ -2399,7 +2399,7 @@ pub export fn dintty_grid_window_apply_mode(
     gtk_window_set_resizable(@ptrCast(window), TRUE);
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
-pub export fn dintty_grid_window_set_decorated(
+pub export fn deetty_grid_window_set_decorated(
     window_optional: ?*GtkWidget,
     decorated: c_int,
 ) void {
@@ -2407,7 +2407,7 @@ pub export fn dintty_grid_window_set_decorated(
     gtk_window_set_decorated(@ptrCast(window), decorated);
 }
 
-pub export fn dintty_grid_window_set_keep_above(
+pub export fn deetty_grid_window_set_keep_above(
     window_optional: ?*GtkWidget,
     keep_above: c_int,
 ) void {
@@ -2415,14 +2415,14 @@ pub export fn dintty_grid_window_set_keep_above(
     gtk_window_set_keep_above(@ptrCast(window), keep_above);
 }
 
-pub export fn dintty_grid_window_set_resizable(
+pub export fn deetty_grid_window_set_resizable(
     window_optional: ?*GtkWidget,
     resizable: c_int,
 ) void {
     const window = window_optional orelse return;
     gtk_window_set_resizable(@ptrCast(window), resizable);
 }
-pub export fn dintty_grid_window_set_default_size(
+pub export fn deetty_grid_window_set_default_size(
     window_optional: ?*GtkWidget,
     width: c_int,
     height: c_int,
@@ -2431,7 +2431,7 @@ pub export fn dintty_grid_window_set_default_size(
     gtk_window_set_default_size(@ptrCast(window), width, height);
 }
 
-pub export fn dintty_grid_window_set_modal(
+pub export fn deetty_grid_window_set_modal(
     window_optional: ?*GtkWidget,
     modal: c_int,
 ) void {
@@ -2439,7 +2439,7 @@ pub export fn dintty_grid_window_set_modal(
     gtk_window_set_modal(@ptrCast(window), modal);
 }
 
-pub export fn dintty_grid_window_set_position(
+pub export fn deetty_grid_window_set_position(
     window_optional: ?*GtkWidget,
     position: c_int,
 ) void {
@@ -2447,7 +2447,7 @@ pub export fn dintty_grid_window_set_position(
     gtk_window_set_position(@ptrCast(window), position);
 }
 
-pub export fn dintty_grid_window_set_type_hint(
+pub export fn deetty_grid_window_set_type_hint(
     window_optional: ?*GtkWidget,
     type_hint: c_int,
 ) void {
@@ -2455,14 +2455,14 @@ pub export fn dintty_grid_window_set_type_hint(
     gtk_window_set_type_hint(@ptrCast(window), type_hint);
 }
 
-pub export fn dintty_grid_window_set_destroy_with_parent(
+pub export fn deetty_grid_window_set_destroy_with_parent(
     window_optional: ?*GtkWidget,
     destroy_with_parent: c_int,
 ) void {
     const window = window_optional orelse return;
     gtk_window_set_destroy_with_parent(@ptrCast(window), destroy_with_parent);
 }
-pub export fn dintty_grid_window_set_geometry_hints(
+pub export fn deetty_grid_window_set_geometry_hints(
     window_optional: ?*GtkWidget,
     min_width: c_int,
     min_height: c_int,
@@ -2491,7 +2491,7 @@ pub export fn dintty_grid_window_set_geometry_hints(
         hints,
     );
 }
-pub export fn dintty_grid_window_set_transient_for(
+pub export fn deetty_grid_window_set_transient_for(
     window_optional: ?*GtkWidget,
     parent_optional: ?*GtkWidget,
 ) void {
@@ -2502,14 +2502,14 @@ pub export fn dintty_grid_window_set_transient_for(
         @ptrCast(parent),
     );
 }
-pub export fn dintty_grid_widget_destroy(
+pub export fn deetty_grid_widget_destroy(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_destroy(widget);
 }
 
-pub export fn dintty_grid_window_resize(
+pub export fn deetty_grid_window_resize(
     window_optional: ?*GtkWidget,
     width: c_int,
     height: c_int,
@@ -2517,7 +2517,7 @@ pub export fn dintty_grid_window_resize(
     const window = window_optional orelse return;
     gtk_window_resize(@ptrCast(window), width, height);
 }
-pub export fn dintty_grid_window_begin_resize_drag(
+pub export fn deetty_grid_window_begin_resize_drag(
     window_optional: ?*anyopaque,
     edge: c_int,
     button: c_int,
@@ -2536,7 +2536,7 @@ pub export fn dintty_grid_window_begin_resize_drag(
     );
 }
 
-pub export fn dintty_grid_window_move(
+pub export fn deetty_grid_window_move(
     window_optional: ?*GtkWidget,
     x: c_int,
     y: c_int,
@@ -2545,7 +2545,7 @@ pub export fn dintty_grid_window_move(
     gtk_window_move(@ptrCast(window), x, y);
 }
 
-pub export fn dintty_grid_window_set_title(
+pub export fn deetty_grid_window_set_title(
     window_optional: ?*GtkWidget,
     title: ?[*:0]const u8,
 ) void {
@@ -2555,34 +2555,34 @@ pub export fn dintty_grid_window_set_title(
         gtk_window_set_title(@ptrCast(window), next_title);
     }
 }
-pub export fn dintty_grid_window_get_title(
+pub export fn deetty_grid_window_get_title(
     window_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const window = window_optional orelse return null;
     return gtk_window_get_title(@ptrCast(window));
 }
-pub export fn dintty_grid_window_get_window_type(
+pub export fn deetty_grid_window_get_window_type(
     window_optional: ?*anyopaque,
 ) c_int {
     const window = window_optional orelse return -1;
     return gtk_window_get_window_type(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_get_default_widget(
+pub export fn deetty_grid_window_get_default_widget(
     window_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const window = window_optional orelse return null;
     return gtk_window_get_default_widget(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_get_focus(
+pub export fn deetty_grid_window_get_focus(
     window_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const window = window_optional orelse return null;
     return gtk_window_get_focus(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_get_size(
+pub export fn deetty_grid_window_get_size(
     window_optional: ?*anyopaque,
     width: ?*c_int,
     height: ?*c_int,
@@ -2593,7 +2593,7 @@ pub export fn dintty_grid_window_get_size(
     gtk_window_get_size(@ptrCast(window), width_out, height_out);
 }
 
-pub export fn dintty_grid_window_get_position(
+pub export fn deetty_grid_window_get_position(
     window_optional: ?*anyopaque,
     x: ?*c_int,
     y: ?*c_int,
@@ -2604,61 +2604,61 @@ pub export fn dintty_grid_window_get_position(
     gtk_window_get_position(@ptrCast(window), x_out, y_out);
 }
 
-pub export fn dintty_grid_window_is_active(
+pub export fn deetty_grid_window_is_active(
     window_optional: ?*anyopaque,
 ) c_int {
     const window = window_optional orelse return FALSE;
     return gtk_window_is_active(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_get_decorated(
+pub export fn deetty_grid_window_get_decorated(
     window_optional: ?*anyopaque,
 ) c_int {
     const window = window_optional orelse return FALSE;
     return gtk_window_get_decorated(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_get_resizable(
+pub export fn deetty_grid_window_get_resizable(
     window_optional: ?*anyopaque,
 ) c_int {
     const window = window_optional orelse return FALSE;
     return gtk_window_get_resizable(@ptrCast(window));
 }
-pub export fn dintty_grid_window_get_transient_for(
+pub export fn deetty_grid_window_get_transient_for(
     window_optional: ?*anyopaque,
 ) ?*GtkWindow {
     const window = window_optional orelse return null;
     return @ptrCast(gtk_window_get_transient_for(@ptrCast(window)));
 }
 
-pub export fn dintty_grid_window_get_icon_name(
+pub export fn deetty_grid_window_get_icon_name(
     window_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const window = window_optional orelse return null;
     return gtk_window_get_icon_name(@ptrCast(window));
 }
 
-pub export fn dintty_grid_widget_get_screen(
+pub export fn deetty_grid_widget_get_screen(
     widget_optional: ?*anyopaque,
 ) ?*GdkScreen {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_screen(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_widget_get_app_paintable(
+pub export fn deetty_grid_widget_get_app_paintable(
     widget_optional: ?*anyopaque,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_get_app_paintable(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_dialog_get_content_area(
+pub export fn deetty_grid_dialog_get_content_area(
     dialog_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const dialog = dialog_optional orelse return null;
     return gtk_dialog_get_content_area(@ptrCast(dialog));
 }
-pub export fn dintty_grid_dialog_get_widget_for_response(
+pub export fn deetty_grid_dialog_get_widget_for_response(
     dialog_optional: ?*anyopaque,
     response: c_int,
 ) ?*GtkWidget {
@@ -2666,14 +2666,14 @@ pub export fn dintty_grid_dialog_get_widget_for_response(
     return gtk_dialog_get_widget_for_response(@ptrCast(dialog), response);
 }
 
-pub export fn dintty_grid_dialog_run(
+pub export fn deetty_grid_dialog_run(
     dialog_optional: ?*anyopaque,
 ) c_int {
     const dialog = dialog_optional orelse return -1;
     return gtk_dialog_run(@ptrCast(dialog));
 }
 
-pub export fn dintty_grid_dialog_response(
+pub export fn deetty_grid_dialog_response(
     dialog_optional: ?*anyopaque,
     response: c_int,
 ) void {
@@ -2681,7 +2681,7 @@ pub export fn dintty_grid_dialog_response(
     gtk_dialog_response(@ptrCast(dialog), response);
 }
 
-pub export fn dintty_grid_dialog_set_default_response(
+pub export fn deetty_grid_dialog_set_default_response(
     dialog_optional: ?*anyopaque,
     response: c_int,
 ) void {
@@ -2689,15 +2689,15 @@ pub export fn dintty_grid_dialog_set_default_response(
     gtk_dialog_set_default_response(@ptrCast(dialog), response);
 }
 
-pub export fn dintty_grid_main_level() c_uint {
+pub export fn deetty_grid_main_level() c_uint {
     return gtk_main_level();
 }
 
-pub export fn dintty_grid_main_quit() void {
+pub export fn deetty_grid_main_quit() void {
     gtk_main_quit();
 }
 
-pub export fn dintty_grid_show_uri_on_window(
+pub export fn deetty_grid_show_uri_on_window(
     window_optional: ?*anyopaque,
     uri: [*:0]const u8,
     time: c_uint,
@@ -2706,14 +2706,14 @@ pub export fn dintty_grid_show_uri_on_window(
     const window = window_optional orelse return FALSE;
     return gtk_show_uri_on_window(@ptrCast(window), uri, time, error_out);
 }
-pub export fn dintty_grid_window_present(
+pub export fn deetty_grid_window_present(
     window_optional: ?*GtkWidget,
 ) void {
     const window = window_optional orelse return;
     gtk_window_present(@ptrCast(window));
 }
 
-pub export fn dintty_grid_window_set_fullscreen(
+pub export fn deetty_grid_window_set_fullscreen(
     window_optional: ?*GtkWidget,
     fullscreen: c_int,
 ) void {
@@ -2725,7 +2725,7 @@ pub export fn dintty_grid_window_set_fullscreen(
     }
 }
 
-pub export fn dintty_grid_window_set_startup_id(
+pub export fn deetty_grid_window_set_startup_id(
     window_optional: ?*GtkWidget,
     startup_id: ?[*:0]const u8,
 ) void {
@@ -2733,7 +2733,7 @@ pub export fn dintty_grid_window_set_startup_id(
     const id = startup_id orelse return;
     gtk_window_set_startup_id(@ptrCast(window), id);
 }
-pub export fn dintty_grid_focus_widget(
+pub export fn deetty_grid_focus_widget(
     window_optional: ?*GtkWidget,
     target_optional: ?*GtkWidget,
 ) void {
@@ -2744,7 +2744,7 @@ pub export fn dintty_grid_focus_widget(
     _ = gtk_widget_grab_focus(target);
 }
 
-pub export fn dintty_grid_widget_set_margins(
+pub export fn deetty_grid_widget_set_margins(
     widget_optional: ?*GtkWidget,
     start: c_int,
     top: c_int,
@@ -2757,14 +2757,14 @@ pub export fn dintty_grid_widget_set_margins(
     gtk_widget_set_margin_end(widget, end);
     gtk_widget_set_margin_bottom(widget, bottom);
 }
-pub export fn dintty_grid_widget_show(
+pub export fn deetty_grid_widget_show(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_show(widget);
 }
 
-pub export fn dintty_grid_object_get_data(
+pub export fn deetty_grid_object_get_data(
     object_optional: ?*anyopaque,
     key: [*:0]const u8,
 ) ?*anyopaque {
@@ -2772,7 +2772,7 @@ pub export fn dintty_grid_object_get_data(
     return g_object_get_data(@ptrCast(@alignCast(object_value)), key);
 }
 
-pub export fn dintty_grid_object_set_data(
+pub export fn deetty_grid_object_set_data(
     object_optional: ?*anyopaque,
     key: [*:0]const u8,
     value: ?*anyopaque,
@@ -2781,7 +2781,7 @@ pub export fn dintty_grid_object_set_data(
     g_object_set_data(@ptrCast(@alignCast(object_value)), key, value);
 }
 
-pub export fn dintty_grid_object_set_data_full(
+pub export fn deetty_grid_object_set_data_full(
     object_optional: ?*anyopaque,
     key: [*:0]const u8,
     value: ?*anyopaque,
@@ -2791,23 +2791,23 @@ pub export fn dintty_grid_object_set_data_full(
     g_object_set_data_full(@ptrCast(@alignCast(object_value)), key, value, destroy);
 }
 
-pub export fn dintty_grid_object_ref(
+pub export fn deetty_grid_object_ref(
     object_optional: ?*anyopaque,
 ) ?*anyopaque {
     const object_value = object_optional orelse return null;
     return g_object_ref(object_value);
 }
 
-pub export fn dintty_grid_object_unref(object_optional: ?*anyopaque) void {
+pub export fn deetty_grid_object_unref(object_optional: ?*anyopaque) void {
     if (object_optional) |object_value| g_object_unref(object_value);
 }
 
-pub export fn dintty_grid_object_clear(object_optional: ?*anyopaque) ?*anyopaque {
+pub export fn deetty_grid_object_clear(object_optional: ?*anyopaque) ?*anyopaque {
     if (object_optional) |object_value| g_object_unref(object_value);
     return null;
 }
 
-pub export fn dintty_grid_source_idle_add(
+pub export fn deetty_grid_source_idle_add(
     function_optional: ?*anyopaque,
     data: ?*anyopaque,
 ) c_uint {
@@ -2815,7 +2815,7 @@ pub export fn dintty_grid_source_idle_add(
     return g_idle_add(@ptrCast(@alignCast(function)), data);
 }
 
-pub export fn dintty_grid_source_timeout_add(
+pub export fn deetty_grid_source_timeout_add(
     interval: c_uint,
     function_optional: ?*anyopaque,
     data: ?*anyopaque,
@@ -2824,7 +2824,7 @@ pub export fn dintty_grid_source_timeout_add(
     return g_timeout_add(interval, @ptrCast(@alignCast(function)), data);
 }
 
-pub export fn dintty_grid_source_timeout_add_seconds(
+pub export fn deetty_grid_source_timeout_add_seconds(
     interval: c_uint,
     function_optional: ?*anyopaque,
     data: ?*anyopaque,
@@ -2833,25 +2833,25 @@ pub export fn dintty_grid_source_timeout_add_seconds(
     return g_timeout_add_seconds(interval, @ptrCast(@alignCast(function)), data);
 }
 
-pub export fn dintty_grid_source_remove(source_id: c_uint) c_int {
+pub export fn deetty_grid_source_remove(source_id: c_uint) c_int {
     if (source_id == 0) return FALSE;
     return g_source_remove(source_id);
 }
 
-pub export fn dintty_grid_main_context_iteration(may_block: c_int) c_int {
+pub export fn deetty_grid_main_context_iteration(may_block: c_int) c_int {
     return g_main_context_iteration(null, may_block);
 }
 
-pub export fn dintty_grid_memory_free(value: ?*anyopaque) void {
+pub export fn deetty_grid_memory_free(value: ?*anyopaque) void {
     g_free(value);
 }
 
-pub export fn dintty_grid_memory_clear(value: ?*anyopaque) ?*anyopaque {
+pub export fn deetty_grid_memory_clear(value: ?*anyopaque) ?*anyopaque {
     g_free(value);
     return null;
 }
 
-pub export fn dintty_grid_error_clear(error_optional: ?*?*GError) void {
+pub export fn deetty_grid_error_clear(error_optional: ?*?*GError) void {
     const error_slot = error_optional orelse return;
     if (error_slot.*) |error_value| {
         g_error_free(error_value);
@@ -2859,55 +2859,55 @@ pub export fn dintty_grid_error_clear(error_optional: ?*?*GError) void {
     }
 }
 
-pub export fn dintty_grid_variant_unref(value: ?*GVariant) void {
+pub export fn deetty_grid_variant_unref(value: ?*GVariant) void {
     if (value) |variant| g_variant_unref(variant);
 }
 
-pub export fn dintty_grid_variant_clear(value: ?*GVariant) ?*GVariant {
+pub export fn deetty_grid_variant_clear(value: ?*GVariant) ?*GVariant {
     if (value) |variant| g_variant_unref(variant);
     return null;
 }
 
-pub export fn dintty_grid_variant_ref(value: ?*GVariant) ?*GVariant {
+pub export fn deetty_grid_variant_ref(value: ?*GVariant) ?*GVariant {
     const variant = value orelse return null;
     return g_variant_ref(variant);
 }
 
-pub export fn dintty_grid_widget_show_all(
+pub export fn deetty_grid_widget_show_all(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_show_all(widget);
 }
-pub export fn dintty_grid_widget_get_parent(
+pub export fn deetty_grid_widget_get_parent(
     widget_optional: ?*GtkWidget,
 ) ?*GtkWidget {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_parent(widget);
 }
 
-pub export fn dintty_grid_widget_get_visible(
+pub export fn deetty_grid_widget_get_visible(
     widget_optional: ?*GtkWidget,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_get_visible(widget);
 }
 
-pub export fn dintty_grid_widget_get_mapped(
+pub export fn deetty_grid_widget_get_mapped(
     widget_optional: ?*GtkWidget,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_get_mapped(widget);
 }
 
-pub export fn dintty_grid_widget_in_destruction(
+pub export fn deetty_grid_widget_in_destruction(
     widget_optional: ?*GtkWidget,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_in_destruction(widget);
 }
 
-pub export fn dintty_grid_widget_get_allocation(
+pub export fn deetty_grid_widget_get_allocation(
     widget_optional: ?*GtkWidget,
     allocation: ?*GtkAllocation,
 ) void {
@@ -2915,7 +2915,7 @@ pub export fn dintty_grid_widget_get_allocation(
     const allocation_out = allocation orelse return;
     gtk_widget_get_allocation(widget, allocation_out);
 }
-pub export fn dintty_grid_widget_translate_coordinates(
+pub export fn deetty_grid_widget_translate_coordinates(
     source_optional: ?*GtkWidget,
     dest_optional: ?*GtkWidget,
     src_x: c_int,
@@ -2937,56 +2937,56 @@ pub export fn dintty_grid_widget_translate_coordinates(
     );
 }
 
-pub export fn dintty_grid_widget_get_window(
+pub export fn deetty_grid_widget_get_window(
     widget_optional: ?*GtkWidget,
 ) ?*GdkWindow {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_window(widget);
 }
 
-pub export fn dintty_grid_paned_get_child1(
+pub export fn deetty_grid_paned_get_child1(
     paned_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const paned = paned_optional orelse return null;
     return gtk_paned_get_child1(@ptrCast(paned));
 }
 
-pub export fn dintty_grid_paned_get_child2(
+pub export fn deetty_grid_paned_get_child2(
     paned_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const paned = paned_optional orelse return null;
     return gtk_paned_get_child2(@ptrCast(paned));
 }
 
-pub export fn dintty_grid_paned_get_position(
+pub export fn deetty_grid_paned_get_position(
     paned_optional: ?*anyopaque,
 ) c_int {
     const paned = paned_optional orelse return 0;
     return gtk_paned_get_position(@ptrCast(paned));
 }
 
-pub export fn dintty_grid_orientable_get_orientation(
+pub export fn deetty_grid_orientable_get_orientation(
     orientable_optional: ?*anyopaque,
 ) c_int {
     const orientable = orientable_optional orelse return 0;
     return gtk_orientable_get_orientation(@ptrCast(orientable));
 }
 
-pub export fn dintty_grid_bin_get_child(
+pub export fn deetty_grid_bin_get_child(
     bin_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const bin = bin_optional orelse return null;
     return gtk_bin_get_child(@ptrCast(bin));
 }
 
-pub export fn dintty_grid_container_get_children(
+pub export fn deetty_grid_container_get_children(
     container_optional: ?*anyopaque,
 ) ?*GList {
     const container = container_optional orelse return null;
     return gtk_container_get_children(@ptrCast(container));
 }
 
-pub export fn dintty_grid_container_forall(
+pub export fn deetty_grid_container_forall(
     container_optional: ?*anyopaque,
     callback_optional: ?*anyopaque,
     data: ?*anyopaque,
@@ -3000,67 +3000,67 @@ pub export fn dintty_grid_container_forall(
     );
 }
 
-pub export fn dintty_grid_widget_get_toplevel(
+pub export fn deetty_grid_widget_get_toplevel(
     widget_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_toplevel(@ptrCast(widget));
 }
-pub export fn dintty_grid_label_get_label(
+pub export fn deetty_grid_label_get_label(
     label_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const label = label_optional orelse return null;
     return gtk_label_get_label(@ptrCast(label));
 }
 
-pub export fn dintty_grid_label_get_text(
+pub export fn deetty_grid_label_get_text(
     label_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const label = label_optional orelse return null;
     return gtk_label_get_text(@ptrCast(label));
 }
 
-pub export fn dintty_grid_widget_get_tooltip_text(
+pub export fn deetty_grid_widget_get_tooltip_text(
     widget_optional: ?*anyopaque,
 ) ?[*:0]u8 {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_tooltip_text(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_entry_get_text(
+pub export fn deetty_grid_entry_get_text(
     entry_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const entry = entry_optional orelse return null;
     return gtk_entry_get_text(@ptrCast(entry));
 }
 
-pub export fn dintty_grid_spin_button_get_value_as_int(
+pub export fn deetty_grid_spin_button_get_value_as_int(
     spin_optional: ?*anyopaque,
 ) c_int {
     const spin = spin_optional orelse return 0;
     return gtk_spin_button_get_value_as_int(@ptrCast(spin));
 }
-pub export fn dintty_grid_spin_button_get_value(
+pub export fn deetty_grid_spin_button_get_value(
     spin_optional: ?*anyopaque,
 ) f64 {
     const spin = spin_optional orelse return 0.0;
     return gtk_spin_button_get_value(@ptrCast(spin));
 }
 
-pub export fn dintty_grid_toggle_button_get_active(
+pub export fn deetty_grid_toggle_button_get_active(
     toggle_optional: ?*anyopaque,
 ) c_int {
     const toggle = toggle_optional orelse return FALSE;
     return gtk_toggle_button_get_active(@ptrCast(toggle));
 }
 
-pub export fn dintty_grid_combo_box_get_active(
+pub export fn deetty_grid_combo_box_get_active(
     combo_optional: ?*anyopaque,
 ) c_int {
     const combo = combo_optional orelse return -1;
     return gtk_combo_box_get_active(@ptrCast(combo));
 }
-pub export fn dintty_grid_color_chooser_set_rgb(
+pub export fn deetty_grid_color_chooser_set_rgb(
     widget_optional: ?*anyopaque,
     red: f64,
     green: f64,
@@ -3071,7 +3071,7 @@ pub export fn dintty_grid_color_chooser_set_rgb(
     gtk_color_chooser_set_rgba(@ptrCast(widget), &rgba);
 }
 
-pub export fn dintty_grid_color_chooser_get_rgb(
+pub export fn deetty_grid_color_chooser_get_rgb(
     widget_optional: ?*anyopaque,
     red: ?*f64,
     green: ?*f64,
@@ -3088,55 +3088,55 @@ pub export fn dintty_grid_color_chooser_get_rgb(
     blue_out.* = rgba.blue;
     return TRUE;
 }
-pub export fn dintty_grid_widget_get_sensitive(
+pub export fn deetty_grid_widget_get_sensitive(
     widget_optional: ?*anyopaque,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_get_sensitive(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_widget_get_allocated_width(
+pub export fn deetty_grid_widget_get_allocated_width(
     widget_optional: ?*anyopaque,
 ) c_int {
     const widget = widget_optional orelse return 0;
     return gtk_widget_get_allocated_width(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_widget_get_allocated_height(
+pub export fn deetty_grid_widget_get_allocated_height(
     widget_optional: ?*anyopaque,
 ) c_int {
     const widget = widget_optional orelse return 0;
     return gtk_widget_get_allocated_height(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_check_menu_item_get_active(
+pub export fn deetty_grid_check_menu_item_get_active(
     item_optional: ?*anyopaque,
 ) c_int {
     const item = item_optional orelse return FALSE;
     return gtk_check_menu_item_get_active(@ptrCast(item));
 }
 
-pub export fn dintty_grid_range_get_value(
+pub export fn deetty_grid_range_get_value(
     range_optional: ?*anyopaque,
 ) f64 {
     const range = range_optional orelse return 0;
     return gtk_range_get_value(@ptrCast(range));
 }
 
-pub export fn dintty_grid_widget_get_scale_factor(
+pub export fn deetty_grid_widget_get_scale_factor(
     widget_optional: ?*anyopaque,
 ) c_int {
     const widget = widget_optional orelse return 1;
     return gtk_widget_get_scale_factor(@ptrCast(widget));
 }
-pub export fn dintty_grid_text_view_get_buffer(
+pub export fn deetty_grid_text_view_get_buffer(
     view_optional: ?*anyopaque,
 ) ?*GtkTextBuffer {
     const view = view_optional orelse return null;
     return gtk_text_view_get_buffer(@ptrCast(view));
 }
 
-pub export fn dintty_grid_text_buffer_get_bounds(
+pub export fn deetty_grid_text_buffer_get_bounds(
     buffer_optional: ?*anyopaque,
     start_optional: ?*anyopaque,
     end_optional: ?*anyopaque,
@@ -3147,7 +3147,7 @@ pub export fn dintty_grid_text_buffer_get_bounds(
     gtk_text_buffer_get_bounds(@ptrCast(buffer), start, end);
 }
 
-pub export fn dintty_grid_text_buffer_get_text(
+pub export fn deetty_grid_text_buffer_get_text(
     buffer_optional: ?*anyopaque,
     start_optional: ?*anyopaque,
     end_optional: ?*anyopaque,
@@ -3159,7 +3159,7 @@ pub export fn dintty_grid_text_buffer_get_text(
     return gtk_text_buffer_get_text(@ptrCast(buffer), start, end, include_hidden);
 }
 
-pub export fn dintty_grid_text_buffer_set_text(
+pub export fn deetty_grid_text_buffer_set_text(
     buffer_optional: ?*anyopaque,
     text: [*:0]const u8,
     length: c_int,
@@ -3168,14 +3168,14 @@ pub export fn dintty_grid_text_buffer_set_text(
     gtk_text_buffer_set_text(@ptrCast(buffer), text, length);
 }
 
-pub export fn dintty_grid_combo_box_get_model(
+pub export fn deetty_grid_combo_box_get_model(
     combo_optional: ?*anyopaque,
 ) ?*GtkTreeModel {
     const combo = combo_optional orelse return null;
     return gtk_combo_box_get_model(@ptrCast(combo));
 }
 
-pub export fn dintty_grid_tree_model_iter_n_children(
+pub export fn deetty_grid_tree_model_iter_n_children(
     model_optional: ?*anyopaque,
     parent: ?*anyopaque,
 ) c_int {
@@ -3183,7 +3183,7 @@ pub export fn dintty_grid_tree_model_iter_n_children(
     return gtk_tree_model_iter_n_children(@ptrCast(model), parent);
 }
 
-pub export fn dintty_grid_text_view_set_editable(
+pub export fn deetty_grid_text_view_set_editable(
     view_optional: ?*anyopaque,
     editable: c_int,
 ) void {
@@ -3191,7 +3191,7 @@ pub export fn dintty_grid_text_view_set_editable(
     gtk_text_view_set_editable(@ptrCast(view), editable);
 }
 
-pub export fn dintty_grid_render_background(
+pub export fn deetty_grid_render_background(
     style_optional: ?*anyopaque,
     surface: ?*anyopaque,
     width: f64,
@@ -3202,7 +3202,7 @@ pub export fn dintty_grid_render_background(
     gtk_render_background(@ptrCast(style), target, 0, 0, width, height);
 }
 
-pub export fn dintty_grid_event_get_scroll_deltas(
+pub export fn deetty_grid_event_get_scroll_deltas(
     event_optional: ?*anyopaque,
     delta_x: ?*f64,
     delta_y: ?*f64,
@@ -3211,7 +3211,7 @@ pub export fn dintty_grid_event_get_scroll_deltas(
     return gdk_event_get_scroll_deltas(@ptrCast(event), delta_x, delta_y);
 }
 
-pub export fn dintty_grid_button_event_new(
+pub export fn deetty_grid_button_event_new(
     window_optional: ?*anyopaque,
     time: c_uint,
     x: f64,
@@ -3237,7 +3237,7 @@ pub export fn dintty_grid_button_event_new(
     return event;
 }
 
-pub export fn dintty_grid_event_set_device(
+pub export fn deetty_grid_event_set_device(
     event_optional: ?*anyopaque,
     device_optional: ?*anyopaque,
 ) void {
@@ -3246,11 +3246,11 @@ pub export fn dintty_grid_event_set_device(
     gdk_event_set_device(@ptrCast(event), @ptrCast(device));
 }
 
-pub export fn dintty_grid_event_free(event_optional: ?*anyopaque) void {
+pub export fn deetty_grid_event_free(event_optional: ?*anyopaque) void {
     const event = event_optional orelse return;
     gdk_event_free(@ptrCast(event));
 }
-pub export fn dintty_grid_gdk_window_get_origin(
+pub export fn deetty_grid_gdk_window_get_origin(
     window_optional: ?*anyopaque,
     x: ?*c_int,
     y: ?*c_int,
@@ -3261,7 +3261,7 @@ pub export fn dintty_grid_gdk_window_get_origin(
     gdk_window_get_origin(@ptrCast(window), x_out, y_out);
 }
 
-pub export fn dintty_grid_gdk_monitor_at_window(
+pub export fn deetty_grid_gdk_monitor_at_window(
     display_optional: ?*anyopaque,
     window_optional: ?*anyopaque,
 ) ?*GdkMonitor {
@@ -3270,14 +3270,14 @@ pub export fn dintty_grid_gdk_monitor_at_window(
     return gdk_display_get_monitor_at_window(@ptrCast(display), @ptrCast(window));
 }
 
-pub export fn dintty_grid_gdk_primary_monitor(
+pub export fn deetty_grid_gdk_primary_monitor(
     display_optional: ?*anyopaque,
 ) ?*GdkMonitor {
     const display = display_optional orelse return null;
     return gdk_display_get_primary_monitor(@ptrCast(display));
 }
 
-pub export fn dintty_grid_gdk_pointer_position(
+pub export fn deetty_grid_gdk_pointer_position(
     display_optional: ?*anyopaque,
     x: ?*c_int,
     y: ?*c_int,
@@ -3291,7 +3291,7 @@ pub export fn dintty_grid_gdk_pointer_position(
     return 1;
 }
 
-pub export fn dintty_grid_gdk_monitor_at_point(
+pub export fn deetty_grid_gdk_monitor_at_point(
     display_optional: ?*anyopaque,
     x: c_int,
     y: c_int,
@@ -3300,14 +3300,14 @@ pub export fn dintty_grid_gdk_monitor_at_point(
     return gdk_display_get_monitor_at_point(@ptrCast(display), x, y);
 }
 
-pub export fn dintty_grid_gdk_monitor_count(
+pub export fn deetty_grid_gdk_monitor_count(
     display_optional: ?*anyopaque,
 ) c_int {
     const display = display_optional orelse return 0;
     return gdk_display_get_n_monitors(@ptrCast(display));
 }
 
-pub export fn dintty_grid_gdk_monitor_at_index(
+pub export fn deetty_grid_gdk_monitor_at_index(
     display_optional: ?*anyopaque,
     index: c_int,
 ) ?*GdkMonitor {
@@ -3315,7 +3315,7 @@ pub export fn dintty_grid_gdk_monitor_at_index(
     return gdk_display_get_monitor(@ptrCast(display), index);
 }
 
-pub export fn dintty_grid_gdk_monitor_get_geometry(
+pub export fn deetty_grid_gdk_monitor_get_geometry(
     monitor_optional: ?*anyopaque,
     geometry: ?*GdkRectangle,
 ) void {
@@ -3324,7 +3324,7 @@ pub export fn dintty_grid_gdk_monitor_get_geometry(
     gdk_monitor_get_geometry(@ptrCast(monitor), output);
 }
 
-pub export fn dintty_grid_gdk_monitor_get_workarea(
+pub export fn deetty_grid_gdk_monitor_get_workarea(
     monitor_optional: ?*anyopaque,
     workarea: ?*GdkRectangle,
 ) void {
@@ -3333,14 +3333,14 @@ pub export fn dintty_grid_gdk_monitor_get_workarea(
     gdk_monitor_get_workarea(@ptrCast(monitor), output);
 }
 
-pub export fn dintty_grid_gdk_monitor_get_scale_factor(
+pub export fn deetty_grid_gdk_monitor_get_scale_factor(
     monitor_optional: ?*anyopaque,
 ) c_int {
     const monitor = monitor_optional orelse return 1;
     return gdk_monitor_get_scale_factor(@ptrCast(monitor));
 }
 
-pub export fn dintty_grid_gdk_window_set_fullscreen_mode(
+pub export fn deetty_grid_gdk_window_set_fullscreen_mode(
     window_optional: ?*anyopaque,
     mode: c_int,
 ) void {
@@ -3348,7 +3348,7 @@ pub export fn dintty_grid_gdk_window_set_fullscreen_mode(
     gdk_window_set_fullscreen_mode(@ptrCast(window), mode);
 }
 
-pub export fn dintty_grid_gdk_window_fullscreen_on_monitor(
+pub export fn deetty_grid_gdk_window_fullscreen_on_monitor(
     window_optional: ?*anyopaque,
     monitor_index: c_int,
 ) void {
@@ -3356,14 +3356,14 @@ pub export fn dintty_grid_gdk_window_fullscreen_on_monitor(
     gdk_window_fullscreen_on_monitor(@ptrCast(window), monitor_index);
 }
 
-pub export fn dintty_grid_gdk_window_fullscreen(
+pub export fn deetty_grid_gdk_window_fullscreen(
     window_optional: ?*anyopaque,
 ) void {
     const window = window_optional orelse return;
     gdk_window_fullscreen(@ptrCast(window));
 }
 
-pub export fn dintty_grid_gdk_set_cursor(
+pub export fn deetty_grid_gdk_set_cursor(
     window_optional: ?*anyopaque,
     display_optional: ?*anyopaque,
     name: [*:0]const u8,
@@ -3379,7 +3379,7 @@ pub export fn dintty_grid_gdk_set_cursor(
     g_object_unref(value);
     return 1;
 }
-pub export fn dintty_grid_gdk_request_paint(
+pub export fn deetty_grid_gdk_request_paint(
     clock_optional: ?*anyopaque,
     phase: c_int,
 ) void {
@@ -3387,36 +3387,36 @@ pub export fn dintty_grid_gdk_request_paint(
     gdk_frame_clock_request_phase(@ptrCast(clock), phase);
 }
 
-pub export fn dintty_grid_gdk_keyval_to_unicode(keyval: c_uint) c_uint {
+pub export fn deetty_grid_gdk_keyval_to_unicode(keyval: c_uint) c_uint {
     return gdk_keyval_to_unicode(keyval);
 }
 
-pub export fn dintty_grid_gdk_screen_get_rgba_visual(
+pub export fn deetty_grid_gdk_screen_get_rgba_visual(
     screen_optional: ?*anyopaque,
 ) ?*GdkVisual {
     const screen = screen_optional orelse return null;
     return gdk_screen_get_rgba_visual(@ptrCast(screen));
 }
 
-pub export fn dintty_grid_gdk_screen_is_composited(
+pub export fn deetty_grid_gdk_screen_is_composited(
     screen_optional: ?*anyopaque,
 ) c_int {
     const screen = screen_optional orelse return 0;
     return gdk_screen_is_composited(@ptrCast(screen));
 }
 
-pub export fn dintty_grid_gdk_display_is_wayland(
+pub export fn deetty_grid_gdk_display_is_wayland(
     display_optional: ?*anyopaque,
 ) c_int {
     const display = display_optional orelse return 0;
     return if (g_type_check_instance_is_a(@ptrCast(@alignCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
 }
-pub export fn dintty_grid_gdk_default_display_is_wayland() c_int {
+pub export fn deetty_grid_gdk_default_display_is_wayland() c_int {
     const display = gdk_display_get_default() orelse return 0;
     return if (g_type_check_instance_is_a(@ptrCast(@alignCast(display)), gdk_wayland_display_get_type()) != 0) 1 else 0;
 }
 
-pub export fn dintty_grid_event_set_pointer_device(
+pub export fn deetty_grid_event_set_pointer_device(
     event_optional: ?*anyopaque,
     display_optional: ?*anyopaque,
 ) void {
@@ -3427,20 +3427,20 @@ pub export fn dintty_grid_event_set_pointer_device(
     gdk_event_set_device(@ptrCast(event), pointer);
 }
 
-pub export fn dintty_grid_button_get_image(
+pub export fn deetty_grid_button_get_image(
     button_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const button = button_optional orelse return null;
     return gtk_button_get_image(@ptrCast(button));
 }
-pub export fn dintty_grid_button_get_label(
+pub export fn deetty_grid_button_get_label(
     button_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const button = button_optional orelse return null;
     return gtk_button_get_label(@ptrCast(button));
 }
 
-pub export fn dintty_grid_image_get_icon_name(
+pub export fn deetty_grid_image_get_icon_name(
     image_optional: ?*anyopaque,
     icon_name: ?*?[*:0]const u8,
     icon_size: ?*c_int,
@@ -3448,27 +3448,27 @@ pub export fn dintty_grid_image_get_icon_name(
     const image = image_optional orelse return;
     gtk_image_get_icon_name(@ptrCast(image), icon_name, icon_size);
 }
-pub export fn dintty_grid_combo_box_get_active_id(
+pub export fn deetty_grid_combo_box_get_active_id(
     combo_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const combo = combo_optional orelse return null;
     return gtk_combo_box_get_active_id(@ptrCast(combo));
 }
 
-pub export fn dintty_grid_combo_box_text_get_active_text(
+pub export fn deetty_grid_combo_box_text_get_active_text(
     combo_optional: ?*anyopaque,
 ) ?[*:0]u8 {
     const combo = combo_optional orelse return null;
     return gtk_combo_box_text_get_active_text(@ptrCast(combo));
 }
-pub export fn dintty_grid_combo_box_text_remove_all(
+pub export fn deetty_grid_combo_box_text_remove_all(
     combo_optional: ?*anyopaque,
 ) void {
     const combo = combo_optional orelse return;
     gtk_combo_box_text_remove_all(@ptrCast(combo));
 }
 
-pub export fn dintty_grid_combo_box_text_append(
+pub export fn deetty_grid_combo_box_text_append(
     combo_optional: ?*anyopaque,
     id: ?[*:0]const u8,
     text: [*:0]const u8,
@@ -3477,14 +3477,14 @@ pub export fn dintty_grid_combo_box_text_append(
     gtk_combo_box_text_append(@ptrCast(combo), id, text);
 }
 
-pub export fn dintty_grid_list_box_get_selected_row(
+pub export fn deetty_grid_list_box_get_selected_row(
     list_optional: ?*anyopaque,
 ) ?*GtkListBoxRow {
     const list = list_optional orelse return null;
     return gtk_list_box_get_selected_row(@ptrCast(list));
 }
 
-pub export fn dintty_grid_combo_box_text_append_text(
+pub export fn deetty_grid_combo_box_text_append_text(
     combo_optional: ?*anyopaque,
     text: [*:0]const u8,
 ) void {
@@ -3492,14 +3492,14 @@ pub export fn dintty_grid_combo_box_text_append_text(
     gtk_combo_box_text_append_text(@ptrCast(combo), text);
 }
 
-pub export fn dintty_grid_file_chooser_get_filename(
+pub export fn deetty_grid_file_chooser_get_filename(
     chooser_optional: ?*anyopaque,
 ) ?[*:0]u8 {
     const chooser = chooser_optional orelse return null;
     return gtk_file_chooser_get_filename(@ptrCast(chooser));
 }
 
-pub export fn dintty_grid_list_box_get_row_at_index(
+pub export fn deetty_grid_list_box_get_row_at_index(
     list_optional: ?*anyopaque,
     index: c_int,
 ) ?*GtkListBoxRow {
@@ -3507,7 +3507,7 @@ pub export fn dintty_grid_list_box_get_row_at_index(
     return gtk_list_box_get_row_at_index(@ptrCast(list), index);
 }
 
-pub export fn dintty_grid_list_box_select_row(
+pub export fn deetty_grid_list_box_select_row(
     list_optional: ?*anyopaque,
     row_optional: ?*GtkListBoxRow,
 ) void {
@@ -3515,7 +3515,7 @@ pub export fn dintty_grid_list_box_select_row(
     gtk_list_box_select_row(@ptrCast(list), row_optional);
 }
 
-pub export fn dintty_grid_event_box_set_above_child(
+pub export fn deetty_grid_event_box_set_above_child(
     event_box_optional: ?*anyopaque,
     above_child: c_int,
 ) void {
@@ -3523,7 +3523,7 @@ pub export fn dintty_grid_event_box_set_above_child(
     gtk_event_box_set_above_child(@ptrCast(event_box), above_child);
 }
 
-pub export fn dintty_grid_entry_set_icon_from_icon_name(
+pub export fn deetty_grid_entry_set_icon_from_icon_name(
     entry_optional: ?*anyopaque,
     icon_pos: c_int,
     icon_name: ?[*:0]const u8,
@@ -3532,7 +3532,7 @@ pub export fn dintty_grid_entry_set_icon_from_icon_name(
     gtk_entry_set_icon_from_icon_name(@ptrCast(entry), icon_pos, icon_name);
 }
 
-pub export fn dintty_grid_entry_set_icon_tooltip_text(
+pub export fn deetty_grid_entry_set_icon_tooltip_text(
     entry_optional: ?*anyopaque,
     icon_pos: c_int,
     tooltip: ?[*:0]const u8,
@@ -3540,7 +3540,7 @@ pub export fn dintty_grid_entry_set_icon_tooltip_text(
     const entry = entry_optional orelse return;
     gtk_entry_set_icon_tooltip_text(@ptrCast(entry), icon_pos, tooltip);
 }
-pub export fn dintty_grid_label_set_text(
+pub export fn deetty_grid_label_set_text(
     label_optional: ?*anyopaque,
     text: [*:0]const u8,
 ) void {
@@ -3548,7 +3548,7 @@ pub export fn dintty_grid_label_set_text(
     gtk_label_set_text(@ptrCast(label), text);
 }
 
-pub export fn dintty_grid_label_set_markup(
+pub export fn deetty_grid_label_set_markup(
     label_optional: ?*anyopaque,
     markup: [*:0]const u8,
 ) void {
@@ -3556,7 +3556,7 @@ pub export fn dintty_grid_label_set_markup(
     gtk_label_set_markup(@ptrCast(label), markup);
 }
 
-pub export fn dintty_grid_entry_set_text(
+pub export fn deetty_grid_entry_set_text(
     entry_optional: ?*anyopaque,
     text: [*:0]const u8,
 ) void {
@@ -3564,13 +3564,13 @@ pub export fn dintty_grid_entry_set_text(
     gtk_entry_set_text(@ptrCast(entry), text);
 }
 
-pub export fn dintty_grid_button_new_with_label(
+pub export fn deetty_grid_button_new_with_label(
     label: [*:0]const u8,
 ) ?*GtkWidget {
     return gtk_button_new_with_label(label);
 }
 
-pub export fn dintty_grid_button_set_label(
+pub export fn deetty_grid_button_set_label(
     button_optional: ?*anyopaque,
     label: [*:0]const u8,
 ) void {
@@ -3578,14 +3578,14 @@ pub export fn dintty_grid_button_set_label(
     gtk_button_set_label(@ptrCast(button), label);
 }
 
-pub export fn dintty_grid_button_clicked(
+pub export fn deetty_grid_button_clicked(
     button_optional: ?*anyopaque,
 ) void {
     const button = button_optional orelse return;
     gtk_button_clicked(@ptrCast(button));
 }
 
-pub export fn dintty_grid_combo_box_set_active(
+pub export fn deetty_grid_combo_box_set_active(
     combo_optional: ?*anyopaque,
     index: c_int,
 ) void {
@@ -3593,7 +3593,7 @@ pub export fn dintty_grid_combo_box_set_active(
     gtk_combo_box_set_active(@ptrCast(combo), index);
 }
 
-pub export fn dintty_grid_combo_box_set_active_id(
+pub export fn deetty_grid_combo_box_set_active_id(
     combo_optional: ?*anyopaque,
     id: [*:0]const u8,
 ) c_int {
@@ -3601,7 +3601,7 @@ pub export fn dintty_grid_combo_box_set_active_id(
     return gtk_combo_box_set_active_id(@ptrCast(combo), id);
 }
 
-pub export fn dintty_grid_spin_button_set_value(
+pub export fn deetty_grid_spin_button_set_value(
     spin_optional: ?*anyopaque,
     value: f64,
 ) void {
@@ -3609,7 +3609,7 @@ pub export fn dintty_grid_spin_button_set_value(
     gtk_spin_button_set_value(@ptrCast(spin), value);
 }
 
-pub export fn dintty_grid_toggle_button_set_active(
+pub export fn deetty_grid_toggle_button_set_active(
     toggle_optional: ?*anyopaque,
     active: c_int,
 ) void {
@@ -3617,20 +3617,20 @@ pub export fn dintty_grid_toggle_button_set_active(
     gtk_toggle_button_set_active(@ptrCast(toggle), active);
 }
 
-pub export fn dintty_grid_range_set_value(
+pub export fn deetty_grid_range_set_value(
     range_optional: ?*anyopaque,
     value: f64,
 ) void {
     const range = range_optional orelse return;
     gtk_range_set_value(@ptrCast(range), value);
 }
-pub export fn dintty_grid_clipboard_get(
+pub export fn deetty_grid_clipboard_get(
     selection_optional: ?*anyopaque,
 ) ?*GtkClipboard {
     return gtk_clipboard_get(selection_optional);
 }
 
-pub export fn dintty_grid_clipboard_request_text(
+pub export fn deetty_grid_clipboard_request_text(
     clipboard_optional: ?*anyopaque,
     callback_optional: ?GtkClipboardTextReceivedCallback,
     data: ?*anyopaque,
@@ -3640,7 +3640,7 @@ pub export fn dintty_grid_clipboard_request_text(
     gtk_clipboard_request_text(@ptrCast(clipboard), callback, data);
 }
 
-pub export fn dintty_grid_clipboard_set_text(
+pub export fn deetty_grid_clipboard_set_text(
     clipboard_optional: ?*anyopaque,
     text: [*:0]const u8,
     length: c_int,
@@ -3649,21 +3649,21 @@ pub export fn dintty_grid_clipboard_set_text(
     gtk_clipboard_set_text(@ptrCast(clipboard), text, length);
 }
 
-pub export fn dintty_grid_im_context_focus_in(
+pub export fn deetty_grid_im_context_focus_in(
     context_optional: ?*anyopaque,
 ) void {
     const context = context_optional orelse return;
     gtk_im_context_focus_in(@ptrCast(context));
 }
 
-pub export fn dintty_grid_im_context_focus_out(
+pub export fn deetty_grid_im_context_focus_out(
     context_optional: ?*anyopaque,
 ) void {
     const context = context_optional orelse return;
     gtk_im_context_focus_out(@ptrCast(context));
 }
 
-pub export fn dintty_grid_im_context_filter_keypress(
+pub export fn deetty_grid_im_context_filter_keypress(
     context_optional: ?*anyopaque,
     event_optional: ?*anyopaque,
 ) c_int {
@@ -3673,7 +3673,7 @@ pub export fn dintty_grid_im_context_filter_keypress(
         event_optional,
     );
 }
-pub export fn dintty_grid_im_context_set_client_window(
+pub export fn deetty_grid_im_context_set_client_window(
     context_optional: ?*anyopaque,
     window_optional: ?*anyopaque,
 ) void {
@@ -3681,7 +3681,7 @@ pub export fn dintty_grid_im_context_set_client_window(
     gtk_im_context_set_client_window(@ptrCast(context), @ptrCast(window_optional));
 }
 
-pub export fn dintty_grid_selection_data_set_text(
+pub export fn deetty_grid_selection_data_set_text(
     selection_optional: ?*anyopaque,
     text: [*:0]const u8,
     length: c_int,
@@ -3690,14 +3690,14 @@ pub export fn dintty_grid_selection_data_set_text(
     gtk_selection_data_set_text(@ptrCast(selection), text, length);
 }
 
-pub export fn dintty_grid_selection_data_get_text(
+pub export fn deetty_grid_selection_data_get_text(
     selection_optional: ?*anyopaque,
 ) ?[*:0]u8 {
     const selection = selection_optional orelse return null;
     return gtk_selection_data_get_text(@ptrCast(selection));
 }
 
-pub export fn dintty_grid_editable_select_region(
+pub export fn deetty_grid_editable_select_region(
     editable_optional: ?*anyopaque,
     start_pos: c_int,
     end_pos: c_int,
@@ -3705,21 +3705,21 @@ pub export fn dintty_grid_editable_select_region(
     const editable = editable_optional orelse return;
     gtk_editable_select_region(@ptrCast(editable), start_pos, end_pos);
 }
-pub export fn dintty_grid_widget_get_accessible(
+pub export fn deetty_grid_widget_get_accessible(
     widget_optional: ?*anyopaque,
 ) ?*AtkObject {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_accessible(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_widget_get_style_context(
+pub export fn deetty_grid_widget_get_style_context(
     widget_optional: ?*anyopaque,
 ) ?*GtkStyleContext {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_style_context(@ptrCast(widget));
 }
 
-pub export fn dintty_grid_style_context_add_class(
+pub export fn deetty_grid_style_context_add_class(
     style_optional: ?*anyopaque,
     class_name: [*:0]const u8,
 ) void {
@@ -3727,7 +3727,7 @@ pub export fn dintty_grid_style_context_add_class(
     gtk_style_context_add_class(@ptrCast(style), class_name);
 }
 
-pub export fn dintty_grid_style_context_remove_class(
+pub export fn deetty_grid_style_context_remove_class(
     style_optional: ?*anyopaque,
     class_name: [*:0]const u8,
 ) void {
@@ -3735,7 +3735,7 @@ pub export fn dintty_grid_style_context_remove_class(
     gtk_style_context_remove_class(@ptrCast(style), class_name);
 }
 
-pub export fn dintty_grid_style_context_has_class(
+pub export fn deetty_grid_style_context_has_class(
     style_optional: ?*anyopaque,
     class_name: [*:0]const u8,
 ) c_int {
@@ -3743,7 +3743,7 @@ pub export fn dintty_grid_style_context_has_class(
     return gtk_style_context_has_class(@ptrCast(style), class_name);
 }
 
-pub export fn dintty_grid_atk_object_set_name(
+pub export fn deetty_grid_atk_object_set_name(
     accessible_optional: ?*anyopaque,
     name: [*:0]const u8,
 ) void {
@@ -3751,7 +3751,7 @@ pub export fn dintty_grid_atk_object_set_name(
     atk_object_set_name(@ptrCast(accessible), name);
 }
 
-pub export fn dintty_grid_atk_object_set_description(
+pub export fn deetty_grid_atk_object_set_description(
     accessible_optional: ?*anyopaque,
     description: [*:0]const u8,
 ) void {
@@ -3759,7 +3759,7 @@ pub export fn dintty_grid_atk_object_set_description(
     atk_object_set_description(@ptrCast(accessible), description);
 }
 
-pub export fn dintty_grid_atk_object_set_role(
+pub export fn deetty_grid_atk_object_set_role(
     accessible_optional: ?*anyopaque,
     role: c_int,
 ) void {
@@ -3767,27 +3767,27 @@ pub export fn dintty_grid_atk_object_set_role(
     atk_object_set_role(@ptrCast(accessible), role);
 }
 
-pub export fn dintty_grid_atk_object_get_name(
+pub export fn deetty_grid_atk_object_get_name(
     accessible_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const accessible = accessible_optional orelse return null;
     return atk_object_get_name(@ptrCast(accessible));
 }
 
-pub export fn dintty_grid_atk_object_get_description(
+pub export fn deetty_grid_atk_object_get_description(
     accessible_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const accessible = accessible_optional orelse return null;
     return atk_object_get_description(@ptrCast(accessible));
 }
 
-pub export fn dintty_grid_atk_object_get_role(
+pub export fn deetty_grid_atk_object_get_role(
     accessible_optional: ?*anyopaque,
 ) c_int {
     const accessible = accessible_optional orelse return 0;
     return atk_object_get_role(@ptrCast(accessible));
 }
-pub export fn dintty_grid_widget_is_type(
+pub export fn deetty_grid_widget_is_type(
     widget_optional: ?*anyopaque,
     type_id: c_int,
 ) c_int {
@@ -3820,21 +3820,21 @@ pub export fn dintty_grid_widget_is_type(
     return if (g_type_check_instance_is_a(@ptrCast(@alignCast(widget)), get_type()) != 0) TRUE else FALSE;
 }
 
-pub export fn dintty_grid_widget_has_focus(
+pub export fn deetty_grid_widget_has_focus(
     widget_optional: ?*GtkWidget,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_has_focus(widget);
 }
 
-pub export fn dintty_grid_widget_get_display(
+pub export fn deetty_grid_widget_get_display(
     widget_optional: ?*GtkWidget,
 ) ?*GdkDisplay {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_display(widget);
 }
 
-pub export fn dintty_grid_widget_get_ancestor(
+pub export fn deetty_grid_widget_get_ancestor(
     widget_optional: ?*GtkWidget,
     widget_type: GType,
 ) ?*GtkWidget {
@@ -3842,35 +3842,35 @@ pub export fn dintty_grid_widget_get_ancestor(
     return gtk_widget_get_ancestor(widget, widget_type);
 }
 
-pub export fn dintty_grid_widget_get_frame_clock(
+pub export fn deetty_grid_widget_get_frame_clock(
     widget_optional: ?*GtkWidget,
 ) ?*GdkFrameClock {
     const widget = widget_optional orelse return null;
     return gtk_widget_get_frame_clock(widget);
 }
 
-pub export fn dintty_grid_grab_get_current() ?*GtkWidget {
+pub export fn deetty_grid_grab_get_current() ?*GtkWidget {
     return gtk_grab_get_current();
 }
 
-pub export fn dintty_grid_grab_add(widget_optional: ?*GtkWidget) void {
+pub export fn deetty_grid_grab_add(widget_optional: ?*GtkWidget) void {
     const widget = widget_optional orelse return;
     gtk_grab_add(widget);
 }
 
-pub export fn dintty_grid_grab_remove(widget_optional: ?*GtkWidget) void {
+pub export fn deetty_grid_grab_remove(widget_optional: ?*GtkWidget) void {
     const widget = widget_optional orelse return;
     gtk_grab_remove(widget);
 }
 
-pub export fn dintty_grid_widget_has_grab(
+pub export fn deetty_grid_widget_has_grab(
     widget_optional: ?*GtkWidget,
 ) c_int {
     const widget = widget_optional orelse return FALSE;
     return gtk_widget_has_grab(widget);
 }
 
-pub export fn dintty_grid_widget_get_size_request(
+pub export fn deetty_grid_widget_get_size_request(
     widget_optional: ?*GtkWidget,
     width: ?*c_int,
     height: ?*c_int,
@@ -3879,11 +3879,11 @@ pub export fn dintty_grid_widget_get_size_request(
     gtk_widget_get_size_request(widget, width, height);
 }
 
-pub export fn dintty_grid_window_list_toplevels() ?*GList {
+pub export fn deetty_grid_window_list_toplevels() ?*GList {
     return gtk_window_list_toplevels();
 }
 
-pub export fn dintty_grid_check_menu_item_set_active(
+pub export fn deetty_grid_check_menu_item_set_active(
     item_optional: ?*GtkWidget,
     active: c_int,
 ) void {
@@ -3891,7 +3891,7 @@ pub export fn dintty_grid_check_menu_item_set_active(
     gtk_check_menu_item_set_active(item, active);
 }
 
-pub export fn dintty_grid_revealer_set_reveal_child(
+pub export fn deetty_grid_revealer_set_reveal_child(
     revealer_optional: ?*GtkWidget,
     reveal: c_int,
 ) void {
@@ -3899,7 +3899,7 @@ pub export fn dintty_grid_revealer_set_reveal_child(
     gtk_revealer_set_reveal_child(revealer, reveal);
 }
 
-pub export fn dintty_grid_revealer_set_transition_duration(
+pub export fn deetty_grid_revealer_set_transition_duration(
     revealer_optional: ?*GtkWidget,
     duration: c_uint,
 ) void {
@@ -3907,14 +3907,14 @@ pub export fn dintty_grid_revealer_set_transition_duration(
     gtk_revealer_set_transition_duration(revealer, duration);
 }
 
-pub export fn dintty_grid_revealer_set_transition_type(
+pub export fn deetty_grid_revealer_set_transition_type(
     revealer_optional: ?*GtkWidget,
     transition_type: c_int,
 ) void {
     const revealer = revealer_optional orelse return;
     gtk_revealer_set_transition_type(revealer, transition_type);
 }
-pub export fn dintty_grid_widget_add_tick_callback(
+pub export fn deetty_grid_widget_add_tick_callback(
     widget_optional: ?*GtkWidget,
     callback_optional: ?GCallback,
     data: ?*anyopaque,
@@ -3929,7 +3929,7 @@ pub export fn dintty_grid_widget_add_tick_callback(
         destroy_notify,
     );
 }
-pub export fn dintty_grid_widget_remove_tick_callback(
+pub export fn deetty_grid_widget_remove_tick_callback(
     widget_optional: ?*GtkWidget,
     source: c_uint,
 ) void {
@@ -3937,21 +3937,21 @@ pub export fn dintty_grid_widget_remove_tick_callback(
     gtk_widget_remove_tick_callback(widget, source);
 }
 
-pub export fn dintty_grid_gtk_init_check() c_int {
+pub export fn deetty_grid_gtk_init_check() c_int {
     return gtk_init_check(null, null);
 }
 
-pub export fn dintty_grid_gtk_main() void {
+pub export fn deetty_grid_gtk_main() void {
     gtk_main();
 }
 
-pub export fn dintty_grid_window_set_default_icon_name(
+pub export fn deetty_grid_window_set_default_icon_name(
     name: [*:0]const u8,
 ) void {
     gtk_window_set_default_icon_name(name);
 }
 
-pub export fn dintty_grid_drag_finish(
+pub export fn deetty_grid_drag_finish(
     drag: ?*anyopaque,
     delete_data: c_int,
     success: c_int,
@@ -3960,15 +3960,15 @@ pub export fn dintty_grid_drag_finish(
     gtk_drag_finish(drag, delete_data, success, time);
 }
 
-pub export fn dintty_grid_events_pending() c_int {
+pub export fn deetty_grid_events_pending() c_int {
     return gtk_events_pending();
 }
 
-pub export fn dintty_grid_main_iteration_do(blocking: c_int) void {
+pub export fn deetty_grid_main_iteration_do(blocking: c_int) void {
     gtk_main_iteration_do(blocking);
 }
 
-pub export fn dintty_grid_widget_set_app_paintable(
+pub export fn deetty_grid_widget_set_app_paintable(
     widget_optional: ?*GtkWidget,
     app_paintable: c_int,
 ) void {
@@ -3976,7 +3976,7 @@ pub export fn dintty_grid_widget_set_app_paintable(
     gtk_widget_set_app_paintable(widget, app_paintable);
 }
 
-pub export fn dintty_grid_widget_set_visual(
+pub export fn deetty_grid_widget_set_visual(
     widget_optional: ?*GtkWidget,
     visual: ?*anyopaque,
 ) void {
@@ -3984,14 +3984,14 @@ pub export fn dintty_grid_widget_set_visual(
     gtk_widget_set_visual(widget, visual);
 }
 
-pub export fn dintty_grid_widget_hide(
+pub export fn deetty_grid_widget_hide(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_hide(widget);
 }
 
-pub export fn dintty_grid_widget_set_visible(
+pub export fn deetty_grid_widget_set_visible(
     widget_optional: ?*GtkWidget,
     visible: c_int,
 ) void {
@@ -3999,35 +3999,35 @@ pub export fn dintty_grid_widget_set_visible(
     gtk_widget_set_visible(widget, visible);
 }
 
-pub export fn dintty_grid_widget_set_can_focus(
+pub export fn deetty_grid_widget_set_can_focus(
     widget_optional: ?*GtkWidget,
     can_focus: c_int,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_set_can_focus(widget, can_focus);
 }
-pub export fn dintty_grid_widget_set_sensitive(
+pub export fn deetty_grid_widget_set_sensitive(
     widget_optional: ?*GtkWidget,
     sensitive: c_int,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_set_sensitive(widget, sensitive);
 }
-pub export fn dintty_grid_widget_set_no_show_all(
+pub export fn deetty_grid_widget_set_no_show_all(
     widget_optional: ?*GtkWidget,
     no_show_all: c_int,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_set_no_show_all(widget, no_show_all);
 }
-pub export fn dintty_grid_widget_add_events(
+pub export fn deetty_grid_widget_add_events(
     widget_optional: ?*GtkWidget,
     events: c_int,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_add_events(widget, events);
 }
-pub export fn dintty_grid_drag_source_set(
+pub export fn deetty_grid_drag_source_set(
     widget_optional: ?*GtkWidget,
     start_button_mask: c_uint,
     targets: ?*anyopaque,
@@ -4044,7 +4044,7 @@ pub export fn dintty_grid_drag_source_set(
     );
 }
 
-pub export fn dintty_grid_drag_dest_set(
+pub export fn deetty_grid_drag_dest_set(
     widget_optional: ?*GtkWidget,
     dest_defaults: c_uint,
     targets: ?*anyopaque,
@@ -4060,7 +4060,7 @@ pub export fn dintty_grid_drag_dest_set(
         actions,
     );
 }
-pub export fn dintty_grid_widget_set_size_request(
+pub export fn deetty_grid_widget_set_size_request(
     widget_optional: ?*GtkWidget,
     width: c_int,
     height: c_int,
@@ -4069,7 +4069,7 @@ pub export fn dintty_grid_widget_set_size_request(
     gtk_widget_set_size_request(widget, width, height);
 }
 
-pub export fn dintty_grid_widget_set_tooltip_text(
+pub export fn deetty_grid_widget_set_tooltip_text(
     widget_optional: ?*GtkWidget,
     tooltip: ?[*:0]const u8,
 ) void {
@@ -4077,14 +4077,14 @@ pub export fn dintty_grid_widget_set_tooltip_text(
     gtk_widget_set_tooltip_text(widget, tooltip);
 }
 
-pub export fn dintty_grid_widget_queue_draw(
+pub export fn deetty_grid_widget_queue_draw(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
     gtk_widget_queue_draw(widget);
 }
 
-pub export fn dintty_grid_widget_queue_draw_area(
+pub export fn deetty_grid_widget_queue_draw_area(
     widget_optional: ?*GtkWidget,
     x: c_int,
     y: c_int,
@@ -4095,7 +4095,7 @@ pub export fn dintty_grid_widget_queue_draw_area(
     gtk_widget_queue_draw_area(widget, x, y, width, height);
 }
 
-pub export fn dintty_grid_widget_queue_resize(
+pub export fn deetty_grid_widget_queue_resize(
     widget_optional: ?*GtkWidget,
 ) void {
     const widget = widget_optional orelse return;
@@ -4111,7 +4111,7 @@ const GridWindowCallbacks = extern struct {
     button_release_event: ?GCallback,
 };
 
-pub export fn dintty_grid_window_connect_signals(
+pub export fn deetty_grid_window_connect_signals(
     window_optional: ?*GtkWidget,
     context: ?*anyopaque,
     callbacks_raw: ?*const GridWindowCallbacks,
@@ -4134,7 +4134,7 @@ const GridNotebookCallbacks = extern struct {
     page_reordered: ?GCallback,
 };
 
-pub export fn dintty_grid_notebook_configure(
+pub export fn deetty_grid_notebook_configure(
     notebook_optional: ?*GtkWidget,
     new_tab_button_optional: ?*GtkWidget,
     toolbar_optional: ?*GtkWidget,
@@ -4155,7 +4155,7 @@ pub export fn dintty_grid_notebook_configure(
     gtk_widget_show_all(toolbar);
     return TRUE;
 }
-pub export fn dintty_grid_notebook_append_page(
+pub export fn deetty_grid_notebook_append_page(
     notebook_optional: ?*GtkWidget,
     page_optional: ?*GtkWidget,
     tab_widget_optional: ?*GtkWidget,
@@ -4174,7 +4174,7 @@ pub export fn dintty_grid_notebook_append_page(
     gtk_notebook_set_tab_detachable(@ptrCast(notebook), page, FALSE);
     return page_index;
 }
-pub export fn dintty_grid_notebook_apply_policy(
+pub export fn deetty_grid_notebook_apply_policy(
     notebook_optional: ?*GtkWidget,
     toolbar_optional: ?*GtkWidget,
     tab_position: c_int,
@@ -4198,7 +4198,7 @@ pub export fn dintty_grid_notebook_apply_policy(
         );
     }
 }
-pub export fn dintty_grid_notebook_select_page(
+pub export fn deetty_grid_notebook_select_page(
     notebook_optional: ?*GtkWidget,
     page_index: c_int,
 ) void {
@@ -4206,21 +4206,21 @@ pub export fn dintty_grid_notebook_select_page(
     if (page_index < 0) return;
     gtk_notebook_set_current_page(@ptrCast(notebook), page_index);
 }
-pub export fn dintty_grid_notebook_get_n_pages(
+pub export fn deetty_grid_notebook_get_n_pages(
     notebook_optional: ?*anyopaque,
 ) c_int {
     const notebook = notebook_optional orelse return 0;
     return gtk_notebook_get_n_pages(@ptrCast(notebook));
 }
 
-pub export fn dintty_grid_notebook_get_current_page(
+pub export fn deetty_grid_notebook_get_current_page(
     notebook_optional: ?*anyopaque,
 ) c_int {
     const notebook = notebook_optional orelse return -1;
     return gtk_notebook_get_current_page(@ptrCast(notebook));
 }
 
-pub export fn dintty_grid_notebook_get_nth_page(
+pub export fn deetty_grid_notebook_get_nth_page(
     notebook_optional: ?*anyopaque,
     page_index: c_int,
 ) ?*GtkWidget {
@@ -4228,7 +4228,7 @@ pub export fn dintty_grid_notebook_get_nth_page(
     return gtk_notebook_get_nth_page(@ptrCast(notebook), page_index);
 }
 
-pub export fn dintty_grid_notebook_get_tab_label(
+pub export fn deetty_grid_notebook_get_tab_label(
     notebook_optional: ?*anyopaque,
     page_optional: ?*anyopaque,
 ) ?*GtkWidget {
@@ -4237,14 +4237,14 @@ pub export fn dintty_grid_notebook_get_tab_label(
     return gtk_notebook_get_tab_label(@ptrCast(notebook), @ptrCast(page));
 }
 
-pub export fn dintty_grid_notebook_get_show_tabs(
+pub export fn deetty_grid_notebook_get_show_tabs(
     notebook_optional: ?*anyopaque,
 ) c_int {
     const notebook = notebook_optional orelse return FALSE;
     return gtk_notebook_get_show_tabs(@ptrCast(notebook));
 }
 
-pub export fn dintty_grid_notebook_get_action_widget(
+pub export fn deetty_grid_notebook_get_action_widget(
     notebook_optional: ?*anyopaque,
     pack_type: c_int,
 ) ?*GtkWidget {
@@ -4252,14 +4252,14 @@ pub export fn dintty_grid_notebook_get_action_widget(
     return gtk_notebook_get_action_widget(@ptrCast(notebook), pack_type);
 }
 
-pub export fn dintty_grid_notebook_get_tab_pos(
+pub export fn deetty_grid_notebook_get_tab_pos(
     notebook_optional: ?*anyopaque,
 ) c_int {
     const notebook = notebook_optional orelse return 0;
     return gtk_notebook_get_tab_pos(@ptrCast(notebook));
 }
 
-pub export fn dintty_grid_notebook_page_num(
+pub export fn deetty_grid_notebook_page_num(
     notebook_optional: ?*anyopaque,
     page_optional: ?*anyopaque,
 ) c_int {
@@ -4268,7 +4268,7 @@ pub export fn dintty_grid_notebook_page_num(
     return gtk_notebook_page_num(@ptrCast(notebook), @ptrCast(page));
 }
 
-pub export fn dintty_grid_notebook_reorder_child(
+pub export fn deetty_grid_notebook_reorder_child(
     notebook_optional: ?*anyopaque,
     page_optional: ?*anyopaque,
     page_index: c_int,
@@ -4278,38 +4278,38 @@ pub export fn dintty_grid_notebook_reorder_child(
     gtk_notebook_reorder_child(@ptrCast(notebook), @ptrCast(page), page_index);
 }
 
-pub export fn dintty_grid_notebook_remove_page(
+pub export fn deetty_grid_notebook_remove_page(
     notebook_optional: ?*anyopaque,
     page_index: c_int,
 ) void {
     const notebook = notebook_optional orelse return;
     gtk_notebook_remove_page(@ptrCast(notebook), page_index);
 }
-pub export fn dintty_grid_menu_popdown(menu_optional: ?*anyopaque) void {
+pub export fn deetty_grid_menu_popdown(menu_optional: ?*anyopaque) void {
     const menu = menu_optional orelse return;
     gtk_menu_popdown(@ptrCast(menu));
 }
 
-pub export fn dintty_grid_menu_item_get_label(
+pub export fn deetty_grid_menu_item_get_label(
     item_optional: ?*anyopaque,
 ) ?[*:0]const u8 {
     const item = item_optional orelse return null;
     return gtk_menu_item_get_label(@ptrCast(item));
 }
 
-pub export fn dintty_grid_menu_item_get_submenu(
+pub export fn deetty_grid_menu_item_get_submenu(
     item_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const item = item_optional orelse return null;
     return gtk_menu_item_get_submenu(@ptrCast(item));
 }
 
-pub export fn dintty_grid_menu_item_activate(item_optional: ?*anyopaque) void {
+pub export fn deetty_grid_menu_item_activate(item_optional: ?*anyopaque) void {
     const item = item_optional orelse return;
     gtk_menu_item_activate(@ptrCast(item));
 }
 
-pub export fn dintty_grid_menu_shell_select_item(
+pub export fn deetty_grid_menu_shell_select_item(
     shell_optional: ?*anyopaque,
     item_optional: ?*anyopaque,
 ) void {
@@ -4318,7 +4318,7 @@ pub export fn dintty_grid_menu_shell_select_item(
     gtk_menu_shell_select_item(@ptrCast(shell), @ptrCast(item));
 }
 
-pub export fn dintty_grid_menu_shell_activate_item(
+pub export fn deetty_grid_menu_shell_activate_item(
     shell_optional: ?*anyopaque,
     item_optional: ?*anyopaque,
     force: c_int,
@@ -4328,14 +4328,14 @@ pub export fn dintty_grid_menu_shell_activate_item(
     return gtk_menu_shell_activate_item(@ptrCast(shell), @ptrCast(item), force);
 }
 
-pub export fn dintty_grid_menu_get_attach_widget(
+pub export fn deetty_grid_menu_get_attach_widget(
     menu_optional: ?*anyopaque,
 ) ?*GtkWidget {
     const menu = menu_optional orelse return null;
     return gtk_menu_get_attach_widget(@ptrCast(menu));
 }
 
-pub export fn dintty_grid_menu_popup_at_widget(
+pub export fn deetty_grid_menu_popup_at_widget(
     menu_optional: ?*anyopaque,
     anchor_optional: ?*GtkWidget,
     widget_gravity: c_int,
@@ -4353,7 +4353,7 @@ pub export fn dintty_grid_menu_popup_at_widget(
     );
 }
 
-pub export fn dintty_grid_menu_popup_at_rect(
+pub export fn deetty_grid_menu_popup_at_rect(
     menu_optional: ?*anyopaque,
     window_optional: ?*GdkWindow,
     rect: ?*const GdkRectangle,
@@ -4374,7 +4374,7 @@ pub export fn dintty_grid_menu_popup_at_rect(
     );
 }
 
-pub export fn dintty_grid_page_new(
+pub export fn deetty_grid_page_new(
     panel_padding: c_int,
     pane_info_strip: ?*GtkWidget,
 ) ?*GtkWidget {
@@ -4385,13 +4385,13 @@ pub export fn dintty_grid_page_new(
     );
     g_object_set_data(
         object(page),
-        "dintty-pane-info-strip",
+        "deetty-pane-info-strip",
         @ptrCast(pane_info_strip),
     );
     return page;
 }
 
-pub export fn dintty_smart_filter_empty_contents_new(
+pub export fn deetty_smart_filter_empty_contents_new(
     message: ?[*:0]const u8,
     contents_out: *SmartFilterEmptyContents,
 ) c_int {
@@ -4408,7 +4408,7 @@ pub export fn dintty_smart_filter_empty_contents_new(
     gtk_widget_set_opacity(label, 0.72);
     gtk_box_pack_start(@ptrCast(box), label, FALSE, FALSE, 0);
     const clear_button = gtk_button_new_with_label("Clear filter") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         clear_button,
         "Clear the Smart Tab filter and show all panes",
     );
@@ -4421,7 +4421,7 @@ pub export fn dintty_smart_filter_empty_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_tab_rename_entry_new(
+pub export fn deetty_tab_rename_entry_new(
     title: ?[*:0]const u8,
     width_chars: c_int,
     height: c_int,
@@ -4438,7 +4438,7 @@ pub export fn dintty_tab_rename_entry_new(
     gtk_style_context_add_class(gtk_widget_get_style_context(entry), "flat");
     gtk_style_context_add_class(
         gtk_widget_get_style_context(entry),
-        "dintty-tab-rename",
+        "deetty-tab-rename",
     );
     gtk_widget_set_tooltip_text(
         entry,
@@ -4447,7 +4447,7 @@ pub export fn dintty_tab_rename_entry_new(
     return entry;
 }
 
-pub export fn dintty_recovery_notice_new(
+pub export fn deetty_recovery_notice_new(
     message: ?[*:0]const u8,
     apply_response: c_int,
     close_response: c_int,
@@ -4463,15 +4463,15 @@ pub export fn dintty_recovery_notice_new(
     gtk_info_bar_set_message_type(bar, 1);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(bar),
-        "dintty-recovery-notice",
+        "deetty-recovery-notice",
     );
-    gtk_widget_set_name(bar, "dintty-recovery-notice");
+    gtk_widget_set_name(bar, "deetty-recovery-notice");
 
     const label = gtk_label_new(text) orelse return null;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
     gtk_label_set_line_wrap(@ptrCast(label), TRUE);
     gtk_label_set_max_width_chars(@ptrCast(label), 96);
-    setAccessibleName(label, "DINTTY startup recovery notice");
+    setAccessibleName(label, "DEETTY startup recovery notice");
     gtk_box_pack_start(
         @ptrCast(gtk_info_bar_get_content_area(bar)),
         label,
@@ -4482,7 +4482,7 @@ pub export fn dintty_recovery_notice_new(
     return bar;
 }
 
-pub export fn dintty_terminal_find_contents_new(
+pub export fn deetty_terminal_find_contents_new(
     dialog: ?*GtkWidget,
     dialog_width: c_int,
     vertical: c_int,
@@ -4493,7 +4493,7 @@ pub export fn dintty_terminal_find_contents_new(
     output.* = .{ .entry = null, .status = null };
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
 
     const box = gtk_box_new(
@@ -4511,14 +4511,14 @@ pub export fn dintty_terminal_find_contents_new(
     setAccessibleName(status, "Terminal search status");
     gtk_label_set_xalign(@ptrCast(status), 0.0);
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
-    gtk_style_context_add_class(gtk_widget_get_style_context(box), "dintty-utility-body");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "deetty-utility-body");
     gtk_style_context_add_class(
         gtk_widget_get_style_context(entry),
-        "dintty-utility-search",
+        "deetty-utility-search",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(status),
-        "dintty-utility-status",
+        "deetty-utility-status",
     );
     gtk_widget_set_size_request(entry, @min(330, @max(1, dialog_width - 16)), -1);
     gtk_container_set_border_width(@ptrCast(box), 8);
@@ -4529,7 +4529,7 @@ pub export fn dintty_terminal_find_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_quick_note_contents_new(
+pub export fn deetty_quick_note_contents_new(
     dialog: ?*GtkWidget,
     dialog_width: c_int,
     dialog_height: c_int,
@@ -4540,7 +4540,7 @@ pub export fn dintty_quick_note_contents_new(
     output.* = .{ .view = null, .status = null };
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6) orelse return FALSE;
@@ -4555,18 +4555,18 @@ pub export fn dintty_quick_note_contents_new(
     );
     setAccessibleName(view, "Workspace quick note");
     setAccessibleName(status, "Workspace note save status");
-    gtk_style_context_add_class(gtk_widget_get_style_context(box), "dintty-utility-body");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "deetty-utility-body");
     gtk_style_context_add_class(
         gtk_widget_get_style_context(status),
-        "dintty-utility-status",
+        "deetty-utility-status",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(scroll),
-        "dintty-utility-scroll",
+        "deetty-utility-scroll",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(view),
-        "dintty-note-editor",
+        "deetty-note-editor",
     );
     gtk_widget_set_size_request(
         scroll,
@@ -4582,7 +4582,7 @@ pub export fn dintty_quick_note_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_shortcuts_contents_new(
+pub export fn deetty_shortcuts_contents_new(
     dialog: ?*GtkWidget,
     shortcuts: ?[*:0]const u8,
     dialog_width: c_int,
@@ -4592,12 +4592,12 @@ pub export fn dintty_shortcuts_contents_new(
     const text = shortcuts orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
     const scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(scroll),
-        "dintty-utility-scroll",
+        "deetty-utility-scroll",
     );
     const label = gtk_label_new(text) orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
@@ -4605,7 +4605,7 @@ pub export fn dintty_shortcuts_contents_new(
     gtk_widget_set_margin_end(label, 16);
     gtk_widget_set_margin_top(label, 12);
     gtk_widget_set_margin_bottom(label, 12);
-    setAccessibleName(label, "DINTTY keyboard shortcuts");
+    setAccessibleName(label, "DEETTY keyboard shortcuts");
     gtk_scrolled_window_set_policy(
         @ptrCast(scroll),
         GTK_POLICY_AUTOMATIC,
@@ -4621,7 +4621,7 @@ pub export fn dintty_shortcuts_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_command_palette_contents_new(
+pub export fn deetty_command_palette_contents_new(
     dialog: ?*GtkWidget,
     dialog_width: c_int,
     dialog_height: c_int,
@@ -4638,11 +4638,11 @@ pub export fn dintty_command_palette_contents_new(
     if (action_count == 0 or action_count > 128) return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-palette-dialog",
+        "deetty-palette-dialog",
     );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5) orelse return FALSE;
@@ -4656,18 +4656,18 @@ pub export fn dintty_command_palette_contents_new(
     );
     setAccessibleName(search, "Search commands");
     setAccessibleName(list, "Available commands");
-    gtk_style_context_add_class(gtk_widget_get_style_context(box), "dintty-utility-body");
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "deetty-utility-body");
     gtk_style_context_add_class(
         gtk_widget_get_style_context(search),
-        "dintty-utility-search",
+        "deetty-utility-search",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(list),
-        "dintty-palette-list",
+        "deetty-palette-list",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(scroll),
-        "dintty-utility-scroll",
+        "deetty-utility-scroll",
     );
     gtk_list_box_set_selection_mode(@ptrCast(list), GTK_SELECTION_SINGLE);
     gtk_list_box_set_activate_on_single_click(@ptrCast(list), TRUE);
@@ -4689,7 +4689,7 @@ pub export fn dintty_command_palette_contents_new(
         const row = gtk_list_box_row_new() orelse continue;
         gtk_style_context_add_class(
             gtk_widget_get_style_context(row),
-            "dintty-palette-row",
+            "deetty-palette-row",
         );
         const line = gtk_box_new(
             if (vertical) GTK_ORIENTATION_VERTICAL else GTK_ORIENTATION_HORIZONTAL,
@@ -4703,7 +4703,7 @@ pub export fn dintty_command_palette_contents_new(
         gtk_widget_set_opacity(hint, 0.62);
         gtk_style_context_add_class(
             gtk_widget_get_style_context(hint),
-            "dintty-palette-hint",
+            "deetty-palette-hint",
         );
         gtk_container_set_border_width(@ptrCast(line), 5);
         gtk_box_pack_start(@ptrCast(line), label, TRUE, TRUE, 0);
@@ -4711,14 +4711,14 @@ pub export fn dintty_command_palette_contents_new(
         gtk_container_add(@ptrCast(row), line);
 
         const search_text = g_strdup_printf("%s %s", label_text, hint_text) orelse continue;
-        g_object_set_data_full(object(row), "dintty-palette-search", search_text, g_free);
+        g_object_set_data_full(object(row), "deetty-palette-search", search_text, g_free);
         g_object_set_data(
             object(row),
-            "dintty-palette-action",
+            "deetty-palette-action",
             @ptrFromInt(@as(usize, @intCast(action.id))),
         );
         if (action.id == 14) {
-            g_object_set_data(object(target), "dintty-visibility-shortcut-hint", hint);
+            g_object_set_data(object(target), "deetty-visibility-shortcut-hint", hint);
         }
         gtk_container_add(@ptrCast(list), row);
     }
@@ -4726,7 +4726,7 @@ pub export fn dintty_command_palette_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_project_contents_new(
+pub export fn deetty_project_contents_new(
     dialog: ?*GtkWidget,
     summary_text: ?[*:0]const u8,
     contents_out: ?*ProjectContents,
@@ -4745,17 +4745,17 @@ pub export fn dintty_project_contents_new(
     };
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-project-dialog",
+        "deetty-project-dialog",
     );
 
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(box),
-        "dintty-utility-body",
+        "deetty-utility-body",
     );
     const save = gtk_button_new_with_label("Save Workspace…") orelse return FALSE;
     const open = gtk_button_new_with_label("Open Workspace…") orelse return FALSE;
@@ -4763,23 +4763,23 @@ pub export fn dintty_project_contents_new(
     const recent_combo = gtk_combo_box_text_new() orelse return FALSE;
     const recent_open = gtk_button_new_with_label("Open Recent") orelse return FALSE;
     const editor = gtk_button_new_with_label("Open NoctEd Here…") orelse return FALSE;
-    dintty_configure_action_button(save, "Save the current DINTTY workspace");
-    dintty_configure_action_button(open, "Open a saved DINTTY workspace");
-    dintty_configure_action_button(
+    deetty_configure_action_button(save, "Save the current DEETTY workspace");
+    deetty_configure_action_button(open, "Open a saved DEETTY workspace");
+    deetty_configure_action_button(
         recent_open,
-        "Open the selected workspace in a separate native DINTTY window",
+        "Open the selected workspace in a separate native DEETTY window",
     );
-    dintty_configure_action_button(editor, "Open project files in standalone NoctEd");
+    deetty_configure_action_button(editor, "Open project files in standalone NoctEd");
 
     const summary = gtk_text_view_new() orelse return FALSE;
     const summary_scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(summary),
-        "dintty-project-summary",
+        "deetty-project-summary",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(summary_scroll),
-        "dintty-utility-scroll",
+        "deetty-utility-scroll",
     );
     gtk_text_view_set_editable(@ptrCast(summary), FALSE);
     gtk_text_view_set_cursor_visible(@ptrCast(summary), FALSE);
@@ -4828,7 +4828,7 @@ pub export fn dintty_project_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_restore_workspace_contents_new(
+pub export fn deetty_restore_workspace_contents_new(
     dialog: ?*GtkWidget,
     combo_out: ?**GtkWidget,
 ) c_int {
@@ -4855,13 +4855,13 @@ pub export fn dintty_restore_workspace_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_workspace_file_chooser_new(
+pub export fn deetty_workspace_file_chooser_new(
     parent: ?*GtkWidget,
     save: c_int,
 ) ?*GtkWidget {
     const target = parent orelse return null;
     const chooser = gtk_file_chooser_dialog_new(
-        if (save != 0) "Save DINTTY Workspace" else "Open DINTTY Workspace",
+        if (save != 0) "Save DEETTY Workspace" else "Open DEETTY Workspace",
         target,
         if (save != 0) GTK_FILE_CHOOSER_ACTION_SAVE else GTK_FILE_CHOOSER_ACTION_OPEN,
         "Cancel",
@@ -4870,7 +4870,7 @@ pub export fn dintty_workspace_file_chooser_new(
         GTK_RESPONSE_ACCEPT,
         @as(?[*:0]const u8, null),
     ) orelse return null;
-    if (save != 0) gtk_file_chooser_set_current_name(chooser, "workspace.dinttyws");
+    if (save != 0) gtk_file_chooser_set_current_name(chooser, "workspace.deettyws");
     return chooser;
 }
 
@@ -4895,7 +4895,7 @@ fn saveFileChooser(
     return chooser;
 }
 
-pub export fn dintty_save_file_chooser_new(
+pub export fn deetty_save_file_chooser_new(
     parent: ?*GtkWidget,
     title: [*:0]const u8,
     accept_label: [*:0]const u8,
@@ -4904,7 +4904,7 @@ pub export fn dintty_save_file_chooser_new(
     return saveFileChooser(parent orelse return null, title, accept_label, default_name);
 }
 
-pub export fn dintty_history_password_contents_new(
+pub export fn deetty_history_password_contents_new(
     dialog: ?*GtkWidget,
     entry_out: ?**GtkWidget,
 ) c_int {
@@ -4912,7 +4912,7 @@ pub export fn dintty_history_password_contents_new(
     const output = entry_out orelse return FALSE;
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8) orelse return FALSE;
     const label = gtk_label_new(
-        "Use at least 8 characters. The password is not stored by DINTTY.",
+        "Use at least 8 characters. The password is not stored by DEETTY.",
     ) orelse return FALSE;
     const entry = gtk_entry_new() orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(label), 0.0);
@@ -4927,7 +4927,7 @@ pub export fn dintty_history_password_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_agent_resume_contents_new(
+pub export fn deetty_agent_resume_contents_new(
     dialog: ?*GtkWidget,
     provider_out: ?**GtkWidget,
     session_out: ?**GtkWidget,
@@ -4967,7 +4967,7 @@ pub export fn dintty_agent_resume_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_dialog_new(
+pub export fn deetty_dialog_new(
     parent: ?*GtkWidget,
     title: [*:0]const u8,
     flags: c_int,
@@ -4988,7 +4988,7 @@ pub export fn dintty_dialog_new(
     return dialog;
 }
 
-pub export fn dintty_error_dialog_new(
+pub export fn deetty_error_dialog_new(
     parent: ?*GtkWidget,
     title: [*:0]const u8,
     detail: ?[*:0]const u8,
@@ -5008,7 +5008,7 @@ pub export fn dintty_error_dialog_new(
     return dialog;
 }
 
-pub export fn dintty_message_dialog_new(
+pub export fn deetty_message_dialog_new(
     parent: ?*GtkWidget,
     message_type: c_int,
     primary: [*:0]const u8,
@@ -5078,7 +5078,7 @@ const SettingsShellContents = extern struct {
     stack: ?*GtkWidget,
 };
 
-pub export fn dintty_settings_shell_new(
+pub export fn deetty_settings_shell_new(
     dialog: ?*GtkWidget,
     compact: c_int,
     window_page: ?*GtkWidget,
@@ -5089,13 +5089,13 @@ pub export fn dintty_settings_shell_new(
     const target = dialog orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-settings-dialog",
+        "deetty-settings-dialog",
     );
     const window = window_page orelse return FALSE;
     const behavior = behavior_page orelse return FALSE;
     const appearance = appearance_page orelse return FALSE;
     const layout = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0) orelse return FALSE;
-    gtk_style_context_add_class(gtk_widget_get_style_context(layout), "dintty-settings-shell");
+    gtk_style_context_add_class(gtk_widget_get_style_context(layout), "deetty-settings-shell");
     gtk_widget_set_hexpand(layout, TRUE);
     gtk_widget_set_vexpand(layout, TRUE);
 
@@ -5114,7 +5114,7 @@ pub export fn dintty_settings_shell_new(
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(categories),
-        "dintty-settings-sidebar",
+        "deetty-settings-sidebar",
     );
     gtk_container_set_border_width(@ptrCast(categories), 4);
     const category_rows = [_][3][*:0]const u8{
@@ -5123,7 +5123,7 @@ pub export fn dintty_settings_shell_new(
         .{ "preferences-desktop-theme", "Appearance", "appearance" },
     };
     for (category_rows) |row_data| {
-        const row = dintty_settings_category_row_new(
+        const row = deetty_settings_category_row_new(
             row_data[0],
             row_data[1],
             row_data[2],
@@ -5146,7 +5146,7 @@ pub export fn dintty_settings_shell_new(
     const separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(separator),
-        "dintty-settings-separator",
+        "deetty-settings-separator",
     );
     const content = gtk_dialog_get_content_area(@ptrCast(target));
     gtk_box_set_spacing(@ptrCast(content), 0);
@@ -5176,12 +5176,12 @@ fn spinButton(minimum: f64, maximum: f64, step: f64, value: f64) ?*GtkWidget {
 }
 
 fn packSettingsGroup(body: *GtkWidget, title: [*:0]const u8, child: *GtkWidget) bool {
-    const group = dintty_settings_group_new(title, child) orelse return false;
+    const group = deetty_settings_group_new(title, child) orelse return false;
     gtk_box_pack_start(@ptrCast(body), group, FALSE, FALSE, 0);
     return true;
 }
 
-pub export fn dintty_settings_core_contents_new(
+pub export fn deetty_settings_core_contents_new(
     options_raw: ?*const SettingsCoreOptions,
     contents_out: ?*SettingsCoreContents,
 ) c_int {
@@ -5193,15 +5193,15 @@ pub export fn dintty_settings_core_contents_new(
     const mode = comboText(&.{ "Dropdown", "Windowed", "Zen fullscreen" }, options.mode) orelse
         return FALSE;
     var window_page_body: *GtkWidget = undefined;
-    const window_page = dintty_settings_page_new(
+    const window_page = deetty_settings_page_new(
         "Window",
-        "Choose how DINTTY opens and size the drop-down terminal in real time.",
+        "Choose how DEETTY opens and size the drop-down terminal in real time.",
         &window_page_body,
     ) orelse return FALSE;
     if (options.compact != 0) gtk_container_set_border_width(@ptrCast(window_page_body), 12);
-    const window_grid = dintty_settings_grid_new() orelse return FALSE;
-    dintty_settings_grid_attach_control(window_grid, "Presentation mode", mode, 0);
-    dintty_settings_grid_attach_control(window_grid, "Open / retract shortcut", shortcut, 1);
+    const window_grid = deetty_settings_grid_new() orelse return FALSE;
+    deetty_settings_grid_attach_control(window_grid, "Presentation mode", mode, 0);
+    deetty_settings_grid_attach_control(window_grid, "Open / retract shortcut", shortcut, 1);
     if (!packSettingsGroup(window_page_body, "Window", window_grid)) return FALSE;
 
     const dropdown_width = spinButton(1, 100, 1, @floatFromInt(options.dropdown_width)) orelse
@@ -5210,10 +5210,10 @@ pub export fn dintty_settings_core_contents_new(
         return FALSE;
     const animation = spinButton(0, 2000, 10, @floatFromInt(options.animation_ms)) orelse
         return FALSE;
-    const dropdown_grid = dintty_settings_grid_new() orelse return FALSE;
-    dintty_settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
-    dintty_settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
-    dintty_settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)", animation, 2);
+    const dropdown_grid = deetty_settings_grid_new() orelse return FALSE;
+    deetty_settings_grid_attach_control(dropdown_grid, "Width (%)", dropdown_width, 0);
+    deetty_settings_grid_attach_control(dropdown_grid, "Height (%)", dropdown_height, 1);
+    deetty_settings_grid_attach_control(dropdown_grid, "Reveal animation (ms)", animation, 2);
     if (!packSettingsGroup(window_page_body, "Drop-down geometry", dropdown_grid)) return FALSE;
 
     const hide_focus = gtk_check_button_new_with_label("Hide dropdown when focus leaves") orelse
@@ -5230,7 +5230,7 @@ pub export fn dintty_settings_core_contents_new(
         options.preset,
     ) orelse return FALSE;
     var body: *GtkWidget = undefined;
-    const behavior_page = dintty_settings_page_new(
+    const behavior_page = deetty_settings_page_new(
         "Behavior",
         "Control focus, session defaults, and unobtrusive desktop feedback.",
         &body,
@@ -5251,11 +5251,11 @@ pub export fn dintty_settings_core_contents_new(
         "Use smooth touchpad and high-resolution wheel scrolling.",
     );
     gtk_toggle_button_set_active(@ptrCast(smooth_scroll), options.smooth_scroll);
-    const session_grid = dintty_settings_grid_new() orelse return FALSE;
-    dintty_settings_grid_attach_control(session_grid, "Active pane profile", preset, 0);
-    dintty_settings_grid_attach_control(session_grid, "Scrollback lines", scrollback, 1);
-    dintty_settings_grid_attach_control(session_grid, "Lines per wheel step", scroll_lines, 2);
-    dintty_settings_grid_attach_control(session_grid, "Smooth scrolling", smooth_scroll, 3);
+    const session_grid = deetty_settings_grid_new() orelse return FALSE;
+    deetty_settings_grid_attach_control(session_grid, "Active pane profile", preset, 0);
+    deetty_settings_grid_attach_control(session_grid, "Scrollback lines", scrollback, 1);
+    deetty_settings_grid_attach_control(session_grid, "Lines per wheel step", scroll_lines, 2);
+    deetty_settings_grid_attach_control(session_grid, "Smooth scrolling", smooth_scroll, 3);
     if (!packSettingsGroup(body, "Sessions", session_grid)) return FALSE;
 
     output.* = .{
@@ -5346,7 +5346,7 @@ fn panelMetricSpin(event_code: c_int, minimum: f64, maximum: f64, value: c_int) 
     const spin = spinButton(minimum, maximum, 1, @floatFromInt(value)) orelse return null;
     g_object_set_data(
         object(spin),
-        "dintty-panel-metric-event",
+        "deetty-panel-metric-event",
         @ptrFromInt(@as(usize, @intCast(event_code))),
     );
     return spin;
@@ -5354,11 +5354,11 @@ fn panelMetricSpin(event_code: c_int, minimum: f64, maximum: f64, value: c_int) 
 
 fn attachControls(grid: *GtkWidget, controls: []const struct { [*:0]const u8, *GtkWidget }) void {
     for (controls, 0..) |control, row| {
-        dintty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
+        deetty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
     }
 }
 
-pub export fn dintty_settings_appearance_contents_new(
+pub export fn deetty_settings_appearance_contents_new(
     options_raw: ?*const SettingsAppearanceOptions,
     contents_out: ?*SettingsAppearanceContents,
 ) c_int {
@@ -5383,7 +5383,7 @@ pub export fn dintty_settings_appearance_contents_new(
     );
     g_object_set_data(
         object(pane_gaps_enabled),
-        "dintty-panel-metric-event",
+        "deetty-panel-metric-event",
         @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.pane_gaps_enabled)))),
     );
     const pane_gaps_transparent = gtk_check_button_new_with_label(
@@ -5399,7 +5399,7 @@ pub export fn dintty_settings_appearance_contents_new(
     );
     g_object_set_data(
         object(pane_gaps_transparent),
-        "dintty-panel-metric-event",
+        "deetty-panel-metric-event",
         @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.pane_gaps_transparent)))),
     );
     const inactive_pane_dim_enabled = gtk_check_button_new_with_label(
@@ -5411,7 +5411,7 @@ pub export fn dintty_settings_appearance_contents_new(
     );
     g_object_set_data(
         object(inactive_pane_dim_enabled),
-        "dintty-panel-metric-event",
+        "deetty-panel-metric-event",
         @ptrFromInt(@as(usize, @intCast(NativeGridLogic.settings_event_code(.inactive_pane_dim)))),
     );
     const inactive_pane_brightness = gtk_scale_new_with_range(
@@ -5432,15 +5432,15 @@ pub export fn dintty_settings_appearance_contents_new(
     );
     setAccessibleName(inactive_pane_brightness, "Inactive pane brightness percent");
     gtk_widget_set_sensitive(spacing, options.pane_gaps_enabled);
-    g_object_set_data(object(pane_gaps_enabled), "dintty-gap-width", spacing);
+    g_object_set_data(object(pane_gaps_enabled), "deetty-gap-width", spacing);
     g_object_set_data(
         object(pane_gaps_enabled),
-        "dintty-gap-transparent",
+        "deetty-gap-transparent",
         pane_gaps_transparent,
     );
     g_object_set_data(
         object(inactive_pane_dim_enabled),
-        "dintty-inactive-brightness",
+        "deetty-inactive-brightness",
         inactive_pane_brightness,
     );
     const divider = panelMetricSpin(NativeGridLogic.settings_event_code(.pane_divider), 1, 16, options.pane_divider) orelse return FALSE;
@@ -5458,7 +5458,7 @@ pub export fn dintty_settings_appearance_contents_new(
     ) orelse return FALSE;
     gtk_toggle_button_set_active(@ptrCast(theme_scope_tab), TRUE);
     const theme_library = gtk_button_new_with_label("Browse installed themes…") orelse return FALSE;
-    dintty_configure_action_button(theme_library, "Open Theme Library and choose an installed Noctalia scheme");
+    deetty_configure_action_button(theme_library, "Open Theme Library and choose an installed Noctalia scheme");
     const family = comboText(&.{ "Monospace", "JetBrains Mono" }, options.family) orelse return FALSE;
     const font = spinButton(options.font_min, options.font_max, 1, options.font_size) orelse return FALSE;
     const antialias = comboText(&.{ "System default", "Grayscale", "Subpixel (smoothest)" }, options.antialias) orelse return FALSE;
@@ -5469,13 +5469,13 @@ pub export fn dintty_settings_appearance_contents_new(
     ) orelse return FALSE;
 
     var body: *GtkWidget = undefined;
-    const page = dintty_settings_page_new(
+    const page = deetty_settings_page_new(
         "Appearance",
         "Keep terminal text readable while tuning the small amount of client chrome.",
         &body,
     ) orelse return FALSE;
     if (options.compact != 0) gtk_container_set_border_width(@ptrCast(body), 12);
-    const terminal_grid = dintty_settings_grid_new() orelse return FALSE;
+    const terminal_grid = deetty_settings_grid_new() orelse return FALSE;
     attachControls(terminal_grid, &.{
         .{ "Theme", theme },                 .{ "Theme scope", theme_scope_tab },
         .{ "Theme library", theme_library }, .{ "Font family", family },
@@ -5483,13 +5483,13 @@ pub export fn dintty_settings_appearance_contents_new(
         .{ "Font hinting", hinting },        .{ "Renderer", renderer },
     });
     if (!packSettingsGroup(body, "Terminal", terminal_grid)) return FALSE;
-    const chrome_grid = dintty_settings_grid_new() orelse return FALSE;
+    const chrome_grid = deetty_settings_grid_new() orelse return FALSE;
     attachControls(chrome_grid, &.{
         .{ "Tab position", tabs },     .{ "Status indicator", status },
         .{ "Panel padding", padding }, .{ "Pane information", pane_info },
     });
     if (!packSettingsGroup(body, "Client chrome", chrome_grid)) return FALSE;
-    const pane_grid = dintty_settings_grid_new() orelse return FALSE;
+    const pane_grid = deetty_settings_grid_new() orelse return FALSE;
     attachControls(pane_grid, &.{
         .{ "Pane gaps", pane_gaps_enabled },
         .{ "Gap width", spacing },
@@ -5498,7 +5498,7 @@ pub export fn dintty_settings_appearance_contents_new(
         .{ "Inactive brightness", inactive_pane_brightness },
     });
     if (!packSettingsGroup(body, "Pane focus and spacing", pane_grid)) return FALSE;
-    const thickness_grid = dintty_settings_grid_new() orelse return FALSE;
+    const thickness_grid = deetty_settings_grid_new() orelse return FALSE;
     attachControls(thickness_grid, &.{
         .{ "Focused pane border", focused_border },
         .{ "Selected pane border", selected_border },
@@ -5522,11 +5522,11 @@ pub export fn dintty_settings_appearance_contents_new(
     const transparency_status = gtk_label_new(if (options.alpha_supported != 0)
         "Available through the current compositor"
     else
-        "Unavailable; DINTTY is using an opaque background") orelse return FALSE;
+        "Unavailable; DEETTY is using an opaque background") orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(transparency_status), 0.0);
     gtk_label_set_line_wrap(@ptrCast(transparency_status), TRUE);
-    g_object_set_data(object(translucency), "dintty-background-opacity", opacity);
-    const background_grid = dintty_settings_grid_new() orelse return FALSE;
+    g_object_set_data(object(translucency), "deetty-background-opacity", opacity);
+    const background_grid = deetty_settings_grid_new() orelse return FALSE;
     attachControls(background_grid, &.{
         .{ "Translucency", translucency }, .{ "Opacity", opacity },
         .{ "Tint", tint },                 .{ "Compositor support", transparency_status },
@@ -5541,10 +5541,10 @@ pub export fn dintty_settings_appearance_contents_new(
         "Success status",      "Warning status",       "Error status",
         "Terminal caret",      "Pane gap",
     };
-    const color_grid = dintty_settings_grid_new() orelse return FALSE;
+    const color_grid = deetty_settings_grid_new() orelse return FALSE;
     for (color_labels, 0..) |label, index| {
         const button = colors[index] orelse return FALSE;
-        dintty_settings_grid_attach_control(color_grid, label, button, @intCast(index));
+        deetty_settings_grid_attach_control(color_grid, label, button, @intCast(index));
     }
     if (!packSettingsGroup(body, "Workspace colors", color_grid)) return FALSE;
     output.* = .{
@@ -5613,7 +5613,7 @@ fn textEntry(text: [*:0]const u8, placeholder: [*:0]const u8) ?*GtkWidget {
     return entry;
 }
 
-pub export fn dintty_launch_profile_contents_new(
+pub export fn deetty_launch_profile_contents_new(
     parent_body: ?*GtkWidget,
     options_raw: ?*const LaunchProfileOptions,
     contents_out: ?*LaunchProfileContents,
@@ -5663,17 +5663,17 @@ pub export fn dintty_launch_profile_contents_new(
     gtk_spin_button_set_value(@ptrCast(scrollback), @floatFromInt(options.scrollback));
 
     const apply = gtk_button_new_with_label("Apply to new sessions") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         apply,
         "Validate and save this profile; running sessions are unchanged.",
     );
     const save = gtk_button_new_with_label("Save named profile") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         save,
         "Add or replace a named profile and select it for new sessions.",
     );
     const delete = gtk_button_new_with_label("Delete selected profile") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         delete,
         "Remove the selected name; the current launch values stay active.",
     );
@@ -5685,7 +5685,7 @@ pub export fn dintty_launch_profile_contents_new(
     gtk_widget_set_visible(status, FALSE);
     setAccessibleName(status, "Launch profile save status");
 
-    const grid = dintty_settings_grid_new() orelse return FALSE;
+    const grid = deetty_settings_grid_new() orelse return FALSE;
     const controls = [_]struct { [*:0]const u8, *GtkWidget }{
         .{ "Saved profile", library },
         .{ "Profile name", name },
@@ -5698,7 +5698,7 @@ pub export fn dintty_launch_profile_contents_new(
         .{ "New-session scrollback", scrollback },
     };
     for (controls, 0..) |control, row| {
-        dintty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
+        deetty_settings_grid_attach_control(grid, control[0], control[1], @intCast(row));
     }
     const buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6) orelse return FALSE;
     gtk_widget_set_halign(buttons, GTK_ALIGN_FILL);
@@ -5707,7 +5707,7 @@ pub export fn dintty_launch_profile_contents_new(
     gtk_box_pack_start(@ptrCast(buttons), delete, FALSE, FALSE, 0);
     gtk_grid_attach(@ptrCast(grid), buttons, 1, 9, 1, 1);
     gtk_grid_attach(@ptrCast(grid), status, 1, 10, 1, 1);
-    const group = dintty_settings_group_new("Launch profiles", grid) orelse return FALSE;
+    const group = deetty_settings_group_new("Launch profiles", grid) orelse return FALSE;
     gtk_box_pack_start(@ptrCast(body), group, FALSE, FALSE, 0);
 
     output.* = .{
@@ -5728,7 +5728,7 @@ pub export fn dintty_launch_profile_contents_new(
     return TRUE;
 }
 
-pub export fn dintty_theme_import_dialog_new(
+pub export fn deetty_theme_import_dialog_new(
     parent: ?*GtkWidget,
     variant_out: ?**GtkWidget,
 ) ?*GtkWidget {
@@ -5774,7 +5774,7 @@ const ThemeLibraryContents = extern struct {
     import_file: ?*GtkWidget,
 };
 
-pub export fn dintty_theme_library_contents_new(
+pub export fn deetty_theme_library_contents_new(
     dialog: ?*GtkWidget,
     themes: ?*GtkWidget,
     scheme: ?*GtkWidget,
@@ -5788,34 +5788,34 @@ pub export fn dintty_theme_library_contents_new(
     output.* = std.mem.zeroes(ThemeLibraryContents);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-utility-dialog",
+        "deetty-utility-dialog",
     );
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-theme-dialog",
+        "deetty-theme-dialog",
     );
     const box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(box),
-        "dintty-utility-body",
+        "deetty-utility-body",
     );
     const preview = gtk_label_new(
         "Preview: foreground · background · cursor · ANSI palette",
     ) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(preview),
-        "dintty-theme-preview",
+        "deetty-theme-preview",
     );
     const scope_tab = gtk_check_button_new_with_label(
         "Apply theme to the current tab only",
     ) orelse return FALSE;
     gtk_toggle_button_set_active(@ptrCast(scope_tab), FALSE);
-    g_object_set_data(object(theme_combo), "dintty-theme-scope-tab", scope_tab);
+    g_object_set_data(object(theme_combo), "deetty-theme-scope-tab", scope_tab);
     const scheme_label = gtk_label_new("Installed Noctalia scheme") orelse return FALSE;
     gtk_label_set_xalign(@ptrCast(scheme_label), 0.0);
     const variant = comboText(&.{ "Dark", "Light" }, 0) orelse return FALSE;
     const apply = gtk_button_new_with_label("Use selected Noctalia theme") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         apply,
         "Import and select the chosen installed Noctalia colorscheme",
     );
@@ -5827,7 +5827,7 @@ pub export fn dintty_theme_library_contents_new(
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(status),
-        "dintty-utility-status",
+        "deetty-utility-status",
     );
     setAccessibleName(scheme_combo, "Installed Noctalia scheme");
     setAccessibleName(variant, "Noctalia theme variant");
@@ -5837,14 +5837,14 @@ pub export fn dintty_theme_library_contents_new(
     gtk_widget_set_sensitive(variant, available);
     gtk_widget_set_sensitive(apply, available);
     const import_current = gtk_button_new_with_label("Use current Noctalia colors") orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         import_current,
         "Import ~/.config/noctalia/colors.json as terminal and workspace colors",
     );
     const import_file = gtk_button_new_with_label(
         "Import Ghostty / Xresources / Alacritty / Noctalia theme…",
     ) orelse return FALSE;
-    dintty_configure_action_button(
+    deetty_configure_action_button(
         import_file,
         "Import terminal and workspace colors, including Noctalia JSON schemes",
     );
@@ -5862,10 +5862,10 @@ pub export fn dintty_theme_library_contents_new(
         import_file,
     }) |widget| gtk_box_pack_start(@ptrCast(box), widget, FALSE, FALSE, 0);
     gtk_container_add(@ptrCast(gtk_dialog_get_content_area(@ptrCast(target))), box);
-    setSharingData(target, "dintty-system-noctalia-scheme", scheme_combo);
-    setSharingData(target, "dintty-system-noctalia-apply", apply);
-    setSharingData(target, "dintty-theme-selector", theme_combo);
-    setSharingData(target, "dintty-theme-status", status);
+    setSharingData(target, "deetty-system-noctalia-scheme", scheme_combo);
+    setSharingData(target, "deetty-system-noctalia-apply", apply);
+    setSharingData(target, "deetty-theme-selector", theme_combo);
+    setSharingData(target, "deetty-theme-status", status);
     output.* = .{
         .variant = variant,
         .scope_tab = scope_tab,
@@ -5882,7 +5882,7 @@ const NoctaliaSchemeRecord = struct {
     path: []const u8,
 };
 
-pub export fn dintty_theme_library_append_noctalia_records(
+pub export fn deetty_theme_library_append_noctalia_records(
     scheme: ?*GtkWidget,
     records: ?[*]const u8,
     length: usize,
@@ -5962,11 +5962,11 @@ fn sharingActionButton(
     setAccessibleName(button, action.label);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(button),
-        "dintty-sharing-action",
+        "deetty-sharing-action",
     );
     const tone_class: ?[*:0]const u8 = switch (NativeGridLogic.sharing_action_tone(action.action)) {
-        NativeGridLogic.sharing_action_tone_primary => "dintty-sharing-action-primary",
-        NativeGridLogic.sharing_action_tone_danger => "dintty-sharing-action-danger",
+        NativeGridLogic.sharing_action_tone_primary => "deetty-sharing-action-primary",
+        NativeGridLogic.sharing_action_tone_danger => "deetty-sharing-action-danger",
         else => null,
     };
     if (tone_class) |class_name|
@@ -5977,7 +5977,7 @@ fn sharingActionButton(
 
     g_object_set_data(
         object(button),
-        "dintty-sharing-action",
+        "deetty-sharing-action",
         @ptrFromInt(@as(usize, @intCast(action.action))),
     );
     connectSignal(button, "clicked", callback, context);
@@ -5990,7 +5990,7 @@ fn sharingFieldLabel(text: [*:0]const u8, control: *GtkWidget) ?*GtkWidget {
     gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(label),
-        "dintty-sharing-label",
+        "deetty-sharing-label",
     );
     gtk_label_set_mnemonic_widget(@ptrCast(label), control);
     return label;
@@ -6003,12 +6003,12 @@ fn sharingActionGroup(
     const frame = gtk_frame_new(title) orelse return null;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(frame),
-        "dintty-sharing-group",
+        "deetty-sharing-group",
     );
     const flow = gtk_flow_box_new() orelse return null;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(flow),
-        "dintty-sharing-action-flow",
+        "deetty-sharing-action-flow",
     );
     gtk_flow_box_set_selection_mode(@ptrCast(flow), GTK_SELECTION_NONE);
     gtk_flow_box_set_min_children_per_line(@ptrCast(flow), 1);
@@ -6030,7 +6030,7 @@ fn setSharingData(dialog: *GtkWidget, key: [*:0]const u8, widget: *GtkWidget) vo
 
 /// Builds the sharing control surface while C retains network and dialog
 /// lifecycle ownership. Every action remains explicit and callback-driven.
-pub export fn dintty_sharing_contents_new(
+pub export fn deetty_sharing_contents_new(
     dialog: ?*GtkWidget,
     width: c_int,
     height: c_int,
@@ -6040,7 +6040,7 @@ pub export fn dintty_sharing_contents_new(
     const target = dialog orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(target),
-        "dintty-sharing-dialog",
+        "deetty-sharing-dialog",
     );
     const callback_data = context orelse return FALSE;
     const callbacks = callbacks_raw orelse return FALSE;
@@ -6048,7 +6048,7 @@ pub export fn dintty_sharing_contents_new(
     const scroll = gtk_scrolled_window_new(null, null) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(scroll),
-        "dintty-sharing-scroll",
+        "deetty-sharing-scroll",
     );
     gtk_scrolled_window_set_policy(
         @ptrCast(scroll),
@@ -6061,7 +6061,7 @@ pub export fn dintty_sharing_contents_new(
     const grid = gtk_grid_new() orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(grid),
-        "dintty-sharing-grid",
+        "deetty-sharing-grid",
     );
     gtk_grid_set_row_spacing(@ptrCast(grid), 12);
     gtk_grid_set_column_spacing(@ptrCast(grid), 12);
@@ -6073,7 +6073,7 @@ pub export fn dintty_sharing_contents_new(
     const alias = gtk_entry_new() orelse return FALSE;
     const endpoint = gtk_entry_new() orelse return FALSE;
     const port = gtk_spin_button_new_with_range(1, 65535, 1) orelse return FALSE;
-    gtk_entry_set_text(@ptrCast(alias), "Remote DINTTY");
+    gtk_entry_set_text(@ptrCast(alias), "Remote DEETTY");
     gtk_entry_set_width_chars(@ptrCast(alias), 22);
     gtk_entry_set_width_chars(@ptrCast(endpoint), 28);
     gtk_widget_set_size_request(port, 96, -1);
@@ -6122,7 +6122,7 @@ pub export fn dintty_sharing_contents_new(
     const preview = gtk_drawing_area_new() orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(preview),
-        "dintty-sharing-preview",
+        "deetty-sharing-preview",
     );
     gtk_widget_set_tooltip_text(
         preview,
@@ -6160,7 +6160,7 @@ pub export fn dintty_sharing_contents_new(
     gtk_label_set_line_wrap(@ptrCast(status), TRUE);
     gtk_style_context_add_class(
         gtk_widget_get_style_context(status),
-        "dintty-sharing-status",
+        "deetty-sharing-status",
     );
     const status_accessible = gtk_widget_get_accessible(status);
     atk_object_set_name(status_accessible, "Session sharing status");
@@ -6174,7 +6174,7 @@ pub export fn dintty_sharing_contents_new(
     ) orelse return FALSE;
     gtk_style_context_add_class(
         gtk_widget_get_style_context(security),
-        "dintty-sharing-security",
+        "deetty-sharing-security",
     );
     gtk_label_set_xalign(@ptrCast(security), 0.0);
     gtk_label_set_line_wrap(@ptrCast(security), TRUE);
@@ -6209,45 +6209,45 @@ pub export fn dintty_sharing_contents_new(
     gtk_grid_attach(@ptrCast(grid), security, 0, 10, 4, 1);
 
     const keys = [_][*:0]const u8{
-        "dintty-sharing-pair-listen",
-        "dintty-sharing-pair-connect",
-        "dintty-sharing-confirm",
-        "dintty-sharing-cancel-pairing",
-        "dintty-sharing-discover",
-        "dintty-sharing-share-pane",
-        "dintty-sharing-share-tab",
-        "dintty-sharing-share-session",
-        "dintty-sharing-stop",
-        "dintty-sharing-grant",
-        "dintty-sharing-revoke",
-        "dintty-sharing-revoke-device",
-        "dintty-sharing-receive",
-        "dintty-sharing-stop-receive",
-        "dintty-sharing-request-control",
-        "dintty-sharing-reconnect",
-        "dintty-sharing-retry-save",
+        "deetty-sharing-pair-listen",
+        "deetty-sharing-pair-connect",
+        "deetty-sharing-confirm",
+        "deetty-sharing-cancel-pairing",
+        "deetty-sharing-discover",
+        "deetty-sharing-share-pane",
+        "deetty-sharing-share-tab",
+        "deetty-sharing-share-session",
+        "deetty-sharing-stop",
+        "deetty-sharing-grant",
+        "deetty-sharing-revoke",
+        "deetty-sharing-revoke-device",
+        "deetty-sharing-receive",
+        "deetty-sharing-stop-receive",
+        "deetty-sharing-request-control",
+        "deetty-sharing-reconnect",
+        "deetty-sharing-retry-save",
     };
     for (keys, buttons) |key, button| setSharingData(target, key, button);
-    setSharingData(target, "dintty-sharing-peers", peers);
-    setSharingData(target, "dintty-sharing-alias", alias);
-    setSharingData(target, "dintty-sharing-endpoint", endpoint);
-    setSharingData(target, "dintty-sharing-tabs", tabs);
-    setSharingData(target, "dintty-sharing-streams", streams);
-    setSharingData(target, "dintty-sharing-port", port);
-    setSharingData(target, "dintty-sharing-status", status);
-    setSharingData(target, "dintty-sharing-preview", preview);
-    setSharingData(target, "dintty-sharing-scroll", scroll);
-    g_object_set_data(object(target), "dintty-sharing-stream-count", @ptrFromInt(~@as(usize, 0)));
+    setSharingData(target, "deetty-sharing-peers", peers);
+    setSharingData(target, "deetty-sharing-alias", alias);
+    setSharingData(target, "deetty-sharing-endpoint", endpoint);
+    setSharingData(target, "deetty-sharing-tabs", tabs);
+    setSharingData(target, "deetty-sharing-streams", streams);
+    setSharingData(target, "deetty-sharing-port", port);
+    setSharingData(target, "deetty-sharing-status", status);
+    setSharingData(target, "deetty-sharing-preview", preview);
+    setSharingData(target, "deetty-sharing-scroll", scroll);
+    g_object_set_data(object(target), "deetty-sharing-stream-count", @ptrFromInt(~@as(usize, 0)));
     return TRUE;
 }
 
 fn addStyle(strip: *GtkWidget, label: *GtkWidget) void {
     const provider = gtk_css_provider_new() orelse return;
-    _ = gtk_css_provider_load_from_data(provider, "#dintty-pane-info {" ++
+    _ = gtk_css_provider_load_from_data(provider, "#deetty-pane-info {" ++
         " background-color: #11151d;" ++
         " border-top: 1px solid #2b3444;" ++
         "}" ++
-        "#dintty-pane-info label {" ++
+        "#deetty-pane-info label {" ++
         " color: #c4cbd6;" ++
         " font-size: 0.9em;" ++
         " padding: 1px 6px;" ++
@@ -6257,13 +6257,13 @@ fn addStyle(strip: *GtkWidget, label: *GtkWidget) void {
     g_object_unref(provider);
 }
 
-pub export fn dintty_pane_info_strip_new(enabled: c_int) ?*GtkWidget {
+pub export fn deetty_pane_info_strip_new(enabled: c_int) ?*GtkWidget {
     const strip = gtk_event_box_new() orelse return null;
     const label = gtk_label_new("") orelse {
         g_object_unref(strip);
         return null;
     };
-    gtk_widget_set_name(strip, "dintty-pane-info");
+    gtk_widget_set_name(strip, "deetty-pane-info");
     gtk_widget_set_size_request(strip, -1, 18);
     gtk_event_box_set_visible_window(@ptrCast(strip), TRUE);
     gtk_label_set_xalign(@ptrCast(label), 0.0);
@@ -6275,17 +6275,17 @@ pub export fn dintty_pane_info_strip_new(enabled: c_int) ?*GtkWidget {
     addStyle(strip, label);
     g_object_set_data(object(strip), label_key, label);
     atk_object_set_name(gtk_widget_get_accessible(strip), "Active terminal pane information");
-    dintty_pane_info_strip_set_enabled(strip, enabled);
+    deetty_pane_info_strip_set_enabled(strip, enabled);
     return strip;
 }
 
-pub export fn dintty_pane_info_strip_set_enabled(strip: ?*GtkWidget, enabled: c_int) void {
+pub export fn deetty_pane_info_strip_set_enabled(strip: ?*GtkWidget, enabled: c_int) void {
     const widget = strip orelse return;
     gtk_widget_set_no_show_all(widget, if (enabled == 0) TRUE else FALSE);
     gtk_widget_set_visible(widget, enabled);
 }
 
-pub export fn dintty_pane_info_strip_update(strip: ?*GtkWidget, text: ?[*:0]const u8, tooltip: ?[*:0]const u8) c_int {
+pub export fn deetty_pane_info_strip_update(strip: ?*GtkWidget, text: ?[*:0]const u8, tooltip: ?[*:0]const u8) c_int {
     const widget = strip orelse return FALSE;
     const next_text = text orelse return FALSE;
     const next_tooltip = tooltip orelse return FALSE;
@@ -6297,24 +6297,24 @@ pub export fn dintty_pane_info_strip_update(strip: ?*GtkWidget, text: ?[*:0]cons
     gtk_widget_set_tooltip_text(widget, next_tooltip);
     g_object_set_data_full(object(widget), text_key, g_strdup(next_text), g_free);
     g_object_set_data_full(object(widget), tooltip_key, g_strdup(next_tooltip), g_free);
-    const revision = dintty_pane_info_strip_revision(widget) +% 1;
+    const revision = deetty_pane_info_strip_revision(widget) +% 1;
     g_object_set_data(object(widget), revision_key, if (revision == 0) null else @ptrFromInt(revision));
     return TRUE;
 }
 
-pub export fn dintty_pane_info_strip_text(strip: ?*GtkWidget) ?[*:0]const u8 {
+pub export fn deetty_pane_info_strip_text(strip: ?*GtkWidget) ?[*:0]const u8 {
     const widget = strip orelse return null;
     const value = g_object_get_data(object(widget), text_key) orelse return null;
     return @ptrCast(value);
 }
 
-pub export fn dintty_pane_info_strip_tooltip(strip: ?*GtkWidget) ?[*:0]const u8 {
+pub export fn deetty_pane_info_strip_tooltip(strip: ?*GtkWidget) ?[*:0]const u8 {
     const widget = strip orelse return null;
     const value = g_object_get_data(object(widget), tooltip_key) orelse return null;
     return @ptrCast(value);
 }
 
-pub export fn dintty_pane_info_strip_revision(strip: ?*GtkWidget) c_uint {
+pub export fn deetty_pane_info_strip_revision(strip: ?*GtkWidget) c_uint {
     const widget = strip orelse return 0;
     const value = g_object_get_data(object(widget), revision_key) orelse return 0;
     return @intCast(@intFromPtr(value));

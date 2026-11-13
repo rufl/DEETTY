@@ -4,7 +4,7 @@ const Identity = @import("Identity.zig");
 const Protocol = @import("Protocol.zig");
 const Transport = @import("Transport.zig");
 
-const confirmation_payload = "DINTTY-PAIR-CONFIRMED-v1";
+const confirmation_payload = "DEETTY-PAIR-CONFIRMED-v1";
 
 pub const Session = struct {
     pending: Transport.PendingConnection,

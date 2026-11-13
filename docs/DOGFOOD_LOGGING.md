@@ -11,15 +11,15 @@ Default prefix: `~/.local`.
 Installed commands:
 
 ```text
-~/.local/bin/dintty
+~/.local/bin/deetty
 ~/.local/bin/nocted
 ```
 
 The commands and installed desktop entries run the staged binaries from:
 
 ```text
-~/.local/libexec/dintty-dogfood/dintty-bin
-~/.local/libexec/dintty-dogfood/nocted-bin
+~/.local/libexec/deetty-dogfood/deetty-bin
+~/.local/libexec/deetty-dogfood/nocted-bin
 ```
 
 The installer also stages `libgtk-layer-shell.so.0` in the same private runtime
@@ -32,7 +32,7 @@ layer surface if the system package is later removed.
 Override the default optimization mode when debugging a local issue:
 
 ```sh
-DINTTY_DOGFOOD_OPTIMIZE=Debug ./scripts/install_dogfood.sh
+DEETTY_DOGFOOD_OPTIMIZE=Debug ./scripts/install_dogfood.sh
 ```
 
 ## Logs and duration receipts
@@ -45,7 +45,7 @@ monotonic start values, stdout, stderr, GTK/GLib warnings, timestamp, duration,
 exit status, and bounded runtime warning-marker counts under:
 
 ```text
-~/.local/state/dintty/logs/
+~/.local/state/deetty/logs/
 ```
 
 Existing-owner `--status`, `--show`, `--hide`, and `--toggle` calls plus
@@ -56,12 +56,12 @@ redundant D-Bus status round trip; a D-Bus probe remains only as compatibility
 fallback for older or degraded owners. This keeps external shortcut activation
 latency close to one native D-Bus call instead of paying the
 desktop/version/hash/log-rotation setup on every toggle. Set
-`DINTTY_DOGFOOD_VERBOSE=1` when full GTK/GLib debug messages are needed.
+`DEETTY_DOGFOOD_VERBOSE=1` when full GTK/GLib debug messages are needed.
 
 The launcher also atomically maintains a private `0600` receipt under:
 
 ```text
-~/.local/state/dintty/dogfood-sessions/
+~/.local/state/deetty/dogfood-sessions/
 ```
 
 The receipt is written as `state=running` before the binary starts and replaced
@@ -80,14 +80,14 @@ falls back to bounded nonnegative wall-clock subtraction only when necessary.
 Follow current process logs and inspect retained runtime:
 
 ```sh
-tail -F ~/.local/state/dintty/logs/*.log
+tail -F ~/.local/state/deetty/logs/*.log
 ./scripts/dogfood_runtime_status.sh
 ./scripts/dogfood_runtime_status.sh --list-candidates
 ./scripts/dogfood_status.sh
 ./scripts/local_diagnostic_report.sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/local_interaction_spike_report.sh --quick
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/local_interaction_spike_report.sh --quick
 ./scripts/plasma_wayland_health.sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
 ```
 
 `local_interaction_spike_report.sh` exercises ReleaseSafe Wayland pane splits,
@@ -113,7 +113,7 @@ upload anything, contact the network, or change local state. The post-upgrade
 command additionally builds local test artifacts, runs the current
 `ReleaseSafe` Wayland maintenance and fresh-process NoctEd restore lanes, and
 writes clean `--version` receipts through the exact installed launchers. It
-fails closed if installed runtime integrity is lost, if a DINTTY/NoctEd
+fails closed if installed runtime integrity is lost, if a DEETTY/NoctEd
 product or qualification-smoke coredump appeared after that install, or if
 current-install receipts contain a failure, incomplete run, categorized
 critical marker, or interaction spike. Review output before sharing it with a
@@ -121,11 +121,11 @@ maintainer.
 
 `dogfood_runtime_status.sh` imports both version-1 receipts and older
 `dogfood_launch`/`dogfood_exit` logs. Its hours are runtime-only evidence:
-DINTTY and NoctEd may overlap and must not be summed as unique wall-clock work.
+DEETTY and NoctEd may overlap and must not be summed as unique wall-clock work.
 A two-hour runtime candidate counts toward the public-alpha quota only after one
-real-work entry in `docs/DOGFOOD_LOG.md` names that unique DINTTY receipt.
+real-work entry in `docs/DOGFOOD_LOG.md` names that unique DEETTY receipt.
 
-`dogfood_status.sh` derives `dogfood_omp_status` from the retained DINTTY
+`dogfood_status.sh` derives `dogfood_omp_status` from the retained DEETTY
 process logs. Do not copy manual `pass`/`fail` claims into
 `docs/DOGFOOD_LOG.md`. After the native host has detected an OMP process, the
 launcher records the locally installed `omp/X.Y.Z` version and gives the native
@@ -136,7 +136,7 @@ dogfood_event session=ID event=omp_NAME pane=ID value=INTEGER detail=TOKEN
 ```
 
 The current native host emits that canonical form. `dogfood_status.sh` also
-normalizes retained pre-fix `dintty_dogfood_event session_id=ID` records while
+normalizes retained pre-fix `deetty_dogfood_event session_id=ID` records while
 deriving local status; new sessions must use `dogfood_event session=ID`.
 
 All values are space-free allowlisted tokens. `omp_detected` is emitted only
@@ -164,7 +164,7 @@ app. It enables core dumps when the session permits them; systemd-managed crash
 details can then be inspected with:
 
 ```sh
-coredumpctl info dintty-bin
+coredumpctl info deetty-bin
 coredumpctl info nocted-bin
 ```
 

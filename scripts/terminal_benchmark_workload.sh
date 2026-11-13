@@ -1,11 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-: "${DINTTY_BENCH_RUN_DIR:?}"
-: "${DINTTY_BENCH_TITLE:?}"
-: "${DINTTY_BENCH_MODE:?}"
+: "${DEETTY_BENCH_RUN_DIR:?}"
+: "${DEETTY_BENCH_TITLE:?}"
+: "${DEETTY_BENCH_MODE:?}"
 
-run_dir=$DINTTY_BENCH_RUN_DIR
+run_dir=$DEETTY_BENCH_RUN_DIR
 control="$run_dir/control.$$"
 
 cleanup() {
@@ -15,7 +15,7 @@ trap cleanup EXIT
 trap 'exit 0' HUP INT TERM
 
 mkfifo "$control"
-printf '\033]2;%s\007DINTTY_BENCH_READY\n' "$DINTTY_BENCH_TITLE"
+printf '\033]2;%s\007DEETTY_BENCH_READY\n' "$DEETTY_BENCH_TITLE"
 : >"$run_dir/spawned.$$"
 
 while [ ! -e "$run_dir/go" ]; do
@@ -25,10 +25,10 @@ done
 
 stty size >"$run_dir/geometry.$$"
 
-if [ "$DINTTY_BENCH_MODE" = output ]; then
-    : "${DINTTY_BENCH_PAYLOAD:?}"
-    cat "$DINTTY_BENCH_PAYLOAD"
-    printf '\033[0mDINTTY_BENCH_OUTPUT_DONE\n'
+if [ "$DEETTY_BENCH_MODE" = output ]; then
+    : "${DEETTY_BENCH_PAYLOAD:?}"
+    cat "$DEETTY_BENCH_PAYLOAD"
+    printf '\033[0mDEETTY_BENCH_OUTPUT_DONE\n'
     awk 'BEGIN {
         printf "\033[2J\033[H\033[48;2;18;52;86m"
         for (row = 0; row < 100; row++) {

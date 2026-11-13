@@ -229,7 +229,7 @@ def main() -> int:
     # A migrated-policy classification must retain a direct Zig policy call.
     # This prevents the manifest from becoming a label for unreviewed C logic.
     policy_call = re.compile(
-        r"\bdintty_grid_[A-Za-z0-9_]*(?:plan|text|label|message|policy|geometry|"
+        r"\bdeetty_grid_[A-Za-z0-9_]*(?:plan|text|label|message|policy|geometry|"
         r"ratio|clamp|route|sequence|format|valid|action|target|position|event|"
         r"feedback|name|color|status|preset|setting|mode|title|tooltip|markup|"
         r"payload|prompt|selection|scroll|split|font|orientation|direction|"

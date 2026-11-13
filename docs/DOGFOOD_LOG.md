@@ -1,4 +1,4 @@
-# DINTTY Dogfood Log
+# DEETTY Dogfood Log
 
 Use this file to record real daily-driver sessions before public alpha. Keep it
 honest: failures and annoyances are useful. Session rules live in
@@ -10,9 +10,9 @@ honest: failures and annoyances are useful. Session rules live in
 ## YYYY-MM-DD — session title
 
 - Duration:
-- Dogfood receipt: `dintty-YYYYMMDD-HHMMSS-PID`
+- Dogfood receipt: `deetty-YYYYMMDD-HHMMSS-PID`
 - Desktop/session: Plasma Wayland / Plasma X11 / other
-- DINTTY command:
+- DEETTY command:
 - Work performed:
 - Panes/tabs used:
 - Agent/TUI apps used:
@@ -47,7 +47,7 @@ and `docs/DOGFOOD_RUNBOOK.md` for the exact preflight.
 
 - [x] Five sessions of at least two hours each
 - [ ] One session with four or more panes/tabs
-- [x] One Pi/Codex/Claude/agent CLI session inside DINTTY
+- [x] One Pi/Codex/Claude/agent CLI session inside DEETTY
 - [ ] Hide/show tested during real work
 - [ ] close confirmation tested with foreground job
 - [ ] hot-session restore tested after normal exit
@@ -60,11 +60,11 @@ and `docs/DOGFOOD_RUNBOOK.md` for the exact preflight.
 `./scripts/dogfood_runtime_status.sh --list-candidates` inspected retained
 installed-launcher receipts and legacy logs on host `chopper`:
 
-- DINTTY: 21 finished launches, one incomplete launch, 31,598 observed seconds
+- DEETTY: 21 finished launches, one incomplete launch, 31,598 observed seconds
   (8.777 hours), including one 16,077-second (4.466-hour) two-hour candidate
 - NoctEd: 22 finished launches, 11,003 observed seconds (3.056 hours), with no
   two-hour candidate
-- DINTTY and NoctEd hours may overlap and are not summed
+- DEETTY and NoctEd hours may overlap and are not summed
 - these totals prove retained process runtime only; they do not prove primary
   terminal use, pane count, agent use, editor actions, or other dogfood quota
   criteria
@@ -74,16 +74,16 @@ installed-launcher receipts and legacy logs on host `chopper`:
 The current audit inspected all retained launcher receipts and failure logs on
 host `chopper`:
 
-- DINTTY: 106 observed launches, 98 finished, eight incomplete, seven failed,
+- DEETTY: 106 observed launches, 98 finished, eight incomplete, seven failed,
   75,401 seconds / 20.945 runtime-only hours
 - NoctEd: 80 observed launches, 75 finished, five incomplete, two failed,
   29,094 seconds / 8.082 runtime-only hours
-- one clean 2.699-hour DINTTY runtime candidate and one clean 3.203-hour NoctEd
+- one clean 2.699-hour DEETTY runtime candidate and one clean 3.203-hour NoctEd
   runtime candidate exist, but neither is counted without the required work
   context in this log.
 - The 2026-09-06 operator reconciliation under **Sessions** supersedes this
-  historical DINTTY count classification, not the retained defect facts.
-- five retained DINTTY failures ended in descriptor exhaustion/display flush
+  historical DEETTY count classification, not the retained defect facts.
+- five retained DEETTY failures ended in descriptor exhaustion/display flush
   failure; separate retained logs exposed popup-parent warnings, stale-widget
   draw criticals, one exit 139, and one `NativeGridStateSyncFailed`
 - retained NoctEd failures exposed `gtk_main_quit` outside a live main loop and
@@ -100,7 +100,7 @@ model-sync failure; and NoctEd destruction is idempotent and main-loop guarded.
 An initial aggregate check passed all 418 tests. After the final patch, the
 current-source rerun passed 411 tests, skipped one, and failed only the six
 loopback-sharing cases for sandbox-denied socket creation; fresh production
-DINTTY and both smoke binaries compile. The focused graphical proof was not
+DEETTY and both smoke binaries compile. The focused graphical proof was not
 executed because the managed sandbox could not create the fail-closed private
 display namespace. These are local source/build facts, not a clean multi-hour
 runtime receipt. NCT-125 remains open until a newly installed build completes
@@ -117,7 +117,7 @@ axes, terminal and NoctEd tab close controls expose the exact target to
 assistive technology, and split creation avoids a duplicate resize request.
 The reviewed legacy X11 runner now owns a private `XDG_RUNTIME_DIR`. Focused
 source contracts, formatting, static C analysis, seven theme tests, and fresh
-DINTTY/NoctEd compilation pass. A current screenshot/interaction audit remains
+DEETTY/NoctEd compilation pass. A current screenshot/interaction audit remains
 unavailable here because the managed sandbox denies the private D-Bus socket;
 the runner failed closed and did not contact the active desktop. This is still
 not counted runtime evidence.
@@ -143,7 +143,7 @@ sharing preview request follows the bounded dialog work area instead of forcing
 480x260 logical pixels. Inline tab rename, workspace-tag, Noctalia-import, and
 NoctEd language-service inputs are explicitly named as well; tag trimming no
 longer modifies GTK's borrowed text, and unchanged timed sharing state does not
-repeat announcements. Fresh DINTTY and NoctEd smoke binaries plus the native
+repeat announcements. Fresh DEETTY and NoctEd smoke binaries plus the native
 source contract pass. The focused sharing-scope run failed closed before GTK
 mapping because the shared runner lock was read-only in this sandbox and its
 private legacy fallback could not bind a D-Bus socket. No active display was
@@ -175,7 +175,7 @@ by the 2026-08-29 pass: terminal and tab menus repeatedly attempted to map
 against the main toplevel while an older process-local popup remained at the
 head of GTK's Wayland popup stack. Those logs also contain selection-transfer
 broken-pipe warnings when an external clipboard consumer closes its request;
-the GTK-owned cancellation does not alter DINTTY state and remains outside the
+the GTK-owned cancellation does not alter DEETTY state and remains outside the
 hard-failure marker set.
 
 The current source dismisses stale process-local popup windows before opening a
@@ -190,7 +190,7 @@ retained the provenance-checked runtime and its SHA-256. Refresh now preflights
 and accepts only that private library when it still matches the previous `0600`
 build receipt; a missing or changed file fails before installed files are
 replaced. The launcher also bypasses receipt creation for NoctEd `--version`,
-matching its existing DINTTY version behavior and documentation. The current
+matching its existing DEETTY version behavior and documentation. The current
 `ReleaseFast` dogfood install completed through this retained-runtime path. A
 fresh two-hour
 installed session is still required; source, smoke, and installation results do
@@ -198,20 +198,20 @@ not close NCT-125 by themselves.
 
 ## Sessions
 
-The operator reconfirmed on 2026-09-06 that the seven retained two-hour DINTTY
+The operator reconfirmed on 2026-09-06 that the seven retained two-hour DEETTY
 candidates below were real installed daily-terminal dogfood, not smoke or
 screenshot runs. The receipts contribute 601,585 seconds / 167.107 hours across
 seven unique launcher sessions. Shell commands and terminal contents were
 intentionally not logged. Six sessions exited zero; the nonzero exit and
 warning-bearing sessions remain documented rather than being silently excluded.
-Separate NoctEd runtime may overlap and is not added to the DINTTY total.
+Separate NoctEd runtime may overlap and is not added to the DEETTY total.
 
-## 2026-09-03 — 60.152-hour installed DINTTY dogfood session
+## 2026-09-03 — 60.152-hour installed DEETTY dogfood session
 
 - Duration: 216,547 seconds / 60.152 hours
-- Dogfood receipt: `dintty-20260903-162027-752716`
+- Dogfood receipt: `deetty-20260903-162027-752716`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--toggle`
+- DEETTY command: installed launcher with `--toggle`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: at least one instrumented pane; exact peak was not retained
 - Agent/TUI apps used: OMP 18.1.11, with native detection and independent-input evidence
@@ -229,12 +229,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
   cancellation is nondestructive. The warning-bearing OMP log review correctly
   remains ineligible for the separate multi-OMP qualification.
 
-## 2026-09-03 — 3.322-hour installed DINTTY dogfood session
+## 2026-09-03 — 3.322-hour installed DEETTY dogfood session
 
 - Duration: 11,961 seconds / 3.322 hours
-- Dogfood receipt: `dintty-20260903-125659-3575`
+- Dogfood receipt: `deetty-20260903-125659-3575`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--hidden`
+- DEETTY command: installed launcher with `--hidden`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -250,12 +250,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
   The source correction is retained, while NCT-125 still requires a clean
   current-build workflow recapture rather than reclassifying this old run.
 
-## 2026-09-02 — 10.856-hour installed DINTTY dogfood session
+## 2026-09-02 — 10.856-hour installed DEETTY dogfood session
 
 - Duration: 39,081 seconds / 10.856 hours
-- Dogfood receipt: `dintty-20260902-135507-18289`
+- Dogfood receipt: `deetty-20260902-135507-18289`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--hidden`
+- DEETTY command: installed launcher with `--hidden`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -270,12 +270,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 
 - None recorded in the retained launcher log.
 
-## 2026-08-31 — 47.626-hour installed DINTTY dogfood session
+## 2026-08-31 — 47.626-hour installed DEETTY dogfood session
 
 - Duration: 171,454 seconds / 47.626 hours
-- Dogfood receipt: `dintty-20260831-111441-1690`
+- Dogfood receipt: `deetty-20260831-111441-1690`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--hidden`
+- DEETTY command: installed launcher with `--hidden`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -291,12 +291,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 - [x] P2 historical popup-parent and external clipboard-consumer warnings were
   retained and fed the later popup ownership hardening.
 
-## 2026-08-30 — 2.222-hour installed DINTTY dogfood session
+## 2026-08-30 — 2.222-hour installed DEETTY dogfood session
 
 - Duration: 7,998 seconds / 2.222 hours
-- Dogfood receipt: `dintty-20260830-125425-2624493`
+- Dogfood receipt: `deetty-20260830-125425-2624493`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--open-uri`
+- DEETTY command: installed launcher with `--open-uri`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -312,12 +312,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 - [x] P2 historical popup-parent and external clipboard-consumer warnings were
   retained and fed the later popup ownership hardening.
 
-## 2026-08-28 — 40.230-hour installed DINTTY dogfood session
+## 2026-08-28 — 40.230-hour installed DEETTY dogfood session
 
 - Duration: 144,828 seconds / 40.230 hours
-- Dogfood receipt: `dintty-20260828-204031-39059`
+- Dogfood receipt: `deetty-20260828-204031-39059`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--open-uri`
+- DEETTY command: installed launcher with `--open-uri`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -334,12 +334,12 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
   lifecycle/descriptor fixes are retained; NCT-125 still requires a clean
   current-build workflow recapture.
 
-## 2026-08-28 — 2.699-hour installed DINTTY dogfood session
+## 2026-08-28 — 2.699-hour installed DEETTY dogfood session
 
 - Duration: 9,716 seconds / 2.699 hours
-- Dogfood receipt: `dintty-20260828-115932-221925`
+- Dogfood receipt: `deetty-20260828-115932-221925`
 - Desktop/session: Niri / Wayland
-- DINTTY command: installed launcher with `--open-uri`
+- DEETTY command: installed launcher with `--open-uri`
 - Work performed: operator-confirmed real daily terminal work; terminal content was intentionally not retained
 - Panes/tabs used: not instrumented
 - Agent/TUI apps used: not instrumented
@@ -358,9 +358,9 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 ## 2026-08-05 — retained 4.466-hour runtime candidate (not counted pending work-context confirmation)
 
 - Duration: 16,077 seconds / 4.466 hours from launcher timestamps
-- Dogfood receipt: `dintty-20260805-124514-2056382` (legacy log import)
+- Dogfood receipt: `deetty-20260805-124514-2056382` (legacy log import)
 - Desktop/session: Plasma Wayland
-- DINTTY command: installed launcher with `--open-uri`
+- DEETTY command: installed launcher with `--open-uri`
 - Work performed: not recoverable from process logging; primary-terminal use is unconfirmed
 - Panes/tabs used: not recorded
 - Agent/TUI apps used: not recorded
@@ -392,8 +392,8 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 ## 2026-07-19 — public-alpha repository prep (not counted toward dogfood quota)
 
 - Duration: Pi-assisted prep session
-- Desktop/session: not verified as a DINTTY-hosted GUI dogfood session
-- DINTTY command: not launched for this entry
+- Desktop/session: not verified as a DEETTY-hosted GUI dogfood session
+- DEETTY command: not launched for this entry
 - Work performed: public-alpha documentation pass, source code map, screenshot capture automation, README screenshots, verification-status note
 - Panes/tabs used: not measured
 - Agent/TUI apps used: Pi coding-agent harness
@@ -403,11 +403,11 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 
 - The repository now has a public-readable alpha path and a contributor code map.
 - The current verification uncertainty is recorded instead of being hidden.
-- Automated screenshot capture produced real Plasma Wayland DINTTY and NoctEd PNGs.
+- Automated screenshot capture produced real Plasma Wayland DEETTY and NoctEd PNGs.
 
 ### Problems
 
-- [ ] P1: Real DINTTY/NoctEd dogfood sessions still need to be captured before counting alpha readiness as green.
+- [ ] P1: Real DEETTY/NoctEd dogfood sessions still need to be captured before counting alpha readiness as green.
 - [x] P1: `zig build run-nocted -- --project . --open README.md` aborted in a worker because the project index path expected an absolute path. Fixed on 2026-07-19: NoctEd now resolves relative project/document CLI paths to absolute real paths before worker admission, and the relative launch was re-tested without panic/assertion.
 
 ### Resource notes
@@ -417,14 +417,14 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 
 ### Follow-up
 
-- Run a real DINTTY session and a real NoctEd edit/search/save session, then add the first counted dogfood entry below this one.
-- Continue with a real counted DINTTY + NoctEd dogfood session; the relative-path CLI assertion is fixed.
+- Run a real DEETTY session and a real NoctEd edit/search/save session, then add the first counted dogfood entry below this one.
+- Continue with a real counted DEETTY + NoctEd dogfood session; the relative-path CLI assertion is fixed.
 
 ## 2026-07-19 — dogfood preflight smoke hardening (not counted toward dogfood quota)
 
 - Duration: focused preflight slice
 - Desktop/session: managed X11 and Wayland smoke backends
-- DINTTY command: `./scripts/native_grid_smoke.sh`
+- DEETTY command: `./scripts/native_grid_smoke.sh`
 - Work performed: pre-dogfood native-grid smoke rerun before starting counted sessions
 - Panes/tabs used: smoke fixture only
 - Agent/TUI apps used: Pi coding-agent harness
@@ -446,6 +446,6 @@ Separate NoctEd runtime may overlap and is not added to the DINTTY total.
 
 ### Follow-up
 
-- Start the first counted two-hour DINTTY/NoctEd dogfood session.
+- Start the first counted two-hour DEETTY/NoctEd dogfood session.
 
 _Add new counted entries here._

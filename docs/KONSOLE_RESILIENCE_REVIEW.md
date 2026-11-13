@@ -5,35 +5,35 @@ Date: 2026-08-22.
 ## Purpose
 
 This review answers a narrow question: what lets Konsole feel dependable as a
-Plasma terminal, and what should transfer to DINTTY without importing Qt/KDE
+Plasma terminal, and what should transfer to DEETTY without importing Qt/KDE
 Frameworks, a browser runtime, telemetry, or a larger editor product.
 
 The source comparison used Konsole commit `a626e1b` from
 `https://invent.kde.org/utilities/konsole.git`, plus the locally installed
 Konsole 26.08.0 desktop metadata. Findings are implementation evidence, not a
-claim that DINTTY must copy Konsole's architecture.
+claim that DEETTY must copy Konsole's architecture.
 
 ## What makes Konsole resilient on Plasma
 
-| Concern | Konsole mechanism | DINTTY consequence |
+| Concern | Konsole mechanism | DEETTY consequence |
 | --- | --- | --- |
-| Repeated launches | `KDBusService::Unique` forwards compatible launches to the existing process; explicit incompatible flags create a separate process. `src/main.cpp` | A terminal must never create an accidental second hidden/dropdown owner during a launch race. Preserve DINTTY's explicit separate-workspace policy where it protects active PTYs. |
-| Wayland foreground activation | A child Konsole can obtain an `XDG_ACTIVATION_TOKEN` from its parent session, and `MainWindow::activationRequest` applies it before presenting. `src/main.cpp`, `src/MainWindow.cpp` | Showing an existing DINTTY window needs a real, protocol-correct activation path; it must not rely on X11 focus assumptions. |
-| Plasma session restore | KDE session management saves session/profile state and recursive view topology; restore creates fresh sessions and reconnects the view tree. `MainWindow.cpp`, `ViewManager.cpp`, `SessionManager.cpp` | DINTTY already has the safer equivalent for its product: atomically restore layout/cwd/profile state while being explicit that ordinary shell processes restart. |
-| Process lifecycle | Session, PTY, emulation, and views have explicit teardown ordering; the last detached view closes its session. `src/session/Session.cpp` | Keep DINTTY's owned PTY/session teardown and late-callback guards. Do not weaken them for desktop integration. |
+| Repeated launches | `KDBusService::Unique` forwards compatible launches to the existing process; explicit incompatible flags create a separate process. `src/main.cpp` | A terminal must never create an accidental second hidden/dropdown owner during a launch race. Preserve DEETTY's explicit separate-workspace policy where it protects active PTYs. |
+| Wayland foreground activation | A child Konsole can obtain an `XDG_ACTIVATION_TOKEN` from its parent session, and `MainWindow::activationRequest` applies it before presenting. `src/main.cpp`, `src/MainWindow.cpp` | Showing an existing DEETTY window needs a real, protocol-correct activation path; it must not rely on X11 focus assumptions. |
+| Plasma session restore | KDE session management saves session/profile state and recursive view topology; restore creates fresh sessions and reconnects the view tree. `MainWindow.cpp`, `ViewManager.cpp`, `SessionManager.cpp` | DEETTY already has the safer equivalent for its product: atomically restore layout/cwd/profile state while being explicit that ordinary shell processes restart. |
+| Process lifecycle | Session, PTY, emulation, and views have explicit teardown ordering; the last detached view closes its session. `src/session/Session.cpp` | Keep DEETTY's owned PTY/session teardown and late-callback guards. Do not weaken them for desktop integration. |
 | Bad launch configuration | Konsole checks the configured executable, falls back through shell candidates, and prints an in-terminal warning instead of leaving a blank window. `src/session/Session.cpp` | A broken launch profile should retain the workspace and offer a GUI-visible safe-shell fallback, never strand a user at startup. |
-| Desktop discoverability | Its desktop entry has stable identity, startup metadata, searchable terminal keywords, and New Window/New Tab actions. Global shortcuts use Plasma GlobalAccel. | DINTTY needs equally complete desktop integration, but its desktop actions must map to its own workspace semantics rather than pretending tabs and windows are interchangeable. |
-| Automation surface | Stable session-bus objects expose window/session operations; this makes tooling and KDE integration inspectable. `src/ViewManager.cpp`, `src/session/Session.cpp` | Keep DINTTY's control D-Bus API narrow and local. Stabilize it only after concurrency and activation semantics are proven. |
+| Desktop discoverability | Its desktop entry has stable identity, startup metadata, searchable terminal keywords, and New Window/New Tab actions. Global shortcuts use Plasma GlobalAccel. | DEETTY needs equally complete desktop integration, but its desktop actions must map to its own workspace semantics rather than pretending tabs and windows are interchangeable. |
+| Automation surface | Stable session-bus objects expose window/session operations; this makes tooling and KDE integration inspectable. `src/ViewManager.cpp`, `src/session/Session.cpp` | Keep DEETTY's control D-Bus API narrow and local. Stabilize it only after concurrency and activation semantics are proven. |
 
-## Current DINTTY strengths
+## Current DEETTY strengths
 
-DINTTY already has more of this foundation than a feature checklist suggests:
+DEETTY already has more of this foundation than a feature checklist suggests:
 
-- `com.dintty.DINTTY` exports local `GetState`, `Show`, `Hide`, and `Toggle`;
+- `com.deetty.DEETTY` exports local `GetState`, `Show`, `Hide`, and `Toggle`;
   `--hidden` waits for control registration before hiding.
 - Plasma GlobalAccel has availability checking, a visible fallback when
   registration fails, and teardown. Noctalia uses the same explicit
-  `dintty --toggle` contract rather than a private shell API.
+  `deetty --toggle` contract rather than a private shell API.
 - The StatusNotifier item re-registers when its watcher restarts and works on
   Wayland and X11.
 - Settings, workspace snapshots, and recovery writes use versioned bounded
@@ -41,10 +41,10 @@ DINTTY already has more of this foundation than a feature checklist suggests:
   shells while tmux/Zellij retain the live-process continuity option.
 - The native host has bounded PTY queues, centralized source teardown,
   foreground-job close confirmation, and retained Wayland/X11 proof lanes.
-- Desktop URI activation validates local, absolute `.dinttyws` paths before
+- Desktop URI activation validates local, absolute `.deettyws` paths before
   workspace state is replaced.
 
-These are the correct DINTTY primitives. Replacing them with KDE framework
+These are the correct DEETTY primitives. Replacing them with KDE framework
 objects would broaden the runtime and blur the Zig/native boundaries without
 solving a demonstrated problem.
 
@@ -81,7 +81,7 @@ GTK state is created. Losing launchers wait up to two seconds for the winner's
 D-Bus endpoint, forward an idempotent Show when appropriate, and exit without
 writing the primary hot-session state. D-Bus `RequestName` conflict handling
 remains a second fail-closed boundary if the filesystem lock is unavailable or
-an older DINTTY process already owns the bus name.
+an older DEETTY process already owns the bus name.
 
 Explicit `--new-window` and workspace/deep-link launches do not claim the
 primary dropdown service. Their hot-session persistence is isolated rather
@@ -123,7 +123,7 @@ proof.
 The startup-notification-aware application entry now has stable search
 keywords, `TryExec`, window class, and **Show**, **Open New Workspace Window**,
 and **Show or Hide** actions.
-`resources/dinttyhere.desktop` installs a Dolphin/KIO **Open DINTTY Here**
+`resources/deettyhere.desktop` installs a Dolphin/KIO **Open DEETTY Here**
 service action with one local directory selection. Dogfood installation
 rewrites both `TryExec` and service/application commands to its absolute local
 prefix. `--new-window --working-directory PATH` validates a bounded,
@@ -132,7 +132,7 @@ without replacing or attaching to the primary dropdown.
 
 Proof: package/install checks retain the service-menu artifact; the workspace
 activation contract checks both commands; the single-instance smoke verifies
-two coexisting DINTTY processes and the fresh terminal child's exact cwd.
+two coexisting DEETTY processes and the fresh terminal child's exact cwd.
 
 ### P1 — first toggle does not stall Plasma — implemented
 
@@ -144,7 +144,7 @@ same host. The launcher now bypasses session receipts for existing-owner
 control calls, uses the owner's held native lock instead of a redundant D-Bus
 status preflight for Show/Toggle, caches Plasma/KWin versions at install time,
 and enables full
-GTK/GLib debug chatter only through `DINTTY_DOGFOOD_VERBOSE=1`. After the
+GTK/GLib debug chatter only through `DEETTY_DOGFOOD_VERBOSE=1`. After the
 verified dogfood install, 12 installed `--status` calls measured 17.82 ms median
 and 19.66 ms maximum on the same live owner. After removing Show/Toggle's
 redundant status round trip, a further 30-call installed-owner run retained
@@ -152,7 +152,7 @@ redundant status round trip, a further 30-call installed-owner run retained
 median / 17.02 ms p95 / 17.62 ms maximum.
 
 The other cold-path risk was an overlay layer surface requesting exclusive
-keyboard ownership while KWin simultaneously mapped or unmapped it. DINTTY now
+keyboard ownership while KWin simultaneously mapped or unmapped it. DEETTY now
 uses protocol-v4 on-demand keyboard mode (the live compositor advertises v5),
 commits keyboard mode `NONE` before hide, and delays a zero-animation unmap by
 one frame. Older layer-shell protocols retain the exclusive compatibility
@@ -161,12 +161,12 @@ fallback. Windowed mode is unchanged.
 Proof is bounded to native D-Bus call timing and the live Plasma protocol path;
 it is not a compositor-wide frame trace or proof against unrelated KWin/GPU
 stalls. The same boot logged one KWin main-thread stall during Plasma startup,
-and Sunshine was running a KWin screencast on a hybrid Intel GPU, so DINTTY does
+and Sunshine was running a KWin screencast on a hybrid Intel GPU, so DEETTY does
 not claim every whole-desktop freeze originates in its process.
 
 ### P2 — recovery choices explain their process boundary — remaining polish
 
-DINTTY correctly distinguishes restartable shells, tmux/Zellij continuity, and
+DEETTY correctly distinguishes restartable shells, tmux/Zellij continuity, and
 agent resumes. The remaining work is presentation, not automatic process
 resurrection: after a crash or Plasma relogin, make the exact recovery source
 and selected restore mode even more prominent before PTYs start.
@@ -193,7 +193,7 @@ and selected restore mode even more prominent before PTYs start.
 
 ## Switch-over recommendation
 
-The two local P0 rows are closed, so DINTTY can now be the preferred
+The two local P0 rows are closed, so DEETTY can now be the preferred
 launcher/shortcut for dogfood. Leave Konsole installed as an emergency fallback
 through the real-session quota and multi-day NCT-112 qualification. Record
 sessions in `docs/DOGFOOD_LOG.md`; any reproducible launch, restore, focus, or

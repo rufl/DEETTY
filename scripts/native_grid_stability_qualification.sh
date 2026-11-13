@@ -8,18 +8,18 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 mode=${1:---smoke}
 case "$mode" in
     --smoke)
-        cycles=${DINTTY_STABILITY_CYCLES:-2}
-        phase_seconds=${DINTTY_STABILITY_PHASE_SECONDS:-2}
+        cycles=${DEETTY_STABILITY_CYCLES:-2}
+        phase_seconds=${DEETTY_STABILITY_PHASE_SECONDS:-2}
         authenticated=false
         modes=(Debug ReleaseSafe)
-        artifact_dir=${DINTTY_STABILITY_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-stability-shakedown-$(date +%F)"}
+        artifact_dir=${DEETTY_STABILITY_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-stability-shakedown-$(date +%F)"}
         ;;
     --run)
-        cycles=${DINTTY_STABILITY_CYCLES:-24}
-        phase_seconds=${DINTTY_STABILITY_PHASE_SECONDS:-1800}
+        cycles=${DEETTY_STABILITY_CYCLES:-24}
+        phase_seconds=${DEETTY_STABILITY_PHASE_SECONDS:-1800}
         authenticated=true
         modes=(ReleaseSafe)
-        artifact_dir=${DINTTY_STABILITY_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-stability-$(date +%F)"}
+        artifact_dir=${DEETTY_STABILITY_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-stability-$(date +%F)"}
         ;;
     *)
         echo "usage: $0 [--smoke|--run]" >&2
@@ -33,9 +33,9 @@ esac
 [[ "$cycles" =~ ^[1-9][0-9]*$ ]] && ((cycles <= 96))
 [[ "$phase_seconds" =~ ^[1-9][0-9]*$ ]] && ((phase_seconds <= 3600))
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-stability-qualification.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-stability-qualification.XXXXXX")
 runner_pid=
-plugin="dinttyStabilityActivate$$"
+plugin="deettyStabilityActivate$$"
 cleanup() {
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript \
         "$plugin" >/dev/null 2>&1 || true
@@ -87,7 +87,7 @@ wait_for_response() {
     local deadline=$((SECONDS + 600))
     while ((SECONDS < deadline)); do
         if [[ -s "$response" ]]; then
-            grep -Fx 'DINTTY_STABILITY_CODEX_OK' "$response" >/dev/null
+            grep -Fx 'DEETTY_STABILITY_CODEX_OK' "$response" >/dev/null
             return 0
         fi
         if ! kill -0 "$pid" 2>/dev/null; then
@@ -105,7 +105,7 @@ activate_wayland_window() {
     local script="$scratch/activate-window.js"
     cat >"$script" <<'EOF'
 for (const window of workspace.windowList()) {
-    if (window.caption === 'DINTTY stability qualification') {
+    if (window.caption === 'DEETTY stability qualification') {
         window.minimized = false;
         workspace.activeWindow = window;
         break;
@@ -128,7 +128,7 @@ capture_window() {
         local window= attempt=0
         while ((attempt < 100)); do
             window=$(xdotool search --onlyvisible \
-                --name '^DINTTY stability qualification$' 2>/dev/null |
+                --name '^DEETTY stability qualification$' 2>/dev/null |
                 tail -n 1 || true)
             [[ -z "$window" ]] || break
             sleep 0.1
@@ -147,7 +147,7 @@ capture_window() {
     ((width >= 900))
     ((height >= 500))
     ocr=$(tesseract "$image" stdout -l afr --psm 6 2>/dev/null)
-    grep -F 'DINTTY' <<<"$ocr" >/dev/null
+    grep -F 'DEETTY' <<<"$ocr" >/dev/null
     grep -i -F 'stability' <<<"$ocr" >/dev/null
 }
 
@@ -178,10 +178,10 @@ sample_phase() {
 
 backends=(wayland x11)
 phase_timeout=$((phase_seconds + 180))
-root_growth_kib_max=${DINTTY_STABILITY_ROOT_GROWTH_KIB_MAX:-65536}
+root_growth_kib_max=${DEETTY_STABILITY_ROOT_GROWTH_KIB_MAX:-65536}
 for build_mode in "${modes[@]}"; do
     prefix="$scratch/$build_mode"
-    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build deetty-smoke-binary \
         -Doptimize="$build_mode" \
         --prefix "$prefix" \
         --cache-dir "$scratch/cache-$build_mode"
@@ -192,20 +192,20 @@ for build_mode in "${modes[@]}"; do
         response="$artifact_dir/$lane-response.txt"
         ready="$scratch/$lane-ready"
         rm -f "$ready"
-        command="stty -echo; printf '\033]2;DINTTY stability qualification\007'; printf '\033[2J\033[HDINTTY stability qualification\r\nPTY · VT · GTK · Cairo · Plasma\r\n'; touch \"\$DINTTY_STABILITY_READY_PATH\"; (i=0; while :; do i=\$((i + 1)); printf '\033[4;1HDINTTY stability heartbeat %08d        ' \"\$i\"; sleep \"\${DINTTY_STABILITY_HEARTBEAT_SECONDS:-1}\"; done) & worker=\$!; cat >/dev/null; kill \"\$worker\" 2>/dev/null || true; wait \"\$worker\" 2>/dev/null || true; exit 0"
+        command="stty -echo; printf '\033]2;DEETTY stability qualification\007'; printf '\033[2J\033[HDEETTY stability qualification\r\nPTY · VT · GTK · Cairo · Plasma\r\n'; touch \"\$DEETTY_STABILITY_READY_PATH\"; (i=0; while :; do i=\$((i + 1)); printf '\033[4;1HDEETTY stability heartbeat %08d        ' \"\$i\"; sleep \"\${DEETTY_STABILITY_HEARTBEAT_SECONDS:-1}\"; done) & worker=\$!; cat >/dev/null; kill \"\$worker\" 2>/dev/null || true; wait \"\$worker\" 2>/dev/null || true; exit 0"
         if [[ "$authenticated" == true ]]; then
-            command="stty -echo; printf '\033]2;DINTTY stability qualification\007'; printf '\033[2J\033[HDINTTY stability qualification\r\nStarting authenticated Codex check...\r\n'; codex exec --ephemeral --skip-git-repo-check --sandbox read-only --color never -C /tmp -o \"\$DINTTY_STABILITY_RESPONSE_PATH\" 'Do not run commands or inspect files. Reply with exactly DINTTY_STABILITY_CODEX_OK.' </dev/null; status=\$?; [ \"\$status\" -eq 0 ] || exit \"\$status\"; printf '\033[2;1HAuthenticated Codex check passed.          '; touch \"\$DINTTY_STABILITY_READY_PATH\"; (i=0; while :; do i=\$((i + 1)); printf '\033[4;1HDINTTY stability heartbeat %08d        ' \"\$i\"; sleep \"\${DINTTY_STABILITY_HEARTBEAT_SECONDS:-10}\"; done) & worker=\$!; cat >/dev/null; kill \"\$worker\" 2>/dev/null || true; wait \"\$worker\" 2>/dev/null || true; exit 0"
+            command="stty -echo; printf '\033]2;DEETTY stability qualification\007'; printf '\033[2J\033[HDEETTY stability qualification\r\nStarting authenticated Codex check...\r\n'; codex exec --ephemeral --skip-git-repo-check --sandbox read-only --color never -C /tmp -o \"\$DEETTY_STABILITY_RESPONSE_PATH\" 'Do not run commands or inspect files. Reply with exactly DEETTY_STABILITY_CODEX_OK.' </dev/null; status=\$?; [ \"\$status\" -eq 0 ] || exit \"\$status\"; printf '\033[2;1HAuthenticated Codex check passed.          '; touch \"\$DEETTY_STABILITY_READY_PATH\"; (i=0; while :; do i=\$((i + 1)); printf '\033[4;1HDEETTY stability heartbeat %08d        ' \"\$i\"; sleep \"\${DEETTY_STABILITY_HEARTBEAT_SECONDS:-10}\"; done) & worker=\$!; cat >/dev/null; kill \"\$worker\" 2>/dev/null || true; wait \"\$worker\" 2>/dev/null || true; exit 0"
         fi
         ((${#command} <= 1024))
         started=$(date +%s)
         env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
             GDK_BACKEND="$backend" \
-            DINTTY_STABILITY_CYCLES="$cycles" \
-            DINTTY_STABILITY_PHASE_SECONDS="$phase_seconds" \
-            DINTTY_STABILITY_RESPONSE_PATH="$response" \
-            DINTTY_STABILITY_READY_PATH="$ready" \
-            DINTTY_STABILITY_COMMAND="$command" \
-            "$prefix/bin/dintty-smoke" \
+            DEETTY_STABILITY_CYCLES="$cycles" \
+            DEETTY_STABILITY_PHASE_SECONDS="$phase_seconds" \
+            DEETTY_STABILITY_RESPONSE_PATH="$response" \
+            DEETTY_STABILITY_READY_PATH="$ready" \
+            DEETTY_STABILITY_COMMAND="$command" \
+            "$prefix/bin/deetty-smoke" \
             --native-grid-stability-qualification >"$log" 2>&1 &
         runner_pid=$!
         wait_for_phase "$log" visible_ready 0 "$runner_pid" 60

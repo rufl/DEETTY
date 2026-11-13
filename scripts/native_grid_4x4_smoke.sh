@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DEETTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_wayland.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh

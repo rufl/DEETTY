@@ -873,7 +873,7 @@ pub const App = struct {
 
     pub fn activeTheme(self: App) Theme.Theme {
         if (self.findTheme(self.config.default_theme)) |theme| return theme;
-        if (std.mem.eql(u8, self.config.default_theme, "dintty-high-contrast"))
+        if (std.mem.eql(u8, self.config.default_theme, "deetty-high-contrast"))
             return Theme.Theme.builtinHighContrast();
         return Theme.Theme.builtinDark();
     }
@@ -881,7 +881,7 @@ pub const App = struct {
     pub fn themeForPane(self: *App, pane_id: Terminal.PaneId) Theme.Theme {
         const pane = self.workspace.findPane(pane_id) orelse return self.activeTheme();
         if (self.findTheme(pane.profile.theme_name)) |theme| return theme;
-        if (std.mem.eql(u8, pane.profile.theme_name, "dintty-high-contrast")) {
+        if (std.mem.eql(u8, pane.profile.theme_name, "deetty-high-contrast")) {
             return Theme.Theme.builtinHighContrast();
         }
         return self.activeTheme();
@@ -1317,7 +1317,7 @@ pub const App = struct {
             .select_theme => |name| {
                 const theme_name = std.mem.trim(u8, name, " \t\r\n");
                 const theme = self.findTheme(theme_name) orelse builtin: {
-                    if (std.mem.eql(u8, theme_name, "dintty-high-contrast"))
+                    if (std.mem.eql(u8, theme_name, "deetty-high-contrast"))
                         break :builtin try self.installThemeCopy(
                             Theme.Theme.builtinHighContrast(),
                         );
@@ -1329,7 +1329,7 @@ pub const App = struct {
             .set_tab_theme => |change| {
                 const theme_name = std.mem.trim(u8, change.theme_name, " \t\r\n");
                 _ = self.findTheme(theme_name) orelse builtin: {
-                    if (std.mem.eql(u8, theme_name, "dintty-high-contrast")) {
+                    if (std.mem.eql(u8, theme_name, "deetty-high-contrast")) {
                         break :builtin Theme.Theme.builtinHighContrast();
                     }
                     return error.ThemeNotInstalled;
@@ -2060,9 +2060,9 @@ test "app dispatches typed gui settings commands" {
     try std.testing.expectEqual(@as(f32, 13.5), app.host.config.font.size_pt);
 
     _ = try app.dispatch(.{ .set_font_family = " JetBrains Mono " });
-    _ = try app.dispatch(.{ .set_default_theme = " dintty-high-contrast " });
+    _ = try app.dispatch(.{ .set_default_theme = " deetty-high-contrast " });
     try std.testing.expectEqualStrings("JetBrains Mono", app.config.font.family);
-    try std.testing.expectEqualStrings("dintty-high-contrast", app.host.config.default_theme);
+    try std.testing.expectEqualStrings("deetty-high-contrast", app.host.config.default_theme);
 
     try std.testing.expectEqual(
         App.ConfigSetting.background,
@@ -2157,7 +2157,7 @@ test "app saves and loads gui configuration files" {
 
     const default_path = try app.defaultConfigPathAlloc("/home/alice");
     defer allocator.free(default_path);
-    try std.testing.expectEqualStrings("/home/alice/.config/dintty/settings.dinttycfg", default_path);
+    try std.testing.expectEqualStrings("/home/alice/.config/deetty/settings.deettycfg", default_path);
 
     _ = try app.dispatch(.{ .set_window_mode = .windowed });
     _ = try app.dispatch(.begin_shortcut_recording);
@@ -2169,7 +2169,7 @@ test "app saves and loads gui configuration files" {
     _ = try app.dispatch(.{ .set_font_family = "Commit Mono" });
     _ = try app.dispatch(.{ .set_default_theme = "workspace-night" });
 
-    const saved = try app.saveConfigFile(io, tmp.dir, "settings/dintty.dinttycfg", .settings);
+    const saved = try app.saveConfigFile(io, tmp.dir, "settings/deetty.deettycfg", .settings);
     defer saved.deinit(allocator);
     try std.testing.expect(saved.bytes > 16);
 
@@ -2181,9 +2181,9 @@ test "app saves and loads gui configuration files" {
     _ = try app.dispatch(.{ .set_tooltip_details = true });
     _ = try app.dispatch(.{ .set_long_running_minutes = 20 });
     _ = try app.dispatch(.{ .set_font_family = "JetBrains Mono" });
-    _ = try app.dispatch(.{ .set_default_theme = "dintty-dark" });
+    _ = try app.dispatch(.{ .set_default_theme = "deetty-dark" });
 
-    const loaded = try app.loadConfigFile(io, tmp.dir, "settings/dintty.dinttycfg", .settings);
+    const loaded = try app.loadConfigFile(io, tmp.dir, "settings/deetty.deettycfg", .settings);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(Config.WindowMode.windowed, app.config.default_mode);
     try std.testing.expectEqual(Config.Shortcut.Key.t, app.config.dropdown.shortcut.key);
@@ -2221,7 +2221,7 @@ test "app dispatches per-pane profile presets from context commands" {
         .pane_id = 1,
         .preset = .high_contrast,
     } });
-    try std.testing.expectEqualStrings("dintty-high-contrast", high_contrast.profile_changed.profile.theme_name);
+    try std.testing.expectEqualStrings("deetty-high-contrast", high_contrast.profile_changed.profile.theme_name);
     try std.testing.expectEqualStrings("workspace-dark", app.workspace.findPane(2).?.profile.theme_name);
 
     const resized = try app.dispatch(.{ .set_pane_font_size = .{
@@ -2289,24 +2289,24 @@ test "app applies installed themes to one tab without changing the default" {
 
     const result = try app.dispatch(.{ .set_tab_theme = .{
         .pane_id = 1,
-        .theme_name = "dintty-high-contrast",
+        .theme_name = "deetty-high-contrast",
     } });
     try std.testing.expectEqual(@as(u64, 1), result.tab_theme_changed);
     try std.testing.expectEqualStrings(
-        "dintty-high-contrast",
+        "deetty-high-contrast",
         app.workspace.findPane(1).?.profile.theme_name,
     );
     try std.testing.expectEqualStrings(
-        "dintty-high-contrast",
+        "deetty-high-contrast",
         app.workspace.findPane(2).?.profile.theme_name,
     );
     try std.testing.expectEqualStrings(
-        "dintty-dark",
+        "deetty-dark",
         app.workspace.findPane(
             app.workspace.findTab(second_tab_id).?.active_pane_id,
         ).?.profile.theme_name,
     );
-    try std.testing.expectEqualStrings("dintty-dark", app.config.default_theme);
+    try std.testing.expectEqualStrings("deetty-dark", app.config.default_theme);
     try std.testing.expectEqual(
         Theme.Color.fromHex(0x000000),
         app.themeForPane(1).background,
@@ -2356,7 +2356,7 @@ test "app saves and loads durable theme library files" {
 
     const default_path = try source.defaultThemeLibraryPathAlloc("/home/alice");
     defer allocator.free(default_path);
-    try std.testing.expectEqualStrings("/home/alice/.config/dintty/themes.dinttythemes", default_path);
+    try std.testing.expectEqualStrings("/home/alice/.config/deetty/themes.deettythemes", default_path);
 
     _ = try source.dispatch(.{ .install_theme_import = .{
         .format = .ghostty,
@@ -2367,19 +2367,19 @@ test "app saves and loads durable theme library files" {
         \\cursor-color = #ff00aa
         ,
     } });
-    const saved = try source.saveThemeLibraryFile(io, tmp.dir, "themes/library.dinttythemes", .library);
+    const saved = try source.saveThemeLibraryFile(io, tmp.dir, "themes/library.deettythemes", .library);
     defer saved.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 3), saved.theme_count);
 
     var loaded_app = try App.init(allocator);
     defer loaded_app.deinit();
-    const loaded = try loaded_app.loadThemeLibraryFile(io, tmp.dir, "themes/library.dinttythemes", .library);
+    const loaded = try loaded_app.loadThemeLibraryFile(io, tmp.dir, "themes/library.deettythemes", .library);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(ThemeStorage.ThemeFileRole.library, loaded.role);
     try std.testing.expectEqual(@as(usize, 3), loaded.theme_count);
     try std.testing.expectEqual(@as(usize, 3), loaded_app.themes.items.len);
     try std.testing.expectEqual(Theme.Color.fromHex(0x000011), loaded_app.findTheme("Workspace Night").?.background);
-    try std.testing.expectEqualStrings("dintty-dark", loaded_app.config.default_theme);
+    try std.testing.expectEqualStrings("deetty-dark", loaded_app.config.default_theme);
 }
 
 test "app falls back to first loaded theme when current default is absent" {
@@ -2393,14 +2393,14 @@ test "app falls back to first loaded theme when current default is absent" {
         \\*.foreground: #aabbcc
     );
     const themes = [_]Theme.Theme{workspace};
-    const saved = try ThemeStorage.saveThemeLibraryFile(allocator, io, tmp.dir, "themes/single.dinttythemes", &themes, .library);
+    const saved = try ThemeStorage.saveThemeLibraryFile(allocator, io, tmp.dir, "themes/single.deettythemes", &themes, .library);
     defer saved.deinit(allocator);
 
     var app = try App.init(allocator);
     defer app.deinit();
     _ = try app.dispatch(.{ .set_default_theme = "theme-not-in-library" });
 
-    const loaded = try app.loadThemeLibraryFile(io, tmp.dir, "themes/single.dinttythemes", .library);
+    const loaded = try app.loadThemeLibraryFile(io, tmp.dir, "themes/single.deettythemes", .library);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 1), app.themes.items.len);
     try std.testing.expectEqualStrings("Workspace Night", app.config.default_theme);
@@ -2897,9 +2897,9 @@ test "app saves loads workspace files and tracks recovery state" {
     var app = try App.init(allocator);
     defer app.deinit();
 
-    const default_path = try app.defaultWorkspacePathAlloc("/home/alice", "DINTTY repo", .recovery);
+    const default_path = try app.defaultWorkspacePathAlloc("/home/alice", "DEETTY repo", .recovery);
     defer allocator.free(default_path);
-    try std.testing.expectEqualStrings("/home/alice/.local/state/dintty/recovery/DINTTY-repo.dinttyws", default_path);
+    try std.testing.expectEqualStrings("/home/alice/.local/state/deetty/recovery/DEETTY-repo.deettyws", default_path);
 
     try app.configureRecoveryPolicy(.{
         .autosave_interval_seconds = 10,
@@ -2914,17 +2914,17 @@ test "app saves loads workspace files and tracks recovery state" {
     app.markWorkspaceDirty();
     try std.testing.expect(app.recovery.shouldAutosave(10));
 
-    const saved = try app.saveWorkspaceFile(io, tmp.dir, "state/recovery/project.dinttyws", .recovery);
+    const saved = try app.saveWorkspaceFile(io, tmp.dir, "state/recovery/project.deettyws", .recovery);
     defer saved.deinit(allocator);
     try std.testing.expect(saved.bytes > 16);
     try std.testing.expect(saved.recovery_pending);
     try std.testing.expect(!app.recovery.dirty);
-    try std.testing.expectEqualStrings("state/recovery/project.dinttyws", app.recovery.recovery_path.?);
+    try std.testing.expectEqualStrings("state/recovery/project.deettyws", app.recovery.recovery_path.?);
 
     _ = try app.dispatch(.{ .preset = .three_by_three });
     try std.testing.expectEqual(@as(usize, 9), app.workspace.activeTab().?.panes.items.len);
 
-    const loaded = try app.loadWorkspaceFile(io, tmp.dir, "state/recovery/project.dinttyws", .recovery);
+    const loaded = try app.loadWorkspaceFile(io, tmp.dir, "state/recovery/project.deettyws", .recovery);
     defer loaded.deinit(allocator);
     try std.testing.expect(loaded.recovery_pending);
     try std.testing.expectEqual(@as(usize, 2), app.workspace.activeTab().?.panes.items.len);
@@ -2933,10 +2933,10 @@ test "app saves loads workspace files and tracks recovery state" {
     try std.testing.expect(!app.recovery.dirty);
 
     app.markWorkspaceDirty();
-    const manual = try app.saveWorkspaceFile(io, tmp.dir, "saved/project.dinttyws", .manual);
+    const manual = try app.saveWorkspaceFile(io, tmp.dir, "saved/project.deettyws", .manual);
     defer manual.deinit(allocator);
     try std.testing.expect(app.recovery.recovery_path == null);
-    try std.testing.expectEqualStrings("saved/project.dinttyws", app.recovery.last_path.?);
+    try std.testing.expectEqualStrings("saved/project.deettyws", app.recovery.last_path.?);
 }
 
 test "app rejects invalid recovery policies without mutating current policy" {
@@ -2960,26 +2960,26 @@ test "app plans and applies recovery cleanup with configured retention" {
     defer app.deinit();
     try app.configureRecoveryPolicy(.{ .max_recovery_snapshots = 1 });
 
-    try tmp.dir.writeFile(io, .{ .sub_path = "keep.dinttyws", .data = "new" });
-    try tmp.dir.writeFile(io, .{ .sub_path = "delete.dinttyws", .data = "old" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "keep.deettyws", .data = "new" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "delete.deettyws", .data = "old" });
 
     var plan = try app.planRecoveryCleanup(&.{
-        .{ .path = "keep.dinttyws", .role = .recovery, .saved_generation = 2, .saved_at_ms = 2000 },
-        .{ .path = "delete.dinttyws", .role = .autosave, .saved_generation = 1, .saved_at_ms = 1000 },
+        .{ .path = "keep.deettyws", .role = .recovery, .saved_generation = 2, .saved_at_ms = 2000 },
+        .{ .path = "delete.deettyws", .role = .autosave, .saved_generation = 1, .saved_at_ms = 1000 },
     });
     defer plan.deinit(allocator);
 
     try std.testing.expectEqual(@as(usize, 1), plan.retained_count);
-    try std.testing.expectEqualStrings("delete.dinttyws", plan.delete_entries[0].path);
+    try std.testing.expectEqualStrings("delete.deettyws", plan.delete_entries[0].path);
 
     const receipt = try app.applyRecoveryCleanup(io, tmp.dir, plan);
     try std.testing.expectEqual(@as(usize, 1), receipt.deleted_count);
     try std.testing.expectEqual(@as(usize, 0), receipt.missing_count);
 
-    const kept = try tmp.dir.readFileAlloc(io, "keep.dinttyws", allocator, .limited(16));
+    const kept = try tmp.dir.readFileAlloc(io, "keep.deettyws", allocator, .limited(16));
     defer allocator.free(kept);
     try std.testing.expectEqualStrings("new", kept);
-    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "delete.dinttyws", allocator, .limited(16)));
+    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "delete.deettyws", allocator, .limited(16)));
 }
 
 test "app maintenance tick plans autosave project refresh and recovery cleanup" {
@@ -3088,7 +3088,7 @@ test "workspace autosave clears pending maintenance autosave state" {
     try std.testing.expect(plan.autosave_due);
     try std.testing.expect(app.maintenance.autosave_pending);
 
-    const saved = try app.saveWorkspaceFile(io, tmp.dir, "autosave/project.dinttyws", .autosave);
+    const saved = try app.saveWorkspaceFile(io, tmp.dir, "autosave/project.deettyws", .autosave);
     defer saved.deinit(allocator);
     try std.testing.expect(!app.recovery.dirty);
     try std.testing.expect(!app.maintenance.autosave_pending);
@@ -3114,7 +3114,7 @@ test "failed maintenance autosave retries at cadence without blocking other due 
     try std.testing.expect(due.autosave_due and due.project_refresh_due and due.recovery_cleanup_due);
 
     failing.fail_index = failing.alloc_index;
-    try std.testing.expectError(error.OutOfMemory, app.saveWorkspaceFile(io, tmp.dir, "autosave.dinttyws", .autosave));
+    try std.testing.expectError(error.OutOfMemory, app.saveWorkspaceFile(io, tmp.dir, "autosave.deettyws", .autosave));
     failing.fail_index = std.math.maxInt(usize);
     try std.testing.expect(app.recovery.dirty);
     try std.testing.expectEqual(saved_generation, app.recovery.saved_generation);
@@ -3127,7 +3127,7 @@ test "failed maintenance autosave retries at cadence without blocking other due 
     try std.testing.expect(!early.hasDueWork());
     const retry = try app.advanceMaintenance(.{ .now_ms = 2000 });
     try std.testing.expect(retry.autosave_due and retry.project_refresh_due and retry.recovery_cleanup_due);
-    const saved = try app.saveWorkspaceFile(io, tmp.dir, "autosave.dinttyws", .autosave);
+    const saved = try app.saveWorkspaceFile(io, tmp.dir, "autosave.deettyws", .autosave);
     defer saved.deinit(allocator);
     try std.testing.expect(!app.recovery.dirty);
     try std.testing.expectEqual(app.recovery.generation, app.recovery.saved_generation);
@@ -3142,7 +3142,7 @@ test "app dispatches workspace save and open dialog requests" {
 
     const save_request = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .save,
-        .suggested_path = "/home/alice/project.dinttyws",
+        .suggested_path = "/home/alice/project.deettyws",
     } })).workspace_file_dialog_requested;
     try std.testing.expect(save_request.canShow());
     try std.testing.expectEqual(Host.WorkspaceFileDialogOperation.save, save_request.operation);
@@ -3160,14 +3160,14 @@ test "app dispatches workspace save and open dialog requests" {
         .operation = save_request.operation,
         .transport = save_request.transport,
         .status = .selected,
-        .selected_path = "/home/alice/project.dinttyws",
+        .selected_path = "/home/alice/project.deettyws",
     } })).workspace_file_dialog_changed;
     try std.testing.expectEqual(Host.WorkspaceFileDialogStatus.selected, selected);
     try std.testing.expect(app.host.workspace_file_dialog_operation == null);
 
     const open_request = try app.workspaceFileDialogRequest(.{
         .operation = .open,
-        .suggested_path = "/home/alice/project.dinttyws",
+        .suggested_path = "/home/alice/project.deettyws",
     });
     try std.testing.expect(open_request.canShow());
     try std.testing.expectEqual(Host.WorkspaceFileDialogOperation.open, open_request.operation);
@@ -3185,7 +3185,7 @@ test "app rejects invalid workspace file dialog receipts" {
 
     const request = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .open,
-        .suggested_path = "/home/alice/project.dinttyws",
+        .suggested_path = "/home/alice/project.deettyws",
     } })).workspace_file_dialog_requested;
     try std.testing.expectError(error.InvalidWorkspaceFileDialogReceipt, app.dispatch(.{ .workspace_file_dialog_receipt = .{
         .operation = request.operation,
@@ -3214,13 +3214,13 @@ test "workspace file dialog selected paths save and load workspace files" {
 
     const save_request = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .save,
-        .suggested_path = "manual/project.dinttyws",
+        .suggested_path = "manual/project.deettyws",
     } })).workspace_file_dialog_requested;
     const saved = try app.applyWorkspaceFileDialogFileAction(io, tmp.dir, .{
         .operation = save_request.operation,
         .transport = save_request.transport,
         .status = .selected,
-        .selected_path = "manual/project.dinttyws",
+        .selected_path = "manual/project.deettyws",
     }, .manual);
     defer saved.deinit(allocator);
     try std.testing.expectEqual(Host.WorkspaceFileDialogStatus.selected, saved.status);
@@ -3234,13 +3234,13 @@ test "workspace file dialog selected paths save and load workspace files" {
 
     const open_request = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .open,
-        .suggested_path = "manual/project.dinttyws",
+        .suggested_path = "manual/project.deettyws",
     } })).workspace_file_dialog_requested;
     const loaded = try app.applyWorkspaceFileDialogFileAction(io, tmp.dir, .{
         .operation = open_request.operation,
         .transport = open_request.transport,
         .status = .selected,
-        .selected_path = "manual/project.dinttyws",
+        .selected_path = "manual/project.deettyws",
     }, .manual);
     defer loaded.deinit(allocator);
     try std.testing.expectEqual(Host.WorkspaceFileDialogStatus.selected, loaded.status);
@@ -3259,7 +3259,7 @@ test "workspace file dialog canceled selection does not touch files" {
     defer app.deinit();
     const request = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .save,
-        .suggested_path = "manual/project.dinttyws",
+        .suggested_path = "manual/project.deettyws",
     } })).workspace_file_dialog_requested;
     const result = try app.applyWorkspaceFileDialogFileAction(io, tmp.dir, .{
         .operation = request.operation,
@@ -3269,17 +3269,17 @@ test "workspace file dialog canceled selection does not touch files" {
     defer result.deinit(allocator);
     try std.testing.expectEqual(Host.WorkspaceFileDialogStatus.canceled, result.status);
     try std.testing.expect(result.file_receipt == null);
-    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "manual/project.dinttyws", allocator, .limited(16)));
+    try std.testing.expectError(error.FileNotFound, tmp.dir.readFileAlloc(io, "manual/project.deettyws", allocator, .limited(16)));
 
     const second = (try app.dispatch(.{ .show_workspace_file_dialog = .{
         .operation = .save,
-        .suggested_path = "manual/project.dinttyws",
+        .suggested_path = "manual/project.deettyws",
     } })).workspace_file_dialog_requested;
     try std.testing.expectError(error.InvalidWorkspaceFileDialogRole, app.applyWorkspaceFileDialogFileAction(io, tmp.dir, .{
         .operation = second.operation,
         .transport = second.transport,
         .status = .selected,
-        .selected_path = "manual/project.dinttyws",
+        .selected_path = "manual/project.deettyws",
     }, .autosave));
 }
 

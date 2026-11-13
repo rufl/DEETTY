@@ -6,10 +6,10 @@
 
 const std = @import("std");
 const windows = std.os.windows;
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 const Vt = Share.vt;
 const Crypto = Share.crypto;
-const Release = @import("dintty_release");
+const Release = @import("deetty_release");
 const WindowsHostLogic = @import("WindowsHostLogic.zig");
 const WindowsDiagnostics = @import("WindowsDiagnostics.zig");
 const WindowsPty = @import("WindowsPty.zig");
@@ -37,56 +37,56 @@ const encodePersistedWindowsState = Workspace.encodePersistedWindowsState;
 const decodePersistedWindowsState = Workspace.decodePersistedWindowsState;
 
 comptime {
-    _ = WindowsHostLogic.dintty_windows_workspace_state_init;
-    _ = WindowsHostLogic.dintty_windows_workspace_local_operation;
-    _ = WindowsHostLogic.dintty_windows_workspace_startup_plan;
-    _ = WindowsHostLogic.dintty_windows_session_start_plan;
-    _ = WindowsHostLogic.dintty_windows_session_started;
-    _ = WindowsHostLogic.dintty_windows_session_start_failed;
-    _ = WindowsHostLogic.dintty_windows_session_is_live;
-    _ = WindowsHostLogic.dintty_windows_workspace_resize_count;
-    _ = WindowsHostLogic.dintty_windows_session_resize_plan;
-    _ = WindowsHostLogic.dintty_windows_workspace_action_result;
-    _ = WindowsHostLogic.dintty_windows_workspace_rollback_matches;
-    _ = WindowsHostLogic.dintty_windows_workspace_close_plan;
-    _ = WindowsHostLogic.dintty_windows_workspace_close_commit;
-    _ = WindowsHostLogic.dintty_windows_workspace_reset;
-    _ = WindowsHostLogic.dintty_windows_decode_key_action;
-    _ = WindowsHostLogic.dintty_windows_decode_menu_command;
-    _ = WindowsHostLogic.dintty_windows_normalize_preferences;
-    _ = WindowsHostLogic.dintty_windows_blend_rgb;
-    _ = WindowsHostLogic.dintty_windows_rgb_from_colorref;
-    _ = WindowsHostLogic.dintty_windows_colorref_from_rgb;
-    _ = WindowsHostLogic.dintty_windows_grid_dimensions;
-    _ = WindowsHostLogic.dintty_windows_encode_utf16_input;
-    _ = WindowsHostLogic.dintty_windows_compute_pane_geometry;
-    _ = WindowsHostLogic.dintty_windows_pointer_cell;
-    _ = WindowsHostLogic.dintty_windows_cell_selected;
-    _ = WindowsHostLogic.dintty_windows_mouse_route;
-    _ = WindowsHostLogic.dintty_windows_mouse_transition;
-    _ = WindowsHostLogic.dintty_windows_special_key_sequence;
-    _ = WindowsDiagnostics.dintty_windows_diagnostics_init;
-    _ = WindowsDiagnostics.dintty_windows_diagnostics_write;
-    _ = WindowsDiagnostics.dintty_windows_diagnostics_deinit;
-    _ = WindowsPty.dintty_windows_pty_create;
-    _ = WindowsPty.dintty_windows_pty_destroy;
-    _ = WindowsPty.dintty_windows_pty_write;
-    _ = WindowsPty.dintty_windows_pty_drain;
-    _ = WindowsPty.dintty_windows_pty_resize;
-    _ = WindowsPty.dintty_windows_pty_poll_exit;
-    _ = WindowsPty.dintty_windows_pty_exited;
-    _ = WindowsPty.dintty_windows_pty_exit_code;
-    _ = WindowsClipboard.dintty_windows_clipboard_paste;
-    _ = WindowsClipboard.dintty_windows_clipboard_copy;
-    _ = WindowsProcess.dintty_windows_launch_nocted;
-    _ = WindowsMenu.dintty_windows_menu_create;
-    _ = WindowsMenu.dintty_windows_menu_update;
-    _ = WindowsMenu.dintty_windows_menu_deinit;
-    _ = WindowsFonts.dintty_windows_fonts_update;
-    _ = WindowsFonts.dintty_windows_fonts_deinit;
-    _ = WindowsTitle.dintty_windows_update_title;
-    _ = WindowsRenderer.dintty_windows_theme_colors;
-    _ = WindowsRenderer.dintty_windows_render;
+    _ = WindowsHostLogic.deetty_windows_workspace_state_init;
+    _ = WindowsHostLogic.deetty_windows_workspace_local_operation;
+    _ = WindowsHostLogic.deetty_windows_workspace_startup_plan;
+    _ = WindowsHostLogic.deetty_windows_session_start_plan;
+    _ = WindowsHostLogic.deetty_windows_session_started;
+    _ = WindowsHostLogic.deetty_windows_session_start_failed;
+    _ = WindowsHostLogic.deetty_windows_session_is_live;
+    _ = WindowsHostLogic.deetty_windows_workspace_resize_count;
+    _ = WindowsHostLogic.deetty_windows_session_resize_plan;
+    _ = WindowsHostLogic.deetty_windows_workspace_action_result;
+    _ = WindowsHostLogic.deetty_windows_workspace_rollback_matches;
+    _ = WindowsHostLogic.deetty_windows_workspace_close_plan;
+    _ = WindowsHostLogic.deetty_windows_workspace_close_commit;
+    _ = WindowsHostLogic.deetty_windows_workspace_reset;
+    _ = WindowsHostLogic.deetty_windows_decode_key_action;
+    _ = WindowsHostLogic.deetty_windows_decode_menu_command;
+    _ = WindowsHostLogic.deetty_windows_normalize_preferences;
+    _ = WindowsHostLogic.deetty_windows_blend_rgb;
+    _ = WindowsHostLogic.deetty_windows_rgb_from_colorref;
+    _ = WindowsHostLogic.deetty_windows_colorref_from_rgb;
+    _ = WindowsHostLogic.deetty_windows_grid_dimensions;
+    _ = WindowsHostLogic.deetty_windows_encode_utf16_input;
+    _ = WindowsHostLogic.deetty_windows_compute_pane_geometry;
+    _ = WindowsHostLogic.deetty_windows_pointer_cell;
+    _ = WindowsHostLogic.deetty_windows_cell_selected;
+    _ = WindowsHostLogic.deetty_windows_mouse_route;
+    _ = WindowsHostLogic.deetty_windows_mouse_transition;
+    _ = WindowsHostLogic.deetty_windows_special_key_sequence;
+    _ = WindowsDiagnostics.deetty_windows_diagnostics_init;
+    _ = WindowsDiagnostics.deetty_windows_diagnostics_write;
+    _ = WindowsDiagnostics.deetty_windows_diagnostics_deinit;
+    _ = WindowsPty.deetty_windows_pty_create;
+    _ = WindowsPty.deetty_windows_pty_destroy;
+    _ = WindowsPty.deetty_windows_pty_write;
+    _ = WindowsPty.deetty_windows_pty_drain;
+    _ = WindowsPty.deetty_windows_pty_resize;
+    _ = WindowsPty.deetty_windows_pty_poll_exit;
+    _ = WindowsPty.deetty_windows_pty_exited;
+    _ = WindowsPty.deetty_windows_pty_exit_code;
+    _ = WindowsClipboard.deetty_windows_clipboard_paste;
+    _ = WindowsClipboard.deetty_windows_clipboard_copy;
+    _ = WindowsProcess.deetty_windows_launch_nocted;
+    _ = WindowsMenu.deetty_windows_menu_create;
+    _ = WindowsMenu.deetty_windows_menu_update;
+    _ = WindowsMenu.deetty_windows_menu_deinit;
+    _ = WindowsFonts.deetty_windows_fonts_update;
+    _ = WindowsFonts.deetty_windows_fonts_deinit;
+    _ = WindowsTitle.deetty_windows_update_title;
+    _ = WindowsRenderer.deetty_windows_theme_colors;
+    _ = WindowsRenderer.deetty_windows_render;
 }
 
 const columns_initial: usize = 120;
@@ -218,12 +218,12 @@ pub export fn wWinMain(
     const command = std.mem.span(command_line);
     if (firstAsciiTokenIs(command, "--version")) {
         const version_text = std.unicode.utf8ToUtf16LeStringLiteral(
-            "DINTTY " ++ Release.version ++ " Windows alpha",
+            "DEETTY " ++ Release.version ++ " Windows alpha",
         );
         _ = MessageBoxW(
             null,
             version_text,
-            std.unicode.utf8ToUtf16LeStringLiteral("DINTTY"),
+            std.unicode.utf8ToUtf16LeStringLiteral("DEETTY"),
             0x40,
         );
         return 0;
@@ -298,7 +298,7 @@ pub export fn wWinMain(
         applyPersistedProfiles(&state);
         if (state.startup_persistence_warning)
             showWindowsMessage(
-                "DINTTY could not fully restore saved Windows state. " ++ "The current session remains usable; review Settings and " ++ "save a fresh workspace, theme, or profile state.",
+                "DEETTY could not fully restore saved Windows state. " ++ "The current session remains usable; review Settings and " ++ "save a fresh workspace, theme, or profile state.",
             );
     }
 
@@ -620,7 +620,7 @@ fn showWindowsMessage(message: []const u8) void {
     _ = MessageBoxW(
         null,
         &wide,
-        std.unicode.utf8ToUtf16LeStringLiteral("DINTTY Session Sharing"),
+        std.unicode.utf8ToUtf16LeStringLiteral("DEETTY Session Sharing"),
         0x40,
     );
 }
@@ -664,7 +664,7 @@ fn confirmWindowsSas(sas: u32) bool {
     return MessageBoxW(
         null,
         &wide,
-        std.unicode.utf8ToUtf16LeStringLiteral("DINTTY Pairing"),
+        std.unicode.utf8ToUtf16LeStringLiteral("DEETTY Pairing"),
         0x34,
     ) == 6;
 }
@@ -744,7 +744,7 @@ fn runPairing(store: *Share.identity.Store, random: Crypto.RandomContext, mode: 
                 .instance_id = announcement_instance,
                 .tcp_port = controller.listeningPort(),
                 .accepts_sessions = true,
-                .alias = "DINTTY Windows pairing listener",
+                .alias = "DEETTY Windows pairing listener",
             }) catch {
                 active.close();
                 announcement = null;
@@ -959,7 +959,7 @@ fn confirmWindowsControl(owner: windows.HWND) bool {
         std.unicode.utf8ToUtf16LeStringLiteral(
             "The paired viewer requests terminal control for one shared pane on this connection. Grant it?",
         ),
-        std.unicode.utf8ToUtf16LeStringLiteral("DINTTY Remote Control"),
+        std.unicode.utf8ToUtf16LeStringLiteral("DEETTY Remote Control"),
         0x34,
     ) == 6;
 }
@@ -1953,7 +1953,7 @@ fn smokeReady(raw: ?*anyopaque) callconv(.c) c_int {
     const state = stateFromRaw(raw) orelse return 0;
     const grid = state.workspace.activeGrid() orelse return 0;
     const marker = grid.findText(
-        "DINTTY_WINDOWS_HOST_OK",
+        "DEETTY_WINDOWS_HOST_OK",
         false,
         0,
     );
@@ -2052,7 +2052,7 @@ fn selfTest(state: *State, command: []const u16) bool {
     }
     state.preferences = .{};
     state.themes.selected = 0;
-    grid.feed("\r\nDINTTY_WINDOWS_HOST_OK\r\n") catch return false;
+    grid.feed("\r\nDEETTY_WINDOWS_HOST_OK\r\n") catch return false;
     if (smokeReady(state) != 1) return false;
 
     const lower = state.workspace.splitActive(

@@ -7,7 +7,7 @@
 const std = @import("std");
 const Diagnostics = @import("WindowsDiagnostics.zig");
 const OutputRing = @import("WindowsPtyLogic.zig").OutputRing;
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 const LaunchPlan = @import("WindowsLaunchPlan.zig");
 
 const c = @import("c");
@@ -35,7 +35,7 @@ pub const Pty = struct {
     process_exit_code: c.DWORD = 255,
 };
 
-pub export fn dintty_windows_pty_create(
+pub export fn deetty_windows_pty_create(
     index: c_int,
     columns: c_int,
     rows: c_int,
@@ -93,7 +93,7 @@ fn create(
     return pty;
 }
 
-pub export fn dintty_windows_pty_destroy(optional_pty: ?*Pty) void {
+pub export fn deetty_windows_pty_destroy(optional_pty: ?*Pty) void {
     const pty = optional_pty orelse return;
     pty.stopping.store(true, .release);
     if (pty.reader_thread) |thread| _ = c.CancelSynchronousIo(thread);
@@ -121,7 +121,7 @@ pub export fn dintty_windows_pty_destroy(optional_pty: ?*Pty) void {
     _ = c.HeapFree(heap, 0, pty);
 }
 
-pub export fn dintty_windows_pty_write(
+pub export fn deetty_windows_pty_write(
     optional_pty: ?*Pty,
     bytes: ?[*]const u8,
     length: usize,
@@ -145,7 +145,7 @@ pub export fn dintty_windows_pty_write(
     return 1;
 }
 
-pub export fn dintty_windows_pty_drain(
+pub export fn deetty_windows_pty_drain(
     optional_pty: ?*Pty,
     output: ?[*]u8,
     capacity: usize,
@@ -159,7 +159,7 @@ pub export fn dintty_windows_pty_drain(
     return pty.output_ring.read(target[0..capacity]);
 }
 
-pub export fn dintty_windows_pty_resize(
+pub export fn deetty_windows_pty_resize(
     optional_pty: ?*Pty,
     columns: c_int,
     rows: c_int,
@@ -182,7 +182,7 @@ pub export fn dintty_windows_pty_resize(
     return 1;
 }
 
-pub export fn dintty_windows_pty_poll_exit(
+pub export fn deetty_windows_pty_poll_exit(
     optional_pty: ?*Pty,
     exit_code: ?*u32,
 ) c_int {
@@ -202,12 +202,12 @@ pub export fn dintty_windows_pty_poll_exit(
     return 1;
 }
 
-pub export fn dintty_windows_pty_exited(optional_pty: ?*const Pty) c_int {
+pub export fn deetty_windows_pty_exited(optional_pty: ?*const Pty) c_int {
     const pty = optional_pty orelse return 0;
     return @intFromBool(pty.process_exited);
 }
 
-pub export fn dintty_windows_pty_exit_code(optional_pty: ?*const Pty) u32 {
+pub export fn deetty_windows_pty_exit_code(optional_pty: ?*const Pty) u32 {
     const pty = optional_pty orelse return 255;
     return pty.process_exit_code;
 }
@@ -226,16 +226,16 @@ pub fn qualificationChild(command_line: [*:0]const u16) ?c_int {
     var directory: [LaunchPlan.path_capacity]u16 = undefined;
     const directory_len = c.GetCurrentDirectoryW(directory.len, &directory);
     if (directory_len == 0 or directory_len >= directory.len) return 83;
-    if (!environmentEquals("DINTTY_QUAL_EXE", module[0..module_len]) or
-        !environmentEquals("DINTTY_QUAL_CWD", directory[0..directory_len]) or
-        !environmentEquals("DINTTY_QUAL_TEXT", std.unicode.utf8ToUtf16LeStringLiteral("資料=value")) or
+    if (!environmentEquals("DEETTY_QUAL_EXE", module[0..module_len]) or
+        !environmentEquals("DEETTY_QUAL_CWD", directory[0..directory_len]) or
+        !environmentEquals("DEETTY_QUAL_TEXT", std.unicode.utf8ToUtf16LeStringLiteral("資料=value")) or
         !environmentEquals("TERM", std.unicode.utf8ToUtf16LeStringLiteral("profile-term")) or
         !environmentEquals("COLORTERM", std.unicode.utf8ToUtf16LeStringLiteral("truecolor")))
         return 84;
     // An inherited Unicode value is supplied as a second expected value, not
     // recreated in the child, so this checks actual environment inheritance.
     var expected: [LaunchPlan.path_capacity]u16 = undefined;
-    const expected_len = c.GetEnvironmentVariableW(std.unicode.utf8ToUtf16LeStringLiteral("DINTTY_QUAL_ROOT"), &expected, expected.len);
+    const expected_len = c.GetEnvironmentVariableW(std.unicode.utf8ToUtf16LeStringLiteral("DEETTY_QUAL_ROOT"), &expected, expected.len);
     if (expected_len == 0 or expected_len >= expected.len or !environmentEquals("SystemRoot", expected[0..expected_len])) return 85;
     return 0;
 }
@@ -278,7 +278,7 @@ fn qualifyInDirectory(directory: []const u16) bool {
     var source: [LaunchPlan.path_capacity]u16 = undefined;
     const source_len = c.GetModuleFileNameW(null, &source, source.len);
     if (source_len == 0 or source_len >= source.len) return false;
-    const filename = std.unicode.utf8ToUtf16LeStringLiteral("\\DINTTY 資料 with spaces.exe");
+    const filename = std.unicode.utf8ToUtf16LeStringLiteral("\\DEETTY 資料 with spaces.exe");
     var executable: [LaunchPlan.path_capacity]u16 = undefined;
     if (directory.len + filename.len >= executable.len) return false;
     @memcpy(executable[0..directory.len], directory);
@@ -302,7 +302,7 @@ fn qualifyCopiedExecutable(executable: []const u16, directory: []const u16) bool
     var root_utf8: [LaunchPlan.path_capacity * 3]u8 = undefined;
     const root_utf8_len = std.unicode.utf16LeToUtf8(&root_utf8, root[0..root_len]) catch return false;
     var environment: [Share.launch_profile.max_environment_bytes]u8 = undefined;
-    const values = std.fmt.bufPrint(&environment, "DINTTY_QUAL_EXE={s};DINTTY_QUAL_CWD={s};DINTTY_QUAL_TEXT=資料=value;TERM=profile-term;DINTTY_QUAL_ROOT={s}", .{
+    const values = std.fmt.bufPrint(&environment, "DEETTY_QUAL_EXE={s};DEETTY_QUAL_CWD={s};DEETTY_QUAL_TEXT=資料=value;TERM=profile-term;DEETTY_QUAL_ROOT={s}", .{
         executable_utf8[0..executable_len],
         directory_utf8[0..directory_len],
         root_utf8[0..root_utf8_len],
@@ -418,7 +418,7 @@ fn spawnSelected(
     if (!initializePlan(&plan, custom)) return false;
     var operator_command: [command_capacity]u16 = undefined;
     const operator_length = c.GetEnvironmentVariableW(
-        std.unicode.utf8ToUtf16LeStringLiteral("DINTTY_WINDOWS_SHELL"),
+        std.unicode.utf8ToUtf16LeStringLiteral("DEETTY_WINDOWS_SHELL"),
         &operator_command,
         operator_command.len,
     );
@@ -545,5 +545,5 @@ fn closeHandle(handle: *c.HANDLE) void {
 fn log(comptime format: []const u8, arguments: anytype) void {
     var buffer: [512]u8 = undefined;
     const line = std.fmt.bufPrint(&buffer, format, arguments) catch return;
-    Diagnostics.dintty_windows_diagnostics_write(line.ptr, line.len);
+    Diagnostics.deetty_windows_diagnostics_write(line.ptr, line.len);
 }

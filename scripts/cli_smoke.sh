@@ -3,9 +3,9 @@ set -eu
 
 # No display or session bus is reachable, including when a help regression
 # accidentally falls through to GTK initialization or existing-instance IPC.
-dintty=$(realpath "${1:-zig-out/bin/dintty}")
+deetty=$(realpath "${1:-zig-out/bin/deetty}")
 nocted=$(realpath "${2:-zig-out/bin/nocted}")
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-cli.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-cli.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
@@ -14,17 +14,17 @@ unset DISPLAY WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS
 export HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config"
 export XDG_STATE_HOME="$scratch/state" XDG_RUNTIME_DIR="$scratch/runtime"
 export XDG_CACHE_HOME="$scratch/cache" XDG_DATA_HOME="$scratch/data"
-export DINTTY_RENDERER=grid NOCTED_DISABLE_SINGLE_INSTANCE=1
-package_output=$(timeout --kill-after=1 5 "$dintty" --package-smoke)
-printf '%s\n' "$package_output" | grep -q 'package_smoke dintty=true headless=true'
+export DEETTY_RENDERER=grid NOCTED_DISABLE_SINGLE_INSTANCE=1
+package_output=$(timeout --kill-after=1 5 "$deetty" --package-smoke)
+printf '%s\n' "$package_output" | grep -q 'package_smoke deetty=true headless=true'
 
-for binary in "$dintty" "$nocted"; do
+for binary in "$deetty" "$nocted"; do
   for option in --help -h --version; do
     output=$(timeout --kill-after=1 5 "$binary" "$option")
     test -n "$output"
   done
   status=0
-  timeout --kill-after=1 5 "$binary" --not-a-dintty-option >"$scratch/error" 2>&1 || status=$?
+  timeout --kill-after=1 5 "$binary" --not-a-deetty-option >"$scratch/error" 2>&1 || status=$?
   case "$status" in
     0|124|137) echo "cli_smoke invalid_option_not_rejected=$binary status=$status" >&2; exit 1 ;;
   esac

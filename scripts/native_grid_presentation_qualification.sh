@@ -4,7 +4,7 @@ set -euo pipefail
 ./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-presentation-qualification.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-presentation-qualification.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
@@ -12,14 +12,14 @@ trap cleanup EXIT HUP INT TERM
 
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
-    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build deetty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$scratch/cache-$mode"
     for backend in wayland x11; do
         output=$(env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
             GDK_BACKEND="$backend" timeout 30 \
-            "$prefix/bin/dintty-smoke" \
+            "$prefix/bin/deetty-smoke" \
             --native-grid-presentation-qualification)
         printf '%s\n' "$output"
         printf '%s\n' "$output" | grep -E \

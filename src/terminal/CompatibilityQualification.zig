@@ -186,11 +186,11 @@ fn runFeatureAssertions(allocator: std.mem.Allocator) !void {
     {
         var grid = try Vt.Grid.init(allocator, 32, 4);
         defer grid.deinit();
-        try grid.feed("\x1b]8;id=docs;https://example.com/dintty\x1b\\link" ++
+        try grid.feed("\x1b]8;id=docs;https://example.com/deetty\x1b\\link" ++
             "\x1b]8;;\x1b\\ plain");
         var uri: [128]u8 = undefined;
         const uri_length = grid.cellHyperlink(0, 0, &uri);
-        if (!std.mem.eql(u8, "https://example.com/dintty", uri[0..uri_length]) or
+        if (!std.mem.eql(u8, "https://example.com/deetty", uri[0..uri_length]) or
             grid.cell(0, 0).hyperlink_id == 0 or
             grid.cell(5, 0).hyperlink_id != 0)
             return error.Osc8AssertionFailed;

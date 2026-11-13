@@ -5,16 +5,16 @@ set -euo pipefail
 export LC_ALL=C
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-artifact_dir=${DINTTY_AUTH_AGENT_ARTIFACT_DIR:-"$repo_root/benchmarks/authenticated-agent-$(date +%F)"}
+artifact_dir=${DEETTY_AUTH_AGENT_ARTIFACT_DIR:-"$repo_root/benchmarks/authenticated-agent-$(date +%F)"}
 case "$artifact_dir" in
     /*) ;;
     *) artifact_dir="$repo_root/$artifact_dir" ;;
 esac
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-auth-agent.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-auth-agent.XXXXXX")
 runner_pid=
 cleanup() {
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript \
-        "dinttyAuthAgentActivate$$" >/dev/null 2>&1 || true
+        "deettyAuthAgentActivate$$" >/dev/null 2>&1 || true
     if [[ -n "$runner_pid" ]] && kill -0 "$runner_pid" 2>/dev/null; then
         kill "$runner_pid" 2>/dev/null || true
         wait "$runner_pid" 2>/dev/null || true
@@ -23,7 +23,7 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-launcher=${DINTTY_AGENT_QUALIFICATION_LAUNCHER:-pi}
+launcher=${DEETTY_AGENT_QUALIFICATION_LAUNCHER:-pi}
 case "$launcher" in
     pi|omp|zipi) ;;
     *) printf 'unsupported agent launcher: %s\n' "$launcher" >&2; exit 2 ;;
@@ -48,7 +48,7 @@ wait_for_response() {
     local attempt=0
     while ((attempt < 900)); do
         if [[ -s "$response" ]]; then
-            grep -Fx 'DINTTY_AGENT_QUALIFICATION_OK' "$response" >/dev/null
+            grep -Fx 'DEETTY_AGENT_QUALIFICATION_OK' "$response" >/dev/null
             return 0
         fi
         if ! kill -0 "$pid" 2>/dev/null; then
@@ -67,10 +67,10 @@ wait_for_response() {
 activate_wayland_window() {
     local pid=$1
     local script="$scratch/activate-window.js"
-    local plugin="dinttyAuthAgentActivate$$"
+    local plugin="deettyAuthAgentActivate$$"
     cat >"$script" <<EOF
 for (const window of workspace.windowList()) {
-    if (window.caption === 'DINTTY agent qualification') {
+    if (window.caption === 'DEETTY agent qualification') {
         break;
     }
 }
@@ -94,7 +94,7 @@ capture_window() {
         local attempt=0
         while ((attempt < 100)); do
             window=$(xdotool search --onlyvisible \
-                --name '^DINTTY agent qualification$' \
+                --name '^DEETTY agent qualification$' \
                 2>/dev/null | awk 'END { print }' || true)
             [[ -z "$window" ]] || break
             sleep 0.1
@@ -116,7 +116,7 @@ capture_window() {
 
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
-    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build deetty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$scratch/cache-$mode"
@@ -130,10 +130,10 @@ for mode in Debug ReleaseSafe; do
         rm -f "$captured"
         env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
             GDK_BACKEND="$backend" \
-            DINTTY_AGENT_QUALIFICATION_LAUNCHER="$launcher" \
-            DINTTY_AUTH_AGENT_RESPONSE_PATH="$response" \
-            DINTTY_AUTH_AGENT_CAPTURED_PATH="$captured" \
-            "$prefix/bin/dintty-smoke" \
+            DEETTY_AGENT_QUALIFICATION_LAUNCHER="$launcher" \
+            DEETTY_AUTH_AGENT_RESPONSE_PATH="$response" \
+            DEETTY_AUTH_AGENT_CAPTURED_PATH="$captured" \
+            "$prefix/bin/deetty-smoke" \
             --native-grid-authenticated-agent-qualification >"$log" 2>&1 &
         runner_pid=$!
         wait_for_response "$response" "$log" "$runner_pid"

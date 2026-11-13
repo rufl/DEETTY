@@ -5,19 +5,19 @@ if [ "$#" -eq 0 ]; then
   echo 'run_isolated_x11 error=command_required' >&2
   exit 2
 fi
-case "${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" in
+case "${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" in
   ''|*[!0-9]*)
     echo 'run_isolated_x11 error=invalid_timeout' >&2
     exit 2
     ;;
 esac
-if [ "${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" -lt 1 ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" -lt 1 ]; then
   echo 'run_isolated_x11 error=invalid_timeout' >&2
   exit 2
 fi
 
-timeout_seconds=${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}
-screen=${DINTTY_ISOLATED_DISPLAY_SCREEN:-1440x900x24}
+timeout_seconds=${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}
+screen=${DEETTY_ISOLATED_DISPLAY_SCREEN:-1440x900x24}
 screen_width=${screen%%x*}
 screen_tail=${screen#*x}
 screen_height=${screen_tail%%x*}
@@ -42,8 +42,8 @@ fi
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd -P)
 shared_runner=${OVERZEER_DISPLAY_RUNNER:-$script_dir/isolated_display_runner.sh}
-window_manager=${DINTTY_ISOLATED_X11_WM:-auto}
-if [ "${DINTTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
+window_manager=${DEETTY_ISOLATED_X11_WM:-auto}
+if [ "${DEETTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
   if [ ! -x "$shared_runner" ]; then
     echo 'run_isolated_x11 error=shared_isolated_display_runner_missing' >&2
     exit 2
@@ -52,9 +52,9 @@ if [ "${DINTTY_LEGACY_DISPLAY_RUNNER:-0}" != 1 ]; then
     "$shared_runner" --screen "$screen" --timeout "$timeout_seconds" \
       --wm "$window_manager" -- \
     env XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 NO_AT_BRIDGE=1 \
-      DINTTY_ISOLATED_DISPLAY=x11 DINTTY_SHARED_ISOLATION=1 \
+      DEETTY_ISOLATED_DISPLAY=x11 DEETTY_SHARED_ISOLATION=1 \
     sh -eu -c '
-      root=$(mktemp -d /tmp/dintty-isolated-home.XXXXXX)
+      root=$(mktemp -d /tmp/deetty-isolated-home.XXXXXX)
       mkdir -p "$root/home" "$root/config" "$root/state" \
         "$root/cache" "$root/data" "$root/tmp"
       export HOME="$root/home"
@@ -74,7 +74,7 @@ for command in dbus-run-session flock timeout xvfb-run; do
   fi
 done
 
-lock_root="/tmp/dintty-isolated-display-$(id -u)"
+lock_root="/tmp/deetty-isolated-display-$(id -u)"
 if ! mkdir -m 0700 "$lock_root" 2>/dev/null; then
   if [ ! -d "$lock_root" ] || [ -L "$lock_root" ] ||
     [ "$(stat -c %u "$lock_root")" != "$(id -u)" ] ||
@@ -84,7 +84,7 @@ if ! mkdir -m 0700 "$lock_root" 2>/dev/null; then
   fi
 fi
 lock="$lock_root/runner.lock"
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-isolated-x11.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-isolated-x11.XXXXXX")
 cleanup() {
   if ! rm -rf "$scratch" 2>/dev/null; then
     sleep 0.1
@@ -101,8 +101,8 @@ mkdir -p "$scratch/home" "$scratch/config" "$scratch/state" \
 chmod 0700 "$scratch/runtime"
 
 unset DISPLAY WAYLAND_DISPLAY
-export DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
-export DINTTY_ISOLATED_X11_ROOT="$scratch"
+export DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
+export DEETTY_ISOLATED_X11_ROOT="$scratch"
 flock -x -w "$timeout_seconds" "$lock" \
   timeout --kill-after=10 "$timeout_seconds" \
   env HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config" \
@@ -111,7 +111,7 @@ flock -x -w "$timeout_seconds" "$lock" \
     TMPDIR="$scratch/tmp" \
   dbus-run-session -- xvfb-run -a -s "-screen 0 $screen -nolisten tcp" \
   sh -eu -c '
-    scratch=$DINTTY_ISOLATED_X11_ROOT
+    scratch=$DEETTY_ISOLATED_X11_ROOT
     export HOME="$scratch/home"
     export XDG_CONFIG_HOME="$scratch/config"
     export XDG_STATE_HOME="$scratch/state"
@@ -122,7 +122,7 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_SESSION_TYPE=x11
     export GDK_BACKEND=x11
     export NO_AT_BRIDGE=1
-    export DINTTY_ISOLATED_DISPLAY=x11
+    export DEETTY_ISOLATED_DISPLAY=x11
     unset WAYLAND_DISPLAY
     "$@"
   ' sh "$@"

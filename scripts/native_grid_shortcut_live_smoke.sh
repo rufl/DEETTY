@@ -4,33 +4,33 @@ set -eu
 ./scripts/require_isolated_display.sh --dedicated
 export LC_ALL=C
 
-if pgrep -x dintty >/dev/null 2>&1 ||
-   pgrep -x dintty-smoke >/dev/null 2>&1 ||
-   pgrep -f '/dintty-dogfood/dintty-bin' >/dev/null 2>&1; then
-    echo 'close the running DINTTY process before shortcut qualification' >&2
+if pgrep -x deetty >/dev/null 2>&1 ||
+   pgrep -x deetty-smoke >/dev/null 2>&1 ||
+   pgrep -f '/deetty-dogfood/deetty-bin' >/dev/null 2>&1; then
+    echo 'close the running DEETTY process before shortcut qualification' >&2
     exit 1
 fi
 
 unregister_shortcut() {
     qdbus6 org.kde.kglobalaccel /kglobalaccel \
-        org.kde.KGlobalAccel.unregister dintty-smoke toggle-window-smoke \
+        org.kde.KGlobalAccel.unregister deetty-smoke toggle-window-smoke \
         >/dev/null 2>&1 || true
 }
 
 unregister_shortcut
 
 ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
-output=/tmp/dintty-native-grid-shortcut-live.txt
-ready=/tmp/dintty-native-grid-shortcut-ready
-activated=/tmp/dintty-native-grid-shortcut-activated
-recorder_ready=/tmp/dintty-native-grid-shortcut-recorder-ready
-recorder_captured=/tmp/dintty-native-grid-shortcut-recorder-captured
+output=/tmp/deetty-native-grid-shortcut-live.txt
+ready=/tmp/deetty-native-grid-shortcut-ready
+activated=/tmp/deetty-native-grid-shortcut-activated
+recorder_ready=/tmp/deetty-native-grid-shortcut-recorder-ready
+recorder_captured=/tmp/deetty-native-grid-shortcut-recorder-captured
 rm -f "$output"
 rm -f "$ready"
 rm -f "$activated"
 rm -f "$recorder_ready"
 rm -f "$recorder_captured"
-GDK_BACKEND=x11 ./zig-out/bin/dintty-smoke --native-grid-shortcut-live-smoke >"$output" 2>&1 &
+GDK_BACKEND=x11 ./zig-out/bin/deetty-smoke --native-grid-shortcut-live-smoke >"$output" 2>&1 &
 pid=$!
 cleanup() {
     kill -TERM "$pid" 2>/dev/null || true
@@ -46,7 +46,7 @@ trap cleanup EXIT
 
 attempt=0
 while [ "$attempt" -lt 100 ]; do
-    if [ -s "$ready" ] && qdbus6 --literal org.kde.kglobalaccel /component/dintty_smoke org.kde.kglobalaccel.Component.allShortcutInfos 2>/dev/null | grep -q '16777273'; then
+    if [ -s "$ready" ] && qdbus6 --literal org.kde.kglobalaccel /component/deetty_smoke org.kde.kglobalaccel.Component.allShortcutInfos 2>/dev/null | grep -q '16777273'; then
         break
     fi
     attempt=$((attempt + 1))
@@ -101,10 +101,10 @@ else
 fi
 cat "$output"
 grep -q '^native_grid_shortcut_live_smoke registered=true hidden=true hidden_before_registration=true physical_key=true activated=true visible=true recorder=true recaptured=F10 exited=true$' "$output"
-if qdbus6 --literal org.kde.kglobalaccel /component/dintty_smoke \
+if qdbus6 --literal org.kde.kglobalaccel /component/deetty_smoke \
     org.kde.kglobalaccel.Component.allShortcutInfos 2>/dev/null |
     grep -q '"toggle-window-smoke"'; then
-    echo 'DINTTY shortcut registration survived process exit' >&2
+    echo 'DEETTY shortcut registration survived process exit' >&2
     exit 1
 fi
 rm -f "$ready" "$activated" "$recorder_ready" "$recorder_captured" "$output"

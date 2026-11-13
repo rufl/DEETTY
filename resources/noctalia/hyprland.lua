@@ -1,12 +1,12 @@
--- DINTTY integration for Noctalia on Hyprland's Lua configuration.
+-- DEETTY integration for Noctalia on Hyprland's Lua configuration.
 hl.on("hyprland.start", function()
-  hl.exec_cmd("dintty --hidden")
+  hl.exec_cmd("deetty --hidden")
 end)
 
-hl.bind("F10", hl.dsp.exec_cmd("dintty --toggle"))
+hl.bind("F10", hl.dsp.exec_cmd("deetty --toggle"))
 
 hl.layer_rule({
-  name = "dintty",
-  match = { namespace = "^dintty-" },
+  name = "deetty",
+  match = { namespace = "^deetty-" },
   no_anim = true,
 })

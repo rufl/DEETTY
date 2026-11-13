@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-release-artifact-intake.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-release-artifact-intake.XXXXXX")
 
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
@@ -27,7 +27,7 @@ make_artifact() {
     printf 'architecture=%s\n' "$arch"
     printf 'archive_sha256=%s\n' "$digest"
     printf 'installed_files_begin\n'
-    printf 'bin/dintty\n'
+    printf 'bin/deetty\n'
     printf 'installed_files_end\n'
     printf 'library_inventory_begin\n'
     printf 'libexample.so|sha256=example\n'
@@ -43,9 +43,9 @@ aarch64_output=$(./scripts/release_operations_artifact_intake.sh aarch64 "$src/i
 printf '%s\n' "$x86_64_output" | grep -F "release_operations_artifact_intake version=0.1.0 arch=x86_64 archive=true checksum=true manifest=true" >/dev/null
 printf '%s\n' "$aarch64_output" | grep -F "release_operations_artifact_intake version=0.1.0 arch=aarch64 archive=true checksum=true manifest=true" >/dev/null
 
-status_output=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
+status_output=$(DEETTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=5' >/dev/null
-printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=signatures path=dintty-linux-x86_64.tar.gz.sig reason=missing' >/dev/null
+printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=signatures path=deetty-linux-x86_64.tar.gz.sig reason=missing' >/dev/null
 
 bad_archive="$src/bad-x86_64.tar.gz"
 printf 'bad artifact\n' >"$bad_archive"
@@ -71,12 +71,12 @@ symlink_evidence="$scratch/symlink-evidence"
 mkdir -p "$symlink_evidence"
 victim="$scratch/artifact-victim"
 printf 'victim-safe\n' >"$victim"
-ln -s "$victim" "$symlink_evidence/dintty-linux-x86_64.tar.gz"
+ln -s "$victim" "$symlink_evidence/deetty-linux-x86_64.tar.gz"
 ./scripts/release_operations_artifact_intake.sh x86_64 \
   "$src/input-x86_64.tar.gz" "$symlink_evidence" >/dev/null
 test "$(cat "$victim")" = victim-safe
-test ! -L "$symlink_evidence/dintty-linux-x86_64.tar.gz"
-cmp -s "$src/input-x86_64.tar.gz" "$symlink_evidence/dintty-linux-x86_64.tar.gz"
+test ! -L "$symlink_evidence/deetty-linux-x86_64.tar.gz"
+cmp -s "$src/input-x86_64.tar.gz" "$symlink_evidence/deetty-linux-x86_64.tar.gz"
 
 scratch_path=$scratch
 rm -rf "$scratch_path"

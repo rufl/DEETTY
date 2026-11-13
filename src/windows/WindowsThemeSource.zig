@@ -1,5 +1,5 @@
 const std = @import("std");
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 
 pub const ImportFormat = Share.theme.ImportFormat;
 

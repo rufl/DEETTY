@@ -2,7 +2,7 @@
 
 Date: 2026-08-01.
 
-Status: source-pinned architecture review with three accepted DINTTY changes.
+Status: source-pinned architecture review with three accepted DEETTY changes.
 The review is based on the exact public revisions retained in
 `benchmarks/terminal-peer-research-2026-08-01/sources.tsv`. Peer claims and
 benchmarks are treated as design evidence, not as proof that one terminal is
@@ -11,10 +11,10 @@ universally faster than another.
 ## Question
 
 What do current high-performance terminals, multiplexers, and agent-oriented
-terminal workspaces do that transfers cleanly to DINTTY's native Zig/GTK design?
+terminal workspaces do that transfers cleanly to DEETTY's native Zig/GTK design?
 
 The useful answer is not “copy their stack.” It is to identify where several
-independent projects converge, compare that with DINTTY's measured bottlenecks,
+independent projects converge, compare that with DEETTY's measured bottlenecks,
 and retain only the smallest changes that improve correctness, latency, memory,
 or parallel-agent usability.
 
@@ -61,22 +61,22 @@ not from generic renderer wakes, and performs bounded incremental steps without
 waiting for the terminal lock. Its benchmark separates setup, no-op,
 compression, incremental compression, restoration, and memory reporting.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
-- DINTTY's accepted idle-history path already follows the important scheduling
+- DEETTY's accepted idle-history path already follows the important scheduling
   rule: PTY output, not cursor animation or generic redraw, resets the idle
   deadline.
 - Bounded 64-row steps and a process-wide budget match the resumable-work
   principle without adding Ghostty's page architecture.
-- DINTTY should keep separate cold-access and resume-output measurements rather
+- DEETTY should keep separate cold-access and resume-output measurements rather
   than treating memory reduction alone as success.
 
 Not copied:
 
-- A direct page-backed DINTTY history experiment regressed active throughput.
+- A direct page-backed DEETTY history experiment regressed active throughput.
   Ghostty's result depends on a page-native terminal representation designed
   around mapping retention and page-local side tables. Retrofitting only mmap
-  into DINTTY's current direct-cell/cold-row split does not inherit that design.
+  into DEETTY's current direct-cell/cold-row split does not inherit that design.
 
 ### WezTerm: remove blank rows below the cursor before width reflow
 
@@ -88,12 +88,12 @@ Before rewrapping a primary screen, WezTerm removes blank lines after the
 cursor. This prevents rapid or combined width/height changes from manufacturing
 scrollback and pushing meaningful content out of the viewport.
 
-This exposed a real DINTTY bug. In an 8x6 grid containing `A`, `B`, and `C`, a
+This exposed a real DEETTY bug. In an 8x6 grid containing `A`, `B`, and `C`, a
 width-changing shrink to 4x3 previously reflowed the three blank rows below the
 cursor. The result was three history rows containing the real text and a fully
 blank visible viewport.
 
-Accepted DINTTY change:
+Accepted DEETTY change:
 
 - `Grid.resizePrimaryReflow` now drops only fully default rows below the cursor.
 - It refuses to drop rows with used columns, non-default cells, active wrap
@@ -117,9 +117,9 @@ frame damage, explicitly damages old/new cursor and selection positions, and
 overdamages around cells to cover wide or overflowing glyphs. Timers are keyed
 by topic and window and are removed as part of window teardown.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
-- DINTTY already tracks dirty column spans, old/new cursor cells, full-redraw
+- DEETTY already tracks dirty column spans, old/new cursor cells, full-redraw
   fallback, one owned presentation callback, and centralized source teardown.
 - The remaining transferable proof is mapped adjacent-frame selection and
   overflowing-glyph damage, not another damage representation.
@@ -141,21 +141,21 @@ history to avoid allocator fragmentation. Its performance documentation
 separates keyboard latency, throughput, and CPU/energy rather than naming one
 composite winner.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
 - Keep ingestion, draw, memory, idle CPU, and marker latency separate.
-- Preserve the 2 MiB drain ceiling because DINTTY's eight/32-pane benchmark
+- Preserve the 2 MiB drain ceiling because DEETTY's eight/32-pane benchmark
   rejected smaller universal ceilings.
 - Never turn PTY write backpressure into GTK-thread sleeping.
 
-The final item exposed another concrete DINTTY problem and produced the largest
+The final item exposed another concrete DEETTY problem and produced the largest
 new latency win in this pass; see “Nonblocking PTY writes” below.
 
 Not copied:
 
 - A shared I/O thread remains unjustified while GLib descriptor readiness and
   current aggregate ingestion remain above realistic agent output rates.
-- Kitty's segmented mmap history is architecture-specific; DINTTY's direct
+- Kitty's segmented mmap history is architecture-specific; DEETTY's direct
   page-backed experiment lost its active benchmark.
 
 ### foot: measure compositor frames before replacing the renderer
@@ -170,7 +170,7 @@ foot uses a direct epoll-based descriptor manager, lazily allocated rows,
 per-cell cleanliness, Pixman regions, and Wayland presentation feedback. It
 counts whether presentation took zero, one, or multiple monitor intervals.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
 - The valuable next step is the same measurement boundary: count missed mapped
   frames on Plasma Wayland/X11.
@@ -194,9 +194,9 @@ writes. tmux disables pane reads after a parse callback until its parser path is
 ready again. All three make ownership/backpressure explicit rather than
 assuming every consumer is always ready.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
-- DINTTY's ABI-v7 borrowed packed frame snapshots and dirty spans avoid
+- DEETTY's ABI-v7 borrowed packed frame snapshots and dirty spans avoid
   per-cell/row callbacks and avoid an owned full-grid clone for every frame.
 - PTY writes were the missing backpressure boundary: `Pty.writeAll` slept in a
   loop on `EAGAIN`, and native GTK input called it synchronously.
@@ -219,11 +219,11 @@ a fixed newest-wins buffer instead of creating an unbounded task per event.
 Herdr emits sanitized OSC 9 or structured OSC 99 and wraps it correctly for
 tmux passthrough.
 
-Accepted DINTTY change:
+Accepted DEETTY change:
 
 - The bounded VT string parser now recognizes non-progress OSC 9, non-query OSC 99,
   and `OSC 777;notify;...` requests.
-- DINTTY stores only a monotonic notification serial; it does not persist
+- DEETTY stores only a monotonic notification serial; it does not persist
   notification text or agent transcripts.
 - The native host turns a new serial into a pending-input state and compact
   attention signal. Output cannot accidentally clear an unread request; focus
@@ -235,7 +235,7 @@ Accepted DINTTY change:
 - The compact native smoke now drives an actual OSC 9 request rather than
   simulating attention only with BEL.
 
-DINTTY deliberately does not scan rendered terminal text for words such as
+DEETTY deliberately does not scan rendered terminal text for words such as
 “done,” “permission,” or “waiting.” Explicit hooks and terminal protocols are
 more accurate, cheaper, language-independent, and less vulnerable to false
 positives from ordinary command output.
@@ -253,12 +253,12 @@ activity. Its stale-session view is suggest-only, includes the evidence behind
 each classification, and never auto-stops or deletes a session. Its attention
 list is bounded and newest-first.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
 - Process start, PTY output, explicit notification, user input, and process exit
   remain separate evidence. Startup time must not masquerade as recent agent
   activity.
-- Idle-history compaction may reclaim terminal memory, but DINTTY must not kill
+- Idle-history compaction may reclaim terminal memory, but DEETTY must not kill
   or “hibernate” an agent from an idle-output heuristic.
 - If a stale-session view is added later, it should be read-only and show its
   evidence rather than claiming an agent is safe to terminate.
@@ -281,9 +281,9 @@ Herdr cleanly separates:
 Claude Squad obtains a large practical win from a much smaller model: tmux for
 process continuity and Git worktrees for task isolation.
 
-Transfer to DINTTY:
+Transfer to DEETTY:
 
-- DINTTY's current hot-session file is correctly a layout/cwd restart model,
+- DEETTY's current hot-session file is correctly a layout/cwd restart model,
   not a claim that arbitrary processes survived.
 - Existing tmux/Zellij launch profiles are the lowest-complexity live process
   continuity path.
@@ -301,7 +301,7 @@ idle evidence, snapshots transcripts, and revalidates the exact process set
 before teardown. Better Agent Terminal exposes explicit rest/wake controls.
 
 These projects demonstrate how much machinery is required to terminate an
-agent safely. DINTTY should not infer equivalent safety from PTY silence.
+agent safely. DEETTY should not infer equivalent safety from PTY silence.
 Explicit tmux/Zellij continuity and idle terminal-memory release cover the
 current need with far less risk.
 
@@ -310,9 +310,9 @@ current need with far less risk.
 WaveTerm's durable SSH sessions, command blocks, and workspace CLI are useful
 workflow ideas. cmux's programmable workspace/socket model is similarly
 powerful. Their broader browser/AI surfaces and Better Agent Terminal's
-Tauri/React/Node stack do not fit DINTTY's native runtime boundary.
+Tauri/React/Node stack do not fit DEETTY's native runtime boundary.
 
-The transferable subset is already visible in DINTTY's native design:
+The transferable subset is already visible in DEETTY's native design:
 launch profiles, recursive splits, project cwd, tags, broadcast, status,
 notifications, tmux/Zellij paths, and standalone NoctEd handoff.
 
@@ -332,7 +332,7 @@ input buffer:
 | New `TerminalSession` enqueue path | 1.450 ms |
 | Caller-latency improvement | 635.8x |
 
-This measures time until the input is safely accepted by DINTTY, not time until
+This measures time until the input is safely accepted by DEETTY, not time until
 the sleeping child consumes every byte. A single current ReleaseFast/Xvfb
 regression sample retained 131.275 MiB/s at eight output panes and 136.606 MiB/s
 at 32 output panes. Those samples guard the established throughput scale; they
@@ -373,10 +373,10 @@ staying native and local-first:
 - Opening a workspace presents a restore choice: restart shells, attach
   persistent tmux/Zellij sessions, or resume registered agents. Unsupported or
   missing references fail closed to a shell rather than guessing.
-- The command palette can export screen history to a `.dinttyhs` file protected
+- The command palette can export screen history to a `.deettyhs` file protected
   with a user-entered password, PBKDF2-HMAC-SHA256, XChaCha20-Poly1305, a random
   salt/nonce, atomic replacement, and mode `0600`. Passwords and transcript
-  contents are not stored in DINTTY state.
+  contents are not stored in DEETTY state.
 - OSC 99/777 payloads may request only two structured, non-automatic actions:
   focus the pane or open its project view. The action is shown as pending and
   requires an explicit “Accept pending agent action” command; arbitrary command

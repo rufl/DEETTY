@@ -24,15 +24,15 @@ esac
 case "${2:-}" in
   archive)
     target_kind=archive
-    target_name="dintty-linux-$arch.tar.gz"
+    target_name="deetty-linux-$arch.tar.gz"
     ;;
   checksum)
     target_kind=checksum
-    target_name="dintty-linux-$arch.tar.gz.sha256"
+    target_name="deetty-linux-$arch.tar.gz.sha256"
     ;;
   manifest)
     target_kind=manifest
-    target_name="dintty-linux-$arch.tar.gz.manifest"
+    target_name="deetty-linux-$arch.tar.gz.manifest"
     ;;
   *)
     usage

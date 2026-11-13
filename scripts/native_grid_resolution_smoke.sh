@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ]]; then
+if [[ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ]]; then
     exec ./scripts/run_isolated_wayland.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
@@ -14,8 +14,8 @@ for command in identify kscreen-doctor qdbus6 spectacle; do
 done
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-resolution-smoke.XXXXXX")
-artifact_dir=${DINTTY_RESOLUTION_ARTIFACT_DIR:-}
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-resolution-smoke.XXXXXX")
+artifact_dir=${DEETTY_RESOLUTION_ARTIFACT_DIR:-}
 runner_pid=
 restore_output() {
     kscreen-doctor output.1.mode.1 >/dev/null 2>&1 || true
@@ -90,7 +90,7 @@ wait_for_output_geometry() {
 activate_window() {
     local title=$1
     local script="$scratch/activate-window.js"
-    local plugin="dinttyResolutionActivate$$"
+    local plugin="deettyResolutionActivate$$"
     cat >"$script" <<EOF
 for (const window of workspace.windowList()) {
     if (window.caption === '$title') {
@@ -179,7 +179,7 @@ run_case() {
     local initial_height=$5
     local reduced_width=$6
     local reduced_height=$7
-    local marker="$XDG_RUNTIME_DIR/dintty-resolution-${mode}-finished"
+    local marker="$XDG_RUNTIME_DIR/deetty-resolution-${mode}-finished"
     local stdout_log="$scratch/${mode}.stdout.log"
     local stderr_log="$scratch/${mode}.stderr.log"
     rm -f "$marker"
@@ -187,7 +187,7 @@ run_case() {
     wait_for_output_geometry 1440x900
 
     env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
-        "$repo_root/zig-out/bin/dintty-smoke" "$flag" \
+        "$repo_root/zig-out/bin/deetty-smoke" "$flag" \
         >"$stdout_log" 2>"$stderr_log" &
     runner_pid=$!
     wait_for_log "$stderr_log" \
@@ -227,10 +227,10 @@ run_case() {
 }
 
 cd "$repo_root"
-ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build -j1 dintty-smoke-binary
+ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build -j1 deetty-smoke-binary
 kscreen-doctor output.1.addCustomMode.1024.640.60000.full >/dev/null
 run_case dropdown --native-grid-resolution-dropdown-smoke \
-    'DINTTY resolution dropdown qualification' 1382 495 983 352
+    'DEETTY resolution dropdown qualification' 1382 495 983 352
 run_case fullscreen --native-grid-resolution-fullscreen-smoke \
-    'DINTTY resolution fullscreen qualification' 1440 900 1024 640
+    'DEETTY resolution fullscreen qualification' 1440 900 1024 640
 printf 'native_grid_resolution_smoke wayland=true live_switch=true dropdown_percent=true fullscreen_monitor=true restored=true isolated=true\n'

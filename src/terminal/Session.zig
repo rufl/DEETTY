@@ -587,7 +587,7 @@ test "terminal session routes real PTY bytes into the Zig VT grid" {
     try session.resize(48, 5, 480, 180);
     try std.testing.expectEqual(@as(usize, 48), session.grid.columns);
     try std.testing.expectEqual(@as(usize, 5), session.grid.rows);
-    try session.write("printf '\\033[2;1mDINTTY_SESSION_OK\\033]2;session-title\\007'; exit 0\n");
+    try session.write("printf '\\033[2;1mDEETTY_SESSION_OK\\033]2;session-title\\007'; exit 0\n");
 
     var saw_marker = false;
     var saw_exit = false;
@@ -641,9 +641,9 @@ test "terminal session teardown is idempotent and closes its public boundary" {
 test "terminal launch profile applies command cwd environment and scrollback" {
     var profile = LaunchProfile.Profile{ .kind = .command };
     try profile.shell.set("/bin/sh");
-    try profile.command.set("printf 'DINTTY_PROFILE=%s:%s' \"$PWD\" \"$DINTTY_PROFILE\"");
+    try profile.command.set("printf 'DEETTY_PROFILE=%s:%s' \"$PWD\" \"$DEETTY_PROFILE\"");
     try profile.working_directory.set("/tmp");
-    try profile.environment.set("DINTTY_PROFILE=ready;DINTTY_SECOND=value");
+    try profile.environment.set("DEETTY_PROFILE=ready;DEETTY_SECOND=value");
     profile.scrollback_lines = 321;
 
     var session = try TerminalSession.spawnProfile(std.testing.allocator, &profile, "/", "/bin/false", 96, 4);
@@ -669,7 +669,7 @@ test "terminal launch profile applies command cwd environment and scrollback" {
             const codepoint = session.grid.cell(column, row).codepoint;
             row_bytes[column] = if (codepoint <= 0x7f) @intCast(codepoint) else '?';
         }
-        if (std.mem.indexOf(u8, row_bytes[0..session.grid.columns], "DINTTY_PROFILE=/tmp:ready") != null) {
+        if (std.mem.indexOf(u8, row_bytes[0..session.grid.columns], "DEETTY_PROFILE=/tmp:ready") != null) {
             saw_marker = true;
             break;
         }

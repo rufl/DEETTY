@@ -1,5 +1,5 @@
-#ifndef DINTTY_NATIVE_GRID_RENDER_H
-#define DINTTY_NATIVE_GRID_RENDER_H
+#ifndef DEETTY_NATIVE_GRID_RENDER_H
+#define DEETTY_NATIVE_GRID_RENDER_H
 
 #include <cairo.h>
 #include <pango/pango.h>
@@ -8,20 +8,20 @@
 
 #include "native_grid_logic.h"
 
-typedef uint32_t (*DinttyGridRenderColor)(void *, uint32_t);
+typedef uint32_t (*DeettyGridRenderColor)(void *, uint32_t);
 
 typedef struct {
     void *userdata;
-    DinttyGridRenderColor resolve;
-} DinttyGridRenderPalette;
+    DeettyGridRenderColor resolve;
+} DeettyGridRenderPalette;
 
 typedef struct {
     void *userdata;
-    DinttyGridRenderColor resolve;
-} DinttyGridTerminalPalette;
+    DeettyGridRenderColor resolve;
+} DeettyGridTerminalPalette;
 
 typedef struct {
-    DinttyGridRenderPalette palette;
+    DeettyGridRenderPalette palette;
     const char *font_family;
     int allocation_width;
     int allocation_height;
@@ -31,17 +31,17 @@ typedef struct {
     int zoom_percent;
     double border_width;
     int high_contrast;
-} DinttyGridResizeOverlay;
+} DeettyGridResizeOverlay;
 
 typedef struct {
-    DinttyGridRenderPalette palette;
+    DeettyGridRenderPalette palette;
     const char *label;
     int allocation_width;
     int allocation_height;
     double pane_border_width;
     double overlay_border_width;
     uint32_t accent_rgb;
-} DinttyGridCycleOverlay;
+} DeettyGridCycleOverlay;
 
 typedef struct {
     cairo_glyph_t **scratch;
@@ -53,21 +53,21 @@ typedef struct {
     unsigned int *cache_builds;
     unsigned int *cache_hits;
     unsigned int *fallback_conversions;
-} DinttyGridGlyphCache;
+} DeettyGridGlyphCache;
 
-typedef void (*DinttyGridDrawCodepoint)(
+typedef void (*DeettyGridDrawCodepoint)(
     void *, cairo_t *, uint32_t, double, double, uint32_t);
 
-typedef int (*DinttyGridFrameValue)(
+typedef int (*DeettyGridFrameValue)(
     void *, int, int, uint64_t *, size_t);
-typedef int (*DinttyGridCellSelected)(void *, int, int);
-typedef void (*DinttyGridDrawCellText)(
+typedef int (*DeettyGridCellSelected)(void *, int, int);
+typedef void (*DeettyGridDrawCellText)(
     void *, cairo_t *, int, int, double, double, uint32_t);
 
 typedef struct {
-    DinttyGridRenderPalette ui_palette;
-    DinttyGridTerminalPalette terminal_palette;
-    DinttyGridGlyphCache glyph_cache;
+    DeettyGridRenderPalette ui_palette;
+    DeettyGridTerminalPalette terminal_palette;
+    DeettyGridGlyphCache glyph_cache;
     uint64_t **frame_cells;
     size_t *frame_capacity;
     unsigned int *frame_allocations;
@@ -76,12 +76,12 @@ typedef struct {
     unsigned int *glyph_cells;
     unsigned int *rich_style_cells;
     void *source_context;
-    DinttyGridFrameValue frame;
+    DeettyGridFrameValue frame;
     void *selection_context;
-    DinttyGridCellSelected selected;
+    DeettyGridCellSelected selected;
     void *draw_context;
-    DinttyGridDrawCodepoint draw_codepoint;
-    DinttyGridDrawCellText draw_cell_text;
+    DeettyGridDrawCodepoint draw_codepoint;
+    DeettyGridDrawCellText draw_cell_text;
     const char *font_family;
     double font_px;
     int antialias;
@@ -94,11 +94,11 @@ typedef struct {
     double cell_height;
     double status_border_width;
     uint32_t cursor_rgb;
-    DinttyGridRenderChrome chrome;
-} DinttyGridCells;
+    DeettyGridRenderChrome chrome;
+} DeettyGridCells;
 
 typedef struct {
-    DinttyGridGlyphCache cache;
+    DeettyGridGlyphCache cache;
     const uint64_t *cells;
     int first;
     int end;
@@ -107,27 +107,27 @@ typedef struct {
     double baseline;
     int face;
     void *fallback_context;
-    DinttyGridDrawCodepoint draw_codepoint;
-} DinttyGridAsciiRun;
+    DeettyGridDrawCodepoint draw_codepoint;
+} DeettyGridAsciiRun;
 
 typedef struct {
     PangoFontDescription **descriptions;
     const char *family;
     double size_px;
-} DinttyGridTerminalFont;
+} DeettyGridTerminalFont;
 
 typedef struct {
-    DinttyGridRenderPalette palette;
+    DeettyGridRenderPalette palette;
     const char *text;
     PangoFontDescription **font_cache;
     int allocation_width;
     int allocation_height;
     double border_width;
     int high_contrast;
-} DinttyGridTextOverlay;
+} DeettyGridTextOverlay;
 
 typedef struct {
-    DinttyGridTerminalPalette palette;
+    DeettyGridTerminalPalette palette;
     uint32_t style;
     uint32_t foreground;
     int row;
@@ -136,16 +136,16 @@ typedef struct {
     double cell_width;
     double cell_height;
     double baseline;
-} DinttyGridTextDecoration;
+} DeettyGridTextDecoration;
 
 typedef struct {
     uint64_t pane_mask;
     int selected_seen;
     int host_active_seen;
-} DinttyGridSharingPreviewResult;
+} DeettyGridSharingPreviewResult;
 
 typedef struct {
-    DinttyGridRenderPalette palette;
+    DeettyGridRenderPalette palette;
     int allocation_height;
     double x;
     double width;
@@ -153,31 +153,31 @@ typedef struct {
     double thumb_height;
     int dragging;
     int hovered;
-} DinttyGridRenderScrollbar;
+} DeettyGridRenderScrollbar;
 
-int dintty_grid_render_ascii_run(
-    cairo_t *cr, const DinttyGridAsciiRun *options);
-int dintty_grid_render_cells(
-    cairo_t *cr, const DinttyGridCells *options);
-void dintty_grid_render_apply_font_options(
+int deetty_grid_render_ascii_run(
+    cairo_t *cr, const DeettyGridAsciiRun *options);
+int deetty_grid_render_cells(
+    cairo_t *cr, const DeettyGridCells *options);
+void deetty_grid_render_apply_font_options(
     cairo_t *cr, int antialias, int hinting);
-int dintty_grid_render_terminal_text(
-    cairo_t *cr, const DinttyGridTerminalFont *font,
+int deetty_grid_render_terminal_text(
+    cairo_t *cr, const DeettyGridTerminalFont *font,
     const char *text, int length, double x, double baseline, uint32_t style);
-int dintty_grid_render_resize_overlay(
-    cairo_t *cr, const DinttyGridResizeOverlay *options);
-int dintty_grid_render_cycle_overlay(
-    cairo_t *cr, const DinttyGridCycleOverlay *options);
-int dintty_grid_render_quick_note(
-    cairo_t *cr, const DinttyGridTextOverlay *options, int *compact_out);
-int dintty_grid_render_status_feedback(
-    cairo_t *cr, const DinttyGridTextOverlay *options);
-int dintty_grid_render_text_decoration(
-    cairo_t *cr, const DinttyGridTextDecoration *options);
-int dintty_grid_render_sharing_preview(
+int deetty_grid_render_resize_overlay(
+    cairo_t *cr, const DeettyGridResizeOverlay *options);
+int deetty_grid_render_cycle_overlay(
+    cairo_t *cr, const DeettyGridCycleOverlay *options);
+int deetty_grid_render_quick_note(
+    cairo_t *cr, const DeettyGridTextOverlay *options, int *compact_out);
+int deetty_grid_render_status_feedback(
+    cairo_t *cr, const DeettyGridTextOverlay *options);
+int deetty_grid_render_text_decoration(
+    cairo_t *cr, const DeettyGridTextDecoration *options);
+int deetty_grid_render_sharing_preview(
     cairo_t *cr, void *event_data, int width, int height,
-    DinttyGridSharingPreviewResult *result);
-int dintty_grid_render_scrollbar(
-    cairo_t *cr, const DinttyGridRenderScrollbar *options);
+    DeettyGridSharingPreviewResult *result);
+int deetty_grid_render_scrollbar(
+    cairo_t *cr, const DeettyGridRenderScrollbar *options);
 
 #endif

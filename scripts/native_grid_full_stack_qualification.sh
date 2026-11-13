@@ -5,12 +5,12 @@ set -euo pipefail
 export LC_ALL=C
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-artifact_dir=${DINTTY_FULL_STACK_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-full-stack-$(date +%F)"}
+artifact_dir=${DEETTY_FULL_STACK_ARTIFACT_DIR:-"$repo_root/benchmarks/native-grid-full-stack-$(date +%F)"}
 case "$artifact_dir" in
     /*) ;;
     *) artifact_dir="$repo_root/$artifact_dir" ;;
 esac
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-full-stack-qualification.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-full-stack-qualification.XXXXXX")
 runner_pid=
 cleanup() {
     if [[ -n "$runner_pid" ]] && kill -0 "$runner_pid" 2>/dev/null; then
@@ -53,20 +53,20 @@ wait_for_phase() {
     return 1
 }
 
-capture_dintty_window() {
+capture_deetty_window() {
     local backend=$1
     local image=$2
     if [[ "$backend" == x11 ]]; then
         local window
         window=$(xdotool search --sync --onlyvisible \
-            --name '^DINTTY full-stack qualification$' | tail -n 1)
+            --name '^DEETTY full-stack qualification$' | tail -n 1)
         xdotool windowactivate --sync "$window"
         sleep 0.1
     fi
     spectacle --background --nonotify --activewindow --output "$image"
     test -s "$image"
     tesseract "$image" stdout -l afr --psm 6 2>/dev/null |
-        grep -F 'DINTTY mapped' >/dev/null
+        grep -F 'DEETTY mapped' >/dev/null
 }
 
 sample_phase() {
@@ -90,7 +90,7 @@ sample_phase() {
             END { print voluntary + 0, nonvoluntary + 0 }
         ' "/proc/$pid/status"
     )
-    capture_dintty_window "$backend" "$image"
+    capture_deetty_window "$backend" "$image"
     read -r image_width image_height < <(identify -format '%w %h\n' "$image")
     ((image_width >= 900))
     ((image_height >= 500))
@@ -103,7 +103,7 @@ sample_phase() {
 
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
-    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build deetty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$scratch/cache-$mode"
@@ -111,7 +111,7 @@ for mode in Debug ReleaseSafe; do
     for backend in wayland x11; do
         log="$artifact_dir/$mode_name-$backend.log"
         env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
-            GDK_BACKEND="$backend" "$prefix/bin/dintty-smoke" \
+            GDK_BACKEND="$backend" "$prefix/bin/deetty-smoke" \
             --native-grid-full-stack-qualification >"$log" 2>&1 &
         runner_pid=$!
         wait_for_phase "$log" idle_ready "$runner_pid"

@@ -8,9 +8,9 @@ if [ "${1:-}" = "--list-candidates" ]; then
 fi
 
 state_home=${1:-${XDG_STATE_HOME:-"$HOME/.local/state"}}
-log_dir="$state_home/dintty/logs"
-receipt_dir="$state_home/dintty/dogfood-sessions"
-records=$(mktemp "${TMPDIR:-/tmp}/dintty-dogfood-runtime.XXXXXX")
+log_dir="$state_home/deetty/logs"
+receipt_dir="$state_home/deetty/dogfood-sessions"
+records=$(mktemp "${TMPDIR:-/tmp}/deetty-dogfood-runtime.XXXXXX")
 trap 'rm -f "$records"' EXIT HUP INT TERM
 : >"$records"
 
@@ -29,7 +29,7 @@ if [ -d "$receipt_dir" ]; then
     case "$session_id" in
       ''|*[!A-Za-z0-9._-]*) continue ;;
     esac
-    case "$app" in dintty|nocted) ;; *) continue ;; esac
+    case "$app" in deetty|nocted) ;; *) continue ;; esac
     case "$duration" in ''|*[!0-9]*) duration=0 ;; esac
     case "$status" in -1) ;; ''|*[!0-9]*) status=-1 ;; esac
     if [ "$state" = finished ]; then finished=true; else finished=false; fi
@@ -39,14 +39,14 @@ if [ -d "$receipt_dir" ]; then
 fi
 
 if [ -d "$log_dir" ]; then
-  for log in "$log_dir"/dintty-*.log "$log_dir"/nocted-*.log; do
+  for log in "$log_dir"/deetty-*.log "$log_dir"/nocted-*.log; do
     [ -f "$log" ] || continue
     session_id=$(basename "$log" .log)
     [ -f "$receipt_dir/$session_id.receipt" ] && continue
     launch=$(awk '/^dogfood_launch / { print; exit }' "$log")
     [ -n "$launch" ] || continue
     app=$(printf '%s\n' "$launch" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^app=/) { sub(/^app=/, "", $i); print $i; exit } }')
-    case "$app" in dintty|nocted) ;; *) continue ;; esac
+    case "$app" in deetty|nocted) ;; *) continue ;; esac
     start_epoch=$(printf '%s\n' "$launch" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^epoch=/) { sub(/^epoch=/, "", $i); print $i; exit } }')
     if [ -z "$start_epoch" ]; then
       start_timestamp=$(printf '%s\n' "$launch" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^timestamp=/) { sub(/^timestamp=/, "", $i); print $i; exit } }')
@@ -92,7 +92,7 @@ awk -F '\t' -v host="$host_name" '
   }
   END {
     printf "dogfood_runtime host=%s receipt_sessions=%d legacy_sessions=%d", host, sources["receipt"] + 0, sources["legacy"] + 0
-    printf " dintty_sessions=%d dintty_finished=%d dintty_incomplete=%d dintty_failed=%d dintty_seconds=%d dintty_hours=%.3f dintty_two_hour_candidates=%d dintty_candidate_hours=%.3f", sessions["dintty"] + 0, finished["dintty"] + 0, incomplete["dintty"] + 0, failed["dintty"] + 0, seconds["dintty"] + 0, (seconds["dintty"] + 0) / 3600, candidates["dintty"] + 0, (candidate_seconds["dintty"] + 0) / 3600
+    printf " deetty_sessions=%d deetty_finished=%d deetty_incomplete=%d deetty_failed=%d deetty_seconds=%d deetty_hours=%.3f deetty_two_hour_candidates=%d deetty_candidate_hours=%.3f", sessions["deetty"] + 0, finished["deetty"] + 0, incomplete["deetty"] + 0, failed["deetty"] + 0, seconds["deetty"] + 0, (seconds["deetty"] + 0) / 3600, candidates["deetty"] + 0, (candidate_seconds["deetty"] + 0) / 3600
     printf " nocted_sessions=%d nocted_finished=%d nocted_incomplete=%d nocted_failed=%d nocted_seconds=%d nocted_hours=%.3f nocted_two_hour_candidates=%d nocted_candidate_hours=%.3f evidence_boundary=runtime_only\n", sessions["nocted"] + 0, finished["nocted"] + 0, incomplete["nocted"] + 0, failed["nocted"] + 0, seconds["nocted"] + 0, (seconds["nocted"] + 0) / 3600, candidates["nocted"] + 0, (candidate_seconds["nocted"] + 0) / 3600
   }
 ' "$records"

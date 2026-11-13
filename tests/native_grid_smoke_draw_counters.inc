@@ -1,5 +1,5 @@
 /* Test-only draw counters for mapped qualification builds. */
-    DinttyGridContext *root = root_grid_context(context);
+    DeettyGridContext *root = root_grid_context(context);
     if (root->workspace_smoke == 37) {
         if (root->full_stack_phase == 1)
             root->full_stack_idle_draws++;

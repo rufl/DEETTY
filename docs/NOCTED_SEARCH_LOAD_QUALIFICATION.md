@@ -125,7 +125,7 @@ The retained live Wayland resource run produced:
 | Debug | 12,035,188 / 47,965,268 ns | 97,390,233 / 233,643,796 ns | 16,029,406 / 34,227,770 ns | 40,102,132 / 57,655,969 / 95,937,306 ns | 85,947 / 138,220 KiB |
 | ReleaseSafe | 2,215,896 / 5,274,196 ns | 24,174,252 / 37,149,464 ns | 8,289,271 / 17,818,837 ns | 34,354,477 / 36,105,932 / 36,441,522 ns | 75,844 / 127,936 KiB |
 
-Both backends and modes retained deterministic three-query ranking across eight cycles, the exact two-batch GTK cap, foreground/scan lane separation, worker drain, eight 12-file GIO monitor bursts, one bounded overflow recovery, and eight current DINTTY project model/tree-draw cycles:
+Both backends and modes retained deterministic three-query ranking across eight cycles, the exact two-batch GTK cap, foreground/scan lane separation, worker drain, eight 12-file GIO monitor bursts, one bounded overflow recovery, and eight current DEETTY project model/tree-draw cycles:
 
 ```text
 nocted_search_load_resource_matrix debug=true release_safe=true cycles=8 first_result_latency=true completion_latency=true cancellation_latency=true ui_draw_latency=true open_under_search=true save_under_refresh=true deterministic_ranking=true process_memory=true worker_drained=true scratch_clean=true

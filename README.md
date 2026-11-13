@@ -1,9 +1,9 @@
-# DINTTY
+# DEETTY
 
-DINTTY is a native terminal workspace focused first on Linux desktops: KDE
+DEETTY is a native terminal workspace focused first on Linux desktops: KDE
 Plasma, Noctalia-compatible Wayland compositors, Wayland, and X11. An
 experimental native Windows host now provides a first Win32/ConPTY terminal
-tranche using the same Zig VT core. DINTTY is built for the workflow that
+tranche using the same Zig VT core. DEETTY is built for the workflow that
 usually turns into many heavy VS Code/MrCode/Electron windows: agent sessions,
 shells, logs, quick edits, and project navigation.
 
@@ -11,7 +11,7 @@ NoctEd is the companion standalone editor. It is intentionally smaller than a
 full IDE: open a project, edit files, search, save safely, and get back to the
 terminal.
 
-DINTTY and NoctEd use Zig with native GTK/Win32 bindings. The runtime does
+DEETTY and NoctEd use Zig with native GTK/Win32 bindings. The runtime does
 **not** use Electron, Node.js, Bun, React, a browser UI runtime, telemetry,
 update pings, crash uploaders, or remote feature flags.
 
@@ -24,7 +24,7 @@ it is not yet Windows feature parity or physically qualified.
 
 The local 0.1.0 behavior scope has substantial proof coverage on the author's
 Linux/KDE-style environment, but the project is not yet a broad public release.
-The next goal is to make DINTTY/NoctEd reliable enough for daily use while
+The next goal is to make DEETTY/NoctEd reliable enough for daily use while
 keeping the public claims small and honest.
 
 The NCT-112 hidden/visible stability harness passes its short Debug/`ReleaseSafe`
@@ -74,7 +74,7 @@ serializing resource-heavy model or artifact work through its owning runtime.
 The observed zram/zswap setup consumes physical RAM; it is not extra model capacity.
 Page-cache hints do not prove endpoint readiness, and terminal/PTY qualification
 does not prove model task quality. These are integration guidelines, not a new
-DINTTY inference engine, agent scheduler or change to default behavior.
+DEETTY inference engine, agent scheduler or change to default behavior.
 
 ## Build and run
 
@@ -95,14 +95,14 @@ run from the repository root in your desktop session:
 
 ```sh
 zig build -j1
-./zig-out/bin/dintty --native-grid-windowed
+./zig-out/bin/deetty --native-grid-windowed
 ```
 
 This builds both production applications without running the maintainer matrix.
 Launch the editor with `./zig-out/bin/nocted --open README.md`. No OVERZEER install,
 agent CLI account, packaging receipt, or physical qualification is needed.
 For the dropdown instead, use `zig build run`.
-Use `dintty --help` or `nocted --help` for command-line options. To work with a
+Use `deetty --help` or `nocted --help` for command-line options. To work with a
 saved editor project, use **File > New Project** or open an existing `.npr` file;
 `--project` expects a project file, not a directory.
 
@@ -119,14 +119,14 @@ Optional legacy/fallback build:
 
 ```sh
 zig build vte-fallback
-./zig-out/bin/dintty-vte --native-host
+./zig-out/bin/deetty-vte --native-host
 ```
 
 Native x86_64 Windows cross-build (no GTK dependency):
 
 ```sh
 zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
-./scripts/package_windows.sh dist/dintty-windows-x86_64-alpha.zip
+./scripts/package_windows.sh dist/deetty-windows-x86_64-alpha.zip
 ```
 
 See [Windows alpha](docs/WINDOWS.md) for the current feature and proof boundary,
@@ -143,13 +143,13 @@ zig build -j1 -Doptimize=ReleaseSafe --prefix "$HOME/.local"
 Reproducible install-tree tarball:
 
 ```sh
-./scripts/package_tarball.sh /tmp/dintty-local.tar.gz
+./scripts/package_tarball.sh /tmp/deetty-local.tar.gz
 ```
 
 Same-architecture dependency bundle:
 
 ```sh
-./scripts/package_bundle.sh /tmp/dintty-linux-bundle.tar.gz
+./scripts/package_bundle.sh /tmp/deetty-linux-bundle.tar.gz
 ```
 
 ZTASH dogfood packages for the configured OVERZEER receivers:
@@ -160,12 +160,12 @@ ZTASH dogfood packages for the configured OVERZEER receivers:
 ```
 
 This replaces the ignored `dist/ztash/` output with target-bound
-`dintty-<version>-linux-x86_64.tar.gz` and
-`dintty-<version>-windows-x86_64.zip` archives, `SHA256SUMS`, and
+`deetty-<version>-linux-x86_64.tar.gz` and
+`deetty-<version>-windows-x86_64.zip` archives, `SHA256SUMS`, and
 `ztash-release.json`. The package script builds both targets, runs the Linux
 headless `--package-smoke`, and removes repository Zig caches and temporary
 staging on exit. Windows runtime smoke remains a receiver/Wine qualification
-boundary unless `DINTTY_ZTASH_WINE_SMOKE=1` is set.
+boundary unless `DEETTY_ZTASH_WINE_SMOKE=1` is set.
 
 Preview the authenticated fleet deployment only after selecting an immutable
 artifact-host base URL:
@@ -173,7 +173,7 @@ artifact-host base URL:
 ```sh
 ../../OVERZEER/tools/overzeer-ztash-deploy.sh preview \
   --release-dir dist/ztash \
-  --base-url https://downloads.example.invalid/dintty
+  --base-url https://downloads.example.invalid/deetty
 ```
 
 Remote mutation requires `--apply` and `OVERZEER_CONFIRM=DEPLOY`; private
@@ -195,15 +195,15 @@ input or release approval. Recapture safely with
 
 **Terminal workspace**
 
-![DINTTY alpha terminal workspace](docs/assets/dintty-alpha.png)
+![DEETTY alpha terminal workspace](docs/assets/deetty-alpha.png)
 
 **Tabs and recursive splits**
 
-![DINTTY alpha tabs and recursive splits](docs/assets/dintty-alpha-tabs-splits.png)
+![DEETTY alpha tabs and recursive splits](docs/assets/deetty-alpha-tabs-splits.png)
 
 **Native settings**
 
-![DINTTY alpha settings](docs/assets/dintty-alpha-settings.png)
+![DEETTY alpha settings](docs/assets/deetty-alpha-settings.png)
 
 **NoctEd project editor**
 
@@ -215,7 +215,7 @@ input or release approval. Recapture safely with
 
 ## What works today
 
-The qualified Linux DINTTY host provides:
+The qualified Linux DEETTY host provides:
 
 - undecorated, horizontally centered dropdown mode with responsive percentage
   sizing, native decorated windowed mode, and zen/fullscreen mode; every mode
@@ -225,15 +225,15 @@ The qualified Linux DINTTY host provides:
   theme-colored pixel gaps and optional 70%-by-default inactive-pane dimming
 - guarded broadcast input across selected panes or the active tab, with explicit enable confirmation and immediate disable
 - compact tab chrome inspired by Yakuake/Konsole workflows
-- bottom active-pane bar with DINTTY-wide and selected-terminal-tree CPU/memory usage
+- bottom active-pane bar with DEETTY-wide and selected-terminal-tree CPU/memory usage
 - per-pane scrollbars with wheel, track-click, thumb-drag, and Shift+Page/Home/End keyboard navigation; alternate-screen applications receive DEC mouse wheel input, retained emitted rows, or xterm-compatible cursor-key wheel fallback as appropriate, plus scrollback search, copy/paste, resize, Unicode/ANSI handling, and safe `http`/`https`/`mailto` links through a default-browser action or link context menu
 - terminal content exposed through native ATK text semantics for Linux screen readers
 - configurable launch profiles for shells, commands, SSH, tmux, and Zellij paths
-- retained installed tmux 3.7b/Zellij 0.44.3 detach, DINTTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11
-- maintained launcher qualification for Pi, OMP, and local-only ZIPI through the production PTY/VT/GTK/Cairo path; Pi/OMP external-provider access remains outside DINTTY
+- retained installed tmux 3.7b/Zellij 0.44.3 detach, DEETTY relaunch, reattach, and preserved-content proof on Plasma Wayland/X11
+- maintained launcher qualification for Pi, OMP, and local-only ZIPI through the production PTY/VT/GTK/Cairo path; Pi/OMP external-provider access remains outside DEETTY
 - hot-session workspace recovery plus mapped Wayland/X11 desktop-link and Recent Workspaces activation, with explicit shell-restart, tmux/Zellij-attach, or registered-agent-resume choices
 - validated last-known-good settings/theme fallback, exact damaged-state retention, and a native startup recovery notice instead of a blocked terminal
-- deterministic pre-state single-instance ownership for the dropdown, cold-start and Show/Toggle activation-token handoff without PTY inheritance, plus explicit separate New Workspace and Dolphin **Open DINTTY Here** launches
+- deterministic pre-state single-instance ownership for the dropdown, cold-start and Show/Toggle activation-token handoff without PTY inheritance, plus explicit separate New Workspace and Dolphin **Open DEETTY Here** launches
 - continuity badges distinguishing restartable shells, live sessions, and agent resumes
 - opt-in password-protected encrypted screen-history export
 - native settings, command palette, terminal search, Quick Note, shortcut card, and Project Workspace surfaces with keyboard-accessible controls, assistive status/error feedback, and work-area-bounded narrow-window scrolling
@@ -242,7 +242,7 @@ The qualified Linux DINTTY host provides:
   each tab can select its own theme, and that theme maps ANSI colors used by TUI
   applications as well as terminal background, caret, gap, and workspace roles
 - opt-in end-to-end encrypted sharing of the active terminal to one paired
-  DINTTY device, with a native remote preview and separately approved,
+  DEETTY device, with a native remote preview and separately approved,
   connection-scoped input control, assistive form/status semantics, and a
   work-area-bounded preview
 
@@ -317,7 +317,7 @@ and current connection; changing panes requires a separate grant. Grants end
 on revoke, disconnect, pane closure, resynchronization, or reconnect. After a
 link closes or fails, **Reconnect securely** performs a new authenticated
 handshake with the saved paired key and starts view-only. A stopped or failed
-host/viewer can also be explicitly closed without restarting DINTTY.
+host/viewer can also be explicitly closed without restarting DEETTY.
 **Revoke paired device** asks for confirmation, persists locally, closes a
 matching active share, and removes the revoked record from the actionable
 selector. If paired-device persistence fails, the in-memory change is identified
@@ -329,7 +329,7 @@ announcements containing only a temporary instance identifier, alias, port,
 protocol version, and capability bits. Announcements are unauthenticated hints;
 trust begins only after both devices confirm the same pairing code. Discovery
 runs only while the user asks for it in the Session Sharing dialog. Closing the
-dialog stops discovery, pairing, hosting, and receiving because DINTTY does not
+dialog stops discovery, pairing, hosting, and receiving because DEETTY does not
 yet have a separate persistent sharing indicator. Direct endpoints remain the
 reliable path across routed VPNs.
 
@@ -341,16 +341,16 @@ repaired by replaying an unbounded PTY byte stream.
 The host also probes an otherwise idle viewer and closes a link that does not
 answer.
 
-## What DINTTY is not
+## What DEETTY is not
 
-DINTTY is not trying to be a full IDE or a VS Code clone. It is a small native
+DEETTY is not trying to be a full IDE or a VS Code clone. It is a small native
 workspace for terminal-heavy development.
 
 NoctEd is not trying to be VS Code, Zed, or Sublime Text. It should become a
 trustworthy companion editor for quick project edits, not a plugin platform.
 
 WIZP is the separate experimental rich-editor/WebView line. Ideas may transfer
-from WIZP, but DINTTY should stay native and avoid inheriting WIZP's webview,
+from WIZP, but DEETTY should stay native and avoid inheriting WIZP's webview,
 Bun, or VS Code-parity stack.
 
 ## Common controls
@@ -436,7 +436,7 @@ Wayland dropdown:
 ./scripts/dogfood_runtime_status.sh --list-candidates
 ```
 
-Current retained evidence includes seven operator-confirmed installed DINTTY
+Current retained evidence includes seven operator-confirmed installed DEETTY
 sessions totaling 167.107 counted hours. This closes the minimum session-count
 baseline, not NCT-125's required clean current-build workflow recapture or the
 remaining four-pane, lifecycle, editor-coverage, and multi-OMP checks.
@@ -445,7 +445,7 @@ The display-backed post-upgrade lane is operator-initiated inside a disposable
 Plasma VM/session and performs no package refresh, telemetry, or upload:
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/plasma_wayland_post_upgrade.sh --full
 ```
 
 See [Dogfood install and logging](docs/DOGFOOD_LOGGING.md).
@@ -465,7 +465,7 @@ Display-backed smoke gate (disposable dedicated VM/container compositor only,
 never the active desktop):
 
 ```sh
-DINTTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh
+DEETTY_DEDICATED_DISPLAY=1 ./scripts/native_release_smoke.sh
 ```
 
 Focused X11 and Wayland regressions use the serialized, timeout-bounded
@@ -488,7 +488,7 @@ Before publishing as a Lichforge public alpha, the project should have:
 - current screenshots or short GIFs
 - a contributor code map for navigating the large native code paths
 - a minimal install/build path tested from a clean checkout
-- daily-driver dogfood notes from real DINTTY/NoctEd sessions
+- daily-driver dogfood notes from real DEETTY/NoctEd sessions
 - known limitations documented without marketing overclaim
 - package/signing/redistribution status clearly separated from source release
 - a retained no-surprise network/telemetry source scan
@@ -516,8 +516,8 @@ for private vulnerability reporting. Third-party provenance is documented in
 
 ## License
 
-DINTTY's first-party code is [MIT-licensed](LICENSE); contributions are accepted
+DEETTY's first-party code is [MIT-licensed](LICENSE); contributions are accepted
 under the same license. Vendored code and Unicode data retain their upstream
 copyrights and licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
 System libraries, including any copied into a dependency bundle, are **not**
-relicensed under DINTTY's MIT license.
+relicensed under DEETTY's MIT license.

@@ -3,11 +3,11 @@
         (context.presentation_mapped && !context.presentation_failed &&
          context.presentation_finished &&
          context.presentation_samples_started ==
-             DINTTY_PRESENTATION_QUALIFICATION_SAMPLES &&
+             DEETTY_PRESENTATION_QUALIFICATION_SAMPLES &&
          context.presentation_samples_completed ==
-             DINTTY_PRESENTATION_QUALIFICATION_SAMPLES &&
+             DEETTY_PRESENTATION_QUALIFICATION_SAMPLES &&
          context.presentation_interval_count ==
-             DINTTY_PRESENTATION_QUALIFICATION_SAMPLES - 1);
+             DEETTY_PRESENTATION_QUALIFICATION_SAMPLES - 1);
     int full_stack_ok = workspace_smoke != 37 ||
         (context.full_stack_mapped && context.full_stack_fullscreen &&
          !context.full_stack_failed && context.full_stack_finished &&

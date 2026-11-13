@@ -30,7 +30,7 @@ installed source state without its historical failure markers.
 - authenticated Codex 0.144.6 mapped Wayland/X11 exact-response receipts
 - installed tmux 3.7b/Zellij 0.44.3 detach/relaunch/reattach receipts
 - Debug/`ReleaseSafe` Wayland/X11 hidden/visible stability-harness shakedown; the 48-hour run remains open
-- seven operator-confirmed installed DINTTY sessions totaling 167.107 counted hours; the five-session and agent-use baselines are met
+- seven operator-confirmed installed DEETTY sessions totaling 167.107 counted hours; the five-session and agent-use baselines are met
 
 Current bounded gate:
 
@@ -53,13 +53,13 @@ dogfood_status counted_sessions=7 documented_sessions=7 unverified_sessions=0 no
 dogfood_omp_status observed_sessions=1 qualified_sessions=0 qualified_version=none max_concurrent=5 separate_worktrees=true concurrent_streaming=true independent_input=true independent_paste=true resize_during_output=true focus_isolation=true hide_show=true close_cancel=false close_accept_isolated=false normal_exit_cleanup=false hot_restore=true output_integrity=false logs_clean=false compatible=false
 ```
 
-Current DINTTY and NoctEd publication captures were refreshed without exposing
+Current DEETTY and NoctEd publication captures were refreshed without exposing
 the author's desktop. They prove current rendering only and do not close
 current-build workflow or physical-input gates.
 
-Retained launcher logs prove 188.293 total DINTTY process-hours and 14.568
+Retained launcher logs prove 188.293 total DEETTY process-hours and 14.568
 NoctEd process-hours on this host; those totals may overlap. Seven unique
-operator-confirmed DINTTY receipts contribute 167.107 counted hours. Historical
+operator-confirmed DEETTY receipts contribute 167.107 counted hours. Historical
 failure/warning sessions remain documented, and uninstrumented time is not
 promoted into specific interaction claims.
 
@@ -92,7 +92,7 @@ A stronger daily-driver alpha needs:
 
 - [x] five counted 2+ hour sessions
 - [ ] one four-pane/tab session
-- [x] one Pi/coding-agent session inside DINTTY
+- [x] one Pi/coding-agent session inside DEETTY
 - [ ] foreground-job close confirmation
 - [ ] NoctEd used for real edits in at least three sessions
 - [ ] no open P0/P1 dogfood blockers

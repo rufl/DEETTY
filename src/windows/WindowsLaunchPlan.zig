@@ -1,7 +1,7 @@
 //! Bounded, allocation-free Windows command and environment construction.
 const std = @import("std");
 const builtin = @import("builtin");
-const Launch = @import("dintty_share").launch_profile;
+const Launch = @import("deetty_share").launch_profile;
 const Profiles = @import("WindowsLaunchProfiles.zig");
 
 pub const command_capacity = 2048;

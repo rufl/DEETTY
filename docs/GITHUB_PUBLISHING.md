@@ -10,7 +10,7 @@ announcement. Those stronger decisions remain governed by
 
 Recommended GitHub values:
 
-- Owner/repository: `lichforge/dintty`
+- Owner/repository: `lichforge/deetty`
 - Description: `Native Zig terminal workspace and companion editor for Linux, Wayland, and X11.`
 - Website: leave empty until a maintained project page exists
 - Topics: `zig`, `terminal-emulator`, `gtk3`, `wayland`, `x11`, `kde-plasma`, `terminal`, `linux`
@@ -43,7 +43,7 @@ Create an empty GitHub repository without generated README, license, or
 `.gitignore`, then connect this existing history:
 
 ```sh
-git remote add origin git@github.com:lichforge/dintty.git
+git remote add origin git@github.com:lichforge/deetty.git
 git push -u origin main
 ```
 
@@ -57,7 +57,7 @@ requires it.
 Before announcing the repository:
 
 1. Enable **Private vulnerability reporting**. Confirm that
-   `https://github.com/lichforge/noctty/security/advisories/new` opens for a
+   `https://github.com/rufl/DEETTY/security/advisories/new` opens for a
    logged-in reporter.
 2. Enable secret scanning and push protection when the organization plan makes
    them available.

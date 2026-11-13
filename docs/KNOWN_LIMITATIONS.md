@@ -1,6 +1,6 @@
 # Known Limitations
 
-DINTTY is in pre-public Linux alpha. This document keeps public expectations
+DEETTY is in pre-public Linux alpha. This document keeps public expectations
 small and clear.
 
 ## Platform support
@@ -57,7 +57,7 @@ release-operation items are closed.
 
 ## Terminal compatibility
 
-DINTTY has substantial bounded terminal/PTY/VT evidence, including deterministic
+DEETTY has substantial bounded terminal/PTY/VT evidence, including deterministic
 protocol fixtures and several installed TUI applications. This does not mean
 universal terminal compatibility.
 
@@ -71,7 +71,7 @@ Not complete yet:
 
 ## Session continuity
 
-DINTTY restores workspace layout and restarts fresh shells in saved directories.
+DEETTY restores workspace layout and restarts fresh shells in saved directories.
 It does **not** resurrect arbitrary in-memory shell processes after a crash or
 forced exit.
 
@@ -125,7 +125,7 @@ guarantee the latest keystroke; users still need to save important files.
 
 ## Accessibility
 
-Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. DINTTY and NoctEd tab/action controls retain 28-logical-pixel width and 18-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
+Native action buttons, settings categories, editor trees, result lists, tabs, and status surfaces expose keyboard focus or assistive names where the toolkit supports them. DEETTY and NoctEd tab/action controls retain 28-logical-pixel width and 18-logical-pixel height targets with explicit hover, active, and keyboard-focus states.
 
 Not complete or claimed yet:
 
@@ -135,7 +135,7 @@ Not complete or claimed yet:
 
 ## Performance claims
 
-DINTTY includes local benchmarks and resource receipts. Treat them as one-host
+DEETTY includes local benchmarks and resource receipts. Treat them as one-host
 engineering evidence unless explicitly described otherwise.
 
 Do not claim:
@@ -147,12 +147,12 @@ Do not claim:
 
 Useful public language:
 
-> DINTTY is designed and measured for low overhead on the author's Linux/KDE
+> DEETTY is designed and measured for low overhead on the author's Linux/KDE
 > development host, with scripts available for others to reproduce locally.
 
 ## Ghostty/VTE boundaries
 
-Production `dintty` uses DINTTY's own Zig PTY/VT/grid path and does not depend
+Production `deetty` uses DEETTY's own Zig PTY/VT/grid path and does not depend
 on Ghostty's private GUI ABI. Ghostty-related experiments must stay isolated
 behind the adapter boundary.
 
@@ -160,7 +160,7 @@ The older GTK/VTE path is optional/legacy and not the default product surface.
 
 ## Network and telemetry
 
-DINTTY should not add telemetry, analytics, update pings, crash uploaders, or
+DEETTY should not add telemetry, analytics, update pings, crash uploaders, or
 remote feature flags. Any future network behavior must be explicit, user-owned,
 and documented.
 

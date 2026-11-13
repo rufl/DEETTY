@@ -1,13 +1,13 @@
 # Public Alpha Plan
 
-This is the small finish plan for publishing DINTTY/NoctEd as an honest
+This is the small finish plan for publishing DEETTY/NoctEd as an honest
 Lichforge open-source alpha.
 
 ## Positioning
 
 Use this public positioning:
 
-> DINTTY is a native Linux terminal workspace with a small companion editor for
+> DEETTY is a native Linux terminal workspace with a small companion editor for
 > terminal-heavy development on KDE Plasma/Wayland/X11.
 
 Avoid these claims:
@@ -63,7 +63,7 @@ The full maintainer gate is:
 The retained 2026-08-04 run with:
 
 ```sh
-DINTTY_VERIFY_PARENT=/dev/shm DINTTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
+DEETTY_VERIFY_PARENT=/dev/shm DEETTY_ZIG_SINGLE_JOB=1 ./scripts/verify.sh
 ```
 
 completed successfully through the terminal, renderer, PTY, NoctEd
@@ -74,12 +74,12 @@ The opt-in live Plasma presentation lane retains 64 mapped synthetic production 
 
 The same dogfood-prep slice reproduces and closes the relative-cwd startup and
 collapsed-window blockers. The local Wayland install stages GTK Layer Shell,
-logs `DINTTY dropdown layer-shell active`, removes ordinary window decorations,
+logs `DEETTY dropdown layer-shell active`, removes ordinary window decorations,
 and keeps percentage-driven dropdown widths horizontally centered.
 
 ## Phase 2 — Daily-driver dogfood
 
-Goal: use DINTTY/NoctEd for real Lichforge work before public alpha.
+Goal: use DEETTY/NoctEd for real Lichforge work before public alpha.
 
 Detailed runbook: `docs/DOGFOOD_RUNBOOK.md`. Current dogfood status command: `./scripts/dogfood_status.sh`.
 
@@ -88,7 +88,7 @@ Suggested dogfood protocol:
 - [x] 5 separate sessions
 - [x] at least 2 hours each
 - [ ] use at least 4 terminal panes/tabs in one session
-- [x] run Pi or another agent CLI inside DINTTY at least once
+- [x] run Pi or another agent CLI inside DEETTY at least once
 - [ ] use NoctEd for small real edits in at least 3 sessions
 - [ ] test hide/show, close confirmation, restore, find, copy/paste, and settings
 - [x] record bugs as backlog rows, not as vague notes
@@ -146,7 +146,7 @@ Before public alpha tag:
 - [x] build/run instructions tested from a clean source copy
 - [x] no telemetry/network surprises; retained source scan: `./scripts/check_no_surprise_network.sh`
 - [x] package/signing status clear
-- [x] Current `ReleaseSafe` installed-tree DINTTY and NoctEd screenshots
+- [x] Current `ReleaseSafe` installed-tree DEETTY and NoctEd screenshots
   recaptured in the repository's disposable private X11/KWin session, including
   terminal tabs/splits, settings, project editing, and project-wide search.
 - [x] contribution licensing, conduct, support, and private security-reporting notes present
@@ -160,7 +160,7 @@ Before public alpha tag:
 ## Suggested first public alpha promise
 
 ```text
-DINTTY 0.1 alpha is for Linux/KDE/Wayland/X11 users who want to try a native,
+DEETTY 0.1 alpha is for Linux/KDE/Wayland/X11 users who want to try a native,
 low-overhead terminal workspace with a small companion editor. It is not yet a
 full IDE or a cross-platform terminal replacement. Expect rough edges, but the
 project is proof-driven and avoids telemetry and Electron-style runtime bloat.
@@ -169,5 +169,5 @@ project is proof-driven and avoids telemetry and Electron-style runtime bloat.
 ## WIZP relationship
 
 WIZP should remain a separate experimental rich-editor/WebView project for now.
-Do not import its Bun/WebView/VS Code-parity stack into DINTTY. Transfer only
-small ideas that fit DINTTY's native terminal-workspace goal.
+Do not import its Bun/WebView/VS Code-parity stack into DEETTY. Transfer only
+small ideas that fit DEETTY's native terminal-workspace goal.

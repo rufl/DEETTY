@@ -12,20 +12,20 @@ for command in dbus-run-session flock kwin_wayland timeout; do
   fi
 done
 
-case "${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" in
+case "${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" in
   ''|*[!0-9]*)
     echo 'run_isolated_wayland error=invalid_timeout' >&2
     exit 2
     ;;
 esac
-if [ "${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" -lt 1 ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}" -lt 1 ]; then
   echo 'run_isolated_wayland error=invalid_timeout' >&2
   exit 2
 fi
 
-timeout_seconds=${DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}
-lock="${XDG_RUNTIME_DIR:-/tmp}/dintty-isolated-display-$(id -u).lock"
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-isolated-wayland.XXXXXX")
+timeout_seconds=${DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS:-300}
+lock="${XDG_RUNTIME_DIR:-/tmp}/deetty-isolated-display-$(id -u).lock"
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-isolated-wayland.XXXXXX")
 cleanup() {
   if ! rm -rf "$scratch" 2>/dev/null; then
     sleep 0.1
@@ -45,18 +45,18 @@ printf '[preferred]\ndefault=gtk;\n' \
   >"$scratch/config/xdg-desktop-portal/portals.conf"
 
 unset DISPLAY WAYLAND_DISPLAY
-export DINTTY_DEDICATED_DISPLAY=1
-export DINTTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
-export DINTTY_ISOLATED_WAYLAND_ROOT="$scratch"
+export DEETTY_DEDICATED_DISPLAY=1
+export DEETTY_ISOLATED_DISPLAY_TIMEOUT_SECONDS="$timeout_seconds"
+export DEETTY_ISOLATED_WAYLAND_ROOT="$scratch"
 flock -x -w "$timeout_seconds" "$lock" \
   timeout --kill-after=10 "$timeout_seconds" \
   env HOME="$scratch/home" XDG_CONFIG_HOME="$scratch/config" \
     XDG_STATE_HOME="$scratch/state" XDG_CACHE_HOME="$scratch/cache" \
     XDG_DATA_HOME="$scratch/data" XDG_RUNTIME_DIR="$scratch/runtime" \
-    XDG_CURRENT_DESKTOP=dintty-isolated \
-    XDG_SESSION_DESKTOP=dintty-isolated KDE_FULL_SESSION= DESKTOP_SESSION= \
+    XDG_CURRENT_DESKTOP=deetty-isolated \
+    XDG_SESSION_DESKTOP=deetty-isolated KDE_FULL_SESSION= DESKTOP_SESSION= \
   dbus-run-session -- sh -eu -c '
-    scratch=$DINTTY_ISOLATED_WAYLAND_ROOT
+    scratch=$DEETTY_ISOLATED_WAYLAND_ROOT
     compositor_pid=
     process_live() {
       test -r "/proc/$1/stat" || return 1
@@ -90,18 +90,18 @@ flock -x -w "$timeout_seconds" "$lock" \
     export XDG_CACHE_HOME="$scratch/cache"
     export XDG_DATA_HOME="$scratch/data"
     export XDG_SESSION_TYPE=wayland
-    export XDG_CURRENT_DESKTOP=dintty-isolated
-    export XDG_SESSION_DESKTOP=dintty-isolated
+    export XDG_CURRENT_DESKTOP=deetty-isolated
+    export XDG_SESSION_DESKTOP=deetty-isolated
     # Host Qt/GTK theme/plugin variables can load desktop-session modules before
     # the private compositor exists. Clear them so isolation fails or succeeds
     # based only on the reviewed virtual-session environment.
     unset KDE_FULL_SESSION DESKTOP_SESSION QT_QPA_PLATFORM \
       QT_QPA_PLATFORMTHEME QT_STYLE_OVERRIDE QT_PLUGIN_PATH GTK_PATH \
       GTK_MODULES
-    export WAYLAND_DISPLAY=dintty-isolated-wayland
+    export WAYLAND_DISPLAY=deetty-isolated-wayland
     export GDK_BACKEND=wayland
     export NO_AT_BRIDGE=1
-    export DINTTY_ISOLATED_DISPLAY=wayland
+    export DEETTY_ISOLATED_DISPLAY=wayland
     unset DISPLAY
     mkdir -p "$XDG_RUNTIME_DIR" "$HOME" "$XDG_CONFIG_HOME" \
       "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME"

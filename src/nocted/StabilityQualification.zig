@@ -24,8 +24,8 @@ const document_odd =
 ;
 const grammar_source =
     \\{
-    \\  "name": "DINTTY Stability",
-    \\  "scopeName": "source.dintty-stability",
+    \\  "name": "DEETTY Stability",
+    \\  "scopeName": "source.deetty-stability",
     \\  "fileTypes": ["zig"],
     \\  "patterns": [
     \\    { "match": "\\b(stability_needle)\\b", "name": "variable.other" },

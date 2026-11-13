@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-archive=${1:-dist/dintty-windows-x86_64-dogfood.zip}
+archive=${1:-dist/deetty-windows-x86_64-dogfood.zip}
 case "$archive" in
   /*) archive_path=$archive ;;
   *) archive_path="$(pwd -P)/$archive" ;;
@@ -25,31 +25,31 @@ grep -Fx 'physical_windows_validation=false' "$archive_path.manifest" >/dev/null
 
 command -v unzip >/dev/null
 command -v pwsh >/dev/null
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-windows-dogfood-smoke.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-windows-dogfood-smoke.XXXXXX")
 cleanup() { rm -rf "$scratch"; }
 trap cleanup EXIT HUP INT TERM
 unzip -q "$archive_path" -d "$scratch"
-bundle="$scratch/dintty-windows-x86_64-dogfood"
-installer="$bundle/dintty-windows-x86_64-dogfood-setup.exe"
+bundle="$scratch/deetty-windows-x86_64-dogfood"
+installer="$bundle/deetty-windows-x86_64-dogfood-setup.exe"
 test -s "$installer"
 test -s "$installer.sha256"
 test -s "$installer.manifest"
-test -s "$bundle/Install-DINTTY-Dogfood.ps1"
+test -s "$bundle/Install-DEETTY-Dogfood.ps1"
 test -s "$bundle/INSTALL.txt"
 
-verify_output=$(pwsh -NoProfile -File "$bundle/Install-DINTTY-Dogfood.ps1" \
+verify_output=$(pwsh -NoProfile -File "$bundle/Install-DEETTY-Dogfood.ps1" \
   -InstallerPath "$installer" -VerifyOnly)
 printf '%s\n' "$verify_output" |
   grep -F 'windows_dogfood_verify ' >/dev/null
 printf '%s\n' "$verify_output" |
   grep -F ' valid=true signed=false' >/dev/null
 
-tampered="$bundle/dintty-windows-x86_64-dogfood-setup-tampered.exe"
+tampered="$bundle/deetty-windows-x86_64-dogfood-setup-tampered.exe"
 cp "$installer" "$tampered"
 printf 'x' >>"$tampered"
 cp "$installer.sha256" "$tampered.sha256"
 sed -i "s/$(basename "$installer")/$(basename "$tampered")/" "$tampered.sha256"
-if pwsh -NoProfile -File "$bundle/Install-DINTTY-Dogfood.ps1" \
+if pwsh -NoProfile -File "$bundle/Install-DEETTY-Dogfood.ps1" \
     -InstallerPath "$tampered" -VerifyOnly >/dev/null 2>&1; then
   echo 'windows_dogfood_bundle_smoke error=tampered_installer_accepted' >&2
   exit 1

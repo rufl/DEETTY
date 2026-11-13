@@ -1,6 +1,6 @@
 # No Surprise Network Check
 
-DINTTY's public alpha promise includes no telemetry, analytics, update pings,
+DEETTY's public alpha promise includes no telemetry, analytics, update pings,
 crash uploaders, remote feature flags, or hidden network clients.
 
 Maintained local check:

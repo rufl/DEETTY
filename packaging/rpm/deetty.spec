@@ -1,9 +1,9 @@
-Name:           dintty
+Name:           deetty
 Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Zig-native terminal workspace for Plasma and Noctalia
 License:        MIT AND Unicode-3.0 AND Unicode-DFS-2016 AND ICU
-URL:            https://github.com/lichforge/noctty
+URL:            https://github.com/rufl/DEETTY
 Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  zig >= 0.17
 BuildRequires:  pkgconfig(gtk+-3.0)
@@ -29,18 +29,18 @@ rm -rf %{buildroot}
 zig build -Doptimize=ReleaseSafe --prefix %{buildroot}%{_prefix}
 
 %files
-%{_bindir}/dintty
+%{_bindir}/deetty
 %{_bindir}/nocted
-%{_datadir}/applications/com.dintty.DINTTY.desktop
-%{_datadir}/applications/com.dintty.NoctEd.desktop
-%{_datadir}/kio/servicemenus/dinttyhere.desktop
-%{_datadir}/metainfo/com.dintty.DINTTY.metainfo.xml
-%{_datadir}/metainfo/com.dintty.NoctEd.metainfo.xml
-%{_datadir}/icons/hicolor/*/apps/com.dintty.DINTTY.*
-%{_datadir}/icons/hicolor/*/apps/com.dintty.NoctEd.*
+%{_datadir}/applications/com.deetty.DEETTY.desktop
+%{_datadir}/applications/com.deetty.NoctEd.desktop
+%{_datadir}/kio/servicemenus/deettyhere.desktop
+%{_datadir}/metainfo/com.deetty.DEETTY.metainfo.xml
+%{_datadir}/metainfo/com.deetty.NoctEd.metainfo.xml
+%{_datadir}/icons/hicolor/*/apps/com.deetty.DEETTY.*
+%{_datadir}/icons/hicolor/*/apps/com.deetty.NoctEd.*
 %{_datadir}/nocted/*
-%{_datadir}/dintty/noctalia/*
-%license %{_datadir}/licenses/dintty/
+%{_datadir}/deetty/noctalia/*
+%license %{_datadir}/licenses/deetty/
 
 %changelog
 * Tue Jul 14 2026 LichForge <opensource@lichforge.com> - 0.1.0-1

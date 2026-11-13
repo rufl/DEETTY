@@ -2,29 +2,29 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd -P)
-scratch_parent=${DINTTY_SYSTEM_TUI_QUALIFICATION_PARENT:-$repo_root}
+scratch_parent=${DEETTY_SYSTEM_TUI_QUALIFICATION_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.dintty-system-tui.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.deetty-system-tui.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }
 trap cleanup EXIT HUP INT TERM
 
-top_path=${DINTTY_SYSTEM_TUI_TOP:-$(command -v top || true)}
-watch_path=${DINTTY_SYSTEM_TUI_WATCH:-$(command -v watch || true)}
-info_path=${DINTTY_SYSTEM_TUI_INFO:-$(command -v info || true)}
-whiptail_path=${DINTTY_SYSTEM_TUI_WHIPTAIL:-$(command -v whiptail || true)}
-fzf_path=${DINTTY_SYSTEM_TUI_FZF:-$(command -v fzf || true)}
-sqlite_path=${DINTTY_SYSTEM_TUI_SQLITE:-$(command -v sqlite3 || true)}
-glances_path=${DINTTY_SYSTEM_TUI_GLANCES:-$(command -v glances || true)}
-bash_path=${DINTTY_SYSTEM_TUI_BASH:-$(command -v bash || true)}
-man_path=${DINTTY_SYSTEM_TUI_MAN:-$(command -v man || true)}
-less_path=${DINTTY_SYSTEM_TUI_LESS:-$(command -v less || true)}
-sftp_path=${DINTTY_SYSTEM_TUI_SFTP:-$(command -v sftp || true)}
-sftp_server_path=${DINTTY_SYSTEM_TUI_SFTP_SERVER:-}
+top_path=${DEETTY_SYSTEM_TUI_TOP:-$(command -v top || true)}
+watch_path=${DEETTY_SYSTEM_TUI_WATCH:-$(command -v watch || true)}
+info_path=${DEETTY_SYSTEM_TUI_INFO:-$(command -v info || true)}
+whiptail_path=${DEETTY_SYSTEM_TUI_WHIPTAIL:-$(command -v whiptail || true)}
+fzf_path=${DEETTY_SYSTEM_TUI_FZF:-$(command -v fzf || true)}
+sqlite_path=${DEETTY_SYSTEM_TUI_SQLITE:-$(command -v sqlite3 || true)}
+glances_path=${DEETTY_SYSTEM_TUI_GLANCES:-$(command -v glances || true)}
+bash_path=${DEETTY_SYSTEM_TUI_BASH:-$(command -v bash || true)}
+man_path=${DEETTY_SYSTEM_TUI_MAN:-$(command -v man || true)}
+less_path=${DEETTY_SYSTEM_TUI_LESS:-$(command -v less || true)}
+sftp_path=${DEETTY_SYSTEM_TUI_SFTP:-$(command -v sftp || true)}
+sftp_server_path=${DEETTY_SYSTEM_TUI_SFTP_SERVER:-}
 if [[ -z "$sftp_server_path" ]]; then
     for candidate in /usr/lib/ssh/sftp-server /usr/lib/openssh/sftp-server; do
         if [[ -x "$candidate" ]]; then
@@ -72,18 +72,18 @@ run_mode() {
             "$state/$app-state" \
             "$state/$app-cache"
     done
-    printf '%s\n' alpha DINTTY_FZF_TARGET omega >"$state/fzf-input.txt"
+    printf '%s\n' alpha DEETTY_FZF_TARGET omega >"$state/fzf-input.txt"
     printf '%s\n' \
-        "PS1='DINTTY_BASH> '" \
-        "printf 'DINTTY_BASH_READY\\n'" \
+        "PS1='DEETTY_BASH> '" \
+        "printf 'DEETTY_BASH_READY\\n'" \
         >"$state/bashrc"
     printf '%s\n' \
-        '.TH DINTTY-SYSTEM 1' \
+        '.TH DEETTY-SYSTEM 1' \
         '.SH NAME' \
-        'dintty-system \- DINTTY_SYSTEM_MAN' \
+        'deetty-system \- DEETTY_SYSTEM_MAN' \
         '.SH DESCRIPTION' \
-        'Deterministic installed man pager fixture for DINTTY.' \
-        >"$state/dintty-system.1"
+        'Deterministic installed man pager fixture for DEETTY.' \
+        >"$state/deetty-system.1"
 
     TMPDIR="$mode_tmp" XDG_CACHE_HOME="$mode_xdg_cache" \
         ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-system-tui-qualification-binary \
@@ -92,7 +92,7 @@ run_mode() {
         --cache-dir "$local_cache"
 
     output_file="$scratch/output-$mode"
-    "$prefix/bin/dintty-terminal-system-tui-qualification" \
+    "$prefix/bin/deetty-terminal-system-tui-qualification" \
         "$state" "$top_path" "$watch_path" "$info_path" "$whiptail_path" \
         "$fzf_path" "$sqlite_path" "$glances_path" "$bash_path" \
         "$man_path" "$less_path" "$sftp_path" "$sftp_server_path" \

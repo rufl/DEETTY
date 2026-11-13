@@ -4,14 +4,14 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)
 cd "$repo_root"
 
-isolation=${DINTTY_ISOLATED_DISPLAY_RUNNER:-$repo_root/scripts/isolated_display_runner.sh}
+isolation=${DEETTY_ISOLATED_DISPLAY_RUNNER:-$repo_root/scripts/isolated_display_runner.sh}
 test -x "$isolation"
 command -v wine >/dev/null
 command -v wineboot >/dev/null
 command -v wineserver >/dev/null
 
-optimize=${DINTTY_WINDOWS_OPTIMIZE:-ReleaseSafe}
-scratch=$(mktemp -d "$repo_root/.dintty-windows-nocted-zig.XXXXXX")
+optimize=${DEETTY_WINDOWS_OPTIMIZE:-ReleaseSafe}
+scratch=$(mktemp -d "$repo_root/.deetty-windows-nocted-zig.XXXXXX")
 cleanup() {
   rm -rf "$scratch"
 }

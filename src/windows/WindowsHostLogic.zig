@@ -55,7 +55,7 @@ pub const SessionPlan = extern struct {
     rows: c_int,
 };
 
-pub export fn dintty_windows_workspace_state_init(
+pub export fn deetty_windows_workspace_state_init(
     state: ?*WorkspaceState,
 ) callconv(.c) c_int {
     const current = state orelse return 0;
@@ -63,7 +63,7 @@ pub export fn dintty_windows_workspace_state_init(
     return 1;
 }
 
-pub export fn dintty_windows_workspace_local_operation(
+pub export fn deetty_windows_workspace_local_operation(
     remote_mode: c_int,
 ) callconv(.c) c_int {
     return @intFromBool(remote_mode == 0);
@@ -73,7 +73,7 @@ test "broadcast routing requires local mode, enabled state, and live session" {
         for ([_]c_int{ 0, 1 }) |enabled| {
             for ([_]c_int{ 0, 1 }) |session_live| {
                 const expected = @intFromBool(remote_mode == 0 and enabled != 0 and session_live != 0);
-                try std.testing.expectEqual(expected, dintty_windows_broadcast_route(
+                try std.testing.expectEqual(expected, deetty_windows_broadcast_route(
                     remote_mode,
                     enabled,
                     session_live,
@@ -83,7 +83,7 @@ test "broadcast routing requires local mode, enabled state, and live session" {
     }
 }
 
-pub export fn dintty_windows_broadcast_route(
+pub export fn deetty_windows_broadcast_route(
     remote_mode: c_int,
     broadcast_enabled: c_int,
     session_live: c_int,
@@ -91,7 +91,7 @@ pub export fn dintty_windows_broadcast_route(
     return @intFromBool(remote_mode == 0 and broadcast_enabled != 0 and session_live != 0);
 }
 
-pub export fn dintty_windows_smart_tab_match(
+pub export fn deetty_windows_smart_tab_match(
     filter_mask: u8,
     pane_tag_mask: u8,
 ) callconv(.c) c_int {
@@ -107,14 +107,14 @@ test "Smart Tab matching treats empty filters as all panes and tags as overlap" 
         .{ .filter = 3, .pane = 4, .expected = 0 },
         .{ .filter = 3, .pane = 6, .expected = 1 },
     }) |case| {
-        try std.testing.expectEqual(case.expected, dintty_windows_smart_tab_match(
+        try std.testing.expectEqual(case.expected, deetty_windows_smart_tab_match(
             case.filter,
             case.pane,
         ));
     }
 }
 
-pub export fn dintty_windows_workspace_startup_plan(
+pub export fn deetty_windows_workspace_startup_plan(
     state: ?*WorkspaceState,
     remote_mode: c_int,
     pane_count: c_int,
@@ -131,7 +131,7 @@ pub export fn dintty_windows_workspace_startup_plan(
     return workspace_startup_local;
 }
 
-pub export fn dintty_windows_session_start_plan(
+pub export fn deetty_windows_session_start_plan(
     state: ?*const WorkspaceState,
     session_index: c_int,
     dimensions_valid: c_int,
@@ -154,7 +154,7 @@ pub export fn dintty_windows_session_start_plan(
     return session_start_create;
 }
 
-pub export fn dintty_windows_session_started(
+pub export fn deetty_windows_session_started(
     state: ?*WorkspaceState,
     session_index: c_int,
 ) callconv(.c) c_int {
@@ -166,7 +166,7 @@ pub export fn dintty_windows_session_started(
     return 1;
 }
 
-pub export fn dintty_windows_session_start_failed(
+pub export fn deetty_windows_session_start_failed(
     state: ?*WorkspaceState,
     session_index: c_int,
     startup: c_int,
@@ -183,7 +183,7 @@ pub export fn dintty_windows_session_start_failed(
     return session_failure_cleanup;
 }
 
-pub export fn dintty_windows_session_is_live(
+pub export fn deetty_windows_session_is_live(
     state: ?*const WorkspaceState,
     session_index: c_int,
 ) callconv(.c) c_int {
@@ -192,7 +192,7 @@ pub export fn dintty_windows_session_is_live(
     return @intFromBool((current.live_sessions & bit) != 0);
 }
 
-pub export fn dintty_windows_workspace_resize_count(
+pub export fn deetty_windows_workspace_resize_count(
     remote_mode: c_int,
     pane_count: c_int,
 ) callconv(.c) c_int {
@@ -200,7 +200,7 @@ pub export fn dintty_windows_workspace_resize_count(
     return @min(pane_count, workspace_max_sessions);
 }
 
-pub export fn dintty_windows_session_resize_plan(
+pub export fn deetty_windows_session_resize_plan(
     state: ?*const WorkspaceState,
     session_index: c_int,
     columns: c_int,
@@ -222,7 +222,7 @@ pub export fn dintty_windows_session_resize_plan(
     return 1;
 }
 
-pub export fn dintty_windows_workspace_action_result(
+pub export fn deetty_windows_workspace_action_result(
     remote_mode: c_int,
     callback_result: c_int,
     session_index: ?*c_int,
@@ -236,7 +236,7 @@ pub export fn dintty_windows_workspace_action_result(
     return workspace_action_start;
 }
 
-pub export fn dintty_windows_workspace_rollback_matches(
+pub export fn deetty_windows_workspace_rollback_matches(
     session_index: c_int,
     committed_mask: u32,
 ) callconv(.c) c_int {
@@ -244,7 +244,7 @@ pub export fn dintty_windows_workspace_rollback_matches(
     return @intFromBool(committed_mask == bit);
 }
 
-pub export fn dintty_windows_workspace_close_plan(
+pub export fn deetty_windows_workspace_close_plan(
     state: ?*WorkspaceState,
     remote_mode: c_int,
     session_count: c_int,
@@ -263,7 +263,7 @@ pub export fn dintty_windows_workspace_close_plan(
     return workspace_close_cleanup;
 }
 
-pub export fn dintty_windows_workspace_close_commit(
+pub export fn deetty_windows_workspace_close_commit(
     state: ?*WorkspaceState,
     committed_mask: u32,
 ) callconv(.c) c_int {
@@ -275,7 +275,7 @@ pub export fn dintty_windows_workspace_close_commit(
     return 1;
 }
 
-pub export fn dintty_windows_workspace_reset(
+pub export fn deetty_windows_workspace_reset(
     state: ?*WorkspaceState,
     cleanup_mask: ?*u32,
 ) callconv(.c) c_int {
@@ -391,7 +391,7 @@ pub const key_action_close_pane: c_int = 7;
 pub const key_action_cycle: c_int = 8;
 pub const key_action_special: c_int = 9;
 
-pub export fn dintty_windows_decode_key_action(
+pub export fn deetty_windows_decode_key_action(
     key: u32,
     control: c_int,
     shift: c_int,
@@ -443,7 +443,7 @@ fn isSpecialKey(key: u32) bool {
     };
 }
 
-pub export fn dintty_windows_decode_menu_command(
+pub export fn deetty_windows_decode_menu_command(
     command: u32,
     restore_workspace: c_int,
     output: ?*MenuAction,
@@ -468,7 +468,7 @@ pub export fn dintty_windows_decode_menu_command(
     return 1;
 }
 
-pub export fn dintty_windows_normalize_preferences(
+pub export fn deetty_windows_normalize_preferences(
     theme: c_int,
     font_size_pt: c_int,
     launch_profile: c_int,
@@ -489,7 +489,7 @@ pub export fn dintty_windows_normalize_preferences(
     return @intFromBool(valid);
 }
 
-pub export fn dintty_windows_blend_rgb(
+pub export fn deetty_windows_blend_rgb(
     foreground: u32,
     background: u32,
     foreground_weight: u32,
@@ -508,15 +508,15 @@ fn blend(foreground: u32, background: u32, foreground_weight: u32) u32 {
     return (red << 16) | (green << 8) | blue;
 }
 
-pub export fn dintty_windows_rgb_from_colorref(color: u32) callconv(.c) u32 {
+pub export fn deetty_windows_rgb_from_colorref(color: u32) callconv(.c) u32 {
     return ((color & 0xff) << 16) | (color & 0xff00) | ((color >> 16) & 0xff);
 }
 
-pub export fn dintty_windows_colorref_from_rgb(rgb: u32) callconv(.c) u32 {
-    return dintty_windows_rgb_from_colorref(rgb);
+pub export fn deetty_windows_colorref_from_rgb(rgb: u32) callconv(.c) u32 {
+    return deetty_windows_rgb_from_colorref(rgb);
 }
 
-pub export fn dintty_windows_grid_dimensions(
+pub export fn deetty_windows_grid_dimensions(
     pixel_width: c_int,
     pixel_height: c_int,
     cell_width: c_int,
@@ -530,7 +530,7 @@ pub export fn dintty_windows_grid_dimensions(
     return 1;
 }
 
-pub export fn dintty_windows_encode_utf16_input(
+pub export fn deetty_windows_encode_utf16_input(
     character: u16,
     pending_high_surrogate: *u16,
     output: [*]u8,
@@ -556,7 +556,7 @@ pub export fn dintty_windows_encode_utf16_input(
     return std.unicode.utf16LeToUtf8(output[0..capacity], source[0..source_count]) catch 0;
 }
 
-pub export fn dintty_windows_compute_pane_geometry(
+pub export fn deetty_windows_compute_pane_geometry(
     client_left: c_int,
     client_top: c_int,
     client_right: c_int,
@@ -600,7 +600,7 @@ fn scale(value: c_int, millionths: u64) c_int {
     return @intCast(@divFloor(@as(i64, value) * @as(i64, @intCast(millionths)), layout_scale));
 }
 
-pub export fn dintty_windows_pointer_cell(
+pub export fn deetty_windows_pointer_cell(
     content_left: c_int,
     content_top: c_int,
     content_right: c_int,
@@ -627,7 +627,7 @@ pub export fn dintty_windows_pointer_cell(
     return 1;
 }
 
-pub export fn dintty_windows_cell_selected(
+pub export fn deetty_windows_cell_selected(
     selection_active: c_int,
     selection_pane: c_int,
     pane_index: c_int,
@@ -647,7 +647,7 @@ pub export fn dintty_windows_cell_selected(
         row >= first_row and row <= last_row);
 }
 
-pub export fn dintty_windows_mouse_route(
+pub export fn deetty_windows_mouse_route(
     state: ?*const MouseState,
     event_kind: c_int,
     button: c_int,
@@ -678,7 +678,7 @@ pub export fn dintty_windows_mouse_route(
     };
 }
 
-pub export fn dintty_windows_mouse_transition(
+pub export fn deetty_windows_mouse_transition(
     state: ?*MouseState,
     input: ?*const MouseInput,
     decision: ?*MouseDecision,
@@ -861,7 +861,7 @@ fn firstPressedButton(mask: u32) c_int {
     return 2;
 }
 
-pub export fn dintty_windows_special_key_sequence(
+pub export fn deetty_windows_special_key_sequence(
     key: usize,
     application_cursor: c_int,
     output: [*]u8,
@@ -905,13 +905,13 @@ fn terminalKey(key: usize) ?KeyEncoding.Key {
 
 test "RGB blending and COLORREF conversion retain channel order" {
     try std.testing.expectEqual(@as(u32, 0x7f7f7f), blend(0xffffff, 0x000000, 127));
-    try std.testing.expectEqual(@as(u32, 0x332211), dintty_windows_rgb_from_colorref(0x112233));
-    try std.testing.expectEqual(@as(u32, 0x112233), dintty_windows_colorref_from_rgb(0x332211));
+    try std.testing.expectEqual(@as(u32, 0x332211), deetty_windows_rgb_from_colorref(0x112233));
+    try std.testing.expectEqual(@as(u32, 0x112233), deetty_windows_colorref_from_rgb(0x332211));
 }
 
 test "pane geometry and pointer mapping are bounded" {
     var geometry: PaneGeometry = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_compute_pane_geometry(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_compute_pane_geometry(
         0,
         0,
         1000,
@@ -928,7 +928,7 @@ test "pane geometry and pointer mapping are bounded" {
     var column: c_int = -1;
     var row: c_int = -1;
     var inside: c_int = 0;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_pointer_cell(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_pointer_cell(
         geometry.content_left,
         geometry.content_top,
         geometry.content_right,
@@ -950,7 +950,7 @@ test "pane geometry and pointer mapping are bounded" {
 test "grid sizing and UTF-16 input stay bounded" {
     var columns: c_int = 0;
     var rows: c_int = 0;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_grid_dimensions(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_grid_dimensions(
         900,
         360,
         9,
@@ -962,20 +962,20 @@ test "grid sizing and UTF-16 input stay bounded" {
     try std.testing.expectEqual(@as(c_int, 20), rows);
     var pending: u16 = 0;
     var bytes: [8]u8 = undefined;
-    try std.testing.expectEqual(@as(usize, 0), dintty_windows_encode_utf16_input(
+    try std.testing.expectEqual(@as(usize, 0), deetty_windows_encode_utf16_input(
         0xd83d,
         &pending,
         &bytes,
         bytes.len,
     ));
-    const count = dintty_windows_encode_utf16_input(0xde00, &pending, &bytes, bytes.len);
+    const count = deetty_windows_encode_utf16_input(0xde00, &pending, &bytes, bytes.len);
     try std.testing.expectEqualStrings("😀", bytes[0..count]);
     try std.testing.expectEqual(@as(u16, 0), pending);
 }
 
 test "Windows key commands preserve local and remote policy" {
     var suppress: c_int = 0;
-    try std.testing.expectEqual(key_action_new_tab, dintty_windows_decode_key_action(
+    try std.testing.expectEqual(key_action_new_tab, deetty_windows_decode_key_action(
         'T',
         1,
         1,
@@ -984,7 +984,7 @@ test "Windows key commands preserve local and remote policy" {
         &suppress,
     ));
     try std.testing.expectEqual(@as(c_int, 1), suppress);
-    try std.testing.expectEqual(key_action_default, dintty_windows_decode_key_action(
+    try std.testing.expectEqual(key_action_default, deetty_windows_decode_key_action(
         'T',
         1,
         1,
@@ -993,7 +993,7 @@ test "Windows key commands preserve local and remote policy" {
         &suppress,
     ));
     try std.testing.expectEqual(@as(c_int, 0), suppress);
-    try std.testing.expectEqual(key_action_paste, dintty_windows_decode_key_action(
+    try std.testing.expectEqual(key_action_paste, deetty_windows_decode_key_action(
         0x2d,
         0,
         1,
@@ -1002,7 +1002,7 @@ test "Windows key commands preserve local and remote policy" {
         &suppress,
     ));
     try std.testing.expectEqual(@as(c_int, 0), suppress);
-    try std.testing.expectEqual(key_action_special, dintty_windows_decode_key_action(
+    try std.testing.expectEqual(key_action_special, deetty_windows_decode_key_action(
         0x70,
         0,
         0,
@@ -1016,7 +1016,7 @@ test "Ctrl Tab cycles locally and remotely with or without Shift" {
     for ([_]c_int{ 0, 1 }) |remote_mode| {
         for ([_]c_int{ 0, 1 }) |shift| {
             var suppress: c_int = 0;
-            try std.testing.expectEqual(key_action_cycle, dintty_windows_decode_key_action(
+            try std.testing.expectEqual(key_action_cycle, deetty_windows_decode_key_action(
                 0x09,
                 1,
                 shift,
@@ -1025,7 +1025,7 @@ test "Ctrl Tab cycles locally and remotely with or without Shift" {
                 &suppress,
             ));
             try std.testing.expectEqual(@as(c_int, 1), suppress);
-            try std.testing.expectEqual(key_action_default, dintty_windows_decode_key_action(
+            try std.testing.expectEqual(key_action_default, deetty_windows_decode_key_action(
                 0x09,
                 0,
                 shift,
@@ -1040,21 +1040,21 @@ test "Ctrl Tab cycles locally and remotely with or without Shift" {
 
 test "Windows menu commands decode to bounded actions" {
     var action: MenuAction = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_decode_menu_command(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_decode_menu_command(
         menu_font_16,
         0,
         &action,
     ));
     try std.testing.expectEqual(@as(c_int, 2), action.kind);
     try std.testing.expectEqual(@as(c_int, 16), action.value);
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_decode_menu_command(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_decode_menu_command(
         menu_restore_startup,
         1,
         &action,
     ));
     try std.testing.expectEqual(@as(c_int, 4), action.kind);
     try std.testing.expectEqual(@as(c_int, 0), action.value);
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_decode_menu_command(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_decode_menu_command(
         999,
         0,
         &action,
@@ -1063,19 +1063,19 @@ test "Windows menu commands decode to bounded actions" {
 
 test "Windows appearance: Zinc menu action and host-owned font commands" {
     var action: MenuAction = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_decode_menu_command(menu_theme_zinc, 0, &action));
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_decode_menu_command(menu_theme_zinc, 0, &action));
     try std.testing.expectEqualDeep(MenuAction{ .kind = 1, .value = 2 }, action);
     const previous = action;
     for ([_]u32{ menu_font_custom, menu_font_increase, menu_font_decrease, menu_font_reset }) |command| {
-        try std.testing.expectEqual(@as(c_int, 0), dintty_windows_decode_menu_command(command, 0, &action));
+        try std.testing.expectEqual(@as(c_int, 0), deetty_windows_decode_menu_command(command, 0, &action));
         try std.testing.expectEqualDeep(previous, action);
     }
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_decode_menu_command(menu_theme_zinc, 0, null));
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_decode_menu_command(menu_theme_zinc, 0, null));
 }
 
 test "Windows preferences normalize invalid persisted values" {
     var preferences: Preferences = undefined;
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_normalize_preferences(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_normalize_preferences(
         7,
         100,
         -1,
@@ -1086,7 +1086,7 @@ test "Windows preferences normalize invalid persisted values" {
     try std.testing.expectEqual(@as(c_int, 13), preferences.font_size_pt);
     try std.testing.expectEqual(@as(c_int, 0), preferences.launch_profile);
     try std.testing.expectEqual(@as(c_int, 1), preferences.restore_workspace);
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_normalize_preferences(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_normalize_preferences(
         1,
         16,
         1,
@@ -1099,7 +1099,7 @@ test "Windows appearance: preferences preserve exact font bounds and theme selec
     var preferences: Preferences = undefined;
     for ([_]c_int{ 0, 1, 2, 3 }) |theme| {
         for (8..33) |size| {
-            try std.testing.expectEqual(@as(c_int, 1), dintty_windows_normalize_preferences(
+            try std.testing.expectEqual(@as(c_int, 1), deetty_windows_normalize_preferences(
                 theme,
                 @intCast(size),
                 1,
@@ -1115,7 +1115,7 @@ test "Windows appearance: preferences preserve exact font bounds and theme selec
         }
     }
     for ([_]c_int{ std.math.minInt(c_int), 7, 33, std.math.maxInt(c_int) }) |size| {
-        try std.testing.expectEqual(@as(c_int, 0), dintty_windows_normalize_preferences(2, size, 1, 0, &preferences));
+        try std.testing.expectEqual(@as(c_int, 0), deetty_windows_normalize_preferences(2, size, 1, 0, &preferences));
         try std.testing.expectEqualDeep(Preferences{
             .theme = 2,
             .font_size_pt = 13,
@@ -1124,7 +1124,7 @@ test "Windows appearance: preferences preserve exact font bounds and theme selec
         }, preferences);
     }
     for ([_]c_int{ -1, 4 }) |theme| {
-        try std.testing.expectEqual(@as(c_int, 0), dintty_windows_normalize_preferences(theme, 32, 0, 1, &preferences));
+        try std.testing.expectEqual(@as(c_int, 0), deetty_windows_normalize_preferences(theme, 32, 0, 1, &preferences));
         try std.testing.expectEqualDeep(Preferences{
             .theme = 0,
             .font_size_pt = 32,
@@ -1132,11 +1132,11 @@ test "Windows appearance: preferences preserve exact font bounds and theme selec
             .restore_workspace = 1,
         }, preferences);
     }
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_normalize_preferences(2, 8, 0, 0, null));
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_normalize_preferences(2, 8, 0, 0, null));
 }
 
 test "selection and special keys preserve Win32 host policy" {
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_cell_selected(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_cell_selected(
         1,
         2,
         2,
@@ -1147,7 +1147,7 @@ test "selection and special keys preserve Win32 host policy" {
         1,
         1,
     ));
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_cell_selected(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_cell_selected(
         1,
         2,
         2,
@@ -1159,24 +1159,24 @@ test "selection and special keys preserve Win32 host policy" {
         0,
     ));
     var bytes: [16]u8 = undefined;
-    const count = dintty_windows_special_key_sequence(0x26, 1, &bytes, bytes.len);
+    const count = deetty_windows_special_key_sequence(0x26, 1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1bOA", bytes[0..count]);
 }
 
 test "Windows key adapter preserves cursor mode and atomic capacity failures" {
     var bytes: [8]u8 = @splat(0xa5);
     const untouched: [8]u8 = @splat(0xa5);
-    var count = dintty_windows_special_key_sequence(0x25, 0, &bytes, bytes.len);
+    var count = deetty_windows_special_key_sequence(0x25, 0, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1b[D", bytes[0..count]);
-    count = dintty_windows_special_key_sequence(0x25, -1, &bytes, bytes.len);
+    count = deetty_windows_special_key_sequence(0x25, -1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1bOD", bytes[0..count]);
-    count = dintty_windows_special_key_sequence(0x24, 1, &bytes, bytes.len);
+    count = deetty_windows_special_key_sequence(0x24, 1, &bytes, bytes.len);
     try std.testing.expectEqualStrings("\x1b[H", bytes[0..count]);
     bytes = @splat(0xa5);
-    try std.testing.expectEqual(@as(usize, 0), dintty_windows_special_key_sequence(0x7b, 0, &bytes, 4));
-    try std.testing.expectEqual(@as(usize, 0), dintty_windows_special_key_sequence(0x0d, 0, &bytes, bytes.len));
+    try std.testing.expectEqual(@as(usize, 0), deetty_windows_special_key_sequence(0x7b, 0, &bytes, 4));
+    try std.testing.expectEqual(@as(usize, 0), deetty_windows_special_key_sequence(0x0d, 0, &bytes, bytes.len));
     try std.testing.expectEqualSlices(u8, &untouched, &bytes);
-    count = dintty_windows_special_key_sequence(0x7b, 0, &bytes, 5);
+    count = deetty_windows_special_key_sequence(0x7b, 0, &bytes, 5);
     try std.testing.expectEqualStrings("\x1b[24~", bytes[0..count]);
     try std.testing.expectEqual(@as(u8, 0xa5), bytes[5]);
 }
@@ -1215,14 +1215,14 @@ fn testMouseInput(kind: c_int) MouseInput {
 test "mouse routing follows selection and application capture priority" {
     var state = testMouseState();
     var pane: c_int = 99;
-    try std.testing.expectEqual(mouse_route_hit_test, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_hit_test, deetty_windows_mouse_route(
         &state,
         mouse_event_press,
         0,
         &pane,
     ));
     try std.testing.expectEqual(@as(c_int, -1), pane);
-    try std.testing.expectEqual(mouse_route_hit_test, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_hit_test, deetty_windows_mouse_route(
         &state,
         mouse_event_move,
         0,
@@ -1231,14 +1231,14 @@ test "mouse routing follows selection and application capture priority" {
 
     state.selection_dragging = 1;
     state.selection_pane = 4;
-    try std.testing.expectEqual(mouse_route_selection, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_selection, deetty_windows_mouse_route(
         &state,
         mouse_event_move,
         0,
         &pane,
     ));
     try std.testing.expectEqual(@as(c_int, 4), pane);
-    try std.testing.expectEqual(mouse_route_selection, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_selection, deetty_windows_mouse_route(
         &state,
         mouse_event_release,
         0,
@@ -1249,26 +1249,26 @@ test "mouse routing follows selection and application capture priority" {
     state.application_capture = 1;
     state.pressed_buttons = 0b110;
     state.capture_pane = 7;
-    try std.testing.expectEqual(mouse_route_application, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_application, deetty_windows_mouse_route(
         &state,
         mouse_event_move,
         0,
         &pane,
     ));
     try std.testing.expectEqual(@as(c_int, 7), pane);
-    try std.testing.expectEqual(mouse_route_application, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_application, deetty_windows_mouse_route(
         &state,
         mouse_event_release,
         1,
         &pane,
     ));
-    try std.testing.expectEqual(mouse_route_none, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_none, deetty_windows_mouse_route(
         &state,
         mouse_event_release,
         0,
         &pane,
     ));
-    try std.testing.expectEqual(mouse_route_none, dintty_windows_mouse_route(
+    try std.testing.expectEqual(mouse_route_none, deetty_windows_mouse_route(
         &state,
         mouse_event_release,
         -1,
@@ -1282,7 +1282,7 @@ test "mouse press preserves local selection escape and application priority" {
     var press = testMouseInput(mouse_event_press);
 
     press.inside_content = 0;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_mouse_transition(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_mouse_transition(
         &state,
         &press,
         &decision,
@@ -1292,7 +1292,7 @@ test "mouse press preserves local selection escape and application priority" {
 
     press.inside_content = 1;
     press.tracking_mode = 2;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_mouse_transition(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_mouse_transition(
         &state,
         &press,
         &decision,
@@ -1305,7 +1305,7 @@ test "mouse press preserves local selection escape and application priority" {
     press.shift = 1;
     press.column = 6;
     press.row = 5;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_mouse_transition(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_mouse_transition(
         &state,
         &press,
         &decision,
@@ -1319,19 +1319,19 @@ test "mouse press preserves local selection escape and application priority" {
     try std.testing.expectEqual(mouse_capture_set, decision.capture);
 
     var clear = testMouseInput(mouse_event_clear_selection);
-    _ = dintty_windows_mouse_transition(&state, &clear, &decision);
+    _ = deetty_windows_mouse_transition(&state, &clear, &decision);
     try std.testing.expectEqual(@as(c_int, 0), state.selection_active);
     try std.testing.expectEqual(@as(c_int, -1), state.selection_pane);
     try std.testing.expectEqual(mouse_capture_release, decision.capture);
 
     press = testMouseInput(mouse_event_press);
     press.tracking_mode = 0;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(c_int, 1), state.selection_dragging);
 
     state = testMouseState();
     press.button = 2;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
     try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
 }
@@ -1342,7 +1342,7 @@ test "right-click requests the terminal context menu before mouse tracking" {
     var press = testMouseInput(mouse_event_press);
     press.button = 2;
     press.tracking_mode = 3;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(c_int, 1), decision.context_menu);
     try std.testing.expectEqual(@as(c_int, mouse_capture_unchanged), decision.capture);
     try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
@@ -1350,7 +1350,7 @@ test "right-click requests the terminal context menu before mouse tracking" {
     try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
 
     press.inside_content = 0;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(c_int, 0), decision.context_menu);
 }
 
@@ -1360,19 +1360,19 @@ test "application mouse transitions preserve masks motion and release boundaries
     var press = testMouseInput(mouse_event_press);
     press.tracking_mode = 1;
     press.button = 1;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     press.button = 0;
     press.column = 5;
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
     try std.testing.expectEqual(@as(u32, 0b11), state.pressed_buttons);
 
     var move = testMouseInput(mouse_event_move);
     move.column = 5;
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
     move.column = -9;
     move.row = 99;
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(u32, 1), decision.report_buttons);
     try std.testing.expectEqual(mouse_motion, decision.report_kind);
     try std.testing.expectEqual(@as(c_int, -9), state.capture_last_column);
@@ -1380,18 +1380,18 @@ test "application mouse transitions preserve masks motion and release boundaries
 
     var release = testMouseInput(mouse_event_release);
     release.button = 1;
-    _ = dintty_windows_mouse_transition(&state, &release, &decision);
+    _ = deetty_windows_mouse_transition(&state, &release, &decision);
     try std.testing.expectEqual(@as(u32, 1), state.pressed_buttons);
     try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
     try std.testing.expectEqual(@as(u32, 2), decision.report_buttons);
 
     release.button = 0;
     release.cell_valid = 0;
-    _ = dintty_windows_mouse_transition(&state, &release, &decision);
+    _ = deetty_windows_mouse_transition(&state, &release, &decision);
     try std.testing.expectEqual(@as(u32, 1), state.pressed_buttons);
     try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
     release.cell_valid = 1;
-    _ = dintty_windows_mouse_transition(&state, &release, &decision);
+    _ = deetty_windows_mouse_transition(&state, &release, &decision);
     try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
     try std.testing.expectEqual(@as(c_int, 0), state.application_capture);
     try std.testing.expectEqual(mouse_capture_release, decision.capture);
@@ -1401,21 +1401,21 @@ test "selection drag and hover motion preserve coordinate transitions" {
     var state = testMouseState();
     var decision: MouseDecision = undefined;
     var press = testMouseInput(mouse_event_press);
-    _ = dintty_windows_mouse_transition(&state, &press, &decision);
+    _ = deetty_windows_mouse_transition(&state, &press, &decision);
 
     var move = testMouseInput(mouse_event_move);
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(c_int, 0), decision.invalidate);
     move.column = 0;
     move.row = 35;
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(c_int, 1), decision.invalidate);
     try std.testing.expectEqual(@as(c_int, 35), state.selection_extent_row);
 
     var release = testMouseInput(mouse_event_release);
     release.column = 119;
     release.row = 0;
-    _ = dintty_windows_mouse_transition(&state, &release, &decision);
+    _ = deetty_windows_mouse_transition(&state, &release, &decision);
     try std.testing.expectEqual(@as(c_int, 0), state.selection_dragging);
     try std.testing.expectEqual(@as(c_int, 1), state.selection_active);
     try std.testing.expectEqual(@as(c_int, 119), state.selection_extent_column);
@@ -1424,10 +1424,10 @@ test "selection drag and hover motion preserve coordinate transitions" {
     state = testMouseState();
     move = testMouseInput(mouse_event_move);
     move.tracking_mode = 2;
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(u32, 0), decision.report_buttons);
     move.tracking_mode = 3;
-    _ = dintty_windows_mouse_transition(&state, &move, &decision);
+    _ = deetty_windows_mouse_transition(&state, &move, &decision);
     try std.testing.expectEqual(@as(c_int, 1), decision.select_pane);
     try std.testing.expectEqual(@as(u32, 0b1000), decision.report_buttons);
     try std.testing.expectEqual(mouse_motion, decision.report_kind);
@@ -1445,7 +1445,7 @@ test "capture cancellation reports every button and clears only drag state" {
     state.capture_last_row = 9;
     var decision: MouseDecision = undefined;
     const cancel = testMouseInput(mouse_event_cancel);
-    _ = dintty_windows_mouse_transition(&state, &cancel, &decision);
+    _ = deetty_windows_mouse_transition(&state, &cancel, &decision);
     try std.testing.expectEqual(@as(u32, 0b101), decision.report_buttons);
     try std.testing.expectEqual(mouse_release, decision.report_kind);
     try std.testing.expectEqual(@as(c_int, 3), decision.report_pane);
@@ -1457,12 +1457,12 @@ test "capture cancellation reports every button and clears only drag state" {
     try std.testing.expectEqual(@as(u32, 0), state.pressed_buttons);
 
     var clear = testMouseInput(mouse_event_clear_selection);
-    _ = dintty_windows_mouse_transition(&state, &clear, &decision);
+    _ = deetty_windows_mouse_transition(&state, &clear, &decision);
     try std.testing.expectEqual(@as(c_int, 0), state.selection_active);
     try std.testing.expectEqual(@as(c_int, 1), decision.invalidate);
     try std.testing.expectEqual(mouse_capture_unchanged, decision.capture);
 
-    _ = dintty_windows_mouse_transition(&state, &clear, &decision);
+    _ = deetty_windows_mouse_transition(&state, &clear, &decision);
     try std.testing.expectEqual(@as(c_int, 0), decision.invalidate);
 }
 
@@ -1475,7 +1475,7 @@ test "workspace session plans exhaustively enforce index and dimension bounds" {
             session_start_create
         else
             session_start_reject;
-        try std.testing.expectEqual(expected, dintty_windows_session_start_plan(
+        try std.testing.expectEqual(expected, deetty_windows_session_start_plan(
             &state,
             index,
             1,
@@ -1484,15 +1484,15 @@ test "workspace session plans exhaustively enforce index and dimension bounds" {
             &plan,
         ));
         if (expected == session_start_create) {
-            try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_started(
+            try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_started(
                 &state,
                 index,
             ));
-            try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_is_live(
+            try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_is_live(
                 &state,
                 index,
             ));
-            try std.testing.expectEqual(session_start_existing, dintty_windows_session_start_plan(
+            try std.testing.expectEqual(session_start_existing, deetty_windows_session_start_plan(
                 &state,
                 index,
                 1,
@@ -1501,13 +1501,13 @@ test "workspace session plans exhaustively enforce index and dimension bounds" {
                 &plan,
             ));
         } else {
-            try std.testing.expectEqual(@as(c_int, 0), dintty_windows_session_is_live(
+            try std.testing.expectEqual(@as(c_int, 0), deetty_windows_session_is_live(
                 &state,
                 index,
             ));
         }
     }
-    try std.testing.expectEqual(session_start_reject, dintty_windows_session_start_plan(
+    try std.testing.expectEqual(session_start_reject, deetty_windows_session_start_plan(
         &state,
         0,
         0,
@@ -1515,7 +1515,7 @@ test "workspace session plans exhaustively enforce index and dimension bounds" {
         36,
         &plan,
     ));
-    try std.testing.expectEqual(session_start_reject, dintty_windows_session_start_plan(
+    try std.testing.expectEqual(session_start_reject, deetty_windows_session_start_plan(
         &state,
         0,
         1,
@@ -1523,7 +1523,7 @@ test "workspace session plans exhaustively enforce index and dimension bounds" {
         36,
         &plan,
     ));
-    try std.testing.expectEqual(session_start_reject, dintty_windows_session_start_plan(
+    try std.testing.expectEqual(session_start_reject, deetty_windows_session_start_plan(
         &state,
         0,
         1,
@@ -1542,7 +1542,7 @@ test "workspace startup resize and action planning preserve all bounds" {
             workspace_startup_local
         else
             workspace_startup_reject;
-        try std.testing.expectEqual(expected, dintty_windows_workspace_startup_plan(
+        try std.testing.expectEqual(expected, deetty_windows_workspace_startup_plan(
             &state,
             0,
             count,
@@ -1554,38 +1554,38 @@ test "workspace startup resize and action planning preserve all bounds" {
         );
         try std.testing.expectEqual(
             if (count <= 0) @as(c_int, 0) else @min(count, workspace_max_sessions),
-            dintty_windows_workspace_resize_count(0, count),
+            deetty_windows_workspace_resize_count(0, count),
         );
     }
-    try std.testing.expectEqual(workspace_startup_remote, dintty_windows_workspace_startup_plan(
+    try std.testing.expectEqual(workspace_startup_remote, deetty_windows_workspace_startup_plan(
         &state,
         1,
         100,
         &session_count,
     ));
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_workspace_resize_count(1, 32));
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_workspace_resize_count(1, 32));
 
     var index: c_int = -1;
     var result: c_int = 1;
     while (result <= workspace_max_sessions) : (result += 1) {
-        try std.testing.expectEqual(workspace_action_start, dintty_windows_workspace_action_result(
+        try std.testing.expectEqual(workspace_action_start, deetty_windows_workspace_action_result(
             0,
             result,
             &index,
         ));
         try std.testing.expectEqual(result - 1, index);
     }
-    try std.testing.expectEqual(workspace_action_none, dintty_windows_workspace_action_result(
+    try std.testing.expectEqual(workspace_action_none, deetty_windows_workspace_action_result(
         0,
         0,
         &index,
     ));
-    try std.testing.expectEqual(workspace_action_none, dintty_windows_workspace_action_result(
+    try std.testing.expectEqual(workspace_action_none, deetty_windows_workspace_action_result(
         1,
         1,
         &index,
     ));
-    try std.testing.expectEqual(workspace_action_rollback, dintty_windows_workspace_action_result(
+    try std.testing.expectEqual(workspace_action_rollback, deetty_windows_workspace_action_result(
         0,
         workspace_max_sessions + 1,
         &index,
@@ -1594,21 +1594,21 @@ test "workspace startup resize and action planning preserve all bounds" {
 
     state.live_sessions = 1;
     var resize: SessionPlan = undefined;
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_resize_plan(
         &state,
         0,
         1000,
         500,
         &resize,
     ));
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_session_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_session_resize_plan(
         &state,
         0,
         1001,
         500,
         &resize,
     ));
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_session_resize_plan(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_session_resize_plan(
         &state,
         workspace_max_sessions,
         80,
@@ -1632,7 +1632,7 @@ test "workspace close masks are exhaustively bounded and commits must match" {
                 workspace_close_cleanup
             else
                 workspace_close_shutdown;
-            try std.testing.expectEqual(expected, dintty_windows_workspace_close_plan(
+            try std.testing.expectEqual(expected, deetty_windows_workspace_close_plan(
                 &state,
                 0,
                 session_count,
@@ -1641,7 +1641,7 @@ test "workspace close masks are exhaustively bounded and commits must match" {
             ));
             if (expected == workspace_close_cleanup) {
                 try std.testing.expectEqual(mask, cleanup);
-                try std.testing.expectEqual(@as(c_int, 1), dintty_windows_workspace_close_commit(
+                try std.testing.expectEqual(@as(c_int, 1), deetty_windows_workspace_close_commit(
                     &state,
                     mask,
                 ));
@@ -1657,21 +1657,21 @@ test "workspace close masks are exhaustively bounded and commits must match" {
         .pending_close = 0,
     };
     var cleanup: u32 = 99;
-    try std.testing.expectEqual(workspace_close_none, dintty_windows_workspace_close_plan(
+    try std.testing.expectEqual(workspace_close_none, deetty_windows_workspace_close_plan(
         &state,
         0,
         workspace_max_sessions,
         0,
         &cleanup,
     ));
-    try std.testing.expectEqual(workspace_close_shutdown, dintty_windows_workspace_close_plan(
+    try std.testing.expectEqual(workspace_close_shutdown, deetty_windows_workspace_close_plan(
         &state,
         0,
         0,
         1,
         &cleanup,
     ));
-    try std.testing.expectEqual(workspace_close_shutdown, dintty_windows_workspace_close_plan(
+    try std.testing.expectEqual(workspace_close_shutdown, deetty_windows_workspace_close_plan(
         &state,
         0,
         workspace_max_sessions + 1,
@@ -1682,7 +1682,7 @@ test "workspace close masks are exhaustively bounded and commits must match" {
     var committed: u32 = 0;
     while (committed < 16) : (committed += 1) {
         state = .{ .live_sessions = 0b1111, .pending_close = 0 };
-        try std.testing.expectEqual(workspace_close_cleanup, dintty_windows_workspace_close_plan(
+        try std.testing.expectEqual(workspace_close_cleanup, deetty_windows_workspace_close_plan(
             &state,
             0,
             4,
@@ -1691,7 +1691,7 @@ test "workspace close masks are exhaustively bounded and commits must match" {
         ));
         try std.testing.expectEqual(
             @as(c_int, @intFromBool(committed == 0b0101)),
-            dintty_windows_workspace_close_commit(&state, committed),
+            deetty_windows_workspace_close_commit(&state, committed),
         );
         if (committed == 0b0101)
             try std.testing.expectEqual(@as(u32, 0b1010), state.live_sessions)
@@ -1702,10 +1702,10 @@ test "workspace close masks are exhaustively bounded and commits must match" {
 
 test "partial startup cleanup and action rollback decisions remain atomic" {
     var state = WorkspaceState{ .live_sessions = 0, .pending_close = 0 };
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_started(&state, 0));
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_started(&state, 2));
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_started(&state, 0));
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_started(&state, 2));
     var cleanup: u32 = 0;
-    try std.testing.expectEqual(session_failure_cleanup, dintty_windows_session_start_failed(
+    try std.testing.expectEqual(session_failure_cleanup, deetty_windows_session_start_failed(
         &state,
         3,
         1,
@@ -1714,8 +1714,8 @@ test "partial startup cleanup and action rollback decisions remain atomic" {
     try std.testing.expectEqual(@as(u32, 0b0101), cleanup);
     try std.testing.expectEqual(@as(u32, 0), state.live_sessions);
 
-    try std.testing.expectEqual(@as(c_int, 1), dintty_windows_session_started(&state, 7));
-    try std.testing.expectEqual(session_failure_rollback, dintty_windows_session_start_failed(
+    try std.testing.expectEqual(@as(c_int, 1), deetty_windows_session_started(&state, 7));
+    try std.testing.expectEqual(session_failure_rollback, deetty_windows_session_start_failed(
         &state,
         8,
         0,
@@ -1727,20 +1727,20 @@ test "partial startup cleanup and action rollback decisions remain atomic" {
     var index: c_int = 0;
     while (index < workspace_max_sessions) : (index += 1) {
         const expected = sessionBit(index).?;
-        try std.testing.expectEqual(@as(c_int, 1), dintty_windows_workspace_rollback_matches(
+        try std.testing.expectEqual(@as(c_int, 1), deetty_windows_workspace_rollback_matches(
             index,
             expected,
         ));
-        try std.testing.expectEqual(@as(c_int, 0), dintty_windows_workspace_rollback_matches(
+        try std.testing.expectEqual(@as(c_int, 0), deetty_windows_workspace_rollback_matches(
             index,
             expected ^ 1,
         ));
     }
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_workspace_rollback_matches(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_workspace_rollback_matches(
         -1,
         0,
     ));
-    try std.testing.expectEqual(@as(c_int, 0), dintty_windows_workspace_rollback_matches(
+    try std.testing.expectEqual(@as(c_int, 0), deetty_windows_workspace_rollback_matches(
         workspace_max_sessions,
         0,
     ));

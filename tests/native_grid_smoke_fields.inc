@@ -1,4 +1,4 @@
-/* Test-only fields embedded in DinttyGridContext smoke builds. */
+/* Test-only fields embedded in DeettyGridContext smoke builds. */
     guint64 presentation_output_serial;
     guint64 presentation_expected_output_serial;
     guint presentation_samples_started;
@@ -13,14 +13,14 @@
     int presentation_failed;
     int presentation_finished;
     gulong presentation_after_paint_handler;
-    gint64 presentation_key_start_us[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    gint64 presentation_frame_counter[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    int presentation_frame_recorded[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presentation_key_to_draw_ns[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presentation_key_to_frame_ns[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presentation_key_to_predicted_ns[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presentation_key_to_present_ns[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presentation_frame_interval_ns[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES - 1];
+    gint64 presentation_key_start_us[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    gint64 presentation_frame_counter[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    int presentation_frame_recorded[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presentation_key_to_draw_ns[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presentation_key_to_frame_ns[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presentation_key_to_predicted_ns[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presentation_key_to_present_ns[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presentation_frame_interval_ns[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES - 1];
     gint64 presentation_previous_frame_us;
     int full_stack_phase;
     int full_stack_mapped;

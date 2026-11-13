@@ -1,4 +1,4 @@
-Source: dintty
+Source: deetty
 Section: utils
 Priority: optional
 Maintainer: LichForge <opensource@lichforge.com>
@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13), zig (>= 0.17), pkg-config, libgtk-3-dev,
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 
-Package: dintty
+Package: deetty
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libepoxy0, libgtk-layer-shell0
 Description: Zig-native terminal workspace for Plasma and Noctalia

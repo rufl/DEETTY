@@ -31,10 +31,10 @@ grep -F './scripts/public_alpha_verify.sh' "$workflow" >/dev/null
 grep -F 'scripts/isolated_display_runner.sh' "$workflow" >/dev/null
 ! grep -F 'run: ./scripts/verify.sh' "$workflow" >/dev/null
 grep -F './scripts/package_manifests_smoke.sh' "$workflow" >/dev/null
-grep -F './scripts/package_bundle.sh "dintty-linux-${{ matrix.arch }}.tar.gz"' "$workflow" >/dev/null
+grep -F './scripts/package_bundle.sh "deetty-linux-${{ matrix.arch }}.tar.gz"' "$workflow" >/dev/null
 
 grep -F 'Validate release archive' "$workflow" >/dev/null
-grep -F 'archive="dintty-linux-${{ matrix.arch }}.tar.gz"' "$workflow" >/dev/null
+grep -F 'archive="deetty-linux-${{ matrix.arch }}.tar.gz"' "$workflow" >/dev/null
 grep -F 'sha256sum -c "$archive.sha256"' "$workflow" >/dev/null
 grep -F 'test -s "$archive.manifest"' "$workflow" >/dev/null
 grep -F "grep -F 'bundle_manifest_version=1' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
@@ -45,26 +45,26 @@ grep -F "grep -F 'redistribution_ready=true' \"\$archive.manifest\" >/dev/null" 
 grep -F "grep -F 'all_copied_host_libraries_accounted=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "grep -F 'bundle_license_payload_complete=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "grep -F 'gtk_layer_shell_source=system' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './bin/dintty' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './bin/deetty' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './bin/nocted' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './libexec/dintty/dintty' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './libexec/dintty/nocted' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/deetty' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/nocted' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './libexec/dintty/lib/libgtk-layer-shell.so.0' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './share/licenses/dintty/dependencies/packages/' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/lib/libgtk-layer-shell.so.0' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './share/licenses/deetty/dependencies/packages/' >/dev/null" "$workflow" >/dev/null
 
 grep -F 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$workflow" >/dev/null
-grep -F 'dintty-linux-${{ matrix.arch }}.tar.gz.sha256' "$workflow" >/dev/null
-grep -F 'dintty-linux-${{ matrix.arch }}.tar.gz.manifest' "$workflow" >/dev/null
+grep -F 'deetty-linux-${{ matrix.arch }}.tar.gz.sha256' "$workflow" >/dev/null
+grep -F 'deetty-linux-${{ matrix.arch }}.tar.gz.manifest' "$workflow" >/dev/null
 
 grep -F 'windows:' "$workflow" >/dev/null
 grep -F 'zig build check -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe' "$workflow" >/dev/null
-grep -F './scripts/package_windows.sh dintty-windows-x86_64-alpha.zip' "$workflow" >/dev/null
-grep -F "grep -F 'conpty=true' dintty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
-grep -F "grep -F 'gtk_runtime=false' dintty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
-grep -F 'dintty-windows-x86_64-alpha.zip.sha256' "$workflow" >/dev/null
-grep -F 'dintty-windows-x86_64-alpha.zip.manifest' "$workflow" >/dev/null
+grep -F './scripts/package_windows.sh deetty-windows-x86_64-alpha.zip' "$workflow" >/dev/null
+grep -F "grep -F 'conpty=true' deetty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
+grep -F "grep -F 'gtk_runtime=false' deetty-windows-x86_64-alpha.zip.manifest" "$workflow" >/dev/null
+grep -F 'deetty-windows-x86_64-alpha.zip.sha256' "$workflow" >/dev/null
+grep -F 'deetty-windows-x86_64-alpha.zip.manifest' "$workflow" >/dev/null
 grep -F 'windows-runtime:' "$workflow" >/dev/null
 grep -F 'runs-on: windows-latest' "$workflow" >/dev/null
 grep -F 'WINDOWS-SMOKE.ps1 -AutomatedHost' "$workflow" >/dev/null

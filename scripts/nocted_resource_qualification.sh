@@ -2,8 +2,8 @@
 set -euo pipefail
 
 isolation_backend=${NOCTED_GDK_BACKEND:-x11}
-if [[ ${DINTTY_DEDICATED_DISPLAY:-0} != 1 &&
-      ${DINTTY_ISOLATED_DISPLAY:-} != "$isolation_backend" ]]; then
+if [[ ${DEETTY_DEDICATED_DISPLAY:-0} != 1 &&
+      ${DEETTY_ISOLATED_DISPLAY:-} != "$isolation_backend" ]]; then
     case "$isolation_backend" in
         x11) exec ./scripts/run_isolated_x11.sh "$0" "$@" ;;
         wayland) exec ./scripts/run_isolated_wayland.sh "$0" "$@" ;;

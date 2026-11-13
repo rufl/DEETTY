@@ -462,7 +462,7 @@ test "project scan walks files with hidden and generated directories skipped" {
     try writeTestFile(io, tmp.dir, ".hidden", "hidden");
     try writeTestFile(io, tmp.dir, ".zig-cache/o/hash", "cache");
     try writeTestFile(io, tmp.dir, "vendor/tree-sitter/parser.c", "vendor");
-    try writeTestFile(io, tmp.dir, "zig-out/bin/dintty", "binary");
+    try writeTestFile(io, tmp.dir, "zig-out/bin/deetty", "binary");
 
     var root = try tmp.dir.openDir(io, ".", .{ .iterate = true });
     defer root.close(io);

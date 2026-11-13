@@ -1,24 +1,24 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
-backend=${DINTTY_ISOLATED_DISPLAY:-x11}
+backend=${DEETTY_ISOLATED_DISPLAY:-x11}
 case "$backend" in
   x11|wayland) ;;
   *) echo "native_grid_state_recovery_smoke error=unsupported_backend backend=$backend" >&2; exit 2 ;;
 esac
 
-binary=${1:-./zig-out/bin/dintty}
+binary=${1:-./zig-out/bin/deetty}
 case "$binary" in
   /*) ;;
   *) binary="$PWD/${binary#./}" ;;
 esac
 test -x "$binary"
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-state-recovery.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-state-recovery.XXXXXX")
 cleanup() {
   if [ -s "$scratch/pid" ]; then
     pid=$(cat "$scratch/pid")
@@ -28,13 +28,13 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-DINTTY_RECOVERY_BACKEND=$backend \
-DINTTY_RECOVERY_BINARY=$binary \
-DINTTY_RECOVERY_SCRATCH=$scratch \
+DEETTY_RECOVERY_BACKEND=$backend \
+DEETTY_RECOVERY_BINARY=$binary \
+DEETTY_RECOVERY_SCRATCH=$scratch \
 sh -eu -c '
-  binary=$DINTTY_RECOVERY_BINARY
-  scratch=$DINTTY_RECOVERY_SCRATCH
-  backend=$DINTTY_RECOVERY_BACKEND
+  binary=$DEETTY_RECOVERY_BINARY
+  scratch=$DEETTY_RECOVERY_SCRATCH
+  backend=$DEETTY_RECOVERY_BACKEND
   export HOME="$scratch/home"
   export XDG_CONFIG_HOME="$scratch/config"
   export XDG_STATE_HOME="$scratch/state"
@@ -42,9 +42,9 @@ sh -eu -c '
   export XDG_DATA_HOME="$scratch/data"
   export GDK_BACKEND="$backend"
   export NO_AT_BRIDGE=1
-  config="$HOME/.config/dintty/settings.dinttycfg"
-  themes="$HOME/.config/dintty/themes.dinttythemes"
-  workspace="$HOME/.local/state/dintty/autosave/default.dinttyws"
+  config="$HOME/.config/deetty/settings.deettycfg"
+  themes="$HOME/.config/deetty/themes.deettythemes"
+  workspace="$HOME/.local/state/deetty/autosave/default.deettyws"
   mkdir -p "$(dirname "$config")" "$(dirname "$workspace")" \
     "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
 
@@ -65,7 +65,7 @@ sh -eu -c '
 
   attempt=0
   while [ "$attempt" -lt 120 ]; do
-    grep -F "dintty_startup_recovery_notice flags=26" "$scratch/output.log" >/dev/null 2>&1 && break
+    grep -F "deetty_startup_recovery_notice flags=26" "$scratch/output.log" >/dev/null 2>&1 && break
     kill -0 "$pid" 2>/dev/null || { cat "$scratch/output.log" >&2; exit 1; }
     attempt=$((attempt + 1))
     sleep 0.05

@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-bundle-smoke.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-bundle-smoke.XXXXXX")
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
 }
 trap cleanup EXIT HUP INT TERM
 
-archive="$scratch/dintty-linux-bundle.tar.gz"
+archive="$scratch/deetty-linux-bundle.tar.gz"
 output=$(./scripts/package_bundle.sh "$archive")
 printf '%s\n' "$output"
 printf '%s\n' "$output" | grep -F 'manifest=true' >/dev/null
@@ -27,12 +27,12 @@ test "$(stat -c %a "$archive")" = 644
 test "$(stat -c %a "$archive.sha256")" = 644
 test "$(stat -c %a "$archive.manifest")" = 644
 (cd "$scratch" && sha256sum -c "$(basename "$archive").sha256" >/dev/null)
-tar -tzf "$archive" | grep -F './bin/dintty' >/dev/null
+tar -tzf "$archive" | grep -F './bin/deetty' >/dev/null
 tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
-tar -tzf "$archive" | grep -F './libexec/dintty/dintty' >/dev/null
-tar -tzf "$archive" | grep -F './libexec/dintty/nocted' >/dev/null
-tar -tzf "$archive" | grep -F './libexec/dintty/runtime-dependencies.txt' >/dev/null
-tar -tzf "$archive" | grep -F './share/licenses/dintty/dependencies/packages/' >/dev/null
+tar -tzf "$archive" | grep -F './libexec/deetty/deetty' >/dev/null
+tar -tzf "$archive" | grep -F './libexec/deetty/nocted' >/dev/null
+tar -tzf "$archive" | grep -F './libexec/deetty/runtime-dependencies.txt' >/dev/null
+tar -tzf "$archive" | grep -F './share/licenses/deetty/dependencies/packages/' >/dev/null
 
 grep -F 'bundle_manifest_version=1' "$archive.manifest" >/dev/null
 grep -F 'archive_sha256=' "$archive.manifest" >/dev/null

@@ -1,14 +1,14 @@
-// DINTTY integration for Noctalia on Niri.
-spawn-at-startup "dintty" "--hidden"
+// DEETTY integration for Noctalia on Niri.
+spawn-at-startup "deetty" "--hidden"
 
 binds {
-    F10 { spawn "dintty" "--toggle"; }
+    F10 { spawn "deetty" "--toggle"; }
 }
 
 // Dependency-free dropdowns are regular xdg-toplevel windows. Niri owns
 // their floating/top-edge placement; windowed and zen modes use other titles.
 window-rule {
-    match app-id=r#"^com\.dintty\.DINTTY$"# title=r#"^DINTTY Dropdown(?: —|$)"#
+    match app-id=r#"^com\.deetty\.DEETTY$"# title=r#"^DEETTY Dropdown(?: —|$)"#
     open-floating true
     draw-border-with-background false
     default-floating-position x=0 y=0 relative-to="top"

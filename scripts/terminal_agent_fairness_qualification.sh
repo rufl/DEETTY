@@ -2,12 +2,12 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch_parent=${DINTTY_FAIRNESS_PARENT:-$repo_root}
+scratch_parent=${DEETTY_FAIRNESS_PARENT:-$repo_root}
 case "$scratch_parent" in
     /*) ;;
     *) scratch_parent="$repo_root/$scratch_parent" ;;
 esac
-scratch=$(mktemp -d "$scratch_parent/.dintty-terminal-fairness.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.deetty-terminal-fairness.XXXXXX")
 cleanup() {
     find "$scratch" -depth -delete 2>/dev/null || true
 }
@@ -27,7 +27,7 @@ run_mode() {
         --prefix "$prefix" \
         --cache-dir "$local_cache"
 
-    "$prefix/bin/dintty-terminal-agent-fairness" >"$scratch/output-$mode"
+    "$prefix/bin/deetty-terminal-agent-fairness" >"$scratch/output-$mode"
 }
 
 cd "$repo_root"

@@ -1,18 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
-backend=${DINTTY_ISOLATED_DISPLAY:-x11}
+backend=${DEETTY_ISOLATED_DISPLAY:-x11}
 case "$backend" in
   x11|wayland) ;;
   *) echo "native_grid_single_instance_smoke error=unsupported_backend backend=$backend" >&2; exit 2 ;;
 esac
 
-binary=${1:-./zig-out/bin/dintty}
+binary=${1:-./zig-out/bin/deetty}
 case "$binary" in
   /*) ;;
   *) binary="$PWD/${binary#./}" ;;
@@ -20,7 +20,7 @@ esac
 test -x "$binary"
 command -v gdbus >/dev/null
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-single-instance.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-single-instance.XXXXXX")
 cleanup() {
   if [ -s "$scratch/pids" ]; then
     while read -r pid; do
@@ -32,13 +32,13 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 : > "$scratch/pids"
 
-DINTTY_SINGLE_INSTANCE_BACKEND=$backend \
-DINTTY_SINGLE_INSTANCE_BINARY=$binary \
-DINTTY_SINGLE_INSTANCE_SCRATCH=$scratch \
+DEETTY_SINGLE_INSTANCE_BACKEND=$backend \
+DEETTY_SINGLE_INSTANCE_BINARY=$binary \
+DEETTY_SINGLE_INSTANCE_SCRATCH=$scratch \
 sh -eu -c '
-  binary=$DINTTY_SINGLE_INSTANCE_BINARY
-  scratch=$DINTTY_SINGLE_INSTANCE_SCRATCH
-  backend=$DINTTY_SINGLE_INSTANCE_BACKEND
+  binary=$DEETTY_SINGLE_INSTANCE_BINARY
+  scratch=$DEETTY_SINGLE_INSTANCE_SCRATCH
+  backend=$DEETTY_SINGLE_INSTANCE_BACKEND
   export HOME="$scratch/home"
   export XDG_CONFIG_HOME="$scratch/config"
   export XDG_STATE_HOME="$scratch/state"
@@ -121,10 +121,10 @@ sh -eu -c '
 
   # Force the filesystem lock open to fail and prove the D-Bus
   # DO_NOT_QUEUE ownership fallback still converges without persistence.
-  rm -f "$HOME/.local/state/dintty/instance.lock"
-  mkdir -p "$HOME/.local/state/dintty/instance.lock"
+  rm -f "$HOME/.local/state/deetty/instance.lock"
+  mkdir -p "$HOME/.local/state/deetty/instance.lock"
   launch_race --show
-  rm -rf "$HOME/.local/state/dintty/instance.lock"
+  rm -rf "$HOME/.local/state/deetty/instance.lock"
 
   setsid "$binary" --hidden >"$scratch/hidden.log" 2>&1 &
   hidden_pid=$!
@@ -181,7 +181,7 @@ sh -eu -c '
   ! process_live "$winner"
   wait "$winner" 2>/dev/null || true
 
-  DINTTY_DEBUG_ACTIVATION=1 setsid "$binary" --hidden >"$scratch/primary-hidden.log" 2>&1 &
+  DEETTY_DEBUG_ACTIVATION=1 setsid "$binary" --hidden >"$scratch/primary-hidden.log" 2>&1 &
   primary_pid=$!
   printf "%s\n" "$primary_pid" >> "$scratch/pids"
   attempt=0
@@ -192,37 +192,37 @@ sh -eu -c '
     sleep 0.05
   done
   printf "%s\n" "$primary_state" | grep -F "running=true" >/dev/null
-  XDG_ACTIVATION_TOKEN=dintty-smoke-token "$binary" --show >/dev/null
+  XDG_ACTIVATION_TOKEN=deetty-smoke-token "$binary" --show >/dev/null
   attempt=0
   while [ "$attempt" -lt 40 ]; do
-    grep -F "dintty_xdg_activation applied=true backend=$backend" \
+    grep -F "deetty_xdg_activation applied=true backend=$backend" \
       "$scratch/primary-hidden.log" >/dev/null 2>&1 && break
     attempt=$((attempt + 1))
     sleep 0.05
   done
-  grep -F "dintty_xdg_activation applied=true backend=$backend" \
+  grep -F "deetty_xdg_activation applied=true backend=$backend" \
     "$scratch/primary-hidden.log" >/dev/null
 
   "$binary" --hide >/dev/null
   attempt=0
   while [ "$attempt" -lt 40 ]; do
-    if gdbus call --session --dest com.dintty.DINTTY \
+    if gdbus call --session --dest com.deetty.DEETTY \
       --object-path /StatusNotifierItem \
       --method org.kde.StatusNotifierItem.ProvideXdgActivationToken \
-      dintty-tray-smoke-token >/dev/null 2>&1; then
+      deetty-tray-smoke-token >/dev/null 2>&1; then
       break
     fi
     attempt=$((attempt + 1))
     sleep 0.05
   done
   [ "$attempt" -lt 40 ]
-  gdbus call --session --dest com.dintty.DINTTY \
+  gdbus call --session --dest com.deetty.DEETTY \
     --object-path /StatusNotifierItem \
     --method org.kde.StatusNotifierItem.Activate 0 0 >/dev/null
   attempt=0
   while [ "$attempt" -lt 40 ]; do
     applied_count=$(grep -c \
-      "dintty_xdg_activation applied=true backend=$backend" \
+      "deetty_xdg_activation applied=true backend=$backend" \
       "$scratch/primary-hidden.log" || true)
     [ "$applied_count" -ge 2 ] && break
     attempt=$((attempt + 1))
@@ -232,15 +232,15 @@ sh -eu -c '
 
   # A token supplied while visible must not survive a hide and become attached
   # to a later unrelated Show.
-  gdbus call --session --dest com.dintty.DINTTY \
+  gdbus call --session --dest com.deetty.DEETTY \
     --object-path /StatusNotifierItem \
     --method org.kde.StatusNotifierItem.ProvideXdgActivationToken \
-    dintty-stale-tray-token >/dev/null
+    deetty-stale-tray-token >/dev/null
   "$binary" --hide >/dev/null
   XDG_ACTIVATION_TOKEN= "$binary" --show >/dev/null
   sleep 0.1
   applied_count=$(grep -c \
-    "dintty_xdg_activation applied=true backend=$backend" \
+    "deetty_xdg_activation applied=true backend=$backend" \
     "$scratch/primary-hidden.log" || true)
   [ "$applied_count" -eq 2 ]
 

@@ -6,12 +6,12 @@ export LC_ALL=C
 export PATH="$PATH:$HOME/.local/bin"
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-artifact_dir=${DINTTY_CONTINUITY_ARTIFACT_DIR:-"$repo_root/benchmarks/installed-continuity-$(date +%F)"}
+artifact_dir=${DEETTY_CONTINUITY_ARTIFACT_DIR:-"$repo_root/benchmarks/installed-continuity-$(date +%F)"}
 case "$artifact_dir" in
     /*) ;;
     *) artifact_dir="$repo_root/$artifact_dir" ;;
 esac
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-installed-continuity.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-installed-continuity.XXXXXX")
 runner_pid=
 current_kind=
 current_session=
@@ -25,7 +25,7 @@ cleanup_session() {
 }
 cleanup() {
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript \
-        "dinttyContinuityActivate$$" >/dev/null 2>&1 || true
+        "deettyContinuityActivate$$" >/dev/null 2>&1 || true
     if [[ -n "$runner_pid" ]] && kill -0 "$runner_pid" 2>/dev/null; then
         kill "$runner_pid" 2>/dev/null || true
         wait "$runner_pid" 2>/dev/null || true
@@ -152,7 +152,7 @@ wait_for_exit() {
         sleep 0.1
         attempt=$((attempt + 1))
     done
-    printf 'timed out waiting for detached DINTTY pid=%s\n' "$pid" >&2
+    printf 'timed out waiting for detached DEETTY pid=%s\n' "$pid" >&2
     cat "$log" >&2
     return 1
 }
@@ -160,10 +160,10 @@ wait_for_exit() {
 activate_wayland_window() {
     local pid=$1
     local script="$scratch/activate-window.js"
-    local plugin="dinttyContinuityActivate$$"
+    local plugin="deettyContinuityActivate$$"
     cat >"$script" <<EOF
 for (const window of workspace.windowList()) {
-    if (window.caption === 'DINTTY installed continuity qualification') {
+    if (window.caption === 'DEETTY installed continuity qualification') {
         window.minimized = false;
         workspace.activeWindow = window;
         break;
@@ -190,7 +190,7 @@ capture_window() {
         local attempt=0
         while ((attempt < 100)); do
             window=$(xdotool search --onlyvisible \
-                --name '^DINTTY installed continuity qualification$' \
+                --name '^DEETTY installed continuity qualification$' \
                 2>/dev/null | tail -n 1 || true)
             [[ -z "$window" ]] || break
             sleep 0.1
@@ -206,7 +206,7 @@ capture_window() {
     test -s "$image"
     local ocr
     ocr=$(tesseract "$image" stdout -l afr --psm 6 2>/dev/null)
-    grep -F 'DINTTY' <<<"$ocr" >/dev/null
+    grep -F 'DEETTY' <<<"$ocr" >/dev/null
     grep -F 'PERSISTENT' <<<"$ocr" >/dev/null
     local tool
     tool=$(awk '{ print $3 }' <<<"$marker")
@@ -222,8 +222,8 @@ launch_lane() {
     local log=$6
     env GTK_MODULES= NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
         GDK_BACKEND="$backend" \
-        DINTTY_CONTINUITY_KIND="$kind" \
-        DINTTY_CONTINUITY_DETACH_PATH="$detach_path" \
+        DEETTY_CONTINUITY_KIND="$kind" \
+        DEETTY_CONTINUITY_DETACH_PATH="$detach_path" \
         "$binary" \
         --native-grid-installed-continuity-qualification \
         "$kind" "$name" >"$log" 2>&1 &
@@ -232,7 +232,7 @@ launch_lane() {
 
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
-    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR="$scratch/global-cache" zig build deetty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$scratch/cache-$mode"
@@ -240,13 +240,13 @@ for mode in Debug ReleaseSafe; do
     for backend in wayland x11; do
         for kind in tmux zellij; do
             current_kind=$kind
-            current_session="dintty-${kind}-${mode_name}-${backend}-$$"
-            marker="DINTTY PERSISTENT $(tr '[:lower:]' '[:upper:]' <<<"$kind") SESSION OK"
+            current_session="deetty-${kind}-${mode_name}-${backend}-$$"
+            marker="DEETTY PERSISTENT $(tr '[:lower:]' '[:upper:]' <<<"$kind") SESSION OK"
             first_log="$artifact_dir/$kind-$mode_name-$backend-first.log"
             first_image="$artifact_dir/$kind-$mode_name-$backend-first.png"
             detach_path="$scratch/$kind-$mode_name-$backend-first-detach"
             rm -f "$detach_path"
-            launch_lane "$prefix/bin/dintty-smoke" "$kind" "$current_session" \
+            launch_lane "$prefix/bin/deetty-smoke" "$kind" "$current_session" \
                 "$backend" "$detach_path" "$first_log"
             wait_for_session "$kind" "$current_session" "$first_log" "$runner_pid"
             send_marker "$kind" "$current_session" "$marker"
@@ -268,7 +268,7 @@ for mode in Debug ReleaseSafe; do
             reattach_image="$artifact_dir/$kind-$mode_name-$backend-reattach.png"
             detach_path="$scratch/$kind-$mode_name-$backend-reattach-detach"
             rm -f "$detach_path"
-            launch_lane "$prefix/bin/dintty-smoke" "$kind" "$current_session" \
+            launch_lane "$prefix/bin/deetty-smoke" "$kind" "$current_session" \
                 "$backend" "$detach_path" "$reattach_log"
             wait_for_session "$kind" "$current_session" "$reattach_log" "$runner_pid"
             wait_for_marker "$kind" "$current_session" "$marker"
@@ -302,4 +302,4 @@ done
     sha256sum -c SHA256SUMS >/dev/null
 )
 
-echo "native_grid_installed_continuity_matrix tmux_version=$(tmux -V | awk '{print $2}') zellij_version=$(zellij --version | awk '{print $2}') debug=true release_safe=true wayland=true x11=true first_attach=true detached=true dintty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true artifact_dir=$artifact_dir scratch_clean=true"
+echo "native_grid_installed_continuity_matrix tmux_version=$(tmux -V | awk '{print $2}') zellij_version=$(zellij --version | awk '{print $2}') debug=true release_safe=true wayland=true x11=true first_attach=true detached=true deetty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true artifact_dir=$artifact_dir scratch_clean=true"

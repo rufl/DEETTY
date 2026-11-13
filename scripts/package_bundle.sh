@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-out="${1:-/tmp/dintty-linux-bundle.tar.gz}"
+out="${1:-/tmp/deetty-linux-bundle.tar.gz}"
 case "$out" in
   /*) out_path="$out" ;;
   *) out_path="$(pwd)/$out" ;;
@@ -15,7 +15,7 @@ release_date=$(sed -n 's/^pub const release_date = "\([^\"]*\)";$/\1/p' src/rele
 test -n "$release_version"
 test -n "$release_date"
 
-scratch_parent=${DINTTY_BUNDLE_PARENT:-.}
+scratch_parent=${DEETTY_BUNDLE_PARENT:-.}
 case "$scratch_parent" in
   /*) ;;
   *) scratch_parent="$(pwd -P)/$scratch_parent" ;;
@@ -37,7 +37,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-scratch=$(mktemp -d "$scratch_parent/.dintty-bundle.XXXXXX")
+scratch=$(mktemp -d "$scratch_parent/.deetty-bundle.XXXXXX")
 stage="$scratch/stage"
 local_cache="$scratch/zig-local"
 global_cache="$scratch/zig-global"
@@ -53,29 +53,29 @@ ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build --cache-dir "$local_cache" test >
 ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build --cache-dir "$local_cache" check >/dev/null
 ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build -Doptimize=ReleaseSafe -Dstrip=true --prefix "$stage" \
   --cache-dir "$local_cache"
-mkdir -p "$stage/libexec/dintty/lib"
-mv "$stage/bin/dintty" "$stage/libexec/dintty/dintty"
-mv "$stage/bin/nocted" "$stage/libexec/dintty/nocted"
-cp packaging/dintty-launcher "$stage/bin/dintty"
+mkdir -p "$stage/libexec/deetty/lib"
+mv "$stage/bin/deetty" "$stage/libexec/deetty/deetty"
+mv "$stage/bin/nocted" "$stage/libexec/deetty/nocted"
+cp packaging/deetty-launcher "$stage/bin/deetty"
 cp packaging/nocted-launcher "$stage/bin/nocted"
-chmod +x "$stage/bin/dintty" "$stage/bin/nocted" \
-  "$stage/libexec/dintty/dintty" "$stage/libexec/dintty/nocted"
+chmod +x "$stage/bin/deetty" "$stage/bin/nocted" \
+  "$stage/libexec/deetty/deetty" "$stage/libexec/deetty/nocted"
 
 library_sources="$scratch/library-sources.txt"
 {
-  ldd "$stage/libexec/dintty/dintty"
-  ldd "$stage/libexec/dintty/nocted"
+  ldd "$stage/libexec/deetty/deetty"
+  ldd "$stage/libexec/deetty/nocted"
 } | awk '/=> \/|^\// { for (i=1; i<=NF; i++) if ($i ~ /^\//) print $i }' |
   while IFS= read -r library; do readlink -f "$library"; done |
   sort -u > "$library_sources"
 while IFS= read -r library; do
-  cp -L "$library" "$stage/libexec/dintty/lib/"
+  cp -L "$library" "$stage/libexec/deetty/lib/"
 done < "$library_sources"
 layer_shell="$(ldconfig -p 2>/dev/null | awk '/libgtk-layer-shell\.so\.0 / { print $NF; exit }')"
 layer_shell_source=system
 if [ -z "$layer_shell" ] || [ ! -f "$layer_shell" ]; then
-  retained_layer_shell="$HOME/.local/libexec/dintty-dogfood/lib/libgtk-layer-shell.so.0"
-  retained_receipt="${XDG_STATE_HOME:-"$HOME/.local/state"}/dintty/dogfood-build.receipt"
+  retained_layer_shell="$HOME/.local/libexec/deetty-dogfood/lib/libgtk-layer-shell.so.0"
+  retained_receipt="${XDG_STATE_HOME:-"$HOME/.local/state"}/deetty/dogfood-build.receipt"
   retained_expected=$(awk -F= '$1 == "layer_shell_sha256" { print $2; exit }' \
     "$retained_receipt" 2>/dev/null || true)
   retained_actual=$(sha256sum "$retained_layer_shell" 2>/dev/null |
@@ -95,15 +95,15 @@ if [ -z "$layer_shell" ] || [ ! -f "$layer_shell" ]; then
   exit 1
 fi
 if [ "$layer_shell_source" = retained-private-runtime ]; then
-  export DINTTY_BUNDLE_RETAINED_LAYER_SHELL="$layer_shell"
+  export DEETTY_BUNDLE_RETAINED_LAYER_SHELL="$layer_shell"
 else
-  unset DINTTY_BUNDLE_RETAINED_LAYER_SHELL
+  unset DEETTY_BUNDLE_RETAINED_LAYER_SHELL
 fi
 printf '%s\n' "$layer_shell" >> "$library_sources"
 sort -u "$library_sources" -o "$library_sources"
 
-cp packaging/runtime-dependencies.txt "$stage/libexec/dintty/"
-test "$("$stage/bin/dintty" --version)" = "dintty $release_version"
+cp packaging/runtime-dependencies.txt "$stage/libexec/deetty/"
+test "$("$stage/bin/deetty" --version)" = "deetty $release_version"
 test "$("$stage/bin/nocted" --version)" = "nocted $release_version"
 
 library_inventory="$scratch/library-inventory.txt"
@@ -115,7 +115,7 @@ license_receipt=$(./scripts/package_bundle_licenses.sh "$library_sources" "$stag
 installed_files="$scratch/installed-files.txt"
 bundled_libraries="$scratch/bundled-libraries.txt"
 (cd "$stage" && find . -type f | sed 's#^\./##' | sort) > "$installed_files"
-find "$stage/libexec/dintty/lib" -type f -exec basename {} \; | sort > "$bundled_libraries"
+find "$stage/libexec/deetty/lib" -type f -exec basename {} \; | sort > "$bundled_libraries"
 
 tar -C "$stage" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | gzip -n > "$archive_tmp"
 test -s "$archive_tmp"
@@ -131,7 +131,7 @@ license_file_count=$(wc -l < "$license_files" | tr -d ' ')
 
 {
   printf 'bundle_manifest_version=1\n'
-  printf 'package=dintty\n'
+  printf 'package=deetty\n'
   printf 'version=%s\n' "$release_version"
   printf 'release_date=%s\n' "$release_date"
   printf 'architecture=%s\n' "$architecture"

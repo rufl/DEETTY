@@ -6,7 +6,7 @@ and X11.
 Run:
 
 ```sh
-DINTTY_FULL_STACK_ARTIFACT_DIR=benchmarks/native-grid-full-stack-$(date +%F) \
+DEETTY_FULL_STACK_ARTIFACT_DIR=benchmarks/native-grid-full-stack-$(date +%F) \
   ./scripts/native_grid_full_stack_qualification.sh
 ```
 
@@ -21,7 +21,7 @@ production PTY/VT/GTK/Cairo path, and retains two mapped phases per backend:
 The host fails if the mapped surface or fullscreen state is absent, if the
 fallback PTY timer wakes, if idle cursor/maintenance callbacks exceed their
 small fixed bounds, or if fullscreen output does not reach a rendered frame.
-The runner also rejects a screenshot unless OCR finds `DINTTY mapped`; this
+The runner also rejects a screenshot unless OCR finds `DEETTY mapped`; this
 prevents another active window from being archived as evidence.
 
 Retained evidence is under

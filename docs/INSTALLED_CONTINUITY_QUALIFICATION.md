@@ -8,12 +8,12 @@ Status: passed on 2026-08-04 for tmux 3.7b and Zellij 0.44.3 on this Plasma host
 
 For each tool, build mode, and backend, the lane:
 
-1. starts a fresh DINTTY process through the production create-or-attach argv;
+1. starts a fresh DEETTY process through the production create-or-attach argv;
 2. writes and renders a tool-specific marker in the live session;
 3. retains a compositor screenshot;
-4. routes the tool's detach chord through DINTTY's production PTY write path;
-5. waits for the first DINTTY process to exit while the multiplexer session remains;
-6. launches a second DINTTY process with the same profile and session name;
+4. routes the tool's detach chord through DEETTY's production PTY write path;
+5. waits for the first DEETTY process to exit while the multiplexer session remains;
+6. launches a second DEETTY process with the same profile and session name;
 7. requires the prior marker to remain visible;
 8. retains the reattached screenshot, detaches cleanly, and removes the disposable session.
 
@@ -22,11 +22,11 @@ The matrix contains 16 mapped screenshots and 16 controlled process logs. Zellij
 ## Retained result
 
 ```text
-native_grid_installed_continuity_matrix tmux_version=3.7b zellij_version=0.44.3 debug=true release_safe=true wayland=true x11=true first_attach=true detached=true dintty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true scratch_clean=true
+native_grid_installed_continuity_matrix tmux_version=3.7b zellij_version=0.44.3 debug=true release_safe=true wayland=true x11=true first_attach=true detached=true deetty_relaunch=true reattach=true content_preserved=true production_pty=true production_vt=true production_gtk=true production_cairo=true compositor_pixels=true controlled_exit=true hid=false checksums=true scratch_clean=true
 ```
 
 Evidence is checksummed under `benchmarks/installed-continuity-2026-08-04/`.
 
 ## Boundary
 
-This closes NCT-111's installed one-host detach/relaunch/reattach boundary. The two binaries were installed under the user's local prefix from signature-verified Arch packages; they are not DINTTY runtime dependencies. The synthetic detach chord and compositor activation are not physical-input proof, and the matrix does not establish multi-day survival, remote tmux/Zellij transports, or cross-host portability.
+This closes NCT-111's installed one-host detach/relaunch/reattach boundary. The two binaries were installed under the user's local prefix from signature-verified Arch packages; they are not DEETTY runtime dependencies. The synthetic detach chord and compositor activation are not physical-input proof, and the matrix does not establish multi-day survival, remote tmux/Zellij transports, or cross-host portability.

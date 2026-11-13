@@ -2,16 +2,16 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch_parent=${DINTTY_REAL_TUI_QUALIFICATION_PARENT:-${TMPDIR:-/tmp}}
-scratch=$(mktemp -d "$scratch_parent/.dintty-real-tui.XXXXXX")
+scratch_parent=${DEETTY_REAL_TUI_QUALIFICATION_PARENT:-${TMPDIR:-/tmp}}
+scratch=$(mktemp -d "$scratch_parent/.deetty-real-tui.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
 trap cleanup EXIT HUP INT TERM
 
-codex_path=${DINTTY_REAL_TUI_CODEX:-$(command -v codex || true)}
-vim_path=${DINTTY_REAL_TUI_VIM:-$(command -v vim || true)}
-btop_path=${DINTTY_REAL_TUI_BTOP:-$(command -v btop || true)}
+codex_path=${DEETTY_REAL_TUI_CODEX:-$(command -v codex || true)}
+vim_path=${DEETTY_REAL_TUI_VIM:-$(command -v vim || true)}
+btop_path=${DEETTY_REAL_TUI_BTOP:-$(command -v btop || true)}
 for path in "$codex_path" "$vim_path" "$btop_path"; do
     [[ -n "$path" && -x "$path" && "$path" = /* ]]
 done
@@ -37,7 +37,7 @@ run_mode() {
             "$state/$app-state" \
             "$state/$app-cache"
     done
-    printf 'DINTTY_REAL_TUI_VIM\nreal ncurses fixture\n' >"$state/vim-fixture.txt"
+    printf 'DEETTY_REAL_TUI_VIM\nreal ncurses fixture\n' >"$state/vim-fixture.txt"
 
     if ! ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build terminal-real-tui-qualification-binary \
         -Doptimize="$mode" \
@@ -47,7 +47,7 @@ run_mode() {
     fi
 
     output_file="$scratch/output-$mode"
-    "$prefix/bin/dintty-terminal-real-tui-qualification" \
+    "$prefix/bin/deetty-terminal-real-tui-qualification" \
         "$state" "$codex_path" "$vim_path" "$btop_path" \
         >"$output_file" &
     runner_pid=$!

@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a bounded improvement to DINTTY or NoctEd
+description: Propose a bounded improvement to DEETTY or NoctEd
 title: "proposal: "
 labels: [enhancement]
 body:
@@ -31,7 +31,7 @@ body:
     attributes:
       label: Component
       options:
-        - DINTTY terminal/workspace
+        - DEETTY terminal/workspace
         - NoctEd editor
         - Windows experimental host
         - packaging/install

@@ -1,6 +1,6 @@
 # Windows Native Host / Parity Boundary
 
-DINTTY has an experimental native Windows terminal host. It is a real
+DEETTY has an experimental native Windows terminal host. It is a real
 Windows build rather than a Linux executable renamed for Windows, but it is
 the first portability tranche and does not yet have Linux feature parity.
 
@@ -15,7 +15,7 @@ Included:
 - x86_64 Windows GUI executable with no GTK runtime
 - Win32 window and GDI terminal rendering
 - Windows ConPTY shell transport
-- the same renderer-neutral Zig VT/parser used by Linux DINTTY
+- the same renderer-neutral Zig VT/parser used by Linux DEETTY
 - ANSI color, true color, Unicode text, cursor, title, scrollback, and live resize
 - built-in PowerShell/Command Prompt and eight reusable custom launch profiles
 - arrow, navigation, function, control, and Unicode keyboard input
@@ -92,7 +92,7 @@ translation unit.
 ConPTY is part of Windows and no GTK/MSYS/Cygwin runtime is required.
 Session sharing additionally requires direct TCP reachability between devices;
 the Windows firewall may prompt when listening. LAN, tailnet, and other routed
-VPN addresses work without protocol-specific integration. DINTTY does not
+VPN addresses work without protocol-specific integration. DEETTY does not
 provide a relay or NAT traversal.
 
 ## Local tabs and splits
@@ -193,7 +193,7 @@ workspace-only target.
 After a Windows cross-build, run:
 
 ```sh
-scripts/windows_terminal_menu_smoke.sh path/to/dintty.exe
+scripts/windows_terminal_menu_smoke.sh path/to/deetty.exe
 ```
 
 This uses the reviewed isolated-display runner and a disposable Wine prefix.
@@ -248,13 +248,13 @@ When a terminal enables DEC 1000, 1002, or 1003 mouse tracking, other
 unmodified button, drag/motion, and wheel events go to the application. Both
 SGR 1006 encodings are supported. Hold `Shift` while left-dragging to bypass
 application capture and make a local selection. Losing focus or capture sends
-bounded release reports before DINTTY clears pressed-button state.
+bounded release reports before DEETTY clears pressed-button state.
 
 ## Native settings and saved layouts
 
 The window's **Settings** menu applies user-owned, local preferences:
 
-- **Theme** selects the shared DINTTY Dark or Paseo Black Zinc palette, Windows'
+- **Theme** selects the shared DEETTY Dark or Paseo Black Zinc palette, Windows'
   current high-contrast window colors, or an imported custom theme. Terminal
   foreground/background, ANSI colors, and block-cursor colors use the selected
   shared palette; native window/menu chrome remains Windows-owned.
@@ -264,7 +264,7 @@ The window's **Settings** menu applies user-owned, local preferences:
 - **Launch profile** selects PowerShell, Command Prompt, or a named custom
   profile for newly created ConPTY sessions. **Manage Profiles…** creates,
   edits, renames, and deletes customs. Saving also selects that profile.
-  `DINTTY_WINDOWS_SHELL` remains the explicit test/operator override and takes
+  `DEETTY_WINDOWS_SHELL` remains the explicit test/operator override and takes
   precedence over the chosen executable and arguments.
 - **Restore saved workspace on startup** controls whether a saved layout is
   reconstructed before the native host opens.
@@ -275,16 +275,16 @@ the volatile tag-1 filter. The filter hides unmatched pane geometry and hands
 focus to the first matching pane; the filter resets after restart.
 
 Broadcast input is session-scoped and is not serialized in `NWS3`; restarting
-DINTTY always starts with broadcast disabled.
+DEETTY always starts with broadcast disabled.
 
 The **Workspace** menu saves the current bounded tab/split model or restores the
-last saved model. Restore is intentionally destructive: DINTTY confirms first,
+last saved model. Restore is intentionally destructive: DEETTY confirms first,
 closes the current shells, reconstructs the validated layout, and starts
 replacement shells. Scrollback, process state, working directories, and shell
 contents are not serialized.
 
 Preferences and the saved layout use an atomic, versioned, checksummed local
-file at `%LOCALAPPDATA%\DINTTY\windows-state-v1.bin`. The pathname is retained
+file at `%LOCALAPPDATA%\DEETTY\windows-state-v1.bin`. The pathname is retained
 for compatibility: the reader accepts legacy `NWS1` and `NWS2` snapshots,
 defaulting their split ratios to 50%. Subsequent saves write `NWS3` with tab
 metadata and proportional split ratios. Older builds cannot read newly saved
@@ -317,7 +317,7 @@ and deletion require confirmation. Validation or write failures retain the
 previous live library and selection.
 
 The separate atomic, versioned file is
-`%LOCALAPPDATA%\DINTTY\windows-launch-profiles-v1.bin`. Environment values are
+`%LOCALAPPDATA%\DEETTY\windows-launch-profiles-v1.bin`. Environment values are
 stored locally **without encryption**; inherit secrets from the environment
 instead of saving them in a profile. Missing or invalid profile state falls
 back to the legacy built-in preference without overwriting the file until an
@@ -325,7 +325,7 @@ explicit successful change.
 ### Theme library
 
 **Theme → Import library** opens a native file picker for portable
-`.dinttythemes` libraries and single-source Ghostty `.conf`/`.ghostty`,
+`.deettythemes` libraries and single-source Ghostty `.conf`/`.ghostty`,
 Xresources, Alacritty `.toml`, or Noctalia `.json` files. A source file becomes
 one custom theme named from its validated ASCII filename stem; invalid stems
 use `Imported theme`. Import replaces the custom library and selects its first
@@ -343,7 +343,7 @@ when no customs exist, using the shared portable codec. The native save dialog
 confirms overwrites. Import/export cancellation has no state effect.
 
 Custom themes and active selection live together in the atomically replaced
-`%LOCALAPPDATA%\DINTTY\windows-themes-v1.bin`. Legacy workspace preferences seed
+`%LOCALAPPDATA%\DEETTY\windows-themes-v1.bin`. Legacy workspace preferences seed
 the theme only when this separate state is absent or invalid. Corrupt theme
 state is not overwritten automatically; an explicit successful theme selection
 or import replaces it. Workspace snapshots remain `NWS3`.
@@ -372,7 +372,7 @@ NoctEd atomically saves files and rejects a save when the loaded file identity
 changed on disk. Restored dirty file buffers remain deliberately conflicted
 because the prior identity is not persisted; save them to a different path
 after reviewing the on-disk file. Its bounded session state restores ordered
-tabs, dirty recovery buffers, and the active tab under `%LOCALAPPDATA%\DINTTY`.
+tabs, dirty recovery buffers, and the active tab under `%LOCALAPPDATA%\DEETTY`.
 The project is not restored automatically; reopen its `.npr` file explicitly.
 Choosing **No** in a dirty-exit prompt removes that
 buffer from recovery instead of reopening the file; failure to persist the
@@ -383,7 +383,7 @@ to change the active editor font. Holding `Ctrl` while scrolling over the
 document provides the same point-by-point zoom. **Settings → Editor Font
 Size…** accepts an exact size from 8 to 32 points. The status bar reports the
 current size, which is restored from
-`%LOCALAPPDATA%\DINTTY\NoctEd\settings.conf` on the next launch.
+`%LOCALAPPDATA%\DEETTY\NoctEd\settings.conf` on the next launch.
 
 The Win32 controls adapter is Zig-owned. Its focused isolated Wine
 qualification cross-compiles a mock-callback host and is designed to map the
@@ -401,10 +401,10 @@ connects to that listener:
 
 ```powershell
 # Device A
-.\dintty.exe --pair-listen 49331 "Device B" "device-b.tailnet.example"
+.\deetty.exe --pair-listen 49331 "Device B" "device-b.tailnet.example"
 
 # Device B
-.\dintty.exe --pair-connect "device-a.tailnet.example" 49331 "Device A"
+.\deetty.exe --pair-connect "device-a.tailnet.example" 49331 "Device A"
 ```
 
 For devices on the same LAN, the listener advertises only while the explicit
@@ -412,7 +412,7 @@ For devices on the same LAN, the listener advertises only while the explicit
 before connecting:
 
 ```powershell
-.\dintty.exe --discover
+.\deetty.exe --discover
 ```
 
 The result shows the direct `--pair-connect` command parameters. Tailnets and
@@ -421,13 +421,13 @@ hostname/IP form above there.
 
 Compare the six-digit code shown on both devices and accept only if it matches.
 The private identity is saved as
-`%LOCALAPPDATA%\DINTTY\sharing-identity.dpapi`; the paired-device list is saved
+`%LOCALAPPDATA%\DEETTY\sharing-identity.dpapi`; the paired-device list is saved
 beside it as `sharing-peers.dpapi`. Both use current-user DPAPI protection.
 Inspect saved indexes or revoke a device without editing the protected files:
 
 ```powershell
-.\dintty.exe --list-pairs
-.\dintty.exe --revoke 0
+.\deetty.exe --list-pairs
+.\deetty.exe --revoke 0
 ```
 
 
@@ -436,10 +436,10 @@ receive it on Device B:
 
 ```powershell
 # Device A
-.\dintty.exe --share 0 49331
+.\deetty.exe --share 0 49331
 
 # Device B
-.\dintty.exe --receive 0
+.\deetty.exe --receive 0
 ```
 
 The receiver starts view-only. Typing requests control; Device A shows a native
@@ -475,12 +475,12 @@ zig build \
   -Dstrip=false
 ```
 
-The executable is written to `zig-out/bin/dintty.exe`.
+The executable is written to `zig-out/bin/deetty.exe`.
 
 Create the dogfood ZIP and SHA-256/manifest sidecars:
 
 ```sh
-./scripts/package_windows.sh dist/dintty-windows-x86_64-alpha.zip
+./scripts/package_windows.sh dist/deetty-windows-x86_64-alpha.zip
 ```
 
 The package intentionally keeps symbols in the optimized executable so early
@@ -490,8 +490,8 @@ Build the reproducible per-user NSIS installer from that portable ZIP:
 
 ```sh
 ./scripts/package_windows_installer.sh \
-  dist/dintty-windows-x86_64-setup-unsigned.exe \
-  dist/dintty-windows-x86_64-alpha.zip
+  dist/deetty-windows-x86_64-setup-unsigned.exe \
+  dist/deetty-windows-x86_64-alpha.zip
 ```
 
 The installer builder verifies the portable ZIP checksum, manifest schema,
@@ -500,21 +500,21 @@ missing or stale generated portable artifact is rebuilt from the current tree
 and validated again; an invalid regenerated contract fails with an explicit
 error instead of a silent `grep` exit.
 
-The installer targets `%LOCALAPPDATA%\Programs\DINTTY`, requires no
+The installer targets `%LOCALAPPDATA%\Programs\DEETTY`, requires no
 administrator elevation, creates Start Menu shortcuts, offers optional desktop
 shortcuts, and registers NoctEd only as an **Open with** option for supported
 text/code extensions. `/S` provides silent install and uninstall. Uninstall
 removes only installer-owned files and registrations; it preserves
-`%LOCALAPPDATA%\DINTTY` user state and unrelated files in the install directory.
+`%LOCALAPPDATA%\DEETTY` user state and unrelated files in the install directory.
 
 Release signing is deliberately operator-owned. Set
-`DINTTY_WINDOWS_SIGN_HOOK` to an absolute executable path. The hook receives
-`sign KIND INPUT OUTPUT` for `dintty-exe`, `nocted-exe`, and `installer`, then
+`DEETTY_WINDOWS_SIGN_HOOK` to an absolute executable path. The hook receives
+`sign KIND INPUT OUTPUT` for `deetty-exe`, `nocted-exe`, and `installer`, then
 `verify KIND ARTIFACT`; verification must report signer identity, certificate
 thumbprint, timestamp presence, and signing tool. Packaging fails closed if the
 hook does not change and verify every artifact, preserves the canonical unsigned
 installer, and emits a separate signed installer plus a verification receipt.
-DINTTY contains no credentials and makes no signed-release claim without that
+DEETTY contains no credentials and makes no signed-release claim without that
 operator receipt.
 
 ## Windows dogfood delivery
@@ -527,33 +527,33 @@ Build one checksum-bound dogfood bundle:
 ```
 
 The default output is
-`dist/dintty-windows-x86_64-dogfood.zip` with matching `.sha256` and
+`dist/deetty-windows-x86_64-dogfood.zip` with matching `.sha256` and
 `.manifest` sidecars. The ZIP contains the per-user NSIS installer, its
-checksum and manifest, and `Install-DINTTY-Dogfood.ps1`.
+checksum and manifest, and `Install-DEETTY-Dogfood.ps1`.
 
 PI WEB QOL already discovers Windows artifacts under project `dist/`
 directories. When its artifact service is bound to an explicit trusted LAN or
-tailnet address, select DINTTY's **Builds** tab and download the dogfood ZIP on
+tailnet address, select DEETTY's **Builds** tab and download the dogfood ZIP on
 the Windows machine. Do not bind the artifact service to a wildcard address.
 ZWEB is the dashboard bundle rather than the transfer owner; ZNAP's embedded
 service is loopback-only; OVERZEER deployment requires a separately managed
 target service. The existing token-scoped PI WEB QOL download path is therefore
 the smallest delivery boundary.
 After copying or downloading the ZIP, verify its externally communicated
-SHA-256, extract it, fully close DINTTY and NoctEd, and run from PowerShell:
+SHA-256, extract it, fully close DEETTY and NoctEd, and run from PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\Install-DINTTY-Dogfood.ps1
+  -File .\Install-DEETTY-Dogfood.ps1
 
 # Current-user unattended install:
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\Install-DINTTY-Dogfood.ps1 -Silent
+  -File .\Install-DEETTY-Dogfood.ps1 -Silent
 ```
 
 The script verifies the adjacent installer sidecar before execution, confirms
 the installer registration and payload, runs both installed self-tests, and
-atomically writes `%LOCALAPPDATA%\DINTTY\dogfood-install.receipt`. It does not
+atomically writes `%LOCALAPPDATA%\DEETTY\dogfood-install.receipt`. It does not
 upload logs, dumps, or receipts. These dogfood artifacts remain unsigned;
 checksum verification proves the received bytes match the operator's build but
 does not establish publisher identity. Self-tests and Wine execution do not
@@ -561,18 +561,18 @@ replace physical Windows UI qualification.
 
 ## Run and choose a shell
 
-Double-click `dintty.exe` or start it from PowerShell. DINTTY attempts
+Double-click `deetty.exe` or start it from PowerShell. DEETTY attempts
 Windows PowerShell first and falls back to `cmd.exe`.
 
 Set an explicit command line before launch when testing PowerShell 7 or another
 ConPTY-compatible shell:
 
 ```powershell
-$env:DINTTY_WINDOWS_SHELL = 'pwsh.exe -NoLogo'
-.\dintty.exe
+$env:DEETTY_WINDOWS_SHELL = 'pwsh.exe -NoLogo'
+.\deetty.exe
 ```
 
-The value is local, user-owned process configuration. DINTTY does not download
+The value is local, user-owned process configuration. DEETTY does not download
 or discover shells over the network.
 
 ## Logs and crash dumps
@@ -580,7 +580,7 @@ or discover shells over the network.
 Each launch writes local metadata and error logs under:
 
 ```text
-%LOCALAPPDATA%\DINTTY\logs\
+%LOCALAPPDATA%\DEETTY\logs\
 ```
 
 Unhandled crashes write a local `.dmp` file beside the log. Terminal command
@@ -601,11 +601,11 @@ may be sensitive.
 
 ## Self-test and physical smoke
 
-`dintty.exe` contains a no-window VT/parser, selection/mouse, and
+`deetty.exe` contains a no-window VT/parser, selection/mouse, and
 bounded-workspace contract test:
 
 ```powershell
-.\dintty.exe --self-test
+.\deetty.exe --self-test
 $LASTEXITCODE
 ```
 
@@ -617,7 +617,7 @@ rejection self-test:
 $LASTEXITCODE
 ```
 
-The editor self-test uses `%LOCALAPPDATA%\DINTTY\NoctEd` for temporary files;
+The editor self-test uses `%LOCALAPPDATA%\DEETTY\NoctEd` for temporary files;
 it does not require the package directory as its working directory. Success
 exits zero. Failure exits one and reports the error name to stderr without
 opening a dialog. Redirect stderr when running it from automation.
@@ -639,7 +639,7 @@ workspace restore, input, resize, clipboard, and scroll checklist. It does not
 infer whether the visual checklist passed; record those operator observations
 separately.
 
-An exit code of `0` from `dintty.exe --self-test` proves the embedded Zig VT
+An exit code of `0` from `deetty.exe --self-test` proves the embedded Zig VT
 processed the pinned color/cursor fixture; selection preserved Unicode
 graphemes; DEC mouse mode and SGR encoding matched their bounded contracts;
 nested split layout, tab/pane cycling, collapse, and final-session protection

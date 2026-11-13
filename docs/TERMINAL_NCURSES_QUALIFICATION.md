@@ -4,7 +4,7 @@ Status: bounded NCT-110/NCT-112 installed nano/less/dialog PTY/VT tranche passed
 
 ## Qualified Boundary
 
-`scripts/terminal_ncurses_qualification.sh` discovers installed nano, less, and dialog executables and builds the native Zig `dintty-terminal-ncurses-qualification` runner in Debug and `ReleaseSafe`. Each application starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
+`scripts/terminal_ncurses_qualification.sh` discovers installed nano, less, and dialog executables and builds the native Zig `deetty-terminal-ncurses-qualification` runner in Debug and `ReleaseSafe`. Each application starts at 120x40 through the production `LaunchProfile`, Zig PTY, `TerminalSession`, and `Vt.Grid`. The runner waits for application-owned screen markers, checks foreground identity through the production `/proc` seam, records terminal modes and cell state, routes a controlled exit, observes exit code zero, releases the session, and requires allocator requested bytes to return to the pre-case baseline and zero at process exit.
 
 The isolated cases are:
 
@@ -12,7 +12,7 @@ The isolated cases are:
 - less 704 pages a disposable 201-line fixture. The retained state includes its first-page marker, styled cells, alternate screen, `q` routing, and clean exit.
 - dialog 1.3-20260107 opens a titled message box. The retained state includes the title and body, styled border cells, mouse plus SGR-mouse reporting, Enter routing, and clean exit. This build clears and uses the primary screen rather than entering the alternate screen; the qualification records and asserts that behavior instead of claiming otherwise.
 
-The external tools do not enter DINTTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request, credential, telemetry, or persisted user state.
+The external tools do not enter DEETTY. The qualification binary and PTY/session path remain native Zig, and the lane adds no product dependency, browser runtime, network request, credential, telemetry, or persisted user state.
 
 ## Retained Result
 
@@ -31,7 +31,7 @@ terminal_ncurses_matrix debug=true release_safe=true applications=nano,less,dial
 
 ## Proof Boundary
 
-This is real installed-application, headless production PTY/VT model evidence. It proves that these exact installed versions generated and consumed compatible terminal streams through DINTTY's production session model. It does not initialize GTK, map a native surface, exercise Cairo or a compositor, compare pixels, or measure key-to-frame latency.
+This is real installed-application, headless production PTY/VT model evidence. It proves that these exact installed versions generated and consumed compatible terminal streams through DEETTY's production session model. It does not initialize GTK, map a native surface, exercise Cairo or a compositor, compare pixels, or measure key-to-frame latency.
 
 Three applications are not universal ncurses compatibility. This lane does not prove Claude Code, Antigravity, other terminal applications, compositor-backed pixels, Plasma interaction, or multi-day stability. The separate authenticated Codex and installed tmux/Zellij mapped matrices close NCT-110/NCT-111 at their accepted one-host boundaries. NCT-112's hidden/visible harness shakedown passes; the retained 48-hour run remains open.
 
@@ -45,4 +45,4 @@ The lane is opt-in because it intentionally requires the installed external tool
 ./scripts/terminal_ncurses_qualification.sh
 ```
 
-`DINTTY_NCURSES_NANO`, `DINTTY_NCURSES_LESS`, and `DINTTY_NCURSES_DIALOG` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.
+`DEETTY_NCURSES_NANO`, `DEETTY_NCURSES_LESS`, and `DEETTY_NCURSES_DIALOG` can select explicit absolute executable paths. The script uses only scoped disposable homes, XDG roots, Zig caches, output files, and fixtures under one trap-cleaned workspace directory.

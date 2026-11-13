@@ -5,10 +5,10 @@ export LC_ALL=C
 # This report deliberately reads only local dogfood receipts. It never reads
 # terminal output, contacts a network service, or changes local state.
 state_home=${1:-${XDG_STATE_HOME:-"$HOME/.local/state"}}
-receipt_dir="$state_home/dintty/dogfood-sessions"
-interaction_dir="$state_home/dintty/interaction-qualifications"
-build_receipt="$state_home/dintty/dogfood-build.receipt"
-records=$(mktemp "${TMPDIR:-/tmp}/dintty-local-diagnostic-report.XXXXXX")
+receipt_dir="$state_home/deetty/dogfood-sessions"
+interaction_dir="$state_home/deetty/interaction-qualifications"
+build_receipt="$state_home/deetty/dogfood-build.receipt"
+records=$(mktemp "${TMPDIR:-/tmp}/deetty-local-diagnostic-report.XXXXXX")
 trap 'rm -f "$records"' EXIT HUP INT TERM
 : >"$records"
 
@@ -30,19 +30,19 @@ printf 'local_diagnostic_report version=4 no_network=true terminal_content=false
 
 coredump_inventory=false
 coredump_baseline=false
-dintty_coredumps=0
+deetty_coredumps=0
 nocted_coredumps=0
-dintty_smoke_coredumps=0
+deetty_smoke_coredumps=0
 nocted_smoke_coredumps=0
-dintty_coredumps_since_install=0
+deetty_coredumps_since_install=0
 nocted_coredumps_since_install=0
-dintty_smoke_coredumps_since_install=0
+deetty_smoke_coredumps_since_install=0
 nocted_smoke_coredumps_since_install=0
 install_epoch=$(receipt_field install_epoch "$build_receipt" 2>/dev/null || true)
 case "$install_epoch" in ''|*[!0-9]*) install_epoch=0 ;; esac
 if command -v coredumpctl >/dev/null 2>&1; then
   if coredumps=$(coredumpctl --json=short --no-pager \
-    list dintty-bin nocted-bin dintty-smoke nocted-smoke 2>&1); then
+    list deetty-bin nocted-bin deetty-smoke nocted-smoke 2>&1); then
     coredump_inventory=true
   elif [ "$coredumps" = "No coredumps found." ]; then
     coredumps=
@@ -50,14 +50,14 @@ if command -v coredumpctl >/dev/null 2>&1; then
   else
     coredumps=
   fi
-  dintty_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/dintty-bin"' | wc -l)
+  deetty_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/deetty-bin"' | wc -l)
   nocted_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/nocted-bin"' | wc -l)
-  dintty_smoke_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/dintty-smoke"' | wc -l)
+  deetty_smoke_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/deetty-smoke"' | wc -l)
   nocted_smoke_coredumps=$(printf '%s\n' "$coredumps" | grep -o '/nocted-smoke"' | wc -l)
   if [ "$coredump_inventory" = true ] && [ "$install_epoch" -gt 0 ]; then
     if recent_coredumps=$(coredumpctl --json=short --no-pager \
       --since="@$install_epoch" \
-      list dintty-bin nocted-bin dintty-smoke nocted-smoke 2>&1); then
+      list deetty-bin nocted-bin deetty-smoke nocted-smoke 2>&1); then
       coredump_baseline=true
     elif [ "$recent_coredumps" = "No coredumps found." ]; then
       recent_coredumps=
@@ -65,21 +65,21 @@ if command -v coredumpctl >/dev/null 2>&1; then
     else
       recent_coredumps=
     fi
-    dintty_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
-      grep -o '/dintty-bin"' | wc -l)
+    deetty_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
+      grep -o '/deetty-bin"' | wc -l)
     nocted_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
       grep -o '/nocted-bin"' | wc -l)
-    dintty_smoke_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
-      grep -o '/dintty-smoke"' | wc -l)
+    deetty_smoke_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
+      grep -o '/deetty-smoke"' | wc -l)
     nocted_smoke_coredumps_since_install=$(printf '%s\n' "$recent_coredumps" |
       grep -o '/nocted-smoke"' | wc -l)
   fi
 fi
-printf 'local_diagnostic_crashes inventory=%s install_baseline=%s retained_dintty=%s retained_nocted=%s retained_dintty_smoke=%s retained_nocted_smoke=%s since_install_dintty=%s since_install_nocted=%s since_install_dintty_smoke=%s since_install_nocted_smoke=%s historical_may_precede_current_binary=true\n' \
-  "$coredump_inventory" "$coredump_baseline" "$dintty_coredumps" \
-  "$nocted_coredumps" "$dintty_smoke_coredumps" "$nocted_smoke_coredumps" \
-  "$dintty_coredumps_since_install" "$nocted_coredumps_since_install" \
-  "$dintty_smoke_coredumps_since_install" \
+printf 'local_diagnostic_crashes inventory=%s install_baseline=%s retained_deetty=%s retained_nocted=%s retained_deetty_smoke=%s retained_nocted_smoke=%s since_install_deetty=%s since_install_nocted=%s since_install_deetty_smoke=%s since_install_nocted_smoke=%s historical_may_precede_current_binary=true\n' \
+  "$coredump_inventory" "$coredump_baseline" "$deetty_coredumps" \
+  "$nocted_coredumps" "$deetty_smoke_coredumps" "$nocted_smoke_coredumps" \
+  "$deetty_coredumps_since_install" "$nocted_coredumps_since_install" \
+  "$deetty_smoke_coredumps_since_install" \
   "$nocted_smoke_coredumps_since_install"
 
 if [ -d "$receipt_dir" ]; then
@@ -124,7 +124,7 @@ if [ -d "$receipt_dir" ]; then
         ;;
       *) continue ;;
     esac
-    case "$app" in dintty|nocted) ;; *) continue ;; esac
+    case "$app" in deetty|nocted) ;; *) continue ;; esac
     case "$warnings:$start_epoch:$gtk_critical:$gdk_critical:$glib_critical:$gobject_critical:$native_grid_failed:$panic" in
       *[!0-9:]*) continue ;;
     esac
@@ -169,14 +169,14 @@ awk -F '\t' '
   }
 ' "$records" | sort
 
-current_dintty_sha256=$(receipt_field dintty_sha256 "$build_receipt" 2>/dev/null || true)
+current_deetty_sha256=$(receipt_field deetty_sha256 "$build_receipt" 2>/dev/null || true)
 current_nocted_sha256=$(receipt_field nocted_sha256 "$build_receipt" 2>/dev/null || true)
 awk -F '\t' \
-  -v dintty_hash="$current_dintty_sha256" \
+  -v deetty_hash="$current_deetty_sha256" \
   -v nocted_hash="$current_nocted_sha256" \
   -v install_epoch="$install_epoch" '
   BEGIN {
-    expected["dintty"] = dintty_hash
+    expected["deetty"] = deetty_hash
     expected["nocted"] = nocted_hash
   }
   {
@@ -214,7 +214,7 @@ awk -F '\t' \
     }
   }
   END {
-    app_names[1] = "dintty"
+    app_names[1] = "deetty"
     app_names[2] = "nocted"
     for (app_index = 1; app_index <= 2; app_index++) {
       app = app_names[app_index]

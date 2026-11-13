@@ -2,7 +2,7 @@
 
 Last refreshed: 2026-07-18.
 
-DINTTY has a GUI-managed launch-profile library for new terminal sessions. It is fixed-capacity native Zig product state persisted through the versioned binary settings file; users do not edit TOML or JSON. Running sessions are never restarted when the active profile changes.
+DEETTY has a GUI-managed launch-profile library for new terminal sessions. It is fixed-capacity native Zig product state persisted through the versioned binary settings file; users do not edit TOML or JSON. Running sessions are never restarted when the active profile changes.
 
 ## Settings workflow
 
@@ -18,11 +18,11 @@ The current launch types are:
 
 - **Shell** starts the configured absolute shell path interactively. A blank shell field inherits the process `SHELL`, falling back to `/bin/sh`.
 - **Command** runs one configured command line through the selected shell with `-lc` and exits when that command exits.
-- **SSH** starts the system `ssh` client with one validated `[user@]host`-style target. DINTTY does not store passwords, keys, agent tokens, or remote credentials.
+- **SSH** starts the system `ssh` client with one validated `[user@]host`-style target. DEETTY does not store passwords, keys, agent tokens, or remote credentials.
 - **Persistent tmux** directly runs `tmux new-session -A -s SESSION` with a required conservative session name.
 - **Persistent Zellij** directly runs `zellij attach --create SESSION` with the same required session-name grammar.
 
-The working-directory field must be blank or absolute. Blank inherits the source pane directory; a configured directory becomes the stored cwd of a newly created pane. Environment overrides use `NAME=value;SECOND=value`, allow at most 16 unique valid names inside a 2048-byte bound, and are applied before launch. DINTTY still advertises its tested `TERM=xterm-256color` and `COLORTERM=truecolor` capability values. The profile scrollback limit is independently bounded from 0 through 100000 lines.
+The working-directory field must be blank or absolute. Blank inherits the source pane directory; a configured directory becomes the stored cwd of a newly created pane. Environment overrides use `NAME=value;SECOND=value`, allow at most 16 unique valid names inside a 2048-byte bound, and are applied before launch. DEETTY still advertises its tested `TERM=xterm-256color` and `COLORTERM=truecolor` capability values. The profile scrollback limit is independently bounded from 0 through 100000 lines.
 
 Fresh workspaces and newly created tabs/splits use the active launch profile, whether custom or selected from the library. Hot-session reconstruction intentionally restarts each saved pane in its saved directory instead, preserving the recovery snapshot rather than replacing it with a later profile cwd or command. This is layout and cwd recovery, not live-process resurrection.
 
@@ -46,7 +46,7 @@ launch_profile=true launch_kind=command launch_shell=/bin/sh launch_cwd=/tmp lau
 native_grid_credentialed_ssh_smoke profile=true system_client=true system_server=true credential=publickey identity_isolated=true host_key=pinned transport=stdio_proxy network_bind=false remote_marker=true exited=true
 ```
 
-The smoke-only `ssh` shim supplies isolated client options and starts `sshd` in inetd/stdin-stdout mode because the managed test environment cannot bind a listening socket. It never enters the production binary or user configuration. The receipt proves local OpenSSH public-key credential handling through DINTTY (`credentialed_ssh=true`); it does not prove remote-network reachability, passwords, an agent or hardware key, arbitrary SSH configuration, or survival of a live process across a DINTTY crash.
+The smoke-only `ssh` shim supplies isolated client options and starts `sshd` in inetd/stdin-stdout mode because the managed test environment cannot bind a listening socket. It never enters the production binary or user configuration. The receipt proves local OpenSSH public-key credential handling through DEETTY (`credentialed_ssh=true`); it does not prove remote-network reachability, passwords, an agent or hardware key, arbitrary SSH configuration, or survival of a live process across a DEETTY crash.
 
 `scripts/launch_continuity_qualification.sh` separately validates both continuity profiles in Debug and `ReleaseSafe` through exact-argv smoke-only executables and the production PTY/VT path:
 
@@ -56,4 +56,4 @@ launch_continuity_matrix debug=true release_safe=true kinds=tmux,zellij direct_a
 
 See [SESSION_CONTINUITY.md](SESSION_CONTINUITY.md) for the exact shim-only proof boundary; installed server survival, cross-process reattachment, and rendered Plasma behavior are covered by the installed continuity qualification below.
 
-Installed activation is separately covered by `scripts/native_grid_installed_activation_smoke.sh`: the headless contract validates the production desktop/MIME install and exact `%u` route, while the retained live mode reports mapped two-tab child receipts for both installed `gio` dispatch and the native Recent Workspaces button on Plasma Wayland/X11. NCT-111 is now closed by `scripts/native_grid_installed_continuity_qualification.sh`, which retains installed tmux 3.7b and Zellij 0.44.3 detach, DINTTY relaunch, live reattach, preserved content, and compositor screenshots in Debug/`ReleaseSafe` on both backends.
+Installed activation is separately covered by `scripts/native_grid_installed_activation_smoke.sh`: the headless contract validates the production desktop/MIME install and exact `%u` route, while the retained live mode reports mapped two-tab child receipts for both installed `gio` dispatch and the native Recent Workspaces button on Plasma Wayland/X11. NCT-111 is now closed by `scripts/native_grid_installed_continuity_qualification.sh`, which retains installed tmux 3.7b and Zellij 0.44.3 detach, DEETTY relaunch, live reattach, preserved content, and compositor screenshots in Debug/`ReleaseSafe` on both backends.

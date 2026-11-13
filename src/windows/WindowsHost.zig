@@ -20,7 +20,7 @@ const Dividers = @import("WindowsDividers.zig");
 const FileDialog = @import("WindowsFileDialog.zig");
 const Dpapi = @import("Dpapi.zig");
 const ThemeLibrary = @import("WindowsThemeLibrary.zig");
-const Share = @import("dintty_share");
+const Share = @import("deetty_share");
 
 const c = Abi.c;
 
@@ -153,17 +153,17 @@ const Host = struct {
 fn log(comptime format: []const u8, args: anytype) void {
     var buffer: [2048]u8 = undefined;
     const bytes = std.fmt.bufPrint(&buffer, format, args) catch return;
-    Diagnostics.dintty_windows_diagnostics_write(bytes.ptr, bytes.len);
+    Diagnostics.deetty_windows_diagnostics_write(bytes.ptr, bytes.len);
 }
 
 fn initializeLogging() void {
-    _ = Diagnostics.dintty_windows_diagnostics_init();
+    _ = Diagnostics.deetty_windows_diagnostics_init();
     log("windows_launch pid={d} conpty=true renderer=win32_gdi telemetry=false uploads=false\r\n", .{c.GetCurrentProcessId()});
 }
 
 fn applyTheme(host: *Host) void {
     if (host.theme == 1) {
-        Renderer.dintty_windows_theme_colors(host.theme, &host.foreground, &host.background);
+        Renderer.deetty_windows_theme_colors(host.theme, &host.foreground, &host.background);
     } else {
         host.foreground = host.callbacks.theme_color(host.callbacks.userdata, 0);
         host.background = host.callbacks.theme_color(host.callbacks.userdata, 1);
@@ -172,7 +172,7 @@ fn applyTheme(host: *Host) void {
 
 fn loadPreferences(host: *Host) c_int {
     var preferences: Logic.Preferences = undefined;
-    const valid = Logic.dintty_windows_normalize_preferences(
+    const valid = Logic.deetty_windows_normalize_preferences(
         host.callbacks.preference_get(host.callbacks.userdata, pref_theme),
         host.callbacks.preference_get(host.callbacks.userdata, pref_font_size),
         host.callbacks.preference_get(host.callbacks.userdata, pref_launch_profile),
@@ -190,7 +190,7 @@ fn loadPreferences(host: *Host) c_int {
 
 fn updateMenu(host: *Host) void {
     host.tabs.configureDrag(host.callbacks, host.remote_mode != 0);
-    Menu.dintty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
+    Menu.deetty_windows_menu_update(host.menu, host.callbacks.theme_active(host.callbacks.userdata), host.font_size_pt, host.callbacks.profile_active(host.callbacks.userdata), host.restore_workspace, host.remote_mode);
     if (host.menu) |menu| {
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_broadcast, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_broadcast, if (host.broadcast_enabled) wide("&Disable broadcast input\tCtrl+Shift+B") else wide("&Broadcast input\tCtrl+Shift+B"));
         const active_index = host.callbacks.active_pane(host.callbacks.userdata);
@@ -206,7 +206,7 @@ fn updateMenu(host: *Host) void {
         _ = c.ModifyMenuW(@ptrCast(menu.workspace), Menu.id_smart_filter_4, c.MF_BYCOMMAND | c.MF_STRING, Menu.id_smart_filter_4, if (filter_mask == 8) wide("&Clear Smart Tab filter 4\tCtrl+Shift+K") else wide("Smart Tab filter 4\tCtrl+Shift+K"));
         // ModifyMenuW resets item state on Wine; restore remote/local command
         // qualification after replacing the dynamic labels.
-        Menu.dintty_windows_menu_update(
+        Menu.deetty_windows_menu_update(
             host.menu,
             host.callbacks.theme_active(host.callbacks.userdata),
             host.font_size_pt,
@@ -218,7 +218,7 @@ fn updateMenu(host: *Host) void {
 }
 
 fn createMenu(host: *Host) bool {
-    host.menu = Menu.dintty_windows_menu_create(@ptrCast(host.window));
+    host.menu = Menu.deetty_windows_menu_create(@ptrCast(host.window));
     if (host.menu == null) return false;
     if (!Menu.refreshThemes(host.menu.?, host.callbacks)) return false;
     if (!Menu.refreshProfiles(host.menu.?, host.callbacks)) return false;
@@ -228,7 +228,7 @@ fn createMenu(host: *Host) bool {
 }
 
 fn createFonts(host: *Host, dpi: c.UINT) bool {
-    const updated = Fonts.dintty_windows_fonts_update(
+    const updated = Fonts.deetty_windows_fonts_update(
         @ptrCast(host.window),
         host.font_size_pt,
         dpi,
@@ -255,7 +255,7 @@ fn paneGeometry(host: *Host, pane_index: c_int, client: *const c.RECT, result: *
     var geometry: Logic.PaneGeometry = undefined;
     const content_bottom = if (host.content_bottom > 0) @min(host.content_bottom, client.bottom) else client.bottom;
     if (content_bottom <= @min(host.content_top, content_bottom)) return false;
-    if (Logic.dintty_windows_compute_pane_geometry(client.left, @min(host.content_top, content_bottom), client.right, content_bottom, x, y, width, height, 3, &geometry) == 0) return false;
+    if (Logic.deetty_windows_compute_pane_geometry(client.left, @min(host.content_top, content_bottom), client.right, content_bottom, x, y, width, height, 3, &geometry) == 0) return false;
     result.* = .{
         .pane_index = pane_index,
         .pane = .{ .left = geometry.pane_left, .top = geometry.pane_top, .right = geometry.pane_right, .bottom = geometry.pane_bottom },
@@ -272,7 +272,7 @@ fn cellForPane(host: *Host, pane_index: c_int, pointer_x: c_int, pointer_y: c_in
     var client: c.RECT = undefined;
     _ = c.GetClientRect(host.window, &client);
     if (!paneGeometry(host, pane_index, &client, result)) return false;
-    return Logic.dintty_windows_pointer_cell(
+    return Logic.deetty_windows_pointer_cell(
         result.content.left,
         result.content.top,
         result.content.right,
@@ -307,7 +307,7 @@ fn hitTestPaneCell(host: *Host, pointer_x: c_int, pointer_y: c_int, result: *Pan
 
 fn mousePolicy(host: *Host, input: *const Logic.MouseInput) void {
     var decision: Logic.MouseDecision = undefined;
-    if (Logic.dintty_windows_mouse_transition(&host.mouse, input, &decision) != 0) applyMouseDecision(host, &decision);
+    if (Logic.deetty_windows_mouse_transition(&host.mouse, input, &decision) != 0) applyMouseDecision(host, &decision);
 }
 
 fn clearSelection(host: *Host) void {
@@ -317,7 +317,7 @@ fn clearSelection(host: *Host) void {
 }
 
 fn cellSelected(host: *const Host, pane_index: c_int, column: c_int, row: c_int) bool {
-    return Logic.dintty_windows_cell_selected(
+    return Logic.deetty_windows_cell_selected(
         host.mouse.selection_active,
         host.mouse.selection_pane,
         pane_index,
@@ -355,7 +355,7 @@ fn paint(host: *Host) void {
     state.selection_extent_row = host.mouse.selection_extent_row;
     state.divider_preview_node = if (host.divider_drag) |drag| drag.divider.node else -1;
     state.divider_preview_ratio = if (host.divider_drag) |drag| drag.preview else 500;
-    Renderer.dintty_windows_render(&state, &host.paint_count);
+    Renderer.deetty_windows_render(&state, &host.paint_count);
 }
 fn statusBarHeight(host: *const Host) c_int {
     var dpi = if (host.window != null) c.GetDpiForWindow(host.window) else 96;
@@ -399,13 +399,13 @@ fn updateStatus(host: *Host) void {
 
 fn activeSession(host: *Host) ?*Session {
     const index = host.callbacks.active_pane(host.callbacks.userdata);
-    if (Logic.dintty_windows_session_is_live(&host.workspace, index) == 0) return null;
+    if (Logic.deetty_windows_session_is_live(&host.workspace, index) == 0) return null;
     return &host.sessions[@intCast(index)];
 }
 
 fn writeSession(session: ?*Session, bytes: [*]const u8, length: usize) bool {
     const current = session orelse return false;
-    return Pty.dintty_windows_pty_write(current.pty, bytes, length) != 0;
+    return Pty.deetty_windows_pty_write(current.pty, bytes, length) != 0;
 }
 
 fn writeTerminal(host: *Host, bytes: [*]const u8, length: usize) bool {
@@ -415,10 +415,10 @@ fn writeTerminal(host: *Host, bytes: [*]const u8, length: usize) bool {
     var wrote = false;
     var index: c_int = 0;
     while (index < count and index < max_sessions) : (index += 1) {
-        if (Logic.dintty_windows_broadcast_route(
+        if (Logic.deetty_windows_broadcast_route(
             host.remote_mode,
             @intFromBool(host.broadcast_enabled),
-            Logic.dintty_windows_session_is_live(&host.workspace, index),
+            Logic.deetty_windows_session_is_live(&host.workspace, index),
         ) != 0)
             wrote = writeSession(&host.sessions[@intCast(index)], bytes, length) or wrote;
     }
@@ -486,12 +486,12 @@ fn flushReplies(host: *Host, session: *Session) void {
 }
 
 fn drainOutput(host: *Host, session_index: c_int) void {
-    if (Logic.dintty_windows_session_is_live(&host.workspace, session_index) == 0) return;
+    if (Logic.deetty_windows_session_is_live(&host.workspace, session_index) == 0) return;
     var scratch: [output_drain_bytes]u8 = undefined;
     const session = &host.sessions[@intCast(session_index)];
     var total: usize = 0;
     while (total < output_drain_limit) {
-        const count = Pty.dintty_windows_pty_drain(session.pty, &scratch, scratch.len);
+        const count = Pty.deetty_windows_pty_drain(session.pty, &scratch, scratch.len);
         if (count == 0) break;
         if (host.callbacks.pane_feed(host.callbacks.userdata, session_index, &scratch, count) < 0) {
             log("vt_feed_failed pane={d} bytes={d}\r\n", .{ session_index, count });
@@ -508,7 +508,7 @@ fn drainOutput(host: *Host, session_index: c_int) void {
 }
 
 fn cleanupSession(session: *Session) void {
-    Pty.dintty_windows_pty_destroy(session.pty);
+    Pty.deetty_windows_pty_destroy(session.pty);
     session.* = .{};
 }
 
@@ -520,7 +520,7 @@ fn cleanupSessions(host: *Host, mask: u32) void {
 
 fn startSession(host: *Host, session_index: c_int, dimensions_valid: c_int, columns: u16, rows: u16, startup: c_int) bool {
     var plan: Logic.SessionPlan = undefined;
-    const decision = Logic.dintty_windows_session_start_plan(&host.workspace, session_index, dimensions_valid, columns, rows, &plan);
+    const decision = Logic.deetty_windows_session_start_plan(&host.workspace, session_index, dimensions_valid, columns, rows, &plan);
     if (decision == Logic.session_start_existing) return true;
     if (decision != Logic.session_start_create) return false;
     const session = &host.sessions[@intCast(plan.session_index)];
@@ -528,15 +528,15 @@ fn startSession(host: *Host, session_index: c_int, dimensions_valid: c_int, colu
     var profile: Share.launch_profile.Profile = .{};
     const selected = host.callbacks.profile_launch(host.callbacks.userdata, plan.session_index, &profile);
     if (selected >= 0 and selected <= 2)
-        session.pty = Pty.dintty_windows_pty_create(plan.session_index, plan.columns, plan.rows, selected, if (selected == 2) &profile else null, @ptrCast(host.window), output_message);
+        session.pty = Pty.deetty_windows_pty_create(plan.session_index, plan.columns, plan.rows, selected, if (selected == 2) &profile else null, @ptrCast(host.window), output_message);
     if (session.pty == null) {
         var cleanup_mask: u32 = 0;
         session.* = .{};
-        const failure = Logic.dintty_windows_session_start_failed(&host.workspace, plan.session_index, startup, &cleanup_mask);
+        const failure = Logic.deetty_windows_session_start_failed(&host.workspace, plan.session_index, startup, &cleanup_mask);
         if (failure == Logic.session_failure_cleanup) cleanupSessions(host, cleanup_mask) else if (failure == Logic.session_failure_shutdown) _ = c.DestroyWindow(host.window);
         return false;
     }
-    if (Logic.dintty_windows_session_started(&host.workspace, plan.session_index) == 0) {
+    if (Logic.deetty_windows_session_started(&host.workspace, plan.session_index) == 0) {
         cleanupSession(session);
         _ = c.DestroyWindow(host.window);
         return false;
@@ -550,9 +550,9 @@ fn updateTitle(host: *Host) void {
     var title_utf8: [512]u8 = undefined;
     const count = host.callbacks.title(host.callbacks.userdata, &title_utf8, title_utf8.len);
     const active = activeSession(host);
-    const exited = if (active) |session| Pty.dintty_windows_pty_exited(session.pty) else 0;
+    const exited = if (active) |session| Pty.deetty_windows_pty_exited(session.pty) else 0;
     const valid_count: usize = if (count > 0 and count <= @as(c_int, @intCast(title_utf8.len))) @intCast(count) else 0;
-    _ = Title.dintty_windows_update_title(@ptrCast(host.window), if (valid_count != 0) &title_utf8 else null, valid_count, exited);
+    _ = Title.deetty_windows_update_title(@ptrCast(host.window), if (valid_count != 0) &title_utf8 else null, valid_count, exited);
     updateStatus(host);
 }
 
@@ -561,10 +561,10 @@ fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
     host.content_top = host.tabs.layout(width, height);
     host.content_bottom = @max(host.content_top, height - statusBarHeight(host));
     const content_height = @max(0, host.content_bottom - host.content_top);
-    if (Logic.dintty_windows_grid_dimensions(width, content_height, host.cell_width, host.cell_height, &host.columns, &host.rows) == 0) return;
+    if (Logic.deetty_windows_grid_dimensions(width, content_height, host.cell_width, host.cell_height, &host.columns, &host.rows) == 0) return;
     var pane_count: c_int = 0;
-    if (Logic.dintty_windows_workspace_local_operation(host.remote_mode) != 0) pane_count = host.callbacks.pane_count(host.callbacks.userdata);
-    pane_count = Logic.dintty_windows_workspace_resize_count(host.remote_mode, pane_count);
+    if (Logic.deetty_windows_workspace_local_operation(host.remote_mode) != 0) pane_count = host.callbacks.pane_count(host.callbacks.userdata);
+    pane_count = Logic.deetty_windows_workspace_resize_count(host.remote_mode, pane_count);
     var index: c_int = 0;
     while (index < pane_count) : (index += 1) {
         var x: u32 = 0;
@@ -578,12 +578,12 @@ fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
         const pixel_height: c_int = @intCast(@divTrunc(@as(i64, content_height) * pane_height, 1_000_000) - 6);
         var columns: c_int = 0;
         var rows: c_int = 0;
-        if (Logic.dintty_windows_grid_dimensions(pixel_width, pixel_height, host.cell_width, host.cell_height, &columns, &rows) == 0) continue;
+        if (Logic.deetty_windows_grid_dimensions(pixel_width, pixel_height, host.cell_width, host.cell_height, &columns, &rows) == 0) continue;
         if (host.callbacks.pane_resize(host.callbacks.userdata, index, columns, rows) < 0) continue;
         var plan: Logic.SessionPlan = undefined;
-        if (Logic.dintty_windows_session_resize_plan(&host.workspace, index, columns, rows, &plan) == 0) continue;
+        if (Logic.deetty_windows_session_resize_plan(&host.workspace, index, columns, rows, &plan) == 0) continue;
         const session = &host.sessions[@intCast(plan.session_index)];
-        if (Pty.dintty_windows_pty_resize(session.pty, plan.columns, plan.rows) != 0) {
+        if (Pty.deetty_windows_pty_resize(session.pty, plan.columns, plan.rows) != 0) {
             session.columns = plan.columns;
             session.rows = plan.rows;
         }
@@ -593,7 +593,7 @@ fn resizeTerminal(host: *Host, width: c_int, height: c_int) void {
 
 fn sendSpecialKey(host: *Host, key: c.WPARAM) void {
     var sequence: [16]u8 = undefined;
-    const length = Logic.dintty_windows_special_key_sequence(
+    const length = Logic.deetty_windows_special_key_sequence(
         @intCast(key),
         host.callbacks.cursor_mode(host.callbacks.userdata),
         &sequence,
@@ -604,7 +604,7 @@ fn sendSpecialKey(host: *Host, key: c.WPARAM) void {
 
 fn sendWideCharacter(host: *Host, character: u16) void {
     var utf8: [8]u8 = undefined;
-    const count = Logic.dintty_windows_encode_utf16_input(
+    const count = Logic.deetty_windows_encode_utf16_input(
         character,
         &host.pending_high_surrogate,
         &utf8,
@@ -622,7 +622,7 @@ fn clipboardWrite(raw: ?*anyopaque, bytes: [*]const u8, length: usize) callconv(
 }
 
 fn pasteClipboard(host: *Host) void {
-    _ = Clipboard.dintty_windows_clipboard_paste(
+    _ = Clipboard.deetty_windows_clipboard_paste(
         @ptrCast(host.window),
         host,
         clipboardWrite,
@@ -633,7 +633,7 @@ fn copyTerminal(host: *Host) void {
     const pane_index = host.callbacks.active_pane(host.callbacks.userdata);
     if (pane_index < 0) return;
     const selected = host.mouse.selection_active != 0 and host.mouse.selection_pane == pane_index;
-    _ = Clipboard.dintty_windows_clipboard_copy(
+    _ = Clipboard.deetty_windows_clipboard_copy(
         @ptrCast(host.window),
         host.callbacks.userdata,
         pane_index,
@@ -649,8 +649,8 @@ fn reportInputFailure(host: *Host) void {
     log("terminal_input_failed remote={d}\r\n", .{host.remote_mode});
     _ = c.MessageBoxW(
         host.window,
-        wide("DINTTY could not send input to the focused terminal. The session may have closed, or remote input may not be permitted."),
-        wide("DINTTY Windows alpha"),
+        wide("DEETTY could not send input to the focused terminal. The session may have closed, or remote input may not be permitted."),
+        wide("DEETTY Windows alpha"),
         c.MB_OK | c.MB_ICONERROR,
     );
 }
@@ -681,10 +681,10 @@ fn cycleWorkspace(host: *Host, next_tab: bool) void {
 fn workspaceAction(host: *Host, action: c_int) bool {
     cancelDivider(host);
     host.tabs.cancelDrag();
-    if (Logic.dintty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
+    if (Logic.deetty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const result = host.callbacks.workspace_action(host.callbacks.userdata, action, host.columns, host.rows);
     var session_index: c_int = -1;
-    const decision = Logic.dintty_windows_workspace_action_result(host.remote_mode, result, &session_index);
+    const decision = Logic.deetty_windows_workspace_action_result(host.remote_mode, result, &session_index);
     if (decision == Logic.workspace_action_none) return false;
     clearSelection(host);
     var client: c.RECT = undefined;
@@ -703,7 +703,7 @@ fn workspaceAction(host: *Host, action: c_int) bool {
     }
     const rollback = host.callbacks.workspace_close(host.callbacks.userdata, close_pane);
     if (decision == Logic.workspace_action_start and
-        Logic.dintty_windows_workspace_rollback_matches(session_index, rollback) == 0)
+        Logic.deetty_windows_workspace_rollback_matches(session_index, rollback) == 0)
     {
         log("workspace_rollback_mismatch pane={d} actual=0x{x:0>8}\r\n", .{ session_index, rollback });
         _ = c.DestroyWindow(host.window);
@@ -712,8 +712,8 @@ fn workspaceAction(host: *Host, action: c_int) bool {
     resizeTerminal(host, client.right, client.bottom);
     _ = c.MessageBoxW(
         host.window,
-        wide("DINTTY could not start another ConPTY."),
-        wide("DINTTY Windows alpha"),
+        wide("DEETTY could not start another ConPTY."),
+        wide("DEETTY Windows alpha"),
         c.MB_OK | c.MB_ICONERROR,
     );
     return false;
@@ -722,11 +722,11 @@ fn workspaceAction(host: *Host, action: c_int) bool {
 fn workspaceClose(host: *Host, close_action: c_int, query_action: c_int) bool {
     cancelDivider(host);
     host.tabs.cancelDrag();
-    if (Logic.dintty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
+    if (Logic.deetty_windows_workspace_local_operation(host.remote_mode) == 0) return false;
     const pane_count = host.callbacks.pane_count(host.callbacks.userdata);
     const mask = host.callbacks.workspace_close(host.callbacks.userdata, query_action);
     var cleanup_mask: u32 = 0;
-    const decision = Logic.dintty_windows_workspace_close_plan(
+    const decision = Logic.deetty_windows_workspace_close_plan(
         &host.workspace,
         host.remote_mode,
         pane_count,
@@ -742,7 +742,7 @@ fn workspaceClose(host: *Host, close_action: c_int, query_action: c_int) bool {
     clearSelection(host);
     cleanupSessions(host, cleanup_mask);
     const committed = host.callbacks.workspace_close(host.callbacks.userdata, close_action);
-    if (Logic.dintty_windows_workspace_close_commit(&host.workspace, committed) == 0) {
+    if (Logic.deetty_windows_workspace_close_commit(&host.workspace, committed) == 0) {
         log("workspace_close_mismatch expected=0x{x:0>8} actual=0x{x:0>8}\r\n", .{ mask, committed });
         _ = c.DestroyWindow(host.window);
         return false;
@@ -758,17 +758,17 @@ fn workspaceClose(host: *Host, close_action: c_int, query_action: c_int) bool {
 
 fn cleanupAllSessions(host: *Host) void {
     var cleanup_mask: u32 = 0;
-    _ = Logic.dintty_windows_workspace_reset(&host.workspace, &cleanup_mask);
+    _ = Logic.deetty_windows_workspace_reset(&host.workspace, &cleanup_mask);
     cleanupSessions(host, cleanup_mask);
 }
 
 fn startWorkspaceSessions(host: *Host) bool {
     var pane_count: c_int = 0;
-    if (Logic.dintty_windows_workspace_local_operation(host.remote_mode) != 0) {
+    if (Logic.deetty_windows_workspace_local_operation(host.remote_mode) != 0) {
         pane_count = host.callbacks.pane_count(host.callbacks.userdata);
     }
     var session_count: c_int = 0;
-    const startup = Logic.dintty_windows_workspace_startup_plan(
+    const startup = Logic.deetty_windows_workspace_startup_plan(
         &host.workspace,
         host.remote_mode,
         pane_count,
@@ -793,8 +793,8 @@ fn setPreference(host: *Host, field: c_int, value: c_int) void {
     if (host.callbacks.preference_set(host.callbacks.userdata, field, value) != 0) {
         _ = c.MessageBoxW(
             host.window,
-            wide("DINTTY could not persist this Windows setting."),
-            wide("DINTTY Windows alpha"),
+            wide("DEETTY could not persist this Windows setting."),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONERROR,
         );
         return;
@@ -806,8 +806,8 @@ fn setPreference(host: *Host, field: c_int, value: c_int) void {
         if (!createFonts(host, dpi)) {
             _ = c.MessageBoxW(
                 host.window,
-                wide("DINTTY could not apply this font size."),
-                wide("DINTTY Windows alpha"),
+                wide("DEETTY could not apply this font size."),
+                wide("DEETTY Windows alpha"),
                 c.MB_OK | c.MB_ICONERROR,
             );
             return;
@@ -823,7 +823,7 @@ fn setPreference(host: *Host, field: c_int, value: c_int) void {
 }
 
 fn themeFailure(host: *Host, comptime text: []const u8) void {
-    _ = c.MessageBoxW(host.window, wide(text), wide("DINTTY themes"), c.MB_OK | c.MB_ICONERROR);
+    _ = c.MessageBoxW(host.window, wide(text), wide("DEETTY themes"), c.MB_OK | c.MB_ICONERROR);
 }
 
 fn refreshTheme(host: *Host, library_changed: bool) bool {
@@ -840,7 +840,7 @@ fn selectTheme(host: *Host, index: c_int) void {
     cancelDivider(host);
     host.tabs.cancelDrag();
     if (host.callbacks.theme_select(host.callbacks.userdata, index) != 0) {
-        themeFailure(host, "DINTTY could not save this theme selection. The previous theme is unchanged.");
+        themeFailure(host, "DEETTY could not save this theme selection. The previous theme is unchanged.");
         return;
     }
     _ = refreshTheme(host, false);
@@ -850,7 +850,7 @@ fn selectTheme(host: *Host, index: c_int) void {
 fn themeFileDialog(host: *Host, exporting: bool) void {
     const allocator = std.heap.page_allocator;
     const path = (FileDialog.show(host.window, allocator, exporting) catch {
-        themeFailure(host, "DINTTY could not open the theme file dialog.");
+        themeFailure(host, "DEETTY could not open the theme file dialog.");
         return;
     }) orelse return;
     defer allocator.free(path);
@@ -859,21 +859,21 @@ fn themeFileDialog(host: *Host, exporting: bool) void {
         c.MessageBoxW(host.window, wide("Import replaces your custom theme library. Export it first if you want to keep a copy. Replace it now?"), wide("Replace custom themes"), c.MB_YESNO | c.MB_ICONWARNING | c.MB_DEFBUTTON2) != c.IDYES) return;
     const result = if (exporting) cb.theme_export(cb.userdata, path.ptr, path.len) else cb.theme_import(cb.userdata, path.ptr, path.len);
     if (result != 0) {
-        if (exporting) themeFailure(host, "DINTTY could not export the theme library. Check the destination and permissions.") else themeFailure(host, "DINTTY could not import this theme. Choose a valid .dinttythemes, Ghostty, Xresources, Alacritty, or Noctalia source file. The previous library is unchanged.");
+        if (exporting) themeFailure(host, "DEETTY could not export the theme library. Check the destination and permissions.") else themeFailure(host, "DEETTY could not import this theme. Choose a valid .deettythemes, Ghostty, Xresources, Alacritty, or Noctalia source file. The previous library is unchanged.");
         return;
     }
-    if (!exporting and !refreshTheme(host, true)) themeFailure(host, "The theme library was imported, but DINTTY could not update its theme menu.");
+    if (!exporting and !refreshTheme(host, true)) themeFailure(host, "The theme library was imported, but DEETTY could not update its theme menu.");
     _ = c.SetFocus(host.window);
 }
 
 fn workspacePersistence(host: *Host, action: c_int) void {
     cancelDivider(host);
     host.tabs.cancelDrag();
-    if (Logic.dintty_windows_workspace_local_operation(host.remote_mode) == 0) return;
+    if (Logic.deetty_windows_workspace_local_operation(host.remote_mode) == 0) return;
     if (action == workspace_restore and c.MessageBoxW(
         host.window,
         wide("Restore the saved layout? Current shells will be closed and replacement shells will start."),
-        wide("Restore DINTTY workspace"),
+        wide("Restore DEETTY workspace"),
         c.MB_OKCANCEL | c.MB_ICONWARNING | c.MB_DEFBUTTON2,
     ) != c.IDOK) return;
     const result = host.callbacks.workspace_persistence(host.callbacks.userdata, action, host.columns, host.rows);
@@ -881,10 +881,10 @@ fn workspacePersistence(host: *Host, action: c_int) void {
         _ = c.MessageBoxW(
             host.window,
             if (action == workspace_save)
-                wide("DINTTY could not save this workspace layout.")
+                wide("DEETTY could not save this workspace layout.")
             else
-                wide("DINTTY could not restore the saved workspace."),
-            wide("DINTTY Windows alpha"),
+                wide("DEETTY could not restore the saved workspace."),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONERROR,
         );
         return;
@@ -893,7 +893,7 @@ fn workspacePersistence(host: *Host, action: c_int) void {
         _ = c.MessageBoxW(
             host.window,
             wide("No saved workspace layout is available."),
-            wide("DINTTY Windows alpha"),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONINFORMATION,
         );
         return;
@@ -902,7 +902,7 @@ fn workspacePersistence(host: *Host, action: c_int) void {
         _ = c.MessageBoxW(
             host.window,
             wide("Workspace layout saved. Shell contents are not stored."),
-            wide("DINTTY Windows alpha"),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONINFORMATION,
         );
         _ = c.SetFocus(host.window);
@@ -913,8 +913,8 @@ fn workspacePersistence(host: *Host, action: c_int) void {
     if (!startWorkspaceSessions(host)) {
         _ = c.MessageBoxW(
             host.window,
-            wide("The layout was restored, but DINTTY could not start all replacement shells."),
-            wide("DINTTY Windows alpha"),
+            wide("The layout was restored, but DEETTY could not start all replacement shells."),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONERROR,
         );
     }
@@ -930,7 +930,7 @@ fn writePane(host: *Host, pane_index: c_int, bytes: [*]const u8, length: usize) 
     if (host.remote_mode != 0) {
         return host.callbacks.write(host.callbacks.userdata, bytes, length) == @as(c_int, @intCast(length));
     }
-    if (Logic.dintty_windows_session_is_live(&host.workspace, pane_index) == 0) return false;
+    if (Logic.deetty_windows_session_is_live(&host.workspace, pane_index) == 0) return false;
     return writeSession(&host.sessions[@intCast(pane_index)], bytes, length);
 }
 
@@ -1019,11 +1019,11 @@ fn releaseMouseCapture(host: *Host) void {
 }
 
 fn launchNocted(host: *Host) void {
-    if (Process.dintty_windows_launch_nocted() != 0) return;
+    if (Process.deetty_windows_launch_nocted() != 0) return;
     _ = c.MessageBoxW(
         host.window,
-        wide("DINTTY could not launch the sibling nocted.exe."),
-        wide("DINTTY Windows alpha"),
+        wide("DEETTY could not launch the sibling nocted.exe."),
+        wide("DEETTY Windows alpha"),
         c.MB_OK | c.MB_ICONERROR,
     );
 }
@@ -1053,7 +1053,7 @@ fn renameTab(host: *Host) void {
     releaseMouseCapture(host);
     const result = Tabs.rename(host.window, host.callbacks, false);
     if (result < 0) {
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not open the rename dialog."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not open the rename dialog."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
     }
     updateTitle(host);
     _ = c.SetFocus(host.window);
@@ -1067,7 +1067,7 @@ fn moveTab(host: *Host, direction: c_int) void {
     const to = from + direction;
     if (from < 0 or to < 0 or to >= host.callbacks.tab_count(host.callbacks.userdata)) return;
     if (host.callbacks.tab_move(host.callbacks.userdata, from, to) < 0) {
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not move this tab."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not move this tab."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return;
     }
     updateTitle(host);
@@ -1088,9 +1088,9 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
     switch (command) {
         Menu.id_profile_manage => {
             if (!ProfileDialog.show(host.window, host.callbacks))
-                _ = c.MessageBoxW(host.window, wide("DINTTY could not open the launch profile manager."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+                _ = c.MessageBoxW(host.window, wide("DEETTY could not open the launch profile manager."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
             if (!Menu.refreshProfiles(host.menu orelse return true, host.callbacks))
-                _ = c.MessageBoxW(host.window, wide("DINTTY could not refresh the profile menu."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+                _ = c.MessageBoxW(host.window, wide("DEETTY could not refresh the profile menu."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
             _ = loadPreferences(host);
             updateMenu(host);
             _ = c.SetFocus(host.window);
@@ -1098,7 +1098,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         },
         Menu.id_sharing_manage => {
             if (!SharingDialog.show(host.window, host.callbacks))
-                _ = c.MessageBoxW(host.window, wide("DINTTY could not open the session sharing manager."), wide("Session sharing"), c.MB_OK | c.MB_ICONERROR);
+                _ = c.MessageBoxW(host.window, wide("DEETTY could not open the session sharing manager."), wide("Session sharing"), c.MB_OK | c.MB_ICONERROR);
             host.remote_mode = @intFromBool(host.callbacks.share_role_status(host.callbacks.userdata) == 2);
             updateMenu(host);
             _ = c.SetFocus(host.window);
@@ -1121,7 +1121,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         Menu.id_font_custom => {
             const value = FontDialog.show(host.window, host.font_size_pt);
             if (value < 0) {
-                _ = c.MessageBoxW(host.window, wide("DINTTY could not open the font size dialog."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+                _ = c.MessageBoxW(host.window, wide("DEETTY could not open the font size dialog."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
             } else if (value > 0) setPreference(host, pref_font_size, value);
             _ = c.SetFocus(host.window);
             return true;
@@ -1222,7 +1222,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
         else => {},
     }
     var action: Logic.MenuAction = undefined;
-    if (Logic.dintty_windows_decode_menu_command(command, host.restore_workspace, &action) == 0) return false;
+    if (Logic.deetty_windows_decode_menu_command(command, host.restore_workspace, &action) == 0) return false;
     switch (action.kind) {
         menu_preference_theme => selectTheme(host, action.value),
         menu_preference_font => setPreference(host, pref_font_size, action.value),
@@ -1238,7 +1238,7 @@ fn handleMenuCommand(host: *Host, command: c.UINT) bool {
 
 fn selectProfile(host: *Host, index: c_int) void {
     if (host.callbacks.profile_select(host.callbacks.userdata, index) != 0) {
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not save the profile selection. The previous selection is unchanged."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not save the profile selection. The previous selection is unchanged."), wide("Launch profiles"), c.MB_OK | c.MB_ICONERROR);
         return;
     }
     _ = loadPreferences(host);
@@ -1428,7 +1428,7 @@ fn themeSmokePath(allocator: std.mem.Allocator) ![]u8 {
     if (c.GetTempFileNameW(&directory, wide("NTH"), 0, &original) == 0) return error.TemporaryFileUnavailable;
     defer _ = c.DeleteFileW(&original);
     const length = std.mem.indexOfScalar(u16, &original, 0) orelse return error.InvalidPath;
-    const suffix = std.unicode.utf8ToUtf16LeStringLiteral("-中.dinttythemes");
+    const suffix = std.unicode.utf8ToUtf16LeStringLiteral("-中.deettythemes");
     var path: [c.MAX_PATH + 32:0]u16 = undefined;
     @memcpy(path[0..length], original[0..length]);
     @memcpy(path[length..][0..suffix.len], suffix);
@@ -1484,7 +1484,7 @@ fn themeSmoke(host: *Host) bool {
     const source_path = allocator.alloc(u8, source.len) catch return false;
     defer allocator.free(source_path);
     @memcpy(source_path, source);
-    const portable_suffix = ".dinttythemes";
+    const portable_suffix = ".deettythemes";
     if (!std.mem.endsWith(u8, source_path, portable_suffix))
         return themeSmokeFail("source_path");
     const base_length = source_path.len - portable_suffix.len;
@@ -1576,7 +1576,7 @@ fn themeSmoke(host: *Host) bool {
     if (!std.mem.eql(u8, portable, exported)) return false;
     const before = (Dpapi.themeStateLoadAlloc(allocator, ThemeLibrary.max_state_bytes) catch return false) orelse return false;
     defer allocator.free(before);
-    Dpapi.writeFileAtomicUtf8(allocator, source, "invalid DINTTY library") catch return false;
+    Dpapi.writeFileAtomicUtf8(allocator, source, "invalid DEETTY library") catch return false;
     if (cb.theme_import(cb.userdata, source.ptr, source.len) >= 0 or
         cb.theme_count(cb.userdata) != 5 or cb.theme_active(cb.userdata) != 4 or
         cb.theme_color(cb.userdata, 0) != host.foreground or !Menu.qualifyThemes(menu, 5, 4) or
@@ -1815,7 +1815,7 @@ fn finishDivider(host: *Host, x: c_int, y: c_int) void {
 
 fn dividerResult(host: *Host, result: c_int) void {
     if (result < 0) {
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not resize this split. The workspace may have changed."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not resize this split. The workspace may have changed."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return;
     }
     if (result == 0) return;
@@ -1833,7 +1833,7 @@ fn saveWorkspaceBeforeClose(host: *Host) bool {
     if (result >= 0) return true;
     _ = c.MessageBoxW(
         host.window,
-        wide("DINTTY could not save the current workspace. The previous saved workspace remains unchanged."),
+        wide("DEETTY could not save the current workspace. The previous saved workspace remains unchanged."),
         wide("Workspace continuity"),
         c.MB_OK | c.MB_ICONWARNING,
     );
@@ -1999,7 +1999,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             var hit: PaneHit = .{};
             var target_pane: c_int = -1;
             const button: c_int = if (message == c.WM_LBUTTONUP) 0 else if (message == c.WM_MBUTTONUP) 1 else 2;
-            const route = Logic.dintty_windows_mouse_route(&current.mouse, Logic.mouse_event_release, button, &target_pane);
+            const route = Logic.deetty_windows_mouse_route(&current.mouse, Logic.mouse_event_release, button, &target_pane);
             var input: Logic.MouseInput = std.mem.zeroes(Logic.MouseInput);
             input.kind = Logic.mouse_event_release;
             input.button = button;
@@ -2027,7 +2027,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
             }
             var hit: PaneHit = .{};
             var target_pane: c_int = -1;
-            const route = Logic.dintty_windows_mouse_route(&current.mouse, Logic.mouse_event_move, 0, &target_pane);
+            const route = Logic.deetty_windows_mouse_route(&current.mouse, Logic.mouse_event_move, 0, &target_pane);
             var input: Logic.MouseInput = std.mem.zeroes(Logic.MouseInput);
             input.kind = Logic.mouse_event_move;
             if (route == Logic.mouse_route_hit_test) {
@@ -2136,7 +2136,7 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
                 return 0;
             }
             var suppress_character: c_int = 0;
-            const action = Logic.dintty_windows_decode_key_action(@truncate(word), control, shift, alt, current.remote_mode, &suppress_character);
+            const action = Logic.deetty_windows_decode_key_action(@truncate(word), control, shift, alt, current.remote_mode, &suppress_character);
             if (suppress_character != 0) current.suppress_character = 1;
             switch (action) {
                 Logic.key_action_copy => copyTerminal(current),
@@ -2211,16 +2211,16 @@ fn windowProc(window: c.HWND, message: c.UINT, word: c.WPARAM, long_value: c.LPA
 }
 
 fn drainRemoteInput(host: *Host) void {
-    var input: [@import("dintty_share").protocol.max_input_bytes]u8 = undefined;
+    var input: [@import("deetty_share").protocol.max_input_bytes]u8 = undefined;
     const session_index = host.callbacks.remote_pane(host.callbacks.userdata);
-    if (Logic.dintty_windows_session_is_live(&host.workspace, session_index) == 0) return;
+    if (Logic.deetty_windows_session_is_live(&host.workspace, session_index) == 0) return;
     const session = &host.sessions[@intCast(session_index)];
     for (0..16) |_| {
         const count = host.callbacks.take_remote(host.callbacks.userdata, host.window, &input, input.len);
         if (count <= 0) break;
         if (c.IsWindow(host.window) == 0 or
             host.callbacks.remote_pane(host.callbacks.userdata) != session_index or
-            Logic.dintty_windows_session_is_live(&host.workspace, session_index) == 0) break;
+            Logic.deetty_windows_session_is_live(&host.workspace, session_index) == 0) break;
         if (!writeSession(session, &input, @intCast(count))) break;
     }
 }
@@ -2231,10 +2231,10 @@ fn onTimer(host: *Host) void {
     defer host.timer_active = false;
     if (host.divider_drag != null and !dividerValid(host)) cancelDivider(host);
     for (&host.sessions, 0..) |*session, index| {
-        if (Logic.dintty_windows_session_is_live(&host.workspace, @intCast(index)) == 0) continue;
+        if (Logic.deetty_windows_session_is_live(&host.workspace, @intCast(index)) == 0) continue;
         drainOutput(host, @intCast(index));
         var process_exit_code: u32 = 255;
-        if (Pty.dintty_windows_pty_poll_exit(session.pty, &process_exit_code) != 0) {
+        if (Pty.deetty_windows_pty_poll_exit(session.pty, &process_exit_code) != 0) {
             updateTitle(host);
             _ = c.InvalidateRect(host.window, null, c.FALSE);
         }
@@ -2247,7 +2247,7 @@ fn onTimer(host: *Host) void {
     }
     host.smoke_ticks +%= 1;
     const smoke_session = activeSession(host);
-    if (host.smoke_mode == 0 or smoke_session == null or Pty.dintty_windows_pty_exited(smoke_session.?.pty) == 0) return;
+    if (host.smoke_mode == 0 or smoke_session == null or Pty.deetty_windows_pty_exited(smoke_session.?.pty) == 0) return;
     const marker = host.callbacks.smoke_ready(host.callbacks.userdata);
     if (marker != 0 and host.smoke_marker_seen == 0) {
         host.smoke_marker_seen = 1;
@@ -2256,7 +2256,7 @@ fn onTimer(host: *Host) void {
         _ = c.UpdateWindow(host.window);
     }
     if (marker != 0 and host.smoke_marker_seen != 0 and host.paint_count > host.smoke_marker_paint_count and
-        Pty.dintty_windows_pty_exit_code(smoke_session.?.pty) == 0 and
+        Pty.deetty_windows_pty_exit_code(smoke_session.?.pty) == 0 and
         host.settings_menu_ready != 0 and host.preferences_ready != 0 and
         host.smoke_mouse_input != 0 and host.smoke_coordinates != 0 and
         host.smoke_selection != 0 and host.smoke_clipboard != 0)
@@ -2274,7 +2274,7 @@ fn onTimer(host: *Host) void {
                 boolText(host.smoke_coordinates != 0),
                 boolText(host.smoke_selection != 0),
                 boolText(host.smoke_clipboard != 0),
-                Pty.dintty_windows_pty_exit_code(smoke_session.?.pty),
+                Pty.deetty_windows_pty_exit_code(smoke_session.?.pty),
             },
         );
         host.exit_code = 2;
@@ -2392,11 +2392,11 @@ fn cleanup(host: *Host) void {
     cancelDivider(host);
     host.tabs.cancelDrag();
     cleanupAllSessions(host);
-    Fonts.dintty_windows_fonts_deinit(@ptrCast(&host.font_normal), @ptrCast(&host.font_bold));
-    Menu.dintty_windows_menu_deinit(host.menu);
+    Fonts.deetty_windows_fonts_deinit(@ptrCast(&host.font_normal), @ptrCast(&host.font_bold));
+    Menu.deetty_windows_menu_deinit(host.menu);
     host.menu = null;
     log("windows_exit clean=true\r\n", .{});
-    Diagnostics.dintty_windows_diagnostics_deinit();
+    Diagnostics.deetty_windows_diagnostics_deinit();
 }
 
 fn boolText(value: bool) []const u8 {
@@ -2408,26 +2408,26 @@ fn wide(comptime text: []const u8) [*:0]const u16 {
 }
 
 pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbacks) c_int {
-    const class_name = wide("DINTTY.Windows.NativeHost");
+    const class_name = wide("DEETTY.Windows.NativeHost");
     initializeLogging();
     const heap = c.GetProcessHeap() orelse return 1;
     const raw_host = c.HeapAlloc(heap, c.HEAP_ZERO_MEMORY, @sizeOf(Host)) orelse return 1;
     const host: *Host = @ptrCast(@alignCast(raw_host));
     host.* = .{ .callbacks = callbacks };
-    if (Logic.dintty_windows_workspace_state_init(&host.workspace) == 0) {
+    if (Logic.deetty_windows_workspace_state_init(&host.workspace) == 0) {
         _ = c.HeapFree(heap, 0, raw_host);
         return 1;
     }
     _ = loadPreferences(host);
     var smoke_value: [8]u16 = undefined;
     const smoke_length = c.GetEnvironmentVariableW(
-        wide("DINTTY_WINDOWS_HOST_SMOKE"),
+        wide("DEETTY_WINDOWS_HOST_SMOKE"),
         &smoke_value,
         @intCast(smoke_value.len),
     );
     host.smoke_mode = @intFromBool(smoke_length > 0 and smoke_value[0] != '0');
     const menu_smoke_length = c.GetEnvironmentVariableW(
-        wide("DINTTY_WINDOWS_MENU_SMOKE"),
+        wide("DEETTY_WINDOWS_MENU_SMOKE"),
         &smoke_value,
         @intCast(smoke_value.len),
     );
@@ -2460,7 +2460,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
     host.window = c.CreateWindowExW(
         0,
         class_name,
-        wide("DINTTY Windows alpha"),
+        wide("DEETTY Windows alpha"),
         c.WS_OVERLAPPEDWINDOW | c.WS_CLIPCHILDREN,
         c.CW_USEDEFAULT,
         c.CW_USEDEFAULT,
@@ -2481,19 +2481,19 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
             log("windows_menu_smoke passed=false conpty=false\r\n", .{});
             return 2;
         }
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not create its native menu."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not create its native menu."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
     }
     if (!host.tabs.create(host.window)) {
         log("tab_strip_create_failed error={d}\r\n", .{c.GetLastError()});
-        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("DINTTY could not create its native tab strip."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("DEETTY could not create its native tab strip."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
     }
     var dpi = c.GetDpiForWindow(host.window);
     if (dpi == 0) dpi = 96;
     if (!createFonts(host, dpi) or !host.tabs.sync(callbacks)) {
         log("tab_strip_initialize_failed\r\n", .{});
-        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("DINTTY could not initialize its native tab strip."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        if (!menu_smoke) _ = c.MessageBoxW(host.window, wide("DEETTY could not initialize its native tab strip."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
     }
     if (menu_smoke) {
@@ -2515,7 +2515,7 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
     }
     const start_mode = callbacks.start(callbacks.userdata);
     if (start_mode < 0) {
-        _ = c.MessageBoxW(host.window, wide("DINTTY could not start this session."), wide("DINTTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
+        _ = c.MessageBoxW(host.window, wide("DEETTY could not start this session."), wide("DEETTY Windows alpha"), c.MB_OK | c.MB_ICONERROR);
         return exit_code;
     }
     session_started = true;
@@ -2527,8 +2527,8 @@ pub fn run(instance: c.HINSTANCE, show_command: c_int, callbacks: *const Callbac
     if (!startWorkspaceSessions(host)) {
         _ = c.MessageBoxW(
             host.window,
-            wide("DINTTY could not start Windows ConPTY. Windows 10 version 1809 or newer is required."),
-            wide("DINTTY Windows alpha"),
+            wide("DEETTY could not start Windows ConPTY. Windows 10 version 1809 or newer is required."),
+            wide("DEETTY Windows alpha"),
             c.MB_OK | c.MB_ICONERROR,
         );
         return exit_code;

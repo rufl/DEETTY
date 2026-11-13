@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-release-receipt-intake.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-release-receipt-intake.XXXXXX")
 
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
@@ -27,7 +27,7 @@ make_artifact() {
     printf 'architecture=%s\n' "$arch"
     printf 'archive_sha256=%s\n' "$digest"
     printf 'installed_files_begin\n'
-    printf 'bin/dintty\n'
+    printf 'bin/deetty\n'
     printf 'installed_files_end\n'
     printf 'library_inventory_begin\n'
     printf 'libexample.so|sha256=example\n'
@@ -53,7 +53,7 @@ for arch in x86_64 aarch64; do
   make_signature "$arch" manifest
 done
 
-pre_receipt_status=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
+pre_receipt_status=$(DEETTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh)
 printf '%s\n' "$pre_receipt_status" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=4' >/dev/null
 
 publication_receipt="$src/publication-receipt.txt"
@@ -64,7 +64,7 @@ publication_receipt="$src/publication-receipt.txt"
   printf 'checksums_published=true\n'
   printf 'signatures_published=true\n'
   printf 'release_notes_published=true\n'
-  printf 'publication_url=https://example.invalid/dintty/0.1.0\n'
+  printf 'publication_url=https://example.invalid/deetty/0.1.0\n'
   printf 'published_at_utc=2026-07-14T00:00:00Z\n'
   printf 'operator=release-operator\n'
 } >"$publication_receipt"
@@ -84,7 +84,7 @@ redistribution_output=$(./scripts/release_operations_receipt_intake.sh dependenc
 printf '%s\n' "$publication_output" | grep -F "release_operations_receipt_intake version=0.1.0 receipt=publication semantic=true placeholder_blocking=true retained=true path=$evidence" >/dev/null
 printf '%s\n' "$redistribution_output" | grep -F "release_operations_receipt_intake version=0.1.0 receipt=dependency-bundle-redistribution semantic=true placeholder_blocking=true retained=true path=$evidence" >/dev/null
 
-status_output=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
+status_output=$(DEETTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=true signatures=true publication=true dependency_bundle_redistribution=true compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=2' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=compositor_acceptance path=compositors/niri.txt reason=missing' >/dev/null
 
@@ -121,7 +121,7 @@ fi
 publication_without_prereqs="$scratch/publication-without-prereqs"
 mkdir -p "$publication_without_prereqs"
 cp "$publication_receipt" "$publication_without_prereqs/publication-receipt.txt"
-without_prereqs_status=$(DINTTY_RELEASE_EVIDENCE_DIR="$publication_without_prereqs" ./scripts/release_operations_status.sh --list-missing)
+without_prereqs_status=$(DEETTY_RELEASE_EVIDENCE_DIR="$publication_without_prereqs" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$without_prereqs_status" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=publication_prerequisites_missing' >/dev/null
 
 victim="$scratch/receipt-victim"

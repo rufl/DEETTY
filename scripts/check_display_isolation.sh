@@ -93,7 +93,7 @@ done
 backend_neutral_count=0
 for script in $backend_neutral; do
   test -s "$script"
-  grep -F 'DINTTY_ISOLATED_DISPLAY' "$script" >/dev/null
+  grep -F 'DEETTY_ISOLATED_DISPLAY' "$script" >/dev/null
   if grep -E 'GDK_BACKEND=(x11|wayland|"x11"|"wayland")' "$script" >/dev/null; then
     echo "display_isolation error=backend_hardcode script=$script" >&2
     exit 1
@@ -119,7 +119,7 @@ grep -F 'if [[ $mode == full ]]' \
   scripts/native_grid_installed_activation_smoke.sh >/dev/null
 grep -F 'require_isolated_display.sh --dedicated' \
   scripts/native_grid_installed_activation_smoke.sh >/dev/null
-grep -F 'DINTTY_DEDICATED_DISPLAY' scripts/ci_verify.sh >/dev/null
+grep -F 'DEETTY_DEDICATED_DISPLAY' scripts/ci_verify.sh >/dev/null
 grep -F 'dedicated_native_smoke_session_required' scripts/ci_verify.sh >/dev/null
 grep -F 'run_pressure_gated_display()' scripts/verify.sh >/dev/null
 grep -F 'Admit isolated graphical proof before process/build qualification' \
@@ -127,13 +127,13 @@ grep -F 'Admit isolated graphical proof before process/build qualification' \
 grep -F 'if [ "$status" -ne 75 ] || [ "$attempt" -eq 6 ]' \
   scripts/verify.sh >/dev/null
 grep -F 'shared bubble deliberately masks /dev/shm' scripts/verify.sh >/dev/null
-grep -F 'visible_root=$(mktemp -d "$PWD/.dintty-verify-visible.XXXXXX")' \
+grep -F 'visible_root=$(mktemp -d "$PWD/.deetty-verify-visible.XXXXXX")' \
   scripts/verify.sh >/dev/null
 grep -F 'visible_staging=true' scripts/verify.sh >/dev/null
-test "$(grep -c 'DINTTY_LEGACY_DISPLAY_RUNNER=1' scripts/verify.sh)" -eq 2
+test "$(grep -c 'DEETTY_LEGACY_DISPLAY_RUNNER=1' scripts/verify.sh)" -eq 2
 grep -F 'isolated_display_runner.sh' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'exec env TMPDIR=/tmp' scripts/run_isolated_x11.sh >/dev/null
-grep -F 'DINTTY_ISOLATED_X11_WM:-auto' scripts/run_isolated_x11.sh >/dev/null
+grep -F 'DEETTY_ISOLATED_X11_WM:-auto' scripts/run_isolated_x11.sh >/dev/null
 ! grep -F -- '--wm none' scripts/run_isolated_x11.sh >/dev/null
 grep -F 'bwrap' scripts/isolated_display_runner.sh >/dev/null
 for namespace in pid ipc uts net; do
@@ -143,15 +143,15 @@ grep -F -- '--tmpfs /tmp' scripts/isolated_display_runner.sh >/dev/null
 grep -F -- '--tmpfs "$private_runtime"' scripts/isolated_display_runner.sh >/dev/null
 grep -F -- '--tmpfs /dev/shm' scripts/isolated_display_runner.sh >/dev/null
 grep -F -- '--tmpfs /run/dbus' scripts/isolated_display_runner.sh >/dev/null
-grep -F -- '--setenv HOME /tmp/dintty-home' scripts/isolated_display_runner.sh >/dev/null
-grep -F -- '--setenv XDG_CONFIG_HOME /tmp/dintty-config' scripts/isolated_display_runner.sh >/dev/null
-grep -F -- '--setenv XDG_STATE_HOME /tmp/dintty-state' scripts/isolated_display_runner.sh >/dev/null
-grep -F -- '--setenv XDG_CACHE_HOME /tmp/dintty-cache' scripts/isolated_display_runner.sh >/dev/null
-grep -F -- '--setenv XDG_DATA_HOME /tmp/dintty-data' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv HOME /tmp/deetty-home' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_CONFIG_HOME /tmp/deetty-config' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_STATE_HOME /tmp/deetty-state' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_CACHE_HOME /tmp/deetty-cache' scripts/isolated_display_runner.sh >/dev/null
+grep -F -- '--setenv XDG_DATA_HOME /tmp/deetty-data' scripts/isolated_display_runner.sh >/dev/null
 grep -F -- '--unsetenv XDG_CURRENT_DESKTOP' scripts/isolated_display_runner.sh >/dev/null
 grep -F 'dbus-run-session' scripts/isolated_display_runner.sh >/dev/null
 grep -F 'xvfb-run' scripts/isolated_display_runner.sh >/dev/null
-grep -F 'DINTTY_ISOLATED_WINDOW_MANAGER' scripts/isolated_display_runner.sh >/dev/null
+grep -F 'DEETTY_ISOLATED_WINDOW_MANAGER' scripts/isolated_display_runner.sh >/dev/null
 grep -F 'openbox kwin_x11 xfwm4' scripts/isolated_display_runner.sh >/dev/null
 grep -F -- '--unsetenv DBUS_SYSTEM_BUS_ADDRESS' scripts/isolated_display_runner.sh >/dev/null
 grep -F 'pressure_is_critical' scripts/isolated_display_runner.sh >/dev/null
@@ -164,7 +164,7 @@ grep -F 'legacy_fallback=$legacy_fallback' scripts/isolated_display_smoke.sh >/d
 grep -F 'convergence_wait_bounded=true' \
   scripts/native_grid_single_instance_smoke.sh >/dev/null
 grep -F 'run_isolated_x11.sh' scripts/terminal_benchmark.sh >/dev/null
-grep -F 'DINTTY_ISOLATED_DISPLAY_SCREEN=' scripts/terminal_benchmark.sh >/dev/null
+grep -F 'DEETTY_ISOLATED_DISPLAY_SCREEN=' scripts/terminal_benchmark.sh >/dev/null
 grep -F 'invalid_warmup:$warmup' scripts/terminal_benchmark.sh >/dev/null
 grep -F 'invalid_stamp:$run_stamp' scripts/terminal_benchmark.sh >/dev/null
 grep -F 'artifact_exists:$artifact' scripts/terminal_benchmark.sh >/dev/null

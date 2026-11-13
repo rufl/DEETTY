@@ -50,7 +50,7 @@ grep -F 'installed_files_begin' "$manifest" >/dev/null
 grep -F 'library_inventory_begin' "$manifest" >/dev/null
 
 mkdir -p "$evidence_dir"
-target_archive="$evidence_dir/dintty-linux-$arch.tar.gz"
+target_archive="$evidence_dir/deetty-linux-$arch.tar.gz"
 target_checksum="$target_archive.sha256"
 target_manifest="$target_archive.manifest"
 

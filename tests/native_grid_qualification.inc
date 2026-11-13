@@ -1,16 +1,16 @@
 /* Test-only renderer, presentation, and stability qualification.
- * Included by native_grid_host.c with DINTTY_ENABLE_SMOKE. */
+ * Included by native_grid_host.c with DEETTY_ENABLE_SMOKE. */
 enum {
-    DINTTY_RENDERER_QUALIFICATION_FRAMES = 128,
-    DINTTY_RENDERER_QUALIFICATION_COLUMNS = 160,
-    DINTTY_RENDERER_QUALIFICATION_ROWS = 50,
+    DEETTY_RENDERER_QUALIFICATION_FRAMES = 128,
+    DEETTY_RENDERER_QUALIFICATION_COLUMNS = 160,
+    DEETTY_RENDERER_QUALIFICATION_ROWS = 50,
 };
 
 typedef struct {
     int scenario;
     int columns;
     int rows;
-} DinttyRendererFixture;
+} DeettyRendererFixture;
 
 typedef struct {
     uint64_t p50_cpu_ns;
@@ -24,14 +24,14 @@ typedef struct {
     guint frame_buffer_allocations;
     guint glyph_scratch_allocations;
     guint glyph_cache_builds;
-} DinttyRendererQualificationResult;
+} DeettyRendererQualificationResult;
 
 enum {
-    DINTTY_PIPELINE_QUALIFICATION_SAMPLES = 64,
+    DEETTY_PIPELINE_QUALIFICATION_SAMPLES = 64,
 };
 
 static uint64_t renderer_fixture_cell_value(
-    const DinttyRendererFixture *fixture, int column, int row) {
+    const DeettyRendererFixture *fixture, int column, int row) {
     uint32_t codepoint = ' ';
     uint32_t style = 0xffffff00u;
     if (fixture->scenario == 0) return (uint64_t)codepoint |
@@ -62,7 +62,7 @@ static uint64_t renderer_fixture_cell_value(
 static int renderer_fixture_frame(void *userdata, int first_row,
                                   int row_count, uint64_t *output,
                                   size_t capacity) {
-    DinttyRendererFixture *fixture = userdata;
+    DeettyRendererFixture *fixture = userdata;
     if (fixture == NULL || output == NULL || first_row < 0 ||
         row_count <= 0 || first_row >= fixture->rows)
         return 0;
@@ -77,7 +77,7 @@ static int renderer_fixture_frame(void *userdata, int first_row,
 }
 
 static uint32_t renderer_fixture_cursor(void *userdata) {
-    DinttyRendererFixture *fixture = userdata;
+    DeettyRendererFixture *fixture = userdata;
     if (fixture == NULL || fixture->scenario == 0) return 0xffffffffu;
     return 12u | (7u << 16);
 }
@@ -96,7 +96,7 @@ static uint32_t renderer_fixture_color(void *userdata, uint32_t color_id) {
 
 static int renderer_fixture_cell_text(void *userdata, int column, int row,
                                       char *output, size_t capacity) {
-    DinttyRendererFixture *fixture = userdata;
+    DeettyRendererFixture *fixture = userdata;
     static const char grapheme[] = "\xe7\x95\x8c";
     if (fixture == NULL || fixture->scenario != 2 || output == NULL ||
         capacity < sizeof(grapheme) - 1 ||
@@ -129,8 +129,8 @@ static uint64_t renderer_percentile(const uint64_t *samples, size_t count,
     return samples[MAX(rank, 1) - 1];
 }
 
-static void record_presentation_draw_smoke(DinttyGridContext *context) {
-    DinttyGridContext *root = root_grid_context(context);
+static void record_presentation_draw_smoke(DeettyGridContext *context) {
+    DeettyGridContext *root = root_grid_context(context);
     if (root->workspace_smoke != 36 || !root->presentation_pending ||
         root->presentation_samples_completed >=
             root->presentation_samples_started ||
@@ -147,7 +147,7 @@ static void record_presentation_draw_smoke(DinttyGridContext *context) {
 }
 
 static void collect_presentation_feedback_smoke(
-    DinttyGridContext *context, GdkFrameClock *clock) {
+    DeettyGridContext *context, GdkFrameClock *clock) {
     for (guint index = 0;
          index < context->presentation_samples_completed; index++) {
         if (!context->presentation_frame_recorded[index] ||
@@ -169,10 +169,10 @@ static void collect_presentation_feedback_smoke(
 }
 
 static gboolean request_presentation_sample_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     if (context->presentation_failed || context->presentation_pending ||
         context->presentation_samples_started >=
-            DINTTY_PRESENTATION_QUALIFICATION_SAMPLES)
+            DEETTY_PRESENTATION_QUALIFICATION_SAMPLES)
         return G_SOURCE_REMOVE;
     GdkWindow *window = gtk_widget_get_window(context->area);
     if (!gtk_widget_get_mapped(context->area) || window == NULL) {
@@ -210,7 +210,7 @@ static gboolean request_presentation_sample_smoke(gpointer user_data) {
 }
 
 static gboolean finish_presentation_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
     if (clock != NULL) collect_presentation_feedback_smoke(context, clock);
     if (context->presentation_finish_attempts++ < 12 &&
@@ -231,7 +231,7 @@ static gboolean finish_presentation_qualification_smoke(gpointer user_data) {
 
 static void on_presentation_after_paint_smoke(GdkFrameClock *clock,
                                                gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     collect_presentation_feedback_smoke(context, clock);
     if (!context->presentation_pending ||
         context->presentation_samples_completed >=
@@ -281,14 +281,14 @@ static void on_presentation_after_paint_smoke(GdkFrameClock *clock,
     context->presentation_pending = 0;
     collect_presentation_feedback_smoke(context, clock);
     if (context->presentation_samples_completed <
-        DINTTY_PRESENTATION_QUALIFICATION_SAMPLES)
+        DEETTY_PRESENTATION_QUALIFICATION_SAMPLES)
         g_timeout_add(2, request_presentation_sample_smoke, context);
     else
         g_timeout_add(20, finish_presentation_qualification_smoke, context);
 }
 
 static gboolean start_presentation_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
     context->presentation_mapped =
         gtk_widget_get_mapped(context->area) && clock != NULL;
@@ -305,12 +305,12 @@ static gboolean start_presentation_qualification_smoke(gpointer user_data) {
 }
 
 static void print_presentation_qualification_smoke(
-    DinttyGridContext *context, gboolean passed) {
-    uint64_t draw[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t frame[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t predicted[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t presented[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES];
-    uint64_t intervals[DINTTY_PRESENTATION_QUALIFICATION_SAMPLES - 1];
+    DeettyGridContext *context, gboolean passed) {
+    uint64_t draw[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t frame[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t predicted[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t presented[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES];
+    uint64_t intervals[DEETTY_PRESENTATION_QUALIFICATION_SAMPLES - 1];
     memcpy(draw, context->presentation_key_to_draw_ns, sizeof(draw));
     memcpy(frame, context->presentation_key_to_frame_ns, sizeof(frame));
     memcpy(intervals, context->presentation_frame_interval_ns,
@@ -391,7 +391,7 @@ static void print_presentation_qualification_smoke(
 }
 
 static gboolean finish_full_stack_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     context->full_stack_phase = 0;
     context->full_stack_finished = 1;
     g_print("native_grid_full_stack_phase phase=complete pid=%ld\n",
@@ -405,7 +405,7 @@ static gboolean finish_full_stack_qualification_smoke(gpointer user_data) {
 }
 
 static gboolean announce_full_stack_fullscreen_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     GdkWindow *window = gtk_widget_get_window(context->window);
     GdkWindowState state = window != NULL
         ? gdk_window_get_state(window) : 0;
@@ -423,7 +423,7 @@ static gboolean announce_full_stack_fullscreen_smoke(gpointer user_data) {
 }
 
 static gboolean request_full_stack_fullscreen_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     static const char clear[] = "\x1b[2J\x1b[H";
     context->full_stack_phase = 2;
     gtk_window_fullscreen(GTK_WINDOW(context->window));
@@ -438,7 +438,7 @@ static gboolean request_full_stack_fullscreen_smoke(gpointer user_data) {
         char line[160];
         int length = g_snprintf(
             line, sizeof(line),
-            "\x1b[38;2;%d;%d;%dmDINTTY mapped fullscreen row %02d"
+            "\x1b[38;2;%d;%d;%dmDEETTY mapped fullscreen row %02d"
             "  PTY · VT · GTK · Cairo · Plasma\x1b[0m\n",
             96 + row * 3, 120 + row * 2, 220 - row * 2, row + 1);
         if (length <= 0 || context->write(
@@ -454,7 +454,7 @@ static gboolean request_full_stack_fullscreen_smoke(gpointer user_data) {
 }
 
 static gboolean start_full_stack_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
     context->full_stack_mapped =
         gtk_widget_get_mapped(context->area) && clock != NULL;
@@ -463,7 +463,7 @@ static gboolean start_full_stack_qualification_smoke(gpointer user_data) {
         return finish_full_stack_qualification_smoke(context);
     }
     gtk_window_set_title(GTK_WINDOW(context->window),
-                         "DINTTY full-stack qualification");
+                         "DEETTY full-stack qualification");
     if (!context->layer_shell_active)
         gtk_window_present(GTK_WINDOW(context->window));
     context->full_stack_phase = 1;
@@ -489,7 +489,7 @@ static guint stability_env_uint(const char *name, guint fallback,
 }
 
 static gboolean timeout_stability_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     if (!context->exited) {
         context->stability_failed = 1;
         if (gtk_main_level() > 0) gtk_main_quit();
@@ -498,7 +498,7 @@ static gboolean timeout_stability_qualification_smoke(gpointer user_data) {
 }
 
 static gboolean finish_stability_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     context->stability_phase = 0;
     context->stability_finished = 1;
     context->stability_finished_us = g_get_monotonic_time();
@@ -514,7 +514,7 @@ static gboolean finish_stability_qualification_smoke(gpointer user_data) {
 }
 
 static gboolean announce_stability_visible_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
     if (!context->window_presented || !gtk_widget_get_mapped(context->area) ||
         clock == NULL) {
@@ -538,7 +538,7 @@ static gboolean announce_stability_visible_smoke(gpointer user_data) {
 }
 
 static gboolean request_stability_visible_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     context->stability_phase = 0;
     if (context->window_presented) {
         context->stability_failed = 1;
@@ -550,7 +550,7 @@ static gboolean request_stability_visible_smoke(gpointer user_data) {
 }
 
 static gboolean announce_stability_hidden_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     if (context->window_presented || gtk_widget_get_mapped(context->area)) {
         context->stability_failed = 1;
         return finish_stability_qualification_smoke(context);
@@ -566,7 +566,7 @@ static gboolean announce_stability_hidden_smoke(gpointer user_data) {
 }
 
 static gboolean request_stability_hidden_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
+    DeettyGridContext *context = root_grid_context(user_data);
     context->stability_phase = 0;
     if (!context->window_presented) {
         context->stability_failed = 1;
@@ -579,8 +579,8 @@ static gboolean request_stability_hidden_smoke(gpointer user_data) {
 }
 
 static gboolean start_stability_qualification_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
-    const char *ready_path = g_getenv("DINTTY_STABILITY_READY_PATH");
+    DeettyGridContext *context = root_grid_context(user_data);
+    const char *ready_path = g_getenv("DEETTY_STABILITY_READY_PATH");
     if (ready_path != NULL && ready_path[0] != '\0' &&
         !g_file_test(ready_path, G_FILE_TEST_EXISTS)) {
         context->stability_ready_attempts++;
@@ -590,9 +590,9 @@ static gboolean start_stability_qualification_smoke(gpointer user_data) {
         return finish_stability_qualification_smoke(context);
     }
     context->stability_cycles_target = stability_env_uint(
-        "DINTTY_STABILITY_CYCLES", 2, 96);
+        "DEETTY_STABILITY_CYCLES", 2, 96);
     context->stability_phase_seconds = stability_env_uint(
-        "DINTTY_STABILITY_PHASE_SECONDS", 2, 3600);
+        "DEETTY_STABILITY_PHASE_SECONDS", 2, 3600);
     GdkFrameClock *clock = gtk_widget_get_frame_clock(context->area);
     if (context->stability_cycles_target == 0 ||
         context->stability_phase_seconds == 0 ||
@@ -602,7 +602,7 @@ static gboolean start_stability_qualification_smoke(gpointer user_data) {
         return finish_stability_qualification_smoke(context);
     }
     gtk_window_set_title(GTK_WINDOW(context->window),
-                         "DINTTY stability qualification");
+                         "DEETTY stability qualification");
     if (!context->layer_shell_active)
         gtk_window_present(GTK_WINDOW(context->window));
     context->stability_mapped_visible = 1;
@@ -617,9 +617,9 @@ static gboolean start_stability_qualification_smoke(gpointer user_data) {
 }
 
 static gboolean poll_installed_continuity_detach_smoke(gpointer user_data) {
-    DinttyGridContext *context = root_grid_context(user_data);
-    const char *path = g_getenv("DINTTY_CONTINUITY_DETACH_PATH");
-    const char *kind = g_getenv("DINTTY_CONTINUITY_KIND");
+    DeettyGridContext *context = root_grid_context(user_data);
+    const char *path = g_getenv("DEETTY_CONTINUITY_DETACH_PATH");
+    const char *kind = g_getenv("DEETTY_CONTINUITY_KIND");
     context->installed_continuity_detach_attempts++;
     if (path != NULL && g_file_test(path, G_FILE_TEST_EXISTS)) {
         const char *sequence = NULL;
@@ -642,7 +642,7 @@ static gboolean poll_installed_continuity_detach_smoke(gpointer user_data) {
 }
 
 static void print_full_stack_qualification_smoke(
-    DinttyGridContext *context, gboolean passed) {
+    DeettyGridContext *context, gboolean passed) {
     const char *backend = g_getenv("GDK_BACKEND");
     if (backend == NULL || backend[0] == '\0') backend = "default";
     g_print(
@@ -672,7 +672,7 @@ static void print_full_stack_qualification_smoke(
 }
 
 static void print_stability_qualification_smoke(
-    DinttyGridContext *context, gboolean passed) {
+    DeettyGridContext *context, gboolean passed) {
     const char *backend = g_getenv("GDK_BACKEND");
     if (backend == NULL || backend[0] == '\0') backend = "default";
     guint64 duration_seconds = 0;
@@ -708,8 +708,8 @@ static void print_stability_qualification_smoke(
 }
 
 static GtkAllocation renderer_allocation_for_context(
-    const DinttyGridContext *context) {
-    DinttyGridFontMetrics metrics = grid_font_metrics(context);
+    const DeettyGridContext *context) {
+    DeettyGridFontMetrics metrics = grid_font_metrics(context);
     GtkAllocation allocation = {
         .x = 0,
         .y = 0,
@@ -719,8 +719,8 @@ static GtkAllocation renderer_allocation_for_context(
     return allocation;
 }
 
-static void renderer_init_context(DinttyGridContext *context,
-                                  DinttyRendererFixture *fixture) {
+static void renderer_init_context(DeettyGridContext *context,
+                                  DeettyRendererFixture *fixture) {
     memset(context, 0, sizeof(*context));
     context->userdata = fixture;
     context->frame = renderer_fixture_frame;
@@ -744,13 +744,13 @@ static void renderer_init_context(DinttyGridContext *context,
 }
 
 static guint renderer_owned_allocation_count(
-    const DinttyGridContext *context) {
+    const DeettyGridContext *context) {
     return context->frame_buffer_allocations +
         context->glyph_scratch_allocations + context->glyph_cache_builds;
 }
 
 static size_t renderer_owned_scratch_bytes(
-    const DinttyGridContext *context) {
+    const DeettyGridContext *context) {
     return context->frame_cell_capacity * sizeof(*context->frame_cells) +
         context->glyph_scratch_capacity * sizeof(*context->glyph_scratch);
 }
@@ -792,13 +792,13 @@ static guint renderer_surface_pixel_diff(cairo_surface_t *left,
 
 static int renderer_qualify_scenario(
     int scenario, const char *artifact_directory, const char *artifact_name,
-    DinttyRendererQualificationResult *result) {
-    DinttyRendererFixture fixture = {
+    DeettyRendererQualificationResult *result) {
+    DeettyRendererFixture fixture = {
         .scenario = scenario,
-        .columns = DINTTY_RENDERER_QUALIFICATION_COLUMNS,
-        .rows = DINTTY_RENDERER_QUALIFICATION_ROWS,
+        .columns = DEETTY_RENDERER_QUALIFICATION_COLUMNS,
+        .rows = DEETTY_RENDERER_QUALIFICATION_ROWS,
     };
-    DinttyGridContext context;
+    DeettyGridContext context;
     renderer_init_context(&context, &fixture);
     GtkAllocation allocation = renderer_allocation_for_context(&context);
     cairo_surface_t *surface = cairo_image_surface_create(
@@ -827,9 +827,9 @@ static int renderer_qualify_scenario(
         renderer_owned_allocation_count(&context);
     result->peak_owned_scratch_bytes = renderer_owned_scratch_bytes(&context);
     guint allocations_before_warm = renderer_owned_allocation_count(&context);
-    uint64_t samples[DINTTY_RENDERER_QUALIFICATION_FRAMES];
+    uint64_t samples[DEETTY_RENDERER_QUALIFICATION_FRAMES];
     for (size_t frame = 0;
-         frame < DINTTY_RENDERER_QUALIFICATION_FRAMES; frame++) {
+         frame < DEETTY_RENDERER_QUALIFICATION_FRAMES; frame++) {
         uint64_t started = renderer_process_cpu_ns();
         (void)draw_grid_contents(&context, cr, allocation);
         uint64_t finished = renderer_process_cpu_ns();
@@ -849,14 +849,14 @@ static int renderer_qualify_scenario(
     }
     result->warm_frame_owned_allocations =
         renderer_owned_allocation_count(&context) - allocations_before_warm;
-    qsort(samples, DINTTY_RENDERER_QUALIFICATION_FRAMES,
+    qsort(samples, DEETTY_RENDERER_QUALIFICATION_FRAMES,
           sizeof(samples[0]), compare_renderer_sample);
     result->p50_cpu_ns = renderer_percentile(
-        samples, DINTTY_RENDERER_QUALIFICATION_FRAMES, 50);
+        samples, DEETTY_RENDERER_QUALIFICATION_FRAMES, 50);
     result->p95_cpu_ns = renderer_percentile(
-        samples, DINTTY_RENDERER_QUALIFICATION_FRAMES, 95);
+        samples, DEETTY_RENDERER_QUALIFICATION_FRAMES, 95);
     result->p99_cpu_ns = renderer_percentile(
-        samples, DINTTY_RENDERER_QUALIFICATION_FRAMES, 99);
+        samples, DEETTY_RENDERER_QUALIFICATION_FRAMES, 99);
     result->pixel_hash = renderer_surface_hash(surface, allocation);
 
     (void)draw_grid_contents(&context, comparison_cr, allocation);
@@ -889,12 +889,12 @@ static int renderer_qualify_scenario(
 static int renderer_resize_scratch_qualification(
     guint *growth_allocations, guint *shrink_allocations,
     size_t *peak_owned_scratch_bytes) {
-    DinttyRendererFixture fixture = {
+    DeettyRendererFixture fixture = {
         .scenario = 1,
         .columns = 80,
         .rows = 24,
     };
-    DinttyGridContext context;
+    DeettyGridContext context;
     renderer_init_context(&context, &fixture);
     GtkAllocation allocation = renderer_allocation_for_context(&context);
     cairo_surface_t *surface = cairo_image_surface_create(
@@ -949,14 +949,14 @@ static int renderer_resize_scratch_qualification(
     return *growth_allocations > 0 && *shrink_allocations == 0 ? 0 : -1;
 }
 
-int dintty_native_grid_renderer_qualification(
+int deetty_native_grid_renderer_qualification(
     const char *artifact_directory, const char *mode) {
     if (artifact_directory == NULL || artifact_directory[0] == '\0' ||
         mode == NULL || mode[0] == '\0')
         return -1;
-    DinttyRendererQualificationResult idle = {0};
-    DinttyRendererQualificationResult full = {0};
-    DinttyRendererQualificationResult rich = {0};
+    DeettyRendererQualificationResult idle = {0};
+    DeettyRendererQualificationResult full = {0};
+    DeettyRendererQualificationResult rich = {0};
     guint resize_growth_allocations = 0;
     guint resize_shrink_allocations = 0;
     size_t resize_peak_scratch_bytes = 0;
@@ -1024,12 +1024,12 @@ int dintty_native_grid_renderer_qualification(
         ? 0 : -1;
 }
 
-int dintty_native_grid_pipeline_qualification(
-    const DinttyGridCallbacks *callbacks, int columns, int rows,
-    DinttyGridPipelineAdvance advance, void *advance_data,
+int deetty_native_grid_pipeline_qualification(
+    const DeettyGridCallbacks *callbacks, int columns, int rows,
+    DeettyGridPipelineAdvance advance, void *advance_data,
     const char *artifact_path, const char *mode) {
     if (callbacks == NULL ||
-        callbacks->abi_version != DINTTY_NATIVE_GRID_ABI_VERSION ||
+        callbacks->abi_version != DEETTY_NATIVE_GRID_ABI_VERSION ||
         callbacks->struct_size < sizeof(*callbacks) ||
         callbacks->frame == NULL ||
         callbacks->color_rgb == NULL || callbacks->cell_text == NULL ||
@@ -1038,7 +1038,7 @@ int dintty_native_grid_pipeline_qualification(
         artifact_path[0] == '\0' || mode == NULL || mode[0] == '\0')
         return -1;
 
-    DinttyGridContext context = {0};
+    DeettyGridContext context = {0};
     context.root = &context;
     context.userdata = callbacks->userdata;
     context.frame = callbacks->frame;
@@ -1066,14 +1066,14 @@ int dintty_native_grid_pipeline_qualification(
         return -1;
     }
 
-    uint64_t input_samples[DINTTY_PIPELINE_QUALIFICATION_SAMPLES];
-    uint64_t read_samples[DINTTY_PIPELINE_QUALIFICATION_SAMPLES];
-    uint64_t draw_samples[DINTTY_PIPELINE_QUALIFICATION_SAMPLES];
+    uint64_t input_samples[DEETTY_PIPELINE_QUALIFICATION_SAMPLES];
+    uint64_t read_samples[DEETTY_PIPELINE_QUALIFICATION_SAMPLES];
+    uint64_t draw_samples[DEETTY_PIPELINE_QUALIFICATION_SAMPLES];
     size_t output_bytes = 0;
     guint first_frame_owned_allocations = 0;
     guint warm_frame_owned_allocations = 0;
     for (size_t sample = 0;
-         sample < DINTTY_PIPELINE_QUALIFICATION_SAMPLES; sample++) {
+         sample < DEETTY_PIPELINE_QUALIFICATION_SAMPLES; sample++) {
         uint64_t input_to_grid_ns = 0;
         uint64_t read_to_grid_ns = 0;
         size_t sample_output_bytes = 0;
@@ -1104,11 +1104,11 @@ int dintty_native_grid_pipeline_qualification(
         draw_samples[sample] = draw_cpu_finished - draw_cpu_started;
     }
 
-    qsort(input_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES,
+    qsort(input_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES,
           sizeof(input_samples[0]), compare_renderer_sample);
-    qsort(read_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES,
+    qsort(read_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES,
           sizeof(read_samples[0]), compare_renderer_sample);
-    qsort(draw_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES,
+    qsort(draw_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES,
           sizeof(draw_samples[0]), compare_renderer_sample);
     uint64_t pixel_hash = renderer_surface_hash(surface, allocation);
     cairo_status_t artifact_status =
@@ -1129,23 +1129,23 @@ int dintty_native_grid_pipeline_qualification(
         "assertions=true\n",
         mode, columns, rows, output_bytes,
         (unsigned long long)renderer_percentile(
-            input_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
+            input_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
         (unsigned long long)renderer_percentile(
-            input_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
+            input_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
         (unsigned long long)renderer_percentile(
-            input_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
+            input_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
         (unsigned long long)renderer_percentile(
-            read_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
+            read_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
         (unsigned long long)renderer_percentile(
-            read_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
+            read_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
         (unsigned long long)renderer_percentile(
-            read_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
+            read_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
         (unsigned long long)renderer_percentile(
-            draw_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
+            draw_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 50),
         (unsigned long long)renderer_percentile(
-            draw_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
+            draw_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 95),
         (unsigned long long)renderer_percentile(
-            draw_samples, DINTTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
+            draw_samples, DEETTY_PIPELINE_QUALIFICATION_SAMPLES, 99),
         (unsigned long long)pixel_hash, first_frame_owned_allocations,
         warm_frame_owned_allocations, peak_owned_scratch_bytes);
     cairo_destroy(cr);

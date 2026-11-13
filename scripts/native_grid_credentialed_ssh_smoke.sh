@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "${DINTTY_ISOLATED_DISPLAY:-}" != x11 ] &&
-  [ "${DINTTY_ISOLATED_DISPLAY:-}" != wayland ] &&
-  [ "${DINTTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
+if [ "${DEETTY_ISOLATED_DISPLAY:-}" != x11 ] &&
+  [ "${DEETTY_ISOLATED_DISPLAY:-}" != wayland ] &&
+  [ "${DEETTY_DEDICATED_DISPLAY:-0}" != 1 ]; then
   exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
@@ -13,11 +13,11 @@ ssh_server=$(command -v sshd)
 ssh_keygen=$(command -v ssh-keygen)
 login_name=$(id -un)
 project_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-scratch=$(mktemp -d -p /tmp dintty-credentialed-ssh.XXXXXX)
+scratch=$(mktemp -d -p /tmp deetty-credentialed-ssh.XXXXXX)
 
 cleanup() {
   case "$scratch" in
-    /tmp/dintty-credentialed-ssh.*) rm -rf -- "$scratch" ;;
+    /tmp/deetty-credentialed-ssh.*) rm -rf -- "$scratch" ;;
     *) printf 'refusing unsafe SSH smoke cleanup: %s\n' "$scratch" >&2 ;;
   esac
 }
@@ -28,7 +28,7 @@ trap cleanup EXIT HUP INT TERM
 cp "$scratch/client_key.pub" "$scratch/authorized_keys"
 chmod 600 "$scratch/authorized_keys"
 host_public_key=$("$ssh_keygen" -y -f "$scratch/host_key")
-printf 'dintty-credential-smoke %s\n' "$host_public_key" > "$scratch/known_hosts"
+printf 'deetty-credential-smoke %s\n' "$host_public_key" > "$scratch/known_hosts"
 
 mkdir "$scratch/bin"
 wrapper="$scratch/bin/ssh"
@@ -42,7 +42,7 @@ chmod 700 "$wrapper"
 
 receipt='native_grid_credentialed_ssh_smoke profile=true system_client=true system_server=true credential=publickey identity_isolated=true host_key=pinned transport=stdio_proxy network_bind=false remote_marker=true exited=true'
 output=$(PATH="$scratch/bin:$PATH" \
-  DINTTY_SSH_SMOKE_TARGET="$login_name@dintty-credential-smoke" \
+  DEETTY_SSH_SMOKE_TARGET="$login_name@deetty-credential-smoke" \
   ZIG_GLOBAL_CACHE_DIR="$project_dir/.zig-cache/global" \
   zig build -j1 smoke-run \
   --cache-dir "$project_dir/.zig-cache" \

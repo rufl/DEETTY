@@ -19,7 +19,7 @@ test -n "${DISPLAY:-}" || {
 
 ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build smoke-binaries
 
-log=$(mktemp /tmp/dintty-tab-reorder.XXXXXX)
+log=$(mktemp /tmp/deetty-tab-reorder.XXXXXX)
 pid=
 cleanup() {
   xdotool mouseup 1 >/dev/null 2>&1 || true
@@ -33,7 +33,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 NO_AT_BRIDGE=1 GTK_MODULES= G_DEBUG=fatal-warnings GDK_BACKEND=x11 \
-  ./zig-out/bin/dintty-smoke --native-grid-tab-reorder-smoke \
+  ./zig-out/bin/deetty-smoke --native-grid-tab-reorder-smoke \
   >"$log" 2>&1 &
 pid=$!
 
@@ -73,7 +73,7 @@ window=
 attempt=0
 while test "$attempt" -lt 40; do
   candidate=$(xdotool search --onlyvisible --pid "$pid" \
-    --name '^DINTTY native grid$' 2>/dev/null | head -1 || true)
+    --name '^DEETTY native grid$' 2>/dev/null | head -1 || true)
   if test -n "$candidate" && \
       test "$(xdotool getwindowpid "$candidate" 2>/dev/null || true)" = "$pid"; then
     window=$candidate

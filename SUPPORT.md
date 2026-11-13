@@ -1,6 +1,6 @@
 # Support
 
-DINTTY is an early source alpha maintained on a best-effort basis. There is no
+DEETTY is an early source alpha maintained on a best-effort basis. There is no
 paid support, response-time guarantee, or stable-version compatibility promise.
 
 ## Before asking
@@ -14,7 +14,7 @@ paid support, response-time guarantee, or stable-version compatibility promise.
 Use a GitHub bug-report template for reproducible defects. Use a feature request
 for bounded product proposals; discuss broad architecture changes before
 implementing them. General terminal, shell, compositor, or distribution support
-questions belong in those upstream communities unless DINTTY-specific behavior
+questions belong in those upstream communities unless DEETTY-specific behavior
 is demonstrated.
 
 Never post credentials, private terminal output, pairing keys, encrypted-history

@@ -1,5 +1,5 @@
 name: Alpha dogfood report
-description: Record a real DINTTY/NoctEd dogfood session
+description: Record a real DEETTY/NoctEd dogfood session
 title: "dogfood: "
 labels: [dogfood]
 body:
@@ -20,9 +20,9 @@ body:
       label: Apps used
       multiple: true
       options:
-        - DINTTY
+        - DEETTY
         - NoctEd
-        - Pi/coding agent inside DINTTY
+        - Pi/coding agent inside DEETTY
         - other terminal TUI
     validations:
       required: true

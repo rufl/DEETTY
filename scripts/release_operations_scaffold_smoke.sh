@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-release-scaffold-smoke.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-release-scaffold-smoke.XXXXXX")
 
 cleanup() {
   if [ -n "${scratch:-}" ]; then rm -rf "$scratch"; fi
@@ -20,22 +20,22 @@ for compositor in niri hyprland sway scroll labwc mango; do
   test -s "$evidence/compositors/$compositor.txt"
 done
 
-if [ -e "$evidence/dintty-linux-x86_64.tar.gz" ] ||
-  [ -e "$evidence/dintty-linux-aarch64.tar.gz" ] ||
-  [ -e "$evidence/dintty-linux-x86_64.tar.gz.sig" ] ||
-  [ -e "$evidence/dintty-linux-aarch64.tar.gz.sig" ]; then
+if [ -e "$evidence/deetty-linux-x86_64.tar.gz" ] ||
+  [ -e "$evidence/deetty-linux-aarch64.tar.gz" ] ||
+  [ -e "$evidence/deetty-linux-x86_64.tar.gz.sig" ] ||
+  [ -e "$evidence/deetty-linux-aarch64.tar.gz.sig" ]; then
   echo "release_operations_scaffold_smoke scaffold created fake artifact/signature files" >&2
   exit 1
 fi
 
-status_output=$(DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
+status_output=$(DEETTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --list-missing)
 printf '%s\n' "$status_output" | grep -F 'release_operations_status version=0.1.0 tagged_artifacts=false signatures=false publication=false dependency_bundle_redistribution=false compositor_acceptance=false wayland_hid_consent=false complete=false external_blockers=6' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=receipt_field_missing' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=publication path=publication-receipt.txt reason=placeholder_text' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=compositor_acceptance path=compositors/niri.txt reason=placeholder_text' >/dev/null
 printf '%s\n' "$status_output" | grep -F 'release_operations_issue category=wayland_hid_consent path=wayland-hid-consent-receipt.txt reason=receipt_field_missing' >/dev/null
 
-if DINTTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --require-complete >/dev/null; then
+if DEETTY_RELEASE_EVIDENCE_DIR="$evidence" ./scripts/release_operations_status.sh --require-complete >/dev/null; then
   echo "release_operations_scaffold_smoke expected scaffold to fail --require-complete" >&2
   exit 1
 fi

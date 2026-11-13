@@ -35,7 +35,7 @@ const Pane = struct {
     host_active: bool,
 };
 
-pub export fn dintty_windows_theme_colors(
+pub export fn deetty_windows_theme_colors(
     theme: c_int,
     foreground: ?*u32,
     background: ?*u32,
@@ -43,10 +43,10 @@ pub export fn dintty_windows_theme_colors(
     const foreground_output = foreground orelse return;
     const background_output = background orelse return;
     if (theme == 1) {
-        foreground_output.* = Logic.dintty_windows_rgb_from_colorref(
+        foreground_output.* = Logic.deetty_windows_rgb_from_colorref(
             c.GetSysColor(c.COLOR_WINDOWTEXT),
         );
-        background_output.* = Logic.dintty_windows_rgb_from_colorref(
+        background_output.* = Logic.deetty_windows_rgb_from_colorref(
             c.GetSysColor(c.COLOR_WINDOW),
         );
     } else {
@@ -56,7 +56,7 @@ pub export fn dintty_windows_theme_colors(
     }
 }
 
-pub export fn dintty_windows_render(state: ?*const State, paint_count: ?*u32) void {
+pub export fn deetty_windows_render(state: ?*const State, paint_count: ?*u32) void {
     const render = state orelse return;
     const counter = paint_count orelse return;
     if (render.window == null) return;
@@ -79,7 +79,7 @@ pub export fn dintty_windows_render(state: ?*const State, paint_count: ?*u32) vo
     const previous_bitmap = c.SelectObject(buffer_device, buffer_bitmap);
     defer _ = c.SelectObject(buffer_device, previous_bitmap);
     const background = c.CreateSolidBrush(
-        Logic.dintty_windows_colorref_from_rgb(render.background),
+        Logic.deetty_windows_colorref_from_rgb(render.background),
     ) orelse return;
     defer _ = c.DeleteObject(background);
     _ = c.FillRect(buffer_device, &client, background);
@@ -122,13 +122,13 @@ fn drawStatusBar(state: *const State, device: c.HDC, client: c.RECT) void {
     if (top >= client.bottom) return;
     var bar = client;
     bar.top = top;
-    const surface = Logic.dintty_windows_blend_rgb(state.foreground, state.background, 18);
-    const brush = c.CreateSolidBrush(Logic.dintty_windows_colorref_from_rgb(surface)) orelse return;
+    const surface = Logic.deetty_windows_blend_rgb(state.foreground, state.background, 18);
+    const brush = c.CreateSolidBrush(Logic.deetty_windows_colorref_from_rgb(surface)) orelse return;
     defer _ = c.DeleteObject(brush);
     _ = c.FillRect(device, &bar, brush);
     const text = state.status_text orelse return;
     if (state.status_text_length <= 0) return;
-    _ = c.SetTextColor(device, Logic.dintty_windows_colorref_from_rgb(state.foreground));
+    _ = c.SetTextColor(device, Logic.deetty_windows_colorref_from_rgb(state.foreground));
     const previous_mode = c.SetBkMode(device, c.TRANSPARENT);
     defer _ = c.SetBkMode(device, previous_mode);
     var text_rectangle = bar;
@@ -147,8 +147,8 @@ fn drawDividers(state: *const State, device: c.HDC, client: c.RECT) void {
     const cb = callbacks(state);
     const count = cb.divider_count(cb.userdata);
     if (count <= 0) return;
-    const normal = c.CreateSolidBrush(Logic.dintty_windows_colorref_from_rgb(
-        Logic.dintty_windows_blend_rgb(state.foreground, state.background, 110),
+    const normal = c.CreateSolidBrush(Logic.deetty_windows_colorref_from_rgb(
+        Logic.deetty_windows_blend_rgb(state.foreground, state.background, 110),
     )) orelse return;
     defer _ = c.DeleteObject(normal);
     const dpi = c.GetDpiForWindow(state.window);
@@ -266,7 +266,7 @@ fn drawCursor(state: *const State, device: c.HDC, cell: c.RECT) void {
     const brush = c.GetStockObject(c.DC_BRUSH);
     const previous_brush = c.SelectObject(device, brush);
     defer _ = c.SelectObject(device, previous_brush);
-    const previous_color = c.SetDCBrushColor(device, Logic.dintty_windows_colorref_from_rgb(mask));
+    const previous_color = c.SetDCBrushColor(device, Logic.deetty_windows_colorref_from_rgb(mask));
     defer _ = c.SetDCBrushColor(device, previous_color);
     _ = c.PatBlt(device, cell.left, cell.top, cell.right - cell.left, cell.bottom - cell.top, c.PATINVERT);
 }
@@ -289,7 +289,7 @@ fn paneGeometry(state: *const State, client: c.RECT, pane_index: c_int) ?Pane {
         &host_active,
     ) <= 0) return null;
     var geometry: Logic.PaneGeometry = undefined;
-    if (Logic.dintty_windows_compute_pane_geometry(
+    if (Logic.deetty_windows_compute_pane_geometry(
         client.left,
         client.top,
         client.right,
@@ -351,11 +351,11 @@ fn drawCell(
     var background = terminalColor(state, pane_index, (style >> 20) & 0x0fff, state.background);
     if (style & style_inverse != 0) std.mem.swap(u32, &foreground, &background);
     if (style & style_faint != 0) {
-        foreground = Logic.dintty_windows_blend_rgb(foreground, background, 150);
+        foreground = Logic.deetty_windows_blend_rgb(foreground, background, 150);
     }
     if (pane_index >= 0 and cellSelected(state, pane_index, column, row)) {
-        foreground = Logic.dintty_windows_rgb_from_colorref(c.GetSysColor(c.COLOR_HIGHLIGHTTEXT));
-        background = Logic.dintty_windows_rgb_from_colorref(c.GetSysColor(c.COLOR_HIGHLIGHT));
+        foreground = Logic.deetty_windows_rgb_from_colorref(c.GetSysColor(c.COLOR_HIGHLIGHTTEXT));
+        background = Logic.deetty_windows_rgb_from_colorref(c.GetSysColor(c.COLOR_HIGHLIGHT));
     }
     var rectangle = cellRectangle(
         origin_x,
@@ -367,8 +367,8 @@ fn drawCell(
         column,
         row,
     );
-    _ = c.SetTextColor(device, Logic.dintty_windows_colorref_from_rgb(foreground));
-    _ = c.SetBkColor(device, Logic.dintty_windows_colorref_from_rgb(background));
+    _ = c.SetTextColor(device, Logic.deetty_windows_colorref_from_rgb(foreground));
+    _ = c.SetBkColor(device, Logic.deetty_windows_colorref_from_rgb(background));
     const previous_mode = c.SetBkMode(device, c.OPAQUE);
     defer _ = c.SetBkMode(device, previous_mode);
     if (style & style_wide_continuation != 0) {
@@ -490,14 +490,14 @@ pub fn qualifyThemePaint(state: *const State, pane: c_int, expected_background: 
     defer _ = c.SelectObject(device, previous);
     drawCell(state, device, pane, 0, 0, width, state.cell_height, 2, 1, 0, 0);
     drawCell(state, device, pane, 0, 0, width, state.cell_height, 2, 1, 1, 0);
-    if (c.GetPixel(device, @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.dintty_windows_colorref_from_rgb(expected_background) or
-        c.GetPixel(device, state.cell_width + @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.dintty_windows_colorref_from_rgb(expected_ansi)) return false;
+    if (c.GetPixel(device, @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.deetty_windows_colorref_from_rgb(expected_background) or
+        c.GetPixel(device, state.cell_width + @divTrunc(state.cell_width, 2), @divTrunc(state.cell_height, 2)) != Logic.deetty_windows_colorref_from_rgb(expected_ansi)) return false;
     drawCursor(state, device, .{ .left = 0, .top = 0, .right = state.cell_width, .bottom = state.cell_height });
-    return c.GetPixel(device, @divTrunc(state.cell_width, 2), state.cell_height - 1) == Logic.dintty_windows_colorref_from_rgb(expected_cursor);
+    return c.GetPixel(device, @divTrunc(state.cell_width, 2), state.cell_height - 1) == Logic.deetty_windows_colorref_from_rgb(expected_cursor);
 }
 
 fn cellSelected(state: *const State, pane_index: c_int, column: c_int, row: c_int) bool {
-    return Logic.dintty_windows_cell_selected(
+    return Logic.deetty_windows_cell_selected(
         state.selection_active,
         state.selection_pane,
         pane_index,
@@ -532,7 +532,7 @@ fn drawLine(device: c.HDC, rectangle: c.RECT, y: c_int, color: u32) void {
     const pen = c.CreatePen(
         c.PS_SOLID,
         1,
-        Logic.dintty_windows_colorref_from_rgb(color),
+        Logic.deetty_windows_colorref_from_rgb(color),
     ) orelse return;
     defer _ = c.DeleteObject(pen);
     const previous = c.SelectObject(device, pen);
@@ -556,7 +556,7 @@ fn drawBorder(device: c.HDC, rectangle: c.RECT, thickness: c_int, color: u32, in
     const pen = c.CreatePen(
         c.PS_SOLID,
         thickness,
-        Logic.dintty_windows_colorref_from_rgb(color),
+        Logic.deetty_windows_colorref_from_rgb(color),
     ) orelse return;
     defer _ = c.DeleteObject(pen);
     const previous_pen = c.SelectObject(device, pen);

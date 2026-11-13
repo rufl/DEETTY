@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Service
+Name=DEETTY Service Menu
+TryExec=deetty
+MimeType=inode/directory;
+Actions=OpenDEETTYHere;
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-MaxNumberOfUrls=1
+X-KDE-Priority=TopLevel
+
+[Desktop Action OpenDEETTYHere]
+Name=Open DEETTY Here
+Icon=com.deetty.DEETTY
+Exec=deetty --new-window --working-directory %f

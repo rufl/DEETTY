@@ -1,6 +1,6 @@
 //! Bounded Windows launch profiles; every mutation commits the complete envelope first.
 const std = @import("std");
-const Launch = @import("dintty_share").launch_profile;
+const Launch = @import("deetty_share").launch_profile;
 
 pub const max_state_bytes: usize = 65_536;
 pub const builtin_count: usize = 2;

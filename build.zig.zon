@@ -1,7 +1,7 @@
 .{
-    .name = .dintty,
+    .name = .deetty,
     .version = "0.1.0",
-    .fingerprint = 0x5c0ecc05da368ea1,
+    .fingerprint = 0x4effa605f5a83292,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     .paths = .{

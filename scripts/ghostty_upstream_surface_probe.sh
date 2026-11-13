@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
-prefix="${DINTTY_GHOSTTY_PREFIX:-}"
+prefix="${DEETTY_GHOSTTY_PREFIX:-}"
 if [ -z "$prefix" ] || [ ! -f "$prefix/include/ghostty.h" ] || [ ! -f "$prefix/lib/ghostty-internal.so" ]; then
-  echo "ghostty_upstream_surface_probe skipped=true reason=DINTTY_GHOSTTY_PREFIX_missing"
+  echo "ghostty_upstream_surface_probe skipped=true reason=DEETTY_GHOSTTY_PREFIX_missing"
   exit 0
 fi
 
-probe=$(mktemp "${TMPDIR:-/tmp}/dintty-ghostty-surface-probe.XXXXXX")
+probe=$(mktemp "${TMPDIR:-/tmp}/deetty-ghostty-surface-probe.XXXXXX")
 cleanup() { rm -f "$probe"; }
 trap cleanup EXIT HUP INT TERM
 cc scripts/ghostty_surface_probe.c \

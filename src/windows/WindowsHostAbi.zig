@@ -6,7 +6,7 @@
 
 pub const c = @import("c");
 
-const LaunchProfile = @import("dintty_share").launch_profile;
+const LaunchProfile = @import("deetty_share").launch_profile;
 const Feed = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
 const Write = *const fn (?*anyopaque, [*]const u8, usize) callconv(.c) c_int;
 const TakeReply = *const fn (?*anyopaque, [*]u8, usize) callconv(.c) c_int;

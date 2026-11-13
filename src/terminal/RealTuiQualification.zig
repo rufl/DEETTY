@@ -120,7 +120,7 @@ pub fn main(init: std.process.Init) !void {
     );
 
     const codex_markers = [_][]const u8{ "Welcome", "Codex", "Sign in with ChatGPT" };
-    const vim_markers = [_][]const u8{"DINTTY_REAL_TUI_VIM"};
+    const vim_markers = [_][]const u8{"DEETTY_REAL_TUI_VIM"};
     const btop_markers = [_][]const u8{ "cpu", "mem", "proc" };
     const codex_process_names = [_][]const u8{ "codex", "node-MainThread" };
     const vim_process_names = [_][]const u8{"vim"};

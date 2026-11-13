@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-terminal-session.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-terminal-session.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
@@ -21,7 +21,7 @@ run_mode() {
     fi
 
     output_file="$scratch/output-$mode"
-    "$prefix/bin/dintty-terminal-session-qualification" 64 8 >"$output_file" &
+    "$prefix/bin/deetty-terminal-session-qualification" 64 8 >"$output_file" &
     runner_pid=$!
     peak_root_pss_kib=0
     peak_root_rss_kib=0

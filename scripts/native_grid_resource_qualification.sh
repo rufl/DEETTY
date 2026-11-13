@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ${DINTTY_ISOLATED_DISPLAY:-} != x11 &&
-      ${DINTTY_ISOLATED_DISPLAY:-} != wayland &&
-      ${DINTTY_DEDICATED_DISPLAY:-0} != 1 ]]; then
+if [[ ${DEETTY_ISOLATED_DISPLAY:-} != x11 &&
+      ${DEETTY_ISOLATED_DISPLAY:-} != wayland &&
+      ${DEETTY_DEDICATED_DISPLAY:-0} != 1 ]]; then
     exec ./scripts/run_isolated_x11.sh "$0" "$@"
 fi
 ./scripts/require_isolated_display.sh
-backend=${DINTTY_ISOLATED_DISPLAY:-x11}
+backend=${DEETTY_ISOLATED_DISPLAY:-x11}
 case "$backend" in
     x11|wayland) ;;
     *) echo "native_grid_resource_qualification error=unsupported_backend backend=$backend" >&2; exit 2 ;;
 esac
 
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/dintty-resource-qualification.XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/deetty-resource-qualification.XXXXXX")
 cleanup() {
     rm -rf "$scratch"
 }
@@ -22,14 +22,14 @@ trap cleanup EXIT HUP INT TERM
 for mode in Debug ReleaseSafe; do
     prefix="$scratch/$mode"
     cache="$scratch/cache-$mode"
-    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build dintty-smoke-binary \
+    ZIG_GLOBAL_CACHE_DIR=.zig-cache/global zig build deetty-smoke-binary \
         -Doptimize="$mode" \
         --prefix "$prefix" \
         --cache-dir "$cache"
     output_file="$scratch/output-$mode"
     start_ns=$(date +%s%N)
     env GDK_BACKEND="$backend" NO_AT_BRIDGE=1 \
-        "$prefix/bin/dintty-smoke" --native-grid-layout-preset-smoke \
+        "$prefix/bin/deetty-smoke" --native-grid-layout-preset-smoke \
         >"$output_file" &
     runner_pid=$!
     peak_root_pss_kib=0
