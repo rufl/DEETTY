@@ -631,6 +631,7 @@ enum {
     DEETTY_GRID_CHORD_SCROLL_KEYBOARD = 15,
     DEETTY_GRID_CHORD_CTRL_D = 16,
     DEETTY_GRID_CHORD_CTRL_C = 17,
+    DEETTY_GRID_CHORD_FONT_ZOOM = 18,
 };
 typedef struct {
     int action;

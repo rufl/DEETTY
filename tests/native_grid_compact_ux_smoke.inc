@@ -365,6 +365,17 @@ static gboolean request_compact_font_scroll_smoke(gpointer user_data) {
     root->compact_font_scroll_down = root->font_size == initial;
     event.direction = GDK_SCROLL_UP;
     (void)on_scroll(root->area, &event, root);
+    double keyboard_initial = root->font_size;
+    GdkEventKey key = {0};
+    key.type = GDK_KEY_PRESS;
+    key.state = GDK_CONTROL_MASK;
+    key.keyval = GDK_KEY_plus;
+    (void)on_key_press(root->area, &key, root);
+    double keyboard_increased = root->font_size;
+    key.keyval = GDK_KEY_minus;
+    (void)on_key_press(root->area, &key, root);
+    root->compact_font_key_up = keyboard_increased > keyboard_initial;
+    root->compact_font_key_down = root->font_size == keyboard_initial;
     event.state = 0;
     (void)on_scroll(root->area, &event, root);
     DeettyGridMouse original_mouse = root->mouse;

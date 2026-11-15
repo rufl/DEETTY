@@ -535,6 +535,8 @@ typedef struct DeettyGridContextTag {
     int compact_font_scroll_up;
     int compact_font_scroll_down;
     int compact_font_scroll_isolated;
+    int compact_font_key_up;
+    int compact_font_key_down;
     int compact_plain_scroll_preserved;
     int compact_tui_wheel_mapping;
     int compact_terminal_caret_drawn;
@@ -914,8 +916,12 @@ static void present_configured_window(GtkWidget *window) {
 static void update_window_resize_handles(DeettyGridContext *context);
 static gboolean on_window_resize_handle_button(
     GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_window_resize_handle_motion(
+    GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static gboolean on_window_resize_handle_release(
     GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean apply_pane_font_size(
+    DeettyGridContext *context, double requested, gboolean notify);
 static void queue_grid_cursor_cell(DeettyGridContext *context,
                                    uint32_t packed_cursor);
 static void apply_panel_layout_metrics(DeettyGridContext *root);
@@ -9143,6 +9149,12 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         case DEETTY_GRID_CHORD_ZOOM:
             toggle_grid_zoom(context);
             return TRUE;
+        case DEETTY_GRID_CHORD_FONT_ZOOM:
+            (void)apply_pane_font_size(
+                context,
+                context->requested_font_size + chord_plan.value,
+                TRUE);
+            return TRUE;
         case DEETTY_GRID_CHORD_SHORTCUTS:
             open_shortcuts_overlay(context);
             return TRUE;
@@ -9860,6 +9872,23 @@ typedef int (*DeettyLayerGetInt)(GtkWindow *);
 typedef gboolean (*DeettyLayerIsLayerWindow)(GtkWindow *);
 typedef void (*DeettyLayerSetEdge)(GtkWindow *, int, gboolean);
 typedef void (*DeettyLayerSetMargin)(GtkWindow *, int, int);
+typedef void (*DeettyLayerSetSize)(GtkWindow *, int, int);
+
+static gboolean apply_grid_layer_surface_size(
+    DeettyGridContext *context, int width, int height) {
+    DeettyGridContext *root = root_grid_context(context);
+    if (root->window == NULL) return FALSE;
+    deetty_grid_widget_set_size_request(root->window, width, height);
+    if (!root->layer_shell_active || root->layer_shell_library == NULL ||
+        width <= 0 || height <= 0)
+        return FALSE;
+    DeettyLayerSetSize set_size =
+        (DeettyLayerSetSize)dlsym(root->layer_shell_library,
+                                  "gtk_layer_set_size");
+    if (set_size == NULL) return FALSE;
+    set_size(GTK_WINDOW(root->window), width, height);
+    return TRUE;
+}
 
 static void set_grid_layer_keyboard_active(DeettyGridContext *context,
                                            gboolean active) {
@@ -9977,18 +10006,18 @@ static void apply_grid_layer_geometry(DeettyGridContext *context) {
         set_margin(GTK_WINDOW(root->window), 0, geometry_plan.left);
         set_margin(GTK_WINDOW(root->window), 1, geometry_plan.right);
         set_margin(GTK_WINDOW(root->window), 3, geometry_plan.bottom);
-        deetty_grid_widget_set_size_request(
-            root->window, geometry_plan.width, geometry_plan.height);
+        (void)apply_grid_layer_surface_size(
+            root, geometry_plan.width, geometry_plan.height);
     } else if (geometry_plan.action == DEETTY_GRID_LAYER_GEOMETRY_ZEN) {
         set_namespace(GTK_WINDOW(root->window), "deetty-zen");
         for (int edge = 0; edge < 4; edge++)
             set_anchor(GTK_WINDOW(root->window), edge, TRUE);
-        deetty_grid_widget_set_size_request(
-            root->window, geometry_plan.width, geometry_plan.height);
+        (void)apply_grid_layer_surface_size(
+            root, geometry_plan.width, geometry_plan.height);
     } else if (geometry_plan.action == DEETTY_GRID_LAYER_GEOMETRY_WINDOW) {
         set_namespace(GTK_WINDOW(root->window), "deetty-window");
-        deetty_grid_widget_set_size_request(
-            root->window, geometry_plan.width, geometry_plan.height);
+        (void)apply_grid_layer_surface_size(
+            root, geometry_plan.width, geometry_plan.height);
     }
 }
 
@@ -10467,6 +10496,11 @@ static GtkWidget *create_grid_toplevel(DeettyGridContext *context) {
         deetty_grid_widget_destroy(window);
         return NULL;
     }
+    deetty_grid_widget_add_events(
+        window, GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+    deetty_grid_signal_connect(
+        window, "motion-notify-event",
+        G_CALLBACK(on_window_resize_handle_motion), root);
     return window;
 }
 
@@ -16735,7 +16769,9 @@ static gboolean begin_window_resize_drag(GtkWidget *widget,
             (gint)button, (gint)x_root, (gint)y_root, time);
         return TRUE;
     }
-    deetty_grid_grab_add(widget);
+    GtkWidget *grab_widget = root->window_resize_handles[index] != NULL
+        ? root->window_resize_handles[index] : widget;
+    deetty_grid_grab_add(grab_widget);
     return TRUE;
 }
 
@@ -16826,6 +16862,14 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
     deetty_grid_native_host_policy(&policy);
     int index = deetty_grid_resize_handle_index(GPOINTER_TO_INT(
         deetty_grid_object_get_data(G_OBJECT(widget), "deetty-resize-index")));
+    if (index < 0) {
+        if (root->window_resize_drag_active)
+            index = root->window_resize_drag_handle;
+        else if (root->dragger_click_pending == 1 && root->mode == 0)
+            index = 6;
+        else
+            return FALSE;
+    }
     double delta_x = event->x_root - root->window_resize_drag_start_x;
     double delta_y = event->y_root - root->window_resize_drag_start_y;
     DeettyGridResizeEventPlan plan = {0};
@@ -16866,8 +16910,8 @@ static gboolean on_window_resize_handle_motion(GtkWidget *widget,
             root->window_resize_drag_start_width, horizontal, 320, G_MAXINT);
         int height = deetty_grid_clamp_resize(
             root->window_resize_drag_start_height, vertical, 180, G_MAXINT);
-        deetty_grid_widget_set_size_request(root->window, width, height);
-        deetty_grid_window_resize(root->window, width, height);
+        if (!apply_grid_layer_surface_size(root, width, height))
+            deetty_grid_window_resize(root->window, width, height);
         return TRUE;
     }
     if (root->mode != 0) return FALSE;
@@ -16898,11 +16942,14 @@ static gboolean on_window_resize_handle_release(GtkWidget *widget,
     (void)widget;
     DeettyGridContext *root = root_grid_context(user_data);
     DeettyGridResizeEventPlan plan = {0};
+    int index = deetty_grid_resize_handle_index(GPOINTER_TO_INT(
+        deetty_grid_object_get_data(G_OBJECT(widget),
+                                    "deetty-resize-index")));
+    if (index < 0 && root->window_resize_drag_active)
+        index = root->window_resize_drag_handle;
     deetty_grid_resize_event_plan(
         DEETTY_GRID_RESIZE_EVENT_RELEASE,
-        deetty_grid_resize_handle_index(GPOINTER_TO_INT(
-            deetty_grid_object_get_data(G_OBJECT(widget),
-                                        "deetty-resize-index"))),
+        index,
         (int)event->button, root->mode,
         root->window_resize_drag_active, root->dragger_click_pending,
         0, 0.0, &plan);

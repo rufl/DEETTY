@@ -1387,6 +1387,7 @@ pub const chord_copy: c_int = 14;
 pub const chord_scroll_keyboard: c_int = 15;
 pub const chord_ctrl_d: c_int = 16;
 pub const chord_ctrl_c: c_int = 17;
+pub const chord_font_zoom: c_int = 18;
 
 pub const pointer_event_press: c_int = 1;
 pub const pointer_event_release: c_int = 2;
@@ -1562,6 +1563,17 @@ pub export fn deetty_grid_key_chord_plan(
         keyval + ('a' - 'A')
     else
         keyval;
+
+    if (control and !alt and !super) {
+        if (keyval == '=' or keyval == '+' or keyval == gdk_key_kp_add) {
+            output.* = keyChordPlan(chord_font_zoom, 1);
+            return;
+        }
+        if (keyval == '-' or keyval == gdk_key_kp_subtract) {
+            output.* = keyChordPlan(chord_font_zoom, -1);
+            return;
+        }
+    }
 
     if (control and shift) {
         output.* = switch (lower) {
@@ -3899,6 +3911,7 @@ pub export fn deetty_grid_shortcuts_text(
             "Alt+wheel      Previous / next pane\n" ++
             "Ctrl+Alt+wheel Previous / next tab\n" ++
             "Ctrl+wheel     Pane font up / down\n" ++
+            "Ctrl+plus/minus Pane font up / down\n" ++
             "Shift+PageUp   Scroll terminal history up\n" ++
             "Shift+PageDown Scroll terminal history down\n" ++
             "Shift+Home     Oldest terminal history\n" ++
@@ -9579,6 +9592,18 @@ test "keyboard chord planner preserves shortcut precedence" {
     try std.testing.expectEqual(@as(c_int, chord_scroll_keyboard), plan.action);
     deetty_grid_key_chord_plan('b', gdk_control_mask | gdk_mod1_mask, &plan);
     try std.testing.expectEqual(@as(c_int, chord_broadcast), plan.action);
+    deetty_grid_key_chord_plan('=', gdk_control_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_font_zoom), plan.action);
+    try std.testing.expectEqual(@as(c_int, 1), plan.value);
+    deetty_grid_key_chord_plan('+', gdk_control_mask | gdk_shift_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_font_zoom), plan.action);
+    try std.testing.expectEqual(@as(c_int, 1), plan.value);
+    deetty_grid_key_chord_plan(gdk_key_kp_subtract, gdk_control_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_font_zoom), plan.action);
+    try std.testing.expectEqual(@as(c_int, -1), plan.value);
+    deetty_grid_key_chord_plan('=', gdk_control_mask | gdk_mod1_mask, &plan);
+    try std.testing.expectEqual(@as(c_int, chord_tab_color), plan.action);
+    try std.testing.expectEqual(@as(c_int, 1), plan.value);
 }
 test "keyboard scroll action policy covers GTK navigation keys" {
     try std.testing.expectEqual(@as(c_int, 1), deetty_grid_keyboard_scroll_action(gdk_key_page_up));
