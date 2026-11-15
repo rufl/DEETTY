@@ -3,6 +3,7 @@
 This changelog starts from the live repository state refreshed on 2026-07-18. Earlier granular history should be reconstructed from git history when repository metadata is available.
 
 ## Unreleased
+- Fixed native dropdown input on Wayland layer surfaces: bottom-drag resizing now keeps the drag path alive outside the narrow grip and forces mapped layer-shell size requests to reflow; pane font zoom now works through Ctrl+plus/minus and keypad +/- as well as Ctrl+wheel, without changing neighboring panes or the global font default.
 - Renamed the product from Noctty to Deetty across dialogs, code, comments,
   scripts, packaging, desktop IDs, config paths, workspace URI scheme, and
   native ABI symbols (`deetty_grid_*`). Provenance URLs point at

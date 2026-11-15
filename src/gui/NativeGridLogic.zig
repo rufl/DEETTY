@@ -2201,10 +2201,12 @@ pub export fn deetty_grid_shortcut_settings_text(
 }
 
 pub export fn deetty_grid_scroll_direction(direction: c_int) callconv(.c) c_int {
+    // GTK3 GdkScrollDirection is up, down, left, right, smooth = 0..4.
     return switch (direction) {
         0 => -1,
         1 => 1,
-        2 => 0,
+        4 => 0,
+        2, 3 => 2,
         else => 2,
     };
 }
@@ -6634,8 +6636,12 @@ test "resize handles preserve directional deltas and bounds" {
     deetty_grid_resize_delta(0, 100, 100, 90, 80, &horizontal, &vertical);
     try std.testing.expectEqual(@as(f64, 10), horizontal);
     try std.testing.expectEqual(@as(f64, 20), vertical);
+    deetty_grid_resize_delta(6, 100, 100, 130, 130, &horizontal, &vertical);
+    try std.testing.expectEqual(@as(f64, 0), horizontal);
+    try std.testing.expectEqual(@as(f64, 30), vertical);
     try std.testing.expectEqual(@as(c_int, 320), deetty_grid_clamp_resize(300, -50, 320, 900));
     try std.testing.expectEqual(@as(c_int, 900), deetty_grid_clamp_resize(850, 100, 320, 900));
+
 }
 
 test "font metrics convert points once and preserve finite cell floors" {
@@ -7294,8 +7300,9 @@ test "tray labels and icons preserve every menu state" {
 test "scroll direction and tab color names handle every boundary" {
     try std.testing.expectEqual(@as(c_int, -1), deetty_grid_scroll_direction(0));
     try std.testing.expectEqual(@as(c_int, 1), deetty_grid_scroll_direction(1));
-    try std.testing.expectEqual(@as(c_int, 0), deetty_grid_scroll_direction(2));
+    try std.testing.expectEqual(@as(c_int, 2), deetty_grid_scroll_direction(2));
     try std.testing.expectEqual(@as(c_int, 2), deetty_grid_scroll_direction(3));
+    try std.testing.expectEqual(@as(c_int, 0), deetty_grid_scroll_direction(4));
     try std.testing.expectEqualStrings("Red", std.mem.span(deetty_grid_tab_color_preset_name(0)));
     try std.testing.expectEqualStrings("Pink", std.mem.span(deetty_grid_tab_color_preset_name(7)));
     try std.testing.expectEqualStrings("Default", std.mem.span(deetty_grid_tab_color_preset_name(-1)));

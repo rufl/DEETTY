@@ -537,6 +537,7 @@ typedef struct DeettyGridContextTag {
     int compact_font_scroll_isolated;
     int compact_font_key_up;
     int compact_font_key_down;
+    int compact_font_smooth;
     int compact_plain_scroll_preserved;
     int compact_tui_wheel_mapping;
     int compact_terminal_caret_drawn;
@@ -9872,7 +9873,6 @@ typedef int (*DeettyLayerGetInt)(GtkWindow *);
 typedef gboolean (*DeettyLayerIsLayerWindow)(GtkWindow *);
 typedef void (*DeettyLayerSetEdge)(GtkWindow *, int, gboolean);
 typedef void (*DeettyLayerSetMargin)(GtkWindow *, int, int);
-typedef void (*DeettyLayerSetSize)(GtkWindow *, int, int);
 
 static gboolean apply_grid_layer_surface_size(
     DeettyGridContext *context, int width, int height) {
@@ -9882,11 +9882,9 @@ static gboolean apply_grid_layer_surface_size(
     if (!root->layer_shell_active || root->layer_shell_library == NULL ||
         width <= 0 || height <= 0)
         return FALSE;
-    DeettyLayerSetSize set_size =
-        (DeettyLayerSetSize)dlsym(root->layer_shell_library,
-                                  "gtk_layer_set_size");
-    if (set_size == NULL) return FALSE;
-    set_size(GTK_WINDOW(root->window), width, height);
+    /* gtk-layer-shell documents gtk_window_resize(1, 1) as the portable
+     * way to force a new size request onto an already-mapped layer surface. */
+    deetty_grid_window_resize(root->window, 1, 1);
     return TRUE;
 }
 
@@ -18052,8 +18050,8 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
          context.resize_grip != NULL && context.compact_font_scroll_up &&
          context.compact_font_scroll_down && context.compact_font_scroll_isolated &&
          context.compact_font_key_up && context.compact_font_key_down &&
+         context.compact_font_smooth &&
          context.compact_plain_scroll_preserved &&
-         context.compact_tui_wheel_mapping &&
          context.compact_hyperlink_open_attempted &&
          context.compact_hyperlink_context_menu &&
          context.compact_hyperlink_context_open &&
@@ -18423,10 +18421,10 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
                    context.settings_category_tooltips,
                    context.settings_background_support_notice,
                    context.translucent_surface_ready,
-        g_printerr("native_grid_compact_ux_flags palette=%d find=%d note=%d accessibility_mask=%u dynamic_shortcut=%d zoom=%d direction=%d scrollback=%d attention=%d im=%d grip=%d grip_height=%d cursor_chrome=%d terminal_cursor=%s dragger_cursor=%s side_width=%d font_up=%d font_down=%d font_isolated=%d font_key_up=%d font_key_down=%d plain_scroll=%d tui_wheel=%d scrollbar_drawn=%d scrollbar_history=%" G_GUINT64_FORMAT " scrollbar_track=%d scrollbar_drag=%d terminal_accessible=%d tab_hidden=%d tab_restored=%d pane_rendered=%d pane_positioned=%d pane_source=%d pane_dedup=%d\n",
-                   context.compact_palette_shown, context.compact_find_shown,
-                   context.compact_note_shown,
-                   context.compact_accessibility_mask,
+                   context.settings_metric_thickness_live,
+                   context.settings_narrow_access,
+                   context.settings_geometry_sane,
+                   context.settings_page_switched,
                    context.window_mode_surface_recreated,
                    context.settings_reopened_after_mode_change,
                    context.tab_position,
@@ -18470,7 +18468,7 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
                    context.compact_linear_selection,
                    context.compact_linear_selection_copy,
                    context.compact_background_fill_seamless);
-        g_printerr("native_grid_compact_ux_flags palette=%d find=%d note=%d accessibility_mask=%u dynamic_shortcut=%d zoom=%d direction=%d scrollback=%d attention=%d im=%d grip=%d grip_height=%d cursor_chrome=%d terminal_cursor=%s dragger_cursor=%s side_width=%d font_up=%d font_down=%d font_isolated=%d plain_scroll=%d tui_wheel=%d scrollbar_drawn=%d scrollbar_history=%" G_GUINT64_FORMAT " scrollbar_track=%d scrollbar_drag=%d terminal_accessible=%d tab_hidden=%d tab_restored=%d pane_rendered=%d pane_positioned=%d pane_source=%d pane_dedup=%d\n",
+        g_printerr("native_grid_compact_ux_flags palette=%d find=%d note=%d accessibility_mask=%u dynamic_shortcut=%d zoom=%d direction=%d scrollback=%d attention=%d im=%d grip=%d grip_height=%d cursor_chrome=%d terminal_cursor=%s dragger_cursor=%s side_width=%d font_up=%d font_down=%d font_isolated=%d font_key_up=%d font_key_down=%d font_smooth=%d plain_scroll=%d tui_wheel=%d scrollbar_drawn=%d scrollbar_history=%" G_GUINT64_FORMAT " scrollbar_track=%d scrollbar_drag=%d terminal_accessible=%d tab_hidden=%d tab_restored=%d pane_rendered=%d pane_positioned=%d pane_source=%d pane_dedup=%d\n",
                    context.compact_palette_shown, context.compact_find_shown,
                    context.compact_note_shown,
                    context.compact_accessibility_mask,
@@ -18486,6 +18484,9 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
                    resize_side_request_width, context.compact_font_scroll_up,
                    context.compact_font_scroll_down,
                    context.compact_font_scroll_isolated,
+                   context.compact_font_key_up,
+                   context.compact_font_key_down,
+                   context.compact_font_smooth,
                    context.compact_plain_scroll_preserved,
                    context.compact_tui_wheel_mapping,
                    context.compact_scrollbar_drawn,

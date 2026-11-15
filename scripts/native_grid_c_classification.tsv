@@ -374,6 +374,7 @@ set_grid_layer_keyboard_active	effect
 grid_monitor_for_window	migrated_policy
 grid_monitor_metrics	migrated_policy
 apply_grid_layer_geometry	migrated_policy
+apply_grid_layer_surface_size	effect
 configure_grid_layer_shell	effect
 restore_settings_parent_layer	effect
 on_overlay_window_destroy	lifetime
