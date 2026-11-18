@@ -3618,8 +3618,8 @@ static void toggle_grid_window(DeettyGridContext *context) {
         } else if (root->layer_shell_active) {
             if (root->hide_source != 0) deetty_grid_source_remove(root->hide_source);
             // Give keyboard-interactivity NONE one frame to commit before
-            // unmapping the layer surface, avoiding a combined KWin focus and
-            // surface-destroy transition on the cold path.
+            // unmapping the layer surface, avoiding focus and surface-destroy
+            // transition races on the cold path.
             root->hide_source = deetty_grid_source_timeout_add(
                 (guint)timing.layer_surface_hide_commit_ms,
                 finish_grid_hide, root);
@@ -8667,11 +8667,11 @@ static gboolean settle_grid_preset_page(gpointer user_data) {
     DeettyPresetSettleRequest *request = user_data;
     if (deetty_grid_widget_in_destruction(request->page)) return G_SOURCE_REMOVE;
 
-    /* KWin may defer child paints while nested GtkPaned allocations settle.
-     * Refreshing the bounded widget tree over four main-loop turns ensures
-     * every terminal receives damage without blocking the UI thread. The
-     * request owns the page, so closing the tab cannot leave a stale context
-     * callback behind. */
+    /* Compositors may defer child paints while nested GtkPaned allocations
+     * settle. Refreshing the bounded widget tree over four main-loop turns
+     * ensures every terminal receives damage without blocking the UI thread.
+     * The request owns the page, so closing the tab cannot leave a stale
+     * context callback behind. */
     deetty_grid_widget_queue_resize(request->page);
     queue_grid_preset_widget_draw(request->page, NULL);
 
@@ -10063,8 +10063,7 @@ static int configure_grid_layer_shell(DeettyGridContext *context) {
         set_monitor(GTK_WINDOW(root->window), monitor);
         root->layer_shell_monitor = monitor;
     }
-    // Keep the dropdown on TOP. Plasma composites alpha correctly there;
-    // OVERLAY became translucent only while a modal temporarily lowered it.
+    // Keep the dropdown on TOP. Compositors handle layer ordering and alpha.
     set_layer(GTK_WINDOW(root->window), 2);
     guint protocol_version = get_protocol_version != NULL
         ? get_protocol_version() : 0;
