@@ -38,7 +38,7 @@ done
 printf 'fn initial() void {\n    const stability_needle = true;\n    _ = stability_needle;\n}\n' \
     >"$project/focus.zig"
 
-for mode in Debug ReleaseSafe; do
+for mode in debug safe; do
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache"

@@ -3657,7 +3657,7 @@ static void toggle_grid_window(DeettyGridContext *context) {
 
 static const char deetty_control_xml[] =
     "<node>"
-    " <interface name='com.deetty.DEETTY.Control'>"
+    " <interface name='org.dinx.Deetty.Control'>"
     "  <method name='Toggle'><arg type='b' name='visible' direction='out'/></method>"
     "  <method name='ToggleWithActivation'><arg type='s' name='token' direction='in'/><arg type='b' name='visible' direction='out'/></method>"
     "  <method name='Show'><arg type='b' name='visible' direction='out'/></method>"
@@ -3796,8 +3796,8 @@ static void on_grid_control_name_requested(GObject *source,
     deetty_grid_error_clear(&error);
     if (root->control_name_conflict && root->show_on_control_conflict) {
         GVariant *forwarded = g_dbus_connection_call_sync(
-            root->control_bus, "com.deetty.DEETTY", "/com/deetty/DEETTY",
-            "com.deetty.DEETTY.Control", "Show", NULL,
+            root->control_bus, "org.dinx.Deetty", "/org/dinx/Deetty",
+            "org.dinx.Deetty.Control", "Show", NULL,
             G_VARIANT_TYPE("(b)"), G_DBUS_CALL_FLAGS_NONE,
             timing.dbus_call_timeout_ms, NULL, NULL);
         if (forwarded != NULL) {
@@ -3825,14 +3825,14 @@ static void on_grid_control_bus_ready(GObject *source, GAsyncResult *result,
                                                        &error);
     if (root->control_node == NULL) goto failed;
     root->control_object_id = g_dbus_connection_register_object(
-        root->control_bus, "/com/deetty/DEETTY",
+        root->control_bus, "/org/dinx/Deetty",
         root->control_node->interfaces[0], &deetty_control_vtable, root, NULL,
         &error);
     if (root->control_object_id == 0) goto failed;
     g_dbus_connection_call(
         root->control_bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
         "org.freedesktop.DBus", "RequestName",
-        g_variant_new("(su)", "com.deetty.DEETTY", 4u),
+        g_variant_new("(su)", "org.dinx.Deetty", 4u),
         G_VARIANT_TYPE("(u)"), G_DBUS_CALL_FLAGS_NONE,
         timing.dbus_call_timeout_ms,
         root->dbus_cancellable, on_grid_control_name_requested, root);
@@ -3856,7 +3856,7 @@ static void unregister_grid_control(DeettyGridContext *context) {
     g_dbus_connection_call(
         root->control_bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
         "org.freedesktop.DBus", "ReleaseName",
-        g_variant_new("(s)", "com.deetty.DEETTY"), G_VARIANT_TYPE("(u)"),
+        g_variant_new("(s)", "org.dinx.Deetty"), G_VARIANT_TYPE("(u)"),
         G_DBUS_CALL_FLAGS_NONE, timing.dbus_call_timeout_ms,
         NULL, NULL, NULL);
     g_clear_pointer(&root->control_node, g_dbus_node_info_unref);
@@ -4195,7 +4195,7 @@ static GVariant *on_grid_tray_get_property(
     if (g_strcmp0(property_name, "Id") == 0)
         return g_variant_new_string("deetty");
     if (g_strcmp0(property_name, "Title") == 0)
-        return g_variant_new_string("DEETTY");
+        return g_variant_new_string("Deetty");
     if (g_strcmp0(property_name, "Status") == 0)
         return g_variant_new_string("Active");
     if (g_strcmp0(property_name, "WindowId") == 0)
@@ -4207,7 +4207,7 @@ static GVariant *on_grid_tray_get_property(
     if (g_strcmp0(property_name, "ItemIsMenu") == 0)
         return g_variant_new_boolean(FALSE);
     if (g_strcmp0(property_name, "IconName") == 0)
-        return g_variant_new_string("com.deetty.DEETTY");
+        return g_variant_new_string("org.dinx.Deetty");
     if (g_strcmp0(property_name, "IconPixmap") == 0)
         return root->tray_icon_pixmaps != NULL
             ? deetty_grid_variant_ref(root->tray_icon_pixmaps)
@@ -4224,7 +4224,7 @@ static GVariant *on_grid_tray_get_property(
             ? deetty_grid_variant_ref(root->tray_icon_pixmaps)
             : new_empty_grid_tray_pixmaps();
         return g_variant_new(
-            "(s@a(iiay)ss)", "com.deetty.DEETTY", pixmaps, "DEETTY",
+            "(s@a(iiay)ss)", "org.dinx.Deetty", pixmaps, "Deetty",
             root->window_presented
                 ? "Terminal window is visible"
                 : "Click to show the terminal window");
@@ -6313,8 +6313,8 @@ static void on_grid_notification_bus_ready(GObject *source,
         bus, "org.freedesktop.Notifications",
         "/org/freedesktop/Notifications", "org.freedesktop.Notifications",
         "Notify",
-        g_variant_new("(susss@as@a{sv}i)", "DEETTY", 0u,
-                      "com.lichforge.DEETTY",
+        g_variant_new("(susss@as@a{sv}i)", "Deetty", 0u,
+                      "org.dinx.Deetty",
                       summary,
                       body,
                       g_variant_new_strv(NULL, 0),
@@ -10460,7 +10460,7 @@ static GtkWidget *create_grid_toplevel(DeettyGridContext *context) {
          deetty_grid_widget_get_app_paintable(window));
     root->application_icon_ready = g_strcmp0(
         deetty_grid_window_get_icon_name(GTK_WINDOW(window)),
-        "com.deetty.DEETTY") == 0;
+        "org.dinx.Deetty") == 0;
     set_grid_window_title(
         root,
         window,
@@ -11681,7 +11681,7 @@ static void open_grid_settings(DeettyGridContext *context) {
         return;
     }
     GtkWidget *dialog = deetty_dialog_new(
-        GTK_WIDGET(context->window), "Configure DEETTY",
+        GTK_WIDGET(context->window), "Configure Deetty",
         GTK_DIALOG_DESTROY_WITH_PARENT, "_Close", GTK_RESPONSE_CLOSE,
         NULL, 0);
     (void)configure_overlay_window_stacking(
@@ -17352,8 +17352,8 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
     if (workspace_smoke >= 0) return -3;
     workspace_smoke = -1;
 #endif
-    g_set_prgname("com.deetty.DEETTY");
-    g_set_application_name("DEETTY");
+    g_set_prgname("org.dinx.Deetty");
+    g_set_application_name("Deetty");
     if (!deetty_grid_gtk_init_check()) {
         g_printerr("native_grid_gtk_init_failed display=%s wayland_display=%s gdk_backend=%s\n",
                    g_getenv("DISPLAY") != NULL ? g_getenv("DISPLAY") : "",
@@ -17361,7 +17361,7 @@ int deetty_native_grid_host_run_v2(const DeettyGridCallbacks *callbacks,
                    g_getenv("GDK_BACKEND") != NULL ? g_getenv("GDK_BACKEND") : "");
         return -1;
     }
-    deetty_grid_window_set_default_icon_name("com.deetty.DEETTY");
+    deetty_grid_window_set_default_icon_name("org.dinx.Deetty");
     DeettyGridContext context = {0};
     DeettyGridNativeHostPolicy policy = {0};
     deetty_grid_native_host_policy(&policy);

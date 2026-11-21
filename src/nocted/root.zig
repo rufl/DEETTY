@@ -1,5 +1,6 @@
 pub const document = @import("Document.zig");
 pub const folding = @import("Folding.zig");
+pub const git = @import("Git.zig");
 pub const ignore = @import("Ignore.zig");
 pub const lsp = @import("Lsp.zig");
 pub const multi_selection = @import("MultiSelection.zig");
@@ -16,6 +17,7 @@ pub const textmate_grammar = @import("TextMateGrammar.zig");
 test {
     _ = document;
     _ = folding;
+    _ = git;
     _ = ignore;
     _ = lsp;
     _ = multi_selection;

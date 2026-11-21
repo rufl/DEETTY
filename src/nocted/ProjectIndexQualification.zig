@@ -125,7 +125,7 @@ fn runQualification(
         break :quick_open results.total_matches;
     };
     const quick_open_ns = elapsedNanoseconds(started, io);
-    if (builtin.mode == .ReleaseSafe and scale == core.project_index.max_entries and
+    if (builtin.mode == .safe and scale == core.project_index.max_entries and
         quick_open_ns > quick_open_budget_ns_release_safe)
         return error.QuickOpenLatencyBudgetExceeded;
     var retained = baseline.retain();

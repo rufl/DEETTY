@@ -14,7 +14,7 @@ TMPDIR="$scratch" NOCTED_CORE_STABILITY_CYCLES=512 \
     "$repo_root/scripts/nocted_core_stability_qualification.sh" | tee "$output_file"
 elapsed_seconds=$(($(date +%s) - started_seconds))
 
-for mode in Debug ReleaseSafe; do
+for mode in debug safe; do
     grep -F "nocted_core_stability mode=$mode cycles=512" "$output_file" >/dev/null
     grep -E \
         "nocted_core_stability_resource mode=$mode peak_pss_kib=[1-9][0-9]* peak_rss_kib=[1-9][0-9]* samples=[1-9][0-9]* root_process_only=true" \

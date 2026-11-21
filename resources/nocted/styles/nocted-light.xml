@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="dintor-light" _name="Dintor Light" version="1.0">
+  <author>DINX contributors</author>
+  <_description>DINX-aligned compact light editor palette</_description>
+  <color name="background" value="#F7F8FA"/>
+  <color name="foreground" value="#202631"/>
+  <color name="muted" value="#687386"/>
+  <color name="selection" value="#D9E5FF"/>
+  <color name="pink" value="#B4235A"/>
+  <color name="green" value="#1B7F5A"/>
+  <color name="yellow" value="#8A5A00"/>
+  <color name="blue" value="#2859A8"/>
+  <color name="violet" value="#7048A8"/>
+  <color name="orange" value="#9A4D00"/>
+  <style name="text" foreground="foreground" background="background"/>
+  <style name="selection" foreground="foreground" background="selection"/>
+  <style name="cursor" foreground="foreground"/>
+  <style name="current-line" background="#EEF1F6"/>
+  <style name="line-numbers" foreground="muted" background="#EEF1F6"/>
+  <style name="right-margin" foreground="#D9DEE8" background="background"/>
+  <style name="search-match" foreground="#202631" background="yellow"/>
+  <style name="bracket-match" foreground="orange" bold="true"/>
+  <style name="bracket-mismatch" foreground="foreground" background="pink"/>
+  <style name="def:comment" foreground="muted" italic="true"/>
+  <style name="def:string" foreground="yellow"/>
+  <style name="def:character" foreground="yellow"/>
+  <style name="def:number" foreground="violet"/>
+  <style name="def:boolean" foreground="violet"/>
+  <style name="def:constant" foreground="violet"/>
+  <style name="def:keyword" foreground="pink"/>
+  <style name="def:statement" foreground="pink"/>
+  <style name="def:type" foreground="blue" italic="true"/>
+  <style name="def:function" foreground="green"/>
+  <style name="def:identifier" foreground="green"/>
+  <style name="def:preprocessor" foreground="blue"/>
+  <style name="def:error" foreground="foreground" background="pink"/>
+</style-scheme>

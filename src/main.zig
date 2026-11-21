@@ -3696,11 +3696,30 @@ pub fn main(init: std.process.Init) !void {
 
     if (args.len > 1) {
         const cmd = args[1];
+        if (std.mem.eql(u8, cmd, "-e") or std.mem.eql(u8, cmd, "--execute")) {
+            if (args.len < 3) return error.InvalidExecuteArguments;
+            var command_buffer: [deetty.launch_profile.max_command_bytes]u8 = undefined;
+            const command = try deetty.launch_profile.quoteCommandArguments(args[2..], &command_buffer);
+            try runNativeGridActivated(
+                allocator,
+                init.io,
+                home_dir,
+                init.environ_map,
+                1,
+                .visible,
+                null,
+                .restart_shells,
+                false,
+                null,
+                command,
+            );
+            return;
+        }
         if (std.mem.eql(u8, cmd, "--help") or std.mem.eql(u8, cmd, "-h")) {
             try stdout.writeAll(
                 \\Usage: deetty [OPTION]
                 \\
-                \\With no option, show the existing workspace or start DEETTY.
+                \\With no option, show the existing workspace or start Deetty.
                 \\  -h, --help                 Show this help without opening a window
                 \\  --version                  Print the version
                 \\  --package-smoke             Run the headless deployment smoke
@@ -3714,6 +3733,8 @@ pub fn main(init: std.process.Init) !void {
                 \\  --native-grid-zen          Open in fullscreen mode
                 \\  --open-workspace PATH      Restore a saved workspace
                 \\  --open-uri URI             Open a deetty workspace URI
+                \\  -e, --execute COMMAND [ARGS...]
+                \\                             Run COMMAND in an independent window
                 \\
                 \\Settings, shortcuts, themes and launch profiles are configurable in
                 \\the native Settings window. See docs/INSTALL.md for desktop setup.
@@ -3776,6 +3797,7 @@ pub fn main(init: std.process.Init) !void {
                 .restart_shells,
                 false,
                 working_directory,
+                null,
             );
             return;
         }
@@ -3810,6 +3832,7 @@ pub fn main(init: std.process.Init) !void {
                 .restart_shells,
                 false,
                 null,
+                null,
             );
             return;
         }
@@ -3830,6 +3853,7 @@ pub fn main(init: std.process.Init) !void {
                 parsed.slice(),
                 restore_mode,
                 false,
+                null,
                 null,
             );
             return;
@@ -8566,7 +8590,7 @@ fn nativeGridNoctaliaIpcSmoke(out: anytype) !void {
         .use_layer_shell = 0,
     });
     if (status != 0) return error.NativeGridNoctaliaIpcSmokeFailed;
-    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=com.deetty.DEETTY title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=2px side_border=2 exited=true\n", .{});
+    try out.print("native_grid_noctalia_ipc_smoke dbus=true layer_shell=false toplevel_fallback=true app_id=org.dinx.Deetty title_prefix=true hidden_start=true status=true show=true hide=true toggle=true single_instance=true dropdown_dragger=2px side_border=2 exited=true\n", .{});
 }
 
 fn nativeGridWorkspaceActivationSmoke(
@@ -8960,6 +8984,7 @@ fn runNativeGrid(allocator: std.mem.Allocator, io: std.Io, home_dir: []const u8,
         .restart_shells,
         true,
         null,
+        null,
     );
 }
 
@@ -9042,6 +9067,7 @@ fn runNativeGridActivated(
     restore_mode: deetty.continuity.RestoreMode,
     claim_control: bool,
     initial_working_directory: ?[]const u8,
+    initial_command: ?[]const u8,
 ) !void {
     var instance_lock: ?NativeInstanceLock = null;
     if (claim_control) {
@@ -9136,7 +9162,7 @@ fn runNativeGridActivated(
     );
     session_pool.history_limit = app.config.terminal.scrollback_lines;
     defer session_pool.deinit();
-    var session = if (hot_session_load == .restored)
+    var session = if (initial_command == null and hot_session_load == .restored)
         try deetty.terminal_session.TerminalSession.spawnWithHistoryLimitAndScratch(
             allocator,
             cwd,
@@ -9147,9 +9173,14 @@ fn runNativeGridActivated(
             &session_pool.pump_scratch,
         )
     else launch: {
-        const initial_profile = app.config.terminal.launch_profile.forInitialLaunch(
+        var initial_profile = app.config.terminal.launch_profile.forInitialLaunch(
             initial_working_directory,
         );
+        if (initial_command) |command| {
+            initial_profile.kind = .command;
+            try initial_profile.shell.set("/bin/sh");
+            try initial_profile.command.set(command);
+        }
         const resolved_cwd = initial_profile.workingDirectory(pane.cwd);
         if (!std.mem.eql(u8, resolved_cwd, pane.cwd)) try pane.setCwd(resolved_cwd);
         break :launch try deetty.terminal_session.TerminalSession.spawnProfileWithScratch(

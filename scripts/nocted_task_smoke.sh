@@ -67,7 +67,7 @@ probe() {
   project=$1
   action=$2
   expected=$3
-  output=$(timeout 30 ./zig-out/bin/nocted \
+  output=$(timeout 30 ./zig-out/bin/dintor \
     --task-probe "$scratch/$project" "$action")
   printf '%s\n' "$output"
   printf '%s\n' "$output" | grep -F "$expected" >/dev/null

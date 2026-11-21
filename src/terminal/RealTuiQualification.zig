@@ -290,6 +290,33 @@ pub fn runCase(
             .bytes => |count| output_bytes += count,
             .would_block => Pty.sleepBrief(1),
             .eof => {
+                if (try session.pollExit()) |exit_code| {
+                    std.debug.print("tui_exit_detail app={s} exit_code={d}\n", .{
+                        @tagName(case.app),
+                        exit_code,
+                    });
+                } else {
+                    std.debug.print("tui_exit_detail app={s} exit_code=unavailable\n", .{
+                        @tagName(case.app),
+                    });
+                }
+                var row_bytes: [256]u8 = undefined;
+                if (session.grid.columns <= row_bytes.len) {
+                    for (0..session.grid.rows) |row| {
+                        for (0..session.grid.columns) |column| {
+                            const codepoint = session.grid.cell(column, row).codepoint;
+                            row_bytes[column] = if (codepoint >= 0x20 and codepoint <= 0x7e)
+                                @intCast(codepoint)
+                            else
+                                ' ';
+                        }
+                        std.debug.print("tui_exit_screen app={s} row={d} text={s}\n", .{
+                            @tagName(case.app),
+                            row,
+                            row_bytes[0..session.grid.columns],
+                        });
+                    }
+                }
                 std.debug.print("tui_exited_before_ready app={s}\n", .{
                     @tagName(case.app),
                 });
@@ -338,7 +365,7 @@ pub fn runCase(
         &name_buffer,
     )) |info| identity: {
         for (case.process_names) |process_name| {
-            if (std.ascii.indexOfIgnoreCase(info.name, process_name) != null)
+            if (containsIgnoreCase(info.name, process_name))
                 break :identity true;
         }
         break :identity false;
@@ -408,7 +435,7 @@ pub fn appEnvironment(
         buffer,
         "HOME={s}/{s}-home;CODEX_HOME={s}/{s}-codex;" ++
             "XDG_CONFIG_HOME={s}/{s}-config;XDG_STATE_HOME={s}/{s}-state;" ++
-            "XDG_CACHE_HOME={s}/{s}-cache;TMPDIR={s}/{s}-cache",
+            "XDG_CACHE_HOME={s}/{s}-cache;TMPDIR={s}/{s}-cache;LC_ALL=C.UTF-8",
         .{
             scratch,
             app,
@@ -436,6 +463,17 @@ pub fn validatePath(path: []const u8) !void {
     }
 }
 
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+    for (0..haystack.len - needle.len + 1) |offset| {
+        if (std.ascii.eqlIgnoreCase(
+            haystack[offset .. offset + needle.len],
+            needle,
+        )) return true;
+    }
+    return false;
+}
 fn allMarkersPresent(grid: Vt.Grid, markers: []const []const u8) bool {
     for (markers) |marker| {
         if (!gridContainsIgnoreCase(grid, marker)) return false;
