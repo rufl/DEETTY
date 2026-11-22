@@ -1,4 +1,44 @@
 const std = @import("std");
+
+pub fn quoteCommandArguments(args: anytype, output: *[max_command_bytes]u8) ![]const u8 {
+    if (args.len == 0) return error.InvalidExecuteArguments;
+    var length: usize = 0;
+    for (args, 0..) |arg, index| {
+        if (index == 0 and arg.len == 0) return error.InvalidExecuteArguments;
+        if (index != 0) try appendCommandBytes(output, &length, " ");
+        try appendCommandBytes(output, &length, "'");
+        for (arg) |byte| {
+            if (byte < 0x20 or byte == 0x7f) return error.InvalidExecuteArgument;
+            if (byte == '\'') {
+                try appendCommandBytes(output, &length, "'\\''");
+            } else {
+                try appendCommandByte(output, &length, byte);
+            }
+        }
+        try appendCommandBytes(output, &length, "'");
+    }
+    return output[0..length];
+}
+
+fn appendCommandBytes(
+    output: *[max_command_bytes]u8,
+    length: *usize,
+    bytes: []const u8,
+) !void {
+    if (bytes.len > max_command_bytes - length.*) return error.ExecuteArgumentsTooLong;
+    @memcpy(output[length.* .. length.* + bytes.len], bytes);
+    length.* += bytes.len;
+}
+
+fn appendCommandByte(
+    output: *[max_command_bytes]u8,
+    length: *usize,
+    byte: u8,
+) !void {
+    if (length.* == max_command_bytes) return error.ExecuteArgumentsTooLong;
+    output[length.*] = byte;
+    length.* += 1;
+}
 const builtin = @import("builtin");
 
 pub const PathStyle = enum { posix, windows };
@@ -521,4 +561,20 @@ test "launch profiles: bounded decoded lengths are checked before slicing" {
     @memset(&profile.command.bytes, 'a');
     profile.command.len = max_command_bytes;
     try profile.validateFor(.windows);
+}
+test "terminal execute argv are safely quoted and bounded" {
+    const argv = [_][]const u8{ "/usr/bin/echo", "space here", "a'b", "", "$(touch /tmp/no)" };
+    var output: [max_command_bytes]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "'/usr/bin/echo' 'space here' 'a'\\''b' '' '$(touch /tmp/no)'",
+        try quoteCommandArguments(&argv, &output),
+    );
+
+    const no_program = [_][]const u8{""};
+    try std.testing.expectError(error.InvalidExecuteArguments, quoteCommandArguments(&no_program, &output));
+    const controls = [_][]const u8{ "/bin/echo", "line\nbreak" };
+    try std.testing.expectError(error.InvalidExecuteArgument, quoteCommandArguments(&controls, &output));
+    var long_argument: [max_command_bytes]u8 = @splat('x');
+    const long_argv = [_][]const u8{ "/bin/echo", long_argument[0..] };
+    try std.testing.expectError(error.ExecuteArgumentsTooLong, quoteCommandArguments(&long_argv, &output));
 }

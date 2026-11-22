@@ -1,10 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=NoctEd
+Name=Editor
+Name[pt_BR]=Editor
 GenericName=Text Editor
 Comment=Native project editor with a project tree and minimap
-Exec=nocted %F
-Icon=com.deetty.NoctEd
+Exec=dintor %F
+Icon=org.dinx.Dintor
 Terminal=false
 Categories=Utility;TextEditor;
 MimeType=text/plain;text/x-c;text/x-c++;text/x-python;application/json;

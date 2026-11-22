@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<style-scheme id="nocted-dark" _name="NoctEd Dark" version="1.0">
-  <author>DEETTY contributors</author>
-  <_description>DEETTY-aligned compact dark editor palette</_description>
+<style-scheme id="dintor-dark" _name="Dintor Dark" version="1.0">
+  <author>Deetty contributors</author>
+  <_description>Deetty-aligned compact dark editor palette</_description>
   <color name="background" value="#0B0D12"/>
   <color name="foreground" value="#D7DDE8"/>
   <color name="muted" value="#7F8A9C"/>

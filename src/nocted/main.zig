@@ -1,4 +1,4 @@
-//! Standalone NoctEd GTK application and UI-thread lifecycle owner.
+//! Standalone Dintor GTK application and UI-thread lifecycle owner.
 //!
 //! Reusable document, indexing, search, session, and worker behavior belongs in
 //! sibling modules. This file coordinates widgets and callbacks; worker jobs
@@ -1184,7 +1184,7 @@ const App = struct {
 
     fn showUiFontSettings(self: *App) void {
         const dialog = c.gtk_dialog_new_with_buttons(
-            "NoctEd Settings",
+            "Dintor Settings",
             asWindow(self.window),
             c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
             "Cancel",
@@ -1557,11 +1557,11 @@ const App = struct {
         installCss();
         self.window = c.gtk_window_new(c.GTK_WINDOW_TOPLEVEL) orelse
             return error.WindowCreationFailed;
-        c.gtk_window_set_title(asWindow(self.window), "NoctEd");
+        c.gtk_window_set_title(asWindow(self.window), "Dintor");
         c.gtk_window_set_default_size(asWindow(self.window), 1220, 760);
-        c.gtk_window_set_icon_name(asWindow(self.window), "com.deetty.NoctEd");
+        c.gtk_window_set_icon_name(asWindow(self.window), "org.dinx.Dintor");
         c.gtk_widget_set_name(self.window, "nocted-window");
-        setAccessibleName(self.window, "NoctEd editor window");
+        setAccessibleName(self.window, "Dintor editor window");
         connect(self.window, "delete-event", @ptrCast(&onWindowDelete), self);
         connect(self.window, "destroy", @ptrCast(&onWindowDestroy), self);
         connect(self.window, "key-press-event", @ptrCast(&onWindowKeyPress), self);
@@ -1763,6 +1763,12 @@ const App = struct {
             &onImportTextMateGrammar,
             self,
         );
+        appendMenuAction(
+            tools_menu,
+            "Git Status and Diff...",
+            &onShowGitStatus,
+            self,
+        );
         appendMenuSeparator(tools_menu);
         appendToolAction(tools_menu, "Language Diagnostics", .diagnostics, self);
         appendToolAction(tools_menu, "Language Completion", .completion, self);
@@ -1780,7 +1786,7 @@ const App = struct {
         appendMenuRoot(bar, "Tools", tools_menu);
 
         const help_menu = c.gtk_menu_new() orelse unreachable;
-        appendMenuAction(help_menu, "About NoctEd", &onAbout, self);
+        appendMenuAction(help_menu, "About Dintor", &onAbout, self);
         appendMenuRoot(bar, "Help", help_menu);
         return bar;
     }
@@ -2544,7 +2550,7 @@ const App = struct {
         const root_name = std.fs.path.basename(self.project_root.?);
         const title = std.fmt.allocPrintSentinel(
             self.allocator,
-            "NOCTED - {s}",
+            "DINTOR - {s}",
             .{root_name},
             0,
         ) catch null;
@@ -3094,7 +3100,8 @@ const App = struct {
         c.gtk_source_buffer_set_highlight_matching_brackets(buffer, 1);
         c.gtk_source_buffer_set_max_undo_levels(buffer, 128);
         c.gtk_source_buffer_set_implicit_trailing_newline(buffer, 0);
-        if (c.gtk_source_style_scheme_manager_get_scheme(self.style_manager, "nocted-dark")) |scheme|
+        const style_scheme = if (lightThemeRequested(self.environ_map)) "dintor-light" else "dintor-dark";
+        if (c.gtk_source_style_scheme_manager_get_scheme(self.style_manager, style_scheme)) |scheme|
             c.gtk_source_buffer_set_style_scheme(buffer, scheme);
         c.gtk_source_buffer_begin_not_undoable_action(buffer);
         c.gtk_text_buffer_set_text(
@@ -4867,6 +4874,54 @@ const App = struct {
         };
     }
 
+    fn currentGitRoot(self: *App) ?[]const u8 {
+        if (self.project_root) |root| return root;
+        const document = self.currentDocument() orelse return null;
+        const path = document.path orelse return null;
+        return std.fs.path.dirname(path) orelse ".";
+    }
+    fn showGitStatus(self: *App) void {
+        const root = self.currentGitRoot() orelse {
+            self.updateStatusError("Open a project or file before inspecting Git");
+            return;
+        };
+        var snapshot = core.git.snapshotAlloc(self.allocator, self.io, root) catch |err| {
+            self.showWorkerError("Git status unavailable", err);
+            return;
+        };
+        defer snapshot.deinit(self.allocator);
+        const summary = core.git.formatAlloc(self.allocator, snapshot) catch |err| {
+            self.showWorkerError("Git summary unavailable", err);
+            return;
+        };
+        defer self.allocator.free(summary);
+        const summary_z = Compat.dupeZ(self.allocator, summary) catch return;
+        defer self.allocator.free(summary_z);
+        const dialog = c.gtk_message_dialog_new(
+            asWindow(self.window),
+            c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
+            c.GTK_MESSAGE_INFO,
+            c.GTK_BUTTONS_CLOSE,
+            "%s",
+            summary_z.ptr,
+        ) orelse return;
+        _ = c.gtk_dialog_run(@ptrCast(dialog));
+        c.gtk_widget_destroy(dialog);
+        const status = std.fmt.allocPrintSentinel(
+            self.allocator,
+            "Git: {d} changed, {d} staged, {d} unstaged, {d} untracked",
+            .{
+                snapshot.counts.changed,
+                snapshot.counts.staged,
+                snapshot.counts.unstaged,
+                snapshot.counts.untracked,
+            },
+            0,
+        ) catch return;
+        defer self.allocator.free(status);
+        self.updateStatus(status.ptr);
+    }
+
     fn importSyntaxDirectory(self: *App, path: []const u8) void {
         const count = core.syntax_discovery.countLanguageSpecs(
             self.io,
@@ -6617,7 +6672,7 @@ fn validateApplicationArguments(args: []const []const u8) !void {
         {
             if (!build_options.enable_smoke) return error.SmokeModeUnavailable;
         } else if (std.mem.startsWith(u8, arg, "-")) {
-            std.debug.print("Unknown option: {s}\nRun 'nocted --help' for usage.\n", .{arg});
+            std.debug.print("Unknown option: {s}\nRun 'dintor --help' for usage.\n", .{arg});
             return error.UnknownArgument;
         }
     }
@@ -6697,7 +6752,7 @@ fn applicationIdForDirectory(directory: []const u8, buffer: *[64:0]u8) [*:0]cons
     }
     const formatted = Compat.bufPrintZ(
         buffer,
-        "com.deetty.NoctEd.n{x}",
+        "org.dinx.Dintor.n{x}",
         .{hash},
     ) catch unreachable;
     return formatted.ptr;
@@ -6747,15 +6802,15 @@ pub fn main(init: std.process.Init) !void {
         var buffer: [2048]u8 = undefined;
         var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
         if (std.mem.eql(u8, args[1], "--version")) {
-            try writer.interface.print("nocted {s}\n", .{version});
+            try writer.interface.print("dintor {s}\n", .{version});
         } else {
             try writer.interface.writeAll(
-                \\Usage: nocted [OPTIONS] [FILE ...]
+                \\Usage: dintor [OPTIONS] [FILE ...]
                 \\
                 \\  -h, --help         Show this help without opening a window
                 \\  --version          Print the version
                 \\  --open FILE        Open a file (repeatable)
-                \\  --project FILE.npr Open a saved NoctEd project
+                \\  --project FILE.npr Open a saved Dintor project
                 \\  --                 Treat remaining arguments as file paths
                 \\
                 \\With no files, restore the previous session or open an untitled
@@ -6831,6 +6886,30 @@ pub fn main(init: std.process.Init) !void {
             .{ server.argv[0], server.language_id, summary },
         );
         try writer.interface.flush();
+        return;
+    }
+    if (args.len > 2 and std.mem.eql(u8, args[1], "--git-probe")) {
+        var snapshot = try core.git.snapshotAlloc(allocator, init.io, args[2]);
+        defer snapshot.deinit(allocator);
+        var buffer: [1024]u8 = undefined;
+        var writer: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+        try writer.interface.print(
+            "nocted_git_probe changed={d} staged={d} unstaged={d} untracked={d} added={d} deleted={d} modified={d} renamed={d} diff_bytes={d} markers=true\n",
+            .{
+                snapshot.counts.changed,
+                snapshot.counts.staged,
+                snapshot.counts.unstaged,
+                snapshot.counts.untracked,
+                snapshot.counts.added,
+                snapshot.counts.deleted,
+                snapshot.counts.modified,
+                snapshot.counts.renamed,
+                snapshot.diff.len,
+            },
+        );
+        try writer.interface.flush();
+        if (snapshot.counts.changed == 0) return error.GitProbeClean;
+        if (snapshot.diff.len == 0) return error.GitProbeDiffUnavailable;
         return;
     }
     if (args.len > 1 and std.mem.eql(u8, args[1], "--runtime-contract")) {
@@ -7025,10 +7104,10 @@ pub fn main(init: std.process.Init) !void {
     c.gtk_main();
     if (build_options.enable_smoke and app.smoke and
         !app.project_lifecycle_smoke and !app.smoke_passed)
-        return error.NoctEdNativeSmokeFailed;
+        return error.DintorNativeSmokeFailed;
     if (build_options.enable_smoke and app.project_lifecycle_smoke and
         !app.project_lifecycle_passed)
-        return error.NoctEdProjectLifecycleSmokeFailed;
+        return error.DintorProjectLifecycleSmokeFailed;
 }
 
 fn elapsedNanoseconds(started: std.Io.Timestamp, io: std.Io) u64 {
@@ -7054,8 +7133,8 @@ fn locateResourceRoot(allocator: std.mem.Allocator, io: std.Io) ![]u8 {
     const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
     defer allocator.free(exe_dir);
     const candidates = [_][]const []const u8{
-        &.{ exe_dir, "../share/nocted" },
-        &.{ exe_dir, "../../share/nocted" },
+        &.{ exe_dir, "../share/dintor" },
+        &.{ exe_dir, "../../share/dintor" },
         &.{"resources/nocted"},
     };
     for (candidates) |parts| {
@@ -7071,7 +7150,12 @@ fn locateResourceRoot(allocator: std.mem.Allocator, io: std.Io) ![]u8 {
             allocator.free(candidate);
         }
     }
-    return error.NoctEdResourcesUnavailable;
+    return error.DintorResourcesUnavailable;
+}
+fn lightThemeRequested(environ_map: *const std.process.Environ.Map) bool {
+    const value = environ_map.get("DINX_COLOR_SCHEME") orelse
+        environ_map.get("DINTOR_THEME") orelse return false;
+    return std.mem.eql(u8, value, "light") or std.mem.eql(u8, value, "prefer-light");
 }
 
 fn installCss() void {
@@ -7935,7 +8019,7 @@ fn onProjectLoadStep(data: ?*anyopaque) callconv(.c) c.gboolean {
 fn onOpenFolder(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     const dialog = c.gtk_file_chooser_dialog_new(
-        "Create NoctEd Project",
+        "Create Dintor Project",
         asWindow(app.window),
         c.GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
         "Cancel",
@@ -7959,7 +8043,7 @@ fn onOpenFolder(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 fn onOpenProject(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     const dialog = c.gtk_file_chooser_dialog_new(
-        "Open NoctEd Project",
+        "Open Dintor Project",
         asWindow(app.window),
         c.GTK_FILE_CHOOSER_ACTION_OPEN,
         "Cancel",
@@ -8277,6 +8361,11 @@ fn onShowUiFontSettings(
     app.showUiFontSettings();
 }
 
+
+fn onShowGitStatus(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
+    const app: *App = @ptrCast(@alignCast(data.?));
+    app.showGitStatus();
+}
 fn onImportSyntax(_: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
     const app: *App = @ptrCast(@alignCast(data.?));
     const dialog = c.gtk_file_chooser_dialog_new(
@@ -8343,7 +8432,7 @@ fn onToolAction(widget: ?*c.GtkWidget, data: ?*anyopaque) callconv(.c) void {
 
 fn runAboutDialog(app: *App, auto_close: bool) bool {
     const dialog = c.gtk_dialog_new_with_buttons(
-        "About NoctEd",
+        "About Dintor",
         asWindow(app.window),
         c.GTK_DIALOG_MODAL | c.GTK_DIALOG_DESTROY_WITH_PARENT,
         "Close",
@@ -8359,7 +8448,7 @@ fn runAboutDialog(app: *App, auto_close: bool) bool {
     c.gtk_widget_set_margin_end(body, 32);
     c.gtk_widget_set_margin_top(body, 24);
     c.gtk_widget_set_margin_bottom(body, 24);
-    const title = c.gtk_label_new("NoctEd") orelse return false;
+    const title = c.gtk_label_new("Dintor") orelse return false;
     c.gtk_widget_set_name(title, "nocted-about-title");
     const version_label = c.gtk_label_new(version) orelse return false;
     const comments = c.gtk_label_new(
@@ -8378,8 +8467,8 @@ fn runAboutDialog(app: *App, auto_close: bool) bool {
     ) orelse return false;
     c.gtk_widget_set_name(close_button, "nocted-about-close");
     c.gtk_widget_set_size_request(close_button, 88, 36);
-    c.gtk_widget_set_tooltip_text(close_button, "Close About NoctEd");
-    setAccessibleName(close_button, "Close About NoctEd");
+    c.gtk_widget_set_tooltip_text(close_button, "Close About Dintor");
+    setAccessibleName(close_button, "Close About Dintor");
     c.gtk_widget_show_all(dialog);
     const close_visible = c.gtk_widget_get_visible(close_button) != 0 and
         c.gtk_widget_get_sensitive(close_button) != 0;

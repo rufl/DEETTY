@@ -1,22 +1,22 @@
 [Desktop Entry]
 Type=Application
-Name=DEETTY
+Name=Deetty
 GenericName=Terminal Workspace
-Comment=Native terminal workspace for Plasma and Noctalia Wayland
+Comment=Native terminal workspace for DINX River and KWM
 TryExec=deetty
 Exec=deetty --open-uri %u
-Icon=com.deetty.DEETTY
+Icon=org.dinx.Deetty
 Terminal=false
 Categories=System;TerminalEmulator;
 MimeType=x-scheme-handler/deetty;
 Keywords=terminal;console;shell;command;command-line;tty;pty;workspace;split;tabs;agent;
 StartupNotify=true
 X-KDE-StartupNotify=true
-StartupWMClass=com.deetty.DEETTY
+StartupWMClass=org.dinx.Deetty
 Actions=Show;NewWorkspace;Toggle;
 
 [Desktop Action Show]
-Name=Show DEETTY
+Name=Show Deetty
 Exec=deetty --show
 
 [Desktop Action NewWorkspace]
@@ -25,5 +25,5 @@ Icon=window-new
 Exec=deetty --new-window
 
 [Desktop Action Toggle]
-Name=Show or Hide DEETTY
+Name=Show or Hide Deetty
 Exec=deetty --toggle

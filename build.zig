@@ -229,7 +229,7 @@ pub fn build(b: *std.Build) void {
     nocted_mod.linkSystemLibrary("gtk+-3.0", .{ .use_pkg_config = .force });
     nocted_mod.linkSystemLibrary("gtksourceview-4", .{ .use_pkg_config = .force });
     const nocted_exe = b.addExecutable(.{
-        .name = "nocted",
+        .name = "dintor",
         .root_module = nocted_mod,
         .use_llvm = true,
     });
@@ -319,7 +319,7 @@ pub fn build(b: *std.Build) void {
     smoke_step.dependOn(&install_nocted_smoke.step);
     const deetty_smoke_step = b.step(
         "deetty-smoke-binary",
-        "Build only the DEETTY smoke binary",
+        "Build only the Deetty smoke binary",
     );
     deetty_smoke_step.dependOn(&install_smoke.step);
     const nocted_smoke_step = b.step(
@@ -427,6 +427,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     terminal_session_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_session_qualification_mod.addImport("compat", compat_mod);
     const terminal_session_qualification_exe = b.addExecutable(.{
         .name = "deetty-terminal-session-qualification",
         .root_module = terminal_session_qualification_mod,
@@ -452,6 +453,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     terminal_agent_fairness_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_agent_fairness_mod.addImport("compat", compat_mod);
     terminal_agent_fairness_mod.linkSystemLibrary("glib-2.0", .{
         .use_pkg_config = .force,
     });
@@ -480,6 +482,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     launch_continuity_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    launch_continuity_qualification_mod.addImport("compat", compat_mod);
     const launch_continuity_qualification_exe = b.addExecutable(.{
         .name = "deetty-launch-continuity-qualification",
         .root_module = launch_continuity_qualification_mod,
@@ -505,6 +508,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     terminal_real_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_real_tui_qualification_mod.addImport("compat", compat_mod);
     const terminal_real_tui_qualification_exe = b.addExecutable(.{
         .name = "deetty-terminal-real-tui-qualification",
         .root_module = terminal_real_tui_qualification_mod,
@@ -530,6 +534,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     terminal_ncurses_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_ncurses_qualification_mod.addImport("compat", compat_mod);
     const terminal_ncurses_qualification_exe = b.addExecutable(.{
         .name = "deetty-terminal-ncurses-qualification",
         .root_module = terminal_ncurses_qualification_mod,
@@ -555,6 +560,7 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
     });
     terminal_system_tui_qualification_mod.addImport("ghostty_vt_public", ghostty_vt_public_mod);
+    terminal_system_tui_qualification_mod.addImport("compat", compat_mod);
     const terminal_system_tui_qualification_exe = b.addExecutable(.{
         .name = "deetty-terminal-system-tui-qualification",
         .root_module = terminal_system_tui_qualification_mod,
@@ -571,20 +577,21 @@ pub fn build(b: *std.Build) void {
     terminal_system_tui_qualification_binary_step.dependOn(
         &install_terminal_system_tui_qualification.step,
     );
-    b.installFile("resources/com.deetty.DEETTY.desktop", "share/applications/com.deetty.DEETTY.desktop");
+    b.installFile("resources/com.deetty.DEETTY.desktop", "share/applications/org.dinx.Deetty.desktop");
     b.installFile("resources/deettyhere.desktop", "share/kio/servicemenus/deettyhere.desktop");
-    b.installFile("resources/com.deetty.DEETTY.metainfo.xml", "share/metainfo/com.deetty.DEETTY.metainfo.xml");
-    b.installFile("resources/com.deetty.DEETTY.svg", "share/icons/hicolor/scalable/apps/com.deetty.DEETTY.svg");
-    b.installFile("resources/com.deetty.NoctEd.desktop", "share/applications/com.deetty.NoctEd.desktop");
-    b.installFile("resources/com.deetty.NoctEd.metainfo.xml", "share/metainfo/com.deetty.NoctEd.metainfo.xml");
-    b.installFile("resources/com.deetty.NoctEd.svg", "share/icons/hicolor/scalable/apps/com.deetty.NoctEd.svg");
-    b.installFile("resources/nocted/language-specs/zig.lang", "share/nocted/language-specs/zig.lang");
-    b.installFile("resources/nocted/language-specs/svelte.lang", "share/nocted/language-specs/svelte.lang");
-    b.installFile("resources/nocted/language-specs/kof.lang", "share/nocted/language-specs/kof.lang");
-    b.installFile("resources/nocted/language-specs/kof.tmLanguage.json", "share/nocted/language-specs/kof.tmLanguage.json");
-    b.installFile("resources/nocted/styles/nocted-dark.xml", "share/nocted/styles/nocted-dark.xml");
-    b.installFile("resources/icons/48x48/com.deetty.DEETTY.png", "share/icons/hicolor/48x48/apps/com.deetty.DEETTY.png");
-    b.installFile("resources/icons/128x128/com.deetty.DEETTY.png", "share/icons/hicolor/128x128/apps/com.deetty.DEETTY.png");
+    b.installFile("resources/com.deetty.DEETTY.metainfo.xml", "share/metainfo/org.dinx.Deetty.metainfo.xml");
+    b.installFile("resources/com.deetty.DEETTY.svg", "share/icons/hicolor/scalable/apps/org.dinx.Deetty.svg");
+    b.installFile("resources/com.deetty.NoctEd.desktop", "share/applications/org.dinx.Dintor.desktop");
+    b.installFile("resources/com.deetty.NoctEd.metainfo.xml", "share/metainfo/org.dinx.Dintor.metainfo.xml");
+    b.installFile("resources/com.deetty.NoctEd.svg", "share/icons/hicolor/scalable/apps/org.dinx.Dintor.svg");
+    b.installFile("resources/nocted/language-specs/zig.lang", "share/dintor/language-specs/zig.lang");
+    b.installFile("resources/nocted/language-specs/svelte.lang", "share/dintor/language-specs/svelte.lang");
+    b.installFile("resources/nocted/language-specs/kof.lang", "share/dintor/language-specs/kof.lang");
+    b.installFile("resources/nocted/language-specs/kof.tmLanguage.json", "share/dintor/language-specs/kof.tmLanguage.json");
+    b.installFile("resources/nocted/styles/nocted-dark.xml", "share/dintor/styles/dintor-dark.xml");
+    b.installFile("resources/nocted/styles/nocted-light.xml", "share/dintor/styles/dintor-light.xml");
+    b.installFile("resources/icons/48x48/com.deetty.DEETTY.png", "share/icons/hicolor/48x48/apps/org.dinx.Deetty.png");
+    b.installFile("resources/icons/128x128/com.deetty.DEETTY.png", "share/icons/hicolor/128x128/apps/org.dinx.Deetty.png");
     b.installFile("resources/noctalia/niri.kdl", "share/deetty/noctalia/niri.kdl");
     b.installFile("resources/noctalia/hyprland.lua", "share/deetty/noctalia/hyprland.lua");
     b.installFile("resources/noctalia/hyprland.conf", "share/deetty/noctalia/hyprland.conf");
@@ -904,7 +911,7 @@ fn addWindowsBuild(
     b.installArtifact(executable);
 
     const nocted_executable = b.addExecutable(.{
-        .name = "nocted",
+        .name = "dintor",
         .root_module = nocted_windows_mod,
     });
     nocted_executable.subsystem = .windows;

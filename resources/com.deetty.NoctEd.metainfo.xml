@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.deetty.NoctEd</id>
-  <name>NoctEd</name>
+  <id>org.dinx.Dintor</id>
+  <name>Dintor</name>
   <summary>Native project editor with a project tree and minimap</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <launchable type="desktop-id">com.deetty.NoctEd.desktop</launchable>
+  <launchable type="desktop-id">org.dinx.Dintor.desktop</launchable>
   <description>
-    <p>NoctEd is the standalone native editor companion for DEETTY.</p>
+    <p>Dintor is the standalone native editor companion for Deetty.</p>
   </description>
   <provides>
-    <binary>nocted</binary>
+    <binary>dintor</binary>
   </provides>
   <categories>
     <category>Utility</category>
@@ -19,7 +19,7 @@
   <releases>
     <release version="0.1.0" date="2026-07-14">
       <description>
-        <p>Initial standalone native NoctEd foundation.</p>
+        <p>Initial standalone native Dintor foundation.</p>
       </description>
     </release>
   </releases>

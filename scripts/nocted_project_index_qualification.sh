@@ -9,7 +9,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 cd "$repo_root"
-for mode in Debug ReleaseSafe; do
+for mode in debug safe; do
     prefix="$scratch/prefix-$mode"
     local_cache="$scratch/cache-$mode"
     global_cache="$scratch/global-cache"

@@ -49,8 +49,8 @@ pub fn main(init: std.process.Init) !void {
     var info_command_buffer: [1024]u8 = undefined;
     const info_command = try std.fmt.bufPrint(
         &info_command_buffer,
-        "exec \"{s}\" --file=dir",
-        .{info_path},
+        "exec \"{s}\" --file=\"{s}/deetty-system.info\"",
+        .{ info_path, scratch },
     );
     var whiptail_command_buffer: [1024]u8 = undefined;
     const whiptail_command = try std.fmt.bufPrint(
@@ -69,8 +69,10 @@ pub fn main(init: std.process.Init) !void {
     var sqlite_command_buffer: [1024]u8 = undefined;
     const sqlite_command = try std.fmt.bufPrint(
         &sqlite_command_buffer,
-        "exec \"{s}\" -interactive ':memory:' " ++
-            "-cmd \"select 'DEETTY_SQLITE_READY';\"",
+        "TERM=dumb; export TERM; exec \"{s}\" -interactive ':memory:' " ++
+            "-cmd \".prompt --no-color\" " ++
+            "-cmd \".prompt 'DEETTY_SQLITE> '\" " ++
+                "-cmd \"select 'DEETTY_SQLITE_READY';\"",
         .{sqlite_path},
     );
     var glances_command_buffer: [1024]u8 = undefined;
@@ -169,7 +171,7 @@ pub fn main(init: std.process.Init) !void {
         "real newt widget fixture",
     };
     const fzf_markers = [_][]const u8{ "DEETTY_FZF", "DEETTY_FZF_TARGET" };
-    const sqlite_markers = [_][]const u8{ "DEETTY_SQLITE_READY", "sqlite>" };
+    const sqlite_markers = [_][]const u8{ "DEETTY_SQLITE_READY", "DEETTY_SQLITE>" };
     const glances_markers = [_][]const u8{ "CPU", "MEM", "LOAD" };
     const bash_markers = [_][]const u8{ "DEETTY_BASH_READY", "DEETTY_BASH>" };
     const man_markers = [_][]const u8{ "DEETTY-SYSTEM", "DEETTY_SYSTEM_MAN" };
