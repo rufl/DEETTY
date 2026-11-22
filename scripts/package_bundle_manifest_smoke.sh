@@ -28,9 +28,9 @@ test "$(stat -c %a "$archive.sha256")" = 644
 test "$(stat -c %a "$archive.manifest")" = 644
 (cd "$scratch" && sha256sum -c "$(basename "$archive").sha256" >/dev/null)
 tar -tzf "$archive" | grep -F './bin/deetty' >/dev/null
-tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
+tar -tzf "$archive" | grep -F './bin/dintor' >/dev/null
 tar -tzf "$archive" | grep -F './libexec/deetty/deetty' >/dev/null
-tar -tzf "$archive" | grep -F './libexec/deetty/nocted' >/dev/null
+tar -tzf "$archive" | grep -F './libexec/deetty/dintor' >/dev/null
 tar -tzf "$archive" | grep -F './libexec/deetty/runtime-dependencies.txt' >/dev/null
 tar -tzf "$archive" | grep -F './share/licenses/deetty/dependencies/packages/' >/dev/null
 

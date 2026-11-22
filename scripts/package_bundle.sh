@@ -55,16 +55,16 @@ ZIG_GLOBAL_CACHE_DIR="$global_cache" zig build -Doptimize=ReleaseSafe -Dstrip=tr
   --cache-dir "$local_cache"
 mkdir -p "$stage/libexec/deetty/lib"
 mv "$stage/bin/deetty" "$stage/libexec/deetty/deetty"
-mv "$stage/bin/nocted" "$stage/libexec/deetty/nocted"
+mv "$stage/bin/dintor" "$stage/libexec/deetty/dintor"
 cp packaging/deetty-launcher "$stage/bin/deetty"
-cp packaging/nocted-launcher "$stage/bin/nocted"
-chmod +x "$stage/bin/deetty" "$stage/bin/nocted" \
-  "$stage/libexec/deetty/deetty" "$stage/libexec/deetty/nocted"
+cp packaging/dintor-launcher "$stage/bin/dintor"
+chmod +x "$stage/bin/deetty" "$stage/bin/dintor" \
+  "$stage/libexec/deetty/deetty" "$stage/libexec/deetty/dintor"
 
 library_sources="$scratch/library-sources.txt"
 {
   ldd "$stage/libexec/deetty/deetty"
-  ldd "$stage/libexec/deetty/nocted"
+  ldd "$stage/libexec/deetty/dintor"
 } | awk '/=> \/|^\// { for (i=1; i<=NF; i++) if ($i ~ /^\//) print $i }' |
   while IFS= read -r library; do readlink -f "$library"; done |
   sort -u > "$library_sources"
@@ -104,7 +104,7 @@ sort -u "$library_sources" -o "$library_sources"
 
 cp packaging/runtime-dependencies.txt "$stage/libexec/deetty/"
 test "$("$stage/bin/deetty" --version)" = "deetty $release_version"
-test "$("$stage/bin/nocted" --version)" = "nocted $release_version"
+test "$("$stage/bin/dintor" --version)" = "dintor $release_version"
 
 library_inventory="$scratch/library-inventory.txt"
 package_inventory="$scratch/package-inventory.txt"

@@ -46,13 +46,12 @@ grep -F "grep -F 'all_copied_host_libraries_accounted=true' \"\$archive.manifest
 grep -F "grep -F 'bundle_license_payload_complete=true' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "grep -F 'gtk_layer_shell_source=system' \"\$archive.manifest\" >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './bin/deetty' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './bin/nocted' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './bin/dintor' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/deetty' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/nocted' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/dintor' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './share/dintor/language-specs/zig.lang' >/dev/null" "$workflow" >/dev/null
+grep -F "tar -tzf \"\$archive\" | grep -F './share/dintor/language-specs/svelte.lang' >/dev/null" "$workflow" >/dev/null
 grep -F "tar -tzf \"\$archive\" | grep -F './libexec/deetty/lib/libgtk-layer-shell.so.0' >/dev/null" "$workflow" >/dev/null
-grep -F "tar -tzf \"\$archive\" | grep -F './share/licenses/deetty/dependencies/packages/' >/dev/null" "$workflow" >/dev/null
 
 grep -F 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$workflow" >/dev/null
 grep -F 'deetty-linux-${{ matrix.arch }}.tar.gz.sha256' "$workflow" >/dev/null

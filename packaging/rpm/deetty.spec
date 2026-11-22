@@ -1,7 +1,7 @@
 Name:           deetty
 Version:        0.1.0
 Release:        1%{?dist}
-Summary:        Zig-native terminal workspace for Plasma and Noctalia
+Summary:        Zig-native terminal workspace for DINX
 License:        MIT AND Unicode-3.0 AND Unicode-DFS-2016 AND ICU
 URL:            https://github.com/rufl/DEETTY
 Source0:        %{name}-%{version}.tar.gz
@@ -16,7 +16,7 @@ Requires:       gtksourceview4
 
 %description
 Native PTY/VT terminal workspace with dropdown, windowed, fullscreen,
-tabs, splits, project workspaces, and the standalone NoctEd editor.
+tabs, splits, project workspaces, and the standalone Dintor editor.
 
 %prep
 %setup -q
@@ -30,15 +30,15 @@ zig build -Doptimize=ReleaseSafe --prefix %{buildroot}%{_prefix}
 
 %files
 %{_bindir}/deetty
-%{_bindir}/nocted
-%{_datadir}/applications/com.deetty.DEETTY.desktop
-%{_datadir}/applications/com.deetty.NoctEd.desktop
+%{_bindir}/dintor
+%{_datadir}/applications/org.dinx.Deetty.desktop
+%{_datadir}/applications/org.dinx.Dintor.desktop
 %{_datadir}/kio/servicemenus/deettyhere.desktop
-%{_datadir}/metainfo/com.deetty.DEETTY.metainfo.xml
-%{_datadir}/metainfo/com.deetty.NoctEd.metainfo.xml
-%{_datadir}/icons/hicolor/*/apps/com.deetty.DEETTY.*
-%{_datadir}/icons/hicolor/*/apps/com.deetty.NoctEd.*
-%{_datadir}/nocted/*
+%{_datadir}/metainfo/org.dinx.Deetty.metainfo.xml
+%{_datadir}/metainfo/org.dinx.Dintor.metainfo.xml
+%{_datadir}/icons/hicolor/*/apps/org.dinx.Deetty.*
+%{_datadir}/icons/hicolor/*/apps/org.dinx.Dintor.*
+%{_datadir}/dintor/*
 %{_datadir}/deetty/noctalia/*
 %license %{_datadir}/licenses/deetty/
 

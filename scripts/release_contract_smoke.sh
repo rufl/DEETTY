@@ -12,15 +12,15 @@ release_date=$(release_value release_date)
 revision=$(release_value package_revision)
 verified_date=2026-07-18
 binary="${1:-zig-out/bin/deetty}"
-nocted_binary="$(dirname "$binary")/nocted"
+dintor_binary="$(dirname "$binary")/dintor"
 
 test "$version" = "0.1.0"
 test "$release_date" = "2026-07-14"
 test "$revision" = "1"
 test -x "$binary"
-test -x "$nocted_binary"
+test -x "$dintor_binary"
 test "$("$binary" --version)" = "deetty $version"
-test "$("$nocted_binary" --version)" = "nocted $version"
+test "$("$dintor_binary" --version)" = "dintor $version"
 
 if ldd "$binary" | grep -Eq 'libvte|tree-sitter'; then
   echo 'release_contract error=production_optional_dependency' >&2
@@ -39,8 +39,8 @@ if [ -n "$smoke_symbol" ]; then
     "$smoke_symbol" >&2
   exit 1
 fi
-nocted_runtime_contract=$("$nocted_binary" --runtime-contract)
-printf '%s\n' "$nocted_runtime_contract" | grep -E \
+runtime_contract=$("$dintor_binary" --runtime-contract)
+printf '%s\n' "$runtime_contract" | grep -E \
   '^nocted_runtime_contract tree_sitter=true captures=[1-9][0-9]* capture_limit=4096 direct_limit_bytes=32768$' >/dev/null
 if smoke_output=$("$binary" --native-grid-smoke 2>&1); then
   echo 'release_contract error=production_smoke_surface' >&2
@@ -56,7 +56,7 @@ printf '%s\n' "$editor_output" | grep -F 'LegacyEditorRemoved' >/dev/null
 grep -F ".version = \"$version\"," build.zig.zon >/dev/null
 grep -F 'deetty.release.version' src/main.zig >/dev/null
 grep -F "<release version=\"$version\" date=\"$release_date\">" resources/com.deetty.DEETTY.metainfo.xml >/dev/null
-grep -F '<id>com.deetty.NoctEd</id>' resources/com.deetty.NoctEd.metainfo.xml >/dev/null
+grep -F '<id>org.dinx.Dintor</id>' resources/com.deetty.NoctEd.metainfo.xml >/dev/null
 grep -F "deetty ($version-$revision)" packaging/debian/changelog >/dev/null
 grep -F "Version:        $version" packaging/rpm/deetty.spec >/dev/null
 grep -F "Release:        $revision" packaging/rpm/deetty.spec >/dev/null
@@ -74,4 +74,4 @@ grep -F "Product-behavior and local release-source baseline: $version, $verified
 grep -F "Historical packaging baseline: $verified_date; release contract version $version," docs/INSTALL.md >/dev/null
 grep -F "source baseline $release_date, package revision $revision." docs/INSTALL.md >/dev/null
 
-echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true deetty_runtime=true nocted_runtime=true production_vte=false production_deetty_tree_sitter=false production_nocted_tree_sitter=true production_smoke_surface=false production_smoke_symbols=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"
+echo "release_contract version=$version release_date=$release_date revision=$revision build_zon=true deetty_runtime=true dintor_runtime=true production_vte=false production_deetty_tree_sitter=false production_dintor_tree_sitter=true production_smoke_surface=false production_smoke_symbols=false production_legacy_editor=false appstream=true debian=true rpm=true arch=true docs=true"

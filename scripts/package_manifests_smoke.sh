@@ -7,7 +7,7 @@ test -s packaging/rpm/deetty.spec
 test -s packaging/arch/PKGBUILD
 test -s packaging/runtime-dependencies.txt
 test -s packaging/deetty-launcher
-test -s packaging/nocted-launcher
+test -s packaging/dintor-launcher
 grep -q '^Architecture: any$' packaging/debian/control
 grep -q "arch=('x86_64' 'aarch64')" packaging/arch/PKGBUILD
 grep -q 'pkgconfig(gtk+-3.0)' packaging/rpm/deetty.spec
@@ -31,7 +31,7 @@ if grep -Eq '(^vte3$|libvte|vte291|pkgconfig\(vte)' \
   exit 1
 fi
 sh -n packaging/deetty-launcher
-sh -n packaging/nocted-launcher
+sh -n packaging/dintor-launcher
 bash -n scripts/package_ztash.sh scripts/package_ztash_smoke.sh
 test -x scripts/package_ztash.sh
 test -x scripts/package_ztash_smoke.sh
@@ -48,4 +48,4 @@ if command -v makepkg >/dev/null 2>&1; then
   (cd packaging/arch && makepkg --printsrcinfo >/dev/null)
   arch_parser=passed
 fi
-echo "package_manifests debian_structure=true rpm_parser=$rpm_parser arch_parser=$arch_parser x86_64_manifest=true aarch64_manifest=true layer_shell_dependency=true gtksourceview_dependency=true mandatory_vte_dependency=false nocted_launcher=true noctalia_artifacts=true bundle_script=true"
+echo "package_manifests debian_structure=true rpm_parser=$rpm_parser arch_parser=$arch_parser x86_64_manifest=true aarch64_manifest=true layer_shell_dependency=true gtksourceview_dependency=true mandatory_vte_dependency=false dintor_launcher=true noctalia_artifacts=true bundle_script=true"

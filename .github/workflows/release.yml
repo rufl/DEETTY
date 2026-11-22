@@ -68,11 +68,11 @@ jobs:
           grep -F 'bundle_license_payload_complete=true' "$archive.manifest" >/dev/null
           grep -F 'gtk_layer_shell_source=system' "$archive.manifest" >/dev/null
           tar -tzf "$archive" | grep -F './bin/deetty' >/dev/null
-          tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
+          tar -tzf "$archive" | grep -F './bin/dintor' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/deetty/deetty' >/dev/null
-          tar -tzf "$archive" | grep -F './libexec/deetty/nocted' >/dev/null
-          tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
-          tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
+          tar -tzf "$archive" | grep -F './libexec/deetty/dintor' >/dev/null
+          tar -tzf "$archive" | grep -F './share/dintor/language-specs/zig.lang' >/dev/null
+          tar -tzf "$archive" | grep -F './share/dintor/language-specs/svelte.lang' >/dev/null
           tar -tzf "$archive" | grep -F './libexec/deetty/lib/libgtk-layer-shell.so.0' >/dev/null
           tar -tzf "$archive" | grep -F './share/licenses/deetty/dependencies/packages/' >/dev/null
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

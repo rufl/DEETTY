@@ -51,9 +51,9 @@ build_archive() {
     --cache-dir "$build_root/local-cache"
 
   test -x "$stage/bin/deetty"
-  test -x "$stage/bin/nocted"
+  test -x "$stage/bin/dintor"
   test "$("$stage/bin/deetty" --version)" = "deetty $version"
-  test "$("$stage/bin/nocted" --version)" = "nocted $version"
+  test "$("$stage/bin/dintor" --version)" = "dintor $version"
 
   tar -C "$stage" \
     --sort=name \
@@ -65,17 +65,17 @@ build_archive() {
 
   test -s "$archive"
   tar -tzf "$archive" | grep -F './bin/deetty' >/dev/null
-  tar -tzf "$archive" | grep -F './bin/nocted' >/dev/null
-  tar -tzf "$archive" | grep -F './share/applications/com.deetty.DEETTY.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './bin/dintor' >/dev/null
+  tar -tzf "$archive" | grep -F './share/applications/org.dinx.Deetty.desktop' >/dev/null
   tar -tzf "$archive" | grep -F './share/kio/servicemenus/deettyhere.desktop' >/dev/null
-  tar -tzf "$archive" | grep -F './share/applications/com.deetty.NoctEd.desktop' >/dev/null
-  tar -tzf "$archive" | grep -F './share/metainfo/com.deetty.DEETTY.metainfo.xml' >/dev/null
-  tar -tzf "$archive" | grep -F './share/metainfo/com.deetty.NoctEd.metainfo.xml' >/dev/null
-  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.deetty.DEETTY.svg' >/dev/null
-  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/com.deetty.NoctEd.svg' >/dev/null
-  tar -tzf "$archive" | grep -F './share/nocted/language-specs/zig.lang' >/dev/null
-  tar -tzf "$archive" | grep -F './share/nocted/language-specs/svelte.lang' >/dev/null
-  tar -tzf "$archive" | grep -F './share/nocted/styles/nocted-dark.xml' >/dev/null
+  tar -tzf "$archive" | grep -F './share/applications/org.dinx.Dintor.desktop' >/dev/null
+  tar -tzf "$archive" | grep -F './share/metainfo/org.dinx.Deetty.metainfo.xml' >/dev/null
+  tar -tzf "$archive" | grep -F './share/metainfo/org.dinx.Dintor.metainfo.xml' >/dev/null
+  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/org.dinx.Deetty.svg' >/dev/null
+  tar -tzf "$archive" | grep -F './share/icons/hicolor/scalable/apps/org.dinx.Dintor.svg' >/dev/null
+  tar -tzf "$archive" | grep -F './share/dintor/language-specs/zig.lang' >/dev/null
+  tar -tzf "$archive" | grep -F './share/dintor/language-specs/svelte.lang' >/dev/null
+  tar -tzf "$archive" | grep -F './share/dintor/styles/dintor-dark.xml' >/dev/null
   tar -tzf "$archive" | grep -F './share/licenses/deetty/LICENSE' >/dev/null
   if tar -tzf "$archive" | grep -Eq '/(deetty-smoke|nocted-smoke|deetty-vte)$'; then
     echo 'package_tarball error=optional_binary_in_default_install' >&2

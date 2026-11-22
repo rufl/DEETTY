@@ -9,6 +9,6 @@ Rules-Requires-Root: no
 Package: deetty
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libepoxy0, libgtk-layer-shell0
-Description: Zig-native terminal workspace for Plasma and Noctalia
+Description: Zig-native terminal workspace for DINX
  Native PTY/VT terminal workspace with dropdown, windowed, fullscreen,
- tabs, splits, project workspaces, and the standalone NoctEd editor.
+ tabs, splits, project workspaces, and the standalone Dintor editor.
